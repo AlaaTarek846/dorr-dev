@@ -4,27 +4,59 @@
             {{ label }}
             <span v-if="required" class="text-danger">*</span>
         </label>
-        <select
+        <Select
             :id="inputId"
-            class="form-select"
-            :class="{ 'is-invalid': invalid }"
-            :value="modelValue"
-            @change="onChange"
+            :model-value="modelValue"
+            :options="currencies"
+            option-label="name"
+            option-value="id"
+            :placeholder="placeholder"
+            :filter="true"
+            filter-placeholder="Search..."
+            :filter-fields="['name', 'code']"
+            :show-clear="true"
+            :invalid="invalid"
+            class="w-100"
+            @update:model-value="emit('update:modelValue', $event)"
         >
-            <option value="">{{ placeholder }}</option>
-            <option v-for="currency in currencies" :key="currency.id" :value="currency.id">
-                {{ currency.code }} ({{ currency.symbol }}) — {{ currency.name || currency.code }}
-            </option>
-        </select>
+            <template #value="{ value }">
+                <div v-if="value && selectedCurrency" class="d-flex align-items-center gap-2">
+                    <FlagImage
+                        v-if="selectedCurrency.flag?.code"
+                        :code="selectedCurrency.flag.code"
+                        :width="24"
+                        :height="18"
+                        :size="24"
+                    />
+                    <span>{{ selectedCurrency.name || selectedCurrency.code }}</span>
+                </div>
+                <span v-else>{{ placeholder }}</span>
+            </template>
+
+            <template #option="{ option }">
+                <div class="d-flex align-items-center gap-2">
+                    <FlagImage
+                        v-if="option.flag?.code"
+                        :code="option.flag.code"
+                        :width="24"
+                        :height="18"
+                        :size="24"
+                    />
+                    <span>{{ option.name || option.code }}</span>
+                </div>
+            </template>
+        </Select>
         <div v-if="error" class="invalid-feedback d-block">{{ error }}</div>
     </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import Select from 'primevue/select';
 import adminAxios from '../../api/adminAxios';
+import FlagImage from '../ui/FlagImage.vue';
 
-defineProps({
+const props = defineProps({
     modelValue: {
         type: [Number, String, null],
         default: null,
@@ -41,15 +73,20 @@ const emit = defineEmits(['update:modelValue']);
 
 const currencies = ref([]);
 
-function onChange(event) {
-    const value = event.target.value;
-    emit('update:modelValue', value ? Number(value) : null);
-}
-
+const selectedCurrency = computed(() => {
+    return currencies.value.find((currency) => Number(currency.id) === Number(props.modelValue)) ?? null;
+});
 onMounted(async () => {
     try {
         const { data } = await adminAxios.get('/api/admin/v1/currencies/dropdown');
-        currencies.value = data.data ?? [];
+
+        currencies.value = (data.data ?? []).map((currency) => ({
+            ...currency,
+            id: currency.id ?? currency.code ?? null,
+            name: String(currency.name ?? currency.code ?? ''),
+            code: String(currency.code ?? currency.name ?? ''),
+            flag: currency.flag ?? (currency.code ? { code: currency.code } : null),
+        }));
     } catch {
         currencies.value = [];
     }
