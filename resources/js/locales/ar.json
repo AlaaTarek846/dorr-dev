@@ -13,7 +13,8 @@
     "close": "إغلاق",
     "signing_in": "جاري تسجيل الدخول...",
     "sidebar": {
-        "catalog": "البيانات الأساسية"
+        "catalog": "البيانات الأساسية",
+        "settings": "الإعدادات"
     },
     "confirm": {
         "delete_title": "تأكيد الحذف",
@@ -282,5 +283,24 @@
             "password_min": "كلمة المرور يجب أن تكون 8 أحرف على الأقل.",
             "password_confirmed": "تأكيد كلمة المرور غير متطابق."
         }
+    },
+    "platform_settings": {
+        "title": "إعدادات المنصة",
+        "subtitle": "عدّل اسم التطبيق وملفات الأيقونات والـ manifest.",
+        "general": "عام",
+        "app_name": "اسم التطبيق",
+        "favicon_section": "Favicon",
+        "logo": "Logo",
+        "logo_dark": "Logo dark",
+        "favicon_ico": "favicon.ico",
+        "favicon_16": "أيقونة 16×16",
+        "favicon_32": "أيقونة 32×32",
+        "apple_touch_icon": "Apple touch icon",
+        "web_manifest": "Web manifest",
+        "change_file": "تغيير",
+        "remove_file": "إزالة",
+        "no_file": "لا يوجد ملف مرفوع.",
+        "view_file": "عرض الملف",
+        "saving": "جاري الحفظ..."
     }
 }

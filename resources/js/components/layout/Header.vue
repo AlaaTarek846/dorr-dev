@@ -10,14 +10,7 @@
                     <!-- Start::header-element -->
                     <div class="header-element">
                         <div class="horizontal-logo">
-                            <a href="/admin/dashboard" class="header-logo">
-                                <img src="/dashboard/assets/images/brand-logos/desktop-logo.png" alt="logo" class="desktop-logo">
-                                <img src="/dashboard/assets/images/brand-logos/toggle-logo.png" alt="logo" class="toggle-logo">
-                                <img src="/dashboard/assets/images/brand-logos/desktop-dark.png" alt="logo" class="desktop-dark">
-                                <img src="/dashboard/assets/images/brand-logos/toggle-dark.png" alt="logo" class="toggle-dark">
-                                <img src="/dashboard/assets/images/brand-logos/desktop-white.png" alt="logo" class="desktop-white">
-                                <img src="/dashboard/assets/images/brand-logos/toggle-white.png" alt="logo" class="toggle-white">
-                            </a>
+                            <PlatformLogo href="/admin/dashboard" />
                         </div>
                     </div>
                     <!-- End::header-element -->
@@ -524,6 +517,7 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 import HeaderLanguageSelect from './HeaderLanguageSelect.vue';
+import PlatformLogo from './PlatformLogo.vue';
 import { useHeader } from '../../composables/useHeader';
 
 const { t } = useI18n();

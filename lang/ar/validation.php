@@ -47,5 +47,13 @@ return [
         'translations.*.name' => 'الاسم',
         'ids' => 'العناصر المحددة',
         'ids.*' => 'العنصر المحدد',
+        'app_name' => 'اسم التطبيق',
+        'logo' => 'الشعار',
+        'logo_dark' => 'الشعار الداكن',
+        'favicon_ico' => 'favicon.ico',
+        'favicon_16' => 'أيقونة 16×16',
+        'favicon_32' => 'أيقونة 32×32',
+        'apple_touch_icon' => 'أيقونة Apple Touch',
+        'web_manifest' => 'Web manifest',
     ],
 ];

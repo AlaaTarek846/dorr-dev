@@ -1,9 +1,13 @@
 <template>
-    <div ref="rootElement" class="dropdown header-language-dropdown">
-        <a
-            href="javascript:void(0);"
-            class="header-link dropdown-toggle header-language-dropdown__toggle"
-            :class="{ disabled: loading || !languages.length }"
+    <div ref="rootElement" class="login-language-select dropdown w-100 mb-3">
+        <label class="form-label text-default mb-1">
+            {{ t('select_language') }}
+        </label>
+
+        <button
+            type="button"
+            class="btn login-language-select__toggle w-100 d-flex align-items-center gap-2"
+            :class="{ disabled: loading || ! languages.length }"
             data-bs-toggle="dropdown"
             data-bs-auto-close="true"
             aria-expanded="false"
@@ -12,20 +16,23 @@
                 v-if="selectedFlagCode"
                 :key="selectedFlagCode"
                 :code="selectedFlagCode"
-                :width="28"
-                :height="28"
-                :size="28"
-                class="header-language-dropdown__flag"
+                :width="24"
+                :height="24"
+                :size="24"
+                class="login-language-select__flag"
             />
-            <span v-else class="avatar avatar-sm avatar-rounded bg-primary-transparent header-link-icon">
-                <i class="ri-translate-2 fs-16 text-primary"></i>
+            <span v-else class="login-language-select__icon">
+                <i class="ri-translate-2"></i>
             </span>
-            <span class="fw-semibold mb-0 lh-1 d-none d-sm-inline">
+
+            <span class="flex-grow-1 text-start fw-medium">
                 {{ selectedLanguage?.name ?? t('select_language') }}
             </span>
-        </a>
 
-        <ul class="dropdown-menu dropdown-menu-end header-language-dropdown__menu">
+            <i class="ri-arrow-down-s-line login-language-select__caret"></i>
+        </button>
+
+        <ul class="dropdown-menu w-100 login-language-select__menu">
             <template v-if="loading">
                 <li>
                     <span class="dropdown-item-text text-muted py-2">
@@ -56,7 +63,7 @@
                             :width="20"
                             :height="20"
                             :size="20"
-                            class="header-language-dropdown__option-flag"
+                            class="login-language-select__option-flag"
                         />
                         <span class="flex-grow-1 text-start">{{ language.name }}</span>
                         <i
@@ -88,7 +95,6 @@ const { locale } = storeToRefs(localeStore);
 const rootElement = ref(null);
 
 const selectedLanguage = computed(() => languagesStore.findByCode(locale.value));
-
 const selectedFlagCode = computed(() => languageFlagCode(selectedLanguage.value));
 
 function languageFlagCode(language) {
@@ -96,8 +102,12 @@ function languageFlagCode(language) {
 }
 
 onMounted(async () => {
-    await languagesStore.fetch();
-    await localeStore.ensureValidLocale();
+    try {
+        await languagesStore.fetch(true);
+        await localeStore.ensureValidLocale();
+    } catch {
+        //
+    }
 });
 
 function selectLanguage(code) {
@@ -117,31 +127,54 @@ function closeDropdown() {
 </script>
 
 <style scoped>
-.header-language-dropdown__toggle.disabled {
+.login-language-select__toggle {
+    min-height: 3rem;
+    padding: 0.65rem 0.9rem;
+    border: 1px solid var(--input-border, #dee2e6);
+    border-radius: 0.5rem;
+    background-color: var(--form-control-bg, #fff);
+    color: inherit;
+}
+
+.login-language-select__toggle.disabled {
     pointer-events: none;
     opacity: 0.65;
 }
 
-.header-language-dropdown__flag :deep(.flag-img) {
-    width: 1.75rem;
-    height: 1.75rem;
+.login-language-select__flag :deep(.flag-img) {
+    width: 1.5rem;
+    height: 1.5rem;
     border-radius: 50%;
     object-fit: cover;
 }
 
-.header-language-dropdown__menu {
-    min-width: 11rem;
+.login-language-select__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--primary-color, #845adf);
+}
+
+.login-language-select__caret {
+    color: var(--text-muted, #6c757d);
+}
+
+.login-language-select__menu {
+    min-width: 100%;
     padding-block: 0.35rem;
 }
 
-.header-language-dropdown__option-flag :deep(.flag-img) {
+.login-language-select__option-flag :deep(.flag-img) {
     width: 1.25rem;
     height: 1.25rem;
     border-radius: 2px;
+    object-fit: cover;
 }
 
-.header-language-dropdown__menu .dropdown-item.active,
-.header-language-dropdown__menu .dropdown-item:active {
+.login-language-select__menu .dropdown-item.active,
+.login-language-select__menu .dropdown-item:active {
     background-color: rgba(var(--primary-rgb, 132, 90, 223), 0.12);
     color: inherit;
 }

@@ -13,7 +13,8 @@
     "close": "Close",
     "signing_in": "Signing In...",
     "sidebar": {
-        "catalog": "Catalog"
+        "catalog": "Catalog",
+        "settings": "Settings"
     },
     "confirm": {
         "delete_title": "Confirm Delete",
@@ -282,5 +283,24 @@
             "password_min": "Password must be at least 8 characters.",
             "password_confirmed": "Password confirmation does not match."
         }
+    },
+    "platform_settings": {
+        "title": "Platform Settings",
+        "subtitle": "Update the app name, favicon assets, and web manifest.",
+        "general": "General",
+        "app_name": "App name",
+        "favicon_section": "Favicon",
+        "logo": "Logo",
+        "logo_dark": "Logo dark",
+        "favicon_ico": "favicon.ico",
+        "favicon_16": "16×16 icon",
+        "favicon_32": "32×32 icon",
+        "apple_touch_icon": "Apple touch icon",
+        "web_manifest": "Web manifest",
+        "change_file": "Change",
+        "remove_file": "Remove",
+        "no_file": "No file uploaded.",
+        "view_file": "View file",
+        "saving": "Saving..."
     }
 }

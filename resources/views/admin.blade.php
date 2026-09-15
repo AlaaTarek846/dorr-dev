@@ -5,21 +5,47 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Admin | {{ config('app.name', 'Laravel') }}</title>
+        <title>Admin | {{ $appName }}</title>
 
         <script>
+            window.__DEFAULT_DASHBOARD_LOCALE__ = @json($defaultDashboardLocale);
+        </script>
+        <script>
             (function () {
-                var locale = localStorage.getItem('admin_locale');
-                var isRtl = locale === 'ar' || (locale === null && localStorage.getItem('ynexrtl'));
+                var storedLocale = localStorage.getItem('admin_locale');
+                var storedDirection = localStorage.getItem('admin_direction');
+                var defaultLocale = window.__DEFAULT_DASHBOARD_LOCALE__ || null;
+                var locale = storedLocale || (defaultLocale && defaultLocale.code) || 'en';
+                var direction = storedDirection
+                    || (defaultLocale && defaultLocale.direction)
+                    || (locale === 'ar' ? 'rtl' : 'ltr');
 
-                if (isRtl) {
-                    document.documentElement.setAttribute('dir', 'rtl');
-                    document.documentElement.setAttribute('lang', 'ar');
-                }
+                document.documentElement.setAttribute('dir', direction);
+                document.documentElement.setAttribute('lang', locale);
             })();
         </script>
 
-        <link rel="icon" href="{{ asset('dashboard/assets/images/brand-logos/favicon.ico') }}" type="image/x-icon">
+        @if (! empty($branding['favicon_ico']))
+            <link rel="icon" href="{{ $branding['favicon_ico'] }}" type="image/x-icon">
+        @else
+            <link rel="icon" href="{{ asset('dashboard/assets/images/brand-logos/favicon.ico') }}" type="image/x-icon">
+        @endif
+        @if (! empty($branding['favicon_32']))
+            <link rel="icon" href="{{ $branding['favicon_32'] }}" sizes="32x32" type="image/png">
+        @endif
+        @if (! empty($branding['favicon_16']))
+            <link rel="icon" href="{{ $branding['favicon_16'] }}" sizes="16x16" type="image/png">
+        @endif
+        @if (! empty($branding['apple_touch_icon']))
+            <link rel="apple-touch-icon" href="{{ $branding['apple_touch_icon'] }}">
+        @endif
+        @if (! empty($branding['web_manifest']))
+            <link rel="manifest" href="{{ $branding['web_manifest'] }}">
+        @endif
+
+        <script>
+            window.__PLATFORM_BRANDING__ = @json($branding);
+        </script>
         <link
             id="style"
             rel="stylesheet"

@@ -7,6 +7,7 @@ use Database\Seeders\General\CountrySeeder;
 use Database\Seeders\General\CurrencySeeder;
 use Database\Seeders\General\FlagSeeder;
 use Database\Seeders\General\LanguageSeeder;
+use Database\Seeders\General\PlatformSettingSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -25,6 +26,7 @@ class DatabaseSeeder extends Seeder
             CurrencySeeder::class,
             CountrySeeder::class,
             AdminSeeder::class,
+            PlatformSettingSeeder::class,
         ]);
     }
 }

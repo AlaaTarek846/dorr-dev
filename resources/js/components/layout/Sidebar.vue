@@ -3,14 +3,7 @@
 
             <!-- Start::main-sidebar-header -->
             <div class="main-sidebar-header">
-                <a href="/admin/dashboard" class="header-logo">
-                    <img src="/dashboard/assets/images/brand-logos/desktop-logo.png" alt="logo" class="desktop-logo">
-                    <img src="/dashboard/assets/images/brand-logos/toggle-logo.png" alt="logo" class="toggle-logo">
-                    <img src="/dashboard/assets/images/brand-logos/desktop-dark.png" alt="logo" class="desktop-dark">
-                    <img src="/dashboard/assets/images/brand-logos/toggle-dark.png" alt="logo" class="toggle-dark">
-                    <img src="/dashboard/assets/images/brand-logos/desktop-white.png" alt="logo" class="desktop-white">
-                    <img src="/dashboard/assets/images/brand-logos/toggle-white.png" alt="logo" class="toggle-white">
-                </a>
+                <PlatformLogo href="/admin/dashboard" />
             </div>
             <!-- End::main-sidebar-header -->
 
@@ -75,6 +68,17 @@
                                     {{ t('languages.title') }}
                                     <span v-if="languagesStore.total != null" class="badge bg-light text-default ms-2">{{ languagesStore.total }}</span>
                                 </span>
+                            </router-link>
+                        </li>
+
+                        <!-- Start::slide__category -->
+                        <li class="slide__category"><span class="category-name">{{ t('sidebar.settings') }}</span></li>
+                        <!-- End::slide__category -->
+
+                        <li class="slide">
+                            <router-link :to="{ name: 'admin.platform-settings' }" class="side-menu__item">
+                                <i class="ri-settings-3-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
                             </router-link>
                         </li>
 
@@ -995,6 +999,7 @@
 import { onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../api/adminAxios';
+import PlatformLogo from './PlatformLogo.vue';
 import { useCountriesStore } from '../../stores/countries';
 import { useCurrenciesStore } from '../../stores/currencies';
 import { useFlagsStore } from '../../stores/flags';

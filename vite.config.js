@@ -27,6 +27,7 @@ export default defineConfig({
             ignored: [
                 '**/storage/framework/views/**',
                 '**/public/dashboard/**',
+                '**/*.zip',
             ],
         },
     },
