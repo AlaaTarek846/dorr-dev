@@ -1,0 +1,188 @@
+import { computed, nextTick, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
+import adminAxios from '../api/adminAxios';
+import { useAuthStore } from '../stores/auth';
+
+export function useHeader() {
+    const router = useRouter();
+    const authStore = useAuthStore();
+    const isFullscreen = ref(false);
+    const cartCount = ref(5);
+
+    const adminName = computed(() => authStore.admin?.name ?? 'Admin');
+    const adminRole = computed(() => authStore.admin?.email ?? '');
+    const adminAvatar = computed(
+        () => authStore.admin?.avatar_thumb
+            ?? authStore.admin?.avatar
+            ?? '/dashboard/assets/images/faces/9.jpg',
+    );
+
+    function toggleSidebar() {
+        if (typeof window.toggleSidemenu === 'function') {
+            window.toggleSidemenu();
+
+            return;
+        }
+
+        const html = document.documentElement;
+        const toggled = html.getAttribute('data-toggled');
+
+        if (toggled === 'close') {
+            html.removeAttribute('data-toggled');
+        } else {
+            html.setAttribute('data-toggled', 'close');
+        }
+    }
+
+    function toggleTheme() {
+        const html = document.documentElement;
+        const isDark = html.getAttribute('data-theme-mode') === 'dark';
+
+        if (isDark) {
+            html.setAttribute('data-theme-mode', 'light');
+            html.setAttribute('data-header-styles', 'light');
+            html.setAttribute('data-menu-styles', 'dark');
+            html.removeAttribute('data-bg-theme');
+            localStorage.removeItem('ynexdarktheme');
+            localStorage.removeItem('ynexMenu');
+            localStorage.removeItem('ynexHeader');
+        } else {
+            html.setAttribute('data-theme-mode', 'dark');
+            html.setAttribute('data-header-styles', 'dark');
+            html.setAttribute('data-menu-styles', 'dark');
+            localStorage.setItem('ynexdarktheme', 'true');
+            localStorage.setItem('ynexMenu', 'dark');
+            localStorage.setItem('ynexHeader', 'dark');
+        }
+
+        document.querySelector('#switcher-light-theme') && (document.querySelector('#switcher-light-theme').checked = ! isDark);
+        document.querySelector('#switcher-dark-theme') && (document.querySelector('#switcher-dark-theme').checked = isDark);
+        document.querySelector('#switcher-header-light') && (document.querySelector('#switcher-header-light').checked = ! isDark);
+        document.querySelector('#switcher-header-dark') && (document.querySelector('#switcher-header-dark').checked = isDark);
+        document.querySelector('#switcher-menu-light') && (document.querySelector('#switcher-menu-light').checked = ! isDark);
+        document.querySelector('#switcher-menu-dark') && (document.querySelector('#switcher-menu-dark').checked = isDark);
+    }
+
+    function toggleFullscreen() {
+        const openIcon = document.querySelector('.full-screen-open');
+        const closeIcon = document.querySelector('.full-screen-close');
+        const element = document.documentElement;
+        const isActive = Boolean(
+            document.fullscreenElement
+            ?? document.webkitFullscreenElement
+            ?? document.msFullscreenElement,
+        );
+
+        if (! isActive) {
+            const request = element.requestFullscreen
+                ?? element.webkitRequestFullscreen
+                ?? element.msRequestFullscreen;
+
+            request?.call(element);
+            isFullscreen.value = true;
+            closeIcon?.classList.remove('d-none');
+            closeIcon?.classList.add('d-block');
+            openIcon?.classList.add('d-none');
+        } else {
+            const exit = document.exitFullscreen
+                ?? document.webkitExitFullscreen
+                ?? document.msExitFullscreen;
+
+            exit?.call(document);
+            isFullscreen.value = false;
+            closeIcon?.classList.add('d-none');
+            closeIcon?.classList.remove('d-block');
+            openIcon?.classList.remove('d-none');
+        }
+    }
+
+    function initSimpleBars() {
+        if (typeof window.SimpleBar === 'undefined') {
+            return;
+        }
+
+        ['header-shortcut-scroll', 'header-notification-scroll', 'header-cart-items-scroll'].forEach((id) => {
+            const element = document.getElementById(id);
+
+            if (element && ! element.dataset.simplebarInit) {
+                new window.SimpleBar(element, { autoHide: true });
+                element.dataset.simplebarInit = 'true';
+            }
+        });
+    }
+
+    function initCartRemove() {
+        document.querySelectorAll('.header-cart-remove').forEach((button) => {
+            button.addEventListener('click', (event) => {
+                event.preventDefault();
+                button.closest('.dropdown-item')?.remove();
+                cartCount.value = Math.max(0, cartCount.value - 1);
+                const badge = document.getElementById('cart-icon-badge');
+                const data = document.getElementById('cart-data');
+
+                if (badge) {
+                    badge.textContent = String(cartCount.value);
+                }
+
+                if (data) {
+                    data.textContent = `${cartCount.value} Items`;
+                }
+            });
+        });
+    }
+
+    async function loadAdminProfile() {
+        if (! authStore.isAuthenticated || authStore.admin) {
+            return;
+        }
+
+        try {
+            const { data } = await adminAxios.get('/api/admin/v1/me');
+
+            authStore.setSession({
+                token: authStore.token,
+                admin: data.data,
+            });
+        } catch {
+            authStore.logout();
+        }
+    }
+
+    async function logout() {
+        try {
+            await adminAxios.post('/api/admin/v1/logout');
+        } catch {
+            // Ignore logout API errors and clear local session anyway.
+        } finally {
+            authStore.logout();
+            await router.push({ name: 'admin.login' });
+        }
+    }
+
+    onMounted(async () => {
+        await loadAdminProfile();
+        await nextTick();
+
+        initSimpleBars();
+        initCartRemove();
+
+        document.addEventListener('fullscreenchange', () => {
+            if (! document.fullscreenElement) {
+                isFullscreen.value = false;
+                document.querySelector('.full-screen-close')?.classList.add('d-none');
+                document.querySelector('.full-screen-open')?.classList.remove('d-none');
+            }
+        });
+    });
+
+    return {
+        adminName,
+        adminRole,
+        adminAvatar,
+        cartCount,
+        toggleSidebar,
+        toggleTheme,
+        toggleFullscreen,
+        logout,
+    };
+}

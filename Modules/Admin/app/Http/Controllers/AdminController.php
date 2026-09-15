@@ -3,54 +3,45 @@
 namespace Modules\Admin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use Modules\Admin\Http\Requests\AdminRequest;
+use Modules\Admin\Services\AdminService;
 
 class AdminController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    public function __construct(protected AdminService $service) {}
+
     public function index()
     {
-        return view('admin::index');
+        return $this->service->list();
     }
 
-    /**
-     * Show the form for creating a new resource.
-     */
-    public function create()
+    public function store(AdminRequest $request)
     {
-        return view('admin::create');
+        return $this->service->create($request->validated());
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request) {}
-
-    /**
-     * Show the specified resource.
-     */
-    public function show($id)
+    public function show(int|string $admin)
     {
-        return view('admin::show');
+        return $this->service->find($admin);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit($id)
+    public function update(AdminRequest $request, int|string $admin)
     {
-        return view('admin::edit');
+        return $this->service->updateRecord($admin, $request->validated());
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, $id) {}
+    public function destroy(int|string $admin)
+    {
+        return $this->service->delete($admin);
+    }
 
-    /**
-     * Remove the specified resource from storage.
-     */
-    public function destroy($id) {}
+    public function deleteMultiple(AdminRequest $request)
+    {
+        return $this->service->deleteMultiple($request->validated('ids'));
+    }
+
+    public function changeStatus(AdminRequest $request, int|string $admin)
+    {
+        return $this->service->changeStatus($admin, (bool) $request->validated('status'));
+    }
 }

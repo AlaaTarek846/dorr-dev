@@ -1,1 +1,65 @@
-export default [];
+import AuthLayout from '../../layouts/AuthLayout.vue';
+import AdminLayout from '../../layouts/AdminLayout.vue';
+import guest from '../../router/middleware/guest';
+import auth from '../../router/middleware/auth';
+
+export default [
+    {
+        path: '/',
+        component: AuthLayout,
+        children: [
+            {
+                path: '',
+                redirect: { name: 'admin.login' },
+            },
+            {
+                path: 'login',
+                name: 'admin.login',
+                component: () => import('./views/Login.vue'),
+                meta: { middleware: [guest] },
+            },
+        ],
+    },
+    {
+        path: '/',
+        component: AdminLayout,
+        children: [
+            {
+                path: 'dashboard',
+                name: 'admin.dashboard',
+                component: () => import('./views/Dashboard.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'flags',
+                name: 'admin.flags.index',
+                component: () => import('./views/flag/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'countries',
+                name: 'admin.countries.index',
+                component: () => import('./views/country/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'currencies',
+                name: 'admin.currencies.index',
+                component: () => import('./views/currency/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'languages',
+                name: 'admin.languages.index',
+                component: () => import('./views/language/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'profile',
+                name: 'admin.profile',
+                component: () => import('./views/profile/index.vue'),
+                meta: { middleware: [auth] },
+            },
+        ],
+    },
+];

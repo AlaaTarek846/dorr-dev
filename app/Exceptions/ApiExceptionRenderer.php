@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Support\LocaleResolver;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Http\JsonResponse;
@@ -17,12 +18,14 @@ class ApiExceptionRenderer
     public function shouldRender(Request $request): bool
     {
         return $request->is('api/*')
-            || $request->is('admin/api/*')
+            || $request->is('api/admin/*')
             || $request->expectsJson();
     }
 
     public function render(Throwable $e, Request $request): JsonResponse
     {
+        LocaleResolver::apply($request);
+
         $status = $this->resolveStatusCode($e);
         $message = $this->resolveMessage($e);
 
