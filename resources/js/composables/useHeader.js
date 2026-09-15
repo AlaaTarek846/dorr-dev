@@ -1,21 +1,51 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import adminAxios from '../api/adminAxios';
+import userAxios from '../api/userAxios';
 import { useAuthStore } from '../stores/auth';
+import { useUserAuthStore } from '../stores/userAuth';
 
 export function useHeader() {
     const router = useRouter();
+    const route = useRoute();
     const authStore = useAuthStore();
+    const userAuthStore = useUserAuthStore();
     const isFullscreen = ref(false);
     const cartCount = ref(5);
 
-    const adminName = computed(() => authStore.admin?.name ?? 'Admin');
-    const adminRole = computed(() => authStore.admin?.email ?? '');
-    const adminAvatar = computed(
-        () => authStore.admin?.avatar_thumb
+    const isUserPanel = computed(() => String(route.name ?? '').startsWith('user.'));
+
+    const profileRouteName = computed(() => (
+        isUserPanel.value ? 'user.profile' : 'admin.profile'
+    ));
+
+    const dashboardHref = computed(() => (
+        isUserPanel.value ? '/user/dashboard' : '/admin/dashboard'
+    ));
+
+    const adminName = computed(() => (
+        isUserPanel.value
+            ? userAuthStore.user?.name ?? 'User'
+            : authStore.admin?.name ?? 'Admin'
+    ));
+
+    const adminRole = computed(() => (
+        isUserPanel.value
+            ? userAuthStore.user?.email ?? ''
+            : authStore.admin?.email ?? ''
+    ));
+
+    const adminAvatar = computed(() => {
+        if (isUserPanel.value) {
+            return userAuthStore.user?.avatar_thumb
+                ?? userAuthStore.user?.avatar
+                ?? '/dashboard/assets/images/faces/9.jpg';
+        }
+
+        return authStore.admin?.avatar_thumb
             ?? authStore.admin?.avatar
-            ?? '/dashboard/assets/images/faces/9.jpg',
-    );
+            ?? '/dashboard/assets/images/faces/9.jpg';
+    });
 
     function toggleSidebar() {
         if (typeof window.toggleSidemenu === 'function') {
@@ -131,14 +161,28 @@ export function useHeader() {
         });
     }
 
-    async function loadAdminProfile() {
+    async function loadProfile() {
+        if (isUserPanel.value) {
+            if (! userAuthStore.isAuthenticated || userAuthStore.user) {
+                return;
+            }
+
+            try {
+                const { data } = await userAxios.get('/api/user/v1/me');
+                userAuthStore.setSession({ user: data.data });
+            } catch {
+                userAuthStore.logout();
+            }
+
+            return;
+        }
+
         if (! authStore.isAuthenticated || authStore.admin) {
             return;
         }
 
         try {
             const { data } = await adminAxios.get('/api/admin/v1/me');
-
             authStore.setSession({
                 token: authStore.token,
                 admin: data.data,
@@ -149,10 +193,23 @@ export function useHeader() {
     }
 
     async function logout() {
+        if (isUserPanel.value) {
+            try {
+                await userAxios.post('/api/user/v1/logout');
+            } catch {
+                //
+            } finally {
+                userAuthStore.logout();
+                await router.push({ name: 'user.login' });
+            }
+
+            return;
+        }
+
         try {
             await adminAxios.post('/api/admin/v1/logout');
         } catch {
-            // Ignore logout API errors and clear local session anyway.
+            //
         } finally {
             authStore.logout();
             await router.push({ name: 'admin.login' });
@@ -160,7 +217,7 @@ export function useHeader() {
     }
 
     onMounted(async () => {
-        await loadAdminProfile();
+        await loadProfile();
         await nextTick();
 
         initSimpleBars();
@@ -180,6 +237,8 @@ export function useHeader() {
         adminRole,
         adminAvatar,
         cartCount,
+        dashboardHref,
+        profileRouteName,
         toggleSidebar,
         toggleTheme,
         toggleFullscreen,

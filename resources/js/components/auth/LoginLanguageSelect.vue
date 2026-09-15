@@ -1,6 +1,10 @@
 <template>
-    <div ref="rootElement" class="login-language-select dropdown w-100 mb-3">
-        <label class="form-label text-default mb-1">
+    <div
+        ref="rootElement"
+        class="login-language-select dropdown w-100 mb-3"
+        :class="{ 'login-language-select--centered': centered }"
+    >
+        <label class="form-label text-default mb-1" :class="{ 'w-100 text-center': centered }">
             {{ t('select_language') }}
         </label>
 
@@ -92,6 +96,13 @@ const languagesStore = useAvailableLanguagesStore();
 const { items: languages, loading } = storeToRefs(languagesStore);
 const { locale } = storeToRefs(localeStore);
 
+defineProps({
+    centered: {
+        type: Boolean,
+        default: false,
+    },
+});
+
 const rootElement = ref(null);
 
 const selectedLanguage = computed(() => languagesStore.findByCode(locale.value));
@@ -103,7 +114,10 @@ function languageFlagCode(language) {
 
 onMounted(async () => {
     try {
-        await languagesStore.fetch(true);
+        if (! languagesStore.loaded) {
+            await languagesStore.fetch();
+        }
+
         await localeStore.ensureValidLocale();
     } catch {
         //

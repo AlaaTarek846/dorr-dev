@@ -107,6 +107,14 @@ const props = defineProps({
         type: String,
         default: 'phone-country-input',
     },
+    axiosClient: {
+        type: Object,
+        default: null,
+    },
+    dropdownEndpoint: {
+        type: String,
+        default: '/api/admin/v1/countries/dropdown',
+    },
 });
 
 const emit = defineEmits(['update:countryId', 'update:phone', 'country-change']);
@@ -134,7 +142,8 @@ onMounted(async () => {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/countries/dropdown');
+        const client = props.axiosClient ?? adminAxios;
+        const { data } = await client.get(props.dropdownEndpoint);
 
         countries.value = data.data ?? [];
     } catch {

@@ -35,5 +35,6 @@ setI18nLocale(resolveInitialLocale());
 const mountEl = document.getElementById('app');
 
 if (mountEl) {
+    document.documentElement.classList.add('admin-app-ready');
     app.mount(mountEl);
 }

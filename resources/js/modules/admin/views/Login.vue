@@ -16,53 +16,39 @@
                         <form @submit.prevent="submit">
                             <div class="row gy-3">
                                 <div class="col-xl-12 mt-0">
-                                    <label for="signin-email" class="form-label text-default">{{ t('email') }}</label>
-                                    <input
-                                        id="signin-email"
+                                    <AuthFormInput
+                                        input-id="admin-signin-email"
                                         v-model="form.email"
+                                        :label="t('email')"
+                                        icon="ri-mail-line"
                                         type="email"
-                                        class="form-control form-control-lg"
-                                        placeholder="email@example.com"
+                                        placeholder="admin@admin.com"
                                         autocomplete="username"
-                                    >
-                                    <div v-if="errors.email" class="text-danger fs-12 mt-1">
-                                        {{ errors.email[0] }}
-                                    </div>
+                                        :error="errors.email?.[0] ?? ''"
+                                    />
                                 </div>
 
                                 <div class="col-xl-12 mb-3">
-                                    <label for="signin-password" class="form-label text-default">
-                                        {{ t('password') }}
-                                    </label>
-                                    <div class="input-group">
-                                        <input
-                                            id="signin-password"
-                                            v-model="form.password"
-                                            :type="showPassword ? 'text' : 'password'"
-                                            class="form-control form-control-lg"
-                                            placeholder="password"
-                                            autocomplete="current-password"
-                                        >
-                                        <button
-                                            type="button"
-                                            class="btn btn-light"
-                                            @click="showPassword = !showPassword"
-                                        >
-                                            <i :class="showPassword ? 'ri-eye-line' : 'ri-eye-off-line'" class="align-middle"></i>
-                                        </button>
-                                    </div>
-                                    <div v-if="errors.password" class="text-danger fs-12 mt-1">
-                                        {{ errors.password[0] }}
-                                    </div>
+                                    <AuthFormInput
+                                        input-id="admin-signin-password"
+                                        v-model="form.password"
+                                        :label="t('password')"
+                                        icon="ri-lock-password-line"
+                                        placeholder="password"
+                                        autocomplete="current-password"
+                                        password-toggle
+                                        :error="errors.password?.[0] ?? ''"
+                                    />
+
                                     <div class="mt-2">
-                                        <div class="form-check">
+                                        <div class="form-check text-start">
                                             <input
-                                                id="remember-password"
+                                                id="admin-remember-password"
                                                 v-model="form.remember"
                                                 class="form-check-input"
                                                 type="checkbox"
                                             >
-                                            <label class="form-check-label text-muted fw-normal" for="remember-password">
+                                            <label class="form-check-label text-muted fw-normal" for="admin-remember-password">
                                                 {{ t('remember_password') }}
                                             </label>
                                         </div>
@@ -91,53 +77,25 @@
             </div>
         </div>
 
-        <div class="col-xxl-5 col-xl-5 col-lg-5 d-xl-block d-none px-0">
-            <div class="authentication-cover">
-                <div class="aunthentication-cover-content rounded">
-                    <div ref="swiperEl" class="swiper keyboard-control">
-                        <div class="swiper-wrapper">
-                            <div v-for="slide in slides" :key="slide.image" class="swiper-slide">
-                                <div class="text-fixed-white text-center p-5 d-flex align-items-center justify-content-center">
-                                    <div>
-                                        <div class="mb-5">
-                                            <img
-                                                :src="slide.image"
-                                                class="authentication-image"
-                                                alt=""
-                                            >
-                                        </div>
-                                        <h6 class="fw-semibold text-fixed-white">Sign In</h6>
-                                        <p class="fw-normal fs-14 op-7">{{ slide.text }}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="swiper-button-next"></div>
-                        <div class="swiper-button-prev"></div>
-                        <div class="swiper-pagination"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <AuthCoverAside context="admin" />
     </div>
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import { reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
-
-const { t } = useI18n();
 import adminAxios from '../../../api/adminAxios';
+import AuthCoverAside from '../../../components/auth/AuthCoverAside.vue';
+import AuthFormInput from '../../../components/auth/AuthFormInput.vue';
 import LoginLanguageSelect from '../../../components/auth/LoginLanguageSelect.vue';
 import PlatformLogo from '../../../components/layout/PlatformLogo.vue';
 import { useAuthStore } from '../../../stores/auth';
 
+const { t } = useI18n();
 const router = useRouter();
 const authStore = useAuthStore();
 
-const swiperEl = ref(null);
-const showPassword = ref(false);
 const loading = ref(false);
 
 const form = reactive({
@@ -150,54 +108,6 @@ const errors = reactive({
     email: null,
     password: null,
     general: null,
-});
-
-const slides = [
-    {
-        image: '/dashboard/assets/images/authentication/2.png',
-        text: 'Manage your dashboard with a clean and modern admin experience.',
-    },
-    {
-        image: '/dashboard/assets/images/authentication/3.png',
-        text: 'Secure access for administrators with full control over your platform.',
-    },
-    {
-        image: '/dashboard/assets/images/authentication/2.png',
-        text: 'Sign in to continue to the admin panel and manage your data.',
-    },
-];
-
-let swiperInstance = null;
-
-onMounted(() => {
-    if (typeof window.Swiper === 'undefined' || ! swiperEl.value) {
-        return;
-    }
-
-    swiperInstance = new window.Swiper(swiperEl.value, {
-        slidesPerView: 1,
-        spaceBetween: 30,
-        keyboard: {
-            enabled: true,
-        },
-        pagination: {
-            el: '.swiper-pagination',
-            clickable: true,
-        },
-        navigation: {
-            nextEl: '.swiper-button-next',
-            prevEl: '.swiper-button-prev',
-        },
-        loop: true,
-        autoplay: {
-            delay: 1500,
-            disableOnInteraction: false,
-        },
-    });
-});
-
-onBeforeUnmount(() => {
-    swiperInstance?.destroy(true, true);
 });
 
 function resetErrors() {

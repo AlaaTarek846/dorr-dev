@@ -10,7 +10,7 @@
                     <!-- Start::header-element -->
                     <div class="header-element">
                         <div class="horizontal-logo">
-                            <PlatformLogo href="/admin/dashboard" />
+                            <PlatformLogo :href="dashboardHref" />
                         </div>
                     </div>
                     <!-- End::header-element -->
@@ -481,7 +481,7 @@
                         <!-- End::header-link|dropdown-toggle -->
                         <ul class="main-header-dropdown dropdown-menu pt-0 overflow-hidden header-profile-dropdown dropdown-menu-end" aria-labelledby="mainHeaderProfile">
                             <li>
-                                <RouterLink class="dropdown-item d-flex" :to="{ name: 'admin.profile' }">
+                                <RouterLink class="dropdown-item d-flex" :to="{ name: profileRouteName }">
                                     <i class="ti ti-user-circle fs-18 me-2 op-7"></i>{{ t('profile.title') }}
                                 </RouterLink>
                             </li>
@@ -527,6 +527,8 @@ const {
     adminRole,
     adminAvatar,
     cartCount,
+    dashboardHref,
+    profileRouteName,
     toggleSidebar,
     toggleTheme,
     toggleFullscreen,
