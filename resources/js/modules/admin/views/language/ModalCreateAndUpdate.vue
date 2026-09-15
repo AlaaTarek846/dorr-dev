@@ -89,17 +89,20 @@
                                     {{ t('languages.direction') }}
                                     <span class="text-danger">*</span>
                                 </label>
-                                <select
+                                <Select
                                     id="language-direction"
                                     v-model="form.direction"
-                                    class="form-select"
+                                    :options="directionOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :placeholder="t('languages.direction_placeholder')"
+                                    :filter="true"
+                                    filter-placeholder="Search..."
                                     :class="directionInputClass"
-                                    @change="onDirectionChange"
-                                >
-                                    <option value="">{{ t('languages.direction_placeholder') }}</option>
-                                    <option value="ltr">{{ t('languages.direction_ltr') }}</option>
-                                    <option value="rtl">{{ t('languages.direction_rtl') }}</option>
-                                </select>
+                                    :invalid="directionInputClass['is-invalid']"
+                                    class="w-100"
+                                    @update:model-value="onDirectionChange"
+                                />
                                 <div v-if="directionMessage" class="invalid-feedback d-block">
                                     {{ directionMessage }}
                                 </div>
@@ -203,6 +206,7 @@ import FormFieldFeedback from '../../../../components/ui/FormFieldFeedback.vue';
 import useCatalogTranslations from '../../../../composables/useCatalogTranslations';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../composables/useToast';
 import useValidation from '../../../../composables/useValidation';
+import Select from 'primevue/select';
 import {
     displayTranslatedName,
     setupCatalogModalWatcher,
@@ -339,6 +343,11 @@ const directionInputClass = computed(() => ({
     'is-invalid': directionFeedback.value.show && directionFeedback.value.invalid,
     'is-valid': directionFeedback.value.show && directionFeedback.value.valid,
 }));
+
+const directionOptions = computed(() => [
+    { label: t('languages.direction_ltr'), value: 'ltr' },
+    { label: t('languages.direction_rtl'), value: 'rtl' },
+]);
 
 const directionMessage = computed(() => {
     if (! directionFeedback.value.invalid) {
