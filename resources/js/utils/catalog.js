@@ -1,0 +1,219 @@
+import { nextTick, watch } from 'vue';
+import adminAxios from '../api/adminAxios';
+
+const LOCAL_FLAG_IMAGES = {
+    us: '/dashboard/assets/images/flags/us_flag.jpg',
+    de: '/dashboard/assets/images/flags/germany_flag.jpg',
+    fr: '/dashboard/assets/images/flags/french_flag.jpg',
+    es: '/dashboard/assets/images/flags/spain_flag.jpg',
+    it: '/dashboard/assets/images/flags/italy_flag.jpg',
+    ae: '/dashboard/assets/images/flags/uae_flag.jpg',
+    sa: '/dashboard/assets/images/flags/uae_flag.jpg',
+    eg: '/dashboard/assets/images/flags/uae_flag.jpg',
+    in: '/dashboard/assets/images/flags/india_flag.jpg',
+    ru: '/dashboard/assets/images/flags/russia_flag.jpg',
+    cn: '/dashboard/assets/images/flags/china_flag.jpg',
+    ca: '/dashboard/assets/images/flags/canada_flag.jpg',
+    mx: '/dashboard/assets/images/flags/mexico_flag.jpg',
+    sg: '/dashboard/assets/images/flags/singapore_flag.jpg',
+};
+
+export function flagImageSources(code, size = 32) {
+    if (! code) {
+        return [];
+    }
+
+    const normalized = String(code).toLowerCase();
+    const upper = normalized.toUpperCase();
+    const sources = [];
+
+    if (LOCAL_FLAG_IMAGES[normalized]) {
+        sources.push(LOCAL_FLAG_IMAGES[normalized]);
+    }
+
+    sources.push(`https://flagsapi.com/${upper}/flat/${size}.png`);
+    sources.push(`https://flagcdn.com/w40/${normalized}.png`);
+
+    return [...new Set(sources)];
+}
+
+export function flagImageUrl(code, size = 32) {
+    return flagImageSources(code, size)[0] ?? '';
+}
+
+export function flagImageFallback(event) {
+    const code = String(event.target.dataset.flagCode ?? '').toLowerCase();
+    const size = Number(event.target.dataset.flagSize ?? 32);
+    const sources = flagImageSources(code, size);
+    const currentIndex = Number(event.target.dataset.sourceIndex ?? 0);
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex < sources.length) {
+        event.target.dataset.sourceIndex = String(nextIndex);
+        event.target.src = sources[nextIndex];
+
+        return;
+    }
+
+    event.target.style.visibility = 'hidden';
+}
+
+export function resolveLanguageFlagCode(language) {
+    return language?.flag?.code ?? null;
+}
+
+export function displayTranslatedName(record, locale) {
+    const translation = record?.translations?.find((item) => item.locale === locale);
+
+    return translation?.name || record?.name || '-';
+}
+
+export function formatCatalogDate(value, locale) {
+    if (! value) {
+        return '-';
+    }
+
+    return new Date(value).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
+export function resolveRecordFlagCode(record) {
+    return record?.flag?.code || record?.code || null;
+}
+
+export function normalizeDialCode(value) {
+    if (value === null || value === undefined || value === '') {
+        return '';
+    }
+
+    return String(value).replace(/^\+/, '');
+}
+
+export function formatDialCodeForPayload(value) {
+    const trimmed = normalizeDialCode(value);
+
+    return trimmed ? `+${trimmed}` : '';
+}
+
+export function resolveCountryFlagCode(country) {
+    return country?.flag?.code ?? country?.code ?? null;
+}
+
+export function splitPhoneNumber(fullPhone, dialCode) {
+    const localFallback = String(fullPhone ?? '').trim();
+    const dial = normalizeDialCode(dialCode);
+    const normalized = normalizeDialCode(fullPhone);
+
+    if (! dial) {
+        return localFallback;
+    }
+
+    if (normalized.startsWith(dial)) {
+        return normalized.slice(dial.length);
+    }
+
+    return localFallback.replace(/^\+/, '');
+}
+
+export function combinePhoneNumber(dialCode, localPhone) {
+    const local = String(localPhone ?? '').trim().replace(/\s+/g, '');
+
+    if (! local) {
+        return '';
+    }
+
+    const dial = formatDialCodeForPayload(dialCode);
+
+    return `${dial}${local}`;
+}
+
+export function filterStorableTranslations(translations, storableLocales) {
+    if (! Array.isArray(translations) || ! storableLocales?.length) {
+        return [];
+    }
+
+    const allowed = storableLocales.map((locale) => String(locale).toLowerCase());
+
+    return translations.filter((item) => allowed.includes(String(item.locale).toLowerCase()));
+}
+
+export function syncTranslationFormKeys(target, localeCodes = []) {
+    for (const code of localeCodes) {
+        if (!(code in target)) {
+            target[code] = '';
+        }
+    }
+
+    for (const key of Object.keys(target)) {
+        if (! localeCodes.includes(key)) {
+            delete target[key];
+        }
+    }
+}
+
+export function fillCatalogTranslationFields(target, record, localeCodes = null) {
+    const codes = localeCodes ?? Object.keys(target);
+    const translations = Array.isArray(record?.translations) ? record.translations : [];
+
+    for (const code of codes) {
+        target[code] = translations.find((item) => item.locale === code)?.name ?? '';
+    }
+
+    if (record?.name) {
+        for (const code of codes) {
+            if (! target[code]) {
+                target[code] = record.name;
+            }
+        }
+    }
+}
+
+export async function fetchCatalogRecord(resourceUri, id) {
+    const { data } = await adminAxios.get(`${resourceUri}/${id}`);
+
+    return data.data ?? null;
+}
+
+export function setupCatalogModalWatcher({
+    props,
+    fillForm,
+    resetForm,
+    openModal,
+    closeModal,
+    resourceUri,
+    onOpen,
+}) {
+    watch(
+        () => [props.show, props.type, props.record?.id],
+        async ([visible, type, recordId]) => {
+            if (! visible) {
+                closeModal();
+                return;
+            }
+
+            if (onOpen) {
+                await onOpen();
+            }
+
+            if (type === 'edit' && recordId) {
+                try {
+                    const record = await fetchCatalogRecord(resourceUri, recordId);
+
+                    fillForm(record ?? props.record);
+                } catch {
+                    fillForm(props.record);
+                }
+            } else {
+                resetForm();
+            }
+
+            await nextTick();
+            openModal();
+        },
+    );
+}

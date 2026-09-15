@@ -5,7 +5,7 @@ import '../layouts/AdminLayout.vue';
 import '../layouts/AuthLayout.vue';
 
 const router = createRouter({
-    history: createWebHistory(),
+    history: createWebHistory('/admin'),
     routes: [...adminRoutes],
 });
 

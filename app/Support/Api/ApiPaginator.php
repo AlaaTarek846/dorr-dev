@@ -40,11 +40,12 @@ class ApiPaginator
         string $resourceClass,
         ?string $groupBy = null,
     ): array {
-        $perPage = (int) request()->input('paginate', 10);
+        $perPage = (int) (request()->input('paginate') ?? request()->input('per_page', 10));
 
-        if (request()->has('paginate')) {
+        if (request()->has('paginate') || request()->has('per_page')) {
             request()->validate([
                 'paginate' => 'nullable|integer|min:0|max:50',
+                'per_page' => 'nullable|integer|min:0|max:50',
             ]);
         }
 

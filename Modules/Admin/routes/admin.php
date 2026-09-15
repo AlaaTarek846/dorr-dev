@@ -1,0 +1,40 @@
+<?php
+
+use App\Http\Controllers\CountryController;
+use App\Http\Controllers\CurrencyController;
+use App\Http\Controllers\FlagController;
+use App\Http\Controllers\LanguageController;
+use Illuminate\Support\Facades\Route;
+use Modules\Admin\Http\Controllers\AdminAuthController;
+use Modules\Admin\Http\Controllers\AdminController;
+use Modules\Admin\Http\Controllers\AdminProfileController;
+
+Route::middleware('locale')->prefix('admin/v1')->group(function () {
+    Route::middleware('guest:admin_api')->group(function () {
+        Route::post('login', [AdminAuthController::class, 'login']);
+        Route::post('check-token', [AdminAuthController::class, 'checkToken']);
+    });
+
+    Route::middleware('auth:admin_api')->group(function () {
+        Route::get('me', [AdminAuthController::class, 'me']);
+        Route::post('logout', [AdminAuthController::class, 'logout']);
+        Route::post('profile', [AdminProfileController::class, 'update']);
+        Route::put('profile/password', [AdminProfileController::class, 'updatePassword']);
+
+        Route::post('admins/delete-multiple', [AdminController::class, 'deleteMultiple']);
+        Route::patch('admins/{admin}/status', [AdminController::class, 'changeStatus']);
+        Route::apiResource('admins', AdminController::class)->names('admin');
+
+        foreach ([
+            ['flags', FlagController::class, 'flag'],
+            ['languages', LanguageController::class, 'language'],
+            ['currencies', CurrencyController::class, 'currency'],
+            ['countries', CountryController::class, 'country'],
+        ] as [$uri, $controller, $parameter]) {
+            Route::get("{$uri}/dropdown", [$controller, 'dropdown']);
+            Route::post("{$uri}/delete-multiple", [$controller, 'deleteMultiple']);
+            Route::patch("{$uri}/{{$parameter}}/status", [$controller, 'changeStatus']);
+            Route::apiResource($uri, $controller);
+        }
+    });
+});

@@ -13,16 +13,16 @@ return new class extends Migration
     {
         Schema::create('flags', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique();
-            $table->boolean('status')->default(Status::Active->value);
+            $table->string('code')->unique()->comment('كود العلم');
+            $table->boolean('status')->default(Status::Active->value)->comment('الحالة');
             $table->timestamps();
         });
 
         Schema::create('flag_translations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('flag_id')->constrained('flags');
-            $table->string('locale');
-            $table->string('name');
+            $table->string('locale')->comment('اللغة');
+            $table->string('name')->comment('اسم العلم');
             $table->timestamps();
         });
     }
