@@ -1,17 +1,35 @@
 import { nextTick, watch } from 'vue';
 import adminAxios from '../api/adminAxios';
 
+function flagCdnWidth(size) {
+    const parsed = Number(size);
+
+    if (! Number.isFinite(parsed) || parsed <= 20) {
+        return 20;
+    }
+
+    if (parsed <= 40) {
+        return 40;
+    }
+
+    if (parsed <= 80) {
+        return 80;
+    }
+
+    return 160;
+}
+
 export function flagImageSources(code, size = 32) {
     if (! code) {
         return [];
     }
 
     const normalized = String(code).toLowerCase();
-    const upper = normalized.toUpperCase();
+    const width = flagCdnWidth(size);
 
     return [
-        `https://flagsapi.com/${upper}/flat/${size}.png`,
-        `https://flagcdn.com/w40/${normalized}.png`,
+        `https://flagcdn.com/w${width}/${normalized}.png`,
+        `https://flagcdn.com/w${width}/${normalized}.webp`,
     ];
 }
 
