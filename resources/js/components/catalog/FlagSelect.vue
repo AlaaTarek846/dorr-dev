@@ -4,98 +4,42 @@
             {{ label }}
             <span v-if="required" class="text-danger">*</span>
         </label>
+        <Select
+            :id="inputId"
+            :model-value="modelValue"
+            :options="flags"
+            option-label="name"
+            option-value="id"
+            :placeholder="placeholder"
+            :filter="true"
+            filter-placeholder="Search..."
+            :filter-fields="['name', 'code']"
+            :show-clear="true"
+            :invalid="invalid"
+            class="w-100"
+            @update:model-value="emit('update:modelValue', $event)"
+        >
+            <template #value="{ value }">
+                <div v-if="value && selectedFlag" class="d-flex align-items-center gap-2">
+                    <FlagImage :code="selectedFlag.code" :width="24" :height="18" :size="24" />
+                    <span>{{ selectedFlag.name }}</span>
+                </div>
+                <span v-else>{{ placeholder }}</span>
+            </template>
 
-        <div ref="rootElement" class="dropdown w-100 flag-select">
-            <button
-                type="button"
-                class="flag-select__toggle w-100 d-flex align-items-center gap-2"
-                :class="{ 'is-invalid': invalid, disabled: loading || ! flags.length }"
-                data-bs-toggle="dropdown"
-                data-bs-auto-close="true"
-                aria-expanded="false"
-            >
-                <FlagImage
-                    v-if="selectedCode"
-                    :key="selectedCode"
-                    :code="selectedCode"
-                    :width="24"
-                    :height="18"
-                    :size="24"
-                />
-                <span v-else class="flag-select__icon">
-                    <i class="ri-flag-line"></i>
-                </span>
-
-                <span class="flex-grow-1 text-start">
-                    {{ selectedLabel }}
-                </span>
-
-                <i class="ri-arrow-down-s-line flag-select__caret"></i>
-            </button>
-
-            <ul class="dropdown-menu w-100 flag-select__menu">
-                <template v-if="loading">
-                    <li>
-                        <span class="dropdown-item-text text-muted py-2">
-                            {{ t('languages.loading') }}
-                        </span>
-                    </li>
-                </template>
-
-                <template v-else-if="! flags.length">
-                    <li>
-                        <span class="dropdown-item-text text-muted py-2">
-                            {{ t('languages.empty') }}
-                        </span>
-                    </li>
-                </template>
-
-                <template v-else>
-                    <li>
-                        <button
-                            type="button"
-                            class="dropdown-item d-flex align-items-center gap-2 py-2"
-                            :class="{ active: ! modelValue }"
-                            @click="selectFlag(null)"
-                        >
-                            <span class="flag-select__option-placeholder">{{ placeholder }}</span>
-                        </button>
-                    </li>
-
-                    <li v-for="flag in flags" :key="flag.id">
-                        <button
-                            type="button"
-                            class="dropdown-item d-flex align-items-center gap-2 py-2"
-                            :class="{ active: Number(flag.id) === Number(modelValue) }"
-                            @click="selectFlag(flag.id)"
-                        >
-                            <FlagImage
-                                :key="`${flag.id}-${flag.code}`"
-                                :code="flag.code"
-                                :width="20"
-                                :height="15"
-                                :size="20"
-                            />
-                            <span class="flex-grow-1 text-start">
-                                {{ flag.code }} — {{ flag.name || flag.code }}
-                            </span>
-                            <i
-                                v-if="Number(flag.id) === Number(modelValue)"
-                                class="ri-check-line text-success fs-16"
-                            ></i>
-                        </button>
-                    </li>
-                </template>
-            </ul>
-        </div>
-
+            <template #option="{ option }">
+                <div class="d-flex align-items-center gap-2">
+                    <FlagImage :code="option.code" :width="24" :height="18" :size="24" />
+                    <span>{{ option.name || option.code }}</span>
+                </div>
+            </template>
+        </Select>
         <div v-if="error" class="invalid-feedback d-block">{{ error }}</div>
     </div>
 </template>
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import { useI18n } from 'vue-i18n';
 import adminAxios from '../../api/adminAxios';
 import FlagImage from '../ui/FlagImage.vue';
 
@@ -135,23 +79,18 @@ const emit = defineEmits(['update:modelValue']);
 const { t } = useI18n();
 const rootElement = ref(null);
 const flags = ref([]);
-const loading = ref(false);
 
-const selectedFlag = computed(() => flags.value.find(
-    (flag) => Number(flag.id) === Number(props.modelValue),
-) ?? null);
+const selectedCode = computed(() => {
+    const selected = flags.value.find((flag) => Number(flag.id) === Number(props.modelValue));
 
-const selectedCode = computed(() => selectedFlag.value?.code ?? '');
-
-const selectedLabel = computed(() => {
-    if (! selectedFlag.value) {
-        return props.placeholder;
-    }
-
-    const name = selectedFlag.value.name || selectedFlag.value.code;
-
-    return `${selectedFlag.value.code} — ${name}`;
+    return selected?.code ?? '';
 });
+
+function onChange(event) {
+    const value = event.target.value;
+
+    emit('update:modelValue', value ? Number(value) : null);
+}
 
 onMounted(async () => {
     loading.value = true;
@@ -159,7 +98,12 @@ onMounted(async () => {
     try {
         const { data } = await adminAxios.get('/api/admin/v1/flags/dropdown');
 
-        flags.value = data.data ?? [];
+        flags.value = (data.data ?? []).map((flag) => ({
+            ...flag,
+            id: flag.id ?? flag.code ?? null,
+            name: String(flag.name ?? flag.label ?? flag.code ?? ''),
+            code: String(flag.code ?? flag.alpha2 ?? flag.name ?? ''),
+        }));
     } catch {
         flags.value = [];
     } finally {
