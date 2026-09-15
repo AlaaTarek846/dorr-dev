@@ -89,15 +89,14 @@
                                         :class="{ 'flag-code-preview__card--empty': ! normalizedCode }"
                                     >
                                         <div class="flag-code-preview__image-wrap">
-                                            <img
-                                                v-if="normalizedCode && ! previewImageError"
-                                                :src="flagPreviewUrl"
-                                                :alt="normalizedCode"
+                                            <FlagImage
+                                                v-if="normalizedCode"
+                                                :code="normalizedCode"
+                                                :width="48"
+                                                :height="36"
+                                                :size="48"
                                                 class="flag-code-preview__image"
-                                                width="48"
-                                                height="36"
-                                                @error="previewImageError = true"
-                                            >
+                                            />
                                             <span v-else class="flag-code-preview__placeholder">
                                                 <i class="ri-flag-line"></i>
                                             </span>
@@ -150,6 +149,7 @@ import CatalogTranslationTabs from '../../../../components/catalog/CatalogTransl
 import useCatalogTranslations from '../../../../composables/useCatalogTranslations';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../composables/useToast';
 import FormFieldFeedback from '../../../../components/ui/FormFieldFeedback.vue';
+import FlagImage from '../../../../components/ui/FlagImage.vue';
 import useValidation from '../../../../composables/useValidation';
 
 const props = defineProps({
@@ -179,7 +179,6 @@ const {
 
 const modalElement = ref(null);
 const submitting = ref(false);
-const previewImageError = ref(false);
 const serverErrors = reactive({});
 let modalInstance = null;
 let v$;
@@ -216,14 +215,6 @@ const {
 });
 
 const normalizedCode = computed(() => form.code.trim().toUpperCase());
-
-const flagPreviewUrl = computed(() => {
-    if (! normalizedCode.value) {
-        return '';
-    }
-
-    return `https://flagsapi.com/${normalizedCode.value}/flat/64.png`;
-});
 
 const rules = computed(() => ({
     code: flagCodeRules(),
@@ -276,7 +267,6 @@ const codeMessage = computed(() => {
 });
 
 function onCodeInput() {
-    previewImageError.value = false;
     clearServerError('code');
     v$.value.code.$touch();
 }
@@ -294,7 +284,6 @@ function resetForm() {
     form.code = '';
     form.status = true;
     resetTranslations();
-    previewImageError.value = false;
     resetValidation();
 }
 
@@ -302,7 +291,6 @@ function fillForm(record) {
     form.code = record?.code ?? '';
     form.status = Boolean(record?.status ?? true);
     fillTranslations(record);
-    previewImageError.value = false;
     resetValidation();
 }
 

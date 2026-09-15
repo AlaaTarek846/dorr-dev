@@ -1,22 +1,23 @@
 import { nextTick, watch } from 'vue';
 import adminAxios from '../api/adminAxios';
 
-const LOCAL_FLAG_IMAGES = {
-    us: '/dashboard/assets/images/flags/us_flag.jpg',
-    de: '/dashboard/assets/images/flags/germany_flag.jpg',
-    fr: '/dashboard/assets/images/flags/french_flag.jpg',
-    es: '/dashboard/assets/images/flags/spain_flag.jpg',
-    it: '/dashboard/assets/images/flags/italy_flag.jpg',
-    ae: '/dashboard/assets/images/flags/uae_flag.jpg',
-    sa: '/dashboard/assets/images/flags/uae_flag.jpg',
-    eg: '/dashboard/assets/images/flags/uae_flag.jpg',
-    in: '/dashboard/assets/images/flags/india_flag.jpg',
-    ru: '/dashboard/assets/images/flags/russia_flag.jpg',
-    cn: '/dashboard/assets/images/flags/china_flag.jpg',
-    ca: '/dashboard/assets/images/flags/canada_flag.jpg',
-    mx: '/dashboard/assets/images/flags/mexico_flag.jpg',
-    sg: '/dashboard/assets/images/flags/singapore_flag.jpg',
-};
+function flagCdnWidth(size) {
+    const parsed = Number(size);
+
+    if (! Number.isFinite(parsed) || parsed <= 20) {
+        return 20;
+    }
+
+    if (parsed <= 40) {
+        return 40;
+    }
+
+    if (parsed <= 80) {
+        return 80;
+    }
+
+    return 160;
+}
 
 export function flagImageSources(code, size = 32) {
     if (! code) {
@@ -24,17 +25,12 @@ export function flagImageSources(code, size = 32) {
     }
 
     const normalized = String(code).toLowerCase();
-    const upper = normalized.toUpperCase();
-    const sources = [];
+    const width = flagCdnWidth(size);
 
-    if (LOCAL_FLAG_IMAGES[normalized]) {
-        sources.push(LOCAL_FLAG_IMAGES[normalized]);
-    }
-
-    sources.push(`https://flagsapi.com/${upper}/flat/${size}.png`);
-    sources.push(`https://flagcdn.com/w40/${normalized}.png`);
-
-    return [...new Set(sources)];
+    return [
+        `https://flagcdn.com/w${width}/${normalized}.png`,
+        `https://flagcdn.com/w${width}/${normalized}.webp`,
+    ];
 }
 
 export function flagImageUrl(code, size = 32) {

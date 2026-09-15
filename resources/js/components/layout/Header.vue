@@ -10,14 +10,7 @@
                     <!-- Start::header-element -->
                     <div class="header-element">
                         <div class="horizontal-logo">
-                            <a href="/admin/dashboard" class="header-logo">
-                                <img src="/dashboard/assets/images/brand-logos/desktop-logo.png" alt="logo" class="desktop-logo">
-                                <img src="/dashboard/assets/images/brand-logos/toggle-logo.png" alt="logo" class="toggle-logo">
-                                <img src="/dashboard/assets/images/brand-logos/desktop-dark.png" alt="logo" class="desktop-dark">
-                                <img src="/dashboard/assets/images/brand-logos/toggle-dark.png" alt="logo" class="toggle-dark">
-                                <img src="/dashboard/assets/images/brand-logos/desktop-white.png" alt="logo" class="desktop-white">
-                                <img src="/dashboard/assets/images/brand-logos/toggle-white.png" alt="logo" class="toggle-white">
-                            </a>
+                            <PlatformLogo :href="dashboardHref" />
                         </div>
                     </div>
                     <!-- End::header-element -->
@@ -488,7 +481,7 @@
                         <!-- End::header-link|dropdown-toggle -->
                         <ul class="main-header-dropdown dropdown-menu pt-0 overflow-hidden header-profile-dropdown dropdown-menu-end" aria-labelledby="mainHeaderProfile">
                             <li>
-                                <RouterLink class="dropdown-item d-flex" :to="{ name: 'admin.profile' }">
+                                <RouterLink class="dropdown-item d-flex" :to="{ name: profileRouteName }">
                                     <i class="ti ti-user-circle fs-18 me-2 op-7"></i>{{ t('profile.title') }}
                                 </RouterLink>
                             </li>
@@ -524,6 +517,7 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 import HeaderLanguageSelect from './HeaderLanguageSelect.vue';
+import PlatformLogo from './PlatformLogo.vue';
 import { useHeader } from '../../composables/useHeader';
 
 const { t } = useI18n();
@@ -533,6 +527,8 @@ const {
     adminRole,
     adminAvatar,
     cartCount,
+    dashboardHref,
+    profileRouteName,
     toggleSidebar,
     toggleTheme,
     toggleFullscreen,

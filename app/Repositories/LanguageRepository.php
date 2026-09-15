@@ -24,6 +24,35 @@ class LanguageRepository extends TranslatableRepository
         $this->model = $model;
     }
 
+    /**
+     * @return array{code: string, direction: string}|null
+     */
+    public function defaultDashboardLocale(): ?array
+    {
+        $language = $this->model->newQuery()
+            ->where('status', true)
+            ->where('stores_translation', true)
+            ->where('is_default_dashboard', true)
+            ->first();
+
+        if (! $language) {
+            $language = $this->model->newQuery()
+                ->where('status', true)
+                ->where('stores_translation', true)
+                ->orderBy('id')
+                ->first();
+        }
+
+        if (! $language) {
+            return null;
+        }
+
+        return [
+            'code' => strtolower((string) $language->code),
+            'direction' => $language->direction?->value ?? (string) $language->direction,
+        ];
+    }
+
     public function dropdown(): Collection
     {
         return $this->index()

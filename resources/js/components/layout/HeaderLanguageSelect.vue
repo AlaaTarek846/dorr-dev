@@ -26,36 +26,46 @@
         </a>
 
         <ul class="dropdown-menu dropdown-menu-end header-language-dropdown__menu">
-            <li v-if="loading" class="dropdown-item-text text-muted py-2">
-                {{ t('languages.loading') }}
-            </li>
+            <template v-if="loading">
+                <li>
+                    <span class="dropdown-item-text text-muted py-2">
+                        {{ t('languages.loading') }}
+                    </span>
+                </li>
+            </template>
 
-            <li v-else-if="!languages.length" class="dropdown-item-text text-muted py-2">
-                {{ t('languages.empty') }}
-            </li>
+            <template v-else-if="! languages.length">
+                <li>
+                    <span class="dropdown-item-text text-muted py-2">
+                        {{ t('languages.empty') }}
+                    </span>
+                </li>
+            </template>
 
-            <li v-for="language in languages" v-else :key="language.code">
-                <button
-                    type="button"
-                    class="dropdown-item d-flex align-items-center gap-2 py-2"
-                    :class="{ active: language.code === locale }"
-                    @click="selectLanguage(language.code)"
-                >
-                    <FlagImage
-                        :key="`${language.code}-${languageFlagCode(language)}`"
-                        :code="languageFlagCode(language)"
-                        :width="20"
-                        :height="20"
-                        :size="20"
-                        class="header-language-dropdown__option-flag"
-                    />
-                    <span class="flex-grow-1 text-start">{{ language.name }}</span>
-                    <i
-                        v-if="language.code === locale"
-                        class="ri-check-line text-success fs-16"
-                    ></i>
-                </button>
-            </li>
+            <template v-else>
+                <li v-for="language in languages" :key="language.code">
+                    <button
+                        type="button"
+                        class="dropdown-item d-flex align-items-center gap-2 py-2"
+                        :class="{ active: language.code === locale }"
+                        @click="selectLanguage(language.code)"
+                    >
+                        <FlagImage
+                            :key="`${language.code}-${languageFlagCode(language)}`"
+                            :code="languageFlagCode(language)"
+                            :width="20"
+                            :height="20"
+                            :size="20"
+                            class="header-language-dropdown__option-flag"
+                        />
+                        <span class="flex-grow-1 text-start">{{ language.name }}</span>
+                        <i
+                            v-if="language.code === locale"
+                            class="ri-check-line text-success fs-16"
+                        ></i>
+                    </button>
+                </li>
+            </template>
         </ul>
     </div>
 </template>

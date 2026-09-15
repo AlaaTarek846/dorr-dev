@@ -33,6 +33,11 @@ export const useAvailableLanguagesStore = defineStore('availableLanguages', {
                 this.loaded = true;
 
                 return this.items;
+            } catch {
+                this.items = [];
+                this.loaded = false;
+
+                return this.items;
             } finally {
                 this.loading = false;
             }

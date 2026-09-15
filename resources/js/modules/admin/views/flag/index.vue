@@ -146,14 +146,12 @@
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-2">
-                                                <img
-                                                    :src="flagImageUrl(flag.code)"
-                                                    :alt="flag.code"
-                                                    class="flag-img"
-                                                    width="32"
-                                                    height="24"
-                                                    @error="onFlagImageError"
-                                                >
+                                                <FlagImage
+                                                    :code="flag.code"
+                                                    :width="32"
+                                                    :height="24"
+                                                    :size="32"
+                                                />
                                                 <div>
                                                     <button
                                                         type="button"
@@ -294,6 +292,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
+import FlagImage from '../../../../components/ui/FlagImage.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useFlags } from '../../../../composables/useFlags';
@@ -405,18 +404,6 @@ function displayName(flag) {
     const translation = flag.translations?.find((item) => item.locale === locale.value);
 
     return translation?.name || flag.name || '-';
-}
-
-function flagImageUrl(code) {
-    if (! code) {
-        return '';
-    }
-
-    return `https://flagsapi.com/${code.toUpperCase()}/flat/32.png`;
-}
-
-function onFlagImageError(event) {
-    event.target.src = '/dashboard/assets/images/flags/us_flag.jpg';
 }
 
 function formatDate(value) {

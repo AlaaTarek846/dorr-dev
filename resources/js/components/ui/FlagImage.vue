@@ -10,6 +10,8 @@
         :data-flag-code="code"
         :data-flag-size="size"
         :data-source-index="sourceIndex"
+        loading="lazy"
+        decoding="async"
         @error="onError"
     >
     <span
