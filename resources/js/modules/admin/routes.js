@@ -60,6 +60,18 @@ export default [
                 component: () => import('./views/profile/index.vue'),
                 meta: { middleware: [auth] },
             },
+            {
+                path: 'platform-settings',
+                name: 'admin.platform-settings',
+                component: () => import('./views/platform-settings/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'users',
+                name: 'admin.users.index',
+                component: () => import('./views/user/index.vue'),
+                meta: { middleware: [auth] },
+            },
         ],
     },
 ];

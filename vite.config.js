@@ -6,8 +6,13 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     plugins: [
         laravel({
-            input: ['resources/css/app.css', 'resources/js/app.js'],
-            refresh: true,
+            input: [
+                'resources/css/app.css',
+                'resources/js/app.js',
+                'resources/js/user-app.js',
+            ],
+            // Avoid full browser reload on every backend/locale file save during dev.
+            refresh: false,
         }),
         tailwindcss(),
         vue({
@@ -27,6 +32,7 @@ export default defineConfig({
             ignored: [
                 '**/storage/framework/views/**',
                 '**/public/dashboard/**',
+                '**/*.zip',
             ],
         },
     },

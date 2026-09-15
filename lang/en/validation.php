@@ -47,5 +47,13 @@ return [
         'translations.*.name' => 'name',
         'ids' => 'selected items',
         'ids.*' => 'selected item',
+        'app_name' => 'app name',
+        'logo' => 'logo',
+        'logo_dark' => 'logo dark',
+        'favicon_ico' => 'favicon.ico',
+        'favicon_16' => '16×16 icon',
+        'favicon_32' => '32×32 icon',
+        'apple_touch_icon' => 'Apple touch icon',
+        'web_manifest' => 'web manifest',
     ],
 ];

@@ -1,13 +1,19 @@
 import { defineStore } from 'pinia';
 import { setI18nLocale } from '../plugins/i18n';
-import { applyDocumentDirection, getStoredLocale, persistLocale } from '../utils/direction';
+import {
+    applyDocumentDirection,
+    hasStoredLocalePreference,
+    persistLocale,
+    resolveInitialLocale,
+} from '../utils/direction';
 import { useAvailableLanguagesStore } from './availableLanguages';
 
 const KNOWN_I18N_LOCALES = ['ar', 'en'];
 
 export const useLocaleStore = defineStore('locale', {
     state: () => ({
-        locale: getStoredLocale(),
+        locale: resolveInitialLocale(),
+        initialized: false,
     }),
 
     getters: {
@@ -40,6 +46,10 @@ export const useLocaleStore = defineStore('locale', {
 
     actions: {
         async ensureValidLocale() {
+            if (this.initialized) {
+                return;
+            }
+
             const languagesStore = useAvailableLanguagesStore();
             await languagesStore.fetch();
 
@@ -47,19 +57,26 @@ export const useLocaleStore = defineStore('locale', {
                 return;
             }
 
-            const current = languagesStore.findByCode(this.locale);
+            if (hasStoredLocalePreference()) {
+                const stored = languagesStore.findByCode(this.locale);
 
-            if (current) {
-                this.applyLocale(current.code, current.direction);
+                if (stored) {
+                    this.applyLocale(stored.code, stored.direction, true);
 
-                return;
+                    return;
+                }
+
+                localStorage.removeItem('admin_locale');
+                localStorage.removeItem('admin_direction');
             }
 
             const fallback = languagesStore.defaultDashboard ?? languagesStore.items[0];
 
             if (fallback) {
-                this.applyLocale(fallback.code, fallback.direction);
+                this.applyLocale(fallback.code, fallback.direction, false);
             }
+
+            this.initialized = true;
         },
 
         setLocale(localeCode) {
@@ -70,13 +87,12 @@ export const useLocaleStore = defineStore('locale', {
                 return;
             }
 
-            this.applyLocale(language.code, language.direction);
+            this.applyLocale(language.code, language.direction, true);
         },
 
-        applyLocale(localeCode, direction) {
+        applyLocale(localeCode, direction, persist = true) {
             this.locale = localeCode;
-            persistLocale(localeCode, direction);
-            applyDocumentDirection(direction, localeCode);
+            applyDocumentDirection(direction, localeCode, persist);
 
             const i18nLocale = KNOWN_I18N_LOCALES.includes(localeCode) ? localeCode : 'en';
 

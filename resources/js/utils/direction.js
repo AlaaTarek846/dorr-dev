@@ -3,8 +3,22 @@ export const BOOTSTRAP_RTL = '/dashboard/assets/libs/bootstrap/css/bootstrap.rtl
 const LOCALE_KEY = 'admin_locale';
 const DIRECTION_KEY = 'admin_direction';
 
+export function getDefaultDashboardLocale() {
+    return window.__DEFAULT_DASHBOARD_LOCALE__ ?? null;
+}
+
+export function hasStoredLocalePreference() {
+    return localStorage.getItem(LOCALE_KEY) !== null;
+}
+
 export function getStoredLocale() {
-    return localStorage.getItem(LOCALE_KEY) ?? (localStorage.getItem('ynexrtl') ? 'ar' : 'en');
+    return localStorage.getItem(LOCALE_KEY);
+}
+
+export function resolveInitialLocale() {
+    return getStoredLocale()
+        ?? getDefaultDashboardLocale()?.code
+        ?? 'en';
 }
 
 export function getStoredDirection() {
@@ -14,7 +28,13 @@ export function getStoredDirection() {
         return storedDirection;
     }
 
-    return getStoredLocale() === 'ar' ? 'rtl' : 'ltr';
+    const defaultDirection = getDefaultDashboardLocale()?.direction;
+
+    if (defaultDirection === 'rtl' || defaultDirection === 'ltr') {
+        return defaultDirection;
+    }
+
+    return resolveInitialLocale() === 'ar' ? 'rtl' : 'ltr';
 }
 
 export function persistLocale(localeCode, direction) {
@@ -22,14 +42,15 @@ export function persistLocale(localeCode, direction) {
     localStorage.setItem(DIRECTION_KEY, direction);
 }
 
-export function syncBootstrapStylesheet() {
+export function syncBootstrapStylesheet(direction = null) {
     const styleLink = document.getElementById('style');
 
     if (! styleLink) {
         return;
     }
 
-    const expected = getStoredDirection() === 'rtl' ? BOOTSTRAP_RTL : BOOTSTRAP_LTR;
+    const resolvedDirection = direction ?? getStoredDirection();
+    const expected = resolvedDirection === 'rtl' ? BOOTSTRAP_RTL : BOOTSTRAP_LTR;
     const current = styleLink.getAttribute('href') ?? '';
 
     if (current.endsWith(expected) || current === expected) {
@@ -39,15 +60,17 @@ export function syncBootstrapStylesheet() {
     styleLink.href = expected;
 }
 
-export function applyDocumentDirection(direction, localeCode = null) {
+export function applyDocumentDirection(direction, localeCode = null, persist = true) {
     const html = document.documentElement;
     const isRtl = direction === 'rtl';
-    const lang = localeCode ?? getStoredLocale();
+    const lang = localeCode ?? resolveInitialLocale();
 
     html.setAttribute('dir', direction);
     html.setAttribute('lang', lang);
 
-    persistLocale(lang, direction);
+    if (persist) {
+        persistLocale(lang, direction);
+    }
 
     if (isRtl) {
         localStorage.setItem('ynexrtl', 'true');
@@ -68,7 +91,7 @@ export function applyDocumentDirection(direction, localeCode = null) {
         ltrInput.checked = ! isRtl;
     }
 
-    syncBootstrapStylesheet();
+    syncBootstrapStylesheet(direction);
 
     if (typeof window.checkOptions === 'function') {
         window.checkOptions();

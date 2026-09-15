@@ -14,4 +14,12 @@ class CurrencyRepository extends TranslatableRepository
     {
         $this->model = $model;
     }
+
+    public function defaultCurrency(): ?Currency
+    {
+        return $this->model->newQuery()
+            ->where('is_default', true)
+            ->first()
+            ?? $this->model->newQuery()->orderBy('id')->first();
+    }
 }

@@ -1,6 +1,6 @@
 <template>
     <div>
-        <label v-if="label" :for="inputId" class="form-label">
+        <label v-if="label" class="form-label">
             {{ label }}
             <span v-if="required" class="text-danger">*</span>
         </label>
@@ -40,7 +40,6 @@
 
 <script setup>
 import { computed, onMounted, ref } from 'vue';
-import Select from 'primevue/select';
 import adminAxios from '../../api/adminAxios';
 import FlagImage from '../ui/FlagImage.vue';
 
@@ -77,13 +76,25 @@ const props = defineProps({
 
 const emit = defineEmits(['update:modelValue']);
 
+const { t } = useI18n();
+const rootElement = ref(null);
 const flags = ref([]);
 
-const selectedFlag = computed(() => {
-    return flags.value.find((flag) => Number(flag.id) === Number(props.modelValue)) ?? null;
+const selectedCode = computed(() => {
+    const selected = flags.value.find((flag) => Number(flag.id) === Number(props.modelValue));
+
+    return selected?.code ?? '';
 });
 
+function onChange(event) {
+    const value = event.target.value;
+
+    emit('update:modelValue', value ? Number(value) : null);
+}
+
 onMounted(async () => {
+    loading.value = true;
+
     try {
         const { data } = await adminAxios.get('/api/admin/v1/flags/dropdown');
 
@@ -95,6 +106,70 @@ onMounted(async () => {
         }));
     } catch {
         flags.value = [];
+    } finally {
+        loading.value = false;
     }
 });
+
+function selectFlag(id) {
+    emit('update:modelValue', id ? Number(id) : null);
+    closeDropdown();
+}
+
+function closeDropdown() {
+    const toggle = rootElement.value?.querySelector('[data-bs-toggle="dropdown"]');
+
+    if (! toggle || ! window.bootstrap?.Dropdown) {
+        return;
+    }
+
+    window.bootstrap.Dropdown.getInstance(toggle)?.hide();
+}
 </script>
+
+<style scoped>
+.flag-select__toggle {
+    min-height: 2.625rem;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--input-border, #dee2e6);
+    border-radius: 0.375rem;
+    background-color: var(--form-control-bg, #fff);
+    color: inherit;
+}
+
+.flag-select__toggle.disabled {
+    pointer-events: none;
+    opacity: 0.65;
+}
+
+.flag-select__toggle.is-invalid {
+    border-color: var(--bs-form-invalid-border-color, #dc3545);
+}
+
+.flag-select__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    color: var(--text-muted, #6c757d);
+}
+
+.flag-select__caret {
+    color: var(--text-muted, #6c757d);
+}
+
+.flag-select__menu {
+    max-height: 16rem;
+    overflow-y: auto;
+}
+
+.flag-select__option-placeholder {
+    color: var(--text-muted, #6c757d);
+}
+
+.flag-select__menu .dropdown-item.active,
+.flag-select__menu .dropdown-item:active {
+    background-color: rgba(var(--primary-rgb, 132, 90, 223), 0.12);
+    color: inherit;
+}
+</style>

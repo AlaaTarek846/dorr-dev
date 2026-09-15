@@ -31,4 +31,9 @@ class CurrencyController extends CatalogController
     {
         return $this->service->changeStatus($currency, (bool) $request->validated('status'));
     }
+
+    public function syncExchangeRates()
+    {
+        return $this->service->syncExchangeRates();
+    }
 }
