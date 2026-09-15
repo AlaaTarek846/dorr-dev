@@ -2,7 +2,11 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
+use Database\Seeders\Admin\AdminSeeder;
+use Database\Seeders\General\CountrySeeder;
+use Database\Seeders\General\CurrencySeeder;
+use Database\Seeders\General\FlagSeeder;
+use Database\Seeders\General\LanguageSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -15,11 +19,12 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            FlagSeeder::class,
+            LanguageSeeder::class,
+            CurrencySeeder::class,
+            CountrySeeder::class,
+            AdminSeeder::class,
         ]);
     }
 }
