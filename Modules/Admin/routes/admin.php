@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Admin\Http\Controllers\AdminAuthController;
 use Modules\Admin\Http\Controllers\AdminController;
 use Modules\Admin\Http\Controllers\AdminProfileController;
+use Modules\User\Http\Controllers\UserController;
 
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
     Route::get('platform-settings/branding', [PlatformSettingController::class, 'branding']);
@@ -31,6 +32,10 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('admins/delete-multiple', [AdminController::class, 'deleteMultiple']);
         Route::patch('admins/{admin}/status', [AdminController::class, 'changeStatus']);
         Route::apiResource('admins', AdminController::class)->names('admin');
+
+        Route::post('users/delete-multiple', [UserController::class, 'deleteMultiple']);
+        Route::patch('users/{user}/status', [UserController::class, 'changeStatus']);
+        Route::apiResource('users', UserController::class);
 
         foreach ([
             ['flags', FlagController::class, 'flag'],

@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\User;
 use Modules\Admin\Models\Admin;
+use Modules\User\Models\User;
 
 return [
 
@@ -46,6 +46,10 @@ return [
         'admin_api' => [
             'driver' => 'sanctum',
             'provider' => 'admins',
+        ],
+        'user_api' => [
+            'driver' => 'sanctum',
+            'provider' => 'users',
         ],
     ],
 

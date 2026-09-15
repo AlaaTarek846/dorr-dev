@@ -66,6 +66,12 @@ export default [
                 component: () => import('./views/platform-settings/index.vue'),
                 meta: { middleware: [auth] },
             },
+            {
+                path: 'users',
+                name: 'admin.users.index',
+                component: () => import('./views/user/index.vue'),
+                meta: { middleware: [auth] },
+            },
         ],
     },
 ];

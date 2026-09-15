@@ -13,6 +13,7 @@ const KNOWN_I18N_LOCALES = ['ar', 'en'];
 export const useLocaleStore = defineStore('locale', {
     state: () => ({
         locale: resolveInitialLocale(),
+        initialized: false,
     }),
 
     getters: {
@@ -45,6 +46,10 @@ export const useLocaleStore = defineStore('locale', {
 
     actions: {
         async ensureValidLocale() {
+            if (this.initialized) {
+                return;
+            }
+
             const languagesStore = useAvailableLanguagesStore();
             await languagesStore.fetch();
 
@@ -70,6 +75,8 @@ export const useLocaleStore = defineStore('locale', {
             if (fallback) {
                 this.applyLocale(fallback.code, fallback.direction, false);
             }
+
+            this.initialized = true;
         },
 
         setLocale(localeCode) {
