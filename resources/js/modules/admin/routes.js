@@ -78,6 +78,18 @@ export default [
                 component: () => import('./views/user/index.vue'),
                 meta: { middleware: [auth] },
             },
+            {
+                path: 'service-categories',
+                name: 'admin.service-categories.index',
+                component: () => import('./views/service-category/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'providers',
+                name: 'admin.providers.index',
+                component: () => import('./views/provider/index.vue'),
+                meta: { middleware: [auth] },
+            },
         ],
     },
 ];

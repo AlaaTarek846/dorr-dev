@@ -12,6 +12,27 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | User-facing chat
+    |--------------------------------------------------------------------------
+    */
+    'chat' => [
+        // Anthropic requires max_tokens on every request; the others treat
+        // it as an optional cap, so this also acts as their sane default.
+        'default_max_tokens' => (int) env('AI_CHAT_DEFAULT_MAX_TOKENS', 1024),
+
+        // How many previous messages (both roles) to send back as context.
+        // Keeps token usage and per-request latency bounded on long chats.
+        'history_limit' => (int) env('AI_CHAT_HISTORY_LIMIT', 30),
+
+        'system_prompt' => env(
+            'AI_CHAT_SYSTEM_PROMPT',
+            'You are a helpful, professional assistant for this platform\'s users. '
+            .'Be concise and friendly, and always reply in the same language the user wrote in.',
+        ),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Supported providers
     |--------------------------------------------------------------------------
     |

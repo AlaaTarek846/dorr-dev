@@ -24,4 +24,9 @@ class AiProviderController extends Controller
     {
         return $this->service->testConnection($provider);
     }
+
+    public function setDefault(string $provider)
+    {
+        return $this->service->setDefault($provider);
+    }
 }

@@ -5,6 +5,7 @@ use App\Http\Controllers\CurrencyController;
 use App\Http\Controllers\FlagController;
 use App\Http\Controllers\LanguageController;
 use App\Http\Controllers\PlatformSettingController;
+use App\Http\Controllers\ServiceCategoryController;
 use Illuminate\Support\Facades\Route;
 use Modules\Admin\Http\Controllers\AdminAuthController;
 use Modules\Admin\Http\Controllers\AdminController;
@@ -37,11 +38,15 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::patch('users/{user}/status', [UserController::class, 'changeStatus']);
         Route::apiResource('users', UserController::class);
 
+        Route::get('service-categories/tree', [ServiceCategoryController::class, 'tree']);
+        Route::get('service-categories/leaf-options', [ServiceCategoryController::class, 'leafOptions']);
+
         foreach ([
             ['flags', FlagController::class, 'flag'],
             ['languages', LanguageController::class, 'language'],
             ['currencies', CurrencyController::class, 'currency'],
             ['countries', CountryController::class, 'country'],
+            ['service-categories', ServiceCategoryController::class, 'service_category'],
         ] as [$uri, $controller, $parameter]) {
             if ($uri !== 'languages') {
                 Route::get("{$uri}/dropdown", [$controller, 'dropdown']);

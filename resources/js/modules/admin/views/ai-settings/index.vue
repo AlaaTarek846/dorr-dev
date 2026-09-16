@@ -34,7 +34,7 @@
 
         <div v-else class="row g-4">
             <div v-for="provider in providers" :key="provider.key" class="col-xl-6 col-12">
-                <AiProviderCard :provider="provider" @updated="onUpdated" />
+                <AiProviderCard :provider="provider" @updated="onUpdated" @refresh-all="loadProviders(false)" />
             </div>
         </div>
     </div>
@@ -61,8 +61,10 @@ function onUpdated(updatedProvider) {
     }
 }
 
-async function loadProviders() {
-    loading.value = true;
+async function loadProviders(showSkeleton = true) {
+    if (showSkeleton) {
+        loading.value = true;
+    }
 
     try {
         const { data } = await adminAxios.get('/api/admin/v1/ai-providers');
@@ -70,9 +72,11 @@ async function loadProviders() {
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
-        loading.value = false;
+        if (showSkeleton) {
+            loading.value = false;
+        }
     }
 }
 
-onMounted(loadProviders);
+onMounted(() => loadProviders());
 </script>
