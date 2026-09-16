@@ -11,6 +11,7 @@ use Database\Seeders\General\LanguageSeeder;
 use Database\Seeders\General\PlatformSettingSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Modules\AI\Database\Seeders\AIDatabaseSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -29,6 +30,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
+            AIDatabaseSeeder::class,
         ]);
     }
 }

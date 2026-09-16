@@ -26,6 +26,7 @@
             "archive": "Archive"
         },
         "ai_items": {
+            "settings": "AI Settings",
             "assistant": "AI Assistant",
             "prompts": "Prompts",
             "models": "Models",
@@ -416,5 +417,56 @@
         "no_file": "No file uploaded.",
         "view_file": "View file",
         "saving": "Saving..."
+    },
+    "ai_settings": {
+        "title": "AI Settings",
+        "subtitle": "Enable AI providers, configure each model's settings, and test the connection before using it.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "docs_link": "Get an API key",
+        "api_key": "API Key",
+        "api_key_placeholder": "Paste your API key here",
+        "api_key_set_hint": "Saved key: {preview}",
+        "api_key_not_set": "No API key saved yet.",
+        "clear_api_key": "Clear key",
+        "show_key": "Show",
+        "hide_key": "Hide",
+        "model": "Model",
+        "model_placeholder": "Select a model",
+        "model_custom_option": "Other (custom)",
+        "model_custom_placeholder": "E.g. gpt-4o-mini",
+        "models_live": "Live list from the provider",
+        "models_estimated": "Estimated list - test the connection to fetch the real one",
+        "model_groups": {
+            "chat": "Chat models",
+            "moderation": "Moderation & filtering models",
+            "speech_to_text": "Speech-to-text",
+            "text_to_speech": "Text-to-speech"
+        },
+        "pricing": {
+            "free": "Free",
+            "paid": "Paid"
+        },
+        "advanced_settings": "Advanced settings",
+        "base_url": "API Base URL",
+        "base_url_placeholder": "Leave empty to use the default: {default}",
+        "organization": "Organization ID",
+        "organization_placeholder": "Optional - OpenAI only",
+        "temperature": "Temperature",
+        "max_tokens": "Max Tokens",
+        "max_tokens_placeholder": "Leave empty to use the default",
+        "save": "Save Settings",
+        "saving": "Saving...",
+        "test_connection": "Test Connection",
+        "testing": "Testing...",
+        "last_tested": "Last tested",
+        "never_tested": "Connection has not been tested yet.",
+        "enable_requires_key": "Enter an API key first to enable this provider.",
+        "saved": "Settings saved successfully.",
+        "validation": {
+            "temperature_numeric": "Temperature must be a number.",
+            "temperature_range": "Temperature must be between 0 and 2.",
+            "max_tokens_integer": "Max tokens must be an integer."
+        }
     }
 }
