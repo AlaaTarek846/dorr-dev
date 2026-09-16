@@ -1,4 +1,4 @@
-import { helpers, maxLength, required } from '@vuelidate/validators';
+import { helpers, maxLength, minLength, required } from '@vuelidate/validators';
 import { useI18n } from 'vue-i18n';
 
 const DEFAULT_LOCALES = {
@@ -26,43 +26,89 @@ export default function useValidation() {
         );
     }
 
-    function translationNameRule(nameKey, localeKey, max = 255) {
-        const fieldLabel = `${t(nameKey)} (${t(localeKey)})`;
-
-        return {
-            required: helpers.withMessage(
-                () => t('validation.required', { field: fieldLabel }),
-                required,
-            ),
-            maxLength: helpers.withMessage(
-                () => t('validation.max.string', { field: fieldLabel, max }),
-                maxLength(max),
-            ),
-        };
+    function attributeLabel(attributeKey) {
+        return t(`validation.attributes.${attributeKey}`);
     }
 
-    function translationNameRuleWithLabel(nameKey, localeLabel, max = 255) {
-        const fieldLabel = `${t(nameKey)} (${localeLabel})`;
+    function minArray(fieldKey, min, labelParams = {}) {
+        return helpers.withMessage(
+            () => t('validation.min.array', { field: t(fieldKey, labelParams), min }),
+            helpers.withParams({ type: 'minLength', min }, (value) => {
+                const count = Array.isArray(value)
+                    ? value.length
+                    : Object.keys(value ?? {}).length;
 
-        return {
-            required: helpers.withMessage(
-                () => t('validation.required', { field: fieldLabel }),
-                required,
-            ),
-            maxLength: helpers.withMessage(
-                () => t('validation.max.string', { field: fieldLabel, max }),
-                maxLength(max),
-            ),
-        };
-    }
-
-    function catalogTranslationRulesFromLanguages(nameKey, languages = [], max = 255) {
-        return Object.fromEntries(
-            languages.map((language) => [
-                language.code,
-                translationNameRuleWithLabel(nameKey, language.name, max),
-            ]),
+                return count >= min;
+            }),
         );
+    }
+
+    function minString(fieldKey, min, labelParams = {}) {
+        return helpers.withMessage(
+            () => t('validation.min.string', { field: t(fieldKey, labelParams), min }),
+            minLength(min),
+        );
+    }
+
+    function digitsBetween(fieldKey, min, max, { optional = false } = {}) {
+        return helpers.withMessage(
+            () => t('validation.digits_between', { field: t(fieldKey), min, max }),
+            (value) => {
+                const trimmed = String(value ?? '').trim();
+
+                if (! trimmed) {
+                    return optional;
+                }
+
+                return new RegExp(`^\\d{${min},${max}}$`).test(trimmed);
+            },
+        );
+    }
+
+    function translationNameRule(nameKey, localeKey, max = 255, min = 0) {
+        return translationNameBackendRules(max, min);
+    }
+
+    function translationNameRuleWithLabel(nameKey, localeLabel, max = 255, min = 0) {
+        return translationNameBackendRules(max, min);
+    }
+
+    function translationNameBackendRules(max = 255, min = 0) {
+        const fieldLabel = attributeLabel('name');
+        const rules = {
+            required: helpers.withMessage(
+                () => t('validation.required', { field: fieldLabel }),
+                required,
+            ),
+            maxLength: helpers.withMessage(
+                () => t('validation.max.string', { field: fieldLabel, max }),
+                maxLength(max),
+            ),
+        };
+
+        if (min > 0) {
+            rules.minLength = helpers.withMessage(
+                () => t('validation.min.string', { field: fieldLabel, min }),
+                minLength(min),
+            );
+        }
+
+        return rules;
+    }
+
+    function catalogTranslationRulesFromLanguages(nameKey, languages = [], max = 255, min = 0) {
+        const minItems = Math.max(languages.length, 1);
+
+        return {
+            required: requiredField('validation.attributes.translations'),
+            minLength: minArray('validation.attributes.translations', minItems),
+            ...Object.fromEntries(
+                languages.map((language) => [
+                    language.code,
+                    translationNameRuleWithLabel(nameKey, language.name, max, min),
+                ]),
+            ),
+        };
     }
 
     function catalogTranslationRules(nameKey, options = {}) {
@@ -79,11 +125,17 @@ export default function useValidation() {
         );
     }
 
-    function stringFieldRules(fieldKey, max) {
-        return {
+    function stringFieldRules(fieldKey, max, min = 0) {
+        const rules = {
             required: requiredField(fieldKey),
             maxLength: maxString(fieldKey, max),
         };
+
+        if (min > 0) {
+            rules.minLength = minString(fieldKey, min);
+        }
+
+        return rules;
     }
 
     /** @deprecated Use stringFieldRules('flags.code', 3) */
@@ -106,8 +158,14 @@ export default function useValidation() {
 
     function firstError(errors, keys) {
         for (const key of keys) {
-            if (errors[key]?.[0]) {
-                return errors[key][0];
+            const value = errors[key];
+
+            if (typeof value === 'string' && value) {
+                return value;
+            }
+
+            if (Array.isArray(value) && typeof value[0] === 'string' && value[0]) {
+                return value[0];
             }
         }
 
@@ -116,7 +174,8 @@ export default function useValidation() {
 
     function fieldFeedback(vuelidateField, serverError, value) {
         const trimmed = String(value ?? '').trim();
-        const interacted = Boolean(vuelidateField?.$dirty) || trimmed.length > 0;
+        const formDirty = Boolean(vuelidateField?.$dirty) || Boolean(vuelidateField?.$anyDirty);
+        const interacted = formDirty || trimmed.length > 0;
 
         if (! interacted) {
             return { show: false, valid: false, invalid: false };
@@ -140,7 +199,9 @@ export default function useValidation() {
             const index = localeIndexMap?.[locale] ?? (locale === 'en' ? '0' : '1');
             const hasServerError = firstError(serverErrors, [
                 `translations.${index}.name`,
+                `translations.${index}.locale`,
                 `translations.${locale}.name`,
+                `translations.${locale}.locale`,
             ]);
 
             if (hasClientError || hasServerError) {
@@ -153,6 +214,9 @@ export default function useValidation() {
     return {
         requiredField,
         maxString,
+        minString,
+        digitsBetween,
+        minArray,
         translationNameRuleWithLabel,
         catalogTranslationRulesFromLanguages,
         translationNameRule,

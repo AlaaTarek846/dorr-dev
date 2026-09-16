@@ -44,7 +44,6 @@
                                     id="currency-name"
                                     v-model="form.translations[activeLocale]"
                                     type="text"
-                                    maxlength="255"
                                     class="form-control"
                                     :class="activeTranslationInputClass"
                                     :placeholder="t('currencies.name_placeholder')"
@@ -71,7 +70,7 @@
                                         id="currency-code"
                                         v-model="form.code"
                                         type="text"
-                                        maxlength="10"
+                                        maxlength="5"
                                         class="form-control text-uppercase"
                                         :class="codeInputClass"
                                         :placeholder="t('currencies.code_placeholder')"
@@ -97,7 +96,7 @@
                                         id="currency-symbol"
                                         v-model="form.symbol"
                                         type="text"
-                                        maxlength="20"
+                                        maxlength="5"
                                         class="form-control"
                                         :class="symbolInputClass"
                                         :placeholder="t('currencies.symbol_placeholder')"
@@ -133,6 +132,7 @@
                             <div class="col-md-6">
                                 <label for="currency-decimal-places" class="form-label">
                                     {{ t('currencies.decimal_places') }}
+                                    <span class="text-danger">*</span>
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light">
@@ -267,6 +267,7 @@ const { t, locale } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
 const {
     stringFieldRules,
+    requiredField,
     applyApiErrors,
     fieldFeedback,
 } = useValidation();
@@ -308,6 +309,8 @@ const {
     form,
     serverErrors,
     nameKey: 'currencies.name',
+    minLength: 2,
+    maxLength: 50,
     getV$: () => v$.value,
 });
 
@@ -328,19 +331,20 @@ const previewLabel = computed(() => {
 });
 
 const rules = computed(() => ({
-    code: stringFieldRules('currencies.code', 10),
-    symbol: stringFieldRules('currencies.symbol', 20),
+    code: stringFieldRules('currencies.code', 5, 2),
+    symbol: stringFieldRules('currencies.symbol', 5, 1),
     decimal_places: {
+        required: requiredField('currencies.decimal_places'),
         integer: helpers.withMessage(
-            () => t('currencies.validation.decimal_places_integer'),
+            () => t('validation.integer', { field: t('currencies.decimal_places') }),
             integer,
         ),
         minValue: helpers.withMessage(
-            () => t('currencies.validation.decimal_places_min'),
+            () => t('validation.min.numeric', { field: t('currencies.decimal_places'), min: 0 }),
             minValue(0),
         ),
         maxValue: helpers.withMessage(
-            () => t('currencies.validation.decimal_places_max'),
+            () => t('validation.max.numeric', { field: t('currencies.decimal_places'), max: 8 }),
             maxValue(8),
         ),
     },
@@ -461,22 +465,22 @@ const exchangeRateMessage = computed(() => {
 
 function onCodeInput() {
     clearServerError('code');
-    v$.value.code.$touch();
+    v$.value.$touch();
 }
 
 function onSymbolInput() {
     clearServerError('symbol');
-    v$.value.symbol.$touch();
+    v$.value.$touch();
 }
 
 function onDecimalPlacesInput() {
     clearServerError('decimal_places');
-    v$.value.decimal_places.$touch();
+    v$.value.$touch();
 }
 
 function onExchangeRateInput() {
     clearServerError('exchange_rate');
-    v$.value.exchange_rate.$touch();
+    v$.value.$touch();
 }
 
 function clearServerError(field) {

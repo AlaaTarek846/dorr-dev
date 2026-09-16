@@ -106,7 +106,14 @@
         "create_title": "إضافة مستخدم",
         "edit_title": "تعديل مستخدم",
         "name": "الاسم",
+        "name_placeholder": "مثال: أحمد علي",
+        "email_placeholder": "مثال: user{'@'}example.com",
         "phone": "الهاتف",
+        "phone_placeholder": "رقم الهاتف بدون كود الدولة",
+        "gender": "الجنس",
+        "password_placeholder": "أدخل كلمة المرور",
+        "password_confirmation": "تأكيد كلمة المرور",
+        "password_confirmation_placeholder": "أعد إدخال كلمة المرور",
         "status": "الحالة",
         "actions": "الإجراءات",
         "created_at": "تاريخ الإنشاء",
@@ -119,7 +126,6 @@
         "filter_active": "نشط",
         "filter_inactive": "غير نشط",
         "filter_blocked": "محظور",
-        "password_confirmation": "تأكيد كلمة المرور",
         "delete_title": "حذف مستخدم",
         "delete_selected_title": "حذف المستخدمين المحددين",
         "delete_count": "حذف ({count})",
@@ -138,16 +144,27 @@
     },
     "validation": {
         "required": "حقل {field} مطلوب.",
-        "max": {
-            "string": "حقل {field} يجب ألا يتجاوز {max} حرفاً."
-        },
+        "email": "يجب أن يكون حقل {field} بريداً إلكترونياً صالحاً.",
+        "array": "يجب أن يكون حقل {field} مصفوفة.",
+        "string": "يجب أن يكون حقل {field} نصاً.",
         "unique": "قيمة {field} مستخدمة بالفعل.",
         "integer": "حقل {field} يجب أن يكون رقماً صحيحاً.",
+        "digits_between": "يجب أن يكون حقل {field} بين {min} و {max} أرقام.",
+        "regex": "صيغة حقل {field} غير صحيحة.",
         "min": {
-            "numeric": "حقل {field} يجب ألا يقل عن {min}."
+            "numeric": "حقل {field} يجب ألا يقل عن {min}.",
+            "array": "يجب أن يحتوي حقل {field} على {min} عناصر على الأقل.",
+            "string": "يجب ألا يقل حقل {field} عن {min} حرفاً."
         },
         "max": {
-            "numeric": "حقل {field} يجب ألا يتجاوز {max}."
+            "string": "يجب ألا يتجاوز حقل {field} {max} حرفاً.",
+            "numeric": "يجب ألا يكون حقل {field} أكبر من {max}."
+        },
+        "attributes": {
+            "code": "الكود",
+            "name": "الاسم",
+            "locale": "اللغة",
+            "translations": "الترجمات"
         }
     },
     "toast": {
@@ -365,6 +382,8 @@
         "remove_photo": "إزالة",
         "details": "البيانات",
         "name": "الاسم",
+        "name_placeholder": "مثال: أحمد علي",
+        "email_placeholder": "مثال: user{'@'}example.com",
         "phone": "الهاتف",
         "phone_placeholder": "رقم الهاتف بدون كود الدولة",
         "loading_countries": "جاري تحميل الدول...",
@@ -379,6 +398,8 @@
         "current_password": "كلمة المرور الحالية",
         "new_password": "كلمة المرور الجديدة",
         "confirm_password": "تأكيد كلمة المرور",
+        "password_placeholder": "أدخل كلمة المرور",
+        "confirm_password_placeholder": "أعد إدخال كلمة المرور",
         "generate_password": "توليد",
         "password_hint": "يجب أن تكون 8 أحرف على الأقل وتتضمن حرفاً كبيراً وصغيراً ورقماً ورمزاً.",
         "password_strength": "مستوى كلمة المرور",
