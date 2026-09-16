@@ -16,6 +16,8 @@
             :filter-fields="['name', 'code']"
             :show-clear="true"
             :invalid="invalid"
+            append-to="self"
+            auto-filter-focus
             class="w-100"
             @update:model-value="emit('update:modelValue', $event)"
         >

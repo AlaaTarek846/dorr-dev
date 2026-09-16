@@ -44,7 +44,6 @@
                                     id="flag-name"
                                     v-model="form.translations[activeLocale]"
                                     type="text"
-                                    maxlength="50"
                                     class="form-control"
                                     :class="activeTranslationInputClass"
                                     :placeholder="t('flags.name_placeholder')"
@@ -210,6 +209,7 @@ const {
     form,
     serverErrors,
     nameKey: 'flags.name',
+    minLength: 3,
     maxLength: 50,
     getV$: () => v$.value,
 });
@@ -268,7 +268,7 @@ const codeMessage = computed(() => {
 
 function onCodeInput() {
     clearServerError('code');
-    v$.value.code.$touch();
+    v$.value.$touch();
 }
 
 function clearServerError(field) {

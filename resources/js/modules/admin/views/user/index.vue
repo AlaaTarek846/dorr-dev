@@ -115,6 +115,7 @@
                                         <th scope="col">{{ t('users.name') }}</th>
                                         <th scope="col">{{ t('email') }}</th>
                                         <th scope="col">{{ t('users.phone') }}</th>
+                                        <th scope="col">{{ t('users.gender') }}</th>
                                         <th scope="col">{{ t('users.status') }}</th>
                                         <th scope="col">{{ t('users.created_at') }}</th>
                                         <th scope="col" class="text-end pe-4">{{ t('users.actions') }}</th>
@@ -124,7 +125,7 @@
                                     <TableSkeleton v-if="loading" :rows="8" />
 
                                     <tr v-else-if="!users.length">
-                                        <td colspan="7" class="border-0">
+                                        <td colspan="8" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-user-line fs-2 text-primary"></i>
@@ -181,7 +182,13 @@
                                                 </div>
                                             </td>
                                             <td>{{ user.email }}</td>
-                                            <td>{{ user.phone || '-' }}</td>
+                                            <td>
+                                                <span v-if="user.phone" class="users-phone" dir="ltr">
+                                                    {{ formatUserPhone(user) }}
+                                                </span>
+                                                <span v-else>-</span>
+                                            </td>
+                                            <td>{{ genderLabel(user.gender) }}</td>
                                             <td>
                                                 <select
                                                     class="form-select form-select-sm w-auto users-status-select"
@@ -310,6 +317,7 @@ import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useUsers } from '../../../../composables/useUsers';
 import { useUsersStore } from '../../../../stores/users';
+import { formatPhoneForDisplay } from '../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
@@ -432,6 +440,22 @@ function statusSelectClass(status) {
     return 'users-status-select--inactive';
 }
 
+function genderLabel(gender) {
+    if (gender === 'male') {
+        return t('profile.gender_male');
+    }
+
+    if (gender === 'female') {
+        return t('profile.gender_female');
+    }
+
+    return '-';
+}
+
+function formatUserPhone(user) {
+    return formatPhoneForDisplay(user?.phone, user?.country?.dial_code);
+}
+
 function formatDate(value) {
     if (! value) {
         return '-';
@@ -530,6 +554,13 @@ onMounted(() => {
     width: 100%;
     height: 100%;
     object-fit: cover;
+}
+
+.users-phone {
+    display: inline-block;
+    direction: ltr;
+    unicode-bidi: isolate;
+    white-space: nowrap;
 }
 
 .users-search-clear {

@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Http\Requests\Concerns\HasCatalogRules;
+use App\Repositories\LanguageRepository;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -47,10 +48,26 @@ class FlagRequest extends FormRequest
      */
     protected function translationRules(): array
     {
+        $min = max(count(LanguageRepository::storableLocaleCodes()), 1);
+
         return [
-            'translations' => ['required', 'array', 'min:1'],
+            'translations' => ['required', 'array', 'min:'.$min],
             'translations.*.locale' => ['required', 'string', 'max:10'],
-            'translations.*.name' => ['required', 'string', 'max:50'],
+            'translations.*.name' => ['required', 'string', 'min:3', 'max:50'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'code' => __('validation.attributes.code'),
+            'status' => __('validation.attributes.status'),
+            'translations' => __('validation.attributes.translations'),
+            'translations.*.locale' => __('validation.attributes.translations.*.locale'),
+            'translations.*.name' => __('validation.attributes.translations.*.name'),
         ];
     }
 }

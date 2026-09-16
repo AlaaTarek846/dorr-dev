@@ -9,6 +9,10 @@ use Modules\User\Models\User;
 
 class UserRepository extends BaseRepository
 {
+    protected array $with = [
+        'country.flag',
+    ];
+
     protected array $orderBy = [
         'id' => 'desc',
     ];

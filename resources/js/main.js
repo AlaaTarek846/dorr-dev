@@ -39,6 +39,9 @@ app.use(PrimeVue, {
             darkModeSelector: '.app-dark',
         },
     },
+    zIndex: {
+        overlay: 2000,
+    },
 });
 
 setI18nLocale(resolveInitialLocale());

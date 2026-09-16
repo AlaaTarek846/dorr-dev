@@ -34,13 +34,28 @@ return [
     'required' => 'حقل :attribute مطلوب.',
     'string' => 'يجب أن يكون حقل :attribute نصاً.',
     'unique' => 'قيمة :attribute مستخدمة بالفعل.',
+    'digits_between' => 'يجب أن يكون حقل :attribute بين :min و :max أرقام.',
+    'regex' => 'صيغة حقل :attribute غير صحيحة.',
 
     'custom' => [
         'code' => [
             'unique' => 'هذا الكود مستخدم بالفعل.',
         ],
         'translations' => [
-            'required' => 'مطلوب إدخال ترجمة واحدة على الأقل.',
+            'required' => 'حقل الترجمات مطلوب.',
+            'array' => 'يجب أن يكون حقل الترجمات مصفوفة.',
+            'min' => 'يجب أن يحتوي حقل الترجمات على :min عناصر على الأقل.',
+        ],
+        'translations.*.locale' => [
+            'required' => 'حقل اللغة مطلوب.',
+            'string' => 'يجب أن يكون حقل اللغة نصاً.',
+            'max' => 'يجب ألا يتجاوز حقل اللغة :max حرفاً.',
+        ],
+        'translations.*.name' => [
+            'required' => 'حقل الاسم مطلوب.',
+            'string' => 'يجب أن يكون حقل الاسم نصاً.',
+            'min' => 'يجب ألا يقل حقل الاسم عن :min حرفاً.',
+            'max' => 'يجب ألا يتجاوز حقل الاسم :max حرفاً.',
         ],
     ],
 
@@ -56,6 +71,16 @@ return [
         'current_password' => 'كلمة المرور الحالية',
         'flow_token' => 'رمز الجلسة',
         'code' => 'رمز التحقق',
+        'direction' => 'الاتجاه',
+        'code_alpha3' => 'كود 3 أحرف',
+        'dial_code' => 'كود الاتصال',
+        'phone_starts_with' => 'بداية رقم الهاتف',
+        'phone_length' => 'طول رقم الهاتف',
+        'flag_id' => 'العلم',
+        'currency_id' => 'العملة',
+        'symbol' => 'الرمز',
+        'decimal_places' => 'الخانات العشرية',
+        'exchange_rate' => 'سعر الصرف',
         'status' => 'الحالة',
         'translations' => 'الترجمات',
         'translations.*.locale' => 'اللغة',

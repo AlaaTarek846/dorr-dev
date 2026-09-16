@@ -217,6 +217,16 @@
     object-fit: cover;
 }
 
+.modal .p-select-overlay {
+    z-index: 2000;
+}
+
+.modal.show .modal-dialog,
+.modal.show .modal-content,
+.modal.show .modal-body {
+    overflow: visible;
+}
+
 @media (max-width: 767.98px) {
     .catalog-toolbar-search {
         width: 100%;

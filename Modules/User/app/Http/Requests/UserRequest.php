@@ -15,6 +15,15 @@ class UserRequest extends FormRequest
         return true;
     }
 
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'phone' => $this->input('phone') ?: null,
+            'gender' => $this->input('gender') ?: null,
+            'country_id' => $this->input('country_id') ?: null,
+        ]);
+    }
+
     /**
      * @return array<string, mixed>
      */
@@ -62,18 +71,36 @@ class UserRequest extends FormRequest
     protected function baseRules(mixed $userId): array
     {
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'min:2', 'max:50'],
             'email' => [
                 'required',
                 'email',
-                'max:255',
+                'min:2',
+                'max:50',
                 Rule::unique('users', 'email')->ignore($userId),
             ],
             'phone' => ['nullable', 'string', 'max:50'],
-            'gender' => ['nullable', new Enum(Gender::class)],
+            'gender' => ['required', new Enum(Gender::class)],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'status' => ['nullable', new Enum(UserStatus::class)],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => __('validation.attributes.name'),
+            'email' => __('validation.attributes.email'),
+            'phone' => __('validation.attributes.phone'),
+            'gender' => __('validation.attributes.gender'),
+            'country_id' => __('validation.attributes.country_id'),
+            'status' => __('validation.attributes.status'),
+            'password' => __('validation.attributes.password'),
+            'password_confirmation' => __('validation.attributes.password_confirmation'),
         ];
     }
 }
