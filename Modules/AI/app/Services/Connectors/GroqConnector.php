@@ -3,9 +3,12 @@
 namespace Modules\AI\Services\Connectors;
 
 use Modules\AI\Models\AiProvider;
+use Modules\AI\Services\Connectors\Concerns\SendsOpenAiCompatibleChat;
 
 class GroqConnector extends AbstractHttpConnector
 {
+    use SendsOpenAiCompatibleChat;
+
     protected function providerKey(): string
     {
         return 'groq';

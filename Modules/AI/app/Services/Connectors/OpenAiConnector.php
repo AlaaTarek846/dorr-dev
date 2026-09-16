@@ -4,9 +4,12 @@ namespace Modules\AI\Services\Connectors;
 
 use Illuminate\Support\Arr;
 use Modules\AI\Models\AiProvider;
+use Modules\AI\Services\Connectors\Concerns\SendsOpenAiCompatibleChat;
 
 class OpenAiConnector extends AbstractHttpConnector
 {
+    use SendsOpenAiCompatibleChat;
+
     protected function providerKey(): string
     {
         return 'openai';

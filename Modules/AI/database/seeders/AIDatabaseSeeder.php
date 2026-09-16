@@ -39,5 +39,10 @@ class AIDatabaseSeeder extends Seeder
             'model' => config('ai.providers.groq.default_model'),
             'temperature' => 0.7,
         ]);
+
+        // Also make it the active chat model, so the user-facing chat works
+        // right away instead of failing with "no active provider" until an
+        // admin picks one by hand from the AI settings screen.
+        $repository->setDefault('groq');
     }
 }

@@ -79,6 +79,12 @@ export default [
                 component: () => import('./views/profile/index.vue'),
                 meta: { middleware: [userAuth] },
             },
+            {
+                path: 'chat',
+                name: 'user.chat',
+                component: () => import('./views/chat/index.vue'),
+                meta: { middleware: [userAuth] },
+            },
         ],
     },
 ];

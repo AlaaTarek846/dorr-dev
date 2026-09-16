@@ -66,6 +66,24 @@
                     </li>
 
                     <li class="slide__category">
+                        <span class="category-name">{{ t('sidebar.services') }}</span>
+                    </li>
+
+                    <li class="slide">
+                        <router-link :to="{ name: 'admin.service-categories.index' }" class="side-menu__item">
+                            <i class="ri-list-settings-line side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('service_categories.title') }}</span>
+                        </router-link>
+                    </li>
+
+                    <li class="slide">
+                        <router-link :to="{ name: 'admin.providers.index' }" class="side-menu__item">
+                            <i class="ri-user-settings-line side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('providers.title') }}</span>
+                        </router-link>
+                    </li>
+
+                    <li class="slide__category">
                         <span class="category-name">{{ t('sidebar.catalog') }}</span>
                     </li>
 

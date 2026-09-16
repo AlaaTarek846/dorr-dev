@@ -13,6 +13,7 @@ class AiProvider extends Model
         'key',
         'name',
         'is_enabled',
+        'is_default',
         'api_key',
         'model',
         'base_url',
@@ -40,6 +41,7 @@ class AiProvider extends Model
     {
         return [
             'is_enabled' => 'boolean',
+            'is_default' => 'boolean',
             'api_key' => 'encrypted',
             'temperature' => 'decimal:2',
             'max_tokens' => 'integer',
@@ -58,6 +60,11 @@ class AiProvider extends Model
     public function hasApiKey(): bool
     {
         return filled($this->api_key);
+    }
+
+    public function isUsableForChat(): bool
+    {
+        return $this->is_enabled && $this->hasApiKey();
     }
 
     public function maskedApiKey(): ?string

@@ -9,6 +9,7 @@ use Database\Seeders\General\CurrencySeeder;
 use Database\Seeders\General\FlagSeeder;
 use Database\Seeders\General\LanguageSeeder;
 use Database\Seeders\General\PlatformSettingSeeder;
+use Database\Seeders\General\ServiceCategoriesSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Modules\AI\Database\Seeders\AIDatabaseSeeder;
@@ -30,6 +31,7 @@ class DatabaseSeeder extends Seeder
             AdminSeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
+            ServiceCategoriesSeeder::class,
             AIDatabaseSeeder::class,
         ]);
     }
