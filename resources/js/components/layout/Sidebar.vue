@@ -52,6 +52,11 @@
                             <li class="slide side-menu__label1">
                                 <a href="javascript:void(0)">{{ t('sidebar.ai') }}</a>
                             </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-settings' }" class="side-menu__item">
+                                    {{ t('sidebar.ai_items.settings') }}
+                                </router-link>
+                            </li>
                             <li v-for="item in aiItems" :key="item" class="slide">
                                 <a href="javascript:void(0)" class="side-menu__item">
                                     {{ t(`sidebar.ai_items.${item}`) }}
