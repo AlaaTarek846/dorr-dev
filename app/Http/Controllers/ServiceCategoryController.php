@@ -5,23 +5,16 @@ namespace App\Http\Controllers;
 use App\Http\Requests\ServiceCategoryRequest;
 use App\Services\ServiceCategoryService;
 
-class ServiceCategoryController extends Controller
+class ServiceCategoryController extends CatalogController
 {
-    public function __construct(protected ServiceCategoryService $service) {}
-
-    public function index()
+    public function __construct(ServiceCategoryService $service)
     {
-        return $this->service->list();
+        parent::__construct($service);
     }
 
     public function tree()
     {
         return $this->service->tree();
-    }
-
-    public function dropdown()
-    {
-        return $this->service->dropdown();
     }
 
     public function leafOptions()
@@ -34,19 +27,9 @@ class ServiceCategoryController extends Controller
         return $this->service->create($request->validated());
     }
 
-    public function show(int|string $serviceCategory)
-    {
-        return $this->service->find($serviceCategory);
-    }
-
     public function update(ServiceCategoryRequest $request, int|string $serviceCategory)
     {
         return $this->service->updateRecord($serviceCategory, $request->validated());
-    }
-
-    public function destroy(int|string $serviceCategory)
-    {
-        return $this->service->delete($serviceCategory);
     }
 
     public function deleteMultiple(ServiceCategoryRequest $request)

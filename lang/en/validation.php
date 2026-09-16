@@ -72,6 +72,8 @@ return [
         'decimal_places' => 'decimal places',
         'exchange_rate' => 'exchange rate',
         'status' => 'status',
+        'service_category_ids' => 'services',
+        'service_category_ids.*' => 'service',
         'translations' => 'translations',
         'translations.*.locale' => 'locale',
         'translations.*.name' => 'name',

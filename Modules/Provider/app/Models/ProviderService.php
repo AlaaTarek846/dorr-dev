@@ -5,7 +5,6 @@ namespace Modules\Provider\Models;
 use App\Models\ServiceCategory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Modules\Provider\Enums\ProviderServiceStatus;
 
 class ProviderService extends Model
 {
@@ -13,24 +12,13 @@ class ProviderService extends Model
      * @var list<string>
      */
     protected $fillable = [
-        'provider_profile_id',
+        'provider_id',
         'service_category_id',
-        'status',
     ];
 
-    /**
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    public function provider(): BelongsTo
     {
-        return [
-            'status' => ProviderServiceStatus::class,
-        ];
-    }
-
-    public function providerProfile(): BelongsTo
-    {
-        return $this->belongsTo(ProviderProfile::class);
+        return $this->belongsTo(Provider::class);
     }
 
     public function category(): BelongsTo

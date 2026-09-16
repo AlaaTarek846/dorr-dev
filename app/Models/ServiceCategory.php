@@ -2,28 +2,24 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslations;
+use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Spatie\MediaLibrary\HasMedia;
 
-class ServiceCategory extends Model
+class ServiceCategory extends Model implements HasMedia
 {
-    use SearchFilterTrait;
+    use HasMediaTrait, HasTranslations, SearchFilterTrait;
 
     /**
      * @var list<string>
      */
     protected $fillable = [
         'parent_id',
-        'name_ar',
-        'name_en',
-        'slug',
-        'icon',
-        'department',
-        'base_model',
         'requires_provider',
-        'provider_type_label',
         'status',
         'sort_order',
     ];
@@ -38,6 +34,16 @@ class ServiceCategory extends Model
             'status' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(ServiceCategoryTranslation::class);
+    }
+
+    protected function translationModel(): string
+    {
+        return ServiceCategoryTranslation::class;
     }
 
     public function parent(): BelongsTo

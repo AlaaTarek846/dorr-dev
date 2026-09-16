@@ -2,38 +2,34 @@
 
 namespace App\Http\Resources;
 
+use App\Http\Resources\Concerns\FormatsTranslations;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ServiceCategoryResource extends JsonResource
 {
+    use FormatsTranslations;
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        return [
+        return array_merge([
             'id' => $this->id,
             'parent_id' => $this->parent_id,
-            'parent' => $this->whenLoaded('parent', fn () => $this->parent ? [
+            'parent' => $this->whenLoaded('parent', fn () => $this->parent ? array_merge([
                 'id' => $this->parent->id,
-                'name_ar' => $this->parent->name_ar,
-                'name_en' => $this->parent->name_en,
-            ] : null),
-            'name_ar' => $this->name_ar,
-            'name_en' => $this->name_en,
-            'slug' => $this->slug,
-            'icon' => $this->icon,
-            'department' => $this->department,
-            'base_model' => $this->base_model,
+            ], (new self($this->parent))->translationFields()) : null),
             'requires_provider' => (bool) $this->requires_provider,
-            'provider_type_label' => $this->provider_type_label,
             'status' => (bool) $this->status,
             'sort_order' => $this->sort_order,
+            'image' => $this->getSingleMediaUrl('image') ?: null,
+            'image_thumb' => $this->getSingleMediaThumbUrl('image') ?: null,
             'is_leaf' => $this->isLeaf(),
             'children' => ServiceCategoryResource::collection($this->whenLoaded('children')),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
-        ];
+        ], $this->translationFields());
     }
 }

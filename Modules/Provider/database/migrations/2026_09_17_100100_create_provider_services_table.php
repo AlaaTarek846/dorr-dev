@@ -13,12 +13,11 @@ return new class extends Migration
     {
         Schema::create('provider_services', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('provider_profile_id')->constrained('provider_profiles')->cascadeOnDelete();
+            $table->foreignId('provider_id')->constrained('providers')->cascadeOnDelete();
             $table->foreignId('service_category_id')->constrained('service_categories')->cascadeOnDelete();
-            $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
             $table->timestamps();
 
-            $table->unique(['provider_profile_id', 'service_category_id']);
+            $table->unique(['provider_id', 'service_category_id']);
         });
     }
 
