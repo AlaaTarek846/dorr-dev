@@ -1,4 +1,6 @@
 {
     "Admin": true,
-    "User": true
+    "User": true,
+    "AI": true,
+    "Provider": true
 }
