@@ -26,6 +26,7 @@
             "archive": "الأرشيف"
         },
         "ai_items": {
+            "settings": "إعدادات الذكاء الاصطناعي",
             "assistant": "المساعد الذكي",
             "prompts": "الأوامر",
             "models": "النماذج",
@@ -416,5 +417,56 @@
         "no_file": "لا يوجد ملف مرفوع.",
         "view_file": "عرض الملف",
         "saving": "جاري الحفظ..."
+    },
+    "ai_settings": {
+        "title": "إعدادات الذكاء الاصطناعي",
+        "subtitle": "فعّل مزوّدي الذكاء الاصطناعي، واضبط إعدادات كل موديل، واختبر الاتصال قبل الاستخدام.",
+        "enabled": "مفعّل",
+        "disabled": "غير مفعّل",
+        "docs_link": "الحصول على مفتاح API",
+        "api_key": "مفتاح API",
+        "api_key_placeholder": "الصق مفتاح API هنا",
+        "api_key_set_hint": "المفتاح المحفوظ: {preview}",
+        "api_key_not_set": "لم يتم تسجيل أي مفتاح بعد.",
+        "clear_api_key": "مسح المفتاح",
+        "show_key": "إظهار",
+        "hide_key": "إخفاء",
+        "model": "الموديل",
+        "model_placeholder": "اختر الموديل",
+        "model_custom_option": "موديل آخر (تحديد يدوي)",
+        "model_custom_placeholder": "مثال: gpt-4o-mini",
+        "models_live": "قائمة حقيقية من المزوّد",
+        "models_estimated": "قائمة تقديرية - اختبر الاتصال لجلب القائمة الحقيقية",
+        "model_groups": {
+            "chat": "نماذج المحادثة",
+            "moderation": "نماذج الإشراف والفلترة",
+            "speech_to_text": "تحويل الصوت إلى نص",
+            "text_to_speech": "تحويل النص إلى صوت"
+        },
+        "pricing": {
+            "free": "مجاني",
+            "paid": "مدفوع"
+        },
+        "advanced_settings": "إعدادات متقدمة",
+        "base_url": "رابط الـ API (Base URL)",
+        "base_url_placeholder": "اتركه فارغاً لاستخدام الافتراضي: {default}",
+        "organization": "معرّف المؤسسة (Organization ID)",
+        "organization_placeholder": "اختياري - خاص بـ OpenAI",
+        "temperature": "درجة الإبداع (Temperature)",
+        "max_tokens": "الحد الأقصى للتوكنز (Max Tokens)",
+        "max_tokens_placeholder": "اتركه فارغاً لاستخدام الافتراضي",
+        "save": "حفظ الإعدادات",
+        "saving": "جاري الحفظ...",
+        "test_connection": "اختبار الاتصال",
+        "testing": "جاري الاختبار...",
+        "last_tested": "آخر اختبار",
+        "never_tested": "لم يتم اختبار الاتصال بعد.",
+        "enable_requires_key": "أدخل مفتاح API أولاً لتتمكن من التفعيل.",
+        "saved": "تم حفظ الإعدادات بنجاح.",
+        "validation": {
+            "temperature_numeric": "درجة الإبداع يجب أن تكون رقماً.",
+            "temperature_range": "درجة الإبداع يجب أن تكون بين 0 و 2.",
+            "max_tokens_integer": "الحد الأقصى للتوكنز يجب أن يكون رقماً صحيحاً."
+        }
     }
 }

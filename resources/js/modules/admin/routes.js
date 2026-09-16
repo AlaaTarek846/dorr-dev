@@ -67,6 +67,12 @@ export default [
                 meta: { middleware: [auth] },
             },
             {
+                path: 'ai-settings',
+                name: 'admin.ai-settings',
+                component: () => import('./views/ai-settings/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
                 path: 'users',
                 name: 'admin.users.index',
                 component: () => import('./views/user/index.vue'),
