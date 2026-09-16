@@ -67,9 +67,27 @@ export default [
                 meta: { middleware: [auth] },
             },
             {
+                path: 'ai-settings',
+                name: 'admin.ai-settings',
+                component: () => import('./views/ai-settings/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
                 path: 'users',
                 name: 'admin.users.index',
                 component: () => import('./views/user/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'service-categories',
+                name: 'admin.service-categories.index',
+                component: () => import('./views/service-category/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'providers',
+                name: 'admin.providers.index',
+                component: () => import('./views/provider/index.vue'),
                 meta: { middleware: [auth] },
             },
         ],
