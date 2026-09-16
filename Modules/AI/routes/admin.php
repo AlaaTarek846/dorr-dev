@@ -12,4 +12,7 @@ Route::middleware(['locale', 'auth:admin_api'])->prefix('admin/v1/ai-providers')
 
     Route::post('{provider}/test', [AiProviderController::class, 'testConnection'])
         ->whereIn('provider', AiProviderKey::values());
+
+    Route::post('{provider}/set-default', [AiProviderController::class, 'setDefault'])
+        ->whereIn('provider', AiProviderKey::values());
 });

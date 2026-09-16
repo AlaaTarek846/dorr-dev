@@ -11,14 +11,29 @@ use Modules\AI\Services\Connectors\GroqConnector;
 use Modules\AI\Services\Connectors\OpenAiConnector;
 use RuntimeException;
 
-class AiConnectionTester
+/**
+ * Single entry point for talking to whichever provider a given AiProvider
+ * row represents - resolves the right connector once, and exposes both the
+ * admin "test connection" action and the user-facing chat dispatch through
+ * it, so the two never drift into different provider-handling logic.
+ */
+class AiGateway
 {
     /**
-     * @return array{success: bool, message: string}
+     * @return array{success: bool, message: string, models: list<string>}
      */
     public function test(AiProvider $provider): array
     {
         return $this->connectorFor($provider)->testConnection($provider);
+    }
+
+    /**
+     * @param  list<array{role: string, content: string}>  $messages
+     * @return array{success: bool, message: string, content: ?string}
+     */
+    public function chat(AiProvider $provider, array $messages): array
+    {
+        return $this->connectorFor($provider)->sendChat($provider, $messages);
     }
 
     protected function connectorFor(AiProvider $provider): AiConnector

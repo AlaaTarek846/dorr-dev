@@ -24,6 +24,7 @@ class AiProviderResource extends JsonResource
             'key' => $this->key,
             'name' => $this->name,
             'is_enabled' => (bool) $this->is_enabled,
+            'is_default' => (bool) $this->is_default,
             'model' => $this->model,
             'available_models' => self::groupModels($models),
             'available_models_is_live' => $isLive,
