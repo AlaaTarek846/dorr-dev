@@ -5,9 +5,10 @@ namespace App\Services;
 use App\Http\Resources\ServiceCategoryResource;
 use App\Repositories\ServiceCategoryRepository;
 use App\Support\Api\ApiResponse;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
 
-class ServiceCategoryService extends BaseService
+class ServiceCategoryService extends CatalogService
 {
     protected ?string $resource = ServiceCategoryResource::class;
 
@@ -32,14 +33,6 @@ class ServiceCategoryService extends BaseService
         );
     }
 
-    public function dropdown(): JsonResponse
-    {
-        /** @var ServiceCategoryRepository $repository */
-        $repository = $this->repository;
-
-        return ApiResponse::success($repository->dropdown(), __('api.retrieved'));
-    }
-
     public function leafOptions(): JsonResponse
     {
         /** @var ServiceCategoryRepository $repository */
@@ -47,65 +40,62 @@ class ServiceCategoryService extends BaseService
 
         $options = $repository->leafOptions()->map(fn ($category) => [
             'id' => $category->id,
-            'name' => $category->name_ar,
-            'name_en' => $category->name_en,
-            'department' => $category->department,
-            'provider_type_label' => $category->provider_type_label,
+            'name' => $category->translatedName(),
+            'requires_provider' => (bool) $category->requires_provider,
+            'image' => $category->getSingleMediaUrl('image') ?: null,
+            'translations' => $category->translations->map(fn ($item) => [
+                'locale' => $item->locale,
+                'name' => $item->name,
+            ])->values(),
         ])->values();
 
         return ApiResponse::success($options, __('api.retrieved'));
     }
 
-    /**
-     * @param  list<int|string>  $ids
-     */
-    public function deleteMultiple(array $ids, ?string $message = null): JsonResponse
-    {
-        /** @var ServiceCategoryRepository $repository */
-        $repository = $this->repository;
-
-        return ApiResponse::success(
-            ['deleted' => $repository->deleteMultiple($ids)],
-            $message ?? __('api.deleted'),
-        );
-    }
-
-    public function changeStatus(int|string $id, bool $status, ?string $message = null): JsonResponse
-    {
-        /** @var ServiceCategoryRepository $repository */
-        $repository = $this->repository;
-        $category = $repository->changeStatus($id, $status);
-
-        return ApiResponse::success(
-            $this->transformResource($category),
-            $message ?? __('api.updated'),
-        );
-    }
-
     protected function beforeStore(array $data): array
     {
-        return $this->normalize($data);
+        return $this->mapImageMedia($data);
     }
 
     protected function beforeUpdate(int|string $id, array $data): array
     {
-        return $this->normalize($data);
+        return $this->mapImageMedia($data);
+    }
+
+    protected function afterStore(Model $model, array $data): void
+    {
+        $this->handleImageRemoval($model, $data);
+    }
+
+    protected function afterUpdate(Model $model, array $data): void
+    {
+        $this->handleImageRemoval($model, $data);
     }
 
     /**
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
      */
-    protected function normalize(array $data): array
+    protected function mapImageMedia(array $data): array
     {
-        // A category can't be its own parent's descendant AND have children
-        // at the same time from the provider's point of view; requires_provider
-        // = false makes provider_type_label meaningless, so drop it rather
-        // than store stale data the form no longer shows.
-        if (array_key_exists('requires_provider', $data) && ! $data['requires_provider']) {
-            $data['provider_type_label'] = null;
+        if (array_key_exists('image', $data)) {
+            if ($data['image'] !== null) {
+                $data['media']['image'] = $data['image'];
+            }
+
+            unset($data['image']);
         }
 
         return $data;
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    protected function handleImageRemoval(Model $model, array $data): void
+    {
+        if (! empty($data['remove_image']) && method_exists($model, 'clearMediaCollection')) {
+            $model->clearMediaCollection('image');
+        }
     }
 }

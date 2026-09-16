@@ -82,6 +82,8 @@ return [
         'decimal_places' => 'الخانات العشرية',
         'exchange_rate' => 'سعر الصرف',
         'status' => 'الحالة',
+        'service_category_ids' => 'الخدمات',
+        'service_category_ids.*' => 'الخدمة',
         'translations' => 'الترجمات',
         'translations.*.locale' => 'اللغة',
         'translations.*.name' => 'الاسم',

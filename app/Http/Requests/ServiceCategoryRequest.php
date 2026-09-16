@@ -2,20 +2,14 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\HasCatalogRules;
+use App\Repositories\LanguageRepository;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class ServiceCategoryRequest extends FormRequest
 {
-    /**
-     * The base_model values known to the platform's service pipelines.
-     *
-     * @var list<string>
-     */
-    public const BASE_MODELS = [
-        'chat', 'trip', 'booking', 'order', 'delivery', 'service_request',
-        'on_demand', 'appointment', 'ticket', 'project',
-    ];
+    use HasCatalogRules;
 
     public function authorize(): bool
     {
@@ -25,8 +19,9 @@ class ServiceCategoryRequest extends FormRequest
     protected function prepareForValidation(): void
     {
         $this->merge([
-            'requires_provider' => filter_var($this->input('requires_provider', true), FILTER_VALIDATE_BOOLEAN),
+            'requires_provider' => filter_var($this->input('requires_provider', false), FILTER_VALIDATE_BOOLEAN),
             'status' => filter_var($this->input('status', true), FILTER_VALIDATE_BOOLEAN),
+            'remove_image' => filter_var($this->input('remove_image', false), FILTER_VALIDATE_BOOLEAN),
         ]);
     }
 
@@ -38,14 +33,11 @@ class ServiceCategoryRequest extends FormRequest
         $categoryId = $this->route('service_category');
 
         return match ($this->route()->getActionMethod()) {
-            'changeStatus' => [
-                'status' => ['required', 'boolean'],
-            ],
-            'deleteMultiple' => [
-                'ids' => ['required', 'array', 'min:1'],
-                'ids.*' => ['required', 'integer', 'distinct', 'exists:service_categories,id'],
-            ],
-            default => $this->baseRules($categoryId),
+            'store' => array_merge($this->baseRules($categoryId), $this->translationRules()),
+            'update' => array_merge($this->baseRules($categoryId), $this->translationRules()),
+            'changeStatus' => $this->statusChangeRules(),
+            'deleteMultiple' => $this->deleteMultipleRules('service_categories'),
+            default => [],
         };
     }
 
@@ -59,24 +51,45 @@ class ServiceCategoryRequest extends FormRequest
                 'nullable',
                 'integer',
                 Rule::exists('service_categories', 'id'),
-                Rule::notIn([$categoryId]),
+                Rule::notIn(array_filter([(int) $categoryId])),
             ],
-            'name_ar' => ['required', 'string', 'max:255'],
-            'name_en' => ['nullable', 'string', 'max:255'],
-            'slug' => [
-                'required',
-                'string',
-                'max:255',
-                'alpha_dash',
-                Rule::unique('service_categories', 'slug')->ignore($categoryId),
-            ],
-            'icon' => ['nullable', 'string', 'max:255'],
-            'department' => ['nullable', 'string', 'max:255'],
-            'base_model' => ['nullable', 'string', Rule::in(self::BASE_MODELS)],
-            'requires_provider' => ['boolean'],
-            'provider_type_label' => ['nullable', 'string', 'max:255'],
-            'status' => ['boolean'],
+            'requires_provider' => ['nullable', 'boolean'],
+            'status' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp,svg', 'max:2048'],
+            'remove_image' => ['nullable', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function translationRules(): array
+    {
+        $min = max(count(LanguageRepository::storableLocaleCodes()), 1);
+
+        return [
+            'translations' => ['required', 'array', 'min:'.$min],
+            'translations.*.locale' => ['required', 'string', 'max:10'],
+            'translations.*.name' => ['required', 'string', 'min:2', 'max:100'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'parent_id' => __('validation.attributes.parent_id'),
+            'requires_provider' => __('validation.attributes.requires_provider'),
+            'status' => __('validation.attributes.status'),
+            'sort_order' => __('validation.attributes.sort_order'),
+            'image' => __('validation.attributes.image'),
+            'remove_image' => __('validation.attributes.remove_image'),
+            'translations' => __('validation.attributes.translations'),
+            'translations.*.locale' => __('validation.attributes.translations.*.locale'),
+            'translations.*.name' => __('validation.attributes.translations.*.name'),
         ];
     }
 }
