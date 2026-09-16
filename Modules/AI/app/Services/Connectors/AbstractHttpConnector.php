@@ -21,6 +21,12 @@ abstract class AbstractHttpConnector implements AiConnector
      */
     abstract public function testConnection(AiProvider $provider): array;
 
+    /**
+     * @param  list<array{role: string, content: string}>  $messages
+     * @return array{success: bool, message: string, content: ?string}
+     */
+    abstract public function sendChat(AiProvider $provider, array $messages): array;
+
     protected function baseUrl(AiProvider $provider): string
     {
         $baseUrl = $provider->base_url ?: config("ai.providers.{$this->providerKey()}.base_url") ?: $this->defaultBaseUrl();
@@ -38,17 +44,23 @@ abstract class AbstractHttpConnector implements AiConnector
      */
     protected function success(string $message, array $models = []): array
     {
-        return ['success' => true, 'message' => $message, 'models' => $models];
+        return ['success' => true, 'message' => $message, 'models' => $models, 'content' => null];
     }
 
     protected function failure(string $message): array
     {
-        return ['success' => false, 'message' => $message, 'models' => []];
+        return ['success' => false, 'message' => $message, 'models' => [], 'content' => null];
+    }
+
+    protected function chatReply(string $content): array
+    {
+        return ['success' => true, 'message' => '', 'models' => [], 'content' => $content];
     }
 
     /**
      * Run the given callback and normalize connection-level exceptions into
-     * a failed test result instead of letting them bubble up.
+     * a failed result instead of letting them bubble up. Shared by
+     * testConnection() and sendChat() implementations.
      */
     protected function attempt(callable $callback): array
     {

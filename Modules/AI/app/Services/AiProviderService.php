@@ -14,7 +14,7 @@ class AiProviderService
 {
     public function __construct(
         protected AiProviderRepository $repository,
-        protected AiConnectionTester $tester,
+        protected AiGateway $gateway,
     ) {}
 
     public function list(): JsonResponse
@@ -37,8 +37,27 @@ class AiProviderService
         $payload = $this->buildUpdatePayload($provider, $data);
 
         $this->assertEnableIsPossible($provider, $payload);
+        $this->clearDefaultIfNoLongerUsable($provider, $payload);
 
         $provider = $this->repository->updateByKey($key, $payload);
+
+        return ApiResponse::success(
+            new AiProviderResource($provider),
+            __('api.updated'),
+        );
+    }
+
+    public function setDefault(string $key): JsonResponse
+    {
+        $provider = $this->repository->findByKey($key);
+
+        if (! $provider->isUsableForChat()) {
+            throw ValidationException::withMessages([
+                'is_default' => [__('ai.default_requires_enabled_and_key')],
+            ]);
+        }
+
+        $provider = $this->repository->setDefault($key);
 
         return ApiResponse::success(
             new AiProviderResource($provider),
@@ -49,7 +68,7 @@ class AiProviderService
     public function testConnection(string $key): JsonResponse
     {
         $provider = $this->repository->findByKey($key);
-        $result = $this->tester->test($provider);
+        $result = $this->gateway->test($provider);
 
         $updates = [
             'last_test_status' => $result['success'] ? 'success' : 'failed',
@@ -103,6 +122,29 @@ class AiProviderService
         }
 
         return $payload;
+    }
+
+    /**
+     * If this update turns the provider off or clears its key while it was
+     * the chat default, drop the default flag too - a disabled provider
+     * should never keep silently pointing the chat at itself.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    protected function clearDefaultIfNoLongerUsable(AiProvider $provider, array &$payload): void
+    {
+        if (! $provider->is_default) {
+            return;
+        }
+
+        $willBeEnabled = $payload['is_enabled'] ?? $provider->is_enabled;
+        $willHaveApiKey = array_key_exists('api_key', $payload)
+            ? filled($payload['api_key'])
+            : $provider->hasApiKey();
+
+        if (! $willBeEnabled || ! $willHaveApiKey) {
+            $payload['is_default'] = false;
+        }
     }
 
     /**

@@ -15,6 +15,10 @@
                         >
                             {{ provider.has_free_tier ? t('ai_settings.pricing.free') : t('ai_settings.pricing.paid') }}
                         </span>
+                        <span v-if="provider.is_default" class="badge bg-primary-transparent fs-11">
+                            <i class="ri-star-fill align-middle"></i>
+                            {{ t('ai_settings.default_badge') }}
+                        </span>
                     </div>
                     <a
                         v-if="provider.docs_url"
@@ -225,6 +229,18 @@
 
                     <div class="d-flex align-items-center gap-2">
                         <button
+                            v-if="!provider.is_default"
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm btn-wave"
+                            :disabled="settingDefault || !provider.is_enabled || !provider.has_api_key"
+                            :title="(!provider.is_enabled || !provider.has_api_key) ? t('ai_settings.set_default_disabled_hint') : ''"
+                            @click="setDefault"
+                        >
+                            <span v-if="settingDefault" class="spinner-border spinner-border-sm me-1"></span>
+                            <i v-else class="ri-star-line me-1 align-middle"></i>
+                            {{ settingDefault ? t('ai_settings.setting_default') : t('ai_settings.set_default') }}
+                        </button>
+                        <button
                             type="button"
                             class="btn btn-outline-primary btn-sm btn-wave"
                             :disabled="testingConnection || !provider.has_api_key"
@@ -258,7 +274,7 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['updated']);
+const emit = defineEmits(['updated', 'refresh-all']);
 
 const { t, locale } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
@@ -290,6 +306,7 @@ const advancedOpen = ref(false);
 const savingSettings = ref(false);
 const togglingEnabled = ref(false);
 const testingConnection = ref(false);
+const settingDefault = ref(false);
 const errors = reactive({});
 
 function flattenModels(groupedModels) {
@@ -462,6 +479,22 @@ async function saveSettings() {
     }
 
     await persist(buildPayload(), { loadingRef: savingSettings });
+}
+
+async function setDefault() {
+    settingDefault.value = true;
+
+    try {
+        const response = await adminAxios.post(`/api/admin/v1/ai-providers/${props.provider.key}/set-default`);
+        // Other cards may have just lost their own default flag server-side,
+        // so the parent needs to reload everyone, not just this card.
+        emit('refresh-all');
+        showSuccess(extractApiMessage(response, t('ai_settings.saved')));
+    } catch (error) {
+        showError(extractApiErrorMessage(error, t('toast.error')));
+    } finally {
+        settingDefault.value = false;
+    }
 }
 
 async function testConnection() {
