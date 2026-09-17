@@ -100,5 +100,9 @@ return [
         'favicon_32' => 'أيقونة 32×32',
         'apple_touch_icon' => 'أيقونة Apple Touch',
         'web_manifest' => 'Web manifest',
+        'slug' => 'المعرّف',
+        'path' => 'المسار',
+        'sort_order' => 'الترتيب',
+        'preview_image' => 'صورة المعاينة',
     ],
 ];

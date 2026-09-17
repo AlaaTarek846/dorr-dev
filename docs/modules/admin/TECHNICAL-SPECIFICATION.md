@@ -22,9 +22,9 @@ Similar to User/Provider module CRUD (not using Catalog base).
 
 ## Cross-Module Dependencies
 
-- `Modules\Admin\routes\admin.php` imports:
-  - `App\Http\Controllers\General\*` (catalog)
-  - `Modules\User\Http\Controllers\UserController` (user management)
+- `Modules\Admin\routes\admin.php` requires:
+  - `routes/admin.php` — `App\Http\Controllers\General\*` (catalog + platform settings)
+  - Admin auth/profile + `AdminController` + `UserController` (user management)
 - Branding uses General repositories in `routes/web.php`
 
 ## Frontend Routes

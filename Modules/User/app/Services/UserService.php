@@ -18,21 +18,6 @@ class UserService extends BaseService
         parent::__construct($repository);
     }
 
-    /**
-     * @param  list<int|string>  $ids
-     */
-    public function deleteMultiple(array $ids, ?string $message = null): JsonResponse
-    {
-        /** @var UserRepository $repository */
-        $repository = $this->repository;
-        $deleted = $repository->deleteMultiple($ids);
-
-        return ApiResponse::success(
-            ['deleted' => $deleted],
-            $message ?? __('api.deleted'),
-        );
-    }
-
     public function changeStatus(int|string $id, UserStatus $status, ?string $message = null): JsonResponse
     {
         /** @var UserRepository $repository */

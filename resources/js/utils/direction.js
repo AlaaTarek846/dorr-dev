@@ -1,5 +1,5 @@
-export const BOOTSTRAP_LTR = '/dashboard/assets/libs/bootstrap/css/bootstrap.min.css';
-export const BOOTSTRAP_RTL = '/dashboard/assets/libs/bootstrap/css/bootstrap.rtl.min.css';
+export const BOOTSTRAP_LTR = '/dashboard/themes/theme-1/assets/libs/bootstrap/css/bootstrap.min.css';
+export const BOOTSTRAP_RTL = '/dashboard/themes/theme-1/assets/libs/bootstrap/css/bootstrap.rtl.min.css';
 const LOCALE_KEY = 'admin_locale';
 const DIRECTION_KEY = 'admin_direction';
 

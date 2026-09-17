@@ -1,5 +1,7 @@
 # API Specification
 
+**Last updated:** 2026-09-17
+
 > Base URL: relative `/api` (same origin).  
 > All documented endpoints **exist in route files** as of documentation date.
 
@@ -14,8 +16,8 @@
 | `Accept` | All | `application/json` |
 | `Content-Type` | JSON bodies | `application/json` |
 | `Authorization` | Authenticated routes | `Bearer {token}` |
-| `X-Locale` | All admin/v1, user/v1 | `ar` or `en` |
-| `Accept-Language` | User client also sends | locale code |
+| `X-Locale` | All admin/v1, user/v1, provider/v1 | `ar` or `en` |
+| `Accept-Language` | User/Provider clients also send | locale code |
 
 ### Response Envelope (Success)
 
@@ -59,6 +61,7 @@ List endpoints accept pagination/search params via `allOrPaginate()` helper (see
 |-------|------------|----------|
 | `admin_api` | `auth:admin_api` | Admin token |
 | `user_api` | `auth:user_api` | User token |
+| `provider_api` | `auth:provider_api` | Provider token |
 | `sanctum` | `auth:sanctum` | Root stub route only |
 
 ---
@@ -191,32 +194,38 @@ Middleware: `locale`, `auth:admin_api`
 
 ## Provider Portal API — `/api/provider/v1`
 
-Middleware: `locale` on group.
+Middleware: `locale` on group; `guest:provider_api` or `auth:provider_api` on subgroups.
+
+Module routes: `Modules/Provider/routes/dashboard.php`.
 
 ### Guest
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/login` | Provider login |
+| POST | `/login` | Provider login → Sanctum token |
 | POST | `/check-token` | Token validation |
-| POST | `/register` | Start registration |
+| POST | `/register` | Start registration → flow_token |
 | POST | `/verify-email` | OTP verification |
 | POST | `/resend-verification` | Resend OTP |
 | POST | `/create-password` | Set password after verification |
-| POST | `/forgot-password` | Request reset |
+| POST | `/forgot-password` | Request reset (email link → `/provider/reset-password`) |
 | POST | `/reset-password` | Complete reset |
+
+Guest routes return JSON 403 if already authenticated (`RedirectIfAuthenticated` + `api/provider/*`).
 
 ### Authenticated
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/countries/dropdown` | Countries dropdown |
+| GET | `/countries/dropdown` | Countries dropdown (shared General controller) |
 | GET | `/me` | Current provider |
-| POST | `/logout` | Logout |
+| POST | `/logout` | Revoke token |
 | POST | `/profile` | Update profile |
 | PUT | `/profile/password` | Change password |
 
-**Provider payload** (login, check-token, me) includes `services[]` (provider_services rows with `service_category_id` + nested `category.name` from translations), used by the provider header service dropdown and sidebar.
+**Provider payload** (login, check-token, me) includes `services[]` via `ProviderServiceResource` — used by provider header service dropdown and sidebar.
+
+**Not available:** `/api/provider/v1/ai-chat/*` (User-only).
 
 ---
 
@@ -269,8 +278,13 @@ Middleware: `locale`, `auth:user_api`
 | GET | `/` | Welcome page |
 | GET | `/admin/{any?}` | Admin SPA shell |
 | GET | `/user/{any?}` | User SPA shell |
-| GET | `/auth/user/{provider}/redirect` | OAuth redirect (google, apple) |
-| GET | `/auth/user/{provider}/callback` | OAuth callback |
+| GET | `/provider/{any?}` | Provider SPA shell |
+| GET | `/auth/user/{provider}/redirect` | User OAuth redirect (google, apple) |
+| GET | `/auth/user/{provider}/callback` | **Shared OAuth callback** (Google/Apple redirect URI); session `social_auth_panel` routes to User or Provider handler |
+| GET | `/auth/provider/{provider}/redirect` | Provider OAuth redirect (sets `social_auth_panel=provider`) |
+| GET | `/auth/provider/{provider}/callback` | Provider OAuth callback (alternate; production uses user callback URI) |
+
+OAuth SPA landing routes: `/user/oauth/callback`, `/provider/oauth/callback`.
 
 ---
 
@@ -301,7 +315,7 @@ Partial public data today:
 ## Permissions
 
 **No endpoint-level permission names enforced.**  
-Any valid admin token accesses all admin routes; any valid user token accesses all user routes.
+Any valid admin token accesses all admin routes; any valid user token accesses all user routes; any valid provider token accesses all provider routes.
 
 **NEEDS-DECISION:** Future permission matrix.
 

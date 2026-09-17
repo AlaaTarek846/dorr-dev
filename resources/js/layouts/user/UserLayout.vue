@@ -1,7 +1,7 @@
 <template>
     <div class="page">
         <div id="loader">
-            <img src="/dashboard/assets/images/media/loader.svg" alt="">
+            <img src="/dashboard/themes/theme-1/assets/images/media/loader.svg" alt="">
         </div>
 
         <ThemeSwitcher />

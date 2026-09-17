@@ -24,6 +24,7 @@ return new class extends Migration
             $table->foreignId('currency_id')->constrained('currencies')->comment('العملة');
             $table->boolean('status')->default(Status::Active->value)->comment('الحالة');
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('country_translations', function (Blueprint $table) {

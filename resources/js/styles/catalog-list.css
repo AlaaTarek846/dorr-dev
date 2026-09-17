@@ -2,6 +2,10 @@
     flex-wrap: wrap;
 }
 
+.catalog-toolbar-actions {
+    flex-shrink: 0;
+}
+
 .catalog-toolbar-search {
     width: 210px;
     max-width: 210px;
@@ -56,12 +60,12 @@
 
 .catalog-status-toggle.toggle span::before,
 .catalog-modal-toggle.toggle span::before {
-    content: "نشط";
+    content: var(--catalog-toggle-active-label, "Active");
 }
 
 .catalog-status-toggle.toggle span::after,
 .catalog-modal-toggle.toggle span::after {
-    content: "غير نشط";
+    content: var(--catalog-toggle-inactive-label, "Inactive");
 }
 
 .catalog-status-toggle.toggle:not(.on),
@@ -139,6 +143,18 @@
     background-color: #f3f6f8;
     border-color: #dee2e6;
     color: #6c757d;
+}
+
+.catalog-filter-btn--deleted {
+    background-color: #e6533c;
+    border-color: #e6533c;
+    color: #fff;
+}
+
+.catalog-filter-btn--deleted-idle {
+    background-color: rgba(230, 83, 60, 0.12);
+    border-color: rgba(230, 83, 60, 0.35);
+    color: #e6533c;
 }
 
 .catalog-bool-badge {

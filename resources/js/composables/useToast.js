@@ -9,6 +9,28 @@ export function extractApiErrorMessage(error, fallback = '') {
     return error?.response?.data?.message || fallback;
 }
 
+/**
+ * Pick toast type for bulk delete responses.
+ *
+ * @returns {{ type: 'success' | 'warning' | 'danger', message: string }}
+ */
+export function resolveBulkDeleteFeedback(response, fallback = '') {
+    const data = response?.data?.data ?? {};
+    const deleted = Number(data.deleted ?? 0);
+    const skipped = Number(data.skipped ?? 0);
+    const message = extractApiMessage(response, fallback);
+
+    if (deleted > 0 && skipped > 0) {
+        return { type: 'warning', message };
+    }
+
+    if (deleted > 0) {
+        return { type: 'success', message };
+    }
+
+    return { type: 'danger', message };
+}
+
 export default function useToast() {
     const store = useToastStore();
     const { t } = useI18n();

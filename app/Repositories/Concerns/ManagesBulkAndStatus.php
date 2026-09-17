@@ -2,7 +2,10 @@
 
 namespace App\Repositories\Concerns;
 
+use App\Exceptions\ConflictException;
+use App\Support\BulkDelete\BulkDeleteResult;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -11,18 +14,31 @@ trait ManagesBulkAndStatus
     /**
      * @param  list<int|string>  $ids
      */
-    public function deleteMultiple(array $ids): int
+    public function deleteMultiple(array $ids): BulkDeleteResult
     {
         return DB::transaction(function () use ($ids) {
-            $deleted = 0;
+            $result = new BulkDeleteResult;
 
             foreach ($ids as $id) {
-                if ($this->destroy($id, $this->deleteBlockRelations ?? [])) {
-                    $deleted++;
+                try {
+                    if ($this->destroy($id, $this->deleteBlockRelations)) {
+                        $result->deleted++;
+                    }
+                } catch (ConflictException $exception) {
+                    $result->addSkipped(
+                        $id,
+                        $exception->reason ?? 'conflict',
+                        $exception->getMessage(),
+                        isset($exception->context['relation'])
+                            ? (string) $exception->context['relation']
+                            : null,
+                    );
+                } catch (ModelNotFoundException) {
+                    $result->addSkipped($id, 'not_found', __('api.not_found'));
                 }
             }
 
-            return $deleted;
+            return $result;
         });
     }
 

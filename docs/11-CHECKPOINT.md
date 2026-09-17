@@ -7,8 +7,8 @@
 
 ## Current Phase
 
-**Foundation + Admin/User platforms operational.**  
-Documentation system established. Public website and permission system not implemented.
+**Foundation + Admin / User / Provider platforms operational.**  
+Three dashboard SPAs (Admin, User, Provider). Documentation system established. Public website and permission system not implemented.
 
 ---
 
@@ -17,16 +17,19 @@ Documentation system established. Public website and permission system not imple
 ### Backend
 - Laravel 12 monolith with 4 modules (Admin, User, AI, Provider)
 - Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, PlatformSetting)
-- Sanctum auth with `admin_api` and `user_api` guards
+- Sanctum auth with `admin_api`, `user_api`, and `provider_api` guards
 - Standard API response envelope
 - Translation-based catalog pattern
 - AI gateway with multiple providers
 - Provider profiles with service category linkage
+- Provider dashboard API: `/api/provider/v1/*` (auth, registration, profile, password reset)
+- Provider OAuth web routes + shared Google/Apple callback via `social_auth_panel` session
 
 ### Frontend
 - Admin SPA: full catalog CRUD, users, providers, AI settings, platform settings
 - User SPA: auth flows, profile, AI chat
-- i18n: Arabic + English
+- **Provider SPA:** auth flows (mirrors User), dashboard, profile, service header/sidebar — **no AI chat**
+- i18n: Arabic + English (`provider_dashboard.*` for provider portal)
 - Pinia stores, composable-based CRUD
 
 ### Documentation
@@ -37,12 +40,11 @@ Documentation system established. Public website and permission system not imple
 
 ## Current Work
 
-- Provider header service dropdown (middle) lists provider services with category image, first = default; selection persisted to `localStorage` (`provider_selected_service_id`) and survives refresh; `ProviderServiceResource` now exposes `category.module_name`.
-- Provider sidebar renders per-service links keyed by `category.module_name` — deterministic rotating mock subset (4 of 12 link labels; Overview/Bookings/Reports/Orders/Trips/Scheduled/Drivers/Vehicles/Payments/Invoices/Settings/Support). Add `provider_services.links.*` keys to both locales.
-- Provider login/check-token/me responses include `services[]` (nested `category.name` + translations) via `ProviderServiceResource`; consumed by `providerServiceSelection` store (`resources/js/stores/providerServiceSelection.js`).
-- Provider modal forms upgraded to PrimeVue `Select`/`TreeSelect`; services tree (`/service-categories/tree-options`) with parent nodes non-selectable
-- `service_categories` extended with `module_name` (unique, nullable), `is_login_dashboard` (default true), `is_auto_assign` (default false) — migration + seeder + admin CRUD UI done
-- Documentation system (this checkpoint created with initial docs)
+- Provider dashboard SPA **implemented** (2026-09-17) — see `docs/modules/provider/CHANGELOG.md`
+- Provider header service dropdown + sidebar links from `services[]` / `category.module_name` (sidebar uses placeholder links until per-module routes exist)
+- Admin provider modal: PrimeVue `Select`/`TreeSelect`; service categories tree (`/service-categories/tree-options`)
+- `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
+- Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
 - **UNKNOWN:** No other active work tracked in repo
 
 ---
