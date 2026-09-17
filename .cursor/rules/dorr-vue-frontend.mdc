@@ -1,0 +1,36 @@
+---
+description: Dorr Vue 3 frontend conventions (admin + user SPAs)
+globs: "resources/js/**/*.{js,vue}"
+alwaysApply: false
+---
+
+# Dorr Frontend Standards
+
+Full guide: `docs/16-STYLEGUIDE.md`
+
+## Two SPAs
+
+| SPA | Entry | Axios | Router base |
+|-----|-------|-------|-------------|
+| Admin | `app.js` | `adminAxios` | `/admin` |
+| User | `user-app.js` | `userAxios` | `/user` |
+
+Never mix axios clients or token keys (`admin_token` vs `user_token`).
+
+## Admin CRUD pages
+
+Reuse `composables/crudStructure.js` + entity composable (`useCountries`, etc.) + Pinia count store.
+
+Pattern: `views/{entity}/index.vue` + `ModalCreateAndUpdate.vue`.
+
+## Forms
+
+- Admin modals: Vuelidate via `useValidation.js`
+- All UI strings: `$t()` / `t()` in **both** `locales/ar.json` and `locales/en.json`
+
+## Do not
+
+- Add hardcoded Arabic/English strings in templates
+- Duplicate CRUD logic outside `crudStructure`
+- Use PrimeVue in user SPA (`user-main.js` has no PrimeVue)
+- Create `resources/js/modules/website/` without approved plan (NEEDS-DECISION)

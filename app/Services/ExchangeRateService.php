@@ -3,7 +3,7 @@
 namespace App\Services;
 
 use App\Models\Currency;
-use App\Repositories\CurrencyRepository;
+use App\Repositories\General\CurrencyRepository;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
