@@ -37,6 +37,8 @@ class ProviderAuthController extends Controller
 
         $provider->tokens()->delete();
 
+        $provider->load('services.category.translations');
+
         $token = $provider->createToken('provider-api')->plainTextToken;
 
         return ApiResponse::success([
@@ -57,7 +59,7 @@ class ProviderAuthController extends Controller
     {
         /** @var Provider $provider */
         $provider = request()->user('provider_api');
-        $provider->load(['country.flag']);
+        $provider->load(['country.flag', 'services.category.translations']);
 
         return ApiResponse::success(
             new ProviderResource($provider),
@@ -95,7 +97,10 @@ class ProviderAuthController extends Controller
             'access_token' => $token,
             'token_type' => 'Bearer',
             'valid' => true,
-            'provider' => new ProviderResource($provider->load(['country.flag'])),
+            'provider' => new ProviderResource($provider->load([
+                'country.flag',
+                'services.category.translations',
+            ])),
         ], __('api.token_valid'));
     }
 }

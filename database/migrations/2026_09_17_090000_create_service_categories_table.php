@@ -19,6 +19,9 @@ return new class extends Migration
             $table->boolean('requires_provider')->default(false)->comment('يتطلب الموفر');
             $table->boolean('status')->default(Status::Active->value)->comment('الحالة');
             $table->unsignedInteger('sort_order')->default(0)->comment('ترتيب الفئة الخدمية');
+            $table->string('module_name')->nullable()->unique()->comment('اسم الوحدة المرتبطة بالخدمة');
+            $table->boolean('is_login_dashboard')->default(true)->comment('ظهور الخدمة في لوحة الدخول');
+            $table->boolean('is_auto_assign')->default(false)->comment('الإسناد التلقائي');
             $table->timestamps();
         });
 

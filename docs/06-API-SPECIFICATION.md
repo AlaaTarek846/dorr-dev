@@ -152,7 +152,9 @@ Applies to: **flags**, **languages**, **currencies**, **countries**, **service-c
 |----------|--------|----------|
 | currencies | POST | `/currencies/sync-exchange-rates` |
 | service-categories | GET | `/service-categories/tree` |
+| service-categories | GET | `/service-categories/tree-options` (PrimeVue TreeSelect format; parents `selectable: false`) |
 | service-categories | GET | `/service-categories/leaf-options` |
+| service-categories | GET | `/service-categories/dropdown?parent_id=null` (parents only) |
 
 **Controllers:** `App\Http\Controllers\General\{Entity}Controller`  
 **Validation:** `App\Http\Requests\General\{Entity}Request`  
@@ -184,6 +186,37 @@ Middleware: `locale`, `auth:admin_api`
 | POST | `/{provider}/set-default` | Set as default |
 
 `{provider}` ∈ `openai`, `anthropic`, `google`, `groq` (AiProviderKey enum).
+
+---
+
+## Provider Portal API — `/api/provider/v1`
+
+Middleware: `locale` on group.
+
+### Guest
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/login` | Provider login |
+| POST | `/check-token` | Token validation |
+| POST | `/register` | Start registration |
+| POST | `/verify-email` | OTP verification |
+| POST | `/resend-verification` | Resend OTP |
+| POST | `/create-password` | Set password after verification |
+| POST | `/forgot-password` | Request reset |
+| POST | `/reset-password` | Complete reset |
+
+### Authenticated
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/countries/dropdown` | Countries dropdown |
+| GET | `/me` | Current provider |
+| POST | `/logout` | Logout |
+| POST | `/profile` | Update profile |
+| PUT | `/profile/password` | Change password |
+
+**Provider payload** (login, check-token, me) includes `services[]` (provider_services rows with `service_category_id` + nested `category.name` from translations), used by the provider header service dropdown and sidebar.
 
 ---
 

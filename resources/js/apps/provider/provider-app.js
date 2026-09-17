@@ -1,18 +1,18 @@
-import './bootstrap';
+import '../../bootstrap';
 
 import { createApp } from 'vue';
 import { createPinia } from 'pinia';
-import UserApp from './UserApp.vue';
-import router from './router/user-index';
-import i18n, { setI18nLocale } from './plugins/i18n';
+import ProviderApp from './ProviderApp.vue';
+import router from '../../router/provider-index';
+import i18n, { setI18nLocale } from '../../plugins/i18n';
 import {
     applyDocumentDirection,
     getStoredDirection,
     hasStoredLocalePreference,
     resolveInitialLocale,
-} from './utils/direction';
-import './api/userAxios';
-import './styles/catalog-list.css';
+} from '../../utils/direction';
+import '../../api/providerAxios';
+import '../../styles/catalog-list.css';
 
 applyDocumentDirection(
     getStoredDirection(),
@@ -20,7 +20,7 @@ applyDocumentDirection(
     hasStoredLocalePreference(),
 );
 
-const app = createApp(UserApp);
+const app = createApp(ProviderApp);
 const pinia = createPinia();
 
 app.use(pinia);
@@ -32,7 +32,6 @@ setI18nLocale(resolveInitialLocale());
 const mountEl = document.getElementById('app');
 
 if (mountEl) {
-    document.documentElement.classList.add('user-app-ready');
+    document.documentElement.classList.add('provider-app-ready');
     app.mount(mountEl);
 }
-

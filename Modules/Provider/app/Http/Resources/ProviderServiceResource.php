@@ -17,6 +17,7 @@ class ProviderServiceResource extends JsonResource
             'service_category_id' => $this->service_category_id,
             'category' => $this->whenLoaded('category', fn () => $this->category ? [
                 'id' => $this->category->id,
+                'module_name' => $this->category->module_name,
                 'name' => $this->category->translatedName(),
                 'requires_provider' => (bool) $this->category->requires_provider,
                 'image' => $this->category->getSingleMediaUrl('image') ?: null,

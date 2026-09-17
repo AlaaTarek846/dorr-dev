@@ -19,7 +19,7 @@ Tables managed by General module logic:
 - `country_translations`: country_id, locale, name
 
 ## service_categories / service_category_translations
-- `service_categories`: parent_id, requires_provider, status, sort_order
+- `service_categories`: parent_id, module_name (unique, nullable), is_login_dashboard, is_auto_assign, requires_provider, status, sort_order
 - `service_category_translations`: service_category_id, locale, name
 
 ## platform_settings
