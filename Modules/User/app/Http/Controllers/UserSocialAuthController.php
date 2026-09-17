@@ -12,6 +12,7 @@ use App\Services\Auth\VerificationCodeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
+use Modules\Provider\Http\Controllers\ProviderSocialAuthController;
 use Modules\User\Models\User;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
@@ -28,11 +29,17 @@ class UserSocialAuthController extends Controller
     {
         $driver = $this->resolveProvider($provider);
 
+        session(['social_auth_panel' => 'user']);
+
         return Socialite::driver($driver)->redirect();
     }
 
     public function callback(string $provider): RedirectResponse
     {
+        if (session()->pull('social_auth_panel') === 'provider') {
+            return app(ProviderSocialAuthController::class)->callback($provider);
+        }
+
         $driver = $this->resolveProvider($provider);
 
         try {

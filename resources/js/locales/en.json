@@ -102,6 +102,11 @@
         "welcome": "Welcome, {name}!",
         "description": "Manage your account details and password from your profile page."
     },
+    "provider_dashboard": {
+        "subtitle": "Your provider dashboard.",
+        "welcome": "Welcome, {name}!",
+        "description": "Manage your account details and password from your profile page."
+    },
     "users": {
         "title": "Users",
         "add": "Add User",
