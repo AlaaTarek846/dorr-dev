@@ -2,9 +2,10 @@
 
 namespace App\Services\General;
 
-use App\Services\CatalogService;
 use App\Http\Resources\General\ServiceCategoryResource;
+use App\Http\Resources\General\ServiceCategoryTreeResource;
 use App\Repositories\General\ServiceCategoryRepository;
+use App\Services\CatalogService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\JsonResponse;
@@ -51,6 +52,17 @@ class ServiceCategoryService extends CatalogService
         ])->values();
 
         return ApiResponse::success($options, __('api.retrieved'));
+    }
+
+    public function treeOptions(): JsonResponse
+    {
+        /** @var ServiceCategoryRepository $repository */
+        $repository = $this->repository;
+
+        return ApiResponse::success(
+            ServiceCategoryTreeResource::collection($repository->treeOptions()),
+            __('api.retrieved'),
+        );
     }
 
     protected function beforeStore(array $data): array

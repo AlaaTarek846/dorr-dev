@@ -39,6 +39,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::apiResource('users', UserController::class);
 
         Route::get('service-categories/tree', [ServiceCategoryController::class, 'tree']);
+        Route::get('service-categories/tree-options', [ServiceCategoryController::class, 'treeOptions']);
         Route::get('service-categories/leaf-options', [ServiceCategoryController::class, 'leafOptions']);
 
         foreach ([

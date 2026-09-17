@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import providerRoutes from '../modules/provider/routes';
 import { setupGuards } from './guards';
 import '../layouts/AuthLayout.vue';
-import '../layouts/ProviderLayout.vue';
+import '../layouts/provider/ProviderLayout.vue';
 
 const router = createRouter({
     history: createWebHistory('/provider'),
