@@ -107,6 +107,24 @@
         "welcome": "مرحباً، {name}!",
         "description": "يمكنك إدارة بيانات حسابك وكلمة المرور من صفحة الملف الشخصي."
     },
+    "provider_services": {
+        "select_service": "اختر خدمة",
+        "empty": "لا توجد خدمات معتمدة",
+        "links": {
+            "overview": "نظرة عامة",
+            "bookings": "الحجوزات",
+            "reports": "التقارير",
+            "orders": "الطلبات",
+            "trips": "الرحلات",
+            "scheduled": "المجدولة",
+            "drivers": "السائقون",
+            "vehicles": "المركبات",
+            "payments": "المدفوعات",
+            "invoices": "الفواتير",
+            "settings": "الإعدادات",
+            "support": "الدعم"
+        }
+    },
     "users": {
         "title": "المستخدمون",
         "add": "إضافة مستخدم",
@@ -587,6 +605,10 @@
         "parent_placeholder": "بدون (تصنيف رئيسي)",
         "no_parent": "بدون",
         "requires_provider": "يحتاج مقدّم خدمة؟",
+        "module_name": "اسم الوحدة",
+        "module_name_placeholder": "مثال: restaurants",
+        "is_login_dashboard": "الظهور في لوحة الدخول",
+        "is_auto_assign": "الإسناد التلقائي",
         "sort_order": "ترتيب العرض",
         "leaf": "خدمة نهائية",
         "has_children": "تصنيف رئيسي",

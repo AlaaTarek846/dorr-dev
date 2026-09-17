@@ -37,6 +37,11 @@ Documentation system established. Public website and permission system not imple
 
 ## Current Work
 
+- Provider header service dropdown (middle) lists provider services with category image, first = default; selection persisted to `localStorage` (`provider_selected_service_id`) and survives refresh; `ProviderServiceResource` now exposes `category.module_name`.
+- Provider sidebar renders per-service links keyed by `category.module_name` — deterministic rotating mock subset (4 of 12 link labels; Overview/Bookings/Reports/Orders/Trips/Scheduled/Drivers/Vehicles/Payments/Invoices/Settings/Support). Add `provider_services.links.*` keys to both locales.
+- Provider login/check-token/me responses include `services[]` (nested `category.name` + translations) via `ProviderServiceResource`; consumed by `providerServiceSelection` store (`resources/js/stores/providerServiceSelection.js`).
+- Provider modal forms upgraded to PrimeVue `Select`/`TreeSelect`; services tree (`/service-categories/tree-options`) with parent nodes non-selectable
+- `service_categories` extended with `module_name` (unique, nullable), `is_login_dashboard` (default true), `is_auto_assign` (default false) — migration + seeder + admin CRUD UI done
 - Documentation system (this checkpoint created with initial docs)
 - **UNKNOWN:** No other active work tracked in repo
 

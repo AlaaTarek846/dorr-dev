@@ -107,6 +107,24 @@
         "welcome": "Welcome, {name}!",
         "description": "Manage your account details and password from your profile page."
     },
+    "provider_services": {
+        "select_service": "Select a service",
+        "empty": "No services assigned",
+        "links": {
+            "overview": "Overview",
+            "bookings": "Bookings",
+            "reports": "Reports",
+            "orders": "Orders",
+            "trips": "Trips",
+            "scheduled": "Scheduled",
+            "drivers": "Drivers",
+            "vehicles": "Vehicles",
+            "payments": "Payments",
+            "invoices": "Invoices",
+            "settings": "Settings",
+            "support": "Support"
+        }
+    },
     "users": {
         "title": "Users",
         "add": "Add User",
@@ -587,6 +605,10 @@
         "parent_placeholder": "None (top-level category)",
         "no_parent": "None",
         "requires_provider": "Requires a provider?",
+        "module_name": "Module name",
+        "module_name_placeholder": "e.g. restaurants",
+        "is_login_dashboard": "Login dashboard",
+        "is_auto_assign": "Auto assign",
         "sort_order": "Sort order",
         "leaf": "Leaf service",
         "has_children": "Parent category",

@@ -23,6 +23,11 @@ class ServiceCategoryController extends CatalogController
         return $this->service->leafOptions();
     }
 
+    public function treeOptions()
+    {
+        return $this->service->treeOptions();
+    }
+
     public function store(ServiceCategoryRequest $request)
     {
         return $this->service->create($request->validated());

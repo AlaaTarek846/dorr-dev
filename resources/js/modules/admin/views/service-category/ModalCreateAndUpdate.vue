@@ -111,8 +111,30 @@
                             />
                         </div>
 
+                        <div class="mb-3">
+                            <label for="category-module-name" class="form-label">{{ t('service_categories.module_name') }}</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="ri-apps-2-line"></i>
+                                </span>
+                                <input
+                                    id="category-module-name"
+                                    v-model="form.module_name"
+                                    type="text"
+                                    maxlength="100"
+                                    class="form-control"
+                                    :class="{ 'is-invalid': serverErrors.module_name?.[0] }"
+                                    :placeholder="t('service_categories.module_name_placeholder')"
+                                >
+                            </div>
+                            <div v-if="serverErrors.module_name?.[0]" class="invalid-feedback d-block">
+                                {{ serverErrors.module_name[0] }}
+                            </div>
+                        </div>
+
                         <div class="row g-3 mb-3">
-                            <div class="col-md-6">
+
+                            <div class="col-md-8">
                                 <label for="category-sort-order" class="form-label">{{ t('service_categories.sort_order') }}</label>
                                 <input
                                     id="category-sort-order"
@@ -122,9 +144,7 @@
                                     class="form-control"
                                 >
                             </div>
-                        </div>
 
-                        <div class="row g-3 align-items-end">
                             <div class="col-md-4">
                                 <label class="form-label d-block mb-2">{{ t('service_categories.requires_provider') }}</label>
                                 <div
@@ -139,6 +159,10 @@
                                 </div>
                             </div>
 
+                        </div>
+
+                        <div class="row g-3 mb-3">
+
                             <div class="col-md-4">
                                 <label class="form-label d-block mb-2">{{ t('service_categories.status') }}</label>
                                 <div
@@ -152,6 +176,35 @@
                                     <span></span>
                                 </div>
                             </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label d-block mb-2">{{ t('service_categories.is_login_dashboard') }}</label>
+                                <div
+                                    class="toggle toggle-success mb-0 catalog-modal-toggle"
+                                    :class="{ on: form.is_login_dashboard }"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="form.is_login_dashboard = !form.is_login_dashboard"
+                                    @keydown.enter.space.prevent="form.is_login_dashboard = !form.is_login_dashboard"
+                                >
+                                    <span></span>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <label class="form-label d-block mb-2">{{ t('service_categories.is_auto_assign') }}</label>
+                                <div
+                                    class="toggle toggle-success mb-0 catalog-modal-toggle"
+                                    :class="{ on: form.is_auto_assign }"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="form.is_auto_assign = !form.is_auto_assign"
+                                    @keydown.enter.space.prevent="form.is_auto_assign = !form.is_auto_assign"
+                                >
+                                    <span></span>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -211,6 +264,9 @@ const isEdit = computed(() => props.type === 'edit');
 
 const form = reactive({
     parent_id: null,
+    module_name: '',
+    is_login_dashboard: true,
+    is_auto_assign: false,
     requires_provider: false,
     status: true,
     sort_order: 0,
@@ -325,6 +381,9 @@ function resetValidation() {
 
 function resetForm() {
     form.parent_id = null;
+    form.module_name = '';
+    form.is_login_dashboard = true;
+    form.is_auto_assign = false;
     form.requires_provider = false;
     form.status = true;
     form.sort_order = 0;
@@ -335,6 +394,9 @@ function resetForm() {
 
 function fillForm(record) {
     form.parent_id = record?.parent_id ?? null;
+    form.module_name = record?.module_name ?? '';
+    form.is_login_dashboard = Boolean(record?.is_login_dashboard ?? true);
+    form.is_auto_assign = Boolean(record?.is_auto_assign ?? false);
     form.requires_provider = Boolean(record?.requires_provider ?? false);
     form.status = Boolean(record?.status ?? true);
     form.sort_order = record?.sort_order ?? 0;
@@ -352,6 +414,12 @@ function buildFormData() {
         formData.append('parent_id', String(form.parent_id));
     }
 
+    if (form.module_name) {
+        formData.append('module_name', form.module_name);
+    }
+
+    formData.append('is_login_dashboard', form.is_login_dashboard ? '1' : '0');
+    formData.append('is_auto_assign', form.is_auto_assign ? '1' : '0');
     formData.append('requires_provider', form.requires_provider ? '1' : '0');
     formData.append('status', form.status ? '1' : '0');
     formData.append('sort_order', String(Number(form.sort_order) || 0));
@@ -374,7 +442,7 @@ function buildFormData() {
 
 async function loadParentOptions() {
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/service-categories/dropdown');
+        const { data } = await adminAxios.get('/api/admin/v1/service-categories/dropdown?parent_id=null');
         const options = data.data ?? [];
 
         parentOptions.value = options

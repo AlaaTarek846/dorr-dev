@@ -8,7 +8,7 @@
         <HeaderModals />
 
         <Header />
-        <ProviderSidebar />
+        <UserSidebar />
 
         <div class="main-content app-content">
             <div class="container-fluid">
@@ -28,13 +28,13 @@
 </template>
 
 <script setup>
-import AppToast from '../components/ui/AppToast.vue';
-import Footer from '../components/layout/Footer.vue';
-import Header from '../components/layout/Header.vue';
-import HeaderModals from '../components/layout/HeaderModals.vue';
-import ProviderSidebar from '../components/layout/ProviderSidebar.vue';
-import ThemeSwitcher from '../components/layout/ThemeSwitcher.vue';
-import { useDashboard } from '../composables/useDashboard';
+import AppToast from '../../components/ui/AppToast.vue';
+import Footer from '../../components/layout/Footer.vue';
+import Header from '../../components/layout/user/UserHeader.vue';
+import HeaderModals from '../../components/layout/HeaderModals.vue';
+import UserSidebar from '../../components/layout/user/UserSidebar.vue';
+import ThemeSwitcher from '../../components/layout/ThemeSwitcher.vue';
+import { useDashboard } from '../../composables/useDashboard';
 
 useDashboard();
 </script>

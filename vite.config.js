@@ -8,9 +8,9 @@ export default defineConfig({
         laravel({
             input: [
                 'resources/css/app.css',
-                'resources/js/app.js',
-                'resources/js/user-app.js',
-                'resources/js/provider-app.js',
+                'resources/js/apps/admin/app.js',
+                'resources/js/apps/user/user-app.js',
+                'resources/js/apps/provider/provider-app.js',
             ],
             // Avoid full browser reload on every backend/locale file save during dev.
             refresh: false,
