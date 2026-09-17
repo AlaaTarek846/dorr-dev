@@ -1,4 +1,4 @@
-﻿<template>
+<template>
          <header class="app-header">
 
             <!-- Start::main-header-container -->
@@ -89,7 +89,7 @@
                             <ul class="list-unstyled mb-0" id="header-cart-items-scroll">
                                 <li class="dropdown-item">
                                     <div class="d-flex align-items-start cart-dropdown-item">
-                                        <img src="/dashboard/assets/images/ecommerce/jpg/1.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
+                                        <img src="/dashboard/themes/theme-1/assets/images/ecommerce/jpg/1.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-start justify-content-between mb-0">
                                                 <div class="mb-0 fs-13 text-dark fw-semibold">
@@ -111,7 +111,7 @@
                                 </li>
                                 <li class="dropdown-item">
                                     <div class="d-flex align-items-start cart-dropdown-item">
-                                        <img src="/dashboard/assets/images/ecommerce/jpg/3.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
+                                        <img src="/dashboard/themes/theme-1/assets/images/ecommerce/jpg/3.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-start justify-content-between mb-0">
                                                 <div class="mb-0 fs-13 text-dark fw-semibold">
@@ -133,7 +133,7 @@
                                 </li>
                                 <li class="dropdown-item">
                                     <div class="d-flex align-items-start cart-dropdown-item">
-                                        <img src="/dashboard/assets/images/ecommerce/jpg/5.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
+                                        <img src="/dashboard/themes/theme-1/assets/images/ecommerce/jpg/5.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-start justify-content-between mb-0">
                                                 <div class="mb-0 fs-13 text-dark fw-semibold">
@@ -154,7 +154,7 @@
                                 </li>
                                 <li class="dropdown-item">
                                     <div class="d-flex align-items-start cart-dropdown-item">
-                                        <img src="/dashboard/assets/images/ecommerce/jpg/4.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
+                                        <img src="/dashboard/themes/theme-1/assets/images/ecommerce/jpg/4.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-start justify-content-between mb-0">
                                                 <div class="mb-0 fs-13 text-dark fw-semibold">
@@ -176,7 +176,7 @@
                                 </li>
                                 <li class="dropdown-item">
                                     <div class="d-flex align-items-start cart-dropdown-item">
-                                        <img src="/dashboard/assets/images/ecommerce/jpg/6.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
+                                        <img src="/dashboard/themes/theme-1/assets/images/ecommerce/jpg/6.jpg" alt="img" class="avatar avatar-sm avatar-rounded br-5 me-3">
                                         <div class="flex-grow-1">
                                             <div class="d-flex align-items-start justify-content-between mb-0">
                                                 <div class="mb-0 fs-13 text-dark fw-semibold">
@@ -355,7 +355,7 @@
                                        <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/figma.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/figma.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Figma</span>
                                             </div>
@@ -365,7 +365,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/microsoft-powerpoint.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/microsoft-powerpoint.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Power Point</span>
                                             </div>
@@ -375,7 +375,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/microsoft-word.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/microsoft-word.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">MS Word</span>
                                             </div>
@@ -385,7 +385,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/calender.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/calender.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Calendar</span>
                                             </div>
@@ -395,7 +395,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/sketch.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/sketch.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Sketch</span>
                                             </div>
@@ -405,7 +405,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/google-docs.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/google-docs.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Docs</span>
                                             </div>
@@ -415,7 +415,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/google.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/google.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Google</span>
                                             </div>
@@ -425,7 +425,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/translate.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/translate.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Translate</span>
                                             </div>
@@ -435,7 +435,7 @@
                                         <a href="javascript:void(0);">
                                             <div class="text-center p-3 related-app">
                                                 <span class="avatar avatar-sm avatar-rounded">
-                                                    <img src="/dashboard/assets/images/apps/google-sheets.png" alt="">
+                                                    <img src="/dashboard/themes/theme-1/assets/images/apps/google-sheets.png" alt="">
                                                 </span>
                                                 <span class="d-block fs-12">Sheets</span>
                                             </div>

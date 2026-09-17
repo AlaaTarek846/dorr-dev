@@ -87,5 +87,9 @@ return [
         'favicon_32' => '32×32 icon',
         'apple_touch_icon' => 'Apple touch icon',
         'web_manifest' => 'web manifest',
+        'slug' => 'slug',
+        'path' => 'path',
+        'sort_order' => 'sort order',
+        'preview_image' => 'preview image',
     ],
 ];

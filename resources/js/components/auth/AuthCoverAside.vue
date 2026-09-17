@@ -49,17 +49,17 @@ const prefix = props.context === 'admin' ? 'admin_auth' : 'user_auth';
 
 const slides = [
     {
-        image: '/dashboard/assets/images/authentication/2.png',
+        image: '/dashboard/themes/theme-1/assets/images/authentication/2.png',
         title: t(`${prefix}.cover_title`),
         text: t(`${prefix}.cover_text_1`),
     },
     {
-        image: '/dashboard/assets/images/authentication/3.png',
+        image: '/dashboard/themes/theme-1/assets/images/authentication/3.png',
         title: t(`${prefix}.cover_title`),
         text: t(`${prefix}.cover_text_2`),
     },
     {
-        image: '/dashboard/assets/images/authentication/2.png',
+        image: '/dashboard/themes/theme-1/assets/images/authentication/2.png',
         title: t(`${prefix}.cover_title`),
         text: t(`${prefix}.cover_text_3`),
     },

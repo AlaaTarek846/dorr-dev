@@ -156,7 +156,7 @@
                                                     >
                                                     <img
                                                         v-else
-                                                        src="/dashboard/assets/images/faces/9.jpg"
+                                                        src="/dashboard/themes/theme-1/assets/images/faces/9.jpg"
                                                         :alt="displayName(category)"
                                                         class="service-category-image"
                                                     >
