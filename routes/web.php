@@ -4,6 +4,7 @@ use App\Http\Resources\General\PlatformBrandingResource;
 use App\Repositories\General\LanguageRepository;
 use App\Repositories\General\PlatformSettingRepository;
 use Illuminate\Support\Facades\Route;
+use Modules\Provider\Http\Controllers\ProviderSocialAuthController;
 use Modules\User\Http\Controllers\UserSocialAuthController;
 
 Route::get('/', function () {
@@ -14,6 +15,13 @@ Route::prefix('auth/user')->group(function () {
     Route::get('{provider}/redirect', [UserSocialAuthController::class, 'redirect'])
         ->whereIn('provider', ['google', 'apple']);
     Route::get('{provider}/callback', [UserSocialAuthController::class, 'callback'])
+        ->whereIn('provider', ['google', 'apple']);
+});
+
+Route::prefix('auth/provider')->group(function () {
+    Route::get('{provider}/redirect', [ProviderSocialAuthController::class, 'redirect'])
+        ->whereIn('provider', ['google', 'apple']);
+    Route::get('{provider}/callback', [ProviderSocialAuthController::class, 'callback'])
         ->whereIn('provider', ['google', 'apple']);
 });
 
@@ -40,3 +48,15 @@ Route::get('/user/{any?}', function () {
         'defaultDashboardLocale' => $defaultDashboardLocale,
     ]);
 })->where('any', '.*')->name('user');
+
+Route::get('/provider/{any?}', function () {
+    $setting = app(PlatformSettingRepository::class)->instance();
+    $branding = (new PlatformBrandingResource($setting))->resolve(request());
+    $defaultDashboardLocale = app(LanguageRepository::class)->defaultDashboardLocale();
+
+    return view('provider', [
+        'branding' => $branding,
+        'appName' => $branding['app_name'] ?: config('app.name', 'Laravel'),
+        'defaultDashboardLocale' => $defaultDashboardLocale,
+    ]);
+})->where('any', '.*')->name('provider');

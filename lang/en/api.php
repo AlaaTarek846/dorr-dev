@@ -44,6 +44,7 @@ return [
     'flow_token_invalid' => 'This session has expired. Please start again.',
     'social_auth_failed' => 'Social login failed. Please try again.',
     'social_email_required' => 'Unable to sign in because the provider did not share an email address.',
+    'provider_account_not_found' => 'No provider account was found for this email. Contact the administrator.',
     'verification_email_subject' => 'Your verification code',
     'verification_email_heading' => 'Email verification',
     'verification_email_intro' => 'Hello :name, use the code below to verify your email address.',

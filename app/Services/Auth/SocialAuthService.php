@@ -21,6 +21,7 @@ class SocialAuthService
         SocialProvider $provider,
         SocialiteUser $socialUser,
         string $userModelClass,
+        bool $allowRegistration = true,
     ): array {
         if (! class_exists($userModelClass)) {
             throw new RuntimeException('Invalid authenticatable model.');
@@ -30,7 +31,7 @@ class SocialAuthService
         $email = $socialUser->getEmail();
         $name = $socialUser->getName() ?: ($email ? Str::before($email, '@') : 'User');
 
-        return DB::transaction(function () use ($provider, $providerId, $email, $name, $userModelClass, $socialUser) {
+        return DB::transaction(function () use ($provider, $providerId, $email, $name, $userModelClass, $socialUser, $allowRegistration) {
             /** @var SocialAccount|null $linkedAccount */
             $linkedAccount = SocialAccount::query()
                 ->where('provider', $provider->value)
@@ -61,6 +62,10 @@ class SocialAuthService
                 }
 
                 return $this->buildResult($existingUser, false);
+            }
+
+            if (! $allowRegistration) {
+                throw new RuntimeException(__('api.provider_account_not_found'));
             }
 
             if (! $email) {

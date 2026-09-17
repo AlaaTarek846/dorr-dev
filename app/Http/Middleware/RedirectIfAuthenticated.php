@@ -38,7 +38,8 @@ class RedirectIfAuthenticated
         return $request->expectsJson()
             || $request->is('api/*')
             || $request->is('api/admin/*')
-            || $request->is('api/user/*');
+            || $request->is('api/user/*')
+            || $request->is('api/provider/*');
     }
 
     protected function redirectTo(Request $request): string
