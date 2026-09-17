@@ -1,0 +1,53 @@
+@font-face {
+    font-family: 'DORR';
+    src: url('/dashboard/assets/Font/woff2/DORR-Light.woff2') format('woff2'),
+        url('/dashboard/assets/Font/woff/DORR-Light.woff') format('woff');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'DORR';
+    src: url('/dashboard/assets/Font/woff2/DORR-Regular.woff2') format('woff2'),
+        url('/dashboard/assets/Font/woff/DORR-Regular.woff') format('woff');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'DORR';
+    src: url('/dashboard/assets/Font/woff2/DORR-Medium.woff2') format('woff2'),
+        url('/dashboard/assets/Font/woff/DORR-Medium.woff') format('woff');
+    font-weight: 500;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'DORR';
+    src: url('/dashboard/assets/Font/woff2/DORR-Bold.woff2') format('woff2'),
+        url('/dashboard/assets/Font/woff/DORR-Bold.woff') format('woff');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'DORR';
+    src: url('/dashboard/assets/Font/woff2/DORR-Black.woff2') format('woff2'),
+        url('/dashboard/assets/Font/woff/DORR-Black.woff') format('woff');
+    font-weight: 900;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'DORR';
+    src: url('/dashboard/assets/Font/woff2/DORR-Ultra.woff2') format('woff2'),
+        url('/dashboard/assets/Font/woff/DORR-Ultra.woff') format('woff');
+    font-weight: 950;
+    font-style: normal;
+    font-display: swap;
+}

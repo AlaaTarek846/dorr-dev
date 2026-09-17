@@ -60,17 +60,22 @@
 <script setup>
 import { useI18n } from 'vue-i18n';
 
-defineProps({
+const props = defineProps({
     variant: {
         type: String,
         default: 'default',
+    },
+    panel: {
+        type: String,
+        default: 'user',
+        validator: (value) => ['user', 'provider'].includes(value),
     },
 });
 
 const { t } = useI18n();
 
 function redirect(provider) {
-    window.location.href = `/auth/user/${provider}/redirect`;
+    window.location.href = `/auth/${props.panel}/${provider}/redirect`;
 }
 </script>
 

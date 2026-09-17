@@ -1,8 +1,10 @@
 import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import adminAxios from '../api/adminAxios';
+import providerAxios from '../api/providerAxios';
 import userAxios from '../api/userAxios';
 import { useAuthStore } from '../stores/auth';
+import { useProviderAuthStore } from '../stores/providerAuth';
 import { useUserAuthStore } from '../stores/userAuth';
 
 export function useHeader() {
@@ -10,32 +12,68 @@ export function useHeader() {
     const route = useRoute();
     const authStore = useAuthStore();
     const userAuthStore = useUserAuthStore();
+    const providerAuthStore = useProviderAuthStore();
     const isFullscreen = ref(false);
     const cartCount = ref(5);
 
+    const isProviderPanel = computed(() => String(route.name ?? '').startsWith('provider.'));
     const isUserPanel = computed(() => String(route.name ?? '').startsWith('user.'));
 
-    const profileRouteName = computed(() => (
-        isUserPanel.value ? 'user.profile' : 'admin.profile'
-    ));
+    const profileRouteName = computed(() => {
+        if (isProviderPanel.value) {
+            return 'provider.profile';
+        }
 
-    const dashboardHref = computed(() => (
-        isUserPanel.value ? '/user/dashboard' : '/admin/dashboard'
-    ));
+        if (isUserPanel.value) {
+            return 'user.profile';
+        }
 
-    const adminName = computed(() => (
-        isUserPanel.value
-            ? userAuthStore.user?.name ?? 'User'
-            : authStore.admin?.name ?? 'Admin'
-    ));
+        return 'admin.profile';
+    });
 
-    const adminRole = computed(() => (
-        isUserPanel.value
-            ? userAuthStore.user?.email ?? ''
-            : authStore.admin?.email ?? ''
-    ));
+    const dashboardHref = computed(() => {
+        if (isProviderPanel.value) {
+            return '/provider/dashboard';
+        }
+
+        if (isUserPanel.value) {
+            return '/user/dashboard';
+        }
+
+        return '/admin/dashboard';
+    });
+
+    const adminName = computed(() => {
+        if (isProviderPanel.value) {
+            return providerAuthStore.provider?.name ?? 'Provider';
+        }
+
+        if (isUserPanel.value) {
+            return userAuthStore.user?.name ?? 'User';
+        }
+
+        return authStore.admin?.name ?? 'Admin';
+    });
+
+    const adminRole = computed(() => {
+        if (isProviderPanel.value) {
+            return providerAuthStore.provider?.email ?? '';
+        }
+
+        if (isUserPanel.value) {
+            return userAuthStore.user?.email ?? '';
+        }
+
+        return authStore.admin?.email ?? '';
+    });
 
     const adminAvatar = computed(() => {
+        if (isProviderPanel.value) {
+            return providerAuthStore.provider?.avatar_thumb
+                ?? providerAuthStore.provider?.avatar
+                ?? '/dashboard/assets/images/faces/9.jpg';
+        }
+
         if (isUserPanel.value) {
             return userAuthStore.user?.avatar_thumb
                 ?? userAuthStore.user?.avatar
@@ -162,6 +200,21 @@ export function useHeader() {
     }
 
     async function loadProfile() {
+        if (isProviderPanel.value) {
+            if (! providerAuthStore.isAuthenticated || providerAuthStore.provider) {
+                return;
+            }
+
+            try {
+                const { data } = await providerAxios.get('/api/provider/v1/me');
+                providerAuthStore.setSession({ provider: data.data });
+            } catch {
+                providerAuthStore.logout();
+            }
+
+            return;
+        }
+
         if (isUserPanel.value) {
             if (! userAuthStore.isAuthenticated || userAuthStore.user) {
                 return;
@@ -193,6 +246,19 @@ export function useHeader() {
     }
 
     async function logout() {
+        if (isProviderPanel.value) {
+            try {
+                await providerAxios.post('/api/provider/v1/logout');
+            } catch {
+                //
+            } finally {
+                providerAuthStore.logout();
+                await router.push({ name: 'provider.login' });
+            }
+
+            return;
+        }
+
         if (isUserPanel.value) {
             try {
                 await userAxios.post('/api/user/v1/logout');

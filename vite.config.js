@@ -10,6 +10,7 @@ export default defineConfig({
                 'resources/css/app.css',
                 'resources/js/app.js',
                 'resources/js/user-app.js',
+                'resources/js/provider-app.js',
             ],
             // Avoid full browser reload on every backend/locale file save during dev.
             refresh: false,

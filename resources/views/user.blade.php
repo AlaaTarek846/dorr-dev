@@ -49,6 +49,7 @@
         <link rel="stylesheet" href="{{ asset('dashboard/assets/libs/node-waves/waves.min.css') }}">
         <link rel="stylesheet" href="{{ asset('dashboard/assets/libs/simplebar/simplebar.min.css') }}">
         <link rel="stylesheet" href="{{ asset('dashboard/assets/libs/swiper/swiper-bundle.min.css') }}">
+        <link rel="stylesheet" href="{{ asset('css/dorr-fonts.css') }}">
         <link rel="stylesheet" href="{{ asset('css/admin-dashboard.css') }}">
 
         <style>
