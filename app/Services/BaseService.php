@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Repositories\BaseRepository;
+use App\Services\Concerns\RespondsToBulkDelete;
 use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -11,6 +12,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 abstract class BaseService
 {
+    use RespondsToBulkDelete;
+
     protected BaseRepository $repository;
 
     /**
@@ -130,6 +133,26 @@ abstract class BaseService
         $this->destroy($id, $relations);
 
         return ApiResponse::noContent($message ?? __('api.deleted'));
+    }
+
+    public function restoreRecord(int|string $id, ?string $message = null): JsonResponse
+    {
+        $model = $this->repository->restore($id);
+
+        return ApiResponse::success(
+            $this->transformResource($model),
+            $message ?? __('api.restored'),
+        );
+    }
+
+    public function forceDeleteRecord(int|string $id, ?array $relations = null, ?string $message = null): JsonResponse
+    {
+        $this->repository->forceDestroy(
+            $id,
+            $relations ?? $this->deleteRelations,
+        );
+
+        return ApiResponse::noContent($message ?? __('api.force_deleted'));
     }
 
     /**

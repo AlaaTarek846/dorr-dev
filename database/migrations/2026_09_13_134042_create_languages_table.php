@@ -21,6 +21,7 @@ return new class extends Migration
             $table->boolean('status')->default(Status::Active->value)->comment('الحالة');
             $table->foreignId('flag_id')->constrained('flags')->comment('العلم');
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('language_translations', function (Blueprint $table) {
@@ -37,6 +38,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('language_translations');
         Schema::dropIfExists('languages');
     }
 };

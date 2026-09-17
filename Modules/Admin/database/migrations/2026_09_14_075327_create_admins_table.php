@@ -22,6 +22,7 @@ return new class extends Migration
             $table->enum('gender', array_column(Gender::cases(), 'value'))->nullable()->comment('الجنس');
             $table->foreignId('country_id')->nullable()->constrained('countries')->comment('الدولة');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

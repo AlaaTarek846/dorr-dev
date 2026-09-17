@@ -35,6 +35,16 @@ class DashboardThemeController extends Controller
         return $this->service->delete($dashboard_theme);
     }
 
+    public function restore(int|string $dashboard_theme)
+    {
+        return $this->service->restoreRecord($dashboard_theme);
+    }
+
+    public function forceDestroy(int|string $dashboard_theme)
+    {
+        return $this->service->forceDeleteRecord($dashboard_theme);
+    }
+
     public function deleteMultiple(DashboardThemeRequest $request)
     {
         return $this->service->deleteMultiple($request->validated('ids'));

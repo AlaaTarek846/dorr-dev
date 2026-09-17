@@ -194,6 +194,28 @@
             "translations": "الترجمات"
         }
     },
+    "catalog": {
+        "status_active": "نشط",
+        "status_inactive": "غير نشط",
+        "filter_deleted": "محذوف",
+        "deleted_at": "تاريخ الحذف",
+        "deleted_badge": "محذوف",
+        "restore": "استرجاع",
+        "restore_title": "استرجاع السجل",
+        "confirm_restore": "هل تريد استرجاع هذا السجل؟",
+        "bulk_delete_count": "حذف ({count})",
+        "force_delete": "حذف نهائي",
+        "force_delete_title": "حذف نهائي",
+        "force_delete_count": "حذف نهائي ({count})",
+        "confirm_force_delete": "حذف نهائي لهذا السجل؟ لا يمكن التراجع.",
+        "confirm_force_delete_selected": "حذف نهائي للعناصر المحددة؟ لا يمكن التراجع.",
+        "restored": "تم الاسترجاع بنجاح.",
+        "force_deleted": "تم الحذف النهائي بنجاح.",
+        "force_deleted_selected": "تم الحذف النهائي لـ {count} عنصر.",
+        "force_deleted_partial": "تم الحذف النهائي لـ {deleted}. تعذر حذف {skipped}.",
+        "bulk_force_delete_requires_trash": "الحذف النهائي متاح فقط للعناصر في تبويب «محذوف». احذف العنصر أولاً (حذف عادي)، ثم افتح «محذوف» وجرب مرة أخرى.",
+        "bulk_soft_delete_requires_active": "اختر عناصر نشطة للحذف. للحذف النهائي استخدم تبويب «محذوف»."
+    },
     "toast": {
         "success": "تمت العملية بنجاح.",
         "created": "تم الإنشاء بنجاح.",
@@ -474,6 +496,7 @@
         "default_badge": "افتراضي",
         "actions": "إجراءات",
         "created_at": "تاريخ الإنشاء",
+        "updated": "آخر تحديث",
         "empty_title": "لا توجد ثيمات",
         "empty": "أضف ثيمات الداشبورد ليتمكن المستخدمون من اختيار الشكل المفضل.",
         "delete_title": "حذف الثيم",

@@ -12,6 +12,16 @@ Before writing or changing code, read:
 
 The codebase is the source of truth. Never invent APIs, tables, permissions, or business rules.
 
+## Dashboard SPAs
+
+| SPA | URL | API | Guard |
+|-----|-----|-----|-------|
+| Admin | `/admin` | `/api/admin/v1/*` | `admin_api` |
+| User | `/user` | `/api/user/v1/*` | `user_api` |
+| Provider | `/provider` | `/api/provider/v1/*` | `provider_api` |
+
+Provider portal mirrors User auth flows but has **no AI chat**.
+
 ## Workflow (summary)
 
 1. **READ** — docs + existing similar code

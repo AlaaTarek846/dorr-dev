@@ -6,6 +6,7 @@ import {
     persistLocale,
     resolveInitialLocale,
 } from '../utils/direction';
+import { syncCatalogToggleLabels } from '../utils/catalog';
 import { useAvailableLanguagesStore } from './availableLanguages';
 
 const KNOWN_I18N_LOCALES = ['ar', 'en'];
@@ -97,6 +98,7 @@ export const useLocaleStore = defineStore('locale', {
             const i18nLocale = KNOWN_I18N_LOCALES.includes(localeCode) ? localeCode : 'en';
 
             setI18nLocale(i18nLocale);
+            syncCatalogToggleLabels();
         },
 
         toggleLocale() {

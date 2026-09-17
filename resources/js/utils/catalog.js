@@ -1,5 +1,6 @@
 import { nextTick, watch } from 'vue';
 import adminAxios from '../api/adminAxios';
+import i18n from '../plugins/i18n';
 
 function flagCdnWidth(size) {
     const parsed = Number(size);
@@ -184,6 +185,59 @@ export function fillCatalogTranslationFields(target, record, localeCodes = null)
             }
         }
     }
+}
+
+export function isTrashedRecord(record) {
+    return record?.deleted_at != null && record?.deleted_at !== '';
+}
+
+export function catalogPrimaryDate(record) {
+    return record?.created_at;
+}
+
+export function catalogShowUpdatedSubtext(record) {
+    return Boolean(record?.updated_at);
+}
+
+export function catalogShowDeletedSubtext(record, isDeletedView = false) {
+    return isDeletedView && Boolean(record?.deleted_at);
+}
+
+export function resolveTrashedSelectedIds(records, selectedIds) {
+    const idSet = new Set(selectedIds.map((id) => Number(id)));
+
+    return records
+        .filter((record) => idSet.has(Number(record.id)) && isTrashedRecord(record))
+        .map((record) => Number(record.id));
+}
+
+export function resolveActiveSelectedIds(records, selectedIds) {
+    const idSet = new Set(selectedIds.map((id) => Number(id)));
+
+    return records
+        .filter((record) => idSet.has(Number(record.id)) && ! isTrashedRecord(record))
+        .map((record) => Number(record.id));
+}
+
+export function filterRecordsForStatusView(records, statusFilter) {
+    if (statusFilter === 'deleted') {
+        return records.filter((record) => isTrashedRecord(record));
+    }
+
+    return records.filter((record) => ! isTrashedRecord(record));
+}
+
+export function syncCatalogToggleLabels() {
+    const root = document.documentElement;
+
+    root.style.setProperty(
+        '--catalog-toggle-active-label',
+        `"${i18n.global.t('catalog.status_active')}"`,
+    );
+    root.style.setProperty(
+        '--catalog-toggle-inactive-label',
+        `"${i18n.global.t('catalog.status_inactive')}"`,
+    );
 }
 
 export async function fetchCatalogRecord(resourceUri, id) {

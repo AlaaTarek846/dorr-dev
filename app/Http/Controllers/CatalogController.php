@@ -23,6 +23,16 @@ abstract class CatalogController extends Controller
         return $this->service->delete($id);
     }
 
+    public function restore(int|string $id)
+    {
+        return $this->service->restoreRecord($id);
+    }
+
+    public function forceDestroy(int|string $id)
+    {
+        return $this->service->forceDeleteRecord($id);
+    }
+
     public function dropdown()
     {
         return $this->service->dropdown();

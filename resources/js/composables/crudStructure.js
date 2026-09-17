@@ -1,8 +1,17 @@
 import { computed, ref, watch } from 'vue';
+
+export function trashedFilterParams() {
+    return { trashed: 1 };
+}
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../api/adminAxios';
-import useToast, { extractApiErrorMessage, extractApiMessage } from './useToast';
+import useToast, { extractApiErrorMessage, extractApiMessage, resolveBulkDeleteFeedback } from './useToast';
 import { useLocaleStore } from '../stores/locale';
+import {
+    filterRecordsForStatusView,
+    resolveActiveSelectedIds,
+    resolveTrashedSelectedIds,
+} from '../utils/catalog';
 
 export function statusFilterParams(statusFilter) {
     if (statusFilter === 'active') {
@@ -52,7 +61,7 @@ export default function crudStructure(options = {}) {
     const errors = ref({});
     const loading = ref(false);
     const { t } = useI18n();
-    const { showSuccess, showError } = useToast();
+    const { showSuccess, showError, showWarning } = useToast();
     const localeStore = useLocaleStore();
 
     const type = ref('create');
@@ -87,6 +96,7 @@ export default function crudStructure(options = {}) {
     const debounce = ref(null);
 
     const permission = computed(() => []);
+    const isDeletedView = computed(() => statusFilter.value === 'deleted');
 
     watch(searchText, (value) => {
         search.value.searchKey = value;
@@ -98,7 +108,9 @@ export default function crudStructure(options = {}) {
             page,
         };
 
-        if (statusFilterEnabled) {
+        if (statusFilter.value === 'deleted') {
+            Object.assign(params, trashedFilterParams());
+        } else if (statusFilterEnabled) {
             Object.assign(params, statusFilterParams(statusFilter.value));
         } else if (filterColumns.value?.length || filterColumns.value?.columns?.length) {
             params.filterColumns = filterColumns.value;
@@ -123,7 +135,10 @@ export default function crudStructure(options = {}) {
             const response = await adminAxios.get(uri.value, { params: buildListParams(page) });
 
             dataPaginate.value = response.data.pagination ?? {};
-            data.value = response.data.data ?? [];
+            data.value = filterRecordsForStatusView(
+                response.data.data ?? [],
+                statusFilter.value,
+            );
             selectedIds.value = [];
             step.value = 1;
 
@@ -204,17 +219,133 @@ export default function crudStructure(options = {}) {
         return window.confirm(message);
     }
 
+    async function restoreRecord(id) {
+        loading.value = true;
+
+        try {
+            const response = await adminAxios.post(`${uri.value}/${id}/restore`);
+            showSuccess(extractApiMessage(response, t('catalog.restored')));
+            await getData(pagePaginate.value);
+        } catch (error) {
+            showError(extractApiErrorMessage(error, t('toast.error')));
+        } finally {
+            loading.value = false;
+        }
+    }
+
+    async function forceDeleteRecord(id, skipConfirm = false) {
+        const record = data.value.find((row) => Number(row.id) === Number(id));
+
+        if (! record || ! resolveTrashedSelectedIds([record], [id]).length) {
+            showError(t('catalog.bulk_force_delete_requires_trash'));
+            await getData(pagePaginate.value);
+
+            return;
+        }
+
+        if (! skipConfirm && ! confirmAction(t('catalog.confirm_force_delete'))) {
+            return;
+        }
+
+        loading.value = true;
+
+        try {
+            const response = await adminAxios.delete(`${uri.value}/${id}/force`);
+            showSuccess(extractApiMessage(response, t('catalog.force_deleted')));
+            await getData(pagePaginate.value);
+        } catch (error) {
+            showError(extractApiErrorMessage(error, t('toast.error')));
+
+            if (error?.response?.status === 409) {
+                await getData(pagePaginate.value);
+            }
+        } finally {
+            loading.value = false;
+        }
+    }
+
+    async function forceDeleteSelected(skipConfirm = false) {
+        const ids = resolveTrashedSelectedIds(data.value, selectedIds.value);
+
+        if (! ids.length) {
+            showError(t('catalog.bulk_force_delete_requires_trash'));
+
+            return;
+        }
+
+        if (! skipConfirm && ! confirmAction(t('catalog.confirm_force_delete_selected'))) {
+            return;
+        }
+
+        loading.value = true;
+
+        let deleted = 0;
+        let lastError = '';
+
+        try {
+            for (const id of ids) {
+                try {
+                    await adminAxios.delete(`${uri.value}/${id}/force`);
+                    deleted += 1;
+                } catch (error) {
+                    lastError = extractApiErrorMessage(error, t('toast.error'));
+                }
+            }
+
+            if (deleted === ids.length) {
+                showSuccess(t('catalog.force_deleted_selected', { count: deleted }));
+            } else if (deleted > 0) {
+                showWarning(t('catalog.force_deleted_partial', { deleted, skipped: ids.length - deleted }));
+            } else {
+                showError(lastError || t('toast.error'));
+            }
+
+            await getData(pagePaginate.value);
+        } finally {
+            loading.value = false;
+        }
+    }
+
     async function deleteData(id, skipConfirm = false) {
         if (! skipConfirm && ! confirmAction(t(confirmDeleteKey))) {
             return;
         }
 
         if (Array.isArray(id)) {
+            const ids = isDeletedView.value
+                ? resolveTrashedSelectedIds(data.value, id)
+                : resolveActiveSelectedIds(data.value, id);
+
+            if (! ids.length) {
+                showError(t(isDeletedView.value
+                    ? 'catalog.bulk_force_delete_requires_trash'
+                    : 'catalog.bulk_soft_delete_requires_active'));
+
+                return;
+            }
+
             try {
-                const response = await adminAxios.post(`${uri.value}/${deleteMultiplePath}`, { ids: id });
-                showSuccess(extractApiMessage(response, t('toast.deleted')));
+                const response = await adminAxios.post(`${uri.value}/${deleteMultiplePath}`, { ids });
+                const feedback = resolveBulkDeleteFeedback(response, t('toast.deleted'));
+
+                if (feedback.type === 'warning') {
+                    showWarning(feedback.message);
+                } else {
+                    showSuccess(feedback.message);
+                }
+
                 await getData(pagePaginate.value);
             } catch (error) {
+                const response = error?.response;
+
+                if (response?.status === 409 && response?.data?.data?.skipped !== undefined) {
+                    const feedback = resolveBulkDeleteFeedback(response, t('toast.error'));
+                    showError(feedback.message);
+                    await getData(pagePaginate.value);
+
+                    return;
+                }
+
                 showError(extractApiErrorMessage(error, t('toast.error')));
             }
 
@@ -403,7 +534,12 @@ export default function crudStructure(options = {}) {
         togglingStatusIds,
         statusFilter,
         setStatusFilter,
+        isDeletedView,
+        restoreRecord,
+        forceDeleteRecord,
+        forceDeleteSelected,
         showSuccess,
         showError,
+        showWarning,
     };
 }

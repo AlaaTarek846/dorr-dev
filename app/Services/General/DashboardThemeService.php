@@ -20,20 +20,6 @@ class DashboardThemeService extends BaseService
         parent::__construct($repository);
     }
 
-    /**
-     * @param  list<int|string>  $ids
-     */
-    public function deleteMultiple(array $ids, ?string $message = null): JsonResponse
-    {
-        /** @var DashboardThemeRepository $repository */
-        $repository = $this->repository;
-
-        return ApiResponse::success(
-            ['deleted' => $repository->deleteMultiple($ids)],
-            $message ?? __('api.deleted'),
-        );
-    }
-
     public function changeStatus(int|string $id, bool $status, ?string $message = null): JsonResponse
     {
         /** @var DashboardThemeRepository $repository */

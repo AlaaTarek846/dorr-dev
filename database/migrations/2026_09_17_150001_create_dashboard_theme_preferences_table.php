@@ -20,6 +20,7 @@ return new class extends Migration
             $table->string('authenticatable_type')->comment('نوع الحساب');
             $table->unsignedBigInteger('authenticatable_id')->comment('معرّف الحساب');
             $table->timestamps();
+            $table->softDeletes();
 
             $table->unique(
                 ['authenticatable_type', 'authenticatable_id'],

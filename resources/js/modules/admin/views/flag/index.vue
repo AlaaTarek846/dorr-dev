@@ -23,8 +23,8 @@
             <div class="col-xl-12">
                 <div class="card custom-card">
                     <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
-                        <div class="d-flex flex-wrap align-items-center gap-1 flags-toolbar-filters">
-                            <div class="input-group input-group-sm flags-toolbar-search">
+                        <div class="d-flex flex-wrap align-items-center gap-1 catalog-toolbar-filters">
+                            <div class="input-group input-group-sm catalog-toolbar-search">
                                 <span class="input-group-text bg-white">
                                     <i class="ri-search-line text-muted"></i>
                                 </span>
@@ -37,7 +37,7 @@
                                 <button
                                     v-if="search"
                                     type="button"
-                                    class="btn btn-light border flags-search-clear"
+                                    class="btn btn-light border catalog-search-clear"
                                     :title="t('flags.clear_search')"
                                     @click="clearSearch"
                                 >
@@ -48,42 +48,64 @@
                             <button
                                 v-if="showAllFilter"
                                 type="button"
-                                class="btn btn-sm flags-filter-btn"
-                                :class="statusFilter === 'all' ? 'flags-filter-btn--all' : 'flags-filter-btn--all-idle'"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'all' ? 'catalog-filter-btn--all' : 'catalog-filter-btn--all-idle'"
                                 @click="setStatusFilter('all')"
                             >
                                 {{ t('flags.filter_all') }} ({{ counts.total }})
                             </button>
                             <button
                                 type="button"
-                                class="btn btn-sm flags-filter-btn"
-                                :class="statusFilter === 'active' ? 'flags-filter-btn--active' : 'flags-filter-btn--active-idle'"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'active' ? 'catalog-filter-btn--active' : 'catalog-filter-btn--active-idle'"
                                 @click="setStatusFilter('active')"
                             >
                                 {{ t('flags.filter_active') }} ({{ counts.active }})
                             </button>
                             <button
                                 type="button"
-                                class="btn btn-sm flags-filter-btn"
-                                :class="statusFilter === 'inactive' ? 'flags-filter-btn--inactive' : 'flags-filter-btn--inactive-idle'"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'inactive' ? 'catalog-filter-btn--inactive' : 'catalog-filter-btn--inactive-idle'"
                                 @click="setStatusFilter('inactive')"
                             >
                                 {{ t('flags.filter_inactive') }} ({{ counts.inactive }})
                             </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
                         </div>
 
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount"
+                                v-if="selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
                             >
                                 <i class="ri-delete-bin-line me-1 align-middle"></i>
-                                {{ t('flags.delete_count', { count: selectedCount }) }}
+                                {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
-
-                            <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                            <button
+                                v-if="selectedCount && statusFilter === 'deleted'"
+                                type="button"
+                                class="btn btn-danger btn-sm btn-wave"
+                                @click="confirmForceDeleteSelected"
+                            >
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>
+                                {{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button
+                                v-if="statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreate"
+                            >
                                 <i class="ri-add-line me-1 align-middle"></i>
                                 {{ t('flags.add_short') }}
                             </button>
@@ -122,7 +144,7 @@
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('flags.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('flags.empty') }}</p>
-                                                <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('flags.add') }}
                                                 </button>
@@ -154,12 +176,14 @@
                                                 />
                                                 <div>
                                                     <button
+                                                        v-if="!isTrashedRecord(flag)"
                                                         type="button"
                                                         class="btn btn-link p-0 text-start fw-semibold text-default"
                                                         @click="openEdit(flag)"
                                                     >
                                                         {{ displayName(flag) }}
                                                     </button>
+                                                    <span v-else class="fw-semibold text-default">{{ displayName(flag) }}</span>
                                                     <span class="d-block text-muted fs-11">
                                                         #{{ flag.id }}
                                                     </span>
@@ -170,7 +194,11 @@
                                             <span class="badge bg-primary-transparent">{{ flag.code }}</span>
                                         </td>
                                         <td>
+                                            <span v-if="isTrashedRecord(flag)" class="badge bg-danger-transparent">
+                                                {{ t('catalog.deleted_badge') }}
+                                            </span>
                                             <div
+                                                v-else
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
                                                     on: flag.status,
@@ -186,13 +214,34 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="d-block">{{ formatDate(flag.created_at) }}</span>
-                                            <span v-if="flag.updated_at" class="d-block text-muted fs-11">
+                                            <span class="d-block">{{ formatDate(catalogPrimaryDate(flag)) }}</span>
+                                            <span v-if="catalogShowUpdatedSubtext(flag)" class="d-block text-muted fs-11">
                                                 {{ t('flags.updated') }}: {{ formatDate(flag.updated_at) }}
+                                            </span>
+                                            <span v-if="catalogShowDeletedSubtext(flag, isDeletedView)" class="d-block text-muted fs-11">
+                                                {{ t('catalog.deleted_at') }}: {{ formatDate(flag.deleted_at) }}
                                             </span>
                                         </td>
                                         <td class="text-end pe-4">
-                                            <div class="btn-list justify-content-end">
+                                            <div v-if="isTrashedRecord(flag)" class="btn-list justify-content-end">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-success-light btn-icon"
+                                                    :title="t('catalog.restore_title')"
+                                                    @click="confirmRestore(flag.id)"
+                                                >
+                                                    <i class="ri-arrow-go-back-line"></i>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-danger-light btn-icon"
+                                                    :title="t('catalog.force_delete_title')"
+                                                    @click="confirmForceDelete(flag.id)"
+                                                >
+                                                    <i class="ri-delete-bin-7-line"></i>
+                                                </button>
+                                            </div>
+                                            <div v-else-if="!isTrashedRecord(flag)" class="btn-list justify-content-end">
                                                 <button
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
@@ -294,6 +343,13 @@ import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
 import FlagImage from '../../../../components/ui/FlagImage.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
+import { useCatalogTrashActions } from '../../../../composables/useCatalogTrashActions';
+import {
+    catalogPrimaryDate,
+    catalogShowDeletedSubtext,
+    catalogShowUpdatedSubtext,
+    isTrashedRecord,
+} from '../../../../utils/catalog';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useFlags } from '../../../../composables/useFlags';
 import { useFlagsStore } from '../../../../stores/flags';
@@ -312,12 +368,16 @@ const {
     perPage,
     search,
     statusFilter,
+    isDeletedView,
 } = storeToRefs(flagsApi);
 const {
     fetchFlags,
     setStatusFilter,
     deleteFlag,
     deleteSelected,
+    restoreFlag,
+    forceDeleteFlag,
+    forceDeleteSelected,
     toggleStatus,
     toggleSelectAll,
     toggleSelect,
@@ -328,12 +388,31 @@ const counts = computed(() => ({
     total: flagsStore.total ?? pagination.value?.total ?? 0,
     active: flagsStore.activeCount ?? 0,
     inactive: flagsStore.inactiveCount ?? 0,
+    deleted: flagsStore.deletedCount ?? 0,
 }));
 
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
 const deleteConfirm = useConfirmDelete();
+
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected,
+    deleteItem: deleteFlag,
+    restoreItem: restoreFlag,
+    forceDeleteItem: forceDeleteFlag,
+    forceDeleteSelected,
+    i18nPrefix: 'flags',
+});
 
 const selectedCount = computed(() => selectedIds.value.length);
 
@@ -448,37 +527,6 @@ function changePage(page) {
     fetchFlags(page);
 }
 
-function confirmDelete(id) {
-    deleteConfirm.open({
-        title: t('flags.delete_title'),
-        message: t('flags.confirm_delete'),
-        payload: { type: 'single', id },
-    });
-}
-
-function confirmDeleteSelected() {
-    deleteConfirm.open({
-        title: t('flags.delete_selected_title'),
-        message: t('flags.confirm_delete_selected'),
-        payload: { type: 'multiple' },
-    });
-}
-
-async function handleDeleteConfirm() {
-    deleteConfirm.setLoading(true);
-
-    try {
-        if (deleteConfirm.state.payload?.type === 'multiple') {
-            await deleteSelected();
-        } else {
-            await deleteFlag(deleteConfirm.state.payload.id);
-        }
-    } finally {
-        deleteConfirm.setLoading(false);
-        deleteConfirm.close();
-    }
-}
-
 function onSaved() {
     modalShow.value = false;
     fetchFlags(currentPage.value);
@@ -490,75 +538,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.flags-toolbar-filters {
-    flex-wrap: wrap;
-}
-
-.flags-toolbar-search {
-    width: 210px;
-    max-width: 210px;
-    flex-shrink: 0;
-}
-
 .flag-img {
     display: block;
     object-fit: cover;
     border-radius: 2px;
     flex-shrink: 0;
-}
-
-.flags-search-clear {
-    padding-inline: 0.5rem;
-    line-height: 1;
-}
-
-.flags-filter-btn {
-    border-width: 1px;
-    border-style: solid;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.flags-filter-btn--all {
-    background-color: #845adf;
-    border-color: #845adf;
-    color: #fff;
-}
-
-.flags-filter-btn--all-idle {
-    background-color: rgba(132, 90, 223, 0.12);
-    border-color: rgba(132, 90, 223, 0.35);
-    color: #845adf;
-}
-
-.flags-filter-btn--active {
-    background-color: #26bf94;
-    border-color: #26bf94;
-    color: #fff;
-}
-
-.flags-filter-btn--active-idle {
-    background-color: rgba(38, 191, 148, 0.12);
-    border-color: rgba(38, 191, 148, 0.35);
-    color: #26bf94;
-}
-
-.flags-filter-btn--inactive {
-    background-color: #6c757d;
-    border-color: #6c757d;
-    color: #fff;
-}
-
-.flags-filter-btn--inactive-idle {
-    background-color: #f3f6f8;
-    border-color: #dee2e6;
-    color: #6c757d;
-}
-
-@media (max-width: 767.98px) {
-    .flags-toolbar-search {
-        width: 100%;
-        max-width: 220px;
-    }
 }
 </style>

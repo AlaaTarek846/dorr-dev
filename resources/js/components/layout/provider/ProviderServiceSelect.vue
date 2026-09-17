@@ -77,7 +77,7 @@ const { selectedService, services } = storeToRefs(selectionStore);
 
 const rootElement = ref(null);
 
-const DEFAULT_SERVICE_IMAGE = '/dashboard/assets/images/media/media-1.jpg';
+const DEFAULT_SERVICE_IMAGE = '/dashboard/themes/theme-1/assets/images/media/media-1.jpg';
 
 const selectedServiceName = computed(() => {
     if (! selectedService.value) {

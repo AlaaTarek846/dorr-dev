@@ -70,20 +70,42 @@
                             >
                                 {{ t('dashboard_themes.filter_inactive') }} ({{ counts.inactive }})
                             </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
                         </div>
 
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount"
+                                v-if="selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
                             >
                                 <i class="ri-delete-bin-line me-1 align-middle"></i>
-                                {{ t('dashboard_themes.delete_count', { count: selectedCount }) }}
+                                {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
-
-                            <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                            <button
+                                v-if="selectedCount && statusFilter === 'deleted'"
+                                type="button"
+                                class="btn btn-danger btn-sm btn-wave"
+                                @click="confirmForceDeleteSelected"
+                            >
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>
+                                {{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button
+                                v-if="statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreate"
+                            >
                                 <i class="ri-add-line me-1 align-middle"></i>
                                 {{ t('dashboard_themes.add_short') }}
                             </button>
@@ -125,7 +147,7 @@
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('dashboard_themes.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('dashboard_themes.empty') }}</p>
-                                                <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('dashboard_themes.add') }}
                                                 </button>
@@ -169,7 +191,11 @@
                                             <td><code>{{ theme.path }}</code></td>
                                             <td>{{ theme.sort_order ?? 0 }}</td>
                                             <td>
+                                                <span v-if="isTrashedRecord(theme)" class="badge bg-danger-transparent">
+                                                    {{ t('catalog.deleted_badge') }}
+                                                </span>
                                                 <div
+                                                    v-else
                                                     class="toggle toggle-success mb-0 catalog-status-toggle"
                                                     :class="{
                                                         on: theme.status,
@@ -184,25 +210,53 @@
                                                     <span></span>
                                                 </div>
                                             </td>
-                                            <td>{{ formatDate(theme.created_at) }}</td>
+                                            <td>
+                                                <span class="d-block">{{ formatDate(catalogPrimaryDate(theme)) }}</span>
+                                                <span v-if="catalogShowUpdatedSubtext(theme)" class="d-block text-muted fs-11">
+                                                    {{ t('dashboard_themes.updated') }}: {{ formatDate(theme.updated_at) }}
+                                                </span>
+                                                <span v-if="catalogShowDeletedSubtext(theme, isDeletedView)" class="d-block text-muted fs-11">
+                                                    {{ t('catalog.deleted_at') }}: {{ formatDate(theme.deleted_at) }}
+                                                </span>
+                                            </td>
                                             <td class="text-end pe-4">
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-icon btn-primary-light me-1"
-                                                    :title="t('edit')"
-                                                    @click="openEdit(theme)"
-                                                >
-                                                    <i class="ri-edit-line"></i>
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-sm btn-icon btn-danger-light"
-                                                    :title="t('delete')"
-                                                    :disabled="theme.is_default"
-                                                    @click="confirmDelete(theme.id)"
-                                                >
-                                                    <i class="ri-delete-bin-line"></i>
-                                                </button>
+                                                <div v-if="isTrashedRecord(theme)" class="btn-list justify-content-end">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-success-light btn-icon"
+                                                        :title="t('catalog.restore_title')"
+                                                        @click="confirmRestore(theme.id)"
+                                                    >
+                                                        <i class="ri-arrow-go-back-line"></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-danger-light btn-icon"
+                                                        :title="t('catalog.force_delete_title')"
+                                                        @click="confirmForceDelete(theme.id)"
+                                                    >
+                                                        <i class="ri-delete-bin-7-line"></i>
+                                                    </button>
+                                                </div>
+                                                <div v-else-if="!isTrashedRecord(theme)" class="btn-list justify-content-end">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-info-light btn-icon"
+                                                        :title="t('dashboard_themes.edit_title')"
+                                                        @click="openEdit(theme)"
+                                                    >
+                                                        <i class="ri-pencil-line"></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-danger-light btn-icon"
+                                                        :title="t('dashboard_themes.confirm_delete')"
+                                                        :disabled="theme.is_default"
+                                                        @click="confirmDelete(theme.id)"
+                                                    >
+                                                        <i class="ri-delete-bin-line"></i>
+                                                    </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     </template>
@@ -267,10 +321,17 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
+import { useCatalogTrashActions } from '../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useDashboardThemes } from '../../../../composables/useDashboardThemes';
 import { useDashboardThemesStore } from '../../../../stores/dashboardThemes';
-import { displayTranslatedName } from '../../../../utils/catalog';
+import {
+    catalogPrimaryDate,
+    catalogShowDeletedSubtext,
+    catalogShowUpdatedSubtext,
+    displayTranslatedName,
+    isTrashedRecord,
+} from '../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
@@ -285,12 +346,16 @@ const {
     currentPage,
     search,
     statusFilter,
+    isDeletedView,
 } = storeToRefs(themesApi);
 const {
     fetchDashboardThemes,
     setStatusFilter,
     deleteDashboardTheme,
     deleteSelected,
+    restoreDashboardTheme,
+    forceDeleteDashboardTheme,
+    forceDeleteSelected,
     toggleStatus,
     toggleSelectAll,
     toggleSelect,
@@ -301,6 +366,7 @@ const counts = computed(() => ({
     total: themesStore.total ?? pagination.value?.total ?? 0,
     active: themesStore.activeCount ?? 0,
     inactive: themesStore.inactiveCount ?? 0,
+    deleted: themesStore.deletedCount ?? 0,
 }));
 
 const modalShow = ref(false);
@@ -309,6 +375,7 @@ const selectedRecord = ref(null);
 const deleteConfirm = useConfirmDelete();
 
 const selectedCount = computed(() => selectedIds.value.length);
+
 const showAllFilter = computed(() => statusFilter.value !== 'all');
 
 const allSelected = computed(() => {
@@ -407,36 +474,23 @@ function changePage(page) {
     fetchDashboardThemes(page);
 }
 
-function confirmDelete(id) {
-    deleteConfirm.open({
-        title: t('dashboard_themes.delete_title'),
-        message: t('dashboard_themes.confirm_delete'),
-        payload: { type: 'single', id },
-    });
-}
-
-function confirmDeleteSelected() {
-    deleteConfirm.open({
-        title: t('dashboard_themes.delete_selected_title'),
-        message: t('dashboard_themes.confirm_delete_selected'),
-        payload: { type: 'multiple' },
-    });
-}
-
-async function handleDeleteConfirm() {
-    deleteConfirm.setLoading(true);
-
-    try {
-        if (deleteConfirm.state.payload?.type === 'multiple') {
-            await deleteSelected();
-        } else {
-            await deleteDashboardTheme(deleteConfirm.state.payload.id);
-        }
-    } finally {
-        deleteConfirm.setLoading(false);
-        deleteConfirm.close();
-    }
-}
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected,
+    deleteItem: deleteDashboardTheme,
+    restoreItem: restoreDashboardTheme,
+    forceDeleteItem: forceDeleteDashboardTheme,
+    forceDeleteSelected,
+    i18nPrefix: 'dashboard_themes',
+});
 
 function onSaved() {
     modalShow.value = false;
