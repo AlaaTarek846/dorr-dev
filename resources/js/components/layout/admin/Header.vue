@@ -492,7 +492,7 @@
                             <li><a class="dropdown-item d-flex" href="chat.html"><i class="ti ti-headset fs-18 me-2 op-7"></i>Support</a></li>
                             <li><a class="dropdown-item d-flex" href="javascript:void(0);" @click.prevent="logout"><i class="ti ti-logout fs-18 me-2 op-7"></i>{{ t('logout') }}</a></li>
                         </ul>
-                    </div>  
+                    </div>
                     <!-- End::header-element -->
 
                     <!-- Start::header-element -->
@@ -516,9 +516,9 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n';
-import HeaderLanguageSelect from './HeaderLanguageSelect.vue';
-import PlatformLogo from './PlatformLogo.vue';
-import { useHeader } from '../../composables/useHeader';
+import HeaderLanguageSelect from '../HeaderLanguageSelect.vue';
+import PlatformLogo from '../PlatformLogo.vue';
+import { useHeader } from '../../../composables/useHeader';
 
 const { t } = useI18n();
 

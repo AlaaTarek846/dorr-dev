@@ -41,7 +41,9 @@ Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
 |--------|----------|
 | POST | `/currencies/sync-exchange-rates` |
 | GET | `/service-categories/tree` |
+| GET | `/service-categories/tree-options` |
 | GET | `/service-categories/leaf-options` |
+| GET | `/service-categories/dropdown?parent_id=null` (parents only) |
 
 ## User Routes (`/api/user/v1`)
 

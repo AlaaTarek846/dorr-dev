@@ -121,17 +121,18 @@
                                     {{ t('providers.gender') }}
                                     <span class="text-danger">*</span>
                                 </label>
-                                <select
+                                <Select
                                     id="provider-gender"
                                     v-model="form.gender"
-                                    class="form-select"
-                                    :class="genderInputClass"
+                                    :options="genderOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :placeholder="t('profile.select_gender')"
+                                    :invalid="genderFeedback.show && genderFeedback.invalid"
+                                    append-to="self"
+                                    class="w-100"
                                     @change="onFieldInput('gender')"
-                                >
-                                    <option value="">{{ t('profile.select_gender') }}</option>
-                                    <option value="male">{{ t('profile.gender_male') }}</option>
-                                    <option value="female">{{ t('profile.gender_female') }}</option>
-                                </select>
+                                />
                                 <div v-if="genderMessage" class="invalid-feedback d-block">
                                     {{ genderMessage }}
                                 </div>
@@ -154,21 +155,17 @@
 
                             <div class="col-md-6">
                                 <label for="provider-status" class="form-label">{{ t('providers.status') }}</label>
-                                <select
+                                <Select
                                     id="provider-status"
                                     v-model="form.status"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': serverErrors.status?.[0] }"
+                                    :options="statusOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :invalid="Boolean(serverErrors.status?.[0])"
+                                    append-to="self"
+                                    class="w-100"
                                     @change="clearServerError('status')"
-                                >
-                                    <option
-                                        v-for="(label, value) in statusOptions"
-                                        :key="value"
-                                        :value="value"
-                                    >
-                                        {{ label }}
-                                    </option>
-                                </select>
+                                />
                                 <div v-if="serverErrors.status?.[0]" class="invalid-feedback d-block">
                                     {{ serverErrors.status[0] }}
                                 </div>
@@ -176,36 +173,24 @@
 
                             <div class="col-md-6">
                                 <label for="provider-services" class="form-label">{{ t('providers.services') }}</label>
-                                <Select
+                                <TreeSelect
                                     id="provider-services"
-                                    v-model="form.service_category_ids"
-                                    :options="leafOptions"
-                                    option-label="name"
-                                    option-value="id"
+                                    v-model="selectedServiceKeys"
+                                    :options="treeOptions"
+                                    selection-mode="multiple"
+                                    :invalid="Boolean(serverErrors.service_category_ids?.[0])"
                                     :placeholder="t('providers.services_placeholder')"
                                     :filter="true"
                                     filter-placeholder="Search..."
-                                    :filter-fields="['name']"
                                     :show-clear="true"
-                                    multiple
                                     append-to="self"
-                                    auto-filter-focus
+                                    display="chip"
                                     class="w-100"
                                     @change="clearServerError('service_category_ids')"
                                 />
                                 <div v-if="serverErrors.service_category_ids?.[0]" class="invalid-feedback d-block">
                                     {{ serverErrors.service_category_ids[0] }}
                                 </div>
-                            </div>
-
-                            <div class="col-md-6 d-flex align-items-end">
-                                <button
-                                    type="button"
-                                    class="btn btn-primary-light w-100"
-                                    @click="generatePassword"
-                                >
-                                    <i class="ri-refresh-line me-1"></i>{{ t('profile.generate_password') }}
-                                </button>
                             </div>
 
                             <div class="col-md-6">
@@ -283,6 +268,17 @@
                                     {{ passwordConfirmationMessage }}
                                 </div>
                             </div>
+
+                            <div class="col-md-12 d-flex align-items-end">
+                                <button
+                                    type="button"
+                                    class="btn btn-primary-light w-100"
+                                    @click="generatePassword"
+                                >
+                                    <i class="ri-refresh-line me-1"></i>{{ t('profile.generate_password') }}
+                                </button>
+                            </div>
+
                         </div>
                     </div>
 
@@ -302,6 +298,7 @@
 import useVuelidate from '@vuelidate/core';
 import { email, helpers } from '@vuelidate/validators';
 import Select from 'primevue/select';
+import TreeSelect from 'primevue/treeselect';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../api/adminAxios';
@@ -347,7 +344,7 @@ const avatarInput = ref(null);
 const avatarPreview = ref(DEFAULT_AVATAR);
 const avatarFile = ref(null);
 const removeAvatarFlag = ref(false);
-const leafOptions = ref([]);
+const treeOptions = ref([]);
 const submitting = ref(false);
 const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);
@@ -378,11 +375,25 @@ const passwordRequired = computed(() => (
 
 const passwordStrength = computed(() => calculatePasswordStrength(form.password));
 
-const statusOptions = computed(() => ({
-    active: t('providers.filter_active'),
-    inactive: t('providers.filter_inactive'),
-    blocked: t('providers.filter_blocked'),
-}));
+const statusOptions = computed(() => ([
+    { value: 'active', label: t('providers.filter_active') },
+    { value: 'inactive', label: t('providers.filter_inactive') },
+    { value: 'blocked', label: t('providers.filter_blocked') },
+]));
+
+const genderOptions = computed(() => ([
+    { value: 'male', label: t('profile.gender_male') },
+    { value: 'female', label: t('profile.gender_female') },
+]));
+
+const selectedServiceKeys = computed({
+    get: () => Object.fromEntries(
+        form.service_category_ids.map((id) => [String(id), true]),
+    ),
+    set: (keys) => {
+        form.service_category_ids = Object.keys(keys ?? {}).map(Number);
+    },
+});
 
 const rules = computed(() => ({
     name: stringFieldRules('providers.name', 50, 2),
@@ -485,13 +496,13 @@ const passwordConfirmationState = buildFieldState('password_confirmation');
 
 const nameFeedback = nameState.feedback;
 const emailFeedback = emailState.feedback;
+const genderFeedback = genderState.feedback;
 const phoneFeedback = phoneState.feedback;
 const passwordFeedback = passwordState.feedback;
 const passwordConfirmationFeedback = passwordConfirmationState.feedback;
 
 const nameInputClass = nameState.inputClass;
 const emailInputClass = emailState.inputClass;
-const genderInputClass = genderState.inputClass;
 const passwordInputClass = passwordState.inputClass;
 const passwordConfirmationInputClass = passwordConfirmationState.inputClass;
 
@@ -563,12 +574,12 @@ function resetValidation() {
     applyApiErrors(serverErrors, {});
 }
 
-async function loadLeafOptions() {
+async function loadTreeOptions() {
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/service-categories/leaf-options');
-        leafOptions.value = data.data ?? [];
+        const { data } = await adminAxios.get('/api/admin/v1/service-categories/tree-options');
+        treeOptions.value = data.data ?? [];
     } catch {
-        leafOptions.value = [];
+        treeOptions.value = [];
     }
 }
 
@@ -694,7 +705,7 @@ setupCatalogModalWatcher({
     openModal,
     closeModal,
     resourceUri,
-    onOpen: loadLeafOptions,
+    onOpen: loadTreeOptions,
 });
 
 onMounted(() => {

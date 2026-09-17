@@ -1,7 +1,7 @@
 <template>
     <aside class="app-sidebar sticky" id="sidebar">
         <div class="main-sidebar-header">
-            <PlatformLogo href="/provider/dashboard" />
+            <PlatformLogo href="/user/dashboard" />
         </div>
 
         <div class="main-sidebar" id="sidebar-scroll">
@@ -18,9 +18,16 @@
                     </li>
 
                     <li class="slide">
-                        <router-link :to="{ name: 'provider.dashboard' }" class="side-menu__item">
+                        <router-link :to="{ name: 'user.dashboard' }" class="side-menu__item">
                             <i class="bx bx-home side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('dashboard') }}</span>
+                        </router-link>
+                    </li>
+
+                    <li class="slide">
+                        <router-link :to="{ name: 'user.chat' }" class="side-menu__item">
+                            <i class="ri-robot-2-line side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('ai_chat.title') }}</span>
                         </router-link>
                     </li>
 
@@ -29,7 +36,7 @@
                     </li>
 
                     <li class="slide">
-                        <router-link :to="{ name: 'provider.profile' }" class="side-menu__item">
+                        <router-link :to="{ name: 'user.profile' }" class="side-menu__item">
                             <i class="ri-user-settings-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('profile.title') }}</span>
                         </router-link>
@@ -48,7 +55,7 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n';
-import PlatformLogo from './PlatformLogo.vue';
+import PlatformLogo from '../PlatformLogo.vue';
 
 const { t } = useI18n();
 </script>
