@@ -71,18 +71,18 @@ export function useHeader() {
         if (isProviderPanel.value) {
             return providerAuthStore.provider?.avatar_thumb
                 ?? providerAuthStore.provider?.avatar
-                ?? '/dashboard/assets/images/faces/9.jpg';
+                ?? '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
         }
 
         if (isUserPanel.value) {
             return userAuthStore.user?.avatar_thumb
                 ?? userAuthStore.user?.avatar
-                ?? '/dashboard/assets/images/faces/9.jpg';
+                ?? '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
         }
 
         return authStore.admin?.avatar_thumb
             ?? authStore.admin?.avatar
-            ?? '/dashboard/assets/images/faces/9.jpg';
+            ?? '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
     });
 
     function toggleSidebar() {

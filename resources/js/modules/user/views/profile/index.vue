@@ -259,7 +259,7 @@ import { useUserAuthStore } from '../../../../stores/userAuth';
 import { combinePhoneNumber, splitPhoneNumber } from '../../../../utils/catalog';
 import { calculatePasswordStrength, generateSecurePassword } from '../../../../utils/passwordStrength';
 
-const DEFAULT_AVATAR = '/dashboard/assets/images/faces/9.jpg';
+const DEFAULT_AVATAR = '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
 
 const { t } = useI18n();
 const authStore = useUserAuthStore();

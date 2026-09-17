@@ -131,6 +131,13 @@
                     </li>
 
                     <li class="slide">
+                        <router-link :to="{ name: 'admin.dashboard-themes.index' }" class="side-menu__item">
+                            <i class="ri-palette-line side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('dashboard_themes.title') }}</span>
+                        </router-link>
+                    </li>
+
+                    <li class="slide">
                         <router-link :to="{ name: 'admin.platform-settings' }" class="side-menu__item">
                             <i class="ri-settings-3-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('platform_settings.title') }}</span>

@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\General\CountryController;
 use App\Http\Controllers\General\CurrencyController;
+use App\Http\Controllers\General\DashboardThemeController;
 use App\Http\Controllers\General\FlagController;
 use App\Http\Controllers\General\LanguageController;
 use App\Http\Controllers\General\PlatformSettingController;
@@ -40,6 +41,10 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
 
         Route::get('service-categories/tree', [ServiceCategoryController::class, 'tree']);
         Route::get('service-categories/leaf-options', [ServiceCategoryController::class, 'leafOptions']);
+
+        Route::post('dashboard-themes/delete-multiple', [DashboardThemeController::class, 'deleteMultiple']);
+        Route::patch('dashboard-themes/{dashboard_theme}/status', [DashboardThemeController::class, 'changeStatus']);
+        Route::apiResource('dashboard-themes', DashboardThemeController::class);
 
         foreach ([
             ['flags', FlagController::class, 'flag'],
