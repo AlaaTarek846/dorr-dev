@@ -51,12 +51,12 @@ export function useDashboard() {
         document.getElementById('loader')?.classList.add('d-none');
 
         const scripts = [
-            '/dashboard/assets/libs/node-waves/waves.min.js',
-            '/dashboard/assets/libs/simplebar/simplebar.min.js',
-            '/dashboard/assets/js/simplebar.js',
-            '/dashboard/assets/js/defaultmenu.min.js',
-            '/dashboard/assets/js/sticky.js',
-            '/dashboard/assets/js/custom-switcher.min.js',
+            '/dashboard/themes/theme-1/assets/libs/node-waves/waves.min.js',
+            '/dashboard/themes/theme-1/assets/libs/simplebar/simplebar.min.js',
+            '/dashboard/themes/theme-1/assets/js/simplebar.js',
+            '/dashboard/themes/theme-1/assets/js/defaultmenu.min.js',
+            '/dashboard/themes/theme-1/assets/js/sticky.js',
+            '/dashboard/themes/theme-1/assets/js/custom-switcher.min.js',
         ];
 
         for (const src of scripts) {

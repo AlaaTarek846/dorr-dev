@@ -6,10 +6,11 @@ use App\Models\Concerns\HasTranslations;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Flag extends Model
 {
-    use HasTranslations, SearchFilterTrait;
+    use HasTranslations, SearchFilterTrait, SoftDeletes;
 
     protected $fillable = ['code', 'status'];
 

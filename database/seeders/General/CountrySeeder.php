@@ -16,91 +16,9 @@ class CountrySeeder extends Seeder
     use SyncsSeedTranslations, TruncatesBeforeSeeding;
 
     /**
-     * @var array<string, string|null>
+     * @var array<string, array{phone_starts_with: string, phone_length: int}>|null
      */
-    private array $phoneStartsWith = [
-        'EG' => '1',
-        'SA' => '5',
-        'AE' => '5',
-        'GB' => '7',
-    ];
-
-    /**
-     * @var array<string, int>
-     */
-    private array $phoneLengths = [
-        'EG' => 10,
-        'SA' => 9,
-        'AE' => 9,
-        'BH' => 8,
-        'KW' => 8,
-        'QA' => 8,
-        'OM' => 8,
-        'JO' => 9,
-        'IQ' => 10,
-        'PS' => 9,
-        'LB' => 8,
-        'SY' => 9,
-        'YE' => 9,
-        'MA' => 9,
-        'DZ' => 9,
-        'TN' => 8,
-        'LY' => 9,
-        'SD' => 9,
-        'US' => 10,
-        'CA' => 10,
-        'GB' => 10,
-        'FR' => 9,
-        'DE' => 11,
-        'IT' => 10,
-        'ES' => 9,
-        'TR' => 10,
-        'IN' => 10,
-        'PK' => 10,
-        'BD' => 10,
-        'AU' => 9,
-        'NZ' => 8,
-        'CN' => 11,
-        'JP' => 10,
-        'KR' => 10,
-        'BR' => 11,
-        'MX' => 10,
-        'RU' => 10,
-        'UA' => 9,
-        'NL' => 9,
-        'BE' => 9,
-        'SE' => 9,
-        'NO' => 8,
-        'DK' => 8,
-        'FI' => 9,
-        'PL' => 9,
-        'PT' => 9,
-        'GR' => 10,
-        'IE' => 9,
-        'CH' => 9,
-        'AT' => 10,
-        'CZ' => 9,
-        'HU' => 9,
-        'RO' => 9,
-        'BG' => 9,
-        'HR' => 9,
-        'RS' => 9,
-        'ZA' => 9,
-        'NG' => 10,
-        'KE' => 9,
-        'GH' => 9,
-        'ET' => 9,
-        'PH' => 10,
-        'ID' => 10,
-        'MY' => 9,
-        'SG' => 8,
-        'TH' => 9,
-        'VN' => 9,
-        'AR' => 10,
-        'CL' => 9,
-        'CO' => 10,
-        'PE' => 9,
-    ];
+    private ?array $phoneRules = null;
 
     public function run(): void
     {
@@ -129,7 +47,7 @@ class CountrySeeder extends Seeder
     }
 
     /**
-     * @return list<array{code: string, code_alpha3: string|null, dial_code: string, phone_starts_with: string|null, phone_length: int|null, is_default: bool, flag: string, currency: string, name: array{en: string, ar: string}}>
+     * @return list<array{code: string, code_alpha3: string|null, dial_code: string, phone_starts_with: string, phone_length: int, is_default: bool, flag: string, currency: string, name: array{en: string, ar: string}}>
      */
     private function countryDefinitions(): array
     {
@@ -163,8 +81,8 @@ class CountrySeeder extends Seeder
                 'code' => $code,
                 'code_alpha3' => strtoupper(trim((string) ($country['iso3'] ?? ''))) ?: null,
                 'dial_code' => $this->formatDialCode((string) ($country['phonecode'] ?? '')),
-                'phone_starts_with' => $this->phoneStartsWith[$code] ?? null,
-                'phone_length' => $this->phoneLengths[$code] ?? null,
+                'phone_starts_with' => $this->phoneRule($code)['phone_starts_with'],
+                'phone_length' => $this->phoneRule($code)['phone_length'],
                 'is_default' => $code === 'EG',
                 'flag' => $flag,
                 'currency' => $currency,
@@ -180,6 +98,40 @@ class CountrySeeder extends Seeder
         return array_values($definitions);
     }
 
+    /**
+     * @return array{phone_starts_with: string, phone_length: int}
+     */
+    private function phoneRule(string $code): array
+    {
+        $rules = $this->phoneRules();
+
+        return $rules[$code] ?? [
+            'phone_starts_with' => '0',
+            'phone_length' => 10,
+        ];
+    }
+
+    /**
+     * @return array<string, array{phone_starts_with: string, phone_length: int}>
+     */
+    private function phoneRules(): array
+    {
+        if ($this->phoneRules !== null) {
+            return $this->phoneRules;
+        }
+
+        $path = database_path('seeders/data/country-phone-rules.json');
+
+        if (! is_file($path)) {
+            return $this->phoneRules = [];
+        }
+
+        /** @var array<string, array{phone_starts_with: string, phone_length: int}> $rules */
+        $rules = json_decode((string) file_get_contents($path), true, flags: JSON_THROW_ON_ERROR);
+
+        return $this->phoneRules = $rules;
+    }
+
     private function formatDialCode(string $phoneCode): string
     {
         $phoneCode = preg_replace('/\D+/', '', $phoneCode) ?? '';
@@ -188,7 +140,7 @@ class CountrySeeder extends Seeder
     }
 
     /**
-     * @return list<array{code: string, code_alpha3: string, dial_code: string, phone_starts_with: string|null, phone_length: int|null, is_default: bool, flag: string, currency: string, name: array{en: string, ar: string}}>
+     * @return list<array{code: string, code_alpha3: string, dial_code: string, phone_starts_with: string, phone_length: int, is_default: bool, flag: string, currency: string, name: array{en: string, ar: string}}>
      */
     private function fallbackCountries(): array
     {

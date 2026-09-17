@@ -1,32 +1,35 @@
 # Architecture
 
+**Last updated:** 2026-09-17
+
 ---
 
 ## Overall System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client (Browser)                         │
-├──────────────────────────┬──────────────────────────────────────┤
-│   Admin Vue SPA (/admin) │   User Vue SPA (/user)               │
-│   Pinia + PrimeVue       │   Pinia                              │
-│   adminAxios             │   userAxios                          │
-└────────────┬─────────────┴──────────────────┬───────────────────┘
-             │                                │
-             ▼                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│              Laravel 12 Application (Monolith + Modules)         │
-├─────────────────────────────────────────────────────────────────┤
-│  routes/web.php          │  Module API routes (/api/...)        │
-│  Blade → SPA shells      │  admin/v1 | user/v1                  │
-├──────────────────────────┴──────────────────────────────────────┤
-│  app/ (shared core)          │  Modules/ (bounded features)     │
-│  General/ catalog            │  Admin, User, AI, Provider       │
-│  BaseRepository/Service      │                                  │
-│  Support/Api, Auth services  │                                  │
-├──────────────────────────────┴──────────────────────────────────┤
-│  Eloquent Models │ MySQL/SQLite │ Sanctum │ Spatie Media        │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────────────┐
+│                            Client (Browser)                               │
+├─────────────────┬─────────────────────┬──────────────────────────────────┤
+│ Admin SPA       │ User SPA            │ Provider SPA                     │
+│ /admin          │ /user               │ /provider                        │
+│ adminAxios      │ userAxios           │ providerAxios                    │
+│ PrimeVue        │ Pinia + AI chat     │ Pinia (no AI chat)               │
+└────────┬────────┴──────────┬──────────┴──────────────┬───────────────────┘
+         │                   │                         │
+         ▼                   ▼                         ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                 Laravel 12 Application (Monolith + Modules)               │
+├──────────────────────────────────────────────────────────────────────────┤
+│  routes/web.php (Blade SPA shells)  │  Module API routes (/api/...)      │
+│  /admin | /user | /provider         │  admin/v1 | user/v1 | provider/v1│
+├─────────────────────────────────────┴────────────────────────────────────┤
+│  app/ (shared core)              │  Modules/ (bounded features)          │
+│  General/ catalog                │  Admin, User, AI, Provider            │
+│  BaseRepository/Service            │                                       │
+│  Support/Api, Auth services        │                                       │
+├──────────────────────────────────┴───────────────────────────────────────┤
+│  Eloquent Models │ MySQL/SQLite │ Sanctum │ Spatie Media                │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -52,7 +55,7 @@
 | **Admin** | Admin auth, admin CRUD, mounts General catalog routes | `routes/admin.php` |
 | **User** | User auth/registration/profile, user API | `routes/dashboard.php` |
 | **AI** | AI providers (admin), AI chat (user) | `routes/admin.php`, `routes/user.php` |
-| **Provider** | Provider business profiles (admin) | `routes/admin.php` |
+| **Provider** | Provider profiles (admin CRUD) + provider portal auth/profile | `routes/admin.php`, `routes/dashboard.php` |
 
 Module routes are included from each module's `routes/api.php` → loaded by `RouteServiceProvider`.
 
@@ -132,7 +135,7 @@ resources/js/
 
 ```
 resources/js/
-├── user-app.js → user-main.js
+├── apps/user/user-app.js
 ├── UserApp.vue
 ├── router/user-index.js     (base: /user)
 ├── modules/user/routes.js
@@ -141,7 +144,23 @@ resources/js/
 └── api/userAxios.js
 ```
 
-### Shared Frontend (both SPAs)
+### Provider SPA
+
+```
+resources/js/
+├── apps/provider/provider-app.js
+├── apps/provider/ProviderApp.vue
+├── router/provider-index.js   (base: /provider)
+├── modules/provider/routes.js
+├── modules/provider/views/    (auth, dashboard, profile)
+├── layouts/provider/ProviderLayout.vue
+├── layouts/provider/ProviderSidebar.vue   (no AI chat)
+├── stores/providerAuth.js     (token: provider_token)
+├── stores/providerServiceSelection.js
+└── api/providerAxios.js
+```
+
+### Shared Frontend (all SPAs)
 
 - `components/` — auth, catalog, chat, layout, ui
 - `composables/` — validation, toast, header
@@ -155,7 +174,7 @@ resources/js/
 User action → Vue component
   → composable (crudStructure / useValidation)
     → Pinia store (optional: counts, auth, locale)
-      → axios client (adminAxios / userAxios)
+      → axios client (adminAxios / userAxios / providerAxios)
         → Laravel API
           → JSON response
             → toast / form feedback / reactive state update
@@ -180,21 +199,23 @@ See [05-DATA-MODEL.md](./05-DATA-MODEL.md).
 
 ```
 ┌─────────────┐     Sanctum Token      ┌──────────────┐
-│  Admin SPA  │ ─────────────────────► │ admin_api    │
-└─────────────┘   personal_access_     │ guard        │
-                  tokens table         └──────┬───────┘
-                                              │
-┌─────────────┐     Sanctum Token      ┌──────▼───────┐
-│  User SPA   │ ─────────────────────► │ user_api     │
-└─────────────┘                        │ guard        │
-                                       └──────┬───────┘
-                                              │
-                    ┌─────────────────────────┴─────────────────────────┐
-                    │ admins table          │ users table                │
-                    └───────────────────────────────────────────────────┘
+│  Admin SPA  │ ─────────────────────► │ admin_api    │──► admins
+└─────────────┘                        └──────────────┘
+
+┌─────────────┐     Sanctum Token      ┌──────────────┐
+│  User SPA   │ ─────────────────────► │ user_api     │──► users
+└─────────────┘                        └──────────────┘
+
+┌─────────────┐     Sanctum Token      ┌──────────────┐
+│ Provider SPA│ ─────────────────────► │ provider_api │──► providers
+└─────────────┘                        └──────────────┘
+
+All guards use personal_access_tokens (Sanctum).
 ```
 
 OAuth (Google/Apple) uses web redirect flow → creates/links `social_accounts` → issues Sanctum token.
+
+**Shared OAuth callback:** Google/Apple redirect URI is `/auth/user/{provider}/callback`. Session key `social_auth_panel` (`user` | `provider`) selects User vs Provider handling after callback.
 
 ---
 
@@ -210,8 +231,8 @@ OAuth (Google/Apple) uses web redirect flow → creates/links `social_accounts` 
 
 ## Communication: Laravel ↔ Vue
 
-1. Blade views (`admin.blade.php`, `user.blade.php`) boot SPA with branding JSON
-2. Vue apps use relative API paths (`/api/admin/v1/...`)
+1. Blade views (`admin.blade.php`, `user.blade.php`, `provider.blade.php`) boot SPAs with branding JSON
+2. Vue apps use relative API paths (`/api/admin/v1/...`, `/api/user/v1/...`, `/api/provider/v1/...`)
 3. Vite HMR in dev (`127.0.0.1:5173`); built assets in production
 4. CSRF: API uses token auth (not cookie SPA CSRF for API calls)
 5. Locale: `X-Locale` header on all API requests

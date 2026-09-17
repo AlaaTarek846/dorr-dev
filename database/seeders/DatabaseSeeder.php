@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use Database\Seeders\Admin\AdminSeeder;
+use Database\Seeders\Provider\ProviderSeeder;
 use Database\Seeders\User\UserSeeder;
 use Database\Seeders\General\CountrySeeder;
 use Database\Seeders\General\CurrencySeeder;
@@ -32,6 +33,7 @@ class DatabaseSeeder extends Seeder
             UserSeeder::class,
             PlatformSettingSeeder::class,
             ServiceCategoriesSeeder::class,
+            ProviderSeeder::class,
             AIDatabaseSeeder::class,
         ]);
     }

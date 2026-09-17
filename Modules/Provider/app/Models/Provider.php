@@ -10,6 +10,7 @@ use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use App\Enums\UserStatus;
@@ -18,7 +19,7 @@ use Spatie\MediaLibrary\HasMedia;
 
 class Provider extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasMediaTrait, HasSocialAccounts, HasVerificationCodes, Notifiable, SearchFilterTrait;
+    use HasApiTokens, HasMediaTrait, HasSocialAccounts, HasVerificationCodes, Notifiable, SearchFilterTrait, SoftDeletes;
 
     protected $table = 'providers';
 

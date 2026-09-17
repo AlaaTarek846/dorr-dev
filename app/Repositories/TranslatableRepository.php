@@ -2,19 +2,11 @@
 
 namespace App\Repositories;
 
-use App\Repositories\Concerns\ManagesBulkAndStatus;
 use App\Repositories\Concerns\SyncsTranslations;
 
 abstract class TranslatableRepository extends BaseRepository
 {
-    use ManagesBulkAndStatus, SyncsTranslations;
-
-    /**
-     * Relations that block delete.
-     *
-     * @var list<string>
-     */
-    protected array $deleteBlockRelations = [];
+    use SyncsTranslations;
 
     /**
      * @param  list<string>  $relations

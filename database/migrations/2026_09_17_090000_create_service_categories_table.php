@@ -23,6 +23,7 @@ return new class extends Migration
             $table->boolean('is_login_dashboard')->default(true)->comment('ظهور الخدمة في لوحة الدخول');
             $table->boolean('is_auto_assign')->default(false)->comment('الإسناد التلقائي');
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('service_category_translations', function (Blueprint $table) {

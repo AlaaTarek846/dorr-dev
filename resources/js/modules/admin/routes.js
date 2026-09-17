@@ -61,6 +61,12 @@ export default [
                 meta: { middleware: [auth] },
             },
             {
+                path: 'dashboard-themes',
+                name: 'admin.dashboard-themes.index',
+                component: () => import('./views/dashboard-theme/index.vue'),
+                meta: { middleware: [auth] },
+            },
+            {
                 path: 'platform-settings',
                 name: 'admin.platform-settings',
                 component: () => import('./views/platform-settings/index.vue'),

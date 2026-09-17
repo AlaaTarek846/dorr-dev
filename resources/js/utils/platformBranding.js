@@ -1,17 +1,17 @@
 export const DEFAULT_LOGO_PATHS = {
     light: {
-        desktop: '/dashboard/assets/images/brand-logos/desktop-logo.png',
-        toggle: '/dashboard/assets/images/brand-logos/toggle-logo.png',
-        white: '/dashboard/assets/images/brand-logos/desktop-white.png',
-        toggleWhite: '/dashboard/assets/images/brand-logos/toggle-white.png',
+        desktop: '/dashboard/themes/theme-1/assets/images/brand-logos/desktop-logo.png',
+        toggle: '/dashboard/themes/theme-1/assets/images/brand-logos/toggle-logo.png',
+        white: '/dashboard/themes/theme-1/assets/images/brand-logos/desktop-white.png',
+        toggleWhite: '/dashboard/themes/theme-1/assets/images/brand-logos/toggle-white.png',
     },
     dark: {
-        desktop: '/dashboard/assets/images/brand-logos/desktop-dark.png',
-        toggle: '/dashboard/assets/images/brand-logos/toggle-dark.png',
+        desktop: '/dashboard/themes/theme-1/assets/images/brand-logos/desktop-dark.png',
+        toggle: '/dashboard/themes/theme-1/assets/images/brand-logos/toggle-dark.png',
     },
 };
 
-export const DEFAULT_FAVICON = '/dashboard/assets/images/brand-logos/favicon.ico';
+export const DEFAULT_FAVICON = '/dashboard/themes/theme-1/assets/images/brand-logos/favicon.ico';
 
 export function resolveLightLogo(logo) {
     return logo || DEFAULT_LOGO_PATHS.light.desktop;

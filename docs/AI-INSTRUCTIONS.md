@@ -80,7 +80,11 @@ app/Services/General/{Entity}Service.php             → extends CatalogService
 app/Repositories/General/{Entity}Repository.php      → extends TranslatableRepository
 app/Http/Requests/General/{Entity}Request.php        → uses HasCatalogRules
 app/Http/Resources/General/{Entity}Resource.php      → uses FormatsTranslations
-Modules/Admin/routes/admin.php                       → register routes
+routes/admin.php                                     → General catalog routes (Admin API)
+Modules/Admin/routes/admin.php                       → requires routes/admin.php + admin auth/admins CRUD
+Modules/User/routes/admin.php                        → users CRUD for Admin API (auth: admin_api)
+Modules/User/routes/dashboard.php                    → user SPA API (auth, profile, countries/dropdown)
+Modules/Provider/routes/admin.php                    → providers CRUD for Admin API (auth: admin_api)
 ```
 
 ### Frontend Pattern (Admin CRUD)

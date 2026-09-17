@@ -70,20 +70,42 @@
                             >
                                 {{ t('currencies.filter_inactive') }} ({{ counts.inactive }})
                             </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
                         </div>
 
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount"
+                                v-if="selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
                             >
                                 <i class="ri-delete-bin-line me-1 align-middle"></i>
-                                {{ t('currencies.delete_count', { count: selectedCount }) }}
+                                {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
-
-                            <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                            <button
+                                v-if="selectedCount && statusFilter === 'deleted'"
+                                type="button"
+                                class="btn btn-danger btn-sm btn-wave"
+                                @click="confirmForceDeleteSelected"
+                            >
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>
+                                {{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button
+                                v-if="statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreate"
+                            >
                                 <i class="ri-add-line me-1 align-middle"></i>
                                 {{ t('currencies.add_short') }}
                             </button>
@@ -124,7 +146,7 @@
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('currencies.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('currencies.empty') }}</p>
-                                                <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('currencies.add') }}
                                                 </button>
@@ -153,12 +175,14 @@
                                                 </span>
                                                 <div>
                                                     <button
+                                                        v-if="!isTrashedRecord(currency)"
                                                         type="button"
                                                         class="btn btn-link p-0 text-start fw-semibold text-default"
                                                         @click="openEdit(currency)"
                                                     >
                                                         {{ displayName(currency) }}
                                                     </button>
+                                                    <span v-else class="fw-semibold text-default">{{ displayName(currency) }}</span>
                                                     <span class="d-block text-muted fs-11">
                                                         #{{ currency.id }}
                                                         <span v-if="currency.is_default" class="badge bg-warning-transparent ms-1">
@@ -178,7 +202,11 @@
                                             <span class="d-block">{{ formatExchangeRate(currency) }}</span>
                                         </td>
                                         <td>
+                                            <span v-if="isTrashedRecord(currency)" class="badge bg-danger-transparent">
+                                                {{ t('catalog.deleted_badge') }}
+                                            </span>
                                             <div
+                                                v-else
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
                                                     on: currency.status,
@@ -194,13 +222,34 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="d-block">{{ formatDate(currency.created_at) }}</span>
-                                            <span v-if="currency.updated_at" class="d-block text-muted fs-11">
+                                            <span class="d-block">{{ formatDate(catalogPrimaryDate(currency)) }}</span>
+                                            <span v-if="catalogShowUpdatedSubtext(currency)" class="d-block text-muted fs-11">
                                                 {{ t('currencies.updated') }}: {{ formatDate(currency.updated_at) }}
+                                            </span>
+                                            <span v-if="catalogShowDeletedSubtext(currency, isDeletedView)" class="d-block text-muted fs-11">
+                                                {{ t('catalog.deleted_at') }}: {{ formatDate(currency.deleted_at) }}
                                             </span>
                                         </td>
                                         <td class="text-end pe-4">
-                                            <div class="btn-list justify-content-end">
+                                            <div v-if="isTrashedRecord(currency)" class="btn-list justify-content-end">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-success-light btn-icon"
+                                                    :title="t('catalog.restore_title')"
+                                                    @click="confirmRestore(currency.id)"
+                                                >
+                                                    <i class="ri-arrow-go-back-line"></i>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-danger-light btn-icon"
+                                                    :title="t('catalog.force_delete_title')"
+                                                    @click="confirmForceDelete(currency.id)"
+                                                >
+                                                    <i class="ri-delete-bin-7-line"></i>
+                                                </button>
+                                            </div>
+                                            <div v-else-if="!isTrashedRecord(currency)" class="btn-list justify-content-end">
                                                 <button
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
@@ -301,9 +350,16 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
+import { useCatalogTrashActions } from '../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useCurrencies } from '../../../../composables/useCurrencies';
 import { useCurrenciesStore } from '../../../../stores/currencies';
+import {
+    catalogPrimaryDate,
+    catalogShowDeletedSubtext,
+    catalogShowUpdatedSubtext,
+    isTrashedRecord,
+} from '../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
@@ -319,12 +375,16 @@ const {
     perPage,
     search,
     statusFilter,
+    isDeletedView,
 } = storeToRefs(currenciesApi);
 const {
     fetchCurrencies,
     setStatusFilter,
     deleteCurrency,
     deleteSelected,
+    restoreCurrency,
+    forceDeleteCurrency,
+    forceDeleteSelected,
     toggleStatus,
     toggleSelectAll,
     toggleSelect,
@@ -335,6 +395,7 @@ const counts = computed(() => ({
     total: currenciesStore.total ?? pagination.value?.total ?? 0,
     active: currenciesStore.activeCount ?? 0,
     inactive: currenciesStore.inactiveCount ?? 0,
+    deleted: currenciesStore.deletedCount ?? 0,
 }));
 
 const modalShow = ref(false);
@@ -468,36 +529,23 @@ function changePage(page) {
     fetchCurrencies(page);
 }
 
-function confirmDelete(id) {
-    deleteConfirm.open({
-        title: t('currencies.delete_title'),
-        message: t('currencies.confirm_delete'),
-        payload: { type: 'single', id },
-    });
-}
-
-function confirmDeleteSelected() {
-    deleteConfirm.open({
-        title: t('currencies.delete_selected_title'),
-        message: t('currencies.confirm_delete_selected'),
-        payload: { type: 'multiple' },
-    });
-}
-
-async function handleDeleteConfirm() {
-    deleteConfirm.setLoading(true);
-
-    try {
-        if (deleteConfirm.state.payload?.type === 'multiple') {
-            await deleteSelected();
-        } else {
-            await deleteCurrency(deleteConfirm.state.payload.id);
-        }
-    } finally {
-        deleteConfirm.setLoading(false);
-        deleteConfirm.close();
-    }
-}
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected,
+    deleteItem: deleteCurrency,
+    restoreItem: restoreCurrency,
+    forceDeleteItem: forceDeleteCurrency,
+    forceDeleteSelected,
+    i18nPrefix: 'currencies',
+});
 
 function onSaved() {
     modalShow.value = false;

@@ -70,20 +70,42 @@
                             >
                                 {{ t('languages.filter_inactive') }} ({{ counts.inactive }})
                             </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
                         </div>
 
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount"
+                                v-if="selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
                             >
                                 <i class="ri-delete-bin-line me-1 align-middle"></i>
-                                {{ t('languages.delete_count', { count: selectedCount }) }}
+                                {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
-
-                            <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                            <button
+                                v-if="selectedCount && statusFilter === 'deleted'"
+                                type="button"
+                                class="btn btn-danger btn-sm btn-wave"
+                                @click="confirmForceDeleteSelected"
+                            >
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>
+                                {{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button
+                                v-if="statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreate"
+                            >
                                 <i class="ri-add-line me-1 align-middle"></i>
                                 {{ t('languages.add_short') }}
                             </button>
@@ -126,7 +148,7 @@
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('languages.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('languages.empty') }}</p>
-                                                <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('languages.add') }}
                                                 </button>
@@ -158,12 +180,14 @@
                                                     />
                                                     <div>
                                                         <button
+                                                            v-if="!isTrashedRecord(language)"
                                                             type="button"
                                                             class="btn btn-link p-0 text-start fw-semibold text-default"
                                                             @click="openEdit(language)"
                                                         >
                                                             {{ displayTranslatedName(language, locale) }}
                                                         </button>
+                                                        <span v-else class="fw-semibold text-default">{{ displayTranslatedName(language, locale) }}</span>
                                                         <span class="d-block text-muted fs-11">
                                                             #{{ language.id }}
                                                         </span>
@@ -233,7 +257,11 @@
                                                 </span>
                                             </td>
                                             <td>
+                                                <span v-if="isTrashedRecord(language)" class="badge bg-danger-transparent">
+                                                    {{ t('catalog.deleted_badge') }}
+                                                </span>
                                                 <div
+                                                    v-else
                                                     class="toggle toggle-success mb-0 catalog-status-toggle"
                                                     :class="{
                                                         on: language.status,
@@ -249,13 +277,34 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <span class="d-block">{{ formatCatalogDate(language.created_at, locale) }}</span>
-                                                <span v-if="language.updated_at" class="d-block text-muted fs-11">
+                                                <span class="d-block">{{ formatCatalogDate(catalogPrimaryDate(language), locale) }}</span>
+                                                <span v-if="catalogShowUpdatedSubtext(language)" class="d-block text-muted fs-11">
                                                     {{ t('languages.updated') }}: {{ formatCatalogDate(language.updated_at, locale) }}
+                                                </span>
+                                                <span v-if="catalogShowDeletedSubtext(language, isDeletedView)" class="d-block text-muted fs-11">
+                                                    {{ t('catalog.deleted_at') }}: {{ formatCatalogDate(language.deleted_at, locale) }}
                                                 </span>
                                             </td>
                                             <td class="text-end pe-4">
-                                                <div class="btn-list justify-content-end">
+                                                <div v-if="isTrashedRecord(language)" class="btn-list justify-content-end">
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-success-light btn-icon"
+                                                        :title="t('catalog.restore_title')"
+                                                        @click="confirmRestore(language.id)"
+                                                    >
+                                                        <i class="ri-arrow-go-back-line"></i>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-sm btn-danger-light btn-icon"
+                                                        :title="t('catalog.force_delete_title')"
+                                                        @click="confirmForceDelete(language.id)"
+                                                    >
+                                                        <i class="ri-delete-bin-7-line"></i>
+                                                    </button>
+                                                </div>
+                                                <div v-else-if="!isTrashedRecord(language)" class="btn-list justify-content-end">
                                                     <button
                                                         type="button"
                                                         class="btn btn-sm btn-info-light btn-icon"
@@ -357,6 +406,7 @@ import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
 import FlagImage from '../../../../components/ui/FlagImage.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
+import { useCatalogTrashActions } from '../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useLanguages } from '../../../../composables/useLanguages';
 import { useAvailableLanguagesStore } from '../../../../stores/availableLanguages';
@@ -364,6 +414,10 @@ import { useLanguagesStore } from '../../../../stores/languages';
 import {
     displayTranslatedName,
     formatCatalogDate,
+    catalogPrimaryDate,
+    catalogShowDeletedSubtext,
+    catalogShowUpdatedSubtext,
+    isTrashedRecord,
     resolveRecordFlagCode,
 } from '../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
@@ -382,12 +436,16 @@ const {
     perPage,
     search,
     statusFilter,
+    isDeletedView,
 } = storeToRefs(languagesApi);
 const {
     fetchLanguages,
     setStatusFilter,
     deleteLanguage,
     deleteSelected,
+    restoreLanguage,
+    forceDeleteLanguage,
+    forceDeleteSelected,
     toggleStatus,
     toggleSelectAll,
     toggleSelect,
@@ -398,6 +456,7 @@ const counts = computed(() => ({
     total: languagesStore.total ?? pagination.value?.total ?? 0,
     active: languagesStore.activeCount ?? 0,
     inactive: languagesStore.inactiveCount ?? 0,
+    deleted: languagesStore.deletedCount ?? 0,
 }));
 
 const modalShow = ref(false);
@@ -516,36 +575,23 @@ function changePage(page) {
     fetchLanguages(page);
 }
 
-function confirmDelete(id) {
-    deleteConfirm.open({
-        title: t('languages.delete_title'),
-        message: t('languages.confirm_delete'),
-        payload: { type: 'single', id },
-    });
-}
-
-function confirmDeleteSelected() {
-    deleteConfirm.open({
-        title: t('languages.delete_selected_title'),
-        message: t('languages.confirm_delete_selected'),
-        payload: { type: 'multiple' },
-    });
-}
-
-async function handleDeleteConfirm() {
-    deleteConfirm.setLoading(true);
-
-    try {
-        if (deleteConfirm.state.payload?.type === 'multiple') {
-            await deleteSelected();
-        } else {
-            await deleteLanguage(deleteConfirm.state.payload.id);
-        }
-    } finally {
-        deleteConfirm.setLoading(false);
-        deleteConfirm.close();
-    }
-}
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected,
+    deleteItem: deleteLanguage,
+    restoreItem: restoreLanguage,
+    forceDeleteItem: forceDeleteLanguage,
+    forceDeleteSelected,
+    i18nPrefix: 'languages',
+});
 
 async function onSaved() {
     modalShow.value = false;
