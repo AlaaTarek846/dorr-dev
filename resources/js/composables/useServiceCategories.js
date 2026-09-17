@@ -7,8 +7,9 @@ export function useServiceCategories() {
         countsStore: useServiceCategoriesStore(),
         confirmDeleteKey: 'service_categories.confirm_delete',
         searchDefaults: {
-            columns: ['name_ar', 'name_en', 'slug'],
-            searchInTranslations: false,
+            columns: [],
+            searchInTranslations: true,
+            filterTranslationByLocale: false,
         },
         dataKey: 'categories',
     });

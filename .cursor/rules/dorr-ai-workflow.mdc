@@ -1,0 +1,27 @@
+---
+description: Dorr mandatory AI workflow — read docs before any code change
+alwaysApply: true
+---
+
+# Dorr AI Workflow
+
+Before writing or changing code, read:
+- `docs/AI-INSTRUCTIONS.md` (full 9-step workflow)
+- `docs/11-CHECKPOINT.md` (current state)
+- `AGENTS.md` (quick reference)
+
+The codebase is the source of truth. Never invent APIs, tables, permissions, or business rules.
+
+## Workflow (summary)
+
+1. **READ** — docs + existing similar code
+2. **UNDERSTAND** — Route → Controller → Service → Repository
+3. **ANALYZE** — impact on modules, DB, API, frontend, tests
+4. **PLAN** — for non-trivial changes, explain approach first
+5. **IMPLEMENT** — follow existing patterns only
+6. **TEST** — `composer test`; `npm run build` if JS changed
+7. **DOCUMENT** — update `docs/` when behavior/architecture changes
+
+Unclear requirements → mark **NEEDS-DECISION**, do not guess.
+
+Uncasual user prompts (Arabic/informal) still require the same workflow.

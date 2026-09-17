@@ -44,7 +44,6 @@
                                     id="language-name"
                                     v-model="form.translations[activeLocale]"
                                     type="text"
-                                    maxlength="255"
                                     class="form-control"
                                     :class="activeTranslationInputClass"
                                     :placeholder="t('languages.name_placeholder')"
@@ -71,7 +70,7 @@
                                         id="language-code"
                                         v-model="form.code"
                                         type="text"
-                                        maxlength="10"
+                                        maxlength="3"
                                         class="form-control text-lowercase"
                                         :class="codeInputClass"
                                         :placeholder="t('languages.code_placeholder')"
@@ -98,6 +97,8 @@
                                     :placeholder="t('languages.direction_placeholder')"
                                     :filter="true"
                                     filter-placeholder="Search..."
+                                    append-to="self"
+                                    auto-filter-focus
                                     :class="directionInputClass"
                                     :invalid="directionInputClass['is-invalid']"
                                     class="w-100"
@@ -280,11 +281,13 @@ const {
     form,
     serverErrors,
     nameKey: 'languages.name',
+    minLength: 2,
+    maxLength: 50,
     getV$: () => v$.value,
 });
 
 const rules = computed(() => ({
-    code: stringFieldRules('languages.code', 10),
+    code: stringFieldRules('languages.code', 3, 1),
     direction: {
         required: requiredField('languages.direction'),
     },
@@ -373,17 +376,17 @@ const flagMessage = computed(() => {
 
 function onCodeInput() {
     clearServerError('code');
-    v$.value.code.$touch();
+    v$.value.$touch();
 }
 
 function onDirectionChange() {
     clearServerError('direction');
-    v$.value.direction.$touch();
+    v$.value.$touch();
 }
 
 function onFlagChange() {
     clearServerError('flag_id');
-    v$.value.flag_id.$touch();
+    v$.value.$touch();
 }
 
 function clearServerError(field) {
@@ -437,7 +440,7 @@ function openModal() {
         return;
     }
 
-    modalInstance ??= new window.bootstrap.Modal(modalElement.value);
+    modalInstance ??= new window.bootstrap.Modal(modalElement.value, { focus: false });
     modalInstance.show();
 }
 

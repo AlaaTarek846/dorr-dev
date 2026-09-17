@@ -67,10 +67,10 @@
                                             id="profile-name"
                                             v-model="profileForm.name"
                                             type="text"
-                                            maxlength="255"
                                             class="form-control"
                                             :class="profileNameInputClass"
-                                            @input="clearProfileError('name')"
+                                            :placeholder="t('profile.name_placeholder')"
+                                            @input="onProfileFieldInput('name')"
                                         >
                                     </div>
                                     <div v-if="profileNameMessage" class="invalid-feedback d-block">
@@ -91,10 +91,10 @@
                                             id="profile-email"
                                             v-model="profileForm.email"
                                             type="email"
-                                            maxlength="255"
                                             class="form-control"
                                             :class="profileEmailInputClass"
-                                            @input="clearProfileError('email')"
+                                            :placeholder="t('profile.email_placeholder')"
+                                            @input="onProfileFieldInput('email')"
                                         >
                                     </div>
                                     <div v-if="profileEmailMessage" class="invalid-feedback d-block">
@@ -103,20 +103,23 @@
                                 </div>
 
                                 <div class="col-md-6">
-                                    <label for="profile-gender" class="form-label">{{ t('profile.gender') }}</label>
+                                    <label for="profile-gender" class="form-label">
+                                        {{ t('profile.gender') }}
+                                        <span class="text-danger">*</span>
+                                    </label>
                                     <select
                                         id="profile-gender"
                                         v-model="profileForm.gender"
                                         class="form-select"
-                                        :class="{ 'is-invalid': profileErrors.gender?.[0] }"
-                                        @change="clearProfileError('gender')"
+                                        :class="profileGenderInputClass"
+                                        @change="onProfileFieldInput('gender')"
                                     >
                                         <option value="">{{ t('profile.select_gender') }}</option>
                                         <option value="male">{{ t('profile.gender_male') }}</option>
                                         <option value="female">{{ t('profile.gender_female') }}</option>
                                     </select>
-                                    <div v-if="profileErrors.gender?.[0]" class="invalid-feedback d-block">
-                                        {{ profileErrors.gender[0] }}
+                                    <div v-if="profileGenderMessage" class="invalid-feedback d-block">
+                                        {{ profileGenderMessage }}
                                     </div>
                                 </div>
 
@@ -127,11 +130,12 @@
                                         input-id="profile-phone"
                                         :label="t('profile.phone')"
                                         :placeholder="t('profile.phone_placeholder')"
+                                        required
                                         :invalid="profilePhoneFeedback.show && profilePhoneFeedback.invalid"
                                         :valid="profilePhoneFeedback.show && profilePhoneFeedback.valid"
                                         :error="profilePhoneMessage || profileErrors.country_id?.[0] || ''"
                                         @country-change="onPhoneCountryChange"
-                                        @update:phone="clearProfileError('phone')"
+                                        @update:phone="onProfileFieldInput('phone')"
                                     />
                                 </div>
                             </div>
@@ -169,34 +173,6 @@
                             </p>
 
                             <div class="mb-3">
-                                <label for="current-password" class="form-label">
-                                    {{ t('profile.current_password') }}
-                                    <span class="text-danger">*</span>
-                                </label>
-                                <div class="input-group">
-                                    <input
-                                        id="current-password"
-                                        v-model="passwordForm.current_password"
-                                        :type="showCurrentPassword ? 'text' : 'password'"
-                                        class="form-control"
-                                        :class="currentPasswordInputClass"
-                                        autocomplete="current-password"
-                                        @input="clearPasswordError('current_password')"
-                                    >
-                                    <button
-                                        type="button"
-                                        class="btn btn-light"
-                                        @click="showCurrentPassword = !showCurrentPassword"
-                                    >
-                                        <i :class="showCurrentPassword ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
-                                    </button>
-                                </div>
-                                <div v-if="currentPasswordMessage" class="invalid-feedback d-block">
-                                    {{ currentPasswordMessage }}
-                                </div>
-                            </div>
-
-                            <div class="mb-3">
                                 <label for="new-password" class="form-label">
                                     {{ t('profile.new_password') }}
                                     <span class="text-danger">*</span>
@@ -208,6 +184,7 @@
                                         :type="showNewPassword ? 'text' : 'password'"
                                         class="form-control"
                                         :class="newPasswordInputClass"
+                                        :placeholder="t('profile.password_placeholder')"
                                         autocomplete="new-password"
                                         @input="clearPasswordError('password')"
                                     >
@@ -252,6 +229,7 @@
                                         :type="showConfirmPassword ? 'text' : 'password'"
                                         class="form-control"
                                         :class="confirmPasswordInputClass"
+                                        :placeholder="t('profile.confirm_password_placeholder')"
                                         autocomplete="new-password"
                                         @input="clearPasswordError('password_confirmation')"
                                     >
@@ -287,7 +265,7 @@
 
 <script setup>
 import useVuelidate from '@vuelidate/core';
-import { helpers, maxLength, required, sameAs } from '@vuelidate/validators';
+import { email, helpers, sameAs } from '@vuelidate/validators';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../api/adminAxios';
@@ -306,6 +284,7 @@ const { showSuccess, showError, showWarning } = useToast();
 const {
     requiredField,
     maxString,
+    stringFieldRules,
     applyApiErrors,
     fieldFeedback,
 } = useValidation();
@@ -316,7 +295,6 @@ const avatarFile = ref(null);
 const removeAvatarFlag = ref(false);
 const profileSubmitting = ref(false);
 const passwordSubmitting = ref(false);
-const showCurrentPassword = ref(false);
 const showNewPassword = ref(false);
 const showConfirmPassword = ref(false);
 const profileErrors = reactive({});
@@ -332,7 +310,6 @@ const profileForm = reactive({
 });
 
 const passwordForm = reactive({
-    current_password: '',
     password: '',
     password_confirmation: '',
 });
@@ -342,17 +319,24 @@ const hasCustomAvatar = computed(() => avatarPreview.value !== DEFAULT_AVATAR);
 const passwordStrength = computed(() => calculatePasswordStrength(passwordForm.password));
 
 const profileRules = computed(() => ({
-    name: stringFieldRules('profile.name', 255),
-    email: stringFieldRules('email', 255),
+    name: stringFieldRules('profile.name', 50, 2),
+    email: {
+        ...stringFieldRules('email', 50, 2),
+        email: helpers.withMessage(
+            () => t('validation.email', { field: t('email') }),
+            email,
+        ),
+    },
     phone: {
+        required: requiredField('profile.phone'),
         maxLength: maxString('profile.phone', 50),
+    },
+    gender: {
+        required: requiredField('profile.gender'),
     },
 }));
 
 const passwordRules = computed(() => ({
-    current_password: {
-        required: requiredField('profile.current_password'),
-    },
     password: {
         required: requiredField('profile.new_password'),
         minLength: helpers.withMessage(
@@ -368,13 +352,6 @@ const passwordRules = computed(() => ({
         ),
     },
 }));
-
-function stringFieldRules(fieldKey, max) {
-    return {
-        required: requiredField(fieldKey),
-        maxLength: maxString(fieldKey, max),
-    };
-}
 
 const profileV$ = useVuelidate(profileRules, profileForm, { $autoDirty: true });
 const passwordV$ = useVuelidate(passwordRules, passwordForm, { $autoDirty: true });
@@ -405,22 +382,22 @@ function buildFieldState(v$, fieldKey, errors, form, formKey = fieldKey) {
 const profileNameState = buildFieldState(profileV$, 'name', profileErrors, profileForm);
 const profileEmailState = buildFieldState(profileV$, 'email', profileErrors, profileForm);
 const profilePhoneState = buildFieldState(profileV$, 'phone', profileErrors, profileForm);
+const profileGenderState = buildFieldState(profileV$, 'gender', profileErrors, profileForm);
 
 const profileNameInputClass = profileNameState.inputClass;
 const profileEmailInputClass = profileEmailState.inputClass;
+const profileGenderInputClass = profileGenderState.inputClass;
 const profileNameMessage = profileNameState.message;
 const profileEmailMessage = profileEmailState.message;
 const profilePhoneMessage = profilePhoneState.message;
+const profileGenderMessage = profileGenderState.message;
 const profilePhoneFeedback = profilePhoneState.feedback;
 
-const currentPasswordState = buildFieldState(passwordV$, 'current_password', passwordErrors, passwordForm);
 const newPasswordState = buildFieldState(passwordV$, 'password', passwordErrors, passwordForm);
 const confirmPasswordState = buildFieldState(passwordV$, 'password_confirmation', passwordErrors, passwordForm);
 
-const currentPasswordInputClass = currentPasswordState.inputClass;
 const newPasswordInputClass = newPasswordState.inputClass;
 const confirmPasswordInputClass = confirmPasswordState.inputClass;
-const currentPasswordMessage = currentPasswordState.message;
 const newPasswordMessage = newPasswordState.message;
 const confirmPasswordMessage = confirmPasswordState.message;
 
@@ -438,8 +415,13 @@ function fillProfileForm(admin) {
 
 function onPhoneCountryChange(country) {
     profileDialCode.value = country?.dial_code ?? '';
-    clearProfileError('country_id');
-    clearProfileError('phone');
+    onProfileFieldInput('country_id');
+    onProfileFieldInput('phone');
+}
+
+function onProfileFieldInput(field) {
+    clearProfileError(field);
+    profileV$.value.$touch();
 }
 
 async function loadProfile() {
@@ -448,6 +430,7 @@ async function loadProfile() {
 
     fillProfileForm(admin);
     authStore.setSession({ admin });
+    profileV$.value.$reset();
 }
 
 function onAvatarChange(event) {
@@ -556,12 +539,10 @@ async function submitPassword() {
 
     try {
         const response = await adminAxios.put('/api/admin/v1/profile/password', {
-            current_password: passwordForm.current_password,
             password: passwordForm.password,
             password_confirmation: passwordForm.password_confirmation,
         });
 
-        passwordForm.current_password = '';
         passwordForm.password = '';
         passwordForm.password_confirmation = '';
         passwordV$.value.$reset();

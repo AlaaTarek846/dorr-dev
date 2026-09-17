@@ -1,0 +1,54 @@
+# General — API
+
+> Full details: [../../06-API-SPECIFICATION.md](../../06-API-SPECIFICATION.md)
+
+## Admin Routes (`/api/admin/v1`)
+
+### Public (locale middleware only)
+
+| Method | Endpoint |
+|--------|----------|
+| GET | `/platform-settings/branding` |
+| GET | `/languages/dropdown` |
+
+### Authenticated — Platform Settings
+
+| Method | Endpoint |
+|--------|----------|
+| GET | `/platform-settings` |
+| POST | `/platform-settings` |
+
+### Authenticated — Catalog Standard Pattern
+
+Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
+
+| Method | Endpoint |
+|--------|----------|
+| GET | `/{resource}` |
+| POST | `/{resource}` |
+| GET | `/{resource}/{id}` |
+| PUT/PATCH | `/{resource}/{id}` |
+| DELETE | `/{resource}/{id}` |
+| POST | `/{resource}/delete-multiple` |
+| PATCH | `/{resource}/{id}/status` |
+| GET | `/{resource}/dropdown` |
+
+**Exception:** languages has no authenticated dropdown (public dropdown instead).
+
+### Extra
+
+| Method | Endpoint |
+|--------|----------|
+| POST | `/currencies/sync-exchange-rates` |
+| GET | `/service-categories/tree` |
+| GET | `/service-categories/leaf-options` |
+
+## User Routes (`/api/user/v1`)
+
+| Method | Endpoint | Auth |
+|--------|----------|------|
+| GET | `/countries/dropdown` | user_api |
+
+## PLANNED
+
+Public website API under `/api/public/v1` — **NEEDS-DECISION**, not implemented.

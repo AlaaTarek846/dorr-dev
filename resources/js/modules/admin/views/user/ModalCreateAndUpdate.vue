@@ -25,7 +25,7 @@
                     <div class="modal-body px-4 pb-2">
                         <div class="row gy-3">
                             <div class="col-md-6">
-                                <label class="form-label">
+                                <label for="user-name" class="form-label">
                                     {{ t('users.name') }}
                                     <span class="text-danger">*</span>
                                 </label>
@@ -34,17 +34,23 @@
                                         <i class="ri-user-line"></i>
                                     </span>
                                     <input
+                                        id="user-name"
                                         v-model="form.name"
                                         type="text"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors.name?.[0] }"
+                                        :class="nameInputClass"
+                                        :placeholder="t('users.name_placeholder')"
+                                        @input="onFieldInput('name')"
                                     >
+                                    <FormFieldFeedback v-bind="nameFeedback" />
                                 </div>
-                                <div v-if="errors.name?.[0]" class="invalid-feedback d-block">{{ errors.name[0] }}</div>
+                                <div v-if="nameMessage" class="invalid-feedback d-block">
+                                    {{ nameMessage }}
+                                </div>
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">
+                                <label for="user-email" class="form-label">
                                     {{ t('email') }}
                                     <span class="text-danger">*</span>
                                 </label>
@@ -53,90 +59,163 @@
                                         <i class="ri-mail-line"></i>
                                     </span>
                                     <input
+                                        id="user-email"
                                         v-model="form.email"
                                         type="email"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors.email?.[0] }"
+                                        :class="emailInputClass"
+                                        :placeholder="t('users.email_placeholder')"
+                                        @input="onFieldInput('email')"
                                     >
+                                    <FormFieldFeedback v-bind="emailFeedback" />
                                 </div>
-                                <div v-if="errors.email?.[0]" class="invalid-feedback d-block">{{ errors.email[0] }}</div>
+                                <div v-if="emailMessage" class="invalid-feedback d-block">
+                                    {{ emailMessage }}
+                                </div>
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">{{ t('users.phone') }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-phone-line"></i>
-                                    </span>
-                                    <input
-                                        v-model="form.phone"
-                                        type="text"
-                                        class="form-control"
-                                        :class="{ 'is-invalid': errors.phone?.[0] }"
-                                    >
+                                <label for="user-gender" class="form-label">
+                                    {{ t('users.gender') }}
+                                    <span class="text-danger">*</span>
+                                </label>
+                                <select
+                                    id="user-gender"
+                                    v-model="form.gender"
+                                    class="form-select"
+                                    :class="genderInputClass"
+                                    @change="onFieldInput('gender')"
+                                >
+                                    <option value="">{{ t('profile.select_gender') }}</option>
+                                    <option value="male">{{ t('profile.gender_male') }}</option>
+                                    <option value="female">{{ t('profile.gender_female') }}</option>
+                                </select>
+                                <div v-if="genderMessage" class="invalid-feedback d-block">
+                                    {{ genderMessage }}
                                 </div>
-                                <div v-if="errors.phone?.[0]" class="invalid-feedback d-block">{{ errors.phone[0] }}</div>
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">{{ t('users.status') }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-toggle-line"></i>
-                                    </span>
-                                    <select
-                                        v-model="form.status"
-                                        class="form-select"
-                                        :class="{ 'is-invalid': errors.status?.[0] }"
-                                    >
-                                        <option
-                                            v-for="(label, value) in statusOptions"
-                                            :key="value"
-                                            :value="value"
-                                        >
-                                            {{ label }}
-                                        </option>
-                                    </select>
-                                </div>
-                                <div v-if="errors.status?.[0]" class="invalid-feedback d-block">{{ errors.status[0] }}</div>
+                                <PhoneCountryInput
+                                    v-model:country-id="form.country_id"
+                                    v-model:phone="form.phone"
+                                    input-id="user-phone"
+                                    :label="t('users.phone')"
+                                    :placeholder="t('users.phone_placeholder')"
+                                    :invalid="phoneFeedback.show && phoneFeedback.invalid"
+                                    :valid="phoneFeedback.show && phoneFeedback.valid"
+                                    :error="phoneMessage || serverErrors.country_id?.[0] || ''"
+                                    @country-change="onPhoneCountryChange"
+                                    @update:phone="onFieldInput('phone')"
+                                />
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">
+                                <label for="user-status" class="form-label">{{ t('users.status') }}</label>
+                                <select
+                                    id="user-status"
+                                    v-model="form.status"
+                                    class="form-select"
+                                    :class="{ 'is-invalid': serverErrors.status?.[0] }"
+                                    @change="clearServerError('status')"
+                                >
+                                    <option
+                                        v-for="(label, value) in statusOptions"
+                                        :key="value"
+                                        :value="value"
+                                    >
+                                        {{ label }}
+                                    </option>
+                                </select>
+                                <div v-if="serverErrors.status?.[0]" class="invalid-feedback d-block">
+                                    {{ serverErrors.status[0] }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6 d-flex align-items-end">
+                                <button
+                                    type="button"
+                                    class="btn btn-primary-light w-100"
+                                    @click="generatePassword"
+                                >
+                                    <i class="ri-refresh-line me-1"></i>{{ t('profile.generate_password') }}
+                                </button>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="user-password" class="form-label">
                                     {{ t('password') }}
-                                    <span v-if="type === 'create'" class="text-danger">*</span>
+                                    <span v-if="passwordRequired" class="text-danger">*</span>
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-lock-line"></i>
-                                    </span>
                                     <input
+                                        id="user-password"
                                         v-model="form.password"
-                                        type="password"
+                                        :type="showPassword ? 'text' : 'password'"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors.password?.[0] }"
+                                        :class="passwordInputClass"
+                                        :placeholder="t('users.password_placeholder')"
+                                        autocomplete="new-password"
+                                        @input="onPasswordInput('password')"
                                     >
+                                    <FormFieldFeedback v-bind="passwordFeedback" />
+                                    <button
+                                        type="button"
+                                        class="btn btn-light"
+                                        @click="showPassword = !showPassword"
+                                    >
+                                        <i :class="showPassword ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
+                                    </button>
                                 </div>
-                                <div v-if="errors.password?.[0]" class="invalid-feedback d-block">{{ errors.password[0] }}</div>
+                                <div v-if="passwordMessage" class="invalid-feedback d-block">
+                                    {{ passwordMessage }}
+                                </div>
+                                <div v-if="form.password" class="mt-3">
+                                    <div class="d-flex align-items-center justify-content-between mb-1">
+                                        <span class="fs-12 text-muted">{{ t('profile.password_strength') }}</span>
+                                        <span :class="`fs-12 fw-semibold text-${passwordStrength.color}`">
+                                            {{ t(`profile.strength.${passwordStrength.key}`) }}
+                                        </span>
+                                    </div>
+                                    <div class="progress progress-xs">
+                                        <div
+                                            class="progress-bar"
+                                            :class="`bg-${passwordStrength.color}`"
+                                            role="progressbar"
+                                            :style="{ width: `${passwordStrength.percent}%` }"
+                                        ></div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="col-md-6">
-                                <label class="form-label">
+                                <label for="user-password-confirmation" class="form-label">
                                     {{ t('users.password_confirmation') }}
-                                    <span v-if="type === 'create'" class="text-danger">*</span>
+                                    <span v-if="passwordRequired" class="text-danger">*</span>
                                 </label>
                                 <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-lock-password-line"></i>
-                                    </span>
                                     <input
+                                        id="user-password-confirmation"
                                         v-model="form.password_confirmation"
-                                        type="password"
+                                        :type="showPasswordConfirmation ? 'text' : 'password'"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors.password_confirmation?.[0] }"
+                                        :class="passwordConfirmationInputClass"
+                                        :placeholder="t('users.password_confirmation_placeholder')"
+                                        autocomplete="new-password"
+                                        @input="onPasswordInput('password_confirmation')"
                                     >
+                                    <FormFieldFeedback v-bind="passwordConfirmationFeedback" />
+                                    <button
+                                        type="button"
+                                        class="btn btn-light"
+                                        @click="showPasswordConfirmation = !showPasswordConfirmation"
+                                    >
+                                        <i :class="showPasswordConfirmation ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
+                                    </button>
                                 </div>
-                                <div v-if="errors.password_confirmation?.[0]" class="invalid-feedback d-block">{{ errors.password_confirmation[0] }}</div>
+                                <div v-if="passwordConfirmationMessage" class="invalid-feedback d-block">
+                                    {{ passwordConfirmationMessage }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -154,10 +233,17 @@
 </template>
 
 <script setup>
-import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
+import useVuelidate from '@vuelidate/core';
+import { email, helpers } from '@vuelidate/validators';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../api/adminAxios';
+import PhoneCountryInput from '../../../../components/catalog/PhoneCountryInput.vue';
+import FormFieldFeedback from '../../../../components/ui/FormFieldFeedback.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../composables/useToast';
+import useValidation from '../../../../composables/useValidation';
+import { combinePhoneNumber, setupCatalogModalWatcher, splitPhoneNumber } from '../../../../utils/catalog';
+import { calculatePasswordStrength, generateSecurePassword } from '../../../../utils/passwordStrength';
 
 const props = defineProps({
     show: {
@@ -177,12 +263,23 @@ const props = defineProps({
 const emit = defineEmits(['close', 'saved']);
 
 const { t } = useI18n();
-const { showSuccess, showError } = useToast();
+const { showSuccess, showError, showWarning } = useToast();
+const {
+    requiredField,
+    maxString,
+    stringFieldRules,
+    applyApiErrors,
+    fieldFeedback,
+} = useValidation();
 
 const modalElement = ref(null);
 const submitting = ref(false);
-const errors = reactive({});
+const showPassword = ref(false);
+const showPasswordConfirmation = ref(false);
+const serverErrors = reactive({});
+const dialCode = ref('');
 let modalInstance = null;
+let v$;
 
 const isEdit = computed(() => props.type === 'edit');
 
@@ -190,16 +287,77 @@ const form = reactive({
     name: '',
     email: '',
     phone: '',
+    gender: '',
+    country_id: null,
     status: 'active',
     password: '',
     password_confirmation: '',
 });
+
+const passwordRequired = computed(() => (
+    ! isEdit.value || Boolean(form.password) || Boolean(form.password_confirmation)
+));
+
+const passwordStrength = computed(() => calculatePasswordStrength(form.password));
 
 const statusOptions = computed(() => ({
     active: t('users.filter_active'),
     inactive: t('users.filter_inactive'),
     blocked: t('users.filter_blocked'),
 }));
+
+const rules = computed(() => ({
+    name: stringFieldRules('users.name', 50, 2),
+    email: {
+        ...stringFieldRules('email', 50, 2),
+        email: helpers.withMessage(
+            () => t('validation.email', { field: t('email') }),
+            email,
+        ),
+    },
+    gender: {
+        required: requiredField('users.gender'),
+    },
+    phone: {
+        maxLength: maxString('users.phone', 50),
+    },
+    password: {
+        required: helpers.withMessage(
+            () => t('validation.required', { field: t('password') }),
+            (value) => ! passwordRequired.value || Boolean(String(value ?? '').trim()),
+        ),
+        minLength: helpers.withMessage(
+            () => t('profile.validation.password_min'),
+            (value) => {
+                const password = String(value ?? '');
+
+                if (! password && ! passwordRequired.value) {
+                    return true;
+                }
+
+                return password.length >= 8;
+            },
+        ),
+    },
+    password_confirmation: {
+        required: helpers.withMessage(
+            () => t('validation.required', { field: t('users.password_confirmation') }),
+            (value) => ! passwordRequired.value || Boolean(String(value ?? '').trim()),
+        ),
+        sameAsPassword: helpers.withMessage(
+            () => t('profile.validation.password_confirmed'),
+            (value) => {
+                if (! passwordRequired.value) {
+                    return true;
+                }
+
+                return value === form.password;
+            },
+        ),
+    },
+}));
+
+v$ = useVuelidate(rules, form, { $autoDirty: true });
 
 const modalTitle = computed(() => {
     if (! isEdit.value) {
@@ -217,23 +375,128 @@ const modalTitle = computed(() => {
         : `${t('users.edit_title')} #${record.id}`;
 });
 
-function resetErrors() {
-    Object.keys(errors).forEach((key) => {
-        errors[key] = null;
+function buildFieldState(fieldKey) {
+    const feedback = computed(() => fieldFeedback(
+        v$.value[fieldKey],
+        serverErrors[fieldKey]?.[0],
+        form[fieldKey],
+    ));
+
+    const inputClass = computed(() => ({
+        'is-invalid': feedback.value.show && feedback.value.invalid,
+        'is-valid': feedback.value.show && feedback.value.valid,
+    }));
+
+    const message = computed(() => {
+        if (! feedback.value.invalid) {
+            return null;
+        }
+
+        return v$.value[fieldKey]?.$errors[0]?.$message || serverErrors[fieldKey]?.[0] || null;
     });
+
+    return { feedback, inputClass, message };
+}
+
+const nameState = buildFieldState('name');
+const emailState = buildFieldState('email');
+const genderState = buildFieldState('gender');
+const phoneState = buildFieldState('phone');
+const passwordState = buildFieldState('password');
+const passwordConfirmationState = buildFieldState('password_confirmation');
+
+const nameFeedback = nameState.feedback;
+const emailFeedback = emailState.feedback;
+const phoneFeedback = phoneState.feedback;
+const passwordFeedback = passwordState.feedback;
+const passwordConfirmationFeedback = passwordConfirmationState.feedback;
+
+const nameInputClass = nameState.inputClass;
+const emailInputClass = emailState.inputClass;
+const genderInputClass = genderState.inputClass;
+const passwordInputClass = passwordState.inputClass;
+const passwordConfirmationInputClass = passwordConfirmationState.inputClass;
+
+const nameMessage = nameState.message;
+const emailMessage = emailState.message;
+const genderMessage = genderState.message;
+const phoneMessage = phoneState.message;
+const passwordMessage = passwordState.message;
+const passwordConfirmationMessage = passwordConfirmationState.message;
+
+function clearServerError(field) {
+    delete serverErrors[field];
+}
+
+function onFieldInput(field) {
+    clearServerError(field);
+    v$.value[field]?.$touch();
+}
+
+function onPasswordInput(field) {
+    clearServerError('password');
+    clearServerError('password_confirmation');
+    clearServerError(field);
+    v$.value.password.$touch();
+    v$.value.password_confirmation.$touch();
+}
+
+function onPhoneCountryChange(country) {
+    dialCode.value = country?.dial_code ?? '';
+    clearServerError('country_id');
+    onFieldInput('phone');
+}
+
+function generatePassword() {
+    const generated = generateSecurePassword(12);
+
+    form.password = generated;
+    form.password_confirmation = generated;
+    showPassword.value = true;
+    showPasswordConfirmation.value = true;
+    onPasswordInput('password');
+}
+
+function resetValidation() {
+    v$.value.$reset();
+    applyApiErrors(serverErrors, {});
 }
 
 function fillForm(record) {
     form.name = record?.name ?? '';
     form.email = record?.email ?? '';
-    form.phone = record?.phone ?? '';
+    form.gender = record?.gender ?? '';
+    form.country_id = record?.country_id ?? record?.country?.id ?? null;
+    dialCode.value = record?.country?.dial_code ?? '';
+    form.phone = splitPhoneNumber(record?.phone, dialCode.value);
     form.status = record?.status ?? 'active';
     form.password = '';
     form.password_confirmation = '';
+    showPassword.value = false;
+    showPasswordConfirmation.value = false;
+    resetValidation();
 }
 
 function resetForm() {
     fillForm(null);
+}
+
+function buildPayload() {
+    const payload = {
+        name: form.name.trim(),
+        email: form.email.trim(),
+        phone: combinePhoneNumber(dialCode.value, form.phone) || null,
+        gender: form.gender,
+        country_id: form.country_id || null,
+        status: form.status,
+    };
+
+    if (form.password) {
+        payload.password = form.password;
+        payload.password_confirmation = form.password_confirmation;
+    }
+
+    return payload;
 }
 
 function openModal() {
@@ -241,7 +504,7 @@ function openModal() {
         return;
     }
 
-    modalInstance ??= new window.bootstrap.Modal(modalElement.value);
+    modalInstance ??= new window.bootstrap.Modal(modalElement.value, { focus: false });
     modalInstance.show();
 }
 
@@ -259,67 +522,45 @@ function onModalHidden() {
 }
 
 async function submit() {
-    resetErrors();
-    submitting.value = true;
+    v$.value.$touch();
 
-    const payload = {
-        name: form.name,
-        email: form.email,
-        phone: form.phone || null,
-        status: form.status,
-    };
-
-    if (form.password) {
-        payload.password = form.password;
-        payload.password_confirmation = form.password_confirmation;
+    if (v$.value.$invalid) {
+        showWarning(t('toast.validation_error'));
+        return;
     }
 
+    submitting.value = true;
+    applyApiErrors(serverErrors, {});
+
     try {
+        const payload = buildPayload();
         const response = isEdit.value && props.record?.id
             ? await adminAxios.put(`/api/admin/v1/users/${props.record.id}`, payload)
             : await adminAxios.post('/api/admin/v1/users', payload);
 
-        showSuccess(extractApiMessage(response, t('save')));
+        showSuccess(extractApiMessage(response, isEdit.value ? t('toast.updated') : t('toast.created')));
         closeModal();
         emit('saved');
     } catch (error) {
         if (error.response?.status === 422) {
-            Object.assign(errors, error.response.data.errors ?? {});
+            applyApiErrors(serverErrors, error.response.data.errors ?? {});
+            showWarning(t('toast.validation_error'));
         } else {
-            showError(extractApiErrorMessage(error));
+            showError(extractApiErrorMessage(error, t('toast.error')));
         }
     } finally {
         submitting.value = false;
     }
 }
 
-watch(
-    () => props.show,
-    (visible) => {
-        if (visible) {
-            resetErrors();
-
-            if (isEdit.value && props.record) {
-                fillForm(props.record);
-            } else {
-                resetForm();
-            }
-
-            openModal();
-        } else {
-            closeModal();
-        }
-    },
-);
-
-watch(
-    () => props.record,
-    (record) => {
-        if (props.show && isEdit.value && record) {
-            fillForm(record);
-        }
-    },
-);
+setupCatalogModalWatcher({
+    props,
+    fillForm,
+    resetForm,
+    openModal,
+    closeModal,
+    resourceUri: '/api/admin/v1/users',
+});
 
 onMounted(() => {
     modalElement.value?.addEventListener('hidden.bs.modal', onModalHidden);
@@ -358,5 +599,9 @@ onUnmounted(() => {
 .user-modal-footer {
     padding: 1rem 1.5rem 1.25rem;
     gap: 0.5rem;
+}
+
+.progress-xs {
+    height: 0.35rem;
 }
 </style>

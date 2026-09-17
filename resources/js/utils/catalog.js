@@ -128,6 +128,23 @@ export function combinePhoneNumber(dialCode, localPhone) {
     return `${dial}${local}`;
 }
 
+export function formatPhoneForDisplay(fullPhone, dialCode) {
+    const raw = String(fullPhone ?? '').trim();
+
+    if (! raw) {
+        return '';
+    }
+
+    const local = splitPhoneNumber(raw, dialCode);
+    const dial = formatDialCodeForPayload(dialCode);
+
+    if (dial && local && local !== raw) {
+        return `${dial} ${local}`;
+    }
+
+    return raw;
+}
+
 export function filterStorableTranslations(translations, storableLocales) {
     if (! Array.isArray(translations) || ! storableLocales?.length) {
         return [];

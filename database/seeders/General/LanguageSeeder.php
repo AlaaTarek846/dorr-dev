@@ -6,12 +6,13 @@ use App\Enums\Status;
 use App\Enums\TextDirection;
 use App\Models\Flag;
 use App\Models\Language;
+use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 
 class LanguageSeeder extends Seeder
 {
-    use TruncatesBeforeSeeding;
+    use SyncsSeedTranslations, TruncatesBeforeSeeding;
 
     public function run(): void
     {
@@ -31,13 +32,11 @@ class LanguageSeeder extends Seeder
             'status' => Status::Active,
             'flag_id' => $egyptFlag,
         ]);
-        $arabic->fillAllTranslations([
-            'name' => [
-                'en' => 'Arabic',
-                'ar' => 'العربية',
-            ],
-        ]);
         $arabic->save();
+        $this->syncTranslations($arabic, [
+            'en' => 'Arabic',
+            'ar' => 'العربية',
+        ]);
 
         $english = Language::query()->firstOrNew(['code' => 'en']);
         $english->fill([
@@ -48,13 +47,11 @@ class LanguageSeeder extends Seeder
             'status' => Status::Active,
             'flag_id' => $usFlag,
         ]);
-        $english->fillAllTranslations([
-            'name' => [
-                'en' => 'English',
-                'ar' => 'الإنجليزية',
-            ],
-        ]);
         $english->save();
+        $this->syncTranslations($english, [
+            'en' => 'English',
+            'ar' => 'الإنجليزية',
+        ]);
 
         $german = Language::query()->firstOrNew(['code' => 'de']);
         $german->fill([
@@ -65,13 +62,11 @@ class LanguageSeeder extends Seeder
             'status' => Status::Active,
             'flag_id' => $germanFlag,
         ]);
-        $german->fillAllTranslations([
-            'name' => [
-                'en' => 'German',
-                'ar' => 'الألمانية',
-            ],
-        ]);
         $german->save();
+        $this->syncTranslations($german, [
+            'en' => 'German',
+            'ar' => 'الألمانية',
+        ]);
 
         $french = Language::query()->firstOrNew(['code' => 'fr']);
         $french->fill([
@@ -82,12 +77,10 @@ class LanguageSeeder extends Seeder
             'status' => Status::Active,
             'flag_id' => $frenchFlag,
         ]);
-        $french->fillAllTranslations([
-            'name' => [
-                'en' => 'French',
-                'ar' => 'الفرنسية',
-            ],
-        ]);
         $french->save();
+        $this->syncTranslations($french, [
+            'en' => 'French',
+            'ar' => 'الفرنسية',
+        ]);
     }
 }

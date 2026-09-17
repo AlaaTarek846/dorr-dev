@@ -5,12 +5,13 @@ namespace Database\Seeders\General;
 use App\Enums\Status;
 use App\Models\Country;
 use App\Models\Currency;
+use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 
 class CurrencySeeder extends Seeder
 {
-    use TruncatesBeforeSeeding;
+    use SyncsSeedTranslations, TruncatesBeforeSeeding;
 
     /**
      * @var array<string, float>
@@ -39,8 +40,8 @@ class CurrencySeeder extends Seeder
                 'status' => Status::Active,
             ]);
 
-            $currency->fillAllTranslations(['name' => $data['name']]);
             $currency->save();
+            $this->syncTranslations($currency, $data['name']);
         }
     }
 

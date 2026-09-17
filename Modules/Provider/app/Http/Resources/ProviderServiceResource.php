@@ -15,13 +15,17 @@ class ProviderServiceResource extends JsonResource
         return [
             'id' => $this->id,
             'service_category_id' => $this->service_category_id,
-            'status' => $this->status?->value ?? $this->status,
             'category' => $this->whenLoaded('category', fn () => $this->category ? [
                 'id' => $this->category->id,
-                'name_ar' => $this->category->name_ar,
-                'name_en' => $this->category->name_en,
-                'department' => $this->category->department,
-                'provider_type_label' => $this->category->provider_type_label,
+                'name' => $this->category->translatedName(),
+                'requires_provider' => (bool) $this->category->requires_provider,
+                'image' => $this->category->getSingleMediaUrl('image') ?: null,
+                'translations' => $this->category->relationLoaded('translations')
+                    ? $this->category->translations->map(fn ($item) => [
+                        'locale' => $item->locale,
+                        'name' => $item->name,
+                    ])->values()
+                    : [],
             ] : null),
             'created_at' => $this->created_at?->toISOString(),
         ];

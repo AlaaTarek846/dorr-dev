@@ -32,11 +32,12 @@ class UserProfileUpdateRequest extends FormRequest
         $userId = $this->user('user_api')?->id;
 
         return [
-            'name' => ['required', 'string', 'max:255'],
+            'name' => ['required', 'string', 'min:2', 'max:50'],
             'email' => [
                 'required',
                 'email',
-                'max:255',
+                'min:2',
+                'max:50',
                 Rule::unique('users', 'email')->ignore($userId),
             ],
             'phone' => ['required', 'string', 'max:50'],
@@ -44,6 +45,21 @@ class UserProfileUpdateRequest extends FormRequest
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
             'remove_avatar' => ['nullable', 'boolean'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'name' => __('validation.attributes.name'),
+            'email' => __('validation.attributes.email'),
+            'phone' => __('validation.attributes.phone'),
+            'gender' => __('validation.attributes.gender'),
+            'country_id' => __('validation.attributes.country_id'),
+            'avatar' => __('validation.attributes.avatar'),
         ];
     }
 }

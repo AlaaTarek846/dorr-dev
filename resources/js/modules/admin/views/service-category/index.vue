@@ -52,7 +52,7 @@
                                 :class="statusFilter === 'all' ? 'catalog-filter-btn--all' : 'catalog-filter-btn--all-idle'"
                                 @click="setStatusFilter('all')"
                             >
-                                {{ t('service_categories.filter_all') }}
+                                {{ t('service_categories.filter_all') }} ({{ counts.total }})
                             </button>
                             <button
                                 type="button"
@@ -60,7 +60,7 @@
                                 :class="statusFilter === 'active' ? 'catalog-filter-btn--active' : 'catalog-filter-btn--active-idle'"
                                 @click="setStatusFilter('active')"
                             >
-                                {{ t('service_categories.filter_active') }}
+                                {{ t('service_categories.filter_active') }} ({{ counts.active }})
                             </button>
                             <button
                                 type="button"
@@ -68,7 +68,7 @@
                                 :class="statusFilter === 'inactive' ? 'catalog-filter-btn--inactive' : 'catalog-filter-btn--inactive-idle'"
                                 @click="setStatusFilter('inactive')"
                             >
-                                {{ t('service_categories.filter_inactive') }}
+                                {{ t('service_categories.filter_inactive') }} ({{ counts.inactive }})
                             </button>
                         </div>
 
@@ -104,12 +104,12 @@
                                                 @change="onSelectAll($event.target.checked)"
                                             >
                                         </th>
-                                        <th scope="col">{{ t('service_categories.name_ar') }}</th>
-                                        <th scope="col">{{ t('service_categories.department') }}</th>
-                                        <th scope="col">{{ t('service_categories.base_model') }}</th>
-                                        <th scope="col">{{ t('service_categories.requires_provider') }}</th>
+                                        <th scope="col">{{ t('service_categories.name') }}</th>
                                         <th scope="col">{{ t('service_categories.parent') }}</th>
+                                        <th scope="col">{{ t('service_categories.requires_provider') }}</th>
+                                        <th scope="col">{{ t('service_categories.sort_order') }}</th>
                                         <th scope="col">{{ t('service_categories.status') }}</th>
+                                        <th scope="col">{{ t('service_categories.created_at') }}</th>
                                         <th scope="col" class="text-end pe-4">{{ t('service_categories.actions') }}</th>
                                     </tr>
                                 </thead>
@@ -146,32 +146,46 @@
                                             >
                                         </td>
                                         <td>
-                                            <button
-                                                type="button"
-                                                class="btn btn-link p-0 text-start fw-semibold text-default"
-                                                @click="openEdit(category)"
-                                            >
-                                                {{ displayName(category) }}
-                                            </button>
-                                            <span class="d-block text-muted fs-11">
-                                                #{{ category.id }} · {{ category.slug }}
-                                                <span v-if="category.is_leaf" class="badge bg-info-transparent ms-1">
-                                                    {{ t('service_categories.leaf') }}
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="service-category-image-wrap">
+                                                    <img
+                                                        v-if="category.image_thumb || category.image"
+                                                        :src="category.image_thumb || category.image"
+                                                        :alt="displayName(category)"
+                                                        class="service-category-image"
+                                                    >
+                                                    <img
+                                                        v-else
+                                                        src="/dashboard/assets/images/faces/9.jpg"
+                                                        :alt="displayName(category)"
+                                                        class="service-category-image"
+                                                    >
                                                 </span>
-                                                <span v-else class="badge bg-warning-transparent ms-1">
-                                                    {{ t('service_categories.has_children') }}
-                                                </span>
-                                            </span>
+                                                <div>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-link p-0 text-start fw-semibold text-default"
+                                                        @click="openEdit(category)"
+                                                    >
+                                                        {{ displayName(category) }}
+                                                    </button>
+                                                    <span class="d-block text-muted fs-11">
+                                                        #{{ category.id }}
+                                                        <span v-if="category.is_leaf" class="badge bg-info-transparent ms-1">
+                                                            {{ t('service_categories.leaf') }}
+                                                        </span>
+                                                        <span v-else class="badge bg-warning-transparent ms-1">
+                                                            {{ t('service_categories.has_children') }}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </td>
                                         <td>
-                                            <span v-if="category.department" class="badge bg-secondary-transparent">
-                                                {{ category.department }}
+                                            <span v-if="category.parent" class="badge bg-primary-transparent">
+                                                {{ displayName(category.parent) }}
                                             </span>
-                                            <span v-else class="text-muted">-</span>
-                                        </td>
-                                        <td>
-                                            <code v-if="category.base_model">{{ category.base_model }}</code>
-                                            <span v-else class="text-muted">-</span>
+                                            <span v-else class="text-muted">{{ t('service_categories.no_parent') }}</span>
                                         </td>
                                         <td>
                                             <span
@@ -180,15 +194,9 @@
                                             >
                                                 {{ category.requires_provider ? t('yes') : t('no') }}
                                             </span>
-                                            <span v-if="category.requires_provider && category.provider_type_label" class="d-block fs-11 text-muted">
-                                                {{ category.provider_type_label }}
-                                            </span>
                                         </td>
                                         <td>
-                                            <span v-if="category.parent" class="badge bg-primary-transparent">
-                                                {{ displayName(category.parent) }}
-                                            </span>
-                                            <span v-else class="text-muted">{{ t('service_categories.no_parent') }}</span>
+                                            <span class="badge bg-light text-default">{{ category.sort_order ?? 0 }}</span>
                                         </td>
                                         <td>
                                             <div
@@ -205,6 +213,12 @@
                                             >
                                                 <span></span>
                                             </div>
+                                        </td>
+                                        <td>
+                                            <span class="d-block">{{ formatDate(category.created_at) }}</span>
+                                            <span v-if="category.updated_at" class="d-block text-muted fs-11">
+                                                {{ t('service_categories.updated') }}: {{ formatDate(category.updated_at) }}
+                                            </span>
                                         </td>
                                         <td class="text-end pe-4">
                                             <div class="btn-list justify-content-end">
@@ -237,6 +251,7 @@
                         <div class="d-flex align-items-center flex-wrap gap-3">
                             <div class="d-flex align-items-center gap-2 text-muted fs-13">
                                 <span>{{ entriesLabel }}</span>
+                                <i :class="paginationArrowIcon"></i>
                             </div>
 
                             <div class="d-flex align-items-center gap-2 ms-md-auto">
@@ -302,15 +317,19 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useServiceCategories } from '../../../../composables/useServiceCategories';
+import { useServiceCategoriesStore } from '../../../../stores/serviceCategories';
+import { displayTranslatedName, formatCatalogDate } from '../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
+const categoriesStore = useServiceCategoriesStore();
 
 const categoriesApi = useServiceCategories();
 const {
@@ -322,9 +341,10 @@ const {
     perPage,
     search,
     statusFilter,
-} = categoriesApi;
+} = storeToRefs(categoriesApi);
 const {
     fetchCategories,
+    fetchCounts,
     setStatusFilter,
     deleteCategory,
     deleteSelected,
@@ -334,6 +354,12 @@ const {
     isTogglingStatus,
 } = categoriesApi;
 
+const counts = computed(() => ({
+    total: categoriesStore.total ?? pagination.value?.total ?? 0,
+    active: categoriesStore.activeCount ?? 0,
+    inactive: categoriesStore.inactiveCount ?? 0,
+}));
+
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
@@ -341,6 +367,12 @@ const deleteConfirm = useConfirmDelete();
 
 const selectedCount = computed(() => selectedIds.value.length);
 const showAllFilter = computed(() => statusFilter.value !== 'all');
+
+const paginationArrowIcon = computed(() => (
+    locale.value === 'ar'
+        ? 'ri-arrow-left-s-line fw-semibold'
+        : 'ri-arrow-right-s-line fw-semibold'
+));
 
 const allSelected = computed(() => {
     if (! categories.value.length) {
@@ -363,13 +395,11 @@ function onSelectAll(checked) {
 }
 
 function displayName(category) {
-    if (! category) {
-        return '-';
-    }
+    return displayTranslatedName(category, locale.value);
+}
 
-    return locale.value === 'ar'
-        ? (category.name_ar || category.name_en || '-')
-        : (category.name_en || category.name_ar || '-');
+function formatDate(value) {
+    return formatCatalogDate(value, locale.value);
 }
 
 const pageNumbers = computed(() => {
@@ -437,7 +467,7 @@ function changePage(page) {
 
 function confirmDelete(id) {
     deleteConfirm.open({
-        title: t('service_categories.title'),
+        title: t('service_categories.delete_title'),
         message: t('service_categories.confirm_delete'),
         payload: { type: 'single', id },
     });
@@ -445,7 +475,7 @@ function confirmDelete(id) {
 
 function confirmDeleteSelected() {
     deleteConfirm.open({
-        title: t('service_categories.title'),
+        title: t('service_categories.delete_selected_title'),
         message: t('service_categories.confirm_delete_selected'),
         payload: { type: 'multiple' },
     });
@@ -473,5 +503,98 @@ function onSaved() {
 
 onMounted(() => {
     fetchCategories();
+    fetchCounts();
+});
+
+watch(statusFilter, () => {
+    fetchCounts();
 });
 </script>
+
+<style scoped>
+.catalog-toolbar-filters {
+    flex-wrap: wrap;
+}
+
+.catalog-toolbar-search {
+    width: 210px;
+    max-width: 210px;
+    flex-shrink: 0;
+}
+
+.catalog-search-clear {
+    padding-inline: 0.5rem;
+    line-height: 1;
+}
+
+.catalog-filter-btn {
+    border-width: 1px;
+    border-style: solid;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.catalog-filter-btn--all {
+    background-color: #845adf;
+    border-color: #845adf;
+    color: #fff;
+}
+
+.catalog-filter-btn--all-idle {
+    background-color: rgba(132, 90, 223, 0.12);
+    border-color: rgba(132, 90, 223, 0.35);
+    color: #845adf;
+}
+
+.catalog-filter-btn--active {
+    background-color: #26bf94;
+    border-color: #26bf94;
+    color: #fff;
+}
+
+.catalog-filter-btn--active-idle {
+    background-color: rgba(38, 191, 148, 0.12);
+    border-color: rgba(38, 191, 148, 0.35);
+    color: #26bf94;
+}
+
+.catalog-filter-btn--inactive {
+    background-color: #6c757d;
+    border-color: #6c757d;
+    color: #fff;
+}
+
+.catalog-filter-btn--inactive-idle {
+    background-color: #f3f6f8;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
+.service-category-image-wrap {
+    flex-shrink: 0;
+}
+
+.service-category-image {
+    display: block;
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    border-radius: 0.375rem;
+}
+
+.service-category-image--placeholder {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.12);
+    color: rgb(var(--primary-rgb, 132, 90, 223));
+    font-size: 1rem;
+}
+
+@media (max-width: 767.98px) {
+    .catalog-toolbar-search {
+        width: 100%;
+        max-width: 220px;
+    }
+}
+</style>

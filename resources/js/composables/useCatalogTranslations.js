@@ -15,6 +15,7 @@ export default function useCatalogTranslations(options = {}) {
         serverErrors,
         nameKey,
         maxLength = 255,
+        minLength = 0,
         getV$ = () => null,
     } = options;
 
@@ -38,6 +39,7 @@ export default function useCatalogTranslations(options = {}) {
         nameKey,
         storableLanguages.value,
         maxLength,
+        minLength,
     ));
 
     async function ensureLanguagesLoaded() {
@@ -51,14 +53,36 @@ export default function useCatalogTranslations(options = {}) {
 
     function translationServerError(localeKey) {
         const index = localeIndexMap.value[localeKey];
-        const keys = [`translations.${localeKey}.name`];
+        const keys = [
+            `translations.${localeKey}.name`,
+            `translations.${localeKey}.locale`,
+        ];
 
         if (index !== undefined) {
-            keys.unshift(`translations.${index}.name`);
+            keys.unshift(
+                `translations.${index}.name`,
+                `translations.${index}.locale`,
+            );
         }
 
         return firstError(serverErrors, keys);
     }
+
+    const translationsGroupMessage = computed(() => {
+        const serverMessage = firstError(serverErrors, ['translations']);
+
+        if (serverMessage) {
+            return serverMessage;
+        }
+
+        const translationsState = getV$()?.translations;
+        const parentError = translationsState?.$errors?.find((error) => (
+            (error.$validator === 'required' || error.$validator === 'minLength')
+            && ! localeOrder.value.includes(error.$property)
+        ));
+
+        return parentError?.$message || null;
+    });
 
     function translationTabFeedback(localeKey) {
         const v$ = getV$();
@@ -108,7 +132,7 @@ export default function useCatalogTranslations(options = {}) {
 
     function onTranslationInput(localeKey) {
         clearTranslationError(localeKey);
-        getV$()?.translations?.[localeKey]?.$touch();
+        getV$()?.$touch();
     }
 
     function clearTranslationError(localeKey) {
@@ -116,9 +140,12 @@ export default function useCatalogTranslations(options = {}) {
 
         if (index !== undefined) {
             delete serverErrors[`translations.${index}.name`];
+            delete serverErrors[`translations.${index}.locale`];
         }
 
         delete serverErrors[`translations.${localeKey}.name`];
+        delete serverErrors[`translations.${localeKey}.locale`];
+        delete serverErrors.translations;
     }
 
     function resetTranslations() {
@@ -167,6 +194,7 @@ export default function useCatalogTranslations(options = {}) {
         activeTranslationFeedback,
         activeTranslationInputClass,
         activeTranslationMessage,
+        translationsGroupMessage,
         onTranslationInput,
         resetTranslations,
         fillTranslations,

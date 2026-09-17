@@ -5,7 +5,7 @@
         tabindex="-1"
         aria-hidden="true"
     >
-        <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header catalog-modal-header">
                     <div class="d-flex align-items-center justify-content-between w-100 gap-3">
@@ -16,96 +16,116 @@
 
                 <form @submit.prevent="submit">
                     <div class="modal-body px-4 pb-2">
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="category-name-ar" class="form-label">
-                                    {{ t('service_categories.name_ar') }}
-                                    <span class="text-danger">*</span>
-                                </label>
-                                <input
-                                    id="category-name-ar"
-                                    v-model="form.name_ar"
-                                    type="text"
-                                    maxlength="255"
-                                    class="form-control"
-                                    :class="nameArInputClass"
-                                    :placeholder="t('service_categories.name_ar_placeholder')"
-                                    @input="onNameArInput"
-                                >
-                                <div v-if="nameArMessage" class="invalid-feedback d-block">{{ nameArMessage }}</div>
-                            </div>
+                        <CatalogTranslationTabs
+                            :languages="storableLanguages"
+                            :active-locale="activeLocale"
+                            :translation-tab-class="translationTabClass"
+                            :translation-tab-feedback="translationTabFeedback"
+                            @update:active-locale="activeLocale = $event"
+                        />
 
-                            <div class="col-md-6">
-                                <label for="category-name-en" class="form-label">{{ t('service_categories.name_en') }}</label>
-                                <input
-                                    id="category-name-en"
-                                    v-model="form.name_en"
-                                    type="text"
-                                    maxlength="255"
-                                    class="form-control"
-                                    :placeholder="t('service_categories.name_en_placeholder')"
-                                >
+                        <div class="mb-4">
+                            <label class="form-label d-block">{{ t('service_categories.image') }}</label>
+                            <div class="service-category-image-row">
+                                <span class="service-category-image-box">
+                                    <img :src="imagePreview" alt="" class="service-category-image-box__img">
+                                    <label class="service-category-image-box__badge">
+                                        <input
+                                            ref="imageInput"
+                                            type="file"
+                                            accept="image/jpeg,image/jpg,image/png,image/webp,image/svg+xml"
+                                            class="position-absolute w-100 h-100 op-0"
+                                            @change="onImageChange"
+                                        >
+                                        <i class="fe fe-camera"></i>
+                                    </label>
+                                </span>
+                                <div class="service-category-image-actions">
+                                    <button
+                                        type="button"
+                                        class="btn btn-primary btn-sm btn-wave service-category-image-actions__btn"
+                                        @click="imageInput?.click()"
+                                    >
+                                        <i class="ri-image-edit-line"></i>
+                                        <span>{{ t('service_categories.change_image') }}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm btn-wave service-category-image-actions__btn"
+                                        :class="hasCustomImage ? 'btn-outline-danger' : 'btn-light'"
+                                        :disabled="! hasCustomImage"
+                                        @click="removeImage"
+                                    >
+                                        <i class="ri-delete-bin-line"></i>
+                                        <span>{{ t('service_categories.remove_image') }}</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <div v-if="serverErrors.image?.[0]" class="invalid-feedback d-block">
+                                {{ serverErrors.image[0] }}
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="category-slug" class="form-label">
-                                {{ t('service_categories.slug') }}
+                            <label for="category-name" class="form-label">
+                                {{ t('service_categories.name') }}
                                 <span class="text-danger">*</span>
                             </label>
-                            <input
-                                id="category-slug"
-                                v-model="form.slug"
-                                type="text"
-                                maxlength="255"
-                                class="form-control"
-                                :class="slugInputClass"
-                                dir="ltr"
-                                :placeholder="t('service_categories.slug_placeholder')"
-                                @input="onSlugInput"
-                            >
-                            <div v-if="slugMessage" class="invalid-feedback d-block">{{ slugMessage }}</div>
-                            <div v-else class="form-text">{{ t('service_categories.slug_hint') }}</div>
-                        </div>
-
-                        <div class="row g-3 mb-3">
-                            <div class="col-md-6">
-                                <label for="category-parent" class="form-label">{{ t('service_categories.parent') }}</label>
-                                <select id="category-parent" v-model="form.parent_id" class="form-select">
-                                    <option :value="null">{{ t('service_categories.parent_placeholder') }}</option>
-                                    <option v-for="option in parentOptions" :key="option.id" :value="option.id">
-                                        {{ locale === 'ar' ? (option.name || option.name_en) : (option.name_en || option.name) }}
-                                    </option>
-                                </select>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label for="category-department" class="form-label">{{ t('service_categories.department') }}</label>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light">
+                                    <i class="ri-text"></i>
+                                </span>
                                 <input
-                                    id="category-department"
-                                    v-model="form.department"
+                                    id="category-name"
+                                    v-model="form.translations[activeLocale]"
                                     type="text"
-                                    maxlength="255"
+                                    maxlength="100"
                                     class="form-control"
-                                    list="category-department-options"
-                                    :placeholder="t('service_categories.department_placeholder')"
+                                    :class="activeTranslationInputClass"
+                                    :placeholder="t('service_categories.name_placeholder')"
+                                    @input="onTranslationInput(activeLocale)"
                                 >
-                                <datalist id="category-department-options">
-                                    <option v-for="dept in departmentOptions" :key="dept" :value="dept" />
-                                </datalist>
+                                <FormFieldFeedback v-bind="activeTranslationFeedback" />
+                            </div>
+                            <div v-if="activeTranslationMessage" class="invalid-feedback d-block">
+                                {{ activeTranslationMessage }}
                             </div>
                         </div>
 
                         <div class="mb-3">
-                            <label for="category-base-model" class="form-label">{{ t('service_categories.base_model') }}</label>
-                            <select id="category-base-model" v-model="form.base_model" class="form-select">
-                                <option :value="null">{{ t('service_categories.base_model_placeholder') }}</option>
-                                <option v-for="model in BASE_MODELS" :key="model" :value="model">{{ model }}</option>
-                            </select>
+                            <label for="category-parent" class="form-label">{{ t('service_categories.parent') }}</label>
+                            <Select
+                                id="category-parent"
+                                v-model="form.parent_id"
+                                :options="parentOptions"
+                                option-label="name"
+                                option-value="id"
+                                :placeholder="t('service_categories.parent_placeholder')"
+                                :filter="true"
+                                filter-placeholder="Search..."
+                                :filter-fields="['name']"
+                                :show-clear="true"
+                                append-to="self"
+                                auto-filter-focus
+                                class="w-100"
+                            />
                         </div>
 
-                        <div class="row g-3 align-items-start mb-3">
+                        <div class="row g-3 mb-3">
                             <div class="col-md-6">
+                                <label for="category-sort-order" class="form-label">{{ t('service_categories.sort_order') }}</label>
+                                <input
+                                    id="category-sort-order"
+                                    v-model.number="form.sort_order"
+                                    type="number"
+                                    min="0"
+                                    class="form-control"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-4">
                                 <label class="form-label d-block mb-2">{{ t('service_categories.requires_provider') }}</label>
                                 <div
                                     class="toggle toggle-success mb-0 catalog-modal-toggle"
@@ -119,22 +139,8 @@
                                 </div>
                             </div>
 
-                            <div v-if="form.requires_provider" class="col-md-6">
-                                <label for="category-provider-type" class="form-label">{{ t('service_categories.provider_type_label') }}</label>
-                                <input
-                                    id="category-provider-type"
-                                    v-model="form.provider_type_label"
-                                    type="text"
-                                    maxlength="255"
-                                    class="form-control"
-                                    :placeholder="t('service_categories.provider_type_label_placeholder')"
-                                >
-                            </div>
-                        </div>
-
-                        <div class="row g-3 align-items-end">
-                            <div class="col-md-6">
-                                <label class="form-label d-block mb-2">{{ t('service_categories.is_active') }}</label>
+                            <div class="col-md-4">
+                                <label class="form-label d-block mb-2">{{ t('service_categories.status') }}</label>
                                 <div
                                     class="toggle toggle-success mb-0 catalog-modal-toggle"
                                     :class="{ on: form.status }"
@@ -145,17 +151,6 @@
                                 >
                                     <span></span>
                                 </div>
-                            </div>
-
-                            <div class="col-md-6">
-                                <label for="category-sort-order" class="form-label">{{ t('service_categories.sort_order') }}</label>
-                                <input
-                                    id="category-sort-order"
-                                    v-model.number="form.sort_order"
-                                    type="number"
-                                    min="0"
-                                    class="form-control"
-                                >
                             </div>
                         </div>
                     </div>
@@ -174,17 +169,18 @@
 
 <script setup>
 import useVuelidate from '@vuelidate/core';
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Select from 'primevue/select';
 import adminAxios from '../../../../api/adminAxios';
+import CatalogTranslationTabs from '../../../../components/catalog/CatalogTranslationTabs.vue';
+import FormFieldFeedback from '../../../../components/ui/FormFieldFeedback.vue';
+import useCatalogTranslations from '../../../../composables/useCatalogTranslations';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../composables/useToast';
 import useValidation from '../../../../composables/useValidation';
-import { setupCatalogModalWatcher } from '../../../../utils/catalog';
+import { displayTranslatedName, setupCatalogModalWatcher } from '../../../../utils/catalog';
 
-const BASE_MODELS = [
-    'chat', 'trip', 'booking', 'order', 'delivery', 'service_request',
-    'on_demand', 'appointment', 'ticket', 'project',
-];
+const DEFAULT_IMAGE = '/dashboard/assets/images/faces/9.jpg';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -197,14 +193,17 @@ const emit = defineEmits(['close', 'saved']);
 
 const { t, locale } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
-const { requiredField, maxString, applyApiErrors, fieldFeedback } = useValidation();
+const { applyApiErrors } = useValidation();
 
 const modalElement = ref(null);
+const imageInput = ref(null);
 const submitting = ref(false);
 const serverErrors = reactive({});
 const parentOptions = ref([]);
-const departmentOptions = ref([]);
-const slugManuallyEdited = ref(false);
+const imageFile = ref(null);
+const removeImageFlag = ref(false);
+const imagePreviewUrl = ref('');
+const savedImageUrl = ref('');
 let modalInstance = null;
 let v$;
 
@@ -212,29 +211,57 @@ const isEdit = computed(() => props.type === 'edit');
 
 const form = reactive({
     parent_id: null,
-    name_ar: '',
-    name_en: '',
-    slug: '',
-    department: '',
-    base_model: null,
-    requires_provider: true,
-    provider_type_label: '',
+    requires_provider: false,
     status: true,
     sort_order: 0,
+    translations: {},
+});
+
+const {
+    activeLocale,
+    storableLanguages,
+    translationRules,
+    ensureLanguagesLoaded,
+    translationTabFeedback,
+    translationTabClass,
+    activeTranslationFeedback,
+    activeTranslationInputClass,
+    activeTranslationMessage,
+    onTranslationInput,
+    resetTranslations,
+    fillTranslations,
+    buildTranslationsPayload,
+    focusInvalidTranslationTab,
+} = useCatalogTranslations({
+    form,
+    serverErrors,
+    nameKey: 'service_categories.name',
+    minLength: 2,
+    maxLength: 100,
+    getV$: () => v$.value,
 });
 
 const rules = computed(() => ({
-    name_ar: {
-        required: requiredField('service_categories.name_ar'),
-        maxLength: maxString('service_categories.name_ar', 255),
-    },
-    slug: {
-        required: requiredField('service_categories.slug'),
-        maxLength: maxString('service_categories.slug', 255),
-    },
+    translations: translationRules.value,
 }));
 
 v$ = useVuelidate(rules, form, { $autoDirty: true });
+
+const hasCustomImage = computed(() => Boolean(
+    imageFile.value || (savedImageUrl.value && ! removeImageFlag.value),
+));
+
+const imagePreview = computed(() => {
+    if (imagePreviewUrl.value) {
+        return imagePreviewUrl.value;
+    }
+
+    if (removeImageFlag.value || ! savedImageUrl.value) {
+        return DEFAULT_IMAGE;
+    }
+
+    return savedImageUrl.value;
+});
 
 const modalTitle = computed(() => {
     if (! isEdit.value) {
@@ -243,59 +270,52 @@ const modalTitle = computed(() => {
 
     const record = props.record;
 
-    return record?.id
-        ? `${t('service_categories.edit_title')} #${record.id}`
-        : t('service_categories.edit_title');
+    if (! record?.id) {
+        return t('service_categories.edit_title');
+    }
+
+    const name = displayTranslatedName(record, locale.value);
+
+    return name
+        ? `${t('service_categories.edit_title')} #${record.id} ${name}`
+        : `${t('service_categories.edit_title')} #${record.id}`;
 });
 
-const nameArFeedback = computed(() => fieldFeedback(v$.value.name_ar, serverErrors.name_ar?.[0], form.name_ar));
-const nameArInputClass = computed(() => ({
-    'is-invalid': nameArFeedback.value.show && nameArFeedback.value.invalid,
-    'is-valid': nameArFeedback.value.show && nameArFeedback.value.valid,
-}));
-const nameArMessage = computed(() => (
-    nameArFeedback.value.invalid
-        ? (v$.value.name_ar.$errors[0]?.$message || serverErrors.name_ar?.[0] || null)
-        : null
-));
+function resetImageState() {
+    imageFile.value = null;
+    removeImageFlag.value = false;
+    savedImageUrl.value = '';
 
-const slugFeedback = computed(() => fieldFeedback(v$.value.slug, serverErrors.slug?.[0], form.slug));
-const slugInputClass = computed(() => ({
-    'is-invalid': slugFeedback.value.show && slugFeedback.value.invalid,
-    'is-valid': slugFeedback.value.show && slugFeedback.value.valid,
-}));
-const slugMessage = computed(() => (
-    slugFeedback.value.invalid
-        ? (v$.value.slug.$errors[0]?.$message || serverErrors.slug?.[0] || null)
-        : null
-));
+    if (imagePreviewUrl.value) {
+        URL.revokeObjectURL(imagePreviewUrl.value);
+        imagePreviewUrl.value = '';
+    }
 
-function slugify(value) {
-    return String(value ?? '')
-        .trim()
-        .toLowerCase()
-        .replace(/[^a-z0-9؀-ۿ\s-]/g, '')
-        .replace(/\s+/g, '-')
-        .replace(/-+/g, '-');
-}
-
-function onNameArInput() {
-    clearServerError('name_ar');
-    v$.value.name_ar.$touch();
-
-    if (! isEdit.value && ! slugManuallyEdited.value) {
-        form.slug = slugify(form.name_ar);
+    if (imageInput.value) {
+        imageInput.value.value = '';
     }
 }
 
-function onSlugInput() {
-    clearServerError('slug');
-    slugManuallyEdited.value = true;
-    v$.value.slug.$touch();
+function onImageChange(event) {
+    const file = event.target.files?.[0];
+
+    if (! file) {
+        return;
+    }
+
+    if (imagePreviewUrl.value) {
+        URL.revokeObjectURL(imagePreviewUrl.value);
+    }
+
+    imageFile.value = file;
+    removeImageFlag.value = false;
+    imagePreviewUrl.value = URL.createObjectURL(file);
+    delete serverErrors.image;
 }
 
-function clearServerError(field) {
-    delete serverErrors[field];
+function removeImage() {
+    resetImageState();
+    removeImageFlag.value = true;
 }
 
 function resetValidation() {
@@ -305,58 +325,66 @@ function resetValidation() {
 
 function resetForm() {
     form.parent_id = null;
-    form.name_ar = '';
-    form.name_en = '';
-    form.slug = '';
-    form.department = '';
-    form.base_model = null;
-    form.requires_provider = true;
-    form.provider_type_label = '';
+    form.requires_provider = false;
     form.status = true;
     form.sort_order = 0;
-    slugManuallyEdited.value = false;
+    resetTranslations();
+    resetImageState();
     resetValidation();
 }
 
 function fillForm(record) {
     form.parent_id = record?.parent_id ?? null;
-    form.name_ar = record?.name_ar ?? '';
-    form.name_en = record?.name_en ?? '';
-    form.slug = record?.slug ?? '';
-    form.department = record?.department ?? '';
-    form.base_model = record?.base_model ?? null;
-    form.requires_provider = Boolean(record?.requires_provider ?? true);
-    form.provider_type_label = record?.provider_type_label ?? '';
+    form.requires_provider = Boolean(record?.requires_provider ?? false);
     form.status = Boolean(record?.status ?? true);
     form.sort_order = record?.sort_order ?? 0;
-    slugManuallyEdited.value = true;
+    savedImageUrl.value = record?.image_thumb || record?.image || '';
+    fillTranslations(record);
+    resetImageState();
+    savedImageUrl.value = record?.image_thumb || record?.image || '';
     resetValidation();
 }
 
-function buildPayload() {
-    return {
-        parent_id: form.parent_id || null,
-        name_ar: form.name_ar.trim(),
-        name_en: form.name_en.trim() || null,
-        slug: form.slug.trim(),
-        department: form.department.trim() || null,
-        base_model: form.base_model || null,
-        requires_provider: form.requires_provider,
-        provider_type_label: form.requires_provider ? (form.provider_type_label.trim() || null) : null,
-        status: form.status,
-        sort_order: Number(form.sort_order) || 0,
-    };
+function buildFormData() {
+    const formData = new FormData();
+
+    if (form.parent_id) {
+        formData.append('parent_id', String(form.parent_id));
+    }
+
+    formData.append('requires_provider', form.requires_provider ? '1' : '0');
+    formData.append('status', form.status ? '1' : '0');
+    formData.append('sort_order', String(Number(form.sort_order) || 0));
+
+    buildTranslationsPayload().forEach((translation, index) => {
+        formData.append(`translations[${index}][locale]`, translation.locale);
+        formData.append(`translations[${index}][name]`, translation.name);
+    });
+
+    if (imageFile.value) {
+        formData.append('image', imageFile.value);
+    }
+
+    if (removeImageFlag.value) {
+        formData.append('remove_image', '1');
+    }
+
+    return formData;
 }
 
-async function loadOptions() {
+async function loadParentOptions() {
     try {
         const { data } = await adminAxios.get('/api/admin/v1/service-categories/dropdown');
         const options = data.data ?? [];
 
-        parentOptions.value = options.filter((option) => option.id !== props.record?.id);
-        departmentOptions.value = [...new Set(options.map((o) => o.department).filter(Boolean))];
+        parentOptions.value = options
+            .filter((option) => option.id !== props.record?.id)
+            .map((option) => ({
+                id: option.id,
+                name: displayTranslatedName(option, locale.value),
+            }));
     } catch {
-        // Non-fatal: the selects just show fewer/no options.
+        parentOptions.value = [];
     }
 }
 
@@ -365,7 +393,7 @@ function openModal() {
         return;
     }
 
-    modalInstance ??= new window.bootstrap.Modal(modalElement.value);
+    modalInstance ??= new window.bootstrap.Modal(modalElement.value, { focus: false });
     modalInstance.show();
 }
 
@@ -386,6 +414,7 @@ async function submit() {
     v$.value.$touch();
 
     if (v$.value.$invalid) {
+        focusInvalidTranslationTab();
         showWarning(t('toast.validation_error'));
         return;
     }
@@ -394,13 +423,15 @@ async function submit() {
     applyApiErrors(serverErrors, {});
 
     try {
+        const formData = buildFormData();
         let response;
 
         if (isEdit.value && props.record?.id) {
-            response = await adminAxios.put(`/api/admin/v1/service-categories/${props.record.id}`, buildPayload());
+            formData.append('_method', 'PUT');
+            response = await adminAxios.post(`${props.resourceUri}/${props.record.id}`, formData);
             showSuccess(extractApiMessage(response, t('toast.updated')));
         } else {
-            response = await adminAxios.post('/api/admin/v1/service-categories', buildPayload());
+            response = await adminAxios.post(props.resourceUri, formData);
             showSuccess(extractApiMessage(response, t('toast.created')));
         }
 
@@ -409,6 +440,7 @@ async function submit() {
     } catch (error) {
         if (error.response?.status === 422) {
             applyApiErrors(serverErrors, error.response.data.errors ?? {});
+            focusInvalidTranslationTab();
             showWarning(t('toast.validation_error'));
         } else {
             showError(extractApiErrorMessage(error, t('toast.error')));
@@ -425,17 +457,31 @@ setupCatalogModalWatcher({
     openModal,
     closeModal,
     resourceUri: props.resourceUri,
-    onOpen: loadOptions,
+    onOpen: loadParentOptions,
 });
 
-onMounted(() => {
+onMounted(async () => {
+    await ensureLanguagesLoaded();
     modalElement.value?.addEventListener('hidden.bs.modal', onModalHidden);
 });
 
 onUnmounted(() => {
     modalElement.value?.removeEventListener('hidden.bs.modal', onModalHidden);
     modalInstance?.dispose();
+
+    if (imagePreviewUrl.value) {
+        URL.revokeObjectURL(imagePreviewUrl.value);
+    }
 });
+
+watch(
+    () => props.show,
+    async (visible) => {
+        if (visible) {
+            await ensureLanguagesLoaded();
+        }
+    },
+);
 </script>
 
 <style scoped>
@@ -466,5 +512,80 @@ onUnmounted(() => {
 
 .catalog-modal-toggle.toggle-success.on {
     background-color: #26bf94;
+}
+
+.service-category-image-row {
+    display: flex;
+    align-items: center;
+    gap: 0.875rem;
+    flex-wrap: wrap;
+}
+
+.service-category-image-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-width: 9.75rem;
+}
+
+.service-category-image-actions__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding-inline: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.service-category-image-actions__btn i {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.service-category-image-actions__btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.service-category-image-box {
+    position: relative;
+    display: inline-flex;
+    width: 5rem;
+    height: 5rem;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 0.5rem;
+    background: #eef1f5;
+    border: 1px solid var(--default-border, #dee2e6);
+}
+
+.service-category-image-box__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.service-category-image-box__badge {
+    position: absolute;
+    inset-inline-end: 0.35rem;
+    inset-block-end: 0.35rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    margin: 0;
+    border-radius: 999px;
+    background: rgb(var(--primary-rgb, 132, 90, 223));
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.service-category-image-box__badge i {
+    font-size: 0.875rem;
+    line-height: 1;
 }
 </style>
