@@ -44,6 +44,7 @@ return [
     'flow_token_invalid' => 'انتهت صلاحية هذه الجلسة. يرجى البدء من جديد.',
     'social_auth_failed' => 'فشل تسجيل الدخول عبر الحساب الاجتماعي. حاول مرة أخرى.',
     'social_email_required' => 'تعذر تسجيل الدخول لأن المزود لم يشارك عنوان البريد الإلكتروني.',
+    'provider_account_not_found' => 'لا يوجد حساب مقدم خدمة بهذا البريد. تواصل مع الإدارة.',
     'verification_email_subject' => 'رمز التحقق الخاص بك',
     'verification_email_heading' => 'تأكيد البريد الإلكتروني',
     'verification_email_intro' => 'مرحباً :name، استخدم الرمز أدناه لتأكيد بريدك الإلكتروني.',

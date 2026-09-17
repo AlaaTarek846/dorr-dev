@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\User\Http\Controllers;
+namespace Modules\Provider\Http\Controllers;
 
 use App\Enums\AuthFlowPurpose;
 use App\Enums\SocialProvider;
@@ -12,12 +12,11 @@ use App\Services\Auth\VerificationCodeService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Log;
 use Laravel\Socialite\Facades\Socialite;
-use Modules\Provider\Http\Controllers\ProviderSocialAuthController;
-use Modules\User\Models\User;
+use Modules\Provider\Models\Provider;
 use RuntimeException;
 use Symfony\Component\HttpFoundation\Response;
 
-class UserSocialAuthController extends Controller
+class ProviderSocialAuthController extends Controller
 {
     public function __construct(
         private readonly SocialAuthService $socialAuth,
@@ -29,53 +28,50 @@ class UserSocialAuthController extends Controller
     {
         $driver = $this->resolveProvider($provider);
 
-        session(['social_auth_panel' => 'user']);
+        session(['social_auth_panel' => 'provider']);
 
         return Socialite::driver($driver)->redirect();
     }
 
     public function callback(string $provider): RedirectResponse
     {
-        if (session()->pull('social_auth_panel') === 'provider') {
-            return app(ProviderSocialAuthController::class)->callback($provider);
-        }
-
         $driver = $this->resolveProvider($provider);
 
         try {
             $socialUser = Socialite::driver($driver)->user();
+
             $result = $this->socialAuth->authenticate(
                 SocialProvider::from($provider),
                 $socialUser,
-                User::class,
+                Provider::class,
             );
 
-            /** @var User $user */
-            $user = $result['user'];
+            /** @var Provider $providerModel */
+            $providerModel = $result['user'];
 
             if (! $result['email_verified']) {
-                $this->verificationCodes->send($user, VerificationType::Email, $user->email);
-                $flowToken = $this->flowTokens->issue($user, AuthFlowPurpose::EmailVerification);
+                $this->verificationCodes->send($providerModel, VerificationType::Email, $providerModel->email);
+                $flowToken = $this->flowTokens->issue($providerModel, AuthFlowPurpose::EmailVerification);
 
                 return $this->redirectToFrontend([
                     'status' => 'needs_verification',
                     'flow_token' => $flowToken,
-                    'email' => $this->verificationCodes->maskEmail($user->email),
+                    'email' => $this->verificationCodes->maskEmail($providerModel->email),
                 ]);
             }
 
             if ($result['needs_password']) {
-                $flowToken = $this->flowTokens->issue($user, AuthFlowPurpose::PasswordSetup);
+                $flowToken = $this->flowTokens->issue($providerModel, AuthFlowPurpose::PasswordSetup);
 
                 return $this->redirectToFrontend([
                     'status' => 'needs_password',
                     'flow_token' => $flowToken,
-                    'email' => $user->email,
+                    'email' => $providerModel->email,
                 ]);
             }
 
-            $user->tokens()->delete();
-            $token = $user->createToken('user-api')->plainTextToken;
+            $providerModel->tokens()->delete();
+            $token = $providerModel->createToken('provider-api')->plainTextToken;
 
             return $this->redirectToFrontend([
                 'status' => 'success',
@@ -87,7 +83,7 @@ class UserSocialAuthController extends Controller
                 'message' => $exception->getMessage(),
             ]);
         } catch (\Throwable $exception) {
-            Log::error('User social auth failed', [
+            Log::error('Provider social auth failed', [
                 'provider' => $provider,
                 'message' => $exception->getMessage(),
             ]);
@@ -115,6 +111,6 @@ class UserSocialAuthController extends Controller
     {
         $query = http_build_query($params);
 
-        return redirect('/user/oauth/callback?'.$query);
+        return redirect('/provider/oauth/callback?'.$query);
     }
 }

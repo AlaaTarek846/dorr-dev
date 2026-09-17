@@ -1,6 +1,7 @@
 <?php
 
 use Modules\Admin\Models\Admin;
+use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 
 return [
@@ -51,6 +52,10 @@ return [
             'driver' => 'sanctum',
             'provider' => 'users',
         ],
+        'provider_api' => [
+            'driver' => 'sanctum',
+            'provider' => 'providers',
+        ],
     ],
 
     /*
@@ -78,6 +83,10 @@ return [
         'admins' => [
             'driver' => 'eloquent',
             'model' => Admin::class,
+        ],
+        'providers' => [
+            'driver' => 'eloquent',
+            'model' => Provider::class,
         ],
 
         // 'users' => [
