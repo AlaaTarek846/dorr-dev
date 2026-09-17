@@ -4,8 +4,8 @@
 
 <script setup>
 import { onMounted } from 'vue';
-import { useLocaleStore } from './stores/locale';
-import { usePlatformBrandingStore } from './stores/platformBranding';
+import { useLocaleStore } from '../../stores/locale';
+import { usePlatformBrandingStore } from '../../stores/platformBranding';
 
 onMounted(async () => {
     await Promise.all([

@@ -1,6 +1,6 @@
 import AuthCoverLayout from '../../layouts/AuthCoverLayout.vue';
 import AuthLayout from '../../layouts/AuthLayout.vue';
-import ProviderLayout from '../../layouts/ProviderLayout.vue';
+import ProviderLayout from '../../layouts/provider/ProviderLayout.vue';
 import providerAuth from '../../router/middleware/providerAuth';
 import providerGuest from '../../router/middleware/providerGuest';
 

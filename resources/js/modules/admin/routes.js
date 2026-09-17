@@ -1,5 +1,5 @@
 import AuthLayout from '../../layouts/AuthLayout.vue';
-import AdminLayout from '../../layouts/AdminLayout.vue';
+import AdminLayout from '../../layouts/admin/AdminLayout.vue';
 import guest from '../../router/middleware/guest';
 import auth from '../../router/middleware/auth';
 

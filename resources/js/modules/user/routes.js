@@ -1,6 +1,6 @@
 import AuthCoverLayout from '../../layouts/AuthCoverLayout.vue';
 import AuthLayout from '../../layouts/AuthLayout.vue';
-import UserLayout from '../../layouts/UserLayout.vue';
+import UserLayout from '../../layouts/user/UserLayout.vue';
 import userAuth from '../../router/middleware/userAuth';
 import userGuest from '../../router/middleware/userGuest';
 

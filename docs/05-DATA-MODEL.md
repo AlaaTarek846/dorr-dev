@@ -99,7 +99,7 @@ personal_access_tokens (Sanctum)
 
 ### `service_categories` + `service_category_translations`
 
-- `service_categories`: parent_id (self FK), requires_provider, status, sort_order, timestamps
+- `service_categories`: parent_id (self FK), module_name (unique, nullable), is_login_dashboard, is_auto_assign, requires_provider, status, sort_order, timestamps
 - `service_category_translations`: service_category_id, locale, name
 
 **Relationships:** parent/children self-reference; media collection `image`.

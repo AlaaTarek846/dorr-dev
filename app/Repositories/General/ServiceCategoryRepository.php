@@ -2,8 +2,8 @@
 
 namespace App\Repositories\General;
 
-use App\Repositories\TranslatableRepository;
 use App\Models\ServiceCategory;
+use App\Repositories\TranslatableRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -74,15 +74,21 @@ class ServiceCategoryRepository extends TranslatableRepository
 
     /**
      * All active categories (parents included), for the parent_id select on the create/edit form.
+     * When `?parent_id=null` is passed, only top-level categories (parents) are returned.
      *
      * @return Collection<int, array<string, mixed>>
      */
     public function dropdown(): Collection
     {
-        return $this->model->newQuery()
+        $query = $this->model->newQuery()
             ->with(['translations', 'translation'])
-            ->where('status', true)
-            ->orderBy('sort_order')
+            ->where('status', true);
+
+        if (request()->query('parent_id') === 'null') {
+            $query->whereNull('parent_id');
+        }
+
+        return $query->orderBy('sort_order')
             ->orderBy('id')
             ->get()
             ->map(fn (ServiceCategory $category) => [
@@ -95,5 +101,41 @@ class ServiceCategoryRepository extends TranslatableRepository
                 ])->values(),
             ])
             ->values();
+    }
+
+    /**
+     * Full hierarchy of active categories with nested children loaded, for the
+     * provider TreeSelect. Only leaf categories (no children) are selectable.
+     *
+     * @return EloquentCollection<int, ServiceCategory>
+     */
+    public function treeOptions(): EloquentCollection
+    {
+        $categories = $this->model->newQuery()
+            ->with(['translations', 'translation'])
+            ->where('status', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        $children = $categories->groupBy('parent_id');
+        $roots = $categories->filter(fn (ServiceCategory $category) => $category->parent_id === null);
+
+        return $this->nestTree($roots->values(), $children);
+    }
+
+    /**
+     * @param  Collection<int, ServiceCategory>  $nodes
+     * @param  Collection<int, Collection<int, ServiceCategory>>  $children
+     * @return EloquentCollection<int, ServiceCategory>
+     */
+    protected function nestTree(Collection $nodes, Collection $children): EloquentCollection
+    {
+        return EloquentCollection::make($nodes->map(function (ServiceCategory $category) use ($children) {
+            $nested = $children->get($category->id, collect());
+            $category->setRelation('children', $this->nestTree($nested, $children));
+
+            return $category;
+        })->values());
     }
 }
