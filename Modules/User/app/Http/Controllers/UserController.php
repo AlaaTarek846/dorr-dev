@@ -36,6 +36,16 @@ class UserController extends Controller
         return $this->service->delete($user);
     }
 
+    public function restore(int|string $user)
+    {
+        return $this->service->restoreRecord($user);
+    }
+
+    public function forceDestroy(int|string $user)
+    {
+        return $this->service->forceDeleteRecord($user);
+    }
+
     public function deleteMultiple(UserRequest $request)
     {
         return $this->service->deleteMultiple($request->validated('ids'));

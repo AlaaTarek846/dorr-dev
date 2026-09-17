@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('code')->unique()->comment('كود العلم');
             $table->boolean('status')->default(Status::Active->value)->comment('الحالة');
             $table->timestamps();
+            $table->softDeletes();
         });
 
         Schema::create('flag_translations', function (Blueprint $table) {
@@ -32,6 +33,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('flag_translations');
         Schema::dropIfExists('flags');
     }
 };

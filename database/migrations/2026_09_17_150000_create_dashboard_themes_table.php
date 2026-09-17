@@ -21,6 +21,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('sort_order')->default(0)->comment('ترتيب العرض');
             $table->timestamps();
             $table->index(['status', 'sort_order']);
+            $table->softDeletes();
         });
 
         Schema::create('dashboard_theme_translations', function (Blueprint $table) {

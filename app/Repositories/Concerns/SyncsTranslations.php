@@ -39,13 +39,13 @@ trait SyncsTranslations
         $this->syncTranslations($model, $data);
     }
 
-    protected function beforeDestroy(Model $model): void
+    protected function beforeForceDestroy(Model $model): void
     {
         if (method_exists($model, 'translations')) {
             $model->translations()->delete();
         }
 
-        parent::beforeDestroy($model);
+        parent::beforeForceDestroy($model);
     }
 
     protected function syncTranslations(Model $model, array $data): void

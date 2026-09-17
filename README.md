@@ -1,6 +1,6 @@
 # Dorr
 
-Laravel 12 + Vue 3 platform with dual SPAs (Admin + User), modular architecture, shared catalog layer, AI chat, and provider management.
+Laravel 12 + Vue 3 platform with three dashboard SPAs (Admin + User + Provider), modular architecture, shared catalog layer, AI chat (User), and provider management.
 
 ---
 
@@ -22,7 +22,7 @@ Laravel 12 + Vue 3 platform with dual SPAs (Admin + User), modular architecture,
 | **Admin** | Admin auth + admin management |
 | **User** | User auth, registration, profile, social login |
 | **AI** | AI provider config + user chat |
-| **Provider** | Business provider profiles (admin-managed) |
+| **Provider** | Business provider profiles (admin CRUD + provider self-service portal) |
 
 ---
 
@@ -38,8 +38,10 @@ composer test     # PHPUnit
 |-----|-----|
 | `/admin` | Admin dashboard SPA |
 | `/user` | User dashboard SPA |
+| `/provider` | Provider dashboard SPA |
 | `/api/admin/v1/*` | Admin API |
 | `/api/user/v1/*` | User API |
+| `/api/provider/v1/*` | Provider portal API |
 
 See [docs/14-DEPLOYMENT.md](./docs/14-DEPLOYMENT.md) for full setup.
 

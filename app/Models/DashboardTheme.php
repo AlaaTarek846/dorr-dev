@@ -8,11 +8,12 @@ use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 
 class DashboardTheme extends Model implements HasMedia
 {
-    use HasMediaTrait, HasTranslations, SearchFilterTrait;
+    use HasMediaTrait, HasTranslations, SearchFilterTrait, SoftDeletes;
 
     public const PREVIEW_IMAGE_COLLECTION = 'preview_image';
 
@@ -52,10 +53,5 @@ class DashboardTheme extends Model implements HasMedia
     public function preferences(): HasMany
     {
         return $this->hasMany(DashboardThemePreference::class);
-    }
-
-    public function mediaStorageFolder(): string
-    {
-        return 'dashboard_themes';
     }
 }

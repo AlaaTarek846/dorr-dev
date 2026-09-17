@@ -26,24 +26,6 @@ class ProviderRepository extends BaseRepository
         $this->model = $model;
     }
 
-    /**
-     * @param  list<int|string>  $ids
-     */
-    public function deleteMultiple(array $ids): int
-    {
-        return DB::transaction(function () use ($ids) {
-            $deleted = 0;
-
-            foreach ($ids as $id) {
-                if ($this->destroy($id)) {
-                    $deleted++;
-                }
-            }
-
-            return $deleted;
-        });
-    }
-
     public function changeStatus(int|string $id, UserStatus $status): Provider
     {
         $provider = $this->query()->findOrFail($id);

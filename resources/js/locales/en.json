@@ -194,6 +194,28 @@
             "translations": "translations"
         }
     },
+    "catalog": {
+        "status_active": "Active",
+        "status_inactive": "Inactive",
+        "filter_deleted": "Deleted",
+        "deleted_at": "Deleted At",
+        "deleted_badge": "Deleted",
+        "restore": "Restore",
+        "restore_title": "Restore Record",
+        "confirm_restore": "Restore this record?",
+        "bulk_delete_count": "Delete ({count})",
+        "force_delete": "Permanent Delete",
+        "force_delete_title": "Permanent Delete",
+        "force_delete_count": "Permanent Delete ({count})",
+        "confirm_force_delete": "Permanently delete this record? This cannot be undone.",
+        "confirm_force_delete_selected": "Permanently delete selected records? This cannot be undone.",
+        "restored": "Restored successfully.",
+        "force_deleted": "Permanently deleted successfully.",
+        "force_deleted_selected": "{count} record(s) permanently deleted.",
+        "force_deleted_partial": "{deleted} permanently deleted. {skipped} could not be deleted.",
+        "bulk_force_delete_requires_trash": "Only items in the Deleted tab can be permanently deleted. Move them to trash first, then open Deleted and try again.",
+        "bulk_soft_delete_requires_active": "Select active items to delete. For permanent removal, use the Deleted tab."
+    },
     "toast": {
         "success": "Operation completed successfully.",
         "created": "Created successfully.",
@@ -474,6 +496,7 @@
         "default_badge": "Default",
         "actions": "Actions",
         "created_at": "Created at",
+        "updated": "Last updated",
         "empty_title": "No themes yet",
         "empty": "Add dashboard themes to let users choose their preferred layout.",
         "delete_title": "Delete Theme",

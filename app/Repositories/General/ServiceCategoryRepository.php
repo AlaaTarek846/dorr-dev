@@ -6,10 +6,14 @@ use App\Models\ServiceCategory;
 use App\Repositories\TranslatableRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class ServiceCategoryRepository extends TranslatableRepository
 {
+    /**
+     * @var list<string>
+     */
+    protected array $deleteBlockRelations = ['children'];
+
     protected array $with = ['translations', 'translation', 'parent.translations', 'parent.translation'];
 
     protected array $orderBy = [
@@ -20,24 +24,6 @@ class ServiceCategoryRepository extends TranslatableRepository
     public function __construct(ServiceCategory $model)
     {
         $this->model = $model;
-    }
-
-    /**
-     * @param  list<int|string>  $ids
-     */
-    public function deleteMultiple(array $ids): int
-    {
-        return DB::transaction(function () use ($ids) {
-            $deleted = 0;
-
-            foreach ($ids as $id) {
-                if ($this->destroy($id, ['children'])) {
-                    $deleted++;
-                }
-            }
-
-            return $deleted;
-        });
     }
 
     /**

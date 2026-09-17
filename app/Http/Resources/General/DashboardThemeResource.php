@@ -31,6 +31,7 @@ class DashboardThemeResource extends JsonResource
             'preview_image_thumb' => $theme->getSingleMediaThumbUrl(DashboardTheme::PREVIEW_IMAGE_COLLECTION) ?: null,
             'created_at' => $theme->created_at?->toISOString(),
             'updated_at' => $theme->updated_at?->toISOString(),
+            'deleted_at' => $theme->deleted_at?->toISOString(),
         ], $this->translationFields());
     }
 }
