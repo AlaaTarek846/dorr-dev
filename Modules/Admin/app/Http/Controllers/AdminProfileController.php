@@ -5,8 +5,6 @@ namespace Modules\Admin\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 use Modules\Admin\Http\Requests\AdminProfilePasswordRequest;
 use Modules\Admin\Http\Requests\AdminProfileUpdateRequest;
 use Modules\Admin\Http\Resources\AdminResource;
@@ -41,12 +39,6 @@ class AdminProfileController extends Controller
     {
         /** @var Admin $admin */
         $admin = $request->user('admin_api');
-
-        if (! Hash::check($request->validated('current_password'), $admin->password)) {
-            throw ValidationException::withMessages([
-                'current_password' => [__('api.current_password_invalid')],
-            ]);
-        }
 
         $admin->update([
             'password' => $request->validated('password'),

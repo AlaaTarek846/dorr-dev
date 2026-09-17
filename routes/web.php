@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Resources\PlatformBrandingResource;
-use App\Repositories\LanguageRepository;
-use App\Repositories\PlatformSettingRepository;
+use App\Http\Resources\General\PlatformBrandingResource;
+use App\Repositories\General\LanguageRepository;
+use App\Repositories\General\PlatformSettingRepository;
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\UserSocialAuthController;
 

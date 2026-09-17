@@ -52,6 +52,7 @@
                 :id="inputId"
                 :value="phone"
                 type="tel"
+                dir="ltr"
                 class="form-control"
                 :class="{ 'is-invalid': invalid, 'is-valid': valid }"
                 :placeholder="placeholder"

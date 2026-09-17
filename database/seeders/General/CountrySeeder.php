@@ -6,13 +6,14 @@ use App\Enums\Status;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
+use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
 use Locale;
 
 class CountrySeeder extends Seeder
 {
-    use TruncatesBeforeSeeding;
+    use SyncsSeedTranslations, TruncatesBeforeSeeding;
 
     /**
      * @var array<string, string|null>
@@ -122,8 +123,8 @@ class CountrySeeder extends Seeder
                 'status' => Status::Active,
             ]);
 
-            $country->fillAllTranslations(['name' => $data['name']]);
             $country->save();
+            $this->syncTranslations($country, $data['name']);
         }
     }
 

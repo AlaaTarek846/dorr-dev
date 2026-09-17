@@ -1,0 +1,40 @@
+---
+description: Dorr Laravel/PHP backend conventions
+globs: "{app/**/*.php,Modules/**/*.php,routes/**/*.php,database/**/*.php}"
+alwaysApply: false
+---
+
+# Dorr Backend Standards
+
+Full guide: `docs/16-STYLEGUIDE.md` | Architecture: `docs/04-ARCHITECTURE.md`
+
+## Layering
+
+Thin controllers → Services → Repositories. Validation in Form Requests. Responses via `ApiResponse`.
+
+## Shared catalog (General/)
+
+Place cross-audience catalog code in `App\...\General\`:
+- Controllers extend `CatalogController`
+- Services extend `CatalogService`
+- Repositories extend `TranslatableRepository`
+
+Entities: Country, Currency, Flag, Language, ServiceCategory, PlatformSetting.
+
+## Module features
+
+Audience-specific code → `Modules/{Admin|User|AI|Provider}/`.
+
+## Routes
+
+- Admin API: `/api/admin/v1/*` + `auth:admin_api`
+- User API: `/api/user/v1/*` + `auth:user_api`
+- Always use `locale` middleware on API groups
+
+## Do not
+
+- Put business logic in controllers
+- Skip Form Request validation
+- Create duplicate CRUD outside base classes
+- Modify old production migrations — add new ones
+- Use Spatie permission middleware until project enables it (currently unused)

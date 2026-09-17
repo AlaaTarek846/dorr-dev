@@ -44,7 +44,6 @@
                                     id="country-name"
                                     v-model="form.translations[activeLocale]"
                                     type="text"
-                                    maxlength="255"
                                     class="form-control"
                                     :class="activeTranslationInputClass"
                                     :placeholder="t('countries.name_placeholder')"
@@ -58,7 +57,7 @@
                         </div>
 
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label for="country-code" class="form-label">
                                     {{ t('countries.code') }}
                                     <span class="text-danger">*</span>
@@ -84,32 +83,7 @@
                                 </div>
                             </div>
 
-                            <div class="col-md-4">
-                                <label for="country-code-alpha3" class="form-label">
-                                    {{ t('countries.code_alpha3') }}
-                                </label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-code-line"></i>
-                                    </span>
-                                    <input
-                                        id="country-code-alpha3"
-                                        v-model="form.code_alpha3"
-                                        type="text"
-                                        maxlength="10"
-                                        class="form-control text-uppercase"
-                                        :class="codeAlpha3InputClass"
-                                        :placeholder="t('countries.code_alpha3_placeholder')"
-                                        @input="onFieldInput('code_alpha3')"
-                                    >
-                                    <FormFieldFeedback v-bind="codeAlpha3Feedback" />
-                                </div>
-                                <div v-if="codeAlpha3Message" class="invalid-feedback d-block">
-                                    {{ codeAlpha3Message }}
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label for="country-dial-code" class="form-label">
                                     {{ t('countries.dial_code') }}
                                     <span class="text-danger">*</span>
@@ -120,7 +94,8 @@
                                         id="country-dial-code"
                                         v-model="form.dial_code"
                                         type="text"
-                                        maxlength="10"
+                                        inputmode="numeric"
+                                        maxlength="4"
                                         class="form-control"
                                         :class="dialCodeInputClass"
                                         :placeholder="t('countries.dial_code_placeholder')"
@@ -136,6 +111,7 @@
                             <div class="col-md-6">
                                 <label for="country-phone-starts-with" class="form-label">
                                     {{ t('countries.phone_starts_with') }}
+                                    <span class="text-danger">*</span>
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light">
@@ -145,7 +121,8 @@
                                         id="country-phone-starts-with"
                                         v-model="form.phone_starts_with"
                                         type="text"
-                                        maxlength="20"
+                                        inputmode="numeric"
+                                        maxlength="2"
                                         class="form-control"
                                         :class="phoneStartsWithInputClass"
                                         :placeholder="t('countries.phone_starts_with_placeholder')"
@@ -161,6 +138,7 @@
                             <div class="col-md-6">
                                 <label for="country-phone-length" class="form-label">
                                     {{ t('countries.phone_length') }}
+                                    <span class="text-danger">*</span>
                                 </label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light">
@@ -170,8 +148,8 @@
                                         id="country-phone-length"
                                         v-model="form.phone_length"
                                         type="number"
-                                        min="1"
-                                        max="20"
+                                        min="5"
+                                        max="15"
                                         class="form-control"
                                         :class="phoneLengthInputClass"
                                         :placeholder="t('countries.phone_length_placeholder')"
@@ -298,8 +276,8 @@ const { t, locale } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
 const {
     stringFieldRules,
-    maxString,
     requiredField,
+    digitsBetween,
     applyApiErrors,
     fieldFeedback,
 } = useValidation();
@@ -344,39 +322,35 @@ const {
     form,
     serverErrors,
     nameKey: 'countries.name',
+    minLength: 2,
+    maxLength: 50,
     getV$: () => v$.value,
-});
-
-const optionalInteger = (validator) => helpers.withParams({}, (value) => {
-    if (value === '' || value === null || value === undefined) {
-        return true;
-    }
-
-    return validator.$validator(value);
 });
 
 const rules = computed(() => ({
     translations: translationRules.value,
     code: stringFieldRules('countries.code', 10),
-    code_alpha3: {
-        maxLength: maxString('countries.code_alpha3', 10),
+    dial_code: {
+        required: requiredField('countries.dial_code'),
+        digitsBetween: digitsBetween('countries.dial_code', 1, 4),
     },
-    dial_code: stringFieldRules('countries.dial_code', 10),
     phone_starts_with: {
-        maxLength: maxString('countries.phone_starts_with', 20),
+        required: requiredField('countries.phone_starts_with'),
+        digitsBetween: digitsBetween('countries.phone_starts_with', 1, 2),
     },
     phone_length: {
+        required: requiredField('countries.phone_length'),
         integer: helpers.withMessage(
             () => t('validation.integer', { field: t('countries.phone_length') }),
-            optionalInteger(integer),
+            integer,
         ),
         minValue: helpers.withMessage(
-            () => t('validation.min.numeric', { field: t('countries.phone_length'), min: 1 }),
-            optionalInteger(minValue(1)),
+            () => t('validation.min.numeric', { field: t('countries.phone_length'), min: 5 }),
+            minValue(5),
         ),
         maxValue: helpers.withMessage(
-            () => t('validation.max.numeric', { field: t('countries.phone_length'), max: 20 }),
-            optionalInteger(maxValue(20)),
+            () => t('validation.max.numeric', { field: t('countries.phone_length'), max: 15 }),
+            maxValue(15),
         ),
     },
     flag_id: {
@@ -442,10 +416,6 @@ const codeFeedback = buildFieldFeedback('code');
 const codeInputClass = buildFieldInputClass(codeFeedback);
 const codeMessage = buildFieldMessage('code', codeFeedback);
 
-const codeAlpha3Feedback = buildFieldFeedback('code_alpha3');
-const codeAlpha3InputClass = buildFieldInputClass(codeAlpha3Feedback);
-const codeAlpha3Message = buildFieldMessage('code_alpha3', codeAlpha3Feedback);
-
 const dialCodeFeedback = buildFieldFeedback('dial_code');
 const dialCodeInputClass = buildFieldInputClass(dialCodeFeedback);
 const dialCodeMessage = buildFieldMessage('dial_code', dialCodeFeedback);
@@ -466,7 +436,7 @@ const currencyMessage = buildFieldMessage('currency_id', currencyFeedback);
 
 function onFieldInput(field) {
     clearServerError(field);
-    v$.value[field]?.$touch();
+    v$.value.$touch();
 }
 
 function onSelectChange(field) {
@@ -516,7 +486,7 @@ function buildPayload() {
         code: form.code.trim(),
         code_alpha3: form.code_alpha3.trim() || null,
         dial_code: formatDialCodeForPayload(form.dial_code),
-        phone_starts_with: form.phone_starts_with.trim() || null,
+        phone_starts_with: form.phone_starts_with.trim(),
         phone_length: form.phone_length !== '' && form.phone_length !== null
             ? Number(form.phone_length)
             : null,
@@ -533,7 +503,7 @@ function openModal() {
         return;
     }
 
-    modalInstance ??= new window.bootstrap.Modal(modalElement.value);
+    modalInstance ??= new window.bootstrap.Modal(modalElement.value, { focus: false });
     modalInstance.show();
 }
 
