@@ -22,6 +22,8 @@ class ServiceCategoryRequest extends FormRequest
             'requires_provider' => filter_var($this->input('requires_provider', false), FILTER_VALIDATE_BOOLEAN),
             'status' => filter_var($this->input('status', true), FILTER_VALIDATE_BOOLEAN),
             'remove_image' => filter_var($this->input('remove_image', false), FILTER_VALIDATE_BOOLEAN),
+            'is_login_dashboard' => filter_var($this->input('is_login_dashboard', true), FILTER_VALIDATE_BOOLEAN),
+            'is_auto_assign' => filter_var($this->input('is_auto_assign', false), FILTER_VALIDATE_BOOLEAN),
         ]);
     }
 
@@ -53,6 +55,14 @@ class ServiceCategoryRequest extends FormRequest
                 Rule::exists('service_categories', 'id'),
                 Rule::notIn(array_filter([(int) $categoryId])),
             ],
+            'module_name' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('service_categories', 'module_name')->ignore($categoryId),
+            ],
+            'is_login_dashboard' => ['nullable', 'boolean'],
+            'is_auto_assign' => ['nullable', 'boolean'],
             'requires_provider' => ['nullable', 'boolean'],
             'status' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
@@ -82,6 +92,9 @@ class ServiceCategoryRequest extends FormRequest
     {
         return [
             'parent_id' => __('validation.attributes.parent_id'),
+            'module_name' => __('validation.attributes.module_name'),
+            'is_login_dashboard' => __('validation.attributes.is_login_dashboard'),
+            'is_auto_assign' => __('validation.attributes.is_auto_assign'),
             'requires_provider' => __('validation.attributes.requires_provider'),
             'status' => __('validation.attributes.status'),
             'sort_order' => __('validation.attributes.sort_order'),

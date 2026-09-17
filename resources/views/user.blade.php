@@ -62,7 +62,7 @@
             }
         </style>
 
-        @vite(['resources/js/user-app.js'])
+        @vite(['resources/js/apps/user/user-app.js'])
     </head>
     <body>
         <div id="app"></div>

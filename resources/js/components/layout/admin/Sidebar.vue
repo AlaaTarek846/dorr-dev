@@ -157,7 +157,7 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n';
-import PlatformLogo from './PlatformLogo.vue';
+import PlatformLogo from '../PlatformLogo.vue';
 
 const { t } = useI18n();
 

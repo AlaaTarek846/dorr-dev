@@ -21,6 +21,9 @@ class ServiceCategoryResource extends JsonResource
             'parent' => $this->whenLoaded('parent', fn () => $this->parent ? array_merge([
                 'id' => $this->parent->id,
             ], (new self($this->parent))->translationFields()) : null),
+            'module_name' => $this->module_name,
+            'is_login_dashboard' => (bool) $this->is_login_dashboard,
+            'is_auto_assign' => (bool) $this->is_auto_assign,
             'requires_provider' => (bool) $this->requires_provider,
             'status' => (bool) $this->status,
             'sort_order' => $this->sort_order,

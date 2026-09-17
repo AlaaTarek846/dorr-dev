@@ -106,6 +106,9 @@
                                         </th>
                                         <th scope="col">{{ t('service_categories.name') }}</th>
                                         <th scope="col">{{ t('service_categories.parent') }}</th>
+                                        <th scope="col">{{ t('service_categories.module_name') }}</th>
+                                        <th scope="col">{{ t('service_categories.is_login_dashboard') }}</th>
+                                        <th scope="col">{{ t('service_categories.is_auto_assign') }}</th>
                                         <th scope="col">{{ t('service_categories.requires_provider') }}</th>
                                         <th scope="col">{{ t('service_categories.sort_order') }}</th>
                                         <th scope="col">{{ t('service_categories.status') }}</th>
@@ -117,7 +120,7 @@
                                     <TableSkeleton v-if="loading" :rows="8" />
 
                                     <tr v-else-if="!categories.length">
-                                        <td colspan="8" class="border-0">
+                                        <td colspan="11" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-list-settings-line fs-2 text-primary"></i>
@@ -186,6 +189,28 @@
                                                 {{ displayName(category.parent) }}
                                             </span>
                                             <span v-else class="text-muted">{{ t('service_categories.no_parent') }}</span>
+                                        </td>
+                                        <td>
+                                            <span v-if="category.module_name" class="badge bg-light text-default">
+                                                {{ category.module_name }}
+                                            </span>
+                                            <span v-else class="text-muted">—</span>
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="badge"
+                                                :class="category.is_login_dashboard ? 'bg-success-transparent' : 'bg-secondary-transparent'"
+                                            >
+                                                {{ category.is_login_dashboard ? t('yes') : t('no') }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="badge"
+                                                :class="category.is_auto_assign ? 'bg-success-transparent' : 'bg-secondary-transparent'"
+                                            >
+                                                {{ category.is_auto_assign ? t('yes') : t('no') }}
+                                            </span>
                                         </td>
                                         <td>
                                             <span

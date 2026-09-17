@@ -4,8 +4,8 @@
 
 <script setup>
 import { onMounted } from 'vue';
-import { useLocaleStore } from './stores/locale';
-import { usePlatformBrandingStore } from './stores/platformBranding';
+import { useLocaleStore } from '../../stores/locale';
+import { usePlatformBrandingStore } from '../../stores/platformBranding';
 
 onMounted(async () => {
     const brandingStore = usePlatformBrandingStore();
@@ -16,7 +16,7 @@ onMounted(async () => {
     ]);
 
     if (brandingStore.app_name) {
-        document.title = `Provider | ${brandingStore.app_name}`;
+        document.title = `User | ${brandingStore.app_name}`;
     }
 });
 </script>

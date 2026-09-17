@@ -19,6 +19,9 @@ class ServiceCategory extends Model implements HasMedia
      */
     protected $fillable = [
         'parent_id',
+        'module_name',
+        'is_login_dashboard',
+        'is_auto_assign',
         'requires_provider',
         'status',
         'sort_order',
@@ -30,6 +33,9 @@ class ServiceCategory extends Model implements HasMedia
     protected function casts(): array
     {
         return [
+            'module_name' => 'string',
+            'is_login_dashboard' => 'boolean',
+            'is_auto_assign' => 'boolean',
             'requires_provider' => 'boolean',
             'status' => 'boolean',
             'sort_order' => 'integer',
