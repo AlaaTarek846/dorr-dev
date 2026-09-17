@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\CountryController;
+use App\Http\Controllers\General\CountryController;
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\UserAuthController;
 use Modules\User\Http\Controllers\UserPasswordResetController;

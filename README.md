@@ -1,59 +1,103 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Dorr
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Laravel 12 + Vue 3 platform with dual SPAs (Admin + User), modular architecture, shared catalog layer, AI chat, and provider management.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Stack
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+| Layer | Technology |
+|-------|------------|
+| Backend | PHP ^8.2, Laravel ^12, Sanctum, nwidart/laravel-modules |
+| Frontend | Vue ^3.5, Pinia, Vue Router, PrimeVue (admin), vue-i18n |
+| Packages | Spatie Media Library, Spatie Permission, Socialite |
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## Modules
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+| Module | Purpose |
+|--------|---------|
+| **General** (`app/.../General/`) | Shared catalog: countries, flags, languages, currencies, service categories, platform settings |
+| **Admin** | Admin auth + admin management |
+| **User** | User auth, registration, profile, social login |
+| **AI** | AI provider config + user chat |
+| **Provider** | Business provider profiles (admin-managed) |
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## Quick Start
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+```bash
+composer setup    # install, .env, migrate, npm build
+composer dev      # server + queue + logs + vite
+composer test     # PHPUnit
+```
 
-### Premium Partners
+| URL | App |
+|-----|-----|
+| `/admin` | Admin dashboard SPA |
+| `/user` | User dashboard SPA |
+| `/api/admin/v1/*` | Admin API |
+| `/api/user/v1/*` | User API |
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+See [docs/14-DEPLOYMENT.md](./docs/14-DEPLOYMENT.md) for full setup.
 
-## Contributing
+---
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+## Documentation
 
-## Code of Conduct
+Professional documentation system for developers and AI assistants:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Core
 
-## Security Vulnerabilities
+| Document | Description |
+|----------|-------------|
+| [01-PRODUCT-REQUIREMENTS.md](./docs/01-PRODUCT-REQUIREMENTS.md) | Product requirements |
+| [02-PRODUCT-SPECIFICATION.md](./docs/02-PRODUCT-SPECIFICATION.md) | How the product works |
+| [03-TECHNICAL-SPECIFICATION.md](./docs/03-TECHNICAL-SPECIFICATION.md) | Technical implementation |
+| [04-ARCHITECTURE.md](./docs/04-ARCHITECTURE.md) | System architecture |
+| [05-DATA-MODEL.md](./docs/05-DATA-MODEL.md) | Database schema |
+| [06-API-SPECIFICATION.md](./docs/06-API-SPECIFICATION.md) | API reference |
+| [07-IMPLEMENTATION-PLAN.md](./docs/07-IMPLEMENTATION-PLAN.md) | Feature workflow |
+| [08-ROADMAP.md](./docs/08-ROADMAP.md) | Roadmap |
+| [09-DECISIONS.md](./docs/09-DECISIONS.md) | Architecture decisions |
+| [10-CHANGELOG.md](./docs/10-CHANGELOG.md) | Changelog |
+| [11-CHECKPOINT.md](./docs/11-CHECKPOINT.md) | Current project state |
+| [12-TESTING.md](./docs/12-TESTING.md) | Testing guide |
+| [13-SECURITY.md](./docs/13-SECURITY.md) | Security |
+| [14-DEPLOYMENT.md](./docs/14-DEPLOYMENT.md) | Deployment |
+| [15-CONTRIBUTING.md](./docs/15-CONTRIBUTING.md) | Contributing |
+| [16-STYLEGUIDE.md](./docs/16-STYLEGUIDE.md) | Coding standards |
+| [AI-INSTRUCTIONS.md](./docs/AI-INSTRUCTIONS.md) | **AI assistants — read first** |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### Module Docs
+
+| Module | README |
+|--------|--------|
+| General (shared catalog) | [docs/modules/general/README.md](./docs/modules/general/README.md) |
+| Admin | [docs/modules/admin/README.md](./docs/modules/admin/README.md) |
+| User | [docs/modules/user/README.md](./docs/modules/user/README.md) |
+| AI | [docs/modules/ai/README.md](./docs/modules/ai/README.md) |
+| Provider | [docs/modules/provider/README.md](./docs/modules/provider/README.md) |
+
+---
+
+## For AI Assistants
+
+**Automatic enforcement:** Cursor loads [`.cursor/rules/`](./.cursor/rules/) on every session. Other agents should read [AGENTS.md](./AGENTS.md) first.
+
+Before changing code, read:
+
+1. [AGENTS.md](./AGENTS.md) — quick agent entry point
+2. [docs/AI-INSTRUCTIONS.md](./docs/AI-INSTRUCTIONS.md) — full 9-step workflow
+3. [docs/11-CHECKPOINT.md](./docs/11-CHECKPOINT.md)
+4. [docs/04-ARCHITECTURE.md](./docs/04-ARCHITECTURE.md)
+
+The codebase is the source of truth. Do not invent features or APIs.
+
+---
 
 ## License
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+MIT (Laravel framework components). See project license terms as applicable.

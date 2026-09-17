@@ -2,7 +2,7 @@
 
 namespace App\Repositories\Concerns;
 
-use App\Repositories\LanguageRepository;
+use App\Repositories\General\LanguageRepository;
 use Illuminate\Database\Eloquent\Model;
 
 trait SyncsTranslations

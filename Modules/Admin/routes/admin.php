@@ -1,11 +1,11 @@
 <?php
 
-use App\Http\Controllers\CountryController;
-use App\Http\Controllers\CurrencyController;
-use App\Http\Controllers\FlagController;
-use App\Http\Controllers\LanguageController;
-use App\Http\Controllers\PlatformSettingController;
-use App\Http\Controllers\ServiceCategoryController;
+use App\Http\Controllers\General\CountryController;
+use App\Http\Controllers\General\CurrencyController;
+use App\Http\Controllers\General\FlagController;
+use App\Http\Controllers\General\LanguageController;
+use App\Http\Controllers\General\PlatformSettingController;
+use App\Http\Controllers\General\ServiceCategoryController;
 use Illuminate\Support\Facades\Route;
 use Modules\Admin\Http\Controllers\AdminAuthController;
 use Modules\Admin\Http\Controllers\AdminController;
