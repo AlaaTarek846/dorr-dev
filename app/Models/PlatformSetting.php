@@ -16,9 +16,4 @@ class PlatformSetting extends Model implements HasMedia
     protected $fillable = [
         'app_name',
     ];
-
-    public function mediaStorageFolder(): string
-    {
-        return 'platform_settings';
-    }
 }

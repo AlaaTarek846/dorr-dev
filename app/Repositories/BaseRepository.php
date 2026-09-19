@@ -3,13 +3,24 @@
 namespace App\Repositories;
 
 use App\Exceptions\ConflictException;
+use App\Repositories\Concerns\ManagesBulkAndStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 
 abstract class BaseRepository
 {
+    use ManagesBulkAndStatus;
+
+    /**
+     * Relations that block delete when they have records.
+     *
+     * @var list<string>
+     */
+    protected array $deleteBlockRelations = [];
     protected Model $model;
 
     /**
@@ -33,12 +44,29 @@ abstract class BaseRepository
 
     public function index(): Builder
     {
-        return $this->applyIndexDefaults($this->query());
+        return $this->applyIndexDefaults($this->buildIndexQuery());
     }
 
     public function query(): Builder
     {
         return $this->model->newQuery();
+    }
+
+    protected function buildIndexQuery(): Builder
+    {
+        $query = $this->model->newQuery();
+
+        if ($this->shouldListOnlyTrashed()) {
+            return $query->onlyTrashed();
+        }
+
+        return $query;
+    }
+
+    protected function shouldListOnlyTrashed(): bool
+    {
+        return filter_var(request()->input('trashed', false), FILTER_VALIDATE_BOOLEAN)
+            || filter_var(request()->input('only_trashed', false), FILTER_VALIDATE_BOOLEAN);
     }
 
     public function store(array $data): Model
@@ -87,7 +115,12 @@ abstract class BaseRepository
             });
         } catch (QueryException $exception) {
             if ($this->isForeignKeyConstraintViolation($exception)) {
-                throw new ConflictException(__('api.cannot_delete_related'));
+                throw new ConflictException(
+                    __('api.cannot_delete_related'),
+                    409,
+                    null,
+                    'cannot_delete_related',
+                );
             }
 
             throw $exception;
@@ -134,11 +167,89 @@ abstract class BaseRepository
     {
         foreach ($relations as $relation) {
             if ($model->{$relation}()->exists()) {
-                throw new ConflictException(__('api.cannot_delete_relation', [
-                    'relation' => $this->relationLabel($relation),
-                ]));
+                throw new ConflictException(
+                    __('api.cannot_delete_relation', [
+                        'relation' => $this->relationLabel($relation),
+                    ]),
+                    409,
+                    null,
+                    'cannot_delete_relation',
+                    ['relation' => $relation],
+                );
             }
         }
+    }
+
+    public function restore(int|string $id): Model
+    {
+        $this->assertUsesSoftDeletes();
+
+        $model = $this->findTrashedOrFail($id);
+        $model->restore();
+
+        return $this->refresh($model);
+    }
+
+    /**
+     * @param  list<string>  $relations
+     */
+    public function forceDestroy(int|string $id, array $relations = []): bool
+    {
+        $this->assertUsesSoftDeletes();
+
+        if ($relations === []) {
+            $relations = $this->deleteBlockRelations;
+        }
+
+        $model = $this->findTrashedOrFail($id);
+
+        $this->assertCanDelete($model, $relations);
+
+        try {
+            return DB::transaction(function () use ($model) {
+                $this->beforeForceDestroy($model);
+
+                return (bool) $model->forceDelete();
+            });
+        } catch (QueryException $exception) {
+            if ($this->isForeignKeyConstraintViolation($exception)) {
+                throw new ConflictException(
+                    __('api.cannot_delete_related'),
+                    409,
+                    null,
+                    'cannot_delete_related',
+                );
+            }
+
+            throw $exception;
+        }
+    }
+
+    protected function assertUsesSoftDeletes(): void
+    {
+        if (! in_array(SoftDeletes::class, class_uses_recursive($this->model), true)) {
+            throw new ModelNotFoundException;
+        }
+    }
+
+    protected function findTrashedOrFail(int|string $id): Model
+    {
+        $model = $this->query()->withTrashed()->find($id);
+
+        if ($model === null) {
+            throw (new ModelNotFoundException)->setModel($this->model::class, [$id]);
+        }
+
+        if (! $model->trashed()) {
+            throw new ConflictException(
+                __('api.not_in_trash'),
+                409,
+                null,
+                'not_in_trash',
+            );
+        }
+
+        return $model;
     }
 
     protected function relationLabel(string $relation): string
@@ -191,6 +302,11 @@ abstract class BaseRepository
     }
 
     protected function beforeDestroy(Model $model): void
+    {
+        // Soft delete keeps translations and media so records can be restored intact.
+    }
+
+    protected function beforeForceDestroy(Model $model): void
     {
         if (method_exists($model, 'cleanMedia')) {
             $model->cleanMedia();

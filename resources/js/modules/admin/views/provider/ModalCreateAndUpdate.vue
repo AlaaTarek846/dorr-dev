@@ -311,7 +311,7 @@ import useValidation from '../../../../composables/useValidation';
 import { combinePhoneNumber, setupCatalogModalWatcher, splitPhoneNumber } from '../../../../utils/catalog';
 import { calculatePasswordStrength, generateSecurePassword } from '../../../../utils/passwordStrength';
 
-const DEFAULT_AVATAR = '/dashboard/assets/images/faces/9.jpg';
+const DEFAULT_AVATAR = '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
 const resourceUri = '/api/admin/v1/providers';
 
 const props = defineProps({

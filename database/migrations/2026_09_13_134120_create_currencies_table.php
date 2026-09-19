@@ -21,6 +21,7 @@ return new class extends Migration
             $table->boolean('is_default')->default(Status::Inactive->value)->comment('العملة الافتراضية');
             $table->boolean('status')->default(Status::Active->value)->comment('الحالة');
             $table->timestamps();
+            $table->softDeletes();
         });
         Schema::create('currency_translations', function (Blueprint $table) {
             $table->id();

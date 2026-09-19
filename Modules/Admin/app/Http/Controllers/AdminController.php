@@ -35,6 +35,16 @@ class AdminController extends Controller
         return $this->service->delete($admin);
     }
 
+    public function restore(int|string $admin)
+    {
+        return $this->service->restoreRecord($admin);
+    }
+
+    public function forceDestroy(int|string $admin)
+    {
+        return $this->service->forceDeleteRecord($admin);
+    }
+
     public function deleteMultiple(AdminRequest $request)
     {
         return $this->service->deleteMultiple($request->validated('ids'));

@@ -70,20 +70,42 @@
                             >
                                 {{ t('service_categories.filter_inactive') }} ({{ counts.inactive }})
                             </button>
+                            <button
+                                v-if="counts.deleted > 0"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
+                                @click="setStatusFilter('deleted')"
+                            >
+                                {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
                         </div>
 
-                        <div class="d-flex flex-wrap align-items-center gap-2">
+                        <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount"
+                                v-if="selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
                             >
                                 <i class="ri-delete-bin-line me-1 align-middle"></i>
-                                {{ t('service_categories.delete_count', { count: selectedCount }) }}
+                                {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
-
-                            <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                            <button
+                                v-if="selectedCount && statusFilter === 'deleted'"
+                                type="button"
+                                class="btn btn-danger btn-sm btn-wave"
+                                @click="confirmForceDeleteSelected"
+                            >
+                                <i class="ri-delete-bin-7-line me-1 align-middle"></i>
+                                {{ t('catalog.force_delete_count', { count: selectedCount }) }}
+                            </button>
+                            <button
+                                v-if="statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreate"
+                            >
                                 <i class="ri-add-line me-1 align-middle"></i>
                                 {{ t('service_categories.add_short') }}
                             </button>
@@ -127,7 +149,7 @@
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('service_categories.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('service_categories.empty') }}</p>
-                                                <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('service_categories.add') }}
                                                 </button>
@@ -159,19 +181,21 @@
                                                     >
                                                     <img
                                                         v-else
-                                                        src="/dashboard/assets/images/faces/9.jpg"
+                                                        src="/dashboard/themes/theme-1/assets/images/faces/9.jpg"
                                                         :alt="displayName(category)"
                                                         class="service-category-image"
                                                     >
                                                 </span>
                                                 <div>
                                                     <button
+                                                        v-if="!isTrashedRecord(category)"
                                                         type="button"
                                                         class="btn btn-link p-0 text-start fw-semibold text-default"
                                                         @click="openEdit(category)"
                                                     >
                                                         {{ displayName(category) }}
                                                     </button>
+                                                    <span v-else class="fw-semibold text-default">{{ displayName(category) }}</span>
                                                     <span class="d-block text-muted fs-11">
                                                         #{{ category.id }}
                                                         <span v-if="category.is_leaf" class="badge bg-info-transparent ms-1">
@@ -224,7 +248,11 @@
                                             <span class="badge bg-light text-default">{{ category.sort_order ?? 0 }}</span>
                                         </td>
                                         <td>
+                                            <span v-if="isTrashedRecord(category)" class="badge bg-danger-transparent">
+                                                {{ t('catalog.deleted_badge') }}
+                                            </span>
                                             <div
+                                                v-else
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
                                                     on: category.status,
@@ -240,13 +268,34 @@
                                             </div>
                                         </td>
                                         <td>
-                                            <span class="d-block">{{ formatDate(category.created_at) }}</span>
-                                            <span v-if="category.updated_at" class="d-block text-muted fs-11">
+                                            <span class="d-block">{{ formatDate(catalogPrimaryDate(category)) }}</span>
+                                            <span v-if="catalogShowUpdatedSubtext(category)" class="d-block text-muted fs-11">
                                                 {{ t('service_categories.updated') }}: {{ formatDate(category.updated_at) }}
+                                            </span>
+                                            <span v-if="catalogShowDeletedSubtext(category, isDeletedView)" class="d-block text-muted fs-11">
+                                                {{ t('catalog.deleted_at') }}: {{ formatDate(category.deleted_at) }}
                                             </span>
                                         </td>
                                         <td class="text-end pe-4">
-                                            <div class="btn-list justify-content-end">
+                                            <div v-if="isTrashedRecord(category)" class="btn-list justify-content-end">
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-success-light btn-icon"
+                                                    :title="t('catalog.restore_title')"
+                                                    @click="confirmRestore(category.id)"
+                                                >
+                                                    <i class="ri-arrow-go-back-line"></i>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-sm btn-danger-light btn-icon"
+                                                    :title="t('catalog.force_delete_title')"
+                                                    @click="confirmForceDelete(category.id)"
+                                                >
+                                                    <i class="ri-delete-bin-7-line"></i>
+                                                </button>
+                                            </div>
+                                            <div v-else-if="!isTrashedRecord(category)" class="btn-list justify-content-end">
                                                 <button
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
@@ -347,10 +396,18 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../components/ui/TableSkeleton.vue';
+import { useCatalogTrashActions } from '../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../composables/useConfirmDelete';
 import { useServiceCategories } from '../../../../composables/useServiceCategories';
 import { useServiceCategoriesStore } from '../../../../stores/serviceCategories';
-import { displayTranslatedName, formatCatalogDate } from '../../../../utils/catalog';
+import {
+    catalogPrimaryDate,
+    catalogShowDeletedSubtext,
+    catalogShowUpdatedSubtext,
+    displayTranslatedName,
+    formatCatalogDate,
+    isTrashedRecord,
+} from '../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
@@ -366,12 +423,16 @@ const {
     perPage,
     search,
     statusFilter,
+    isDeletedView,
 } = storeToRefs(categoriesApi);
 const {
     fetchCategories,
     setStatusFilter,
     deleteCategory,
     deleteSelected,
+    restoreCategory,
+    forceDeleteCategory,
+    forceDeleteSelected,
     toggleStatus,
     toggleSelectAll,
     toggleSelect,
@@ -382,6 +443,7 @@ const counts = computed(() => ({
     total: categoriesStore.total ?? pagination.value?.total ?? 0,
     active: categoriesStore.activeCount ?? 0,
     inactive: categoriesStore.inactiveCount ?? 0,
+    deleted: categoriesStore.deletedCount ?? 0,
 }));
 
 const modalShow = ref(false);
@@ -390,6 +452,7 @@ const selectedRecord = ref(null);
 const deleteConfirm = useConfirmDelete();
 
 const selectedCount = computed(() => selectedIds.value.length);
+
 const showAllFilter = computed(() => statusFilter.value !== 'all');
 
 const paginationArrowIcon = computed(() => (
@@ -489,36 +552,23 @@ function changePage(page) {
     fetchCategories(page);
 }
 
-function confirmDelete(id) {
-    deleteConfirm.open({
-        title: t('service_categories.delete_title'),
-        message: t('service_categories.confirm_delete'),
-        payload: { type: 'single', id },
-    });
-}
-
-function confirmDeleteSelected() {
-    deleteConfirm.open({
-        title: t('service_categories.delete_selected_title'),
-        message: t('service_categories.confirm_delete_selected'),
-        payload: { type: 'multiple' },
-    });
-}
-
-async function handleDeleteConfirm() {
-    deleteConfirm.setLoading(true);
-
-    try {
-        if (deleteConfirm.state.payload?.type === 'multiple') {
-            await deleteSelected();
-        } else {
-            await deleteCategory(deleteConfirm.state.payload.id);
-        }
-    } finally {
-        deleteConfirm.setLoading(false);
-        deleteConfirm.close();
-    }
-}
+const {
+    confirmDelete,
+    confirmDeleteSelected,
+    confirmForceDelete,
+    confirmForceDeleteSelected,
+    confirmRestore,
+    handleDeleteConfirm,
+} = useCatalogTrashActions({
+    t,
+    deleteConfirm,
+    deleteSelected,
+    deleteItem: deleteCategory,
+    restoreItem: restoreCategory,
+    forceDeleteItem: forceDeleteCategory,
+    forceDeleteSelected,
+    i18nPrefix: 'service_categories',
+});
 
 function onSaved() {
     modalShow.value = false;

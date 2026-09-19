@@ -2,6 +2,7 @@
 
 namespace App\Traits;
 
+use App\Support\Media\MediaStoragePath;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -12,11 +13,12 @@ trait HasMediaTrait
     use InteractsWithMedia;
 
     /**
-     * Storage folder name under disk root, e.g. admin/5/avatar.jpg
+     * Storage folder segment under disk root, e.g. general/dashboard_themes or admin/admins.
+     * Full path: {folder}/{id}/{collection}.{ext} via ModelFolderPathGenerator.
      */
     public function mediaStorageFolder(): string
     {
-        return strtolower(class_basename(static::class));
+        return MediaStoragePath::folderForModel($this);
     }
 
     public function registerMediaConversions(?Media $media = null): void
