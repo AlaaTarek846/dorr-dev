@@ -1,6 +1,6 @@
 # Project Checkpoint
 
-**Last updated:** 2026-09-17  
+**Last updated:** 2026-09-19  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -45,6 +45,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Admin provider modal: PrimeVue `Select`/`TreeSelect`; service categories tree (`/service-categories/tree-options`)
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
 - Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
+- Dashboard theme infrastructure: Blade `dashboard/shell`, `DashboardThemeResolver`, Vue `themes/theme-1` shells + themed views paths
 - **UNKNOWN:** No other active work tracked in repo
 
 ---
