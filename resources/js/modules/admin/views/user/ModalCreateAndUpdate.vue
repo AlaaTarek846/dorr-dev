@@ -79,17 +79,18 @@
                                     {{ t('users.gender') }}
                                     <span class="text-danger">*</span>
                                 </label>
-                                <select
+                                <Select
                                     id="user-gender"
                                     v-model="form.gender"
-                                    class="form-select"
-                                    :class="genderInputClass"
+                                    :options="genderOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :placeholder="t('profile.select_gender')"
+                                    :invalid="genderFeedback.show && genderFeedback.invalid"
+                                    append-to="self"
+                                    class="w-100"
                                     @change="onFieldInput('gender')"
-                                >
-                                    <option value="">{{ t('profile.select_gender') }}</option>
-                                    <option value="male">{{ t('profile.gender_male') }}</option>
-                                    <option value="female">{{ t('profile.gender_female') }}</option>
-                                </select>
+                                />
                                 <div v-if="genderMessage" class="invalid-feedback d-block">
                                     {{ genderMessage }}
                                 </div>
@@ -105,6 +106,8 @@
                                     :invalid="phoneFeedback.show && phoneFeedback.invalid"
                                     :valid="phoneFeedback.show && phoneFeedback.valid"
                                     :error="phoneMessage || serverErrors.country_id?.[0] || ''"
+                                    :show="show"
+                                    :load-on-show="true"
                                     @country-change="onPhoneCountryChange"
                                     @update:phone="onFieldInput('phone')"
                                 />
@@ -112,21 +115,17 @@
 
                             <div class="col-md-6">
                                 <label for="user-status" class="form-label">{{ t('users.status') }}</label>
-                                <select
+                                <Select
                                     id="user-status"
                                     v-model="form.status"
-                                    class="form-select"
-                                    :class="{ 'is-invalid': serverErrors.status?.[0] }"
+                                    :options="statusOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :invalid="Boolean(serverErrors.status?.[0])"
+                                    append-to="self"
+                                    class="w-100"
                                     @change="clearServerError('status')"
-                                >
-                                    <option
-                                        v-for="(label, value) in statusOptions"
-                                        :key="value"
-                                        :value="value"
-                                    >
-                                        {{ label }}
-                                    </option>
-                                </select>
+                                />
                                 <div v-if="serverErrors.status?.[0]" class="invalid-feedback d-block">
                                     {{ serverErrors.status[0] }}
                                 </div>
@@ -235,6 +234,7 @@
 <script setup>
 import useVuelidate from '@vuelidate/core';
 import { email, helpers } from '@vuelidate/validators';
+import Select from 'primevue/select';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../api/adminAxios';
@@ -300,11 +300,16 @@ const passwordRequired = computed(() => (
 
 const passwordStrength = computed(() => calculatePasswordStrength(form.password));
 
-const statusOptions = computed(() => ({
-    active: t('users.filter_active'),
-    inactive: t('users.filter_inactive'),
-    blocked: t('users.filter_blocked'),
-}));
+const statusOptions = computed(() => ([
+    { value: 'active', label: t('users.filter_active') },
+    { value: 'inactive', label: t('users.filter_inactive') },
+    { value: 'blocked', label: t('users.filter_blocked') },
+]));
+
+const genderOptions = computed(() => ([
+    { value: 'male', label: t('profile.gender_male') },
+    { value: 'female', label: t('profile.gender_female') },
+]));
 
 const rules = computed(() => ({
     name: stringFieldRules('users.name', 50, 2),
@@ -407,13 +412,13 @@ const passwordConfirmationState = buildFieldState('password_confirmation');
 
 const nameFeedback = nameState.feedback;
 const emailFeedback = emailState.feedback;
+const genderFeedback = genderState.feedback;
 const phoneFeedback = phoneState.feedback;
 const passwordFeedback = passwordState.feedback;
 const passwordConfirmationFeedback = passwordConfirmationState.feedback;
 
 const nameInputClass = nameState.inputClass;
 const emailInputClass = emailState.inputClass;
-const genderInputClass = genderState.inputClass;
 const passwordInputClass = passwordState.inputClass;
 const passwordConfirmationInputClass = passwordConfirmationState.inputClass;
 

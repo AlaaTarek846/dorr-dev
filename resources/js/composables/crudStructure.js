@@ -339,14 +339,14 @@ export default function crudStructure(options = {}) {
         }
     });
 
-    watch([searchText, filterColumns], () => {
+    watch(searchText, () => {
         if (step.value !== 1) {
             return;
         }
 
         clearTimeout(debounce.value);
         debounce.value = setTimeout(() => getData(1), 400);
-    }, { deep: true });
+    });
 
     watch(paginate, () => {
         if (step.value !== 1) {

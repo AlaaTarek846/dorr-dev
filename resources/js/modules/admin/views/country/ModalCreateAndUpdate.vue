@@ -171,6 +171,8 @@
                                     required
                                     :invalid="flagFeedback.show && flagFeedback.invalid"
                                     :error="flagMessage"
+                                    :show="show"
+                                    :load-on-show="true"
                                     @update:model-value="onSelectChange('flag_id')"
                                 />
                             </div>
@@ -184,6 +186,8 @@
                                     required
                                     :invalid="currencyFeedback.show && currencyFeedback.invalid"
                                     :error="currencyMessage"
+                                    :show="show"
+                                    :load-on-show="true"
                                     @update:model-value="onSelectChange('currency_id')"
                                 />
                             </div>

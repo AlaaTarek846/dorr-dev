@@ -5,6 +5,7 @@ export function useServiceCategories() {
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/service-categories',
         countsStore: useServiceCategoriesStore(),
+        lazyCounts: true,
         confirmDeleteKey: 'service_categories.confirm_delete',
         searchDefaults: {
             columns: [],
@@ -24,7 +25,6 @@ export function useServiceCategories() {
         search: catalog.search,
         statusFilter: catalog.statusFilter,
         fetchCategories: catalog.fetchItems,
-        fetchCounts: catalog.fetchCounts,
         setStatusFilter: catalog.setStatusFilter,
         deleteCategory: catalog.deleteItem,
         deleteSelected: catalog.deleteSelected,
