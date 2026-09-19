@@ -1,8 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import adminRoutes from '../modules/admin/routes';
 import { setupGuards } from './guards';
-import '../layouts/admin/AdminLayout.vue';
 import '../layouts/AuthLayout.vue';
+import '../layouts/themes/theme-1/AdminShell.vue';
 
 const router = createRouter({
     history: createWebHistory('/admin'),

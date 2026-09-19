@@ -22,7 +22,7 @@ class UserService extends BaseService
     {
         /** @var UserRepository $repository */
         $repository = $this->repository;
-        $user = $repository->changeStatus($id, $status);
+        $user = $repository->updateUserStatus($id, $status);
 
         return ApiResponse::success(
             $this->transformResource($user),
