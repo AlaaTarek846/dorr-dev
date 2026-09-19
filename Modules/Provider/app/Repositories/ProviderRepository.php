@@ -26,7 +26,15 @@ class ProviderRepository extends BaseRepository
         $this->model = $model;
     }
 
-    public function changeStatus(int|string $id, UserStatus $status): Provider
+    public function changeStatus(int|string $id, bool $status): Provider
+    {
+        return $this->updateUserStatus(
+            $id,
+            $status ? UserStatus::Active : UserStatus::Inactive,
+        );
+    }
+
+    public function updateUserStatus(int|string $id, UserStatus $status): Provider
     {
         $provider = $this->query()->findOrFail($id);
         $provider->update(['status' => $status]);

@@ -92,9 +92,12 @@ Modules/Provider/routes/admin.php                    → providers CRUD for Admi
 ```
 resources/js/composables/use{Entities}.js
 resources/js/stores/{entities}.js
-resources/js/modules/admin/views/{entity}/index.vue
-resources/js/modules/admin/views/{entity}/ModalCreateAndUpdate.vue
-resources/js/modules/admin/routes.js
+resources/js/modules/admin/themes/{themePath}/views/{entity}/index.vue
+resources/js/modules/admin/themes/{themePath}/views/{entity}/ModalCreateAndUpdate.vue
+resources/js/modules/admin/routes.js          → resolveShell + resolvePage
+resources/js/dashboard/themeContext.js
+resources/js/layouts/themes/{themePath}/AdminShell.vue
+resources/views/dashboard/shell.blade.php
 ```
 
 Reuse `crudStructure.js`, `useValidation.js`, `useCatalogTranslations.js`.

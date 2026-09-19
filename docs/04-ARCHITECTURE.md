@@ -124,8 +124,10 @@ resources/js/
 ├── App.vue
 ├── router/index.js          (base: /admin)
 ├── modules/admin/routes.js
-├── modules/admin/views/     (feature pages)
-├── layouts/AdminLayout.vue
+├── modules/admin/themes/{path}/views/   (theme-specific pages)
+├── dashboard/resolveShell.js, resolvePage.js, themeContext.js
+├── layouts/themes/{path}/AdminShell.vue
+├── views/dashboard/shell.blade.php      (shared Blade + theme assets)
 ├── composables/             (CRUD, validation)
 ├── stores/                  (Pinia)
 └── api/adminAxios.js
@@ -139,8 +141,8 @@ resources/js/
 ├── UserApp.vue
 ├── router/user-index.js     (base: /user)
 ├── modules/user/routes.js
-├── modules/user/views/
-├── layouts/UserLayout.vue
+├── modules/user/themes/{path}/views/
+├── layouts/themes/{path}/UserShell.vue
 └── api/userAxios.js
 ```
 
@@ -152,8 +154,8 @@ resources/js/
 ├── apps/provider/ProviderApp.vue
 ├── router/provider-index.js   (base: /provider)
 ├── modules/provider/routes.js
-├── modules/provider/views/    (auth, dashboard, profile)
-├── layouts/provider/ProviderLayout.vue
+├── modules/provider/themes/{path}/views/
+├── layouts/themes/{path}/ProviderShell.vue
 ├── layouts/provider/ProviderSidebar.vue   (no AI chat)
 ├── stores/providerAuth.js     (token: provider_token)
 ├── stores/providerServiceSelection.js

@@ -1,5 +1,11 @@
-export const BOOTSTRAP_LTR = '/dashboard/themes/theme-1/assets/libs/bootstrap/css/bootstrap.min.css';
-export const BOOTSTRAP_RTL = '/dashboard/themes/theme-1/assets/libs/bootstrap/css/bootstrap.rtl.min.css';
+import { themeAsset } from '../dashboard/themeContext';
+
+export function bootstrapStylesheetUrls() {
+    return {
+        ltr: themeAsset('assets/libs/bootstrap/css/bootstrap.min.css'),
+        rtl: themeAsset('assets/libs/bootstrap/css/bootstrap.rtl.min.css'),
+    };
+}
 const LOCALE_KEY = 'admin_locale';
 const DIRECTION_KEY = 'admin_direction';
 
@@ -50,7 +56,8 @@ export function syncBootstrapStylesheet(direction = null) {
     }
 
     const resolvedDirection = direction ?? getStoredDirection();
-    const expected = resolvedDirection === 'rtl' ? BOOTSTRAP_RTL : BOOTSTRAP_LTR;
+    const { ltr, rtl } = bootstrapStylesheetUrls();
+    const expected = resolvedDirection === 'rtl' ? rtl : ltr;
     const current = styleLink.getAttribute('href') ?? '';
 
     if (current.endsWith(expected) || current === expected) {
