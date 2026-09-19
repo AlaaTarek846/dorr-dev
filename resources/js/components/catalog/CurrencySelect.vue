@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import Select from 'primevue/select';
 import adminAxios from '../../api/adminAxios';
 import FlagImage from '../ui/FlagImage.vue';
@@ -69,16 +69,22 @@ const props = defineProps({
     invalid: { type: Boolean, default: false },
     error: { type: String, default: '' },
     inputId: { type: String, default: 'currency-select' },
+    show: { type: Boolean, default: true },
+    loadOnShow: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['update:modelValue']);
 
 const currencies = ref([]);
+const loading = ref(false);
 
 const selectedCurrency = computed(() => {
     return currencies.value.find((currency) => Number(currency.id) === Number(props.modelValue)) ?? null;
 });
-onMounted(async () => {
+
+async function loadCurrencies() {
+    loading.value = true;
+
     try {
         const { data } = await adminAxios.get('/api/admin/v1/currencies/dropdown');
 
@@ -91,6 +97,20 @@ onMounted(async () => {
         }));
     } catch {
         currencies.value = [];
+    } finally {
+        loading.value = false;
+    }
+}
+
+watch(() => props.show, (visible) => {
+    if (visible && props.loadOnShow) {
+        loadCurrencies();
+    }
+});
+
+onMounted(() => {
+    if (! props.loadOnShow || props.show) {
+        loadCurrencies();
     }
 });
 </script>

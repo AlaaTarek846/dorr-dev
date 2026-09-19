@@ -148,6 +148,8 @@
                                     :invalid="phoneFeedback.show && phoneFeedback.invalid"
                                     :valid="phoneFeedback.show && phoneFeedback.valid"
                                     :error="phoneMessage || serverErrors.country_id?.[0] || ''"
+                                    :show="show"
+                                    :load-on-show="true"
                                     @country-change="onPhoneCountryChange"
                                     @update:phone="onFieldInput('phone')"
                                 />
@@ -182,7 +184,7 @@
                                     :placeholder="t('providers.services_placeholder')"
                                     :filter="true"
                                     filter-placeholder="Search..."
-                                    :show-clear="true"
+                                    showClear
                                     append-to="self"
                                     display="chip"
                                     class="w-100"
@@ -387,9 +389,15 @@ const genderOptions = computed(() => ([
 ]));
 
 const selectedServiceKeys = computed({
-    get: () => Object.fromEntries(
-        form.service_category_ids.map((id) => [String(id), true]),
-    ),
+    get: () => {
+        if (! form.service_category_ids.length) {
+            return null;
+        }
+
+        return Object.fromEntries(
+            form.service_category_ids.map((id) => [String(id), true]),
+        );
+    },
     set: (keys) => {
         form.service_category_ids = Object.keys(keys ?? {}).map(Number);
     },

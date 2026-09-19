@@ -1,4 +1,3 @@
-import { watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../api/adminAxios';
 import crudStructure from './crudStructure';
@@ -22,54 +21,38 @@ export function useUsers() {
     const { t } = useI18n();
     const { showSuccess, showError } = useToast();
 
-    async function fetchCount(params) {
-        const { data } = await adminAxios.get('/api/admin/v1/users', { params });
-
-        return data.pagination?.total ?? 0;
-    }
-
-    async function fetchCounts() {
-        const base = { paginate: 1, page: 1 };
-
-        const results = await Promise.allSettled([
-            fetchCount(base),
-            fetchCount({ ...base, ...userStatusFilterParams('active') }),
-            fetchCount({ ...base, ...userStatusFilterParams('inactive') }),
-            fetchCount({ ...base, ...userStatusFilterParams('blocked') }),
-        ]);
-
-        usersStore.setCounts({
-            total: results[0].status === 'fulfilled' ? results[0].value : usersStore.total,
-            active: results[1].status === 'fulfilled' ? results[1].value : usersStore.activeCount,
-            inactive: results[2].status === 'fulfilled' ? results[2].value : usersStore.inactiveCount,
-            blocked: results[3].status === 'fulfilled' ? results[3].value : usersStore.blockedCount,
-        });
-    }
-
     const crud = crudStructure({
         confirmDeleteKey: 'users.confirm_delete',
         searchDefaults: {
             searchInTranslations: false,
             columns: ['name', 'email', 'phone'],
         },
-        fetchCounts,
         onAfterFetch(data, { statusFilter }) {
-            if (statusFilter === 'all' && data.pagination?.total != null) {
-                usersStore.setCounts({ total: data.pagination.total });
+            const total = data.pagination?.total;
+
+            if (total == null) {
+                return;
+            }
+
+            if (statusFilter === 'all') {
+                usersStore.setCounts({ total });
+            } else if (statusFilter === 'active') {
+                usersStore.setCounts({ active: total });
+            } else if (statusFilter === 'inactive') {
+                usersStore.setCounts({ inactive: total });
+            } else if (statusFilter === 'blocked') {
+                usersStore.setCounts({ blocked: total });
             }
         },
     });
 
     crud.uri.value = '/api/admin/v1/users';
 
-    watch(crud.statusFilter, (value) => {
-        if (value === 'all') {
-            crud.filterColumns.value = [];
-            return;
-        }
-
-        crud.filterColumns.value = userStatusFilterParams(value).filterColumns;
-    }, { immediate: true });
+    crud.setStatusFilter = (value) => {
+        crud.statusFilter.value = value;
+        crud.filterColumns.value = value === 'all' ? [] : userStatusFilterParams(value).filterColumns;
+        crud.getData(1);
+    };
 
     async function changeUserStatus(user, status) {
         if (! user?.id || user.status === status) {
@@ -87,7 +70,7 @@ export function useUsers() {
         try {
             const response = await adminAxios.patch(`${crud.uri.value}/${user.id}/status`, { status });
             showSuccess(extractApiMessage(response, t('toast.status_changed')));
-            await fetchCounts();
+            await crud.getData(crud.pagePaginate.value);
         } catch (error) {
             user.status = previousStatus;
             showError(extractApiErrorMessage(error, t('toast.error')));
@@ -106,7 +89,6 @@ export function useUsers() {
         search: crud.searchText,
         statusFilter: crud.statusFilter,
         fetchUsers: crud.getData,
-        fetchCounts,
         setStatusFilter: crud.setStatusFilter,
         deleteUser: (id) => crud.deleteData(id, true),
         deleteSelected: () => crud.deleteData([...crud.selectedIds.value], true),

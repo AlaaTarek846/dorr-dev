@@ -134,7 +134,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="6" />
 
                                     <tr v-else-if="!flags.length">
                                         <td colspan="6" class="border-0">
@@ -337,7 +337,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
