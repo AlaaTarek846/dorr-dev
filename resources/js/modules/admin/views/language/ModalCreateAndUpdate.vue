@@ -119,6 +119,8 @@
                                 required
                                 :invalid="flagFeedback.show && flagFeedback.invalid"
                                 :error="flagMessage"
+                                :show="show"
+                                :load-on-show="true"
                                 @update:model-value="onFlagChange"
                             />
                         </div>

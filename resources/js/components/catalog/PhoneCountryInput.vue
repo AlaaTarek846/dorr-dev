@@ -65,7 +65,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../api/adminAxios';
 import { formatDialCodeForPayload, resolveCountryFlagCode } from '../../utils/catalog';
@@ -116,6 +116,14 @@ const props = defineProps({
         type: String,
         default: '/api/admin/v1/countries/dropdown',
     },
+    show: {
+        type: Boolean,
+        default: true,
+    },
+    loadOnShow: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const emit = defineEmits(['update:countryId', 'update:phone', 'country-change']);
@@ -139,7 +147,7 @@ function onPhoneInput(event) {
     emit('update:phone', event.target.value);
 }
 
-onMounted(async () => {
+async function loadCountries() {
     loading.value = true;
 
     try {
@@ -151,6 +159,18 @@ onMounted(async () => {
         countries.value = [];
     } finally {
         loading.value = false;
+    }
+}
+
+watch(() => props.show, (visible) => {
+    if (visible && props.loadOnShow) {
+        loadCountries();
+    }
+});
+
+onMounted(() => {
+    if (! props.loadOnShow || props.show) {
+        loadCountries();
     }
 });
 </script>

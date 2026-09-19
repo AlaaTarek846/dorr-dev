@@ -5,6 +5,7 @@ export function useLanguages() {
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/languages',
         countsStore: useLanguagesStore(),
+        lazyCounts: true,
         confirmDeleteKey: 'languages.confirm_delete',
         searchDefaults: {
             columns: ['code'],
@@ -25,7 +26,6 @@ export function useLanguages() {
         statusFilter: catalog.statusFilter,
         isDeletedView: catalog.isDeletedView,
         fetchLanguages: catalog.fetchItems,
-        fetchCounts: catalog.fetchCounts,
         setStatusFilter: catalog.setStatusFilter,
         deleteLanguage: catalog.deleteItem,
         deleteSelected: catalog.deleteSelected,

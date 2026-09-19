@@ -5,6 +5,7 @@ export function useCurrencies() {
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/currencies',
         countsStore: useCurrenciesStore(),
+        lazyCounts: true,
         confirmDeleteKey: 'currencies.confirm_delete',
         searchDefaults: {
             columns: ['code', 'symbol'],
@@ -25,7 +26,6 @@ export function useCurrencies() {
         statusFilter: catalog.statusFilter,
         isDeletedView: catalog.isDeletedView,
         fetchCurrencies: catalog.fetchItems,
-        fetchCounts: catalog.fetchCounts,
         setStatusFilter: catalog.setStatusFilter,
         deleteCurrency: catalog.deleteItem,
         deleteSelected: catalog.deleteSelected,

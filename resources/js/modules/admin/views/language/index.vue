@@ -138,7 +138,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="10" />
 
                                     <tr v-else-if="!languages.length">
                                         <td colspan="10" class="border-0">

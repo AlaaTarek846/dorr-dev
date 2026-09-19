@@ -1,6 +1,9 @@
-import { computed, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import adminAxios from '../api/adminAxios';
+import useToast, { extractApiErrorMessage, extractApiMessage } from './useToast';
 import crudStructure, { statusFilterParams, trashedFilterParams } from './crudStructure';
+import { computed, watch } from 'vue';
+
 
 /**
  * Generic catalog list composable (flags, countries, languages, currencies).
@@ -8,6 +11,7 @@ import crudStructure, { statusFilterParams, trashedFilterParams } from './crudSt
 export function useCatalog({
     apiUri,
     countsStore = null,
+    lazyCounts = false,
     confirmDeleteKey = 'confirm.delete_title',
     searchDefaults = {
         columns: ['code'],
@@ -16,6 +20,9 @@ export function useCatalog({
     },
     dataKey = 'items',
 }) {
+    const { t } = useI18n();
+    const { showSuccess, showError } = useToast();
+
     async function fetchCount(params) {
         const { data } = await adminAxios.get(apiUri, { params });
 
@@ -56,10 +63,28 @@ export function useCatalog({
         searchDefaults,
         statusFilterEnabled: true,
         optimisticStatus: true,
-        fetchCounts: countsStore ? fetchCounts : null,
+        fetchCounts: countsStore && ! lazyCounts ? fetchCounts : null,
         onAfterFetch(data, { statusFilter }) {
-            if (countsStore && statusFilter === 'all' && data.pagination?.total != null) {
-                countsStore.setCounts({ total: data.pagination.total });
+            if (! countsStore || data.pagination?.total == null) {
+                return;
+            }
+
+            const total = data.pagination.total;
+
+            if (! lazyCounts) {
+                if (statusFilter === 'all') {
+                    countsStore.setCounts({ total });
+                }
+
+                return;
+            }
+
+            if (statusFilter === 'all') {
+                countsStore.setCounts({ total });
+            } else if (statusFilter === 'active') {
+                countsStore.setCounts({ active: total });
+            } else if (statusFilter === 'inactive') {
+                countsStore.setCounts({ inactive: total });
             }
         },
     });
@@ -67,11 +92,35 @@ export function useCatalog({
     crudRef = crud;
     crud.uri.value = apiUri;
 
+    if (lazyCounts) {
+        crud.toggleStatus = async (row) => {
+            if (! row?.id || crud.isTogglingStatus(row.id)) {
+                return;
+            }
+
+            const previousStatus = row.status;
+            row.status = ! previousStatus;
+            crud.togglingStatusIds.value = [...crud.togglingStatusIds.value, row.id];
+
+            try {
+                const response = await adminAxios.patch(`${crud.uri.value}/${row.id}/status`, { status: row.status });
+                showSuccess(extractApiMessage(response, t('toast.status_changed')));
+                await crud.getData(crud.pagePaginate.value);
+            } catch (error) {
+                row.status = previousStatus;
+                showError(extractApiErrorMessage(error, t('toast.error')));
+            } finally {
+                crud.togglingStatusIds.value = crud.togglingStatusIds.value.filter((id) => id !== row.id);
+            }
+        };
+    }
+
     const isDeletedView = computed(() => crud.isDeletedView.value);
 
     watch(() => crud.statusFilter.value, () => {
         crud.selectedIds.value = [];
     });
+
 
     const api = {
         loading: crud.loading,

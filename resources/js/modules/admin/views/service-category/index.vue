@@ -139,7 +139,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="11" />
 
                                     <tr v-else-if="!categories.length">
                                         <td colspan="11" class="border-0">
@@ -391,7 +391,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../components/ui/ConfirmDeleteModal.vue';
@@ -427,7 +427,6 @@ const {
 } = storeToRefs(categoriesApi);
 const {
     fetchCategories,
-    fetchCounts,
     setStatusFilter,
     deleteCategory,
     deleteSelected,
@@ -578,11 +577,6 @@ function onSaved() {
 
 onMounted(() => {
     fetchCategories();
-    fetchCounts();
-});
-
-watch(statusFilter, () => {
-    fetchCounts();
 });
 </script>
 
