@@ -21,7 +21,15 @@ class UserRepository extends BaseRepository
         $this->model = $model;
     }
 
-    public function changeStatus(int|string $id, UserStatus $status): User
+    public function changeStatus(int|string $id, bool $status): User
+    {
+        return $this->updateUserStatus(
+            $id,
+            $status ? UserStatus::Active : UserStatus::Inactive,
+        );
+    }
+
+    public function updateUserStatus(int|string $id, UserStatus $status): User
     {
         $user = $this->query()->findOrFail($id);
         $user->update(['status' => $status]);

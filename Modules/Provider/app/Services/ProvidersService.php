@@ -22,7 +22,7 @@ class ProvidersService extends BaseService
     {
         /** @var ProviderRepository $repository */
         $repository = $this->repository;
-        $provider = $repository->changeStatus($id, $status);
+        $provider = $repository->updateUserStatus($id, $status);
 
         return ApiResponse::success(
             $this->transformResource($provider),

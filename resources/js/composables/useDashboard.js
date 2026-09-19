@@ -1,6 +1,7 @@
 import { onMounted } from 'vue';
 import { useAvailableLanguagesStore } from '../stores/availableLanguages';
 import { useLocaleStore } from '../stores/locale';
+import { themeAsset } from '../dashboard/themeContext';
 import { getStoredDirection, syncBootstrapStylesheet } from '../utils/direction';
 
 function patchThemeDirectionHandlers() {
@@ -51,12 +52,12 @@ export function useDashboard() {
         document.getElementById('loader')?.classList.add('d-none');
 
         const scripts = [
-            '/dashboard/themes/theme-1/assets/libs/node-waves/waves.min.js',
-            '/dashboard/themes/theme-1/assets/libs/simplebar/simplebar.min.js',
-            '/dashboard/themes/theme-1/assets/js/simplebar.js',
-            '/dashboard/themes/theme-1/assets/js/defaultmenu.min.js',
-            '/dashboard/themes/theme-1/assets/js/sticky.js',
-            '/dashboard/themes/theme-1/assets/js/custom-switcher.min.js',
+            themeAsset('assets/libs/node-waves/waves.min.js'),
+            themeAsset('assets/libs/simplebar/simplebar.min.js'),
+            themeAsset('assets/js/simplebar.js'),
+            themeAsset('assets/js/defaultmenu.min.js'),
+            themeAsset('assets/js/sticky.js'),
+            themeAsset('assets/js/custom-switcher.min.js'),
         ];
 
         for (const src of scripts) {

@@ -3,6 +3,7 @@
 use App\Http\Resources\General\PlatformBrandingResource;
 use App\Repositories\General\LanguageRepository;
 use App\Repositories\General\PlatformSettingRepository;
+use App\Support\Dashboard\DashboardThemeResolver;
 use Illuminate\Support\Facades\Route;
 use Modules\Provider\Http\Controllers\ProviderSocialAuthController;
 use Modules\User\Http\Controllers\UserSocialAuthController;
@@ -25,38 +26,27 @@ Route::prefix('auth/provider')->group(function () {
         ->whereIn('provider', ['google', 'apple']);
 });
 
-Route::get('/admin/{any?}', function () {
+$dashboardSpaViewData = function (): array {
     $setting = app(PlatformSettingRepository::class)->instance();
     $branding = (new PlatformBrandingResource($setting))->resolve(request());
     $defaultDashboardLocale = app(LanguageRepository::class)->defaultDashboardLocale();
 
-    return view('admin', [
+    return [
         'branding' => $branding,
         'appName' => $branding['app_name'] ?: config('app.name', 'Laravel'),
         'defaultDashboardLocale' => $defaultDashboardLocale,
-    ]);
+        'dashboardTheme' => app(DashboardThemeResolver::class)->context(),
+    ];
+};
+
+Route::get('/admin/{any?}', function () use ($dashboardSpaViewData) {
+    return view('admin', $dashboardSpaViewData());
 })->where('any', '.*')->name('admin');
 
-Route::get('/user/{any?}', function () {
-    $setting = app(PlatformSettingRepository::class)->instance();
-    $branding = (new PlatformBrandingResource($setting))->resolve(request());
-    $defaultDashboardLocale = app(LanguageRepository::class)->defaultDashboardLocale();
-
-    return view('user', [
-        'branding' => $branding,
-        'appName' => $branding['app_name'] ?: config('app.name', 'Laravel'),
-        'defaultDashboardLocale' => $defaultDashboardLocale,
-    ]);
+Route::get('/user/{any?}', function () use ($dashboardSpaViewData) {
+    return view('user', $dashboardSpaViewData());
 })->where('any', '.*')->name('user');
 
-Route::get('/provider/{any?}', function () {
-    $setting = app(PlatformSettingRepository::class)->instance();
-    $branding = (new PlatformBrandingResource($setting))->resolve(request());
-    $defaultDashboardLocale = app(LanguageRepository::class)->defaultDashboardLocale();
-
-    return view('provider', [
-        'branding' => $branding,
-        'appName' => $branding['app_name'] ?: config('app.name', 'Laravel'),
-        'defaultDashboardLocale' => $defaultDashboardLocale,
-    ]);
+Route::get('/provider/{any?}', function () use ($dashboardSpaViewData) {
+    return view('provider', $dashboardSpaViewData());
 })->where('any', '.*')->name('provider');
