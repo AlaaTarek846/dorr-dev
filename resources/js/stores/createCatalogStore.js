@@ -12,10 +12,11 @@ export function createCatalogStore(id) {
             total: null,
             activeCount: null,
             inactiveCount: null,
+            deletedCount: null,
         }),
 
         actions: {
-            setCounts({ total = null, active = null, inactive = null }) {
+            setCounts({ total = null, active = null, inactive = null, deleted = null }) {
                 if (total != null) {
                     this.total = total;
                 }
@@ -26,6 +27,10 @@ export function createCatalogStore(id) {
 
                 if (inactive != null) {
                     this.inactiveCount = inactive;
+                }
+
+                if (deleted != null) {
+                    this.deletedCount = deleted;
                 }
             },
         },

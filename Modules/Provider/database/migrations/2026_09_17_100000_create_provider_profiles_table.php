@@ -25,6 +25,7 @@ return new class extends Migration
             $table->string('status')->default(UserStatus::Active->value)->comment('active / inactive / blocked');
             $table->rememberToken()->nullable()->comment('رمز التذكرة');
             $table->timestamps();
+            $table->softDeletes();
         });
     }
 

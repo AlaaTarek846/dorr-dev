@@ -36,6 +36,16 @@ class ProviderController extends Controller
         return $this->service->delete($provider);
     }
 
+    public function restore(int|string $provider)
+    {
+        return $this->service->restoreRecord($provider);
+    }
+
+    public function forceDestroy(int|string $provider)
+    {
+        return $this->service->forceDeleteRecord($provider);
+    }
+
     public function deleteMultiple(ProviderRequest $request)
     {
         return $this->service->deleteMultiple($request->validated('ids'));

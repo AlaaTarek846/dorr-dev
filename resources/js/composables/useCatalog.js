@@ -1,19 +1,12 @@
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../api/adminAxios';
 import useToast, { extractApiErrorMessage, extractApiMessage } from './useToast';
-import crudStructure, { statusFilterParams } from './crudStructure';
+import crudStructure, { statusFilterParams, trashedFilterParams } from './crudStructure';
+import { computed, watch } from 'vue';
+
 
 /**
  * Generic catalog list composable (flags, countries, languages, currencies).
- *
- * @example
- * const catalog = useCatalog({
- *   apiUri: '/api/admin/v1/countries',
- *   countsStore: useCountriesStore(),
- *   confirmDeleteKey: 'countries.confirm_delete',
- *   searchDefaults: { columns: ['code'], searchInTranslations: true, filterTranslationByLocale: false },
- *   dataKey: 'countries',
- * });
  */
 export function useCatalog({
     apiUri,
@@ -36,6 +29,9 @@ export function useCatalog({
         return data.pagination?.total ?? 0;
     }
 
+    /** @type {ReturnType<typeof crudStructure>|null} */
+    let crudRef = null;
+
     async function fetchCounts() {
         if (! countsStore) {
             return;
@@ -47,13 +43,19 @@ export function useCatalog({
             fetchCount(base),
             fetchCount({ ...base, ...statusFilterParams('active') }),
             fetchCount({ ...base, ...statusFilterParams('inactive') }),
+            fetchCount({ ...base, ...trashedFilterParams() }),
         ]);
 
         countsStore.setCounts({
             total: results[0].status === 'fulfilled' ? results[0].value : countsStore.total,
             active: results[1].status === 'fulfilled' ? results[1].value : countsStore.activeCount,
             inactive: results[2].status === 'fulfilled' ? results[2].value : countsStore.inactiveCount,
+            deleted: results[3].status === 'fulfilled' ? results[3].value : countsStore.deletedCount,
         });
+
+        if ((countsStore.deletedCount ?? 0) === 0 && crudRef?.statusFilter.value === 'deleted') {
+            crudRef.setStatusFilter('all');
+        }
     }
 
     const crud = crudStructure({
@@ -87,6 +89,7 @@ export function useCatalog({
         },
     });
 
+    crudRef = crud;
     crud.uri.value = apiUri;
 
     if (lazyCounts) {
@@ -112,6 +115,13 @@ export function useCatalog({
         };
     }
 
+    const isDeletedView = computed(() => crud.isDeletedView.value);
+
+    watch(() => crud.statusFilter.value, () => {
+        crud.selectedIds.value = [];
+    });
+
+
     const api = {
         loading: crud.loading,
         pagination: crud.dataPaginate,
@@ -120,11 +130,15 @@ export function useCatalog({
         currentPage: crud.pagePaginate,
         search: crud.searchText,
         statusFilter: crud.statusFilter,
+        isDeletedView,
         fetchItems: crud.getData,
         fetchCounts,
         setStatusFilter: crud.setStatusFilter,
         deleteItem: (id) => crud.deleteData(id, true),
         deleteSelected: () => crud.deleteData([...crud.selectedIds.value], true),
+        restoreItem: (id) => crud.restoreRecord(id),
+        forceDeleteItem: (id) => crud.forceDeleteRecord(id, true),
+        forceDeleteSelected: () => crud.forceDeleteSelected(true),
         toggleStatus: crud.toggleStatus,
         toggleSelectAll: crud.toggleSelectAll,
         toggleSelect: crud.toggleSelect,

@@ -8,11 +8,12 @@ use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
 
 class ServiceCategory extends Model implements HasMedia
 {
-    use HasMediaTrait, HasTranslations, SearchFilterTrait;
+    use HasMediaTrait, HasTranslations, SearchFilterTrait, SoftDeletes;
 
     /**
      * @var list<string>

@@ -32,6 +32,7 @@ If unclear, mark **NEEDS-DECISION** and ask — do not guess.
 | Stack | Laravel 12, PHP 8.2, Vue 3, Pinia, Sanctum |
 | Admin SPA | `/admin` → `/api/admin/v1/*` (guard: `admin_api`) |
 | User SPA | `/user` → `/api/user/v1/*` (guard: `user_api`) |
+| Provider SPA | `/provider` → `/api/provider/v1/*` (guard: `provider_api`) — no AI chat |
 | Shared catalog | `app/Http/Controllers/General/`, `app/Services/General/`, etc. |
 | Modules | `Modules/Admin`, `User`, `AI`, `Provider` |
 | API envelope | `App\Support\Api\ApiResponse` |
@@ -55,6 +56,7 @@ Route → Controller → Service → Repository → Model
 
 - Admin: `adminAxios`, `crudStructure.js`, PrimeVue, `resources/js/modules/admin/`
 - User: `userAxios`, `resources/js/modules/user/`
+- Provider: `providerAxios`, `resources/js/modules/provider/`, entry `resources/js/apps/provider/provider-app.js`
 - i18n: update **both** `locales/ar.json` and `locales/en.json`
 
 ---

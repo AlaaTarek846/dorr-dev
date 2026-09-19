@@ -233,7 +233,7 @@ import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../..
 import useValidation from '../../../../composables/useValidation';
 import { displayTranslatedName, setupCatalogModalWatcher } from '../../../../utils/catalog';
 
-const DEFAULT_IMAGE = '/dashboard/assets/images/faces/9.jpg';
+const DEFAULT_IMAGE = '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
 
 const props = defineProps({
     show: { type: Boolean, default: false },

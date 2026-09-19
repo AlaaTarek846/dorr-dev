@@ -1,0 +1,1002 @@
+{
+    "AD": {
+        "phone_starts_with": "3",
+        "phone_length": 9
+    },
+    "AE": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "AF": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "AG": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "AI": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "AL": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "AM": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "AO": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "AQ": {
+        "phone_starts_with": "0",
+        "phone_length": 10
+    },
+    "AR": {
+        "phone_starts_with": "9",
+        "phone_length": 10
+    },
+    "AS": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "AT": {
+        "phone_starts_with": "6",
+        "phone_length": 13
+    },
+    "AU": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "AW": {
+        "phone_starts_with": "5",
+        "phone_length": 7
+    },
+    "AX": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "AZ": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "BA": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "BB": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "BD": {
+        "phone_starts_with": "1",
+        "phone_length": 11
+    },
+    "BE": {
+        "phone_starts_with": "4",
+        "phone_length": 10
+    },
+    "BF": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "BG": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "BH": {
+        "phone_starts_with": "3",
+        "phone_length": 8
+    },
+    "BI": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "BJ": {
+        "phone_starts_with": "0",
+        "phone_length": 8
+    },
+    "BL": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "BM": {
+        "phone_starts_with": "4",
+        "phone_length": 10
+    },
+    "BN": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "BO": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "BQ": {
+        "phone_starts_with": "3",
+        "phone_length": 7
+    },
+    "BR": {
+        "phone_starts_with": "1",
+        "phone_length": 11
+    },
+    "BS": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "BT": {
+        "phone_starts_with": "1",
+        "phone_length": 8
+    },
+    "BV": {
+        "phone_starts_with": "4",
+        "phone_length": 8
+    },
+    "BW": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "BY": {
+        "phone_starts_with": "2",
+        "phone_length": 9
+    },
+    "BZ": {
+        "phone_starts_with": "6",
+        "phone_length": 7
+    },
+    "CA": {
+        "phone_starts_with": "5",
+        "phone_length": 10
+    },
+    "CC": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "CD": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "CF": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "CG": {
+        "phone_starts_with": "0",
+        "phone_length": 9
+    },
+    "CH": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "CI": {
+        "phone_starts_with": "0",
+        "phone_length": 10
+    },
+    "CK": {
+        "phone_starts_with": "7",
+        "phone_length": 5
+    },
+    "CL": {
+        "phone_starts_with": "2",
+        "phone_length": 9
+    },
+    "CM": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "CN": {
+        "phone_starts_with": "1",
+        "phone_length": 11
+    },
+    "CO": {
+        "phone_starts_with": "3",
+        "phone_length": 10
+    },
+    "CR": {
+        "phone_starts_with": "8",
+        "phone_length": 8
+    },
+    "CU": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "CV": {
+        "phone_starts_with": "9",
+        "phone_length": 7
+    },
+    "CW": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "CX": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "CY": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "CZ": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "DE": {
+        "phone_starts_with": "1",
+        "phone_length": 11
+    },
+    "DJ": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "DK": {
+        "phone_starts_with": "3",
+        "phone_length": 8
+    },
+    "DM": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "DO": {
+        "phone_starts_with": "8",
+        "phone_length": 10
+    },
+    "DZ": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "EC": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "EE": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "EG": {
+        "phone_starts_with": "1",
+        "phone_length": 10
+    },
+    "EH": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "ER": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "ES": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "ET": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "FI": {
+        "phone_starts_with": "4",
+        "phone_length": 10
+    },
+    "FJ": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "FK": {
+        "phone_starts_with": "5",
+        "phone_length": 5
+    },
+    "FM": {
+        "phone_starts_with": "3",
+        "phone_length": 7
+    },
+    "FO": {
+        "phone_starts_with": "2",
+        "phone_length": 6
+    },
+    "FR": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "GA": {
+        "phone_starts_with": "0",
+        "phone_length": 7
+    },
+    "GB": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "GD": {
+        "phone_starts_with": "4",
+        "phone_length": 10
+    },
+    "GE": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "GF": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "GG": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "GH": {
+        "phone_starts_with": "2",
+        "phone_length": 9
+    },
+    "GI": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "GL": {
+        "phone_starts_with": "2",
+        "phone_length": 6
+    },
+    "GM": {
+        "phone_starts_with": "3",
+        "phone_length": 7
+    },
+    "GN": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "GP": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "GQ": {
+        "phone_starts_with": "2",
+        "phone_length": 7
+    },
+    "GR": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "GS": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "GT": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "GU": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "GW": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "GY": {
+        "phone_starts_with": "6",
+        "phone_length": 7
+    },
+    "HK": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "HM": {
+        "phone_starts_with": "4",
+        "phone_length": 9
+    },
+    "HN": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "HR": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "HT": {
+        "phone_starts_with": "3",
+        "phone_length": 8
+    },
+    "HU": {
+        "phone_starts_with": "2",
+        "phone_length": 9
+    },
+    "ID": {
+        "phone_starts_with": "8",
+        "phone_length": 11
+    },
+    "IE": {
+        "phone_starts_with": "8",
+        "phone_length": 10
+    },
+    "IL": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "IM": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "IN": {
+        "phone_starts_with": "8",
+        "phone_length": 10
+    },
+    "IO": {
+        "phone_starts_with": "3",
+        "phone_length": 7
+    },
+    "IQ": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "IR": {
+        "phone_starts_with": "9",
+        "phone_length": 10
+    },
+    "IS": {
+        "phone_starts_with": "6",
+        "phone_length": 7
+    },
+    "IT": {
+        "phone_starts_with": "3",
+        "phone_length": 10
+    },
+    "JE": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "JM": {
+        "phone_starts_with": "8",
+        "phone_length": 10
+    },
+    "JO": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "JP": {
+        "phone_starts_with": "9",
+        "phone_length": 11
+    },
+    "KE": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "KG": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "KH": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "KI": {
+        "phone_starts_with": "7",
+        "phone_length": 5
+    },
+    "KM": {
+        "phone_starts_with": "3",
+        "phone_length": 7
+    },
+    "KN": {
+        "phone_starts_with": "8",
+        "phone_length": 10
+    },
+    "KP": {
+        "phone_starts_with": "1",
+        "phone_length": 10
+    },
+    "KR": {
+        "phone_starts_with": "1",
+        "phone_length": 10
+    },
+    "KW": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "KY": {
+        "phone_starts_with": "3",
+        "phone_length": 10
+    },
+    "KZ": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "LA": {
+        "phone_starts_with": "2",
+        "phone_length": 8
+    },
+    "LB": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "LC": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "LI": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "LK": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "LR": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "LS": {
+        "phone_starts_with": "5",
+        "phone_length": 8
+    },
+    "LT": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "LU": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "LV": {
+        "phone_starts_with": "2",
+        "phone_length": 8
+    },
+    "LY": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "MA": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "MC": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "MD": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "ME": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "MF": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "MG": {
+        "phone_starts_with": "3",
+        "phone_length": 9
+    },
+    "MH": {
+        "phone_starts_with": "2",
+        "phone_length": 7
+    },
+    "MK": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "ML": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "MM": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "MN": {
+        "phone_starts_with": "8",
+        "phone_length": 8
+    },
+    "MO": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "MP": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "MQ": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "MR": {
+        "phone_starts_with": "2",
+        "phone_length": 8
+    },
+    "MS": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "MT": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "MU": {
+        "phone_starts_with": "5",
+        "phone_length": 7
+    },
+    "MV": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "MW": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "MX": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "MY": {
+        "phone_starts_with": "1",
+        "phone_length": 9
+    },
+    "MZ": {
+        "phone_starts_with": "8",
+        "phone_length": 9
+    },
+    "NA": {
+        "phone_starts_with": "8",
+        "phone_length": 9
+    },
+    "NC": {
+        "phone_starts_with": "7",
+        "phone_length": 6
+    },
+    "NE": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "NF": {
+        "phone_starts_with": "3",
+        "phone_length": 6
+    },
+    "NG": {
+        "phone_starts_with": "8",
+        "phone_length": 11
+    },
+    "NI": {
+        "phone_starts_with": "8",
+        "phone_length": 8
+    },
+    "NL": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "NO": {
+        "phone_starts_with": "4",
+        "phone_length": 8
+    },
+    "NP": {
+        "phone_starts_with": "9",
+        "phone_length": 10
+    },
+    "NR": {
+        "phone_starts_with": "5",
+        "phone_length": 7
+    },
+    "NU": {
+        "phone_starts_with": "8",
+        "phone_length": 7
+    },
+    "NZ": {
+        "phone_starts_with": "2",
+        "phone_length": 9
+    },
+    "OM": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "PA": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "PE": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "PF": {
+        "phone_starts_with": "8",
+        "phone_length": 8
+    },
+    "PG": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "PH": {
+        "phone_starts_with": "9",
+        "phone_length": 10
+    },
+    "PK": {
+        "phone_starts_with": "3",
+        "phone_length": 10
+    },
+    "PL": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "PM": {
+        "phone_starts_with": "5",
+        "phone_length": 6
+    },
+    "PN": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "PR": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "PS": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "PT": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "PW": {
+        "phone_starts_with": "6",
+        "phone_length": 7
+    },
+    "PY": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "QA": {
+        "phone_starts_with": "3",
+        "phone_length": 8
+    },
+    "RE": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "RO": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "RS": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "RU": {
+        "phone_starts_with": "9",
+        "phone_length": 10
+    },
+    "RW": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "SA": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "SB": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "SC": {
+        "phone_starts_with": "2",
+        "phone_length": 7
+    },
+    "SD": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "SE": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "SG": {
+        "phone_starts_with": "8",
+        "phone_length": 8
+    },
+    "SH": {
+        "phone_starts_with": "5",
+        "phone_length": 5
+    },
+    "SI": {
+        "phone_starts_with": "3",
+        "phone_length": 8
+    },
+    "SJ": {
+        "phone_starts_with": "4",
+        "phone_length": 8
+    },
+    "SK": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "SL": {
+        "phone_starts_with": "2",
+        "phone_length": 8
+    },
+    "SM": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "SN": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "SO": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "SR": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "SS": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "ST": {
+        "phone_starts_with": "9",
+        "phone_length": 7
+    },
+    "SV": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "SX": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "SY": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "SZ": {
+        "phone_starts_with": "7",
+        "phone_length": 8
+    },
+    "TC": {
+        "phone_starts_with": "6",
+        "phone_length": 10
+    },
+    "TD": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "TF": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "TG": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "TH": {
+        "phone_starts_with": "8",
+        "phone_length": 9
+    },
+    "TJ": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "TK": {
+        "phone_starts_with": "7",
+        "phone_length": 5
+    },
+    "TL": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "TM": {
+        "phone_starts_with": "6",
+        "phone_length": 8
+    },
+    "TN": {
+        "phone_starts_with": "2",
+        "phone_length": 8
+    },
+    "TO": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "TR": {
+        "phone_starts_with": "5",
+        "phone_length": 10
+    },
+    "TT": {
+        "phone_starts_with": "8",
+        "phone_length": 10
+    },
+    "TV": {
+        "phone_starts_with": "9",
+        "phone_length": 5
+    },
+    "TW": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "TZ": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "UA": {
+        "phone_starts_with": "5",
+        "phone_length": 9
+    },
+    "UG": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "UM": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "US": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "UY": {
+        "phone_starts_with": "9",
+        "phone_length": 8
+    },
+    "UZ": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "VA": {
+        "phone_starts_with": "3",
+        "phone_length": 9
+    },
+    "VC": {
+        "phone_starts_with": "7",
+        "phone_length": 10
+    },
+    "VE": {
+        "phone_starts_with": "4",
+        "phone_length": 10
+    },
+    "VG": {
+        "phone_starts_with": "2",
+        "phone_length": 10
+    },
+    "VI": {
+        "phone_starts_with": "3",
+        "phone_length": 10
+    },
+    "VN": {
+        "phone_starts_with": "9",
+        "phone_length": 10
+    },
+    "VU": {
+        "phone_starts_with": "5",
+        "phone_length": 7
+    },
+    "WF": {
+        "phone_starts_with": "8",
+        "phone_length": 6
+    },
+    "WS": {
+        "phone_starts_with": "7",
+        "phone_length": 7
+    },
+    "XK": {
+        "phone_starts_with": "4",
+        "phone_length": 8
+    },
+    "YE": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "YT": {
+        "phone_starts_with": "6",
+        "phone_length": 9
+    },
+    "ZA": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    },
+    "ZM": {
+        "phone_starts_with": "9",
+        "phone_length": 9
+    },
+    "ZW": {
+        "phone_starts_with": "7",
+        "phone_length": 9
+    }
+}

@@ -30,8 +30,9 @@ Shared entities used by Admin (full CRUD) and partially by User (read-only dropd
 
 ## Routes
 
-- **Admin:** `Modules/Admin/routes/admin.php` — full CRUD
-- **User:** `Modules/User/routes/dashboard.php` — `countries/dropdown` only
+- **Admin:** `routes/admin.php` (included from `Modules/Admin/routes/admin.php`) — full CRUD
+- **User:** `Modules/User/routes/dashboard.php` — `countries/dropdown` (auth: `user_api`)
+- **Provider:** `Modules/Provider/routes/dashboard.php` — `countries/dropdown` only
 - **Web:** `routes/web.php` — branding via repositories for Blade SPA shells
 
 ---
