@@ -5,6 +5,7 @@ export function useCountries() {
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/countries',
         countsStore: useCountriesStore(),
+        lazyCounts: true,
         confirmDeleteKey: 'countries.confirm_delete',
         searchDefaults: {
             columns: ['code', 'dial_code'],
@@ -24,7 +25,6 @@ export function useCountries() {
         search: catalog.search,
         statusFilter: catalog.statusFilter,
         fetchCountries: catalog.fetchItems,
-        fetchCounts: catalog.fetchCounts,
         setStatusFilter: catalog.setStatusFilter,
         deleteCountry: catalog.deleteItem,
         deleteSelected: catalog.deleteSelected,

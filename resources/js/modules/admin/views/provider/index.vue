@@ -123,7 +123,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="9" />
 
                                     <tr v-else-if="!providers.length">
                                         <td colspan="9" class="border-0">

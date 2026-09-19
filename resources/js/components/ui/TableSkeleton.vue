@@ -26,6 +26,12 @@
             <span class="placeholder col-10 mb-1 d-block"></span>
             <span class="placeholder col-6 placeholder-sm d-block"></span>
         </td>
+        <td
+            v-for="index in extraColumns"
+            :key="`skeleton-extra-${index}`"
+        >
+            <span class="placeholder col-8 placeholder-sm d-block"></span>
+        </td>
         <td class="text-end pe-4">
             <div class="d-flex justify-content-end gap-2">
                 <span class="placeholder rounded-1" style="width: 2rem; height: 2rem;"></span>
@@ -36,12 +42,20 @@
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue';
+
+const props = defineProps({
     rows: {
         type: Number,
         default: 8,
     },
+    columns: {
+        type: Number,
+        default: 6,
+    },
 });
+
+const extraColumns = computed(() => Math.max(0, props.columns - 6));
 </script>
 
 <style scoped>

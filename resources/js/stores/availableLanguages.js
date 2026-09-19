@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
 import adminAxios from '../api/adminAxios';
 
+let pendingFetch = null;
+
 export const useAvailableLanguagesStore = defineStore('availableLanguages', {
     state: () => ({
         items: [],
@@ -24,23 +26,32 @@ export const useAvailableLanguagesStore = defineStore('availableLanguages', {
                 return this.items;
             }
 
+            if (pendingFetch && ! force) {
+                return pendingFetch;
+            }
+
             this.loading = true;
 
-            try {
-                const { data } = await adminAxios.get('/api/admin/v1/languages/dropdown');
+            pendingFetch = (async () => {
+                try {
+                    const { data } = await adminAxios.get('/api/admin/v1/languages/dropdown');
 
-                this.items = data.data ?? [];
-                this.loaded = true;
+                    this.items = data.data ?? [];
+                    this.loaded = true;
 
-                return this.items;
-            } catch {
-                this.items = [];
-                this.loaded = false;
+                    return this.items;
+                } catch {
+                    this.items = [];
+                    this.loaded = false;
 
-                return this.items;
-            } finally {
-                this.loading = false;
-            }
+                    return this.items;
+                } finally {
+                    this.loading = false;
+                    pendingFetch = null;
+                }
+            })();
+
+            return pendingFetch;
         },
     },
 });

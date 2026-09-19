@@ -5,6 +5,7 @@ export function useFlags() {
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/flags',
         countsStore: useFlagsStore(),
+        lazyCounts: true,
         confirmDeleteKey: 'flags.confirm_delete',
         searchDefaults: {
             columns: ['code'],
@@ -24,7 +25,6 @@ export function useFlags() {
         search: catalog.search,
         statusFilter: catalog.statusFilter,
         fetchFlags: catalog.fetchItems,
-        fetchCounts: catalog.fetchCounts,
         setStatusFilter: catalog.setStatusFilter,
         deleteFlag: catalog.deleteItem,
         deleteSelected: catalog.deleteSelected,

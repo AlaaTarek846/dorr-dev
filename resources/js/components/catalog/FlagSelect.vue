@@ -41,7 +41,7 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import Select from 'primevue/select';
 import adminAxios from '../../api/adminAxios';
 import FlagImage from '../ui/FlagImage.vue';
@@ -75,17 +75,28 @@ const props = defineProps({
         type: String,
         default: 'flag-select',
     },
+    show: {
+        type: Boolean,
+        default: true,
+    },
+    loadOnShow: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 const emit = defineEmits(['update:modelValue']);
 
 const flags = ref([]);
+const loading = ref(false);
 
 const selectedFlag = computed(() => {
     return flags.value.find((flag) => Number(flag.id) === Number(props.modelValue)) ?? null;
 });
 
-onMounted(async () => {
+async function loadFlags() {
+    loading.value = true;
+
     try {
         const { data } = await adminAxios.get('/api/admin/v1/flags/dropdown');
 
@@ -97,6 +108,20 @@ onMounted(async () => {
         }));
     } catch {
         flags.value = [];
+    } finally {
+        loading.value = false;
+    }
+}
+
+watch(() => props.show, (visible) => {
+    if (visible && props.loadOnShow) {
+        loadFlags();
+    }
+});
+
+onMounted(() => {
+    if (! props.loadOnShow || props.show) {
+        loadFlags();
     }
 });
 </script>

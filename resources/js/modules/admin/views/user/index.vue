@@ -122,7 +122,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="8" />
 
                                     <tr v-else-if="!users.length">
                                         <td colspan="8" class="border-0">
