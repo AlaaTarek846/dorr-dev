@@ -45,11 +45,15 @@ Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
 | GET | `/service-categories/leaf-options` |
 | GET | `/service-categories/dropdown?parent_id=null` (parents only) |
 
+`/service-categories/dropdown` returns active categories: `id`, `name` (translated), `parent_id`, `module_name`, `image`, `translations {locale, name}`. `image`, `name`, and `module_name` drive the **AdminServiceSelect** header dropdown (frontend-only "General" item first) and per-module sidebar sections (Chat `module_name=chat`, AI `module_name=ai_assistant`).
+
 ## User Routes (`/api/user/v1`)
 
 | Method | Endpoint | Auth |
 |--------|----------|------|
 | GET | `/countries/dropdown` | user_api |
+
+`/countries/dropdown` returns: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`.
 
 ## PLANNED
 
