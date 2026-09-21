@@ -125,6 +125,11 @@
             "support": "الدعم"
         }
     },
+    "admin_services": {
+        "select_service": "اختر خدمة",
+        "empty": "لا توجد خدمات متاحة",
+        "general": "عام"
+    },
     "users": {
         "title": "المستخدمون",
         "add": "إضافة مستخدم",
@@ -137,6 +142,8 @@
         "email_placeholder": "مثال: user{'@'}example.com",
         "phone": "الهاتف",
         "phone_placeholder": "رقم الهاتف بدون كود الدولة",
+        "phone_length_invalid": "يجب أن يتكون رقم الهاتف بعد كود الدولة من {length} أرقام بالضبط",
+        "phone_starts_with_invalid": "يجب أن يبدأ رقم الهاتف بـ {prefix}",
         "gender": "الجنس",
         "password_placeholder": "أدخل كلمة المرور",
         "password_confirmation": "تأكيد كلمة المرور",
@@ -435,6 +442,8 @@
         "email_placeholder": "مثال: user{'@'}example.com",
         "phone": "الهاتف",
         "phone_placeholder": "رقم الهاتف بدون كود الدولة",
+        "phone_length_invalid": "يجب أن يتكون رقم الهاتف بعد كود الدولة من {length} أرقام بالضبط",
+        "phone_starts_with_invalid": "يجب أن يبدأ رقم الهاتف بـ {prefix}",
         "loading_countries": "جاري تحميل الدول...",
         "no_countries": "لا توجد دول متاحة",
         "gender": "الجنس",
@@ -661,6 +670,8 @@
         "email_placeholder": "مثال: provider{'@'}example.com",
         "phone": "الهاتف",
         "phone_placeholder": "رقم الهاتف بدون مفتاح الدولة",
+        "phone_length_invalid": "يجب أن يتكون رقم الهاتف بعد مفتاح الدولة من {length} أرقام بالضبط",
+        "phone_starts_with_invalid": "يجب أن يبدأ رقم الهاتف بـ {prefix}",
         "gender": "الجنس",
         "password_placeholder": "أدخل كلمة المرور",
         "password_confirmation": "تأكيد كلمة المرور",

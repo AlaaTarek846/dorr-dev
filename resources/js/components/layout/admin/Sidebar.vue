@@ -24,8 +24,12 @@
                         </router-link>
                     </li>
 
-                    <li class="slide has-sub">
-                        <a href="javascript:void(0);" class="side-menu__item">
+                    <li v-if="isChatVisible" class="slide has-sub">
+                        <a
+                            href="javascript:void(0);"
+                            class="side-menu__item"
+                            @click.prevent="toggleSubMenu"
+                        >
                             <i class="ri-message-3-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.chat') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
@@ -42,8 +46,12 @@
                         </ul>
                     </li>
 
-                    <li class="slide has-sub">
-                        <a href="javascript:void(0);" class="side-menu__item">
+                    <li v-if="isAiVisible" class="slide has-sub">
+                        <a
+                            href="javascript:void(0);"
+                            class="side-menu__item"
+                            @click.prevent="toggleSubMenu"
+                        >
                             <i class="ri-robot-2-line side-menu__icon"></i>
                             <span class="side-menu__label">{{ t('sidebar.ai') }}</span>
                             <i class="fe fe-chevron-right side-menu__angle"></i>
@@ -65,9 +73,10 @@
                         </ul>
                     </li>
 
-                    <li class="slide__category">
-                        <span class="category-name">{{ t('sidebar.services') }}</span>
-                    </li>
+                    <template v-if="isGeneralVisible">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.services') }}</span>
+                        </li>
 
                     <li class="slide">
                         <router-link :to="{ name: 'admin.service-categories.index' }" class="side-menu__item">
@@ -143,6 +152,7 @@
                             <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
                         </router-link>
                     </li>
+                    </template>
                 </ul>
 
                 <div class="slide-right" id="slide-right">
@@ -156,11 +166,53 @@
 </template>
 
 <script setup>
+import { computed, onMounted } from 'vue';
+import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import PlatformLogo from '../PlatformLogo.vue';
+import { useAdminServiceSelectionStore } from '../../../stores/adminServiceSelection';
 
 const { t } = useI18n();
+const selectionStore = useAdminServiceSelectionStore();
+const { selectedService } = storeToRefs(selectionStore);
 
 const chatItems = ['inbox', 'groups', 'channels', 'archive'];
 const aiItems = ['assistant', 'prompts', 'models', 'history'];
+
+const selectedModuleName = computed(() => selectedService.value?.module_name ?? null);
+const isChatVisible = computed(() => selectedModuleName.value === 'chat');
+const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
+const isGeneralVisible = computed(() => ! selectedService.value);
+
+function toggleSubMenu(event) {
+    const toggle = event.currentTarget;
+    const submenu = toggle.nextElementSibling;
+
+    if (! submenu) {
+        return;
+    }
+
+    const isOpen = submenu.style.display === 'block'
+        || window.getComputedStyle(submenu).display !== 'none';
+
+    const nav = toggle.closest('.nav');
+
+    nav?.querySelectorAll(':scope > ul > .slide.has-sub > ul').forEach((menu) => {
+        if (menu === submenu) {
+            return;
+        }
+
+        if (menu.style.display === 'block' || window.getComputedStyle(menu).display !== 'none') {
+            menu.style.display = 'none';
+            menu.closest('.slide.has-sub')?.classList.remove('open');
+        }
+    });
+
+    submenu.style.display = isOpen ? 'none' : 'block';
+    toggle.closest('.slide.has-sub')?.classList.toggle('open', ! isOpen);
+}
+
+onMounted(() => {
+    selectionStore.fetchServices();
+});
 </script>
