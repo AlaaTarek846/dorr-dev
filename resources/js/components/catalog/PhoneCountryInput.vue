@@ -4,7 +4,7 @@
             {{ label }}
             <span v-if="required" class="text-danger">*</span>
         </label>
-        <div class="input-group phone-country-input" :class="{ 'is-invalid-group': invalid }">
+        <div class="input-group phone-country-input" style="direction: ltr;" :class="{ 'is-invalid-group': invalid }">
             <button
                 type="button"
                 class="btn btn-light dropdown-toggle phone-country-input__toggle"
@@ -54,6 +54,7 @@
                 type="tel"
                 dir="ltr"
                 class="form-control"
+                style="direction: ltr;"
                 :class="{ 'is-invalid': invalid, 'is-valid': valid }"
                 :placeholder="placeholder"
                 maxlength="50"
@@ -126,7 +127,7 @@ const props = defineProps({
     },
 });
 
-const emit = defineEmits(['update:countryId', 'update:phone', 'country-change']);
+const emit = defineEmits(['update:countryId', 'update:phone', 'country-change', 'countries-loaded']);
 
 const { t } = useI18n();
 const countries = ref([]);
@@ -155,6 +156,7 @@ async function loadCountries() {
         const { data } = await client.get(props.dropdownEndpoint);
 
         countries.value = data.data ?? [];
+        emit('countries-loaded', countries.value);
     } catch {
         countries.value = [];
     } finally {

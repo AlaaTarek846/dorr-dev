@@ -2,8 +2,8 @@
 
 namespace App\Repositories\General;
 
-use App\Repositories\TranslatableRepository;
 use App\Models\Country;
+use App\Repositories\TranslatableRepository;
 use Illuminate\Support\Collection;
 
 class CountryRepository extends TranslatableRepository
@@ -27,6 +27,9 @@ class CountryRepository extends TranslatableRepository
                 'code' => $country->code,
                 'name' => $country->translatedName() ?? $country->code,
                 'dial_code' => $country->dial_code,
+                'phone_length' => $country->phone_length,
+                'phone_starts_with' => $country->phone_starts_with,
+                'is_default' => (bool) $country->is_default,
                 'flag' => $country->flag ? [
                     'id' => $country->flag->id,
                     'code' => $country->flag->code,

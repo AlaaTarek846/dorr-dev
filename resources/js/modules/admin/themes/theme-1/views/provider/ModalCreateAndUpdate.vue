@@ -144,7 +144,7 @@
                                     v-model:phone="form.phone"
                                     input-id="provider-phone"
                                     :label="t('providers.phone')"
-                                    :placeholder="t('providers.phone_placeholder')"
+                                    :placeholder="phonePlaceholder"
                                     :invalid="phoneFeedback.show && phoneFeedback.invalid"
                                     :valid="phoneFeedback.show && phoneFeedback.valid"
                                     :error="phoneMessage || serverErrors.country_id?.[0] || ''"
@@ -152,6 +152,7 @@
                                     :load-on-show="true"
                                     @country-change="onPhoneCountryChange"
                                     @update:phone="onFieldInput('phone')"
+                                    @countries-loaded="onCountriesLoaded"
                                 />
                             </div>
 
@@ -352,6 +353,8 @@ const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);
 const serverErrors = reactive({});
 const dialCode = ref('');
+const countries = ref([]);
+const selectedCountry = ref(null);
 let modalInstance = null;
 let v$;
 
@@ -388,6 +391,25 @@ const genderOptions = computed(() => ([
     { value: 'female', label: t('profile.gender_female') },
 ]));
 
+const selectedCountryPhoneLength = computed(() => {
+    const length = Number(selectedCountry.value?.phone_length);
+
+    return Number.isInteger(length) && length > 0 ? length : null;
+});
+
+const phonePlaceholder = computed(() => {
+    const prefix = String(selectedCountry.value?.phone_starts_with ?? '').trim();
+    const length = selectedCountryPhoneLength.value;
+
+    if (! prefix || length === null) {
+        return t('providers.phone_placeholder');
+    }
+
+    const stars = '*'.repeat(Math.max(length - prefix.length, 0));
+
+    return `${prefix}${stars}`;
+});
+
 const selectedServiceKeys = computed({
     get: () => {
         if (! form.service_category_ids.length) {
@@ -417,6 +439,36 @@ const rules = computed(() => ({
     },
     phone: {
         maxLength: maxString('providers.phone', 50),
+        phoneStartsWith: helpers.withMessage(
+            () => t('providers.phone_starts_with_invalid', {
+                prefix: String(selectedCountry.value?.phone_starts_with ?? ''),
+            }),
+            (value) => {
+                const prefix = String(selectedCountry.value?.phone_starts_with ?? '').trim();
+
+                if (! prefix) {
+                    return true;
+                }
+
+                const local = String(value ?? '').replace(/\D/g, '');
+
+                return local.startsWith(prefix);
+            },
+        ),
+        phoneLength: helpers.withMessage(
+            () => t('providers.phone_length_invalid', { length: selectedCountryPhoneLength.value ?? 0 }),
+            (value) => {
+                const length = selectedCountryPhoneLength.value;
+
+                if (length === null) {
+                    return true;
+                }
+
+                const local = String(value ?? '').replace(/\D/g, '');
+
+                return local.length === length;
+            },
+        ),
     },
     password: {
         required: helpers.withMessage(
@@ -540,8 +592,34 @@ function onPasswordInput(field) {
 
 function onPhoneCountryChange(country) {
     dialCode.value = country?.dial_code ?? '';
+    selectedCountry.value = country ?? null;
     clearServerError('country_id');
     onFieldInput('phone');
+}
+
+function onCountriesLoaded(list) {
+    countries.value = list ?? [];
+
+    const existing = selectedCountry.value;
+    selectedCountry.value = countries.value.find(
+        (country) => Number(country.id) === Number(form.country_id),
+    ) ?? existing ?? null;
+
+    if (form.country_id) {
+        return;
+    }
+
+    const defaultCountry = countries.value.find((country) => Boolean(country.is_default))
+        ?? countries.value[0]
+        ?? null;
+
+    if (! defaultCountry) {
+        return;
+    }
+
+    form.country_id = Number(defaultCountry.id);
+    dialCode.value = defaultCountry.dial_code ?? '';
+    selectedCountry.value = defaultCountry;
 }
 
 function onAvatarChange(event) {
@@ -597,6 +675,7 @@ function fillForm(record) {
     form.gender = record?.gender ?? '';
     form.country_id = record?.country_id ?? record?.country?.id ?? null;
     dialCode.value = record?.country?.dial_code ?? '';
+    selectedCountry.value = record?.country ?? null;
     form.phone = splitPhoneNumber(record?.phone, dialCode.value);
     form.status = record?.status ?? 'active';
     form.service_category_ids = Array.isArray(record?.service_category_ids)
