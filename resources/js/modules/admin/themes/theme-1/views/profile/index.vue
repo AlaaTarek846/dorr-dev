@@ -107,17 +107,18 @@
                                         {{ t('profile.gender') }}
                                         <span class="text-danger">*</span>
                                     </label>
-                                    <select
+                                    <Select
                                         id="profile-gender"
                                         v-model="profileForm.gender"
-                                        class="form-select"
-                                        :class="profileGenderInputClass"
+                                        :options="profileGenderOptions"
+                                        option-label="label"
+                                        option-value="value"
+                                        :placeholder="t('profile.select_gender')"
+                                        :invalid="profileGenderFeedback.show && profileGenderFeedback.invalid"
+                                        append-to="self"
+                                        class="w-100"
                                         @change="onProfileFieldInput('gender')"
-                                    >
-                                        <option value="">{{ t('profile.select_gender') }}</option>
-                                        <option value="male">{{ t('profile.gender_male') }}</option>
-                                        <option value="female">{{ t('profile.gender_female') }}</option>
-                                    </select>
+                                    />
                                     <div v-if="profileGenderMessage" class="invalid-feedback d-block">
                                         {{ profileGenderMessage }}
                                     </div>
@@ -129,13 +130,14 @@
                                         v-model:phone="profileForm.phone"
                                         input-id="profile-phone"
                                         :label="t('profile.phone')"
-                                        :placeholder="t('profile.phone_placeholder')"
+                                        :placeholder="profilePhonePlaceholder"
                                         required
                                         :invalid="profilePhoneFeedback.show && profilePhoneFeedback.invalid"
                                         :valid="profilePhoneFeedback.show && profilePhoneFeedback.valid"
                                         :error="profilePhoneMessage || profileErrors.country_id?.[0] || ''"
                                         @country-change="onPhoneCountryChange"
                                         @update:phone="onProfileFieldInput('phone')"
+                                        @countries-loaded="onCountriesLoaded"
                                     />
                                 </div>
                             </div>
@@ -268,6 +270,7 @@ import useVuelidate from '@vuelidate/core';
 import { email, helpers, sameAs } from '@vuelidate/validators';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import Select from 'primevue/select';
 import adminAxios from '../../../../../../api/adminAxios';
 import PhoneCountryInput from '../../../../../../components/catalog/PhoneCountryInput.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
@@ -300,6 +303,8 @@ const showConfirmPassword = ref(false);
 const profileErrors = reactive({});
 const passwordErrors = reactive({});
 const profileDialCode = ref('');
+const countries = ref([]);
+const selectedCountry = ref(null);
 
 const profileForm = reactive({
     name: '',
@@ -318,6 +323,30 @@ const hasCustomAvatar = computed(() => avatarPreview.value !== DEFAULT_AVATAR);
 
 const passwordStrength = computed(() => calculatePasswordStrength(passwordForm.password));
 
+const profileGenderOptions = computed(() => ([
+    { value: 'male', label: t('profile.gender_male') },
+    { value: 'female', label: t('profile.gender_female') },
+]));
+
+const selectedCountryPhoneLength = computed(() => {
+    const length = Number(selectedCountry.value?.phone_length);
+
+    return Number.isInteger(length) && length > 0 ? length : null;
+});
+
+const profilePhonePlaceholder = computed(() => {
+    const prefix = String(selectedCountry.value?.phone_starts_with ?? '').trim();
+    const length = selectedCountryPhoneLength.value;
+
+    if (! prefix || length === null) {
+        return t('profile.phone_placeholder');
+    }
+
+    const stars = '*'.repeat(Math.max(length - prefix.length, 0));
+
+    return `${prefix}${stars}`;
+});
+
 const profileRules = computed(() => ({
     name: stringFieldRules('profile.name', 50, 2),
     email: {
@@ -330,6 +359,36 @@ const profileRules = computed(() => ({
     phone: {
         required: requiredField('profile.phone'),
         maxLength: maxString('profile.phone', 50),
+        phoneStartsWith: helpers.withMessage(
+            () => t('profile.phone_starts_with_invalid', {
+                prefix: String(selectedCountry.value?.phone_starts_with ?? ''),
+            }),
+            (value) => {
+                const prefix = String(selectedCountry.value?.phone_starts_with ?? '').trim();
+
+                if (! prefix) {
+                    return true;
+                }
+
+                const local = String(value ?? '').replace(/\D/g, '');
+
+                return local.startsWith(prefix);
+            },
+        ),
+        phoneLength: helpers.withMessage(
+            () => t('profile.phone_length_invalid', { length: selectedCountryPhoneLength.value ?? 0 }),
+            (value) => {
+                const length = selectedCountryPhoneLength.value;
+
+                if (length === null) {
+                    return true;
+                }
+
+                const local = String(value ?? '').replace(/\D/g, '');
+
+                return local.length === length;
+            },
+        ),
     },
     gender: {
         required: requiredField('profile.gender'),
@@ -386,11 +445,11 @@ const profileGenderState = buildFieldState(profileV$, 'gender', profileErrors, p
 
 const profileNameInputClass = profileNameState.inputClass;
 const profileEmailInputClass = profileEmailState.inputClass;
-const profileGenderInputClass = profileGenderState.inputClass;
 const profileNameMessage = profileNameState.message;
 const profileEmailMessage = profileEmailState.message;
 const profilePhoneMessage = profilePhoneState.message;
 const profileGenderMessage = profileGenderState.message;
+const profileGenderFeedback = profileGenderState.feedback;
 const profilePhoneFeedback = profilePhoneState.feedback;
 
 const newPasswordState = buildFieldState(passwordV$, 'password', passwordErrors, passwordForm);
@@ -411,12 +470,48 @@ function fillProfileForm(admin) {
     avatarPreview.value = admin?.avatar_thumb ?? admin?.avatar ?? DEFAULT_AVATAR;
     avatarFile.value = null;
     removeAvatarFlag.value = false;
+
+    const country = countries.value.find(
+        (item) => Number(item.id) === Number(profileForm.country_id),
+    ) ?? admin?.country ?? null;
+
+    selectedCountry.value = country;
+
+    if (country?.dial_code) {
+        profileDialCode.value = country.dial_code;
+    }
 }
 
 function onPhoneCountryChange(country) {
     profileDialCode.value = country?.dial_code ?? '';
+    selectedCountry.value = country ?? null;
     onProfileFieldInput('country_id');
     onProfileFieldInput('phone');
+}
+
+function onCountriesLoaded(list) {
+    countries.value = list ?? [];
+
+    const existing = selectedCountry.value;
+    selectedCountry.value = countries.value.find(
+        (country) => Number(country.id) === Number(profileForm.country_id),
+    ) ?? existing ?? null;
+
+    if (profileForm.country_id) {
+        return;
+    }
+
+    const defaultCountry = countries.value.find((country) => Boolean(country.is_default))
+        ?? countries.value[0]
+        ?? null;
+
+    if (! defaultCountry) {
+        return;
+    }
+
+    profileForm.country_id = Number(defaultCountry.id);
+    profileDialCode.value = defaultCountry.dial_code ?? '';
+    selectedCountry.value = defaultCountry;
 }
 
 function onProfileFieldInput(field) {
