@@ -165,6 +165,8 @@ Applies to: **flags**, **languages**, **currencies**, **countries**, **service-c
 
 Catalog create/update requires `translations[]` with `locale` + `name` for all storable languages.
 
+**Countries dropdown** (`/countries/dropdown`) returns each active country: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`. `phone_length` + `phone_starts_with` + `is_default` drive frontend phone placeholder (`prefix*********`), phone validation, and default-country auto-selection in Admin user/provider modals.
+
 ### Authenticated — Providers
 
 | Method | Endpoint | Description |
