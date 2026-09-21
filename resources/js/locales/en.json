@@ -125,6 +125,11 @@
             "support": "Support"
         }
     },
+    "admin_services": {
+        "select_service": "Select a service",
+        "empty": "No services available",
+        "general": "General"
+    },
     "users": {
         "title": "Users",
         "add": "Add User",
@@ -137,6 +142,8 @@
         "email_placeholder": "E.g. user{'@'}example.com",
         "phone": "Phone",
         "phone_placeholder": "Phone number without country code",
+        "phone_length_invalid": "Phone number must be exactly {length} digits after the country code",
+        "phone_starts_with_invalid": "Phone number must start with {prefix}",
         "gender": "Gender",
         "password_placeholder": "Enter password",
         "password_confirmation": "Confirm Password",
@@ -435,6 +442,8 @@
         "email_placeholder": "E.g. user{'@'}example.com",
         "phone": "Phone",
         "phone_placeholder": "Phone number without country code",
+        "phone_length_invalid": "Phone number must be exactly {length} digits after the country code",
+        "phone_starts_with_invalid": "Phone number must start with {prefix}",
         "loading_countries": "Loading countries...",
         "no_countries": "No countries available",
         "gender": "Gender",
@@ -661,6 +670,8 @@
         "email_placeholder": "E.g. provider{'@'}example.com",
         "phone": "Phone",
         "phone_placeholder": "Phone number without country code",
+        "phone_length_invalid": "Phone number must be exactly {length} digits after the country code",
+        "phone_starts_with_invalid": "Phone number must start with {prefix}",
         "gender": "Gender",
         "password_placeholder": "Enter password",
         "password_confirmation": "Confirm Password",

@@ -29,26 +29,35 @@
                             <span class="category-name">{{ t('sidebar.services') }}</span>
                         </li>
 
-                        <li class="slide side-menu__label1">
-                            <a href="javascript:void(0);" class="side-menu__item">
-                                <i class="bx bx-grid-alt side-menu__icon"></i>
-                                <span class="side-menu__label">{{ serviceName(selectedService) }}</span>
-                            </a>
-                        </li>
-
-                        <li
-                            v-for="item in serviceLinks"
-                            :key="`${serviceModuleName}-${item.key}`"
-                            class="slide"
-                        >
+                        <li class="slide has-sub">
                             <a
                                 href="javascript:void(0);"
                                 class="side-menu__item"
-                                @click.prevent
+                                @click.prevent="toggleSubMenu"
                             >
-                                <i :class="item.icon" class="side-menu__icon"></i>
-                                <span class="side-menu__label">{{ t(`provider_services.links.${item.key}`) }}</span>
+                                <i class="bx bx-grid-alt side-menu__icon"></i>
+                                <span class="side-menu__label">{{ serviceName(selectedService) }}</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
                             </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)">{{ serviceName(selectedService) }}</a>
+                                </li>
+                                <li
+                                    v-for="item in serviceLinks"
+                                    :key="`${serviceModuleName}-${item.key}`"
+                                    class="slide"
+                                >
+                                    <a
+                                        href="javascript:void(0);"
+                                        class="side-menu__item"
+                                        @click.prevent
+                                    >
+                                        <i :class="item.icon" class="side-menu__icon"></i>
+                                        <span class="side-menu__label">{{ t(`provider_services.links.${item.key}`) }}</span>
+                                    </a>
+                                </li>
+                            </ul>
                         </li>
                     </template>
 
@@ -133,5 +142,33 @@ watch(
 
 function serviceName(service) {
     return service.category?.name ?? service.category?.translations?.[0]?.name ?? '';
+}
+
+function toggleSubMenu(event) {
+    const toggle = event.currentTarget;
+    const submenu = toggle.nextElementSibling;
+
+    if (! submenu) {
+        return;
+    }
+
+    const isOpen = submenu.style.display === 'block'
+        || window.getComputedStyle(submenu).display !== 'none';
+
+    const nav = toggle.closest('.nav');
+
+    nav?.querySelectorAll(':scope > ul > .slide.has-sub > ul').forEach((menu) => {
+        if (menu === submenu) {
+            return;
+        }
+
+        if (menu.style.display === 'block' || window.getComputedStyle(menu).display !== 'none') {
+            menu.style.display = 'none';
+            menu.closest('.slide.has-sub')?.classList.remove('open');
+        }
+    });
+
+    submenu.style.display = isOpen ? 'none' : 'block';
+    toggle.closest('.slide.has-sub')?.classList.toggle('open', ! isOpen);
 }
 </script>

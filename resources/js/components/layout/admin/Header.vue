@@ -31,6 +31,14 @@
                 </div>
                 <!-- End::header-content-left -->
 
+                <!-- Start::header-content-center -->
+                <div class="header-content-center">
+                    <div class="header-element">
+                        <AdminServiceSelect />
+                    </div>
+                </div>
+                <!-- End::header-content-center -->
+
                 <!-- Start::header-content-right -->
                 <div class="header-content-right">
 
@@ -473,8 +481,8 @@
                                     <img :src="adminAvatar" alt="img" width="32" height="32" class="rounded-circle">
                                 </div>
                                 <div class="d-sm-block d-none">
-                                    <p class="fw-semibold mb-0 lh-1">{{ adminName }}</p>
-                                    <span class="op-7 fw-normal d-block fs-11">{{ adminRole }}</span>
+                                    <p class="fw-semibold mb-0 lh-1">{{ adminName?.substr(0,15) }}</p>
+                                    <span class="op-7 fw-normal d-block fs-11">{{ adminRole?.substr(0,15) }}</span>
                                 </div>
                             </div>
                         </a>
@@ -516,6 +524,7 @@
 
 <script setup>
 import { useI18n } from 'vue-i18n';
+import AdminServiceSelect from './AdminServiceSelect.vue';
 import HeaderLanguageSelect from '../HeaderLanguageSelect.vue';
 import PlatformLogo from '../PlatformLogo.vue';
 import { useHeader } from '../../../composables/useHeader';

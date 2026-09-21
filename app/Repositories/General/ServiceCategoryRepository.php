@@ -81,6 +81,8 @@ class ServiceCategoryRepository extends TranslatableRepository
                 'id' => $category->id,
                 'name' => $category->translatedName(),
                 'parent_id' => $category->parent_id,
+                'module_name' => $category->module_name,
+                'image' => $category->getSingleMediaUrl('image') ?: null,
                 'translations' => $category->translations->map(fn ($item) => [
                     'locale' => $item->locale,
                     'name' => $item->name,
