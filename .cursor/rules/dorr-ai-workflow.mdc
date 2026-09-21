@@ -20,7 +20,8 @@ The codebase is the source of truth. Never invent APIs, tables, permissions, or 
 | User | `/user` | `/api/user/v1/*` | `user_api` |
 | Provider | `/provider` | `/api/provider/v1/*` | `provider_api` |
 
-Provider portal mirrors User auth flows but has **no AI chat**.
+Provider portal mirrors User auth flows but has **no AI chat**.  
+Frontend entry: `resources/js/apps/provider/provider-app.js` → `/api/provider/v1/*`.
 
 ## Workflow (summary)
 

@@ -1,6 +1,6 @@
 # Project Checkpoint
 
-**Last updated:** 2026-09-19  
+**Last updated:** 2026-09-20  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -22,13 +22,17 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Translation-based catalog pattern
 - AI gateway with multiple providers
 - Provider profiles with service category linkage
-- Provider dashboard API: `/api/provider/v1/*` (auth, registration, profile, password reset)
+- Provider dashboard API: `/api/provider/v1/*` (auth, registration, profile, password reset, `countries/dropdown`)
+- Provider admin API: `/api/admin/v1/providers*` (CRUD, trash, status) via `Modules/Provider/routes/admin.php`
 - Provider OAuth web routes + shared Google/Apple callback via `social_auth_panel` session
+- `RedirectIfAuthenticated`: JSON 403 for authenticated guests on `api/provider/*`
+- `SocialAuthService::authenticate(..., $allowRegistration)` — explicit registration flag for OAuth
 
 ### Frontend
 - Admin SPA: full catalog CRUD, users, providers, AI settings, platform settings
 - User SPA: auth flows, profile, AI chat
-- **Provider SPA:** auth flows (mirrors User), dashboard, profile, service header/sidebar — **no AI chat**
+- **Provider SPA:** `/provider` — auth flows mirror User (login, register, verify, password, OAuth), dashboard, profile, service header/sidebar — **no AI chat**
+- Entry: `resources/js/apps/provider/provider-app.js`; router `provider-index.js`; token `provider_token`
 - i18n: Arabic + English (`provider_dashboard.*` for provider portal)
 - Pinia stores, composable-based CRUD
 
@@ -40,7 +44,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
-- Provider dashboard SPA **implemented** (2026-09-17) — see `docs/modules/provider/CHANGELOG.md`
+- Provider dashboard SPA **documented** (module docs + API spec aligned with code, 2026-09-20)
 - Provider header service dropdown + sidebar links from `services[]` / `category.module_name` (sidebar uses placeholder links until per-module routes exist)
 - Admin provider modal: PrimeVue `Select`/`TreeSelect`; service categories tree (`/service-categories/tree-options`)
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
