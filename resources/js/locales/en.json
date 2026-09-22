@@ -577,6 +577,8 @@
         "phone_starts_with_invalid": "Phone number must start with {prefix}",
         "loading_countries": "Loading countries...",
         "no_countries": "No countries available",
+        "search_countries": "Search by country name or code",
+        "no_countries_match": "No countries match your search",
         "gender": "Gender",
         "gender_male": "Male",
         "gender_female": "Female",

@@ -577,6 +577,8 @@
         "phone_starts_with_invalid": "يجب أن يبدأ رقم الهاتف بـ {prefix}",
         "loading_countries": "جاري تحميل الدول...",
         "no_countries": "لا توجد دول متاحة",
+        "search_countries": "ابحث باسم الدولة أو الكود",
+        "no_countries_match": "لا توجد دول مطابقة لبحثك",
         "gender": "الجنس",
         "gender_male": "ذكر",
         "gender_female": "أنثى",
