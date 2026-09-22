@@ -8,6 +8,11 @@ use App\Services\General\CountryService;
 
 class CountryController extends CatalogController
 {
+    protected static function adminPermissionGroup(): string
+    {
+        return 'countries';
+    }
+
     public function __construct(CountryService $service)
     {
         parent::__construct($service);

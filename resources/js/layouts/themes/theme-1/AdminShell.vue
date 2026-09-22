@@ -34,8 +34,10 @@ import Header from '../../../components/layout/admin/Header.vue';
 import HeaderModals from '../../../components/layout/HeaderModals.vue';
 import Sidebar from '../../../components/layout/admin/Sidebar.vue';
 import ThemeSwitcher from '../../../components/layout/ThemeSwitcher.vue';
+import { useAdminRoutePermissionWatch } from '../../../composables/useAdminRoutePermissionWatch';
 import { useDashboard } from '../../../composables/useDashboard';
 import { themeAsset } from '../../../dashboard/themeContext';
 
 useDashboard();
+useAdminRoutePermissionWatch();
 </script>

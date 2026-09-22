@@ -2,12 +2,26 @@
 
 namespace App\Http\Controllers\General;
 
+use App\Http\Controllers\Concerns\DefinesAdminCatalogPermissions;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\General\DashboardThemeRequest;
 use App\Services\General\DashboardThemeService;
+use Illuminate\Routing\Controllers\HasMiddleware;
 
-class DashboardThemeController extends Controller
+class DashboardThemeController extends Controller implements HasMiddleware
 {
+    use DefinesAdminCatalogPermissions;
+
+    protected static function adminPermissionGroup(): string
+    {
+        return 'dashboard_themes';
+    }
+
+    protected static function permissionsOnDropdown(): bool
+    {
+        return false;
+    }
+
     public function __construct(protected DashboardThemeService $service) {}
 
     public function index()

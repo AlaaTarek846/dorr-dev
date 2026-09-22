@@ -83,7 +83,7 @@
 
                         <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount && statusFilter !== 'deleted'"
+                                v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
@@ -92,7 +92,7 @@
                                 {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="selectedCount && statusFilter === 'deleted'"
+                                v-if="canDelete && selectedCount && statusFilter === 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmForceDeleteSelected"
@@ -101,7 +101,7 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="statusFilter !== 'deleted'"
+                                v-if="canCreate && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -117,7 +117,7 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="ps-4" style="width: 48px;">
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -132,21 +132,21 @@
                                         <th scope="col">{{ t('currencies.exchange_rate') }}</th>
                                         <th scope="col">{{ t('currencies.status') }}</th>
                                         <th scope="col">{{ t('currencies.created_at') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('currencies.actions') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('currencies.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" :columns="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
                                     <tr v-else-if="!currencies.length">
-                                        <td colspan="8" class="border-0">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-money-dollar-circle-line fs-2 text-primary"></i>
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('currencies.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('currencies.empty') }}</p>
-                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('currencies.add') }}
                                                 </button>
@@ -160,7 +160,7 @@
                                         :key="currency.id"
                                         class="crm-contact"
                                     >
-                                        <td class="ps-4">
+                                        <td v-if="canMultipleDelete" class="ps-4">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -175,7 +175,7 @@
                                                 </span>
                                                 <div>
                                                     <button
-                                                        v-if="!isTrashedRecord(currency)"
+                                                        v-if="canUpdate && !isTrashedRecord(currency)"
                                                         type="button"
                                                         class="btn btn-link p-0 text-start fw-semibold text-default"
                                                         @click="openEdit(currency)"
@@ -206,7 +206,7 @@
                                                 {{ t('catalog.deleted_badge') }}
                                             </span>
                                             <div
-                                                v-else
+                                                v-else-if="canChangeStatus"
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
                                                     on: currency.status,
@@ -220,6 +220,9 @@
                                             >
                                                 <span></span>
                                             </div>
+                                            <span v-else class="badge" :class="currency.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                {{ currency.status ? t('currencies.filter_active') : t('currencies.filter_inactive') }}
+                                            </span>
                                         </td>
                                         <td>
                                             <span class="d-block">{{ formatDate(catalogPrimaryDate(currency)) }}</span>
@@ -230,9 +233,10 @@
                                                 {{ t('catalog.deleted_at') }}: {{ formatDate(currency.deleted_at) }}
                                             </span>
                                         </td>
-                                        <td class="text-end pe-4">
+                                        <td v-if="showActionsColumn" class="text-end pe-4">
                                             <div v-if="isTrashedRecord(currency)" class="btn-list justify-content-end">
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-success-light btn-icon"
                                                     :title="t('catalog.restore_title')"
@@ -241,6 +245,7 @@
                                                     <i class="ri-arrow-go-back-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('catalog.force_delete_title')"
@@ -251,6 +256,7 @@
                                             </div>
                                             <div v-else-if="!isTrashedRecord(currency)" class="btn-list justify-content-end">
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
                                                     :title="t('currencies.edit_title')"
@@ -259,6 +265,7 @@
                                                     <i class="ri-pencil-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('currencies.confirm_delete')"
@@ -350,6 +357,7 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useCatalogTrashActions } from '../../../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useCurrencies } from '../../../../../../composables/useCurrencies';
@@ -364,6 +372,29 @@ import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
 const currenciesStore = useCurrenciesStore();
+
+const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canChangeStatus,
+    canMultipleDelete,
+    showActionsColumn,
+} = useCatalogPermissions('currencies');
+
+const tableColumnCount = computed(() => {
+    let count = 6;
+
+    if (canMultipleDelete.value) {
+        count += 1;
+    }
+
+    if (showActionsColumn.value) {
+        count += 1;
+    }
+
+    return count;
+});
 
 const currenciesApi = useCurrencies();
 const {
