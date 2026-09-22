@@ -464,8 +464,14 @@ export default function crudStructure(options = {}) {
         showEditMode(item);
     }
 
+    function isPristineLookup() {
+        return pagePaginate.value === 1
+            && statusFilter.value === 'all'
+            && ! search.value.searchKey?.trim();
+    }
+
     watch(() => localeStore.locale, () => {
-        if (step.value === 1) {
+        if (step.value === 1 && ! isPristineLookup()) {
             getData(pagePaginate.value);
         }
     });

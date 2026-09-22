@@ -71,7 +71,6 @@
                                 {{ t('flags.filter_inactive') }} ({{ counts.inactive }})
                             </button>
                             <button
-                                v-if="counts.deleted > 0"
                                 type="button"
                                 class="btn btn-sm catalog-filter-btn"
                                 :class="statusFilter === 'deleted' ? 'catalog-filter-btn--deleted' : 'catalog-filter-btn--deleted-idle'"
