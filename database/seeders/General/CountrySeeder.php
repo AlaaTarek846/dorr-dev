@@ -83,7 +83,7 @@ class CountrySeeder extends Seeder
                 'dial_code' => $this->formatDialCode((string) ($country['phonecode'] ?? '')),
                 'phone_starts_with' => $this->phoneRule($code)['phone_starts_with'],
                 'phone_length' => $this->phoneRule($code)['phone_length'],
-                'is_default' => $code === 'EG',
+                'is_default' => $code === 'SA',
                 'flag' => $flag,
                 'currency' => $currency,
                 'name' => [
@@ -146,15 +146,15 @@ class CountrySeeder extends Seeder
     {
         return [
             [
-                'code' => 'EG',
-                'code_alpha3' => 'EGY',
-                'dial_code' => '+20',
-                'phone_starts_with' => '1',
-                'phone_length' => 10,
+                'code' => 'SA',
+                'code_alpha3' => 'SAU',
+                'dial_code' => '+966',
+                'phone_starts_with' => '5',
+                'phone_length' => 9,
                 'is_default' => true,
-                'flag' => 'eg',
-                'currency' => 'EGP',
-                'name' => ['en' => 'Egypt', 'ar' => 'مصر'],
+                'flag' => 'sa',
+                'currency' => 'SAR',
+                'name' => ['en' => 'Saudi Arabia', 'ar' => 'المملكة العربية السعودية'],
             ],
         ];
     }

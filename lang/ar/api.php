@@ -11,6 +11,7 @@ return [
     'already_authenticated' => 'أنت مسجّل الدخول بالفعل.',
     'cannot_delete_relation' => 'لا يمكن الحذف لوجود بيانات مرتبطة في: :relation.',
     'cannot_delete_related' => 'لا يمكن الحذف لوجود بيانات مرتبطة بهذا السجل.',
+    'cannot_delete_role' => 'لا يمكن حذف هذا الدور النظامي.',
     'bulk_deleted_all' => 'تم حذف :count عنصر بنجاح.',
     'bulk_deleted_partial' => 'تم حذف :deleted. تعذر حذف :skipped لوجود بيانات مرتبطة.',
     'bulk_deleted_none' => 'لم يتم حذف أي عنصر. جميع العناصر المحددة مرتبطة ببيانات أخرى.',

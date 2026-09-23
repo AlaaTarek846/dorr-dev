@@ -4,9 +4,9 @@ namespace Modules\Admin\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
-use Illuminate\Http\JsonResponse;
 use Laravel\Sanctum\PersonalAccessToken;
 use Modules\Admin\Http\Requests\AdminLoginRequest;
 use Modules\Admin\Http\Resources\AdminResource;
@@ -14,6 +14,25 @@ use Modules\Admin\Models\Admin;
 
 class AdminAuthController extends Controller
 {
+    /**
+     * @return list<string>
+     */
+    protected function adminAuthRelations(): array
+    {
+        return [
+            'country.flag',
+            'services.category.translations',
+            'services.category.translation',
+        ];
+    }
+
+    protected function adminAuthResource(Admin $admin): AdminResource
+    {
+        request()->attributes->set(AdminResource::INCLUDE_PERMISSIONS_ATTRIBUTE, true);
+
+        return new AdminResource($admin);
+    }
+
     public function login(AdminLoginRequest $request)
     {
         $admin = Admin::query()
@@ -34,8 +53,10 @@ class AdminAuthController extends Controller
 
         $token = $admin->createToken('admin-api')->plainTextToken;
 
+        $admin->load($this->adminAuthRelations());
+
         return ApiResponse::success([
-            'admin' => new AdminResource($admin->load('country')),
+            'admin' => $this->adminAuthResource($admin),
             'token' => $token,
             'token_type' => 'Bearer',
         ], __('api.login_success'));
@@ -50,10 +71,12 @@ class AdminAuthController extends Controller
 
     public function me()
     {
-        $admin = request()->user('admin_api')?->load(['country.flag']);
+        /** @var Admin|null $admin */
+        $admin = request()->user('admin_api');
+        $admin?->load($this->adminAuthRelations());
 
         return ApiResponse::success(
-            new AdminResource($admin),
+            $this->adminAuthResource($admin),
             __('api.retrieved'),
         );
     }
@@ -83,7 +106,7 @@ class AdminAuthController extends Controller
             'access_token' => $token,
             'token_type' => 'Bearer',
             'valid' => true,
-            'admin' => new AdminResource($admin->load('country')),
+            'admin' => $this->adminAuthResource($admin->load($this->adminAuthRelations())),
         ], __('api.token_valid'));
     }
 }

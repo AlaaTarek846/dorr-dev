@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\DefinesAdminCatalogPermissions;
 use App\Services\CatalogService;
+use Illuminate\Routing\Controllers\HasMiddleware;
 
-abstract class CatalogController extends Controller
+abstract class CatalogController extends Controller implements HasMiddleware
 {
+    use DefinesAdminCatalogPermissions;
+
     public function __construct(protected CatalogService $service) {}
 
     public function index()

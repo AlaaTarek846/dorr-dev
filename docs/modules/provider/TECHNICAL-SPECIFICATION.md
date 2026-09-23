@@ -1,6 +1,6 @@
 # Provider — Technical Specification
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-20
 
 ---
 
@@ -32,8 +32,8 @@
 
 ```
 Modules/Provider/routes/api.php
-  ├── require admin.php      → /api/admin/v1/providers*
-  └── require dashboard.php  → /api/provider/v1/*
+  ├── require admin.php      → /api/admin/v1/providers* (auth: admin_api)
+  └── require dashboard.php  → /api/provider/v1/* (guest + auth: provider_api)
 ```
 
 Module `RouteServiceProvider` loads `routes/api.php` under prefix `api`.
@@ -87,11 +87,12 @@ resources/js/apps/provider/provider-app.js
 |---------|----------------|
 | Token storage | `localStorage.provider_token` via `stores/providerAuth.js` |
 | HTTP client | `api/providerAxios.js` — attaches Bearer + `X-Locale` |
-| Layout | `layouts/provider/ProviderLayout.vue` + `ProviderSidebar.vue` (**no AI chat nav**) |
+| Layout | `resolveShell('provider')` → `layouts/themes/{path}/ProviderShell.vue`; sidebar/header in `components/layout/provider/` (**no AI chat nav**) |
+| Pages | `resolvePage('provider', viewPath)` → `modules/provider/themes/{path}/views/` |
 | Header | `composables/useHeader.js` — `route.name.startsWith('provider.')` |
 | Guards | `router/middleware/providerAuth.js`, `providerGuest.js` |
 | Vite input | `resources/js/apps/provider/provider-app.js` |
-| Web shell | `routes/web.php` → `/provider/{any?}` → `provider.blade.php` |
+| Web shell | `routes/web.php` → `/provider/{any?}` → `provider.blade.php` → `dashboard/shell.blade.php` (`dashboardTheme`, Vite, theme assets) |
 
 ### SPA routes (summary)
 

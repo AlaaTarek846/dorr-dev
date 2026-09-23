@@ -83,7 +83,7 @@
 
                         <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount && statusFilter !== 'deleted'"
+                                v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
@@ -92,7 +92,7 @@
                                 {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="selectedCount && statusFilter === 'deleted'"
+                                v-if="canDelete && selectedCount && statusFilter === 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmForceDeleteSelected"
@@ -101,7 +101,7 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="statusFilter !== 'deleted'"
+                                v-if="canCreate && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -117,7 +117,7 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="ps-4" style="width: 48px;">
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -130,21 +130,21 @@
                                         <th scope="col">{{ t('flags.code') }}</th>
                                         <th scope="col">{{ t('flags.status') }}</th>
                                         <th scope="col">{{ t('flags.created_at') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('flags.actions') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('flags.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" :columns="6" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
                                     <tr v-else-if="!flags.length">
-                                        <td colspan="6" class="border-0">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-flag-line fs-2 text-primary"></i>
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('flags.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('flags.empty') }}</p>
-                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('flags.add') }}
                                                 </button>
@@ -158,7 +158,7 @@
                                         :key="flag.id"
                                         class="crm-contact"
                                     >
-                                        <td class="ps-4">
+                                        <td v-if="canMultipleDelete" class="ps-4">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -176,7 +176,7 @@
                                                 />
                                                 <div>
                                                     <button
-                                                        v-if="!isTrashedRecord(flag)"
+                                                        v-if="canUpdate && !isTrashedRecord(flag)"
                                                         type="button"
                                                         class="btn btn-link p-0 text-start fw-semibold text-default"
                                                         @click="openEdit(flag)"
@@ -198,7 +198,7 @@
                                                 {{ t('catalog.deleted_badge') }}
                                             </span>
                                             <div
-                                                v-else
+                                                v-else-if="canChangeStatus"
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
                                                     on: flag.status,
@@ -212,6 +212,9 @@
                                             >
                                                 <span></span>
                                             </div>
+                                            <span v-else class="badge" :class="flag.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                {{ flag.status ? t('flags.active') : t('flags.inactive') }}
+                                            </span>
                                         </td>
                                         <td>
                                             <span class="d-block">{{ formatDate(catalogPrimaryDate(flag)) }}</span>
@@ -222,9 +225,10 @@
                                                 {{ t('catalog.deleted_at') }}: {{ formatDate(flag.deleted_at) }}
                                             </span>
                                         </td>
-                                        <td class="text-end pe-4">
+                                        <td v-if="showActionsColumn" class="text-end pe-4">
                                             <div v-if="isTrashedRecord(flag)" class="btn-list justify-content-end">
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-success-light btn-icon"
                                                     :title="t('catalog.restore_title')"
@@ -233,6 +237,7 @@
                                                     <i class="ri-arrow-go-back-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('catalog.force_delete_title')"
@@ -243,6 +248,7 @@
                                             </div>
                                             <div v-else-if="!isTrashedRecord(flag)" class="btn-list justify-content-end">
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
                                                     :title="t('flags.edit_title')"
@@ -251,6 +257,7 @@
                                                     <i class="ri-pencil-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('flags.confirm_delete')"
@@ -350,6 +357,7 @@ import {
     catalogShowUpdatedSubtext,
     isTrashedRecord,
 } from '../../../../../../utils/catalog';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useFlags } from '../../../../../../composables/useFlags';
 import { useFlagsStore } from '../../../../../../stores/flags';
@@ -357,6 +365,29 @@ import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
 const flagsStore = useFlagsStore();
+
+const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canChangeStatus,
+    canMultipleDelete,
+    showActionsColumn,
+} = useCatalogPermissions('flags');
+
+const tableColumnCount = computed(() => {
+    let count = 4;
+
+    if (canMultipleDelete.value) {
+        count += 1;
+    }
+
+    if (showActionsColumn.value) {
+        count += 1;
+    }
+
+    return count;
+});
 
 const flagsApi = useFlags();
 const {

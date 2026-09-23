@@ -11,6 +11,7 @@ return [
     'already_authenticated' => 'You are already authenticated.',
     'cannot_delete_relation' => 'Cannot delete because related records exist in: :relation.',
     'cannot_delete_related' => 'Cannot delete because this record has related data.',
+    'cannot_delete_role' => 'This system role cannot be deleted.',
     'bulk_deleted_all' => ':count item(s) deleted successfully.',
     'bulk_deleted_partial' => ':deleted deleted. :skipped could not be deleted due to related data.',
     'bulk_deleted_none' => 'No items were deleted. All selected records have related data.',

@@ -26,3 +26,16 @@ data class FlagDto(
     val id: Int,
     val code: String,
 )
+
+data class BrandingDto(
+    @SerializedName("app_name") val appName: String? = null,
+    val logo: String? = null,
+    @SerializedName("logo_dark") val logoDark: String? = null,
+)
+
+data class LanguageDto(
+    val id: Int,
+    val code: String,
+    val name: String,
+    val direction: String,
+)
