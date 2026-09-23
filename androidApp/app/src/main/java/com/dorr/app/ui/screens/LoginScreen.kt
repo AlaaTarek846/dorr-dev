@@ -62,11 +62,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
-import com.dorr.app.network.AppLocale
 import com.dorr.app.network.CountryDto
 import com.dorr.app.network.LanguageDto
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.serverMessage
+import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.launch
 
@@ -501,14 +501,15 @@ private fun BrandName() {
 
 @Composable
 private fun LanguagePicker() {
+    val appLanguage = LocalAppLanguage.current
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<LanguageDto?>(null) }
 
-    LaunchedEffect(AppLocale.current) {
+    LaunchedEffect(appLanguage.code) {
         val listed = runCatching { ApiClient.languages.list().data.orEmpty() }.getOrDefault(emptyList())
         languages = listed
-        selected = listed.find { it.code.equals(AppLocale.current, ignoreCase = true) }
+        selected = listed.find { it.code.equals(appLanguage.code, ignoreCase = true) }
             ?: listed.find { it.code.equals("ar", ignoreCase = true) }
             ?: listed.firstOrNull()
     }
@@ -526,7 +527,7 @@ private fun LanguagePicker() {
             Icon(Icons.Rounded.Language, contentDescription = null, tint = Color(0xFFE50914), modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(8.dp))
             Text(
-                text = selected?.name ?: "العربية",
+                text = selected?.name ?: stringResource(R.string.language_arabic),
                 color = Color(0xFF374151),
                 fontWeight = FontWeight.SemiBold,
                 fontSize = 13.sp,
@@ -553,7 +554,7 @@ private fun LanguagePicker() {
                     },
                     onClick = {
                         selected = language
-                        AppLocale.current = language.code.lowercase()
+                        appLanguage.set(language.code.lowercase())
                         expanded = false
                     },
                     modifier = if (isSelected) Modifier.background(Color(0xFFFDE8EC)) else Modifier,

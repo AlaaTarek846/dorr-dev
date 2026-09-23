@@ -56,7 +56,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
-import com.dorr.app.network.AppLocale
+import com.dorr.app.network.AuthSession
+import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.ContactUsSheet
 import com.dorr.app.ui.screens.profile.FaqSheet
 import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
@@ -150,7 +151,19 @@ private fun ProfileMenuScreen(
                     Icon(Icons.Rounded.Person, contentDescription = null, tint = AppColors.primary, modifier = Modifier.size(48.dp))
                 }
                 Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.account_default_user), style = MaterialTheme.typography.headlineMedium)
+                val user = AuthSession.user
+                Text(
+                    text = user?.takeIf { !it.name.isNullOrBlank() }?.name ?: stringResource(R.string.account_default_user),
+                    style = MaterialTheme.typography.headlineMedium,
+                )
+                user?.phone?.let { phone ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = phone,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = AppColors.textSecondary,
+                    )
+                }
             }
             Spacer(Modifier.height(32.dp))
         }
@@ -254,14 +267,14 @@ private fun AboutDialog(onDismiss: () -> Unit) {
     )
 }
 
-// Switches AppLocale — which changes the X-Locale header sent to the backend
-// (so e.g. country names come back translated) — but not the app's own UI
-// strings, since those follow the system locale. Wiring the UI itself needs
-// AppCompatDelegate.setApplicationLocales (androidx.appcompat), left out here
-// to avoid pulling in a dependency this scaffold doesn't otherwise need.
+// Switches the app locale. LocalAppLanguage set() persists the choice and
+// LocalizedApp (MainActivity) re-wraps the composition in a locale-aware
+// Context, so every stringResource call and the RTL/LTR layout follow it
+// immediately — no activity recreation needed.
 @Composable
 private fun LanguageDialog(onDismiss: () -> Unit) {
-    var selectedArabic by remember { mutableStateOf(AppLocale.current == "ar") }
+    val appLanguage = LocalAppLanguage.current
+    var selectedArabic by remember(appLanguage.code) { mutableStateOf(appLanguage.isArabic) }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.language_title)) },
@@ -270,12 +283,12 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                 LanguageOption(
                     label = stringResource(R.string.language_arabic),
                     selected = selectedArabic,
-                    onClick = { selectedArabic = true; AppLocale.current = "ar" },
+                    onClick = { selectedArabic = true; appLanguage.set("ar") },
                 )
                 LanguageOption(
                     label = stringResource(R.string.language_english),
                     selected = !selectedArabic,
-                    onClick = { selectedArabic = false; AppLocale.current = "en" },
+                    onClick = { selectedArabic = false; appLanguage.set("en") },
                 )
             }
         },

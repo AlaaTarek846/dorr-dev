@@ -11,6 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import com.dorr.app.navigation.DorrNavGraph
+import com.dorr.app.ui.locale.LocalizedApp
 import com.dorr.app.ui.theme.DorrTheme
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.ThemeState
@@ -20,11 +21,13 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            val themeState = remember { ThemeState() }
-            CompositionLocalProvider(LocalThemeState provides themeState) {
-                DorrTheme(darkTheme = themeState.isDark ?: isSystemInDarkTheme()) {
-                    Surface(modifier = Modifier.fillMaxSize()) {
-                        DorrNavGraph()
+            LocalizedApp {
+                val themeState = remember { ThemeState() }
+                CompositionLocalProvider(LocalThemeState provides themeState) {
+                    DorrTheme(darkTheme = themeState.isDark ?: isSystemInDarkTheme()) {
+                        Surface(modifier = Modifier.fillMaxSize()) {
+                            DorrNavGraph()
+                        }
                     }
                 }
             }

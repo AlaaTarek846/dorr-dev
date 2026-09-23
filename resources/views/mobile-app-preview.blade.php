@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>درر — معاينة تطبيق الموبايل</title>
-<link rel="stylesheet" href="{{ asset('app/css/styles.css?v=25') }}">
+<link rel="stylesheet" href="{{ asset('app/css/styles.css?v=46') }}">
+
 </head>
 <body>
 
@@ -56,7 +57,7 @@
       </div>
       <div class="login-body">
         <div class="login-lang">
-          <button type="button" class="login-lang-btn" id="login-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="اللغة">
+          <button type="button" class="login-lang-btn" id="login-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="اللغة" data-i18n-aria="langDialogTitle">
             <span class="login-lang-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><use href="#icon-language"/></svg>
             </span>
@@ -78,7 +79,7 @@
           </span>
           <span class="phone-sep"></span>
           <div class="phone-code-wrap">
-            <button type="button" class="phone-code" id="phone-dial-code" aria-haspopup="listbox" aria-label="كود الدولة">
+            <button type="button" class="phone-code" id="phone-dial-code" aria-haspopup="listbox" aria-label="كود الدولة" data-i18n-aria="phoneCodeLabel">
               <img class="phone-flag" id="phone-flag" alt="" width="20" height="15" src="https://flagcdn.com/w40/sa.png">
               <span id="phone-dial-text">+966</span>
               <span class="phone-code-caret" aria-hidden="true"></span>
@@ -86,10 +87,10 @@
             <div class="phone-code-menu" id="phone-code-menu" hidden>
               <label class="phone-code-search">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-                <input type="search" id="phone-country-search" placeholder="ابحث عن دولة" autocomplete="off" aria-label="بحث عن دولة">
+                <input type="search" id="phone-country-search" placeholder="ابحث عن دولة" autocomplete="off" aria-label="بحث عن دولة" data-i18n-ph="countrySearchPlaceholder" data-i18n-aria="countrySearchPlaceholder">
               </label>
               <ul id="phone-code-list"></ul>
-              <p class="phone-code-empty" id="phone-code-empty" hidden>لا توجد نتائج</p>
+              <p class="phone-code-empty" id="phone-code-empty" hidden data-i18n="countrySearchEmpty">لا توجد نتائج</p>
             </div>
           </div>
           <span class="phone-sep"></span>
@@ -126,11 +127,11 @@
         </svg>
       </div>
       <div class="login-body">
-        <button class="sub-back otp-back" id="otp-back-btn" aria-label="رجوع">
+        <button class="sub-back otp-back" id="otp-back-btn" aria-label="رجوع" data-i18n-aria="goBack">
           <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
         </button>
         <div class="login-lang">
-          <button type="button" class="login-lang-btn" id="otp-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="اللغة">
+          <button type="button" class="login-lang-btn" id="otp-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="اللغة" data-i18n-aria="langDialogTitle">
             <span class="login-lang-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><use href="#icon-language"/></svg>
             </span>
@@ -185,55 +186,38 @@
       <div class="tab-panels">
         <!-- ---- HOME TAB ---- -->
         <div class="tab-panel active" data-panel="home">
-          <div class="home-scroll">
-            <header class="home-header">
-              <div class="home-header-top">
-                <button class="avatar-btn" data-goto-tab="account">
-                  <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
-                </button>
-                <div class="greeting">مرحباً، مستخدم زائر</div>
-                <button class="bell-btn" id="bell-btn">
-                  <svg viewBox="0 0 24 24"><use href="#icon-bell"/></svg>
-                  <span class="bell-dot"></span>
-                </button>
-              </div>
-              <div class="stat-row">
-                <div class="stat-chip">
-                  <svg viewBox="0 0 24 24"><use href="#icon-build"/></svg>
-                  <span class="stat-value">0</span>
-                  <span class="stat-label">الطلبات النشطة</span>
-                </div>
-                <div class="stat-chip">
-                  <svg viewBox="0 0 24 24"><use href="#icon-car"/></svg>
-                  <span class="stat-value">0</span>
-                  <span class="stat-label">عناصري</span>
-                </div>
-                <div class="stat-chip">
-                  <svg viewBox="0 0 24 24"><use href="#icon-add-circle"/></svg>
-                  <span class="stat-value">+</span>
-                  <span class="stat-label">طلب جديد</span>
-                </div>
-              </div>
+          <div class="home-page">
+            <header class="home-top">
+              <button type="button" class="home-icon-btn" data-goto-tab="account" aria-label="حسابي" data-i18n-aria="accountTitle">
+                <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
+              </button>
+              <h1 class="home-greeting" id="home-greeting">مرحباً، مستخدم زائر</h1>
+              <button type="button" class="home-icon-btn home-bell" id="bell-btn" aria-label="الإشعارات" data-i18n-aria="notifTitle">
+                <svg viewBox="0 0 24 24"><use href="#icon-bell"/></svg>
+                <span class="home-bell-dot"></span>
+              </button>
             </header>
 
-            <div class="banner-slider">
-              <div class="banner-track" id="banner-track">
-                <div class="banner-slide" style="background:linear-gradient(135deg,var(--primary),var(--primary-light))"><span>مرحباً بك</span></div>
-                <div class="banner-slide" style="background:linear-gradient(135deg,#0E9F6E,#10B981)"><span>عروض خاصة</span></div>
-                <div class="banner-slide" style="background:linear-gradient(135deg,#FF8A4C,#F59E0B)"><span>احجز خدمة الآن</span></div>
+            <div class="home-banner">
+              <div class="home-banner-viewport">
+                <div class="banner-track" id="banner-track">
+                  <div class="banner-slide" style="background:linear-gradient(135deg,#E50914,#FF4D55)"><span data-i18n="bannerWelcome">مرحباً بك</span></div>
+                  <div class="banner-slide" style="background:linear-gradient(135deg,#C40812,#E50914)"><span data-i18n="bannerOffers">عروض خاصة</span></div>
+                  <div class="banner-slide" style="background:linear-gradient(135deg,#111928,#374151)"><span data-i18n="bannerBook">احجز خدمة الآن</span></div>
+                </div>
               </div>
-              <div class="dots" id="banner-dots"></div>
+              <div class="dots home-dots" id="banner-dots"></div>
             </div>
 
-            <div class="quick-actions">
-              <div class="quick-card" style="--qc:var(--primary)">
-                <svg viewBox="0 0 24 24"><use href="#icon-phone"/></svg>
-                <span>اتصل بنا</span>
-              </div>
-              <div class="quick-card" style="--qc:var(--accent)" data-goto-tab="history">
-                <svg viewBox="0 0 24 24"><use href="#icon-chart"/></svg>
-                <span>السجل</span>
-              </div>
+            <div class="home-quick">
+              <button type="button" class="home-quick-card">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-phone"/></svg></span>
+                <span class="home-quick-label" data-i18n="quickContact">اتصل بنا</span>
+              </button>
+              <button type="button" class="home-quick-card" data-goto-tab="history">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-chart"/></svg></span>
+                <span class="home-quick-label" data-i18n="quickHistory">السجل</span>
+              </button>
             </div>
           </div>
         </div>
@@ -242,8 +226,8 @@
         <div class="tab-panel" data-panel="items">
           <div class="placeholder">
             <svg viewBox="0 0 24 24"><use href="#icon-construction"/></svg>
-            <h3>قريباً</h3>
-            <p>سيتم إضافة شاشات هذا القسم لاحقاً.</p>
+            <h3 data-i18n="comingSoon">قريباً</h3>
+            <p data-i18n="placeholderSub">سيتم إضافة شاشات هذا القسم لاحقاً.</p>
           </div>
         </div>
 
@@ -251,33 +235,125 @@
         <div class="tab-panel" data-panel="history">
           <div class="placeholder">
             <svg viewBox="0 0 24 24"><use href="#icon-construction"/></svg>
-            <h3>قريباً</h3>
-            <p>سيتم إضافة شاشات هذا القسم لاحقاً.</p>
+            <h3 data-i18n="comingSoon">قريباً</h3>
+            <p data-i18n="placeholderSub">سيتم إضافة شاشات هذا القسم لاحقاً.</p>
           </div>
         </div>
 
         <!-- ---- ACCOUNT TAB ---- -->
         <div class="tab-panel" data-panel="account">
-          <div class="profile-scroll">
+          <div class="account-page" id="account-page">
+            <header class="account-top">
+              <h1 data-i18n="accountTitle">حسابي</h1>
+              <button type="button" class="account-gear" id="account-settings-btn" aria-label="الإعدادات" data-i18n-aria="settingsTitle">
+                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>
+              </button>
+            </header>
+
             <div class="profile-header">
-              <div class="profile-avatar">
+              <div class="profile-avatar" aria-hidden="true">
                 <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
               </div>
-              <div class="profile-name">مستخدم زائر</div>
+              <div class="profile-meta">
+                <div class="profile-name">
+                  <span id="profile-name">مستخدم زائر</span>
+                  <svg class="profile-verified" viewBox="0 0 24 24" aria-label="موثّق" data-i18n-aria="verified"><circle cx="12" cy="12" r="10"/><path d="M7.2 12.2l3.1 3.1 6.5-6.6"/></svg>
+                </div>
+                <div class="profile-contact" id="profile-contact" dir="ltr"></div>
+                <span class="profile-badge">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17h17l-2.2-8.2-3.2 3.1L12 5.5 8.9 11.9 5.7 8.8z"/></svg>
+                  <span id="profile-badge-text" data-i18n="premium">عضو مميز</span>
+                </span>
+              </div>
             </div>
 
-            <div class="menu-list" id="profile-menu">
-              <div class="menu-row" data-icon="person" data-label="البيانات الشخصية" data-action="personal-data"></div>
-              <div class="menu-row" data-icon="bell" data-label="الإشعارات" data-action="notifications"></div>
-              <div class="menu-row" data-icon="language" data-label="اللغة" data-action="language"></div>
-              <div class="menu-row switch-row" data-icon="dark-mode" data-label="الوضع الليلي" data-switch="1"></div>
-              <div class="menu-row" data-icon="help" data-label="الأسئلة الشائعة" data-action="faq"></div>
-              <div class="menu-row" data-icon="phone" data-label="تواصل معنا" data-action="contact"></div>
-              <div class="menu-row" data-icon="info" data-label="عن التطبيق" data-action="about"></div>
-              <div class="menu-row" data-icon="shield" data-label="سياسة الخصوصية" data-action="privacy"></div>
-              <div class="menu-row danger-row" data-icon="logout" data-label="تسجيل خروج" data-action="logout"></div>
-              <div class="menu-row danger-row" data-icon="delete" data-label="حذف الحساب" data-action="delete"></div>
+            <div class="wallet-card">
+              <div class="wallet-copy">
+                <div class="wallet-label">
+                  <svg class="wallet-mark" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="12" rx="2.4"/><path d="M3 11h18"/><path d="M16 14.5h2.4"/><path d="M6.5 7V5.8A1.8 1.8 0 0 1 8.3 4h8.2"/></svg>
+                  <span data-i18n="walletLabel">رصيد المحفظة</span>
+                </div>
+                <div class="wallet-amount">
+                  <svg class="money-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v9M9.4 9.7c.6-.8 1.5-1.2 2.6-1.2 1.6 0 2.6.8 2.6 1.9s-1 1.7-2.6 1.7-2.6.7-2.6 1.9.1 1.9 2.6 1.9c1.1 0 2-.4 2.6-1.2"/></svg>
+                  <b>120.50</b>
+                  <span><bdi>ر.س</bdi></span>
+                </div>
+              </div>
+              <button type="button" class="wallet-add" id="wallet-add-btn"><span aria-hidden="true">+</span> <span data-i18n="walletAdd">إضافة رصيد</span></button>
             </div>
+
+            <div class="account-stats">
+              <div class="account-stat">
+                <span class="account-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><use href="#icon-car"/></svg>
+                </span>
+                <div class="account-stat-copy">
+                  <strong>12</strong>
+                  <span data-i18n="statOrders">إجمالي الطلبات</span>
+                </div>
+              </div>
+              <div class="account-stat account-stat--rating">
+                <span class="account-stat-icon" aria-hidden="true">
+                  <svg class="stat-star" viewBox="0 0 24 24"><path d="M12 3.2l2.4 5.2 5.6.7-4.2 3.8 1.1 5.6L12 15.8 7.1 18.5l1.1-5.6L4 9.1l5.6-.7z"/></svg>
+                </span>
+                <div class="account-stat-copy">
+                  <strong>4.9</strong>
+                  <span data-i18n="statRating">التقييم</span>
+                </div>
+              </div>
+              <div class="account-stat">
+                <span class="account-stat-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24"><use href="#icon-event"/></svg>
+                </span>
+                <div class="account-stat-copy">
+                  <strong>3</strong>
+                  <span data-i18n="statActive">الطلبات النشطة</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="account-links">
+              <button type="button" class="account-link" data-account-link="personal-data">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-person"/></svg></span>
+                <span class="account-link-text"><strong data-i18n="accPersonalTitle">البيانات الشخصية</strong><small data-i18n="accPersonalSub">الاسم والهاتف والبريد</small></span>
+                <svg class="menu-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+              </button>
+              <button type="button" class="account-link" data-account-link="settings">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg></span>
+                <span class="account-link-text"><strong data-i18n="accSettingsTitle">الإعدادات</strong><small data-i18n="accSettingsSub">اللغة والإشعارات والحساب</small></span>
+                <svg class="menu-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+              </button>
+              <button type="button" class="account-link" data-account-link="places">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-location"/></svg></span>
+                <span class="account-link-text"><strong data-i18n="accPlacesTitle">العناوين</strong><small data-i18n="accPlacesSub">عناوين المنزل والعمل</small></span>
+                <svg class="menu-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+              </button>
+              <button type="button" class="account-link" data-account-link="payments">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M3 10h18"/></svg></span>
+                <span class="account-link-text"><strong data-i18n="accPaymentsTitle">طرق الدفع</strong><small data-i18n="accPaymentsSub">البطاقات والمحافظ</small></span>
+                <svg class="menu-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+              </button>
+              <button type="button" class="account-link" data-account-link="promo">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-tag"/></svg></span>
+                <span class="account-link-text"><strong data-i18n="accPromoTitle">أكواد الخصم</strong><small data-i18n="accPromoSub">خصومات وعروض خاصة</small></span>
+                <svg class="menu-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+              </button>
+              <button type="button" class="account-link" data-account-link="help">
+                <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-chat"/></svg></span>
+                <span class="account-link-text"><strong data-i18n="accHelpTitle">المساعدة والدعم</strong><small data-i18n="accHelpSub">الأسئلة الشائعة وتواصل معنا</small></span>
+                <svg class="menu-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="account-settings" id="account-settings" hidden>
+            <header class="account-top">
+              <h1 data-i18n="settingsTitle">الإعدادات</h1>
+              <button type="button" class="account-gear" id="account-settings-back" aria-label="رجوع" data-i18n-aria="goBack">
+                <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+              </button>
+            </header>
+            <div class="account-links account-settings-links" id="profile-menu"></div>
           </div>
         </div>
       </div>
@@ -286,11 +362,11 @@
       <div class="bottom-bar">
         <button class="tab-btn active" data-tab="home">
           <svg viewBox="0 0 24 24"><use href="#icon-home"/></svg>
-          <span>الرئيسية</span>
+          <span data-i18n="tabHome">الرئيسية</span>
         </button>
         <button class="tab-btn" data-tab="items">
-          <svg viewBox="0 0 24 24"><use href="#icon-box"/></svg>
-          <span>العناصر</span>
+          <svg viewBox="0 0 24 24"><use href="#icon-services"/></svg>
+          <span data-i18n="tabServices">الخدمات</span>
         </button>
         <div class="fab-slot">
           <button class="fab-btn">
@@ -298,12 +374,12 @@
           </button>
         </div>
         <button class="tab-btn" data-tab="history">
-          <svg viewBox="0 0 24 24"><use href="#icon-history"/></svg>
-          <span>السجل</span>
+          <svg viewBox="0 0 24 24"><use href="#icon-log"/></svg>
+          <span data-i18n="tabHistory">السجل</span>
         </button>
         <button class="tab-btn" data-tab="account">
           <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
-          <span>الحساب</span>
+          <span data-i18n="tabAccount">الحساب</span>
         </button>
       </div>
     </section>
@@ -325,8 +401,8 @@
         <button class="sub-back" id="notif-back-btn">
           <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
         </button>
-        <span>الإشعارات</span>
-        <button class="link-btn notif-mark-all" id="notif-mark-all-btn" hidden>قراءة الكل</button>
+        <span data-i18n="notifTitle">الإشعارات</span>
+        <button class="link-btn notif-mark-all" id="notif-mark-all-btn" hidden data-i18n="notifMarkAll">قراءة الكل</button>
       </header>
       <div class="sub-body notif-list" id="notif-list"></div>
     </section>
@@ -359,7 +435,9 @@
   <symbol id="icon-construction" viewBox="0 0 24 24"><path d="M4 20l7-7M13 11l7 7M9 4l3 3-6 6-3-3zM15 4l3 3-2 2-3-3z"/></symbol>
   <symbol id="icon-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
   <symbol id="icon-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5-9 5-9-5zM3 8v9l9 5V13zM21 8v9l-9 5V13"/></symbol>
+  <symbol id="icon-services" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="3.5" width="7" height="7" rx="1.8"/><rect x="3.5" y="13.5" width="7" height="7" rx="1.8"/><rect x="13.5" y="13.5" width="7" height="7" rx="1.8"/></symbol>
   <symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4M12 8v5l3 2"/></symbol>
+  <symbol id="icon-log" viewBox="0 0 24 24"><path d="M7 3.5h7.5L19 8v12a1.5 1.5 0 0 1-1.5 1.5h-10A1.5 1.5 0 0 1 6 20V5A1.5 1.5 0 0 1 7 3.5z"/><path d="M14.5 3.8V8H19"/><path d="M9 12.5h6M9 16h4"/></symbol>
   <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
   <symbol id="icon-location" viewBox="0 0 24 24"><path d="M12 22s7-6.4 7-12a7 7 0 1 0-14 0c0 5.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></symbol>
   <symbol id="icon-language" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
@@ -378,6 +456,7 @@
   <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M12.5 3H4v8.5L14 21l8.5-8.5z"/><circle cx="8" cy="8" r="1.5"/></symbol>
 </svg>
 
-<script src="{{ asset('app/js/app.js?v=11') }}"></script>
+<script src="{{ asset('app/js/app.js?v=24') }}"></script>
+
 </body>
 </html>

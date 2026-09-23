@@ -30,6 +30,10 @@
     <string name="home_call">Call</string>
     <string name="home_history">History</string>
 
+    <string name="banner_slide_welcome">Welcome</string>
+    <string name="banner_slide_offers">Special offers</string>
+    <string name="banner_slide_book">Book a service</string>
+
     <string name="tab_home">Home</string>
     <string name="tab_items">Items</string>
     <string name="tab_history">History</string>
@@ -116,4 +120,18 @@
     <string name="notif_time_yesterday">Yesterday</string>
     <string name="notif_time_days_ago">%1$d days ago</string>
     <string name="notif_time_weeks_ago">%1$d weeks ago</string>
+
+    <!-- Sample notifications (placeholder feed — replace with real backend data) -->
+    <string name="notif_sample_title_status_changed">Your request status changed</string>
+    <string name="notif_sample_body_status_changed">Your service request moved to "In progress".</string>
+    <string name="notif_sample_title_quote_ready">A quote is ready for review</string>
+    <string name="notif_sample_body_quote_ready">Review the items and approve to proceed.</string>
+    <string name="notif_sample_title_invoice">New invoice issued</string>
+    <string name="notif_sample_body_invoice">An invoice was issued for your recent service.</string>
+    <string name="notif_sample_title_maintenance">Upcoming maintenance</string>
+    <string name="notif_sample_body_maintenance">A routine check is due soon.</string>
+    <string name="notif_sample_title_promo">Limited-time offer</string>
+    <string name="notif_sample_body_promo">A special offer is available this week.</string>
+    <string name="notif_sample_title_welcome">Welcome to the app</string>
+    <string name="notif_sample_body_welcome">Thanks for signing up.</string>
 </resources>

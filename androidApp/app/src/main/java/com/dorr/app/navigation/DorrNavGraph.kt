@@ -81,7 +81,10 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         composable(Routes.SPLASH) {
             SplashScreen(
                 onFinished = {
-                    navController.navigate(Routes.LOGIN) {
+                    // A persisted session (restored in DorrApp.onCreate) skips
+                    // the auth flow and lands directly on Main.
+                    val destination = if (AuthSession.isAuthenticated) Routes.MAIN else Routes.LOGIN
+                    navController.navigate(destination) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 },
