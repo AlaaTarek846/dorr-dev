@@ -6,6 +6,7 @@ use Database\Seeders\Admin\AdminPermissionSeeder;
 use Database\Seeders\Admin\AdminSeeder;
 use Database\Seeders\General\CountrySeeder;
 use Database\Seeders\General\CurrencySeeder;
+use Database\Seeders\General\DashboardThemeSeeder;
 use Database\Seeders\General\FlagSeeder;
 use Database\Seeders\General\LanguageSeeder;
 use Database\Seeders\General\PlatformSettingSeeder;
@@ -32,6 +33,7 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
+            DashboardThemeSeeder::class,
             ServiceCategoriesSeeder::class,
             AdminSeeder::class,
             AdminPermissionSeeder::class,

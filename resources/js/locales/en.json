@@ -246,6 +246,7 @@
         },
         "permission_groups": {
             "admins": "Employees",
+            "flags": "Flags",
             "flats": "Furnished apartments",
             "countries": "Countries",
             "languages": "Languages",

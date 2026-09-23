@@ -7,12 +7,13 @@ use App\Repositories\BaseRepository;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Admin\Models\Role;
+use Modules\Admin\Repositories\Concerns\ResolvesAuthenticatedAdmin;
 use Modules\Admin\Repositories\Concerns\ScopesAdminApiGuard;
 use Spatie\Permission\PermissionRegistrar;
 
 class RoleRepository extends BaseRepository
 {
-    use ScopesAdminApiGuard;
+    use ResolvesAuthenticatedAdmin, ScopesAdminApiGuard;
 
     protected array $with = ['permissions'];
 
@@ -30,9 +31,29 @@ class RoleRepository extends BaseRepository
         $this->model = $model;
     }
 
+    public function query(): Builder
+    {
+        return $this->applyRoleVisibilityScope(
+            $this->scopeAdminApiGuard($this->model->newQuery()),
+        );
+    }
+
     protected function buildIndexQuery(): Builder
     {
-        return $this->scopeAdminApiGuard(parent::buildIndexQuery());
+        if ($this->shouldListOnlyTrashed()) {
+            return $this->query()->onlyTrashed();
+        }
+
+        return $this->query();
+    }
+
+    protected function applyRoleVisibilityScope(Builder $query): Builder
+    {
+        if ($this->authenticatedAdminIsSuperAdmin()) {
+            return $query;
+        }
+
+        return $query->where('name', '!=', $this->superAdminRoleName());
     }
 
     /**

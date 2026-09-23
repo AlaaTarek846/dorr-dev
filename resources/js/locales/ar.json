@@ -246,6 +246,7 @@
         },
         "permission_groups": {
             "admins": "الموظفين",
+            "flags": "الأعلام",
             "flats": "الشقق المفروشة",
             "countries": "الدول",
             "languages": "اللغات",

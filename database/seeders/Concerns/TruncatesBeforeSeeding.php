@@ -4,6 +4,7 @@ namespace Database\Seeders\Concerns;
 
 use App\Models\Country;
 use App\Models\Currency;
+use App\Models\DashboardTheme;
 use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Database\Eloquent\Model;
@@ -21,6 +22,7 @@ trait TruncatesBeforeSeeding
         Currency::class => 'currency_translations',
         Language::class => 'language_translations',
         Flag::class => 'flag_translations',
+        DashboardTheme::class => 'dashboard_theme_translations',
     ];
 
     protected function detachUsersFromCountries(): void

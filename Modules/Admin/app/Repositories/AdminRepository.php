@@ -2,15 +2,21 @@
 
 namespace Modules\Admin\Repositories;
 
+use App\Exceptions\ConflictException;
 use App\Models\ServiceCategory;
 use App\Repositories\BaseRepository;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Admin\Models\Admin;
 use Modules\Admin\Models\Role;
+use Modules\Admin\Repositories\Concerns\ResolvesAuthenticatedAdmin;
+use Modules\Admin\Repositories\Concerns\ScopesAdminApiGuard;
 use Spatie\Permission\PermissionRegistrar;
 
 class AdminRepository extends BaseRepository
 {
+    use ResolvesAuthenticatedAdmin, ScopesAdminApiGuard;
+
     protected array $with = [
         'country.flag',
         'services.category.translations',
@@ -25,6 +31,39 @@ class AdminRepository extends BaseRepository
     public function __construct(Admin $model)
     {
         $this->model = $model;
+    }
+
+    public function query(): Builder
+    {
+        return $this->applyEmployeeVisibilityScope($this->model->newQuery());
+    }
+
+    protected function buildIndexQuery(): Builder
+    {
+        if ($this->shouldListOnlyTrashed()) {
+            return $this->applyEmployeeVisibilityScope(parent::buildIndexQuery()->onlyTrashed());
+        }
+
+        return $this->applyEmployeeVisibilityScope(parent::buildIndexQuery());
+    }
+
+    protected function applyEmployeeVisibilityScope(Builder $query): Builder
+    {
+        $authAdmin = $this->authenticatedAdmin();
+
+        if ($authAdmin !== null) {
+            $query->where($query->getModel()->getTable().'.id', '!=', $authAdmin->id);
+        }
+
+        if (! $this->authenticatedAdminIsSuperAdmin()) {
+            $query->whereDoesntHave('roles', function (Builder $roleQuery): void {
+                $roleQuery
+                    ->where('name', $this->superAdminRoleName())
+                    ->where('guard_name', $this->adminApiGuard());
+            });
+        }
+
+        return $query;
     }
 
     public function changeStatus(int|string $id, bool $status): Admin
@@ -123,8 +162,20 @@ class AdminRepository extends BaseRepository
         }
 
         $role = Role::query()
-            ->where('guard_name', 'admin_api')
+            ->where('guard_name', $this->adminApiGuard())
             ->findOrFail($roleId);
+
+        if (
+            $role->name === $this->superAdminRoleName()
+            && ! $this->authenticatedAdminIsSuperAdmin()
+        ) {
+            throw new ConflictException(
+                __('api.unauthorized'),
+                403,
+                null,
+                'cannot_assign_super_admin_role',
+            );
+        }
 
         $admin->syncRoles([$role]);
 

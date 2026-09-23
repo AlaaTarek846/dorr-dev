@@ -126,7 +126,6 @@ class AdminPermissionSeeder extends Seeder
                     'create',
                     'update',
                     'delete',
-                    'change-status',
                     'multiple-delete',
                 ],
             ],
