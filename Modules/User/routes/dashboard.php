@@ -25,6 +25,7 @@ Route::middleware('locale')->prefix('user/v1')->group(function () {
     });
 
     Route::middleware('auth:user_api')->group(function () {
+        Route::get('countries/dropdown', [CountryController::class, 'dropdown']);
         Route::get('me', [UserAuthController::class, 'me']);
         Route::post('logout', [UserAuthController::class, 'logout']);
         Route::post('profile', [UserProfileController::class, 'update']);

@@ -5,6 +5,7 @@ export function useDashboardThemes() {
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/dashboard-themes',
         countsStore: useDashboardThemesStore(),
+        lazyCounts: true,
         confirmDeleteKey: 'dashboard_themes.confirm_delete',
         searchDefaults: {
             columns: ['slug', 'path'],
