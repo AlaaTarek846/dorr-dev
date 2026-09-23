@@ -38,4 +38,6 @@ object ApiClient {
         .build()
 
     val countries: CountryApi by lazy { retrofit.create(CountryApi::class.java) }
+    val languages: LanguageApi by lazy { retrofit.create(LanguageApi::class.java) }
+    val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
 }

@@ -7,7 +7,9 @@
     <string name="login_subtitle">أدخل رقم هاتفك سيتم إرسال كود للتأكيد</string>
     <string name="login_hint">6000 0000</string>
     <string name="login_cta">أرسل كود التأكيد</string>
-    <string name="login_terms">بتسجيلك، أنت موافق على شروط الاستخدام وسياسة الخصوصية</string>
+    <string name="login_country_code">كود الدولة</string>
+    <string name="login_country_search">ابحث عن دولة</string>
+    <string name="login_terms">بتسجيلك أنت موافق على شروط الاستخدام وسياسة الخصوصية</string>
 
     <string name="otp_title">تأكيد رقم الهاتف</string>
     <string name="otp_subtitle">أدخل الكود المرسل إلى %1$s</string>

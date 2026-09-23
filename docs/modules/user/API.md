@@ -14,12 +14,13 @@ Base: `/api/user/v1` (middleware: `locale`)
 | POST | `/create-password` | UserRegistrationController |
 | POST | `/forgot-password` | UserPasswordResetController |
 | POST | `/reset-password` | UserPasswordResetController |
+| GET | `/countries/dropdown` | CountryController |
+| GET | `/countries/detect` | CountryController |
 
 ## Authenticated (auth:user_api)
 
 | Method | Endpoint |
 |--------|----------|
-| GET | `/countries/dropdown` |
 | GET | `/me` |
 | POST | `/logout` |
 | POST | `/profile` |

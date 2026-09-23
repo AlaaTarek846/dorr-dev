@@ -7,6 +7,8 @@
     <string name="login_subtitle">Enter your phone number and we\'ll send a verification code</string>
     <string name="login_hint">6000 0000</string>
     <string name="login_cta">Send verification code</string>
+    <string name="login_country_code">Country code</string>
+    <string name="login_country_search">Search country</string>
     <string name="login_terms">By signing in you agree to the Terms of Use and Privacy Policy</string>
 
     <string name="otp_title">Verify your phone</string>
