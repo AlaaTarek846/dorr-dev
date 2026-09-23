@@ -1,6 +1,6 @@
 # Project Checkpoint
 
-**Last updated:** 2026-09-19  
+**Last updated:** 2026-09-23  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -46,6 +46,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
 - Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
 - Dashboard theme infrastructure: Blade `dashboard/shell`, `DashboardThemeResolver`, Vue `themes/theme-1` shells + themed views paths
+- `phone_code` column (country dial code, e.g. `+20`) added to `users` / `providers` / `admins` (2026-09-23): migrations + seeders + `UserFactory`; accepted nullable in CRUD + profile form requests; exposed in `UserResource` / `AdminResource` / `ProviderResource`; admin user/provider modals + admin profile persist it; Phone Code column in admin user/provider tables; i18n keys `users.phone_code` / `providers.phone_code` (ar/en)
 - **UNKNOWN:** No other active work tracked in repo
 
 ---

@@ -52,6 +52,8 @@ personal_access_tokens (Sanctum)
 | id | PK |
 | name, email | email unique |
 | password | nullable (registration flow) |
+| phone | nullable |
+| phone_code | nullable, country dial code (e.g. `+20`) |
 | email_verified_at | nullable |
 | status | UserStatus enum |
 | gender | Gender enum (added via migration) |
@@ -67,6 +69,8 @@ personal_access_tokens (Sanctum)
 | id | PK |
 | name, email | |
 | password | |
+| phone | nullable |
+| phone_code | nullable, country dial code (e.g. `+20`) |
 | status | |
 | country_id | FK → countries |
 | timestamps | |
@@ -122,7 +126,7 @@ personal_access_tokens (Sanctum)
 ### `providers`
 
 - Business provider profile (table name `providers`)
-- country_id, status, contact fields (see migration)
+- country_id, status, phone, phone_code, contact fields (see migration)
 - media support
 
 ### `provider_services`

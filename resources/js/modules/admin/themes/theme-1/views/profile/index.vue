@@ -276,7 +276,7 @@ import PhoneCountryInput from '../../../../../../components/catalog/PhoneCountry
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
 import { useAuthStore } from '../../../../../../stores/auth';
-import { combinePhoneNumber, splitPhoneNumber } from '../../../../../../utils/catalog';
+import { combinePhoneNumber, formatDialCodeForPayload, splitPhoneNumber } from '../../../../../../utils/catalog';
 import { calculatePasswordStrength, generateSecurePassword } from '../../../../../../utils/passwordStrength';
 
 const DEFAULT_AVATAR = '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
@@ -465,7 +465,7 @@ function fillProfileForm(admin) {
     profileForm.email = admin?.email ?? '';
     profileForm.gender = admin?.gender ?? '';
     profileForm.country_id = admin?.country_id ?? null;
-    profileDialCode.value = admin?.country?.dial_code ?? '';
+    profileDialCode.value = admin?.phone_code ?? admin?.country?.dial_code ?? '';
     profileForm.phone = splitPhoneNumber(admin?.phone, profileDialCode.value);
     avatarPreview.value = admin?.avatar_thumb ?? admin?.avatar ?? DEFAULT_AVATAR;
     avatarFile.value = null;
@@ -576,6 +576,7 @@ function buildProfileFormData() {
     formData.append('name', profileForm.name.trim());
     formData.append('email', profileForm.email.trim());
     formData.append('phone', combinePhoneNumber(profileDialCode.value, profileForm.phone));
+    formData.append('phone_code', formatDialCodeForPayload(profileDialCode.value) || '');
     formData.append('gender', profileForm.gender || '');
     formData.append('country_id', profileForm.country_id ? String(profileForm.country_id) : '');
 

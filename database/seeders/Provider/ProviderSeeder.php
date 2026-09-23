@@ -18,6 +18,7 @@ class ProviderSeeder extends Seeder
             [
                 'name' => 'Demo Provider',
                 'phone' => '01000000001',
+                'phone_code' => '+20',
                 'password' => 'password',
                 'status' => UserStatus::Active,
                 'gender' => Gender::Male,

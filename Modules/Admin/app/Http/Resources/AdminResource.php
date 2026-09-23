@@ -17,6 +17,7 @@ class AdminResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
+            'phone_code' => $this->phone_code,
             'status' => (bool) $this->status,
             'gender' => $this->gender?->value ?? $this->gender,
             'gender_label' => $this->gender?->label() ?? null,

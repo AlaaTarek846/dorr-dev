@@ -55,6 +55,7 @@ return [
         'name' => 'name',
         'email' => 'email',
         'phone' => 'phone',
+        'phone_code' => 'phone code',
         'gender' => 'gender',
         'country_id' => 'country',
         'password' => 'password',

@@ -6,12 +6,13 @@
 
 ## providers
 
-Migration: `Modules/Provider/database/migrations/2026_09_17_100000_create_provider_profiles_table.php`
+Migration: `Modules/Provider/database/migrations/2026_09_17_100000_create_provider_profiles_table.php`  
+Updated: `Modules/Provider/database/migrations/2026_09_23_100000_add_phone_code_to_providers_table.php`
 
 Key fields (see migration):
 
 - `country_id` → `countries`
-- `name`, `email`, `phone`, `gender`, `password`
+- `name`, `email`, `phone`, `phone_code`, `gender`, `password`
 - `status` (`UserStatus` enum)
 - `email_verified_at`, `phone_verified_at`
 - `remember_token`, timestamps, soft deletes
