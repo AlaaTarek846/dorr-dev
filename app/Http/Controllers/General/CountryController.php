@@ -37,4 +37,9 @@ class CountryController extends CatalogController
     {
         return $this->service->changeStatus($country, (bool) $request->validated('status'));
     }
+
+    public function detect()
+    {
+        return $this->service->detect();
+    }
 }
