@@ -10,6 +10,10 @@
     <string name="login_country_code">Country code</string>
     <string name="login_country_search">Search country</string>
     <string name="login_terms">By signing in you agree to the Terms of Use and Privacy Policy</string>
+    <string name="login_error_phone_invalid_length">The phone number must be %1$d digits.</string>
+    <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
+    <string name="login_error_phone_invalid_country">The selected country or dial code is invalid.</string>
+    <string name="login_error_generic">Something went wrong. Please try again.</string>
 
     <string name="otp_title">Verify your phone</string>
     <string name="otp_subtitle">Enter the code sent to %1$s</string>
@@ -17,6 +21,7 @@
     <string name="otp_resend">Resend code</string>
     <string name="otp_resend_in">Resend in %1$d seconds</string>
     <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 123456</string>
+    <string name="otp_error_generic">The verification code is incorrect or expired. Try again.</string>
 
     <string name="home_greeting">Hello, %1$s</string>
     <string name="home_active_jobs">Active jobs</string>

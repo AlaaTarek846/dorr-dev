@@ -1,5 +1,6 @@
 # Project Checkpoint
 
+
 **Last updated:** 2026-09-20  
 **Purpose:** Quick orientation for developers and AI assistants.
 
@@ -45,8 +46,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 ## Current Work
 
 - Provider dashboard SPA **documented** (module docs + API spec aligned with code, 2026-09-20)
-- Provider header service dropdown + sidebar links from `services[]` / `category.module_name` (sidebar uses placeholder links until per-module routes exist)
-- Admin provider modal: PrimeVue `Select`/`TreeSelect`; service categories tree (`/service-categories/tree-options`)
+- Provider profile services dropdown + sidebar links from `services[]` / `category.module_name`
+- **Mobile phone auth (Android):** `/api/mobile/v1/*` guard `user_api`; combined login/register by phone only; fixed demo OTP `123456` via `App\Traits\SendsPhoneOtp` (writes `verification_codes`); phone validated against `countries.phone_starts_with` / `phone_length`; `EnsurePhoneVerified` middleware blocks routes until `phone_verified_at` set; Android `LoginScreen`/`OtpScreen` wired to real APIs (`MobileAuthApi`)
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
 - Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
 - Dashboard theme infrastructure: Blade `dashboard/shell`, `DashboardThemeResolver`, Vue `themes/theme-1` shells + themed views paths
@@ -84,7 +85,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 | Suite | Status | Count |
 |-------|--------|-------|
-| PHPUnit | Passing | 7 tests, 15 assertions |
+| PHPUnit | Passing | 16 tests, 47 assertions |
 | Frontend | Not configured | 0 |
 
 **Command:** `composer test` or `php artisan test`

@@ -38,7 +38,7 @@ class CountrySeeder extends Seeder
                 'is_default' => $data['is_default'],
                 'flag_id' => $flagIds[$data['flag']] ?? null,
                 'currency_id' => $currencyIds[$data['currency']] ?? null,
-                'status' => Status::Active,
+                'status' => $data['is_default'] ? Status::Active : Status::Inactive,
             ]);
 
             $country->save();

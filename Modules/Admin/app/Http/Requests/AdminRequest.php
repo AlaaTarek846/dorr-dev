@@ -16,6 +16,7 @@ class AdminRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+
         $merge = [
             'phone' => $this->input('phone') ?: null,
             'gender' => $this->input('gender') ?: null,

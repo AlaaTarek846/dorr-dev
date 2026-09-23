@@ -10,6 +10,10 @@
     <string name="login_country_code">كود الدولة</string>
     <string name="login_country_search">ابحث عن دولة</string>
     <string name="login_terms">بتسجيلك أنت موافق على شروط الاستخدام وسياسة الخصوصية</string>
+    <string name="login_error_phone_invalid_length">يجب أن يتكون رقم الهاتف من %1$d أرقام.</string>
+    <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
+    <string name="login_error_phone_invalid_country">الدولة أو كود الاتصال غير صالح.</string>
+    <string name="login_error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
 
     <string name="otp_title">تأكيد رقم الهاتف</string>
     <string name="otp_subtitle">أدخل الكود المرسل إلى %1$s</string>
@@ -17,6 +21,7 @@
     <string name="otp_resend">إعادة إرسال الكود</string>
     <string name="otp_resend_in">إعادة الإرسال بعد %1$d ثانية</string>
     <string name="otp_dev_hint">نسخة تجريبية: إرسال الرسالة الحقيقي لسه مش متوصل — استخدم 123456</string>
+    <string name="otp_error_generic">كود التحقق غير صحيح أو انتهت صلاحيته. حاول مرة أخرى.</string>
 
     <string name="home_greeting">مرحباً، %1$s</string>
     <string name="home_active_jobs">الطلبات النشطة</string>
