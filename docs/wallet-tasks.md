@@ -3,7 +3,7 @@
 > **الحالة: غير معتمدة.** ترتيب مقترح للتنفيذ بناءً على [wallet-plan.md](wallet-plan.md) و[wallet-structure.md](wallet-structure.md).
 > **ممنوع البدء في أي مهمة من دول** قبل ما "المرحلة صفر" تتقفل (القرارات المعلّقة) — حسب [AGENTS.md](../AGENTS.md).
 
-آخر تحديث: 2026-09-22
+آخر تحديث: 2026-09-23 — بعد مراجعة `dorr-wallet-schema.pdf` وأخذ اللي يفيدنا منه (minor units، composite FKs، idempotency+hash، webhook_inbox، wallet_pins، Hold/Capture مُوحّد مع السحب) من غير تعقيد زيادة (رُفض نموذج الـ Double-Entry الكامل).
 
 **إزاي تقرأ الملف ده:** كل مرحلة **بتعتمد على اللي قبلها** وبترجّع Deliverable واضح وقابل للاختبار قبل ما ننتقل للي بعدها. جوه كل مرحلة، المهام مرتبة بالترتيب اللي هتتنفذ بيه فعلياً.
 
@@ -11,18 +11,20 @@
 
 ## المرحلة 0 — قفل القرارات (قبل أي سطر كود)
 
-مفيش migration ولا كود قبل ما الأسئلة دي تتجاوب (القائمة الكاملة في [wallet-plan.md § 16](wallet-plan.md#16-النقاش-إيه-الصح-وإيه-اللي-محتاج-تفكير) و[wallet-structure.md § 11](wallet-structure.md#11-الافتراضات-المفتوحة-لازم-تأكيدك-قبل-أي-migration)):
+مفيش migration ولا كود قبل ما الأسئلة دي تتجاوب (القائمة الكاملة في [wallet-plan.md § 16](wallet-plan.md#16-النقاش-إيه-الصح-وإيه-اللي-محتاج-تفكير) و[wallet-structure.md § 11](wallet-structure.md#11-قرارات-محسومة-بعد-مراجعة-dorr-wallet-schemapdf--افتراضات-لسه-مفتوحة)).
 
-- [ ] مكان الكود: موديول `Wallet` جديد (الافتراض) ولا `app/`؟
-- [ ] `decimal(19,4)` ولا minor units؟
-- [ ] محفظة النظام (`platform`) بالتصميم المقترح ولا جدول مستقل؟
+**اتقفلت بالفعل (مش محتاجة رد تاني):** مكان الكود (`Modules/Wallet`)، `bigint` minor units بدل `decimal`، `idempotency_key`+`request_hash`، قفل بترتيب `id`، `webhook_inbox`، `wallet_pins`، ورفض نموذج الـ Double-Entry الكامل — التفاصيل في `wallet-structure.md § 11`.
+
+**لسه محتاجة رد:**
+- [ ] محفظة النظام (`platform`) بالتصميم المقترح (`owner_id=0`) ولا جدول مستقل؟
 - [ ] بيانات اعتماد MyFatoorah/URPay/ARB — حسابات LeeTaxi/Jawad ولا جديدة؟
 - [ ] تفعيل التحويل بين المستخدمين من أول نسخة ولا لأ (`wallet_settings.transfers_enabled`)؟
 - [ ] الشحن `withdrawable` فوراً ولا فترة انتظار (Chargeback)؟
 - [ ] تاكسونومي `financial_categories` الكاملة (غير الأربع فئات الأساسية)؟
 - [ ] الصلاحيات: نستخدم `spatie/laravel-permission` الموجود بالفعل في `composer.json` من الأول، ولا نأجّل الحماية التفصيلية؟
+- [ ] PIN على "تعديل/إضافة وسيلة سحب"؟ وإنشاء أول PIN إجباري وقت التسجيل ولا اختياري؟ (تفاصيل `wallet-structure.md § 1.2`)
 
-**Deliverable:** تحديث `wallet-plan.md` بالإجابات، وتحويل كل "افتراض" في `wallet-structure.md` لقرار نهائي (يتشال منها كلمة "افتراض").
+**Deliverable:** تحديث `wallet-plan.md` بالإجابات، وتحويل كل "افتراض" متبقي في `wallet-structure.md § 11` لقرار نهائي.
 
 ---
 
@@ -35,7 +37,9 @@
 3. Migration: `wallet_settings` (جدول 3 في `wallet-structure.md`) + Model + Repository (على نمط `CountryRepository`).
 4. Seeder: صف `wallet_settings` تلقائي لكل دولة موجودة حالياً + Observer على `Country::created` يعمل نفس الحاجة للدول الجديدة.
 5. شاشة أدمن بسيطة (CRUD) لتعديل `wallet_settings` لكل دولة، على نمط `PlatformSettingController`.
-6. اختبار: إنشاء دولة جديدة → يتأكد إن `wallet_settings` اتعمل تلقائي بقيم افتراضية آمنة (`min_allowed_balance_* = 0`).
+6. Migration: `wallet_pins` (جدول 1.2) + Model `WalletPin`. `PinService`: `set()`/`verify()` (Argon2id + pepper من `config/wallet.php`)، عدّاد `failed_attempts` + `locked_until` بعد عدد محاولات معيّن، وMiddleware `RequiresWalletPin` جاهز للاستخدام (لسه من غير أي Route بتستخدمه — هيتفعّل في المراحل 6/8/10/11).
+7. اختبار: إنشاء دولة جديدة → يتأكد إن `wallet_settings` اتعمل تلقائي بقيم افتراضية آمنة (`min_allowed_balance_*_minor = 0`).
+8. اختبار: `PinService` — محاولات فاشلة متكررة → قفل مؤقت، ومحاولة صح بعد القفل بترفض لحد ما `locked_until` يعدي.
 
 **Deliverable:** موديول Wallet موجود، وكل دولة ليها إعدادات محفظة، من غير أي محفظة أو حركة لسه.
 
@@ -47,17 +51,27 @@
 
 1. Migration: `wallets` (جدول 1) + Model `Wallet` + trait `HasWallets` يتضاف لـ `User` و`Provider`.
 2. Migration: `wallet_transactions` (جدول 2) + Model `WalletTransaction` (immutable: بدون `update()`/`delete()` مفعّلين — يتقفلوا بـ guard في الموديل يرموا exception).
-3. `WalletService` (الباب الوحيد لتغيير أي رصيد):
-   - `credit(wallet, amount, bucket, type, ...)` / `debit(...)`.
-   - `transfer(fromWallet, toWallet, amount, ...)` — قفل المحفظتين **بترتيب الـ id** (منع deadlock)، والمستلم دايماً `spend_only`.
+3. Migration: `wallet_holds` (جدول 2.1) + Model `WalletHold` (الاستثناء الوحيد اللي مسموح يتحدّث — لحد ما يتقفل).
+4. `WalletService` (الباب الوحيد لتغيير أي رصيد):
+   - `credit(wallet, amountMinor, bucket, type, ...)` / `debit(...)`.
+   - `transfer(fromWallet, toWallet, amountMinor, ...)` — قفل المحفظتين **بترتيب الـ id تصاعدي دايماً** (منع deadlock — قاعدة عامة لأي عملية بتلمس أكتر من محفظة، مش خاصة بالتحويل بس)، والمستلم دايماً `spend_only`.
    - `reverse(transactionId, reason)` — بيعمل صف عكسي بنفس الـ `bucket`.
-   - `manualAdjustment(wallet, amount, bucket, reason, admin)` — للأدمن، الفلاج إجباري.
-   - كل دالة: `DB::transaction` + `lockForUpdate` + فحص `idempotency_key` + `CHECK` قبل الكتابة + تحديث `balance_after`/`total_balance_after`.
-4. أمر `wallet:reconcile` — بيعيد حساب الأرصدة من `wallet_transactions` ويقارنها بـ `wallets`، وبيبعت تنبيه (log/notification) عند أي فرق.
-5. Resource/API واحد (`WalletTransactionResource`) بيقرر اللون/الأيقونة/الترجمة لكل `type` — على نمط `WalletResource` في LeeTaxi بس من غير تكرار enums.
-6. **اختبارات إلزامية (قبل أي مرحلة تانية):**
+   - `manualAdjustment(wallet, amountMinor, bucket, reason, admin)` — للأدمن، الفلاج إجباري.
+   - `hold(wallet, amountMinor, bucket, reference, reasonCode, expiresAt?)` — بيزوّد `held_{bucket}_minor` بس، **مفيش صف `wallet_transactions`**.
+   - `capture(hold, capturedAmountMinor, type)` — صف `wallet_transactions` حقيقي بالمبلغ الفعلي، ويقفل الحجز كله (الفرق بيترجع متاح تلقائي).
+   - `release(hold, reason)` — تحرير الحجز من غير أي حركة مالية.
+   - كل دالة: `DB::transaction` + `lockForUpdate` + فحص `idempotency_key` **و`request_hash`** (نفس المفتاح + hash مختلف = رفض 409) + `CHECK` قبل الكتابة + تحديث `balance_after_minor`/`total_balance_after_minor`.
+5. أمر `wallet:reconcile` — بيعيد حساب الأرصدة من `wallet_transactions` ويقارنها بـ `wallets`، وبيبعت تنبيه (log/notification) عند أي فرق. **وبنفس الأمر (أو أمر شقيق):** يحرر أي `wallet_holds` بحالة `active` عدّى `expires_at`.
+6. Resource/API واحد (`WalletTransactionResource`) بيقرر اللون/الأيقونة/الترجمة لكل `type` — على نمط `WalletResource` في LeeTaxi بس من غير تكرار enums.
+7. **اختبارات إلزامية (قبل أي مرحلة تانية):**
    - المثال المحسوب بالكامل من `wallet-plan.md § 10` (شحن 1000 → تحويل 500 → رجوع 500 → القابل للسحب = 500).
    - سباق متزامن: طلبين سحب/خصم في نفس اللحظة على نفس المحفظة (لازم واحد بس ينجح لو الرصيد مايكفيش الاتنين).
+   - سباق التحويل: A→B وB→A في نفس اللحظة → مفيش deadlock (بترتيب الـ `id`)، والاتنين يتنفذوا بالترتيب من غير تجمّد.
+   - نفس `idempotency_key` بنفس `request_hash` مرتين → نفس النتيجة، عملية واحدة بس اتنفذت. نفس `idempotency_key` بـ `request_hash` مختلف → 409.
+   - `hold()` بيقلل المتاح (`bucket_minor − held_bucket_minor`) من غير ما يعمل أي صف `wallet_transactions`.
+   - `capture()` جزئي (مبلغ أقل من الحجز) → صف واحد بالمبلغ الفعلي، والفرق يترجع متاح فوراً، والحجز يقفل.
+   - `release()` → المتاح يرجع زي ما كان بالظبط، صفر صفوف `wallet_transactions` جديدة.
+   - حجز `active` عدّى `expires_at` → أمر التحرير التلقائي بيقفله.
    - `wallet:reconcile` بيرجع "مطابق" بعد أي سلسلة عمليات عشوائية.
    - محاولة `update()`/`delete()` مباشر على `WalletTransaction` → لازم يفشل.
 
@@ -105,32 +119,53 @@
 
 ## المرحلة 6 — الشحن الأونلاين + `quote` + الرسوم/الهدية
 
-1. Migrations: `payment_transactions` + **`payment_gateway_logs`** (جدول 9 و9.1 في `wallet-structure.md`).
+1. Migrations: `payment_transactions` + **`webhook_inbox`** + **`payment_gateway_logs`** (جداول 9، 9.1، 9.2 في `wallet-structure.md`).
 2. `wallet_fee_rules` (+ الترجمة): Migration جدول 4، CRUD أدمن، مع validation صارم على `percent` (سقف أقصى مطلق + تأكيد مزدوج قبل الحفظ).
-3. Endpoint `quote`: يدخل مبلغ + طريقة دفع → يرجّع القاعدة المطبّقة (لو فيه) + الصافي/الهدية المتوقعة، ويخزّن لقطة في `payment_transactions` (`fee_rule_id`, `fee_percent`, `quoted_net_amount`, `quoted_bonus_amount`).
-4. بدء الدفع (`initiate`) عبر `PaymentGatewayRegistry` بناءً على اللقطة — كل نداء (طلب/رد) بيتسجل صف في `payment_gateway_logs` (`event=initiate`).
-5. `Gateway::verify()` **إجباري في كل driver من أول نسخة** (مش تحسين لاحق، بند 9.2): استعلام server-to-server عن الحالة الحقيقية عند البوابة — نفس نمط `GetPaymentStatus` (MyFatoorah) و`decryptAndGetTransaction` (ARB). **ممنوع أي driver يثق في querystring/body الـ redirect من غير التحقق ده.**
-6. `PaymentCompletionService::completeSuccessfulPayment()` (مركزية، idempotent):
+3. Endpoint `quote`: يدخل مبلغ + طريقة دفع → يرجّع القاعدة المطبّقة (لو فيه) + الصافي/الهدية المتوقعة، ويخزّن لقطة في `payment_transactions` (`fee_rule_id`, `fee_percent`, `quoted_net_amount_minor`, `quoted_bonus_amount_minor`) مع `idempotency_key`+`request_hash`.
+4. **`RequiresWalletPin` middleware على Route الشحن** (المرحلة 1) — طلب الشحن يترفض من غير PIN صحيح.
+5. بدء الدفع (`initiate`) عبر `PaymentGatewayRegistry` بناءً على اللقطة — كل نداء (طلب/رد) بيتسجل صف في `payment_gateway_logs` (`event=initiate`).
+6. `Gateway::verify()` **إجباري في كل driver من أول نسخة** (مش تحسين لاحق، بند 9.3): استعلام server-to-server عن الحالة الحقيقية عند البوابة — نفس نمط `GetPaymentStatus` (MyFatoorah) و`decryptAndGetTransaction` (ARB). **ممنوع أي driver يثق في querystring/body الـ redirect من غير التحقق ده.**
+7. **مسار استقبال الـ webhook:** أي POST جاي من البوابة → تحقق توقيع → INSERT في `webhook_inbox` بـ `(provider_code, event_id)`. لو الصف موجود بالفعل (تكرار) → رد 200 فوراً من غير أي معالجة تانية. لو جديد → استدعاء `PaymentCompletionService`.
+8. `PaymentCompletionService::completeSuccessfulPayment()` (مركزية، idempotent):
    - `DB::transaction` + `lockForUpdate` على صف `payment_transactions` **أولاً**، تحقق إن الحالة لسه `pending` (منع معالجة مزدوجة من webhook + تسوية يدوية متزامنين).
-   - المبلغ اللي بيتضاف للمحفظة **دايماً من `payment_transactions.requested_amount` المحلي**، مش من أي رقم راجع من البوابة (بند 9.2).
+   - المبلغ اللي بيتضاف للمحفظة **دايماً من `payment_transactions.requested_amount_minor` المحلي**، مش من أي رقم راجع من البوابة (بند 9.3).
    - يستدعي `WalletService::credit()` بمبلغ الشحن الأساسي (`withdrawable`) **في نفس الـ transaction**.
    - لو فيه قاعدة رسوم/هدية مطبّقة: صف تاني منفصل بنفس `operation_id` + `FinancialLedgerService::record()` مقابل.
-   - يحدّث `payment_transactions.status = paid` و`processed_at` **جوه نفس الـ transaction** (ذرّية، بند 9.2 — مفيش حفظين منفصلين).
+   - يحدّث `payment_transactions.status = paid` و`processed_at` **جوه نفس الـ transaction** (ذرّية، بند 9.3 — مفيش حفظين منفصلين).
    - **null-guard إجباري:** لو الـ reference/id جاي من البوابة مش معروف محلياً، يتسجل في `payment_gateway_logs` ويترفض بأمان — **من غير Exception** (تجنب باگ `find()->update()` في LeeTaxi).
-7. أمر مجدول `payment:expire-stale` — يحوّل `pending` اللي عدّى `expires_at` لـ `expired` (لسه قابلة للتسوية اليدوية بعد كده).
-8. شاشة أدمن **"Online Transactions"** (زي `FinanceController::onlineTransactionsApi` في Jawad، بس من أول نسخة مش إضافة لاحقة):
-   - قائمة + فلاتر (حالة/تاريخ/بحث بمرجع البوابة) + ملخص (إجمالي ناجح/معلّق).
-   - تفاصيل عملية: آخر طلب/رد + سجل `payment_gateway_logs` كامل.
-   - زرار **"تسوية" (Reconcile)** على أي عملية `pending`/`expired`: بينادي `Gateway::verify()` (بند 5) وبعدين `PaymentCompletionService` (idempotent)، ويزوّد `reconciliation_attempts`، ويسجّل الأدمن في `payment_gateway_logs` (`event=manual_reconcile`, `triggered_by`).
-9. `translateError(code, locale)` على كل Gateway driver (مفاتيح ترجمة، مش كلاس أخطاء منفصل زي `ARBErrorMessages`).
-10. Endpoint استرجاع شحن (Refund) — بالقيد من `wallet-plan.md § 12`: مسموح بس لو الشحن الأصلي (والهدية المرتبطة) لسه كامل، وبيلغي الحركتين مع بعض بصف عكسي.
-11. اختبارات:
+9. أمر مجدول `payment:expire-stale` — يحوّل `pending` اللي عدّى `expires_at` لـ `expired` (لسه قابلة للتسوية اليدوية بعد كده).
+10. شاشة أدمن **"Online Transactions"** (زي `FinanceController::onlineTransactionsApi` في Jawad، بس من أول نسخة مش إضافة لاحقة):
+    - قائمة + فلاتر (حالة/تاريخ/بحث بمرجع البوابة) + ملخص (إجمالي ناجح/معلّق).
+    - تفاصيل عملية: آخر طلب/رد + سجل `payment_gateway_logs` كامل + سجل `webhook_inbox` المرتبط.
+    - زرار **"تسوية" (Reconcile)** على أي عملية `pending`/`expired`: بينادي `Gateway::verify()` (بند 6) وبعدين `PaymentCompletionService` (idempotent)، ويزوّد `reconciliation_attempts`، ويسجّل الأدمن في `payment_gateway_logs` (`event=manual_reconcile`, `triggered_by`).
+11. `translateError(code, locale)` على كل Gateway driver (مفاتيح ترجمة، مش كلاس أخطاء منفصل زي `ARBErrorMessages`).
+12. Endpoint استرجاع شحن (Refund) — بالقيد من `wallet-plan.md § 12`: مسموح بس لو الشحن الأصلي (والهدية المرتبطة) لسه كامل، وبيلغي الحركتين مع بعض بصف عكسي.
+13. اختبارات:
     - السيناريو الكامل بالظبط من `wallet-plan.md § 12` (شحن 100 بـ −10% → 110 على المحفظة → استرجاع قبل أي تصرف → الهدية بتتشال).
     - عملية `pending` عالقة (الـ callback اتقطع) → زرار "تسوية" بينجح ويضيف الرصيد مرة واحدة بس.
-    - webhook مكرر (نفس العملية توصل مرتين) → صف محفظة واحد بس.
+    - webhook مكرر (نفس `event_id` توصل مرتين) → صف واحد في `webhook_inbox`، وصف محفظة واحد بس.
+    - webhook بتوقيع باطل → يترفض ويتسجل، ومبيوصلش لـ `PaymentCompletionService`.
     - reference غير معروف في الـ callback → رد آمن من غير Exception.
+    - طلب شحن من غير PIN صحيح → يترفض قبل ما يوصل للبوابة أصلاً.
 
 **Deliverable:** مستخدم/مزوّد يقدر يشحن محفظته فعلياً، ويشوف عرض السعر قبل الدفع، والرسوم/الهدايا بتتسجل صح في المحفظة والحسابات المالية، **ومفيش عملية ممكن تفضل عالقة من غير حل** (عكس LeeTaxi).
+
+---
+
+## المرحلة 6.1 — واجهة المحفظة في تطبيق الموبايل (Android)
+
+**مرجعي فقط** — بيوضّح إزاي شاشات الـ API اللي فوق هتتربط بالتطبيق الفعلي (`androidApp/`، Jetpack Compose). مش مرحلة باك إند مستقلة، بتتنفذ بالتوازي مع المراحل 6–10 أول ما الـ endpoints المقابلة تجهز.
+
+1. **أيقونة المحفظة:** IconButton جديدة جنب `Icons.Rounded.Notifications` في `HomeHeader` (داخل [HomeScreen.kt](../androidApp/app/src/main/java/com/dorr/app/ui/screens/HomeScreen.kt)) — نفس نمط `onOpenNotifications` بالظبط: callback بيتمرر من `HomeScreen` → `MainScreen` → `DorrNavGraph`.
+2. **Route جديد:** `Routes.WALLET` في [DorrNavGraph.kt](../androidApp/app/src/main/java/com/dorr/app/navigation/DorrNavGraph.kt)، بيفتح `WalletScreen` (composable جديد).
+3. **`WalletScreen`:** تنقّل داخلي بـ enum زي `ProfileSub` في [ProfileScreen.kt](../androidApp/app/src/main/java/com/dorr/app/ui/screens/ProfileScreen.kt) (`WalletSub.OVERVIEW/HISTORY/TOPUP/WITHDRAW`):
+   - **Overview:** الرصيد (قابل للسحب + Hold، بوضوح زي ما اتفقنا فصل 10)، وزراير سريعة لشحن/سحب/كشف الحساب.
+   - **History:** قائمة `wallet_transactions` (مرحلة 7) بفلاتر.
+   - **Topup:** `quote` → اختيار طريقة دفع (مرحلة 5) → `RequiresWalletPin` → تنفيذ (مرحلة 6).
+   - **Withdraw:** اختيار/إضافة وسيلة سحب → `RequiresWalletPin` → طلب سحب (مرحلة 8).
+4. **PIN في الإعدادات:** بند جديد في `menuItems` بتاعة `ProfileMenuScreen` ([ProfileScreen.kt](../androidApp/app/src/main/java/com/dorr/app/ui/screens/ProfileScreen.kt))، بيفتح `WalletPinSettingsScreen` عبر `SettingsScaffold` — نفس نمط `PersonalDataScreen`.
+5. **مكوّن PIN مشترك (Composable واحد يُعاد استخدامه):** إدخال مزدوج (PIN + تأكيد) لأول إنشاء، وإدخال واحد للتحقق وقت أي عملية حساسة. **Lazy:** لو المستخدم دخل عملية محتاجة PIN ومفيهوش، يظهر مسار الإنشاء المزدوج فوراً مكان مسار التحقق، من غير ما يرجع لصفحة تانية.
+6. اختبار UI: محاولة شحن/سحب/تحويل من غير PIN مُنشأ → يظهر مسار الإنشاء تلقائي، مش رسالة خطأ.
 
 ---
 
@@ -147,11 +182,15 @@
 
 ## المرحلة 8 — السحب (Provider)
 
-1. Migrations: `withdrawal_methods`, `withdrawal_requests` (جداول 6، 7).
-2. `WithdrawalService`: إنشاء طلب (تحقق + حجز `reserved_withdrawable`)، قبول (خصم فعلي + إيصال إجباري عبر Media)، رفض (تحرير الحجز + سبب إجباري).
-3. Endpoints Provider: إدارة وسائل السحب (CRUD + تفضيل)، إنشاء طلب سحب، عرض طلباته.
-4. Endpoints Admin: قائمة الطلبات + قبول/رفض.
-5. اختبار: طلب سحب بيحجز المبلغ فوراً (مش وقت القبول بس)، ومحاولة سحب تاني وهو عنده طلب `pending` بترفض.
+1. Migrations: `withdrawal_methods`, `withdrawal_requests` (جداول 6، 7؛ `withdrawal_requests.hold_id → wallet_holds`).
+2. `WithdrawalService` — **طبقة رقيقة فوق `WalletService::hold/capture/release` من المرحلة 2**، مفيش منطق حجز مكرر هنا:
+   - إنشاء طلب → `hold(wallet, amount, bucket: withdrawable, reference: withdrawal_request, expiresAt: null)`.
+   - قبول → `capture(hold, amount, type: withdrawal)` + إيصال إجباري عبر Media.
+   - رفض → `release(hold, reason)` + `rejection_reason` إجباري.
+3. **`RequiresWalletPin` على Route إنشاء طلب السحب** (وعلى إضافة/تعديل وسيلة سحب — محسوم، فصل 1.2).
+4. Endpoints Provider: إدارة وسائل السحب (CRUD + تفضيل)، إنشاء طلب سحب، عرض طلباته.
+5. Endpoints Admin: قائمة الطلبات + قبول/رفض.
+6. اختبار: طلب سحب بيحجز المبلغ فوراً (مش وقت القبول بس)، ومحاولة سحب تاني وهو عنده طلب `pending` بترفض، وطلب سحب من غير PIN صحيح بيترفض، وإضافة/تعديل وسيلة سحب من غير PIN بيترفض.
 
 **Deliverable:** مقدم الخدمة يقدر يسحب أرباحه فعلياً بإجراء أدمن موثّق.
 
@@ -171,9 +210,9 @@
 
 ## المرحلة 10 — التحويل بين المستخدمين (لو اتقرر تفعيله)
 
-1. Endpoint تحويل (User ↔ User، حسب `wallet_settings.transfers_enabled`): تحقق دولة موحّدة + حدود يومي/شهري/لكل عملية.
-2. استخدام `WalletService::transfer()` من المرحلة 2 (المستلم `spend_only` دايماً — مفيش parameter).
-3. اختبار الحدود اليومية/الشهرية بالتوازي مع سباق متزامن.
+1. Endpoint تحويل (User ↔ User، حسب `wallet_settings.transfers_enabled`): تحقق دولة موحّدة + حدود يومي/شهري/لكل عملية، خلف `RequiresWalletPin`.
+2. استخدام `WalletService::transfer()` من المرحلة 2 (المستلم `spend_only` دايماً — مفيش parameter، وقفل المحفظتين بترتيب الـ `id`).
+3. اختبار الحدود اليومية/الشهرية بالتوازي مع سباق متزامن، واختبار PIN إجباري قبل التنفيذ.
 
 **Deliverable:** تحويل فعلي بين مستخدمين بنفس قواعد فصل 10.
 
@@ -181,11 +220,16 @@
 
 ## المرحلة 11 — الدفع من المحفظة (بعد موديول الطلبات/الحجوزات)
 
-1. ترتيب الخصم `spend_only` ثم `withdrawable` (حسب القرار في المرحلة 0).
-2. ربط `WalletService::debit()` بمسار الدفع، ودعم الدفع الجزئي (زي `useWallet()` في LeeTaxi).
-3. الاسترجاع عند الإلغاء (`HandlesRefunds` بنمط dorr) — بيرجع لنفس `bucket` بتاع الدفع الأصلي.
+**القرار بيتحدد لكل خدمة على حسب طبيعة سعرها (محسوم: فيه الاتنين، فصل 2.1):**
+- **سعر ثابت** (متفق عليه قبل الدفع): `WalletService::debit()` مباشر — نفس المنطق تحت.
+- **سعر تقديري** (بيختلف النهائي عن التقديري، زي رحلة أو خدمة بالساعة): `hold()` وقت إنشاء الطلب (بالسعر التقديري) → `capture()` بالمبلغ الفعلي بعد التنفيذ (الفرق بيترجع متاح تلقائي، من غير أي حركة استرجاع منفصلة) → `release()` لو الطلب اتلغى قبل التنفيذ.
 
-**Deliverable:** خدمة/طلب حقيقي يتدفع من المحفظة.
+1. ترتيب الخصم `spend_only` ثم `withdrawable` (حسب القرار في المرحلة 0)، خلف `RequiresWalletPin` — بينطبق على الخصم المباشر وعلى الـ `hold()` بنفس القاعدة.
+2. ربط `WalletService::debit()` (سعر ثابت) و`hold()`/`capture()`/`release()` (سعر تقديري) بمسار الدفع، ودعم الدفع الجزئي (زي `useWallet()` في LeeTaxi).
+3. الاسترجاع عند الإلغاء **بعد** التحصيل (`HandlesRefunds` بنمط dorr) — بيرجع لنفس `bucket` بتاع الدفع الأصلي. (الإلغاء **قبل** التحصيل بيستخدم `release()` مباشرة، مفيش استرجاع أصلاً لأن الفلوس ماتحركتش.)
+4. اختبار: خدمة تقديرية — `hold` بـ100 → `capture` بـ80 → الـ20 الفرق يرجعوا متاحين فوراً من غير صف `wallet_transactions` إضافي.
+
+**Deliverable:** خدمة/طلب حقيقي يتدفع من المحفظة، بسعر ثابت أو تقديري حسب طبيعتها.
 
 ---
 
@@ -208,6 +252,7 @@
 | 4 | الحسابات المالية للنظام | 2 |
 | 5 | طرق الدفع + بوابة واحدة | 3 |
 | 6 | الشحن + الرسوم/الهدية | 2, 4, 5 |
+| 6.1 | واجهة الموبايل (Android) — مرجعي، بالتوازي | 1, 6 |
 | 7 | كشف الحساب + شاشات الأدمن | 2, 6 |
 | 8 | السحب (Provider) | 2, 7 |
 | 9 | أهلية الطلب (حد الدين) | 2 + موديول الطلبات |
