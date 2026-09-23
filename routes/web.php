@@ -12,6 +12,10 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+Route::get('/mobile-app-preview', function () {
+    return view('mobile-app-preview');
+});
+
 Route::prefix('auth/user')->group(function () {
     Route::get('{provider}/redirect', [UserSocialAuthController::class, 'redirect'])
         ->whereIn('provider', ['google', 'apple']);

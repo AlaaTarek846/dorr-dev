@@ -17,6 +17,6 @@
 
 ## NEEDS-DECISION
 
-- Admin roles and permissions (Spatie installed, not enforced)
+- Admin roles and permissions (Spatie; Admin API controllers use `DefinesAdminCatalogPermissions` / `AdminPermissionMiddleware` + `{group}.{action}` on guard `admin_api`, aligned with `AdminPermissionSeeder`)
 - Multi-admin permission levels
 - Admin audit logging

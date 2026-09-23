@@ -1,6 +1,6 @@
 # API Specification
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-20
 
 > Base URL: relative `/api` (same origin).  
 > All documented endpoints **exist in route files** as of documentation date.
@@ -175,9 +175,11 @@ Catalog create/update requires `translations[]` with `locale` + `name` for all s
 | POST | `/providers` | Create |
 | GET | `/providers/{provider}` | Show |
 | PUT/PATCH | `/providers/{provider}` | Update |
-| DELETE | `/providers/{provider}` | Delete |
-| POST | `/providers/delete-multiple` | Bulk delete |
-| PATCH | `/providers/{provider}/status` | Status |
+| DELETE | `/providers/{provider}` | Soft delete |
+| POST | `/providers/delete-multiple` | Bulk soft delete |
+| POST | `/providers/{provider}/restore` | Restore from trash |
+| DELETE | `/providers/{provider}/force` | Force delete |
+| PATCH | `/providers/{provider}/status` | Status (`UserStatus` enum) |
 
 ### Authenticated — AI Providers `/api/admin/v1/ai-providers`
 
@@ -198,7 +200,7 @@ Middleware: `locale`, `auth:admin_api`
 
 Middleware: `locale` on group; `guest:provider_api` or `auth:provider_api` on subgroups.
 
-Module routes: `Modules/Provider/routes/dashboard.php`.
+Route files: `Modules/Provider/routes/api.php` requires `admin.php` (admin CRUD) and `dashboard.php` (portal API below).
 
 ### Guest
 
@@ -228,6 +230,21 @@ Guest routes return JSON 403 if already authenticated (`RedirectIfAuthenticated`
 **Provider payload** (login, check-token, me) includes `services[]` via `ProviderServiceResource` — used by provider header service dropdown and sidebar.
 
 **Not available:** `/api/provider/v1/ai-chat/*` (User-only).
+
+### Provider SPA routes (Vue Router, base `/provider`)
+
+| Flow | SPA path | API (typical) |
+|------|----------|---------------|
+| Login | `/provider/login` | POST `/login` |
+| Sign-up | `/provider/sign-up` | POST `/register` |
+| Verify email | `/provider/verify-email` | POST `/verify-email`, `/resend-verification` |
+| Create password | `/provider/create-password` | POST `/create-password` |
+| Forgot / reset | `/provider/forgot-password`, `/provider/reset-password` | POST `/forgot-password`, `/reset-password` |
+| OAuth landing | `/provider/oauth/callback` | Web OAuth → token in query |
+| Dashboard | `/provider/dashboard` | — (auth middleware) |
+| Profile | `/provider/profile` | GET `/me`, POST `/profile`, PUT `/profile/password` |
+
+OAuth start: `GET /auth/provider/{google|apple}/redirect` (sets `social_auth_panel=provider`). Google/Apple redirect URI in console: `{APP_URL}/auth/user/{provider}/callback`.
 
 ---
 
@@ -270,6 +287,37 @@ Middleware: `locale`, `auth:user_api`
 | GET | `/conversations/{conversation}` | Show + messages |
 | DELETE | `/conversations/{conversation}` | Delete |
 | POST | `/conversations/{conversation}/messages` | Send message |
+
+---
+
+## Mobile API — `/api/mobile/v1`
+
+Mobile-only endpoints for the Android app. Guard: `user_api` (Sanctum, `users`
+provider). Combined login/register by phone: `POST /auth/otp` creates the user if
+the phone does not exist yet, then sends a fixed demo OTP
+(`config('auth_flow.phone_otp_fixed')`, default `123456`) stored in
+`verification_codes` via `App\Traits\SendsPhoneOtp`. Authenticated routes require
+`ensure-phone-verified` — i.e. `users.phone_verified_at` must be non-null.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/otp` | `guest:user_api` | Request OTP (login or auto-register) |
+| POST | `/auth/verify` | `guest:user_api` | Verify OTP → marks phone verified, issues bearer token |
+| POST | `/auth/resend` | `guest:user_api` | Resend OTP (cooldown enforced) |
+| GET | `/auth/me` | `auth:user_api` + `ensure-phone-verified` | Current user |
+| POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token |
+
+Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
+`code`. User matched/stored by full phone `+<dial><phone>`.
+
+Phone validation is country-aware: the matching country is resolved by
+`dial_code`, then `phone` must respect its `phone_length` (exact digit count) and
+`phone_starts_with` prefix. Errors (localized) return under `dial_code`
+(`phone_invalid_country`) or `phone` (`phone_invalid_length`,
+`phone_invalid_start`).
+
+Responses:
+- OTP/verify/resend per `docs/modules/user/API.md`.
 
 ---
 

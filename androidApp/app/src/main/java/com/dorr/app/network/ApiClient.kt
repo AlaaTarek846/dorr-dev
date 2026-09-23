@@ -28,6 +28,19 @@ object ApiClient {
                 .build()
             chain.proceed(request)
         }
+        .addInterceptor { chain ->
+            val request = chain.request()
+            val response = chain.proceed(request)
+            // Any request that carried a Bearer token and came back 401 means
+            // the session is expired/revoked: drop it locally and let the UI
+            // route back to Login. Public endpoints (no Authorization header)
+            // are left alone.
+            if (response.code == 401 && request.header("Authorization") != null) {
+                AuthSession.clear()
+                AuthSession.onUnauthorized?.invoke()
+            }
+            response
+        }
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
         .build()
 
@@ -38,4 +51,7 @@ object ApiClient {
         .build()
 
     val countries: CountryApi by lazy { retrofit.create(CountryApi::class.java) }
+    val languages: LanguageApi by lazy { retrofit.create(LanguageApi::class.java) }
+    val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
+    val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
 }

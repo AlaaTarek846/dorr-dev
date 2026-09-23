@@ -73,85 +73,113 @@
                         </ul>
                     </li>
 
-                    <template v-if="isGeneralVisible">
+                    <template v-if="showSystemUsersSection">
                         <li class="slide__category">
-                            <span class="category-name">{{ t('sidebar.services') }}</span>
+                            <span class="category-name">{{ t('sidebar.users') }}</span>
                         </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.service-categories.index' }" class="side-menu__item">
-                            <i class="ri-list-settings-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('service_categories.title') }}</span>
-                        </router-link>
-                    </li>
+                        <li class="slide">
+                            <router-link :to="{ name: 'admin.users.index' }" class="side-menu__item">
+                                <i class="ri-group-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('users.title') }}</span>
+                            </router-link>
+                        </li>
+                    </template>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.providers.index' }" class="side-menu__item">
-                            <i class="ri-user-settings-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('providers.title') }}</span>
-                        </router-link>
-                    </li>
+                    <template v-if="isGeneralVisible">
+                        <template v-if="showServicesSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.services') }}</span>
+                            </li>
 
-                    <li class="slide__category">
-                        <span class="category-name">{{ t('sidebar.catalog') }}</span>
-                    </li>
+                            <li v-if="can('service_categories.view')" class="slide">
+                                <router-link :to="{ name: 'admin.service-categories.index' }" class="side-menu__item">
+                                    <i class="ri-list-settings-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('service_categories.title') }}</span>
+                                </router-link>
+                            </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.flags.index' }" class="side-menu__item">
-                            <i class="ri-flag-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('flags.title') }}</span>
-                        </router-link>
-                    </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.providers.index' }" class="side-menu__item">
+                                    <i class="ri-user-settings-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('providers.title') }}</span>
+                                </router-link>
+                            </li>
+                        </template>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.countries.index' }" class="side-menu__item">
-                            <i class="ri-earth-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('countries.title') }}</span>
-                        </router-link>
-                    </li>
+                        <template v-if="showCatalogSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.catalog') }}</span>
+                            </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.currencies.index' }" class="side-menu__item">
-                            <i class="ri-money-dollar-circle-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('currencies.title') }}</span>
-                        </router-link>
-                    </li>
+                            <li v-if="can('flags.view')" class="slide">
+                                <router-link :to="{ name: 'admin.flags.index' }" class="side-menu__item">
+                                    <i class="ri-flag-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('flags.title') }}</span>
+                                </router-link>
+                            </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.languages.index' }" class="side-menu__item">
-                            <i class="ri-translate-2 side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('languages.title') }}</span>
-                        </router-link>
-                    </li>
+                            <li v-if="can('countries.view')" class="slide">
+                                <router-link :to="{ name: 'admin.countries.index' }" class="side-menu__item">
+                                    <i class="ri-earth-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('countries.title') }}</span>
+                                </router-link>
+                            </li>
 
-                    <li class="slide__category">
-                        <span class="category-name">{{ t('sidebar.users') }}</span>
-                    </li>
+                            <li v-if="can('currencies.view')" class="slide">
+                                <router-link :to="{ name: 'admin.currencies.index' }" class="side-menu__item">
+                                    <i class="ri-money-dollar-circle-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('currencies.title') }}</span>
+                                </router-link>
+                            </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.users.index' }" class="side-menu__item">
-                            <i class="ri-group-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('users.title') }}</span>
-                        </router-link>
-                    </li>
+                            <li v-if="can('languages.view')" class="slide">
+                                <router-link :to="{ name: 'admin.languages.index' }" class="side-menu__item">
+                                    <i class="ri-translate-2 side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('languages.title') }}</span>
+                                </router-link>
+                            </li>
+                        </template>
 
-                    <li class="slide__category">
-                        <span class="category-name">{{ t('sidebar.settings') }}</span>
-                    </li>
+                        <template v-if="showStaffSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.staff') }}</span>
+                            </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.dashboard-themes.index' }" class="side-menu__item">
-                            <i class="ri-palette-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('dashboard_themes.title') }}</span>
-                        </router-link>
-                    </li>
+                            <li v-if="can('admins.view')" class="slide">
+                                <router-link :to="{ name: 'admin.employees.index' }" class="side-menu__item">
+                                    <i class="ri-user-settings-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('employees.title') }}</span>
+                                </router-link>
+                            </li>
 
-                    <li class="slide">
-                        <router-link :to="{ name: 'admin.platform-settings' }" class="side-menu__item">
-                            <i class="ri-settings-3-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
-                        </router-link>
-                    </li>
+                            <li v-if="can('roles.view')" class="slide">
+                                <router-link :to="{ name: 'admin.roles.index' }" class="side-menu__item">
+                                    <i class="ri-shield-user-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('roles.title') }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
+                        <template v-if="showSettingsSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.settings') }}</span>
+                            </li>
+
+                            <li v-if="can('dashboard_themes.view')" class="slide">
+                                <router-link :to="{ name: 'admin.dashboard-themes.index' }" class="side-menu__item">
+                                    <i class="ri-palette-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('dashboard_themes.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('platform_settings.view')" class="slide">
+                                <router-link :to="{ name: 'admin.platform-settings' }" class="side-menu__item">
+                                    <i class="ri-settings-3-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
+                                </router-link>
+                            </li>
+                        </template>
                     </template>
                 </ul>
 
@@ -166,23 +194,69 @@
 </template>
 
 <script setup>
-import { computed, onMounted } from 'vue';
+import { computed, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import PlatformLogo from '../PlatformLogo.vue';
+import { useAuthStore } from '../../../stores/auth';
 import { useAdminServiceSelectionStore } from '../../../stores/adminServiceSelection';
+import { usePermission } from '../../../composables/usePermission';
 
 const { t } = useI18n();
+const { can } = usePermission();
+const authStore = useAuthStore();
 const selectionStore = useAdminServiceSelectionStore();
 const { selectedService } = storeToRefs(selectionStore);
 
 const chatItems = ['inbox', 'groups', 'channels', 'archive'];
 const aiItems = ['assistant', 'prompts', 'models', 'history'];
 
-const selectedModuleName = computed(() => selectedService.value?.module_name ?? null);
+const GENERAL_MODULES = new Set([
+    'general_services',
+    'admin',
+    'admin_permission',
+]);
+
+const selectedModuleName = computed(() => selectedService.value?.category?.module_name ?? null);
 const isChatVisible = computed(() => selectedModuleName.value === 'chat');
 const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
-const isGeneralVisible = computed(() => ! selectedService.value);
+const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
+
+const showSystemUsersSection = computed(
+    () => isSystemUsersVisible.value && can('users.view'),
+);
+
+/** Providers nav has no permission gate yet; section shows if it or service categories are visible. */
+const showServicesSection = computed(() => can('service_categories.view') || true);
+
+const showCatalogSection = computed(
+    () => can('flags.view')
+        || can('countries.view')
+        || can('currencies.view')
+        || can('languages.view'),
+);
+
+const showStaffSection = computed(
+    () => can('admins.view') || can('roles.view'),
+);
+
+const showSettingsSection = computed(
+    () => can('dashboard_themes.view') || can('platform_settings.view'),
+);
+
+const isGeneralVisible = computed(() => {
+    if (! selectedService.value) {
+        return true;
+    }
+
+    return GENERAL_MODULES.has(selectedModuleName.value);
+});
+
+watch(
+    () => authStore.admin?.services,
+    (adminServices) => selectionStore.replaceSelection(adminServices ?? []),
+    { immediate: true },
+);
 
 function toggleSubMenu(event) {
     const toggle = event.currentTarget;
@@ -212,7 +286,4 @@ function toggleSubMenu(event) {
     toggle.closest('.slide.has-sub')?.classList.toggle('open', ! isOpen);
 }
 
-onMounted(() => {
-    selectionStore.fetchServices();
-});
 </script>

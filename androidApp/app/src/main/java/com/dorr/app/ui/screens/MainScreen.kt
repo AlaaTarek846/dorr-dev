@@ -24,6 +24,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -36,6 +37,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
 
 private data class Tab(
     val label: Int,
@@ -59,6 +62,21 @@ private val tabs = listOf(
 @Composable
 fun MainScreen(onLogout: () -> Unit, onOpenNotifications: () -> Unit) {
     var currentTab by remember { mutableIntStateOf(0) }
+
+    // Gentle session check on entry: refresh the profile from /auth/me and, if
+    // the token is expired/revoked, the backend answers 401 — the ApiClient
+    // interceptor clears AuthSession and fires onUnauthorized, which the nav
+    // graph turns into a trip back to Login. No local state needed here.
+    LaunchedEffect(Unit) {
+        val token = AuthSession.token
+        if (!token.isNullOrBlank()) {
+            runCatching {
+                ApiClient.mobileAuth.me("Bearer $token").data
+            }.onSuccess { me ->
+                if (me != null) AuthSession.user = me
+            }
+        }
+    }
 
     Scaffold(
         floatingActionButton = {

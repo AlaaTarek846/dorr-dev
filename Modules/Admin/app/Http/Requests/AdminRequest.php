@@ -16,11 +16,26 @@ class AdminRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        $this->merge([
+
+        $merge = [
             'phone' => $this->input('phone') ?: null,
             'gender' => $this->input('gender') ?: null,
             'country_id' => $this->input('country_id') ?: null,
-        ]);
+        ];
+
+        if ($this->has('service_category_ids') && ! is_array($this->input('service_category_ids'))) {
+            $merge['service_category_ids'] = [];
+        }
+
+        if ($this->has('status')) {
+            $merge['status'] = filter_var($this->input('status'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        }
+
+        if ($this->has('remove_avatar')) {
+            $merge['remove_avatar'] = filter_var($this->input('remove_avatar'), FILTER_VALIDATE_BOOLEAN);
+        }
+
+        $this->merge($merge);
     }
 
     /**
@@ -82,6 +97,25 @@ class AdminRequest extends FormRequest
             'gender' => ['nullable', new Enum(Gender::class)],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'avatar' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:2048'],
+            'remove_avatar' => ['nullable', 'boolean'],
+            'role_id' => [
+                'required',
+                'integer',
+                Rule::exists('roles', 'id')->where('guard_name', 'admin_api'),
+            ],
+            'service_category_ids' => ['required', 'array', 'min:1'],
+            'service_category_ids.*' => ['integer', 'distinct', 'exists:service_categories,id'],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return [
+            'role_id' => __('validation.attributes.role_id'),
+            'service_category_ids' => __('validation.attributes.service_category_ids'),
         ];
     }
 }

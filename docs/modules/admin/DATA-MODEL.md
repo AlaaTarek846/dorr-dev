@@ -10,9 +10,20 @@ Key columns (see migration for full schema):
 - country_id → countries
 - timestamps
 
+## Table: `admin_services`
+
+Created: `Modules/Admin/database/migrations/2026_09_21_100000_create_admin_services_table.php`
+
+- `admin_id` → `admins.id` (cascade on delete)
+- `service_category_id` → `service_categories.id` (cascade on delete)
+- Unique pair `(admin_id, service_category_id)`
+
+Assigns which service categories an admin (employee) may operate on.
+
 ## Relationships
 
 - `belongsTo` Country
+- `hasMany` `AdminService` as `services` → service categories
 - Referenced by platform (delete blocks country removal)
 
 ## Media

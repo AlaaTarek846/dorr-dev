@@ -237,9 +237,10 @@
     z-index: 2000;
 }
 
-.modal.show .modal-dialog,
-.modal.show .modal-content,
-.modal.show .modal-body {
+/* PrimeVue overlays inside catalog CRUD modals only — do not apply to scrollable modals (e.g. roles). */
+.modal.show:has(.catalog-modal-header) .modal-dialog,
+.modal.show:has(.catalog-modal-header) .modal-content,
+.modal.show:has(.catalog-modal-header) .modal-body {
     overflow: visible;
 }
 

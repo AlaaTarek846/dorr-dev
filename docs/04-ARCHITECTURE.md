@@ -1,6 +1,6 @@
 # Architecture
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-20
 
 ---
 
@@ -53,9 +53,9 @@
 | Module | Responsibility | Route files |
 |--------|----------------|-------------|
 | **Admin** | Admin auth, admin CRUD, mounts General catalog routes | `routes/admin.php` |
-| **User** | User auth/registration/profile, user API | `routes/dashboard.php` |
+| **User** | User auth/registration/profile; admin users CRUD | `routes/admin.php`, `routes/dashboard.php` |
 | **AI** | AI providers (admin), AI chat (user) | `routes/admin.php`, `routes/user.php` |
-| **Provider** | Provider profiles (admin CRUD) + provider portal auth/profile | `routes/admin.php`, `routes/dashboard.php` |
+| **Provider** | Provider profiles (admin CRUD) + provider portal auth/profile | `routes/admin.php`, `routes/dashboard.php` (via `routes/api.php`) |
 
 Module routes are included from each module's `routes/api.php` → loaded by `RouteServiceProvider`.
 
@@ -120,8 +120,8 @@ Resource:   FormatsTranslations  → General\{Entity}Resource
 
 ```
 resources/js/
-├── app.js → main.js
-├── App.vue
+├── apps/admin/app.js
+├── apps/admin/App.vue
 ├── router/index.js          (base: /admin)
 ├── modules/admin/routes.js
 ├── modules/admin/themes/{path}/views/   (theme-specific pages)
@@ -155,12 +155,15 @@ resources/js/
 ├── router/provider-index.js   (base: /provider)
 ├── modules/provider/routes.js
 ├── modules/provider/themes/{path}/views/
-├── layouts/themes/{path}/ProviderShell.vue
-├── layouts/provider/ProviderSidebar.vue   (no AI chat)
+├── layouts/themes/{path}/ProviderShell.vue   (dashboard shell; resolveShell)
+├── layouts/provider/ProviderLayout.vue       (wrapper → theme shell)
+├── components/layout/provider/ProviderSidebar.vue, ProviderHeader.vue (no AI chat)
 ├── stores/providerAuth.js     (token: provider_token)
 ├── stores/providerServiceSelection.js
 └── api/providerAxios.js
 ```
+
+Provider auth SPA routes live in `modules/provider/routes.js` (guest + `ProviderShell` children). **No** provider chat routes or views.
 
 ### Shared Frontend (all SPAs)
 
@@ -233,7 +236,7 @@ OAuth (Google/Apple) uses web redirect flow → creates/links `social_accounts` 
 
 ## Communication: Laravel ↔ Vue
 
-1. Blade views (`admin.blade.php`, `user.blade.php`, `provider.blade.php`) boot SPAs with branding JSON
+1. Blade views (`admin.blade.php`, `user.blade.php`, `provider.blade.php`) include `dashboard/shell.blade.php` — branding JSON, `window.__DASHBOARD_THEME__`, Vite entry per SPA
 2. Vue apps use relative API paths (`/api/admin/v1/...`, `/api/user/v1/...`, `/api/provider/v1/...`)
 3. Vite HMR in dev (`127.0.0.1:5173`); built assets in production
 4. CSRF: API uses token auth (not cookie SPA CSRF for API calls)

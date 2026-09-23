@@ -1,6 +1,6 @@
 # Provider — Testing
 
-**Last updated:** 2026-09-17
+**Last updated:** 2026-09-20
 
 ---
 
@@ -18,7 +18,9 @@ Recommended locations: `Modules/Provider/tests/` or `tests/Feature/Provider/`
 
 ## Manual checklist — Provider portal auth
 
-Prerequisites: migrated DB, mail driver configured (or log driver), optional Google OAuth env vars.
+Prerequisites: migrated DB, mail driver configured (or log driver), optional Google OAuth env vars, `npm run build` or `npm run dev` for SPA assets.
+
+Verify Blade shell: open `/provider/login`, console `window.__DASHBOARD_THEME__` and Network requests to `/dashboard/themes/{path}/assets/...`.
 
 ### Email registration
 

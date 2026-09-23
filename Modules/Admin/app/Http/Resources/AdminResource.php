@@ -7,12 +7,14 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class AdminResource extends JsonResource
 {
+    public const INCLUDE_PERMISSIONS_ATTRIBUTE = 'admin_include_permissions';
+
     /**
      * @return array<string, mixed>
      */
     public function toArray(Request $request): array
     {
-        return [
+        $data = [
             'id' => $this->id,
             'name' => $this->name,
             'email' => $this->email,
@@ -32,8 +34,29 @@ class AdminResource extends JsonResource
             ]),
             'avatar' => $this->getSingleMediaUrl('avatar') ?: null,
             'avatar_thumb' => $this->getSingleMediaThumbUrl('avatar') ?: null,
+            'service_category_ids' => $this->whenLoaded('services', fn () => $this->services
+                ->pluck('service_category_id')
+                ->values()
+                ->all()),
+            'services' => AdminServiceResource::collection($this->whenLoaded('services')),
+            'role_id' => $this->whenLoaded('roles', fn () => $this->roles->first()?->id),
+            'role_name' => $this->whenLoaded('roles', fn () => $this->roles->first()?->name),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
+
+        if ($this->shouldIncludePermissions($request)) {
+            $data['permission_names'] = $this->getAllPermissions()
+                ->pluck('name')
+                ->values()
+                ->all();
+        }
+
+        return $data;
+    }
+
+    protected function shouldIncludePermissions(Request $request): bool
+    {
+        return (bool) $request->attributes->get(self::INCLUDE_PERMISSIONS_ATTRIBUTE, false);
     }
 }
