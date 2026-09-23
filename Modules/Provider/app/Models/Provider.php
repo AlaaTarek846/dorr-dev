@@ -30,7 +30,6 @@ class Provider extends Authenticatable implements HasMedia
         'name',
         'email',
         'phone',
-        'phone_code',
         'gender',
         'country_id',
         'password',

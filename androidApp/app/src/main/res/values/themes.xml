@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base app theme. Compose owns all real styling (see ui/theme) — this
+         only sets the system window chrome for the brief moment before
+         Compose takes over. -->
+    <style name="Theme.Dorr" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+
+    <!-- Splash-only theme: solid brand background so there's no white flash
+         between process start and the first Compose frame. -->
+    <style name="Theme.Dorr.Splash" parent="Theme.Dorr">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+    </style>
+</resources>

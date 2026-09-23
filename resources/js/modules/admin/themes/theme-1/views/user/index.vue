@@ -453,7 +453,7 @@ function genderLabel(gender) {
 }
 
 function formatUserPhone(user) {
-    return formatPhoneForDisplay(user?.phone, user?.phone_code ?? user?.country?.dial_code);
+    return formatPhoneForDisplay(user?.phone, user?.country?.dial_code);
 }
 
 function formatDate(value) {

@@ -18,7 +18,6 @@ class AdminRequest extends FormRequest
     {
         $this->merge([
             'phone' => $this->input('phone') ?: null,
-            'phone_code' => $this->input('phone_code') ?: null,
             'gender' => $this->input('gender') ?: null,
             'country_id' => $this->input('country_id') ?: null,
         ]);
@@ -79,7 +78,6 @@ class AdminRequest extends FormRequest
                 Rule::unique('admins', 'email')->ignore($adminId),
             ],
             'phone' => ['nullable', 'string', 'max:50'],
-            'phone_code' => ['nullable', 'string', 'max:10'],
             'status' => ['nullable', 'boolean'],
             'gender' => ['nullable', new Enum(Gender::class)],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],

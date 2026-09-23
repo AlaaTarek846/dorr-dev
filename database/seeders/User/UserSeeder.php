@@ -15,7 +15,6 @@ class UserSeeder extends Seeder
             [
                 'name' => 'Demo User',
                 'phone' => '01000000000',
-                'phone_code' => '+20',
                 'password' => 'password',
                 'status' => UserStatus::Active,
                 'email_verified_at' => now(),

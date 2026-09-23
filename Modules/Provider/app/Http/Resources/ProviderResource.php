@@ -17,7 +17,6 @@ class ProviderResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'phone' => $this->phone,
-            'phone_code' => $this->phone_code,
             'gender' => $this->gender?->value ?? $this->gender,
             'gender_label' => $this->gender?->label() ?? null,
             'country_id' => $this->country_id,

@@ -31,12 +31,6 @@
 
 - Module documentation (initial)
 
-### 2026-09-23 — `phone_code` column
-
-- Added nullable `phone_code` (country dial code, e.g. `+20`) to `providers` via `Modules/Provider/database/migrations/2026_09_23_100000_add_phone_code_to_providers_table.php`
-- `ProviderResource` exposes `phone_code`; admin provider modal + admin profile persist it; admin providers table renders `phone_code` together with `phone` in the phone cell
-- `ProviderRequest` / `ProviderProfileUpdateRequest` accept nullable `phone_code` (stored as `+XX`)
-
 ## Historical
 
 See git log for `Modules/Provider/` changes.

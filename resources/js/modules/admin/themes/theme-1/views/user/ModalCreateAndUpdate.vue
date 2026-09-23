@@ -243,7 +243,7 @@ import PhoneCountryInput from '../../../../../../components/catalog/PhoneCountry
 import FormFieldFeedback from '../../../../../../components/ui/FormFieldFeedback.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
-import { combinePhoneNumber, formatDialCodeForPayload, setupCatalogModalWatcher, splitPhoneNumber } from '../../../../../../utils/catalog';
+import { combinePhoneNumber, setupCatalogModalWatcher, splitPhoneNumber } from '../../../../../../utils/catalog';
 import { calculatePasswordStrength, generateSecurePassword } from '../../../../../../utils/passwordStrength';
 
 const props = defineProps({
@@ -550,7 +550,7 @@ function fillForm(record) {
     form.email = record?.email ?? '';
     form.gender = record?.gender ?? '';
     form.country_id = record?.country_id ?? record?.country?.id ?? null;
-    dialCode.value = record?.phone_code ?? record?.country?.dial_code ?? '';
+    dialCode.value = record?.country?.dial_code ?? '';
     selectedCountry.value = record?.country ?? null;
     form.phone = splitPhoneNumber(record?.phone, dialCode.value);
     form.status = record?.status ?? 'active';
@@ -570,7 +570,6 @@ function buildPayload() {
         name: form.name.trim(),
         email: form.email.trim(),
         phone: combinePhoneNumber(dialCode.value, form.phone) || null,
-        phone_code: formatDialCodeForPayload(dialCode.value) || null,
         gender: form.gender,
         country_id: form.country_id || null,
         status: form.status,

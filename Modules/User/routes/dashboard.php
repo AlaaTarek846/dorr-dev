@@ -8,6 +8,11 @@ use Modules\User\Http\Controllers\UserProfileController;
 use Modules\User\Http\Controllers\UserRegistrationController;
 
 Route::middleware('locale')->prefix('user/v1')->group(function () {
+    // Public catalog data — needed on pre-login screens (e.g. the phone-entry
+    // step needs a dial code before there's a session to authenticate with).
+    Route::get('countries/dropdown', [CountryController::class, 'dropdown']);
+    Route::get('countries/detect', [CountryController::class, 'detect']);
+
     Route::middleware('guest:user_api')->group(function () {
         Route::post('login', [UserAuthController::class, 'login']);
         Route::post('check-token', [UserAuthController::class, 'checkToken']);

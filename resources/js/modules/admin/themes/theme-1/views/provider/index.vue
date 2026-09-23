@@ -472,7 +472,7 @@ function genderLabel(gender) {
 }
 
 function formatProviderPhone(provider) {
-    return formatPhoneForDisplay(provider?.phone, provider?.phone_code ?? provider?.country?.dial_code);
+    return formatPhoneForDisplay(provider?.phone, provider?.country?.dial_code);
 }
 
 function serviceLabels(provider) {

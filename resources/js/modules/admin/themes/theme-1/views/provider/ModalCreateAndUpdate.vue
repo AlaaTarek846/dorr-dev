@@ -309,7 +309,7 @@ import PhoneCountryInput from '../../../../../../components/catalog/PhoneCountry
 import FormFieldFeedback from '../../../../../../components/ui/FormFieldFeedback.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
-import { combinePhoneNumber, formatDialCodeForPayload, setupCatalogModalWatcher, splitPhoneNumber } from '../../../../../../utils/catalog';
+import { combinePhoneNumber, setupCatalogModalWatcher, splitPhoneNumber } from '../../../../../../utils/catalog';
 import { calculatePasswordStrength, generateSecurePassword } from '../../../../../../utils/passwordStrength';
 
 const DEFAULT_AVATAR = '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
@@ -674,7 +674,7 @@ function fillForm(record) {
     form.email = record?.email ?? '';
     form.gender = record?.gender ?? '';
     form.country_id = record?.country_id ?? record?.country?.id ?? null;
-    dialCode.value = record?.phone_code ?? record?.country?.dial_code ?? '';
+    dialCode.value = record?.country?.dial_code ?? '';
     selectedCountry.value = record?.country ?? null;
     form.phone = splitPhoneNumber(record?.phone, dialCode.value);
     form.status = record?.status ?? 'active';
@@ -701,7 +701,6 @@ function buildFormData() {
     formData.append('name', form.name.trim());
     formData.append('email', form.email.trim());
     formData.append('phone', combinePhoneNumber(dialCode.value, form.phone) || '');
-    formData.append('phone_code', formatDialCodeForPayload(dialCode.value) || '');
     formData.append('gender', form.gender || '');
     formData.append('country_id', form.country_id ? String(form.country_id) : '');
     formData.append('status', form.status);

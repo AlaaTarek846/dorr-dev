@@ -227,8 +227,6 @@ Guest routes return JSON 403 if already authenticated (`RedirectIfAuthenticated`
 
 **Provider payload** (login, check-token, me) includes `services[]` via `ProviderServiceResource` — used by provider header service dropdown and sidebar.
 
-**Account resources** (`AdminResource`, `UserResource`, `ProviderResource` — admin CRUD lists/detail and profile `/me` endpoints) expose `phone` plus `phone_code` (stored country dial code, e.g. `+20`) alongside `country { id, code, dial_code, flag }`. Admin user/provider modals and the admin profile page persist `phone_code`; the user/provider SPA profile pages currently send `phone` only (stored `phone_code` remains authoritative when editing from admin). In the admin user/provider tables the stored `phone_code` is rendered together with `phone` in the phone cell.
-
 **Not available:** `/api/provider/v1/ai-chat/*` (User-only).
 
 ---
