@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">درر</string>
+    <string name="app_tagline">بدعم من درر</string>
+
+    <string name="login_title">تسجيل الدخول</string>
+    <string name="login_subtitle">أدخل رقم هاتفك سيتم إرسال كود للتأكيد</string>
+    <string name="login_hint">6000 0000</string>
+    <string name="login_cta">أرسل كود التأكيد</string>
+    <string name="login_terms">بتسجيلك، أنت موافق على شروط الاستخدام وسياسة الخصوصية</string>
+
+    <string name="otp_title">تأكيد رقم الهاتف</string>
+    <string name="otp_subtitle">أدخل الكود المرسل إلى %1$s</string>
+    <string name="otp_verify">تأكيد</string>
+    <string name="otp_resend">إعادة إرسال الكود</string>
+    <string name="otp_resend_in">إعادة الإرسال بعد %1$d ثانية</string>
+    <string name="otp_dev_hint">نسخة تجريبية: إرسال الرسالة الحقيقي لسه مش متوصل — استخدم 123456</string>
+
+    <string name="home_greeting">مرحباً، %1$s</string>
+    <string name="home_active_jobs">الطلبات النشطة</string>
+    <string name="home_my_items">عناصري</string>
+    <string name="home_new_request">طلب جديد</string>
+    <string name="home_call">اتصل بنا</string>
+    <string name="home_history">السجل</string>
+
+    <string name="tab_home">الرئيسية</string>
+    <string name="tab_items">العناصر</string>
+    <string name="tab_history">السجل</string>
+    <string name="tab_account">الحساب</string>
+
+    <string name="placeholder_title">قريباً</string>
+    <string name="placeholder_body">سيتم إضافة شاشات هذا القسم لاحقاً.</string>
+
+    <string name="account_title">حسابي</string>
+    <string name="account_default_user">مستخدم زائر</string>
+    <string name="account_personal_data">البيانات الشخصية</string>
+    <string name="account_notifications">الإشعارات</string>
+    <string name="account_language">اللغة</string>
+    <string name="account_dark_mode">الوضع الليلي</string>
+    <string name="account_faqs">الأسئلة الشائعة</string>
+    <string name="account_contact_us">تواصل معنا</string>
+    <string name="account_about">عن التطبيق</string>
+    <string name="account_privacy">سياسة الخصوصية</string>
+    <string name="account_logout">تسجيل خروج</string>
+    <string name="account_delete">حذف الحساب</string>
+    <string name="logout_confirm_message">هل أنت متأكد من تسجيل الخروج؟</string>
+    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. لا يمكن التراجع عن هذا الإجراء.</string>
+
+    <string name="common_back">رجوع</string>
+    <string name="common_save">حفظ</string>
+    <string name="common_cancel">إلغاء</string>
+    <string name="common_close">إغلاق</string>
+
+    <!-- البيانات الشخصية -->
+    <string name="personal_data_title">البيانات الشخصية</string>
+    <string name="personal_data_name_ar">الاسم (عربي)</string>
+    <string name="personal_data_name_en">الاسم (إنجليزي)</string>
+    <string name="personal_data_email">البريد الإلكتروني</string>
+    <string name="personal_data_phone">رقم الهاتف</string>
+    <string name="personal_data_saved">تم حفظ التعديلات</string>
+
+    <!-- إعدادات الإشعارات -->
+    <string name="notif_push_title">الإشعارات الفورية</string>
+    <string name="notif_push_desc">استقبل إشعارات على هذا الجهاز</string>
+    <string name="notif_updates_title">تحديثات الطلبات والخدمة</string>
+    <string name="notif_updates_desc">تغييرات حالة طلباتك</string>
+    <string name="notif_promo_title">العروض والتخفيضات</string>
+    <string name="notif_promo_desc">أخبار وعروض خاصة</string>
+    <string name="notif_email_title">إشعارات البريد الإلكتروني</string>
+    <string name="notif_email_desc">استقبل التحديثات على بريدك أيضاً</string>
+
+    <!-- سياسة الخصوصية (نص مبدئي — استبدله بالنص القانوني الحقيقي) -->
+    <string name="privacy_body">هذا نص مبدئي لسياسة الخصوصية. استبدله بسياستك الحقيقية قبل الإطلاق: ما هي البيانات التي تجمعها، لماذا تجمعها، كيف يتم تخزينها، مع من تتم مشاركتها، وكيف يمكن للمستخدم طلب حذف بياناته.\n\nحتى ذلك الحين، هذه الشاشة موجودة فقط لتوضيح شكل وتنسيق صفحة محتوى ثابت طويلة.</string>
+
+    <!-- الأسئلة الشائعة -->
+    <string name="faq_title">الأسئلة الشائعة</string>
+    <string name="faq_q1">إزاي أقدر أعدل بياناتي الشخصية؟</string>
+    <string name="faq_a1">افتح الحساب ← البيانات الشخصية، عدّل بياناتك، ثم اضغط حفظ.</string>
+    <string name="faq_q2">إزاي أغيّر لغة التطبيق؟</string>
+    <string name="faq_a2">افتح الحساب ← اللغة واختر العربية أو الإنجليزية.</string>
+    <string name="faq_q3">التطبيق بيدعم الوضع الليلي؟</string>
+    <string name="faq_a3">أيوة — فعّله من الحساب ← الوضع الليلي.</string>
+    <string name="faq_q4">إزاي أتواصل مع الدعم؟</string>
+    <string name="faq_a4">افتح الحساب ← تواصل معنا للاتصال أو واتساب أو إيميل.</string>
+
+    <!-- تواصل معنا -->
+    <string name="contact_title">تواصل معنا</string>
+    <string name="contact_phone">اتصال هاتفي</string>
+    <string name="contact_whatsapp">واتساب</string>
+    <string name="contact_email">البريد الإلكتروني</string>
+
+    <!-- عن التطبيق -->
+    <string name="about_description">تطبيق عام لإدارة الخدمات. هذه الشاشة، زي باقي التطبيق، نقطة بداية تقدر تخصصها حسب نشاطك.</string>
+
+    <!-- اللغة -->
+    <string name="language_title">اللغة</string>
+    <string name="language_arabic">العربية</string>
+    <string name="language_english">English — إنجليزي</string>
+
+    <!-- شاشة الإشعارات (زر الجرس في الرئيسية — مختلفة عن الحساب ← الإشعارات اللي هي إعدادات) -->
+    <string name="notifications_title">الإشعارات</string>
+    <string name="notifications_mark_all_read">قراءة الكل</string>
+    <string name="notifications_empty_title">لا توجد إشعارات</string>
+    <string name="notifications_empty_body">ستظهر هنا الإشعارات عند وجود تحديثات جديدة</string>
+    <string name="notification_default_title">إشعار</string>
+    <string name="notif_time_now">الآن</string>
+    <string name="notif_time_minutes_ago">منذ %1$d دقيقة</string>
+    <string name="notif_time_hours_ago">منذ %1$d ساعة</string>
+    <string name="notif_time_yesterday">منذ يوم</string>
+    <string name="notif_time_days_ago">منذ %1$d يوم</string>
+    <string name="notif_time_weeks_ago">منذ %1$d أسابيع</string>
+</resources>

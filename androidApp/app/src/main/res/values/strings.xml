@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Dorr</string>
+    <string name="app_tagline">Powered by Dorr</string>
+
+    <string name="login_title">Sign In</string>
+    <string name="login_subtitle">Enter your phone number and we\'ll send a verification code</string>
+    <string name="login_hint">6000 0000</string>
+    <string name="login_cta">Send verification code</string>
+    <string name="login_terms">By signing in you agree to the Terms of Use and Privacy Policy</string>
+
+    <string name="otp_title">Verify your phone</string>
+    <string name="otp_subtitle">Enter the code sent to %1$s</string>
+    <string name="otp_verify">Verify</string>
+    <string name="otp_resend">Resend code</string>
+    <string name="otp_resend_in">Resend in %1$d seconds</string>
+    <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 123456</string>
+
+    <string name="home_greeting">Hello, %1$s</string>
+    <string name="home_active_jobs">Active jobs</string>
+    <string name="home_my_items">My items</string>
+    <string name="home_new_request">New request</string>
+    <string name="home_call">Call</string>
+    <string name="home_history">History</string>
+
+    <string name="tab_home">Home</string>
+    <string name="tab_items">Items</string>
+    <string name="tab_history">History</string>
+    <string name="tab_account">Account</string>
+
+    <string name="placeholder_title">Coming soon</string>
+    <string name="placeholder_body">This section will host its own screens later.</string>
+
+    <string name="account_title">My Account</string>
+    <string name="account_default_user">Guest User</string>
+    <string name="account_personal_data">Personal Data</string>
+    <string name="account_notifications">Notifications</string>
+    <string name="account_language">Language</string>
+    <string name="account_dark_mode">Dark Mode</string>
+    <string name="account_faqs">FAQs</string>
+    <string name="account_contact_us">Contact Us</string>
+    <string name="account_about">About</string>
+    <string name="account_privacy">Privacy Policy</string>
+    <string name="account_logout">Logout</string>
+    <string name="account_delete">Delete Account</string>
+    <string name="logout_confirm_message">Are you sure you want to logout?</string>
+    <string name="delete_confirm_message">Your account and all data will be permanently deleted. This action cannot be undone.</string>
+
+    <string name="common_back">Back</string>
+    <string name="common_save">Save</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_close">Close</string>
+
+    <!-- Personal data -->
+    <string name="personal_data_title">Personal Data</string>
+    <string name="personal_data_name_ar">Name (Arabic)</string>
+    <string name="personal_data_name_en">Name (English)</string>
+    <string name="personal_data_email">Email</string>
+    <string name="personal_data_phone">Phone number</string>
+    <string name="personal_data_saved">Your changes were saved</string>
+
+    <!-- Notification settings -->
+    <string name="notif_push_title">Push Notifications</string>
+    <string name="notif_push_desc">Get notified on this device</string>
+    <string name="notif_updates_title">Order &amp; Service Updates</string>
+    <string name="notif_updates_desc">Status changes on your requests</string>
+    <string name="notif_promo_title">Offers &amp; Promotions</string>
+    <string name="notif_promo_desc">News and special offers</string>
+    <string name="notif_email_title">Email Notifications</string>
+    <string name="notif_email_desc">Also receive updates by email</string>
+
+    <!-- Privacy policy (placeholder copy — replace with real legal text) -->
+    <string name="privacy_body">This is placeholder privacy-policy copy. Replace it with your real policy before release: what data you collect, why you collect it, how it is stored, who it is shared with, and how a user can request deletion of their data.\n\nUntil then, this screen exists only to demonstrate the layout and typography of a long static content page.</string>
+
+    <!-- FAQ -->
+    <string name="faq_title">FAQs</string>
+    <string name="faq_q1">How do I edit my personal data?</string>
+    <string name="faq_a1">Open Account → Personal Data, update your details, then tap Save.</string>
+    <string name="faq_q2">How do I switch the app language?</string>
+    <string name="faq_a2">Open Account → Language and pick Arabic or English.</string>
+    <string name="faq_q3">Does the app support dark mode?</string>
+    <string name="faq_a3">Yes — toggle it from Account → Dark Mode.</string>
+    <string name="faq_q4">How do I reach support?</string>
+    <string name="faq_a4">Open Account → Contact Us for phone, WhatsApp and email options.</string>
+
+    <!-- Contact us -->
+    <string name="contact_title">Contact Us</string>
+    <string name="contact_phone">Phone Call</string>
+    <string name="contact_whatsapp">WhatsApp</string>
+    <string name="contact_email">Email</string>
+
+    <!-- About -->
+    <string name="about_description">A general-purpose service app. This screen, like the rest of the app, is a starter you customize for your business.</string>
+
+    <!-- Language -->
+    <string name="language_title">Language</string>
+    <string name="language_arabic">Arabic — العربية</string>
+    <string name="language_english">English</string>
+
+    <!-- Notifications feed (the bell icon on Home — distinct from Account → Notifications, which is the settings toggles) -->
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_mark_all_read">Mark all read</string>
+    <string name="notifications_empty_title">No notifications yet</string>
+    <string name="notifications_empty_body">New updates will show up here.</string>
+    <string name="notification_default_title">Notification</string>
+    <string name="notif_time_now">Just now</string>
+    <string name="notif_time_minutes_ago">%1$d min ago</string>
+    <string name="notif_time_hours_ago">%1$d h ago</string>
+    <string name="notif_time_yesterday">Yesterday</string>
+    <string name="notif_time_days_ago">%1$d days ago</string>
+    <string name="notif_time_weeks_ago">%1$d weeks ago</string>
+</resources>
