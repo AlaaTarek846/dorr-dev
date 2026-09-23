@@ -5,7 +5,8 @@ package com.dorr.app.network
  * (see LocaleResolver::supported() in the Laravel backend — currently "ar"
  * and "en"). Plain object rather than Compose state because the OkHttp
  * interceptor that reads it runs off the UI thread, outside any composition.
- * The Profile screen's language picker writes to this on selection.
+ * Kept in sync with the persisted choice by LocalizedApp (ui/locale), which
+ * is what the Profile/Login language pickers actually update.
  */
 object AppLocale {
     @Volatile

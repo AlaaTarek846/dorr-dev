@@ -67,13 +67,14 @@ private data class NotificationItem(
 
 // Placeholder feed — wire this to a real notifications endpoint later
 // (pagination + push-triggered refresh, like the reference app's provider).
+@Composable
 private fun sampleNotifications() = listOf(
-    NotificationItem("1", NotificationType.JOB_UPDATE, "Your request status changed", "Your service request moved to \"In progress\".", 5, unread = true),
-    NotificationItem("2", NotificationType.QUOTE, "A quote is ready for review", "Review the items and approve to proceed.", 40, unread = true),
-    NotificationItem("3", NotificationType.INVOICE, "New invoice issued", "An invoice was issued for your recent service.", 180, unread = false),
-    NotificationItem("4", NotificationType.MAINTENANCE, "Upcoming maintenance", "A routine check is due soon.", 1500, unread = false),
-    NotificationItem("5", NotificationType.PROMO, "Limited-time offer", "A special offer is available this week.", 4000, unread = false),
-    NotificationItem("6", NotificationType.GENERAL, "Welcome to the app", "Thanks for signing up.", 10000, unread = false),
+    NotificationItem("1", NotificationType.JOB_UPDATE, stringResource(R.string.notif_sample_title_status_changed), stringResource(R.string.notif_sample_body_status_changed), 5, unread = true),
+    NotificationItem("2", NotificationType.QUOTE, stringResource(R.string.notif_sample_title_quote_ready), stringResource(R.string.notif_sample_body_quote_ready), 40, unread = true),
+    NotificationItem("3", NotificationType.INVOICE, stringResource(R.string.notif_sample_title_invoice), stringResource(R.string.notif_sample_body_invoice), 180, unread = false),
+    NotificationItem("4", NotificationType.MAINTENANCE, stringResource(R.string.notif_sample_title_maintenance), stringResource(R.string.notif_sample_body_maintenance), 1500, unread = false),
+    NotificationItem("5", NotificationType.PROMO, stringResource(R.string.notif_sample_title_promo), stringResource(R.string.notif_sample_body_promo), 4000, unread = false),
+    NotificationItem("6", NotificationType.GENERAL, stringResource(R.string.notif_sample_title_welcome), stringResource(R.string.notif_sample_body_welcome), 10000, unread = false),
 )
 
 private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (type) {
@@ -98,7 +99,8 @@ private fun relativeTime(minutesAgo: Int): String = when {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
-    val notifications = remember { mutableStateListOf(*sampleNotifications().toTypedArray()) }
+    val sample = sampleNotifications()
+    val notifications = remember { mutableStateListOf(*sample.toTypedArray()) }
     var selected by remember { mutableStateOf<NotificationItem?>(null) }
     val hasUnread = notifications.any { it.unread }
 
