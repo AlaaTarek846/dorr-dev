@@ -8,6 +8,16 @@ use App\Services\General\LanguageService;
 
 class LanguageController extends CatalogController
 {
+    protected static function adminPermissionGroup(): string
+    {
+        return 'languages';
+    }
+
+    protected static function permissionsOnDropdown(): bool
+    {
+        return false;
+    }
+
     public function __construct(LanguageService $service)
     {
         parent::__construct($service);

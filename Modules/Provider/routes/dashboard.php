@@ -1,6 +1,5 @@
 <?php
 
-use App\Http\Controllers\General\CountryController;
 use Illuminate\Support\Facades\Route;
 use Modules\Provider\Http\Controllers\ProviderAuthController;
 use Modules\Provider\Http\Controllers\ProviderPasswordResetController;
@@ -20,7 +19,6 @@ Route::middleware('locale')->prefix('provider/v1')->group(function () {
     });
 
     Route::middleware('auth:provider_api')->group(function () {
-        Route::get('countries/dropdown', [CountryController::class, 'dropdown']);
         Route::get('me', [ProviderAuthController::class, 'me']);
         Route::post('logout', [ProviderAuthController::class, 'logout']);
         Route::post('profile', [ProviderProfileController::class, 'update']);

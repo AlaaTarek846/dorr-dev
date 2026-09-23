@@ -123,7 +123,7 @@
                                         :placeholder="t('profile.phone_placeholder')"
                                         required
                                         :axios-client="userAxios"
-                                        dropdown-endpoint="/api/user/v1/countries/dropdown"
+                                        dropdown-endpoint="/api/general/v1/countries/dropdown"
                                         :invalid="profilePhoneFeedback.show && profilePhoneFeedback.invalid"
                                         :valid="profilePhoneFeedback.show && profilePhoneFeedback.valid"
                                         :error="profilePhoneMessage || profileErrors.country_id?.[0] || ''"

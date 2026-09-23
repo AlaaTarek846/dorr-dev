@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>درر — معاينة تطبيق الموبايل</title>
+<link rel="stylesheet" href="{{ asset('app/css/styles.css?v=25') }}">
+</head>
+<body>
+
+<!-- Phone frame: keeps the preview at app-like proportions on a desktop browser -->
+<div class="device">
+  <div class="screen">
+
+    <!-- ===================== SPLASH ===================== -->
+    <section id="screen-splash" class="screen-view active">
+      <div class="login-glow" aria-hidden="true">
+        <svg viewBox="0 0 390 420" preserveAspectRatio="none">
+          <defs>
+            <filter id="splash-glow-blur" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="18"/>
+            </filter>
+          </defs>
+          <ellipse class="glow-left" cx="8" cy="18" rx="150" ry="92" filter="url(#splash-glow-blur)"/>
+          <ellipse class="glow-center" cx="196" cy="-8" rx="168" ry="96" filter="url(#splash-glow-blur)"/>
+          <path class="glow-wave" d="M-30 78C70 150 150 18 230 92S390 36 430 8" filter="url(#splash-glow-blur)"/>
+          <path class="glow-corner" d="M-10 24C90 8 40 110 8 150" filter="url(#splash-glow-blur)"/>
+        </svg>
+      </div>
+      <div class="splash-bg">
+        <div class="splash-content">
+          <div class="splash-logo" id="splash-logo">
+            <svg viewBox="0 0 24 24"><use href="#icon-build"/></svg>
+          </div>
+          <div class="splash-title" id="splash-title"></div>
+          <div class="splash-spinner"></div>
+          <div class="splash-footer" id="splash-footer"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===================== LOGIN ===================== -->
+    <section id="screen-login" class="screen-view">
+      <div class="login-glow" aria-hidden="true">
+        <svg viewBox="0 0 390 420" preserveAspectRatio="none">
+          <defs>
+            <filter id="login-glow-blur" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="18"/>
+            </filter>
+          </defs>
+          <ellipse class="glow-left" cx="8" cy="18" rx="150" ry="92" filter="url(#login-glow-blur)"/>
+          <ellipse class="glow-center" cx="196" cy="-8" rx="168" ry="96" filter="url(#login-glow-blur)"/>
+          <path class="glow-wave" d="M-30 78C70 150 150 18 230 92S390 36 430 8" filter="url(#login-glow-blur)"/>
+          <path class="glow-corner" d="M-10 24C90 8 40 110 8 150" filter="url(#login-glow-blur)"/>
+        </svg>
+      </div>
+      <div class="login-body">
+        <div class="login-lang">
+          <button type="button" class="login-lang-btn" id="login-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="اللغة">
+            <span class="login-lang-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><use href="#icon-language"/></svg>
+            </span>
+            <span class="login-lang-name" id="login-lang-name">العربية</span>
+            <span class="login-lang-caret" aria-hidden="true"></span>
+          </button>
+          <ul class="login-lang-menu" id="login-lang-menu" role="listbox" hidden></ul>
+        </div>
+        <h1 class="login-title" id="login-title">تسجيل الدخول</h1>
+        <p class="login-subtitle" id="login-subtitle">أدخل رقم هاتفك سيتم إرسال كود للتأكيد</p>
+        <div class="login-icon" id="login-brand">
+          <svg viewBox="0 0 24 24"><use href="#icon-build"/></svg>
+        </div>
+        <p class="login-brand-name" id="login-brand-name" hidden></p>
+
+        <div class="phone-field">
+          <span class="phone-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M7 3.5h2.2l1.2 3-1.7 1a11 11 0 0 0 5.8 5.8l1-1.7 3 1.2V15a2 2 0 0 1-2.2 2A13.5 13.5 0 0 1 5 7.7 2 2 0 0 1 7 3.5z"/></svg>
+          </span>
+          <span class="phone-sep"></span>
+          <div class="phone-code-wrap">
+            <button type="button" class="phone-code" id="phone-dial-code" aria-haspopup="listbox" aria-label="كود الدولة">
+              <img class="phone-flag" id="phone-flag" alt="" width="20" height="15" src="https://flagcdn.com/w40/sa.png">
+              <span id="phone-dial-text">+966</span>
+              <span class="phone-code-caret" aria-hidden="true"></span>
+            </button>
+            <div class="phone-code-menu" id="phone-code-menu" hidden>
+              <label class="phone-code-search">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+                <input type="search" id="phone-country-search" placeholder="ابحث عن دولة" autocomplete="off" aria-label="بحث عن دولة">
+              </label>
+              <ul id="phone-code-list"></ul>
+              <p class="phone-code-empty" id="phone-code-empty" hidden>لا توجد نتائج</p>
+            </div>
+          </div>
+          <span class="phone-sep"></span>
+          <input type="tel" id="phone-input" maxlength="9" placeholder="5********" inputmode="numeric">
+        </div>
+
+        <p class="phone-error" id="phone-error" hidden></p>
+
+        <label class="login-terms" for="login-terms-check">
+          <input type="checkbox" id="login-terms-check">
+          <span id="login-terms-text">بتسجيلك أنت موافق على شروط الاستخدام وسياسة الخصوصية</span>
+        </label>
+
+        <button class="btn-primary" id="btn-send-otp" disabled>
+          <span class="btn-label">أرسل كود التأكيد</span>
+          <span class="btn-spinner" hidden></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===================== OTP ===================== -->
+    <section id="screen-otp" class="screen-view">
+      <div class="login-glow" aria-hidden="true">
+        <svg viewBox="0 0 390 420" preserveAspectRatio="none">
+          <defs>
+            <filter id="otp-glow-blur" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="18"/>
+            </filter>
+          </defs>
+          <ellipse class="glow-left" cx="8" cy="18" rx="150" ry="92" filter="url(#otp-glow-blur)"/>
+          <ellipse class="glow-center" cx="196" cy="-8" rx="168" ry="96" filter="url(#otp-glow-blur)"/>
+          <path class="glow-wave" d="M-30 78C70 150 150 18 230 92S390 36 430 8" filter="url(#otp-glow-blur)"/>
+          <path class="glow-corner" d="M-10 24C90 8 40 110 8 150" filter="url(#otp-glow-blur)"/>
+        </svg>
+      </div>
+      <div class="login-body">
+        <button class="sub-back otp-back" id="otp-back-btn" aria-label="رجوع">
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <div class="login-lang">
+          <button type="button" class="login-lang-btn" id="otp-lang-btn" aria-haspopup="listbox" aria-expanded="false" aria-label="اللغة">
+            <span class="login-lang-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><use href="#icon-language"/></svg>
+            </span>
+            <span class="login-lang-name" id="otp-lang-name">العربية</span>
+            <span class="login-lang-caret" aria-hidden="true"></span>
+          </button>
+          <ul class="login-lang-menu" id="otp-lang-menu" role="listbox" hidden></ul>
+        </div>
+        <div class="otp-shield" aria-hidden="true">
+          <span class="otp-shield-ring"></span>
+          <span class="otp-shield-badge">
+            <svg viewBox="0 0 64 64">
+              <path class="shield-shape" d="M32 6l22 8.2v18.6c0 13.2-8.6 22.8-22 27.6C18.6 55.6 10 46 10 32.8V14.2z"/>
+              <rect class="shield-lock" x="23" y="31" width="18" height="13" rx="2.5"/>
+              <path class="shield-shackle" d="M27 31.5v-4.2a5 5 0 0 1 10 0v4.2"/>
+            </svg>
+          </span>
+        </div>
+        <h1 class="login-title" id="otp-title">تأكيد رقم الهاتف</h1>
+        <p class="login-subtitle"><span id="otp-subtitle-prefix">أدخل الكود المرسل إلى</span> <span id="otp-phone-target" dir="ltr"></span></p>
+
+        <div class="otp-boxes" id="otp-boxes" dir="ltr">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" data-index="0">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" data-index="1">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" data-index="2">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" data-index="3">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" data-index="4">
+          <input type="tel" class="otp-box" maxlength="1" inputmode="numeric" data-index="5">
+        </div>
+
+        <button class="btn-primary" id="btn-verify-otp" disabled>
+          <span class="btn-label">تأكيد</span>
+          <span class="btn-spinner" hidden></span>
+        </button>
+
+        <div class="otp-timer" id="otp-timer">
+          <svg class="otp-timer-meter" viewBox="0 0 56 56" aria-hidden="true">
+            <circle cx="28" cy="28" r="25" class="otp-timer-progress" id="otp-timer-progress"/>
+          </svg>
+          <span id="otp-countdown" hidden>60</span>
+          <p id="otp-timer-label">إعادة الإرسال بعد 60 ثانية</p>
+        </div>
+        <button class="link-btn" id="otp-resend-btn" hidden>إعادة إرسال الكود</button>
+
+        <p class="login-terms otp-dev-hint">نسخة تجريبية: إرسال الرسالة الحقيقي لسه مش متوصل — استخدم 123456</p>
+      </div>
+    </section>
+
+    <!-- ===================== MAIN (Home / Placeholder / Profile) ===================== -->
+    <section id="screen-main" class="screen-view">
+
+      <div class="tab-panels">
+        <!-- ---- HOME TAB ---- -->
+        <div class="tab-panel active" data-panel="home">
+          <div class="home-scroll">
+            <header class="home-header">
+              <div class="home-header-top">
+                <button class="avatar-btn" data-goto-tab="account">
+                  <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
+                </button>
+                <div class="greeting">مرحباً، مستخدم زائر</div>
+                <button class="bell-btn" id="bell-btn">
+                  <svg viewBox="0 0 24 24"><use href="#icon-bell"/></svg>
+                  <span class="bell-dot"></span>
+                </button>
+              </div>
+              <div class="stat-row">
+                <div class="stat-chip">
+                  <svg viewBox="0 0 24 24"><use href="#icon-build"/></svg>
+                  <span class="stat-value">0</span>
+                  <span class="stat-label">الطلبات النشطة</span>
+                </div>
+                <div class="stat-chip">
+                  <svg viewBox="0 0 24 24"><use href="#icon-car"/></svg>
+                  <span class="stat-value">0</span>
+                  <span class="stat-label">عناصري</span>
+                </div>
+                <div class="stat-chip">
+                  <svg viewBox="0 0 24 24"><use href="#icon-add-circle"/></svg>
+                  <span class="stat-value">+</span>
+                  <span class="stat-label">طلب جديد</span>
+                </div>
+              </div>
+            </header>
+
+            <div class="banner-slider">
+              <div class="banner-track" id="banner-track">
+                <div class="banner-slide" style="background:linear-gradient(135deg,var(--primary),var(--primary-light))"><span>مرحباً بك</span></div>
+                <div class="banner-slide" style="background:linear-gradient(135deg,#0E9F6E,#10B981)"><span>عروض خاصة</span></div>
+                <div class="banner-slide" style="background:linear-gradient(135deg,#FF8A4C,#F59E0B)"><span>احجز خدمة الآن</span></div>
+              </div>
+              <div class="dots" id="banner-dots"></div>
+            </div>
+
+            <div class="quick-actions">
+              <div class="quick-card" style="--qc:var(--primary)">
+                <svg viewBox="0 0 24 24"><use href="#icon-phone"/></svg>
+                <span>اتصل بنا</span>
+              </div>
+              <div class="quick-card" style="--qc:var(--accent)" data-goto-tab="history">
+                <svg viewBox="0 0 24 24"><use href="#icon-chart"/></svg>
+                <span>السجل</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---- ITEMS TAB (placeholder) ---- -->
+        <div class="tab-panel" data-panel="items">
+          <div class="placeholder">
+            <svg viewBox="0 0 24 24"><use href="#icon-construction"/></svg>
+            <h3>قريباً</h3>
+            <p>سيتم إضافة شاشات هذا القسم لاحقاً.</p>
+          </div>
+        </div>
+
+        <!-- ---- HISTORY TAB (placeholder) ---- -->
+        <div class="tab-panel" data-panel="history">
+          <div class="placeholder">
+            <svg viewBox="0 0 24 24"><use href="#icon-construction"/></svg>
+            <h3>قريباً</h3>
+            <p>سيتم إضافة شاشات هذا القسم لاحقاً.</p>
+          </div>
+        </div>
+
+        <!-- ---- ACCOUNT TAB ---- -->
+        <div class="tab-panel" data-panel="account">
+          <div class="profile-scroll">
+            <div class="profile-header">
+              <div class="profile-avatar">
+                <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
+              </div>
+              <div class="profile-name">مستخدم زائر</div>
+            </div>
+
+            <div class="menu-list" id="profile-menu">
+              <div class="menu-row" data-icon="person" data-label="البيانات الشخصية" data-action="personal-data"></div>
+              <div class="menu-row" data-icon="bell" data-label="الإشعارات" data-action="notifications"></div>
+              <div class="menu-row" data-icon="language" data-label="اللغة" data-action="language"></div>
+              <div class="menu-row switch-row" data-icon="dark-mode" data-label="الوضع الليلي" data-switch="1"></div>
+              <div class="menu-row" data-icon="help" data-label="الأسئلة الشائعة" data-action="faq"></div>
+              <div class="menu-row" data-icon="phone" data-label="تواصل معنا" data-action="contact"></div>
+              <div class="menu-row" data-icon="info" data-label="عن التطبيق" data-action="about"></div>
+              <div class="menu-row" data-icon="shield" data-label="سياسة الخصوصية" data-action="privacy"></div>
+              <div class="menu-row danger-row" data-icon="logout" data-label="تسجيل خروج" data-action="logout"></div>
+              <div class="menu-row danger-row" data-icon="delete" data-label="حذف الحساب" data-action="delete"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ---- BOTTOM BAR ---- -->
+      <div class="bottom-bar">
+        <button class="tab-btn active" data-tab="home">
+          <svg viewBox="0 0 24 24"><use href="#icon-home"/></svg>
+          <span>الرئيسية</span>
+        </button>
+        <button class="tab-btn" data-tab="items">
+          <svg viewBox="0 0 24 24"><use href="#icon-box"/></svg>
+          <span>العناصر</span>
+        </button>
+        <div class="fab-slot">
+          <button class="fab-btn">
+            <svg viewBox="0 0 24 24"><use href="#icon-plus"/></svg>
+          </button>
+        </div>
+        <button class="tab-btn" data-tab="history">
+          <svg viewBox="0 0 24 24"><use href="#icon-history"/></svg>
+          <span>السجل</span>
+        </button>
+        <button class="tab-btn" data-tab="account">
+          <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
+          <span>الحساب</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===================== Sub-screen (Personal data / Notifications / Privacy) ===================== -->
+    <section id="sub-screen" class="sub-screen">
+      <header class="sub-header">
+        <button class="sub-back" id="sub-back-btn">
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <span id="sub-title"></span>
+      </header>
+      <div class="sub-body" id="sub-body"></div>
+    </section>
+
+    <!-- ===================== Notifications feed (bell icon on Home) ===================== -->
+    <section id="notifications-screen" class="sub-screen">
+      <header class="sub-header notif-header">
+        <button class="sub-back" id="notif-back-btn">
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <span>الإشعارات</span>
+        <button class="link-btn notif-mark-all" id="notif-mark-all-btn" hidden>قراءة الكل</button>
+      </header>
+      <div class="sub-body notif-list" id="notif-list"></div>
+    </section>
+
+    <!-- ===================== Bottom sheet (FAQ / Contact us / Notification detail) ===================== -->
+    <div id="sheet-backdrop" class="overlay-backdrop">
+      <div class="sheet-panel" id="sheet-panel"></div>
+    </div>
+
+    <!-- ===================== Dialog (About / Language) ===================== -->
+    <div id="dialog-backdrop" class="overlay-backdrop">
+      <div class="dialog-box" id="dialog-box"></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+  </div>
+  <div class="device-label">معاينة تصميم — Dorr Android (Compose) · <span id="current-screen-label">Splash</span></div>
+</div>
+
+<!-- Icon sprite — simplified placeholder glyphs, swap for real iconography later -->
+<svg xmlns="http://www.w3.org/2000/svg" style="display:none">
+  <symbol id="icon-build" viewBox="0 0 24 24"><path d="M22.7 19l-9.1-9.1c.9-2.3.4-5-1.5-6.9-2-2-5-2.4-7.4-1.3L9 6l-3 3-4.4-4.3C.4 7.1.9 10.1 2.9 12.1c1.9 1.9 4.6 2.4 6.9 1.5l9.1 9.1c.4.4 1 .4 1.4 0l2.3-2.3c.5-.4.5-1.1.1-1.4z"/></symbol>
+  <symbol id="icon-person" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.4 3.6-8 8-8s8 3.6 8 8"/></symbol>
+  <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M12 22a2 2 0 0 0 2-2h-4a2 2 0 0 0 2 2zM18 16v-5a6 6 0 1 0-12 0v5l-2 2v1h16v-1z"/></symbol>
+  <symbol id="icon-car" viewBox="0 0 24 24"><path d="M5 11l1.5-4.5A2 2 0 0 1 8.4 5h7.2a2 2 0 0 1 1.9 1.5L19 11"/><rect x="3" y="11" width="18" height="6" rx="2"/><circle cx="7.5" cy="17.5" r="1.6"/><circle cx="16.5" cy="17.5" r="1.6"/></symbol>
+  <symbol id="icon-add-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></symbol>
+  <symbol id="icon-phone" viewBox="0 0 24 24"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.24 11 11 0 0 0 3.4.55 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1 11 11 0 0 0 .55 3.4 1 1 0 0 1-.25 1z"/></symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="icon-construction" viewBox="0 0 24 24"><path d="M4 20l7-7M13 11l7 7M9 4l3 3-6 6-3-3zM15 4l3 3-2 2-3-3z"/></symbol>
+  <symbol id="icon-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></symbol>
+  <symbol id="icon-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5-9 5-9-5zM3 8v9l9 5V13zM21 8v9l-9 5V13"/></symbol>
+  <symbol id="icon-history" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4M12 8v5l3 2"/></symbol>
+  <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="icon-location" viewBox="0 0 24 24"><path d="M12 22s7-6.4 7-12a7 7 0 1 0-14 0c0 5.6 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="icon-language" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></symbol>
+  <symbol id="icon-dark-mode" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></symbol>
+  <symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.7 2.2c-.9.5-1.2 1-1.2 2M12 17h.01"/></symbol>
+  <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h.01"/></symbol>
+  <symbol id="icon-shield" viewBox="0 0 24 24"><path d="M12 2l8 3v6c0 5-3.4 8.7-8 11-4.6-2.3-8-6-8-11V5z"/></symbol>
+  <symbol id="icon-logout" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></symbol>
+  <symbol id="icon-delete" viewBox="0 0 24 24"><path d="M4 7h16M9 7V4h6v3M6 7l1 13a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-13"/></symbol>
+  <symbol id="icon-chevron" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6" transform="rotate(180 12 12)"/></symbol>
+  <symbol id="icon-chat" viewBox="0 0 24 24"><path d="M4 4h16v12H8l-4 4z"/></symbol>
+  <symbol id="icon-email" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 6l9 7 9-7"/></symbol>
+  <symbol id="icon-description" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5M8 12h8M8 16h8M8 8h3"/></symbol>
+  <symbol id="icon-receipt" viewBox="0 0 24 24"><path d="M5 2h14v20l-2.5-1.5L14 22l-2-1.5L10 22l-2.5-1.5L5 22z"/><path d="M8 7h8M8 11h8M8 15h5"/></symbol>
+  <symbol id="icon-event" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v6M16 2v6"/></symbol>
+  <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M12.5 3H4v8.5L14 21l8.5-8.5z"/><circle cx="8" cy="8" r="1.5"/></symbol>
+</svg>
+
+<script src="{{ asset('app/js/app.js?v=11') }}"></script>
+</body>
+</html>

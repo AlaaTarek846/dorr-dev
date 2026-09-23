@@ -2,12 +2,26 @@
 
 namespace Modules\Admin\Http\Controllers;
 
+use App\Http\Controllers\Concerns\DefinesAdminCatalogPermissions;
 use App\Http\Controllers\Controller;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Modules\Admin\Http\Requests\AdminRequest;
 use Modules\Admin\Services\AdminService;
 
-class AdminController extends Controller
+class AdminController extends Controller implements HasMiddleware
 {
+    use DefinesAdminCatalogPermissions;
+
+    protected static function adminPermissionGroup(): string
+    {
+        return 'admins';
+    }
+
+    protected static function permissionsOnDropdown(): bool
+    {
+        return false;
+    }
+
     public function __construct(protected AdminService $service) {}
 
     public function index()

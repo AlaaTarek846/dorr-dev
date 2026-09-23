@@ -1,7 +1,25 @@
 import middlewarePipeline from './middlewarePipeline';
+import { canAccessAdminRoute } from '../modules/admin/adminRoutePermission';
+import { useAuthStore } from '../stores/auth';
 
 export function setupGuards(router) {
-    router.beforeEach((to, from, next) => {
+    router.beforeEach(async (to, from, next) => {
+        const requiredPermission = to.meta?.permission;
+
+        if (requiredPermission) {
+            const allowed = await canAccessAdminRoute(requiredPermission);
+
+            if (! allowed) {
+                const authStore = useAuthStore();
+
+                return next(
+                    authStore.isAuthenticated
+                        ? { name: 'Page404' }
+                        : { name: 'admin.login' },
+                );
+            }
+        }
+
         const middleware = to.meta.middleware;
 
         if (! middleware) {

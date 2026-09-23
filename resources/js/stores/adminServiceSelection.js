@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
-import adminAxios from '../api/adminAxios';
+import { useAuthStore } from './auth';
 
-const STORAGE_KEY = 'admin_selected_service_category_id';
+const STORAGE_KEY = 'admin_selected_service_id';
 
 function readStoredSelection() {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -9,81 +9,54 @@ function readStoredSelection() {
     return raw ? String(raw) : null;
 }
 
-let pendingFetch = null;
-
 export const useAdminServiceSelectionStore = defineStore('adminServiceSelection', {
     state: () => ({
-        services: [],
         selectedServiceId: readStoredSelection(),
-        loading: false,
-        loaded: false,
     }),
 
     getters: {
+        services() {
+            const admin = useAuthStore().admin;
+
+            return admin?.services ?? [];
+        },
+
         selectedService(state) {
-            if (! state.selectedServiceId) {
+            if (! this.services.length) {
                 return null;
             }
 
             return this.services.find(
                 (service) => String(service.id) === String(state.selectedServiceId),
-            ) ?? null;
+            ) ?? this.services[0];
         },
     },
 
     actions: {
-        async fetchServices(force = false) {
-            if (this.loaded && ! force) {
-                return this.services;
-            }
-
-            if (pendingFetch && ! force) {
-                return pendingFetch;
-            }
-
-            this.loading = true;
-
-            pendingFetch = (async () => {
-                try {
-                    const { data } = await adminAxios.get('/api/admin/v1/service-categories/dropdown');
-
-                    this.services = data.data ?? [];
-                    this.loaded = true;
-                    this.ensureSelection();
-
-                    return this.services;
-                } catch {
-                    this.services = [];
-                    this.loaded = false;
-
-                    return this.services;
-                } finally {
-                    this.loading = false;
-                    pendingFetch = null;
-                }
-            })();
-
-            return pendingFetch;
-        },
-
-        ensureSelection() {
-            const matchesCurrent = this.services.some(
+        replaceSelection(services) {
+            const matchesCurrent = (services ?? []).some(
                 (service) => String(service.id) === String(this.selectedServiceId),
             );
 
             if (! matchesCurrent) {
-                this.selectService(null);
+                if (services?.length) {
+                    this.selectService(services[0].id);
+                } else {
+                    this.selectService(null);
+                }
             }
         },
 
         selectService(serviceId) {
-            this.selectedServiceId = serviceId === null ? null : String(serviceId);
-
-            if (this.selectedServiceId === null) {
+            if (serviceId === null || serviceId === undefined) {
+                this.selectedServiceId = null;
                 localStorage.removeItem(STORAGE_KEY);
-            } else {
-                localStorage.setItem(STORAGE_KEY, this.selectedServiceId);
+
+                return;
             }
+
+            this.selectedServiceId = String(serviceId);
+            localStorage.setItem(STORAGE_KEY, this.selectedServiceId);
         },
     },
 });

@@ -56,25 +56,27 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
+import com.dorr.app.network.OtpRequest
+import com.dorr.app.network.VerifyOtpRequest
+import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private const val OTP_LENGTH = 6
 
-// Real SMS delivery isn't wired up in the backend yet (VerificationType::Phone
-// is reserved in the Laravel backend but has no SMS gateway or controller
-// behind it). "123456" is also the reference app's own offline-demo fallback.
-private const val DEV_FIXED_OTP = "123456"
-
 @Composable
-fun OtpScreen(phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
+fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
     val digits = remember { mutableStateListOf(*Array(OTP_LENGTH) { "" }) }
     val focusRequesters = remember { List(OTP_LENGTH) { FocusRequester() } }
     val scope = rememberCoroutineScope()
+    val genericOtpError = stringResource(R.string.otp_error_generic)
 
     var isVerifying by remember { mutableStateOf(false) }
     var hasError by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var isSuccess by remember { mutableStateOf(false) }
     val shakeOffset = remember { Animatable(0f) }
 
@@ -103,15 +105,23 @@ fun OtpScreen(phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
         if (code.length < OTP_LENGTH || isVerifying) return
         isVerifying = true
         hasError = false
+        errorMessage = null
         scope.launch {
-            delay(400) // stand-in for the real verify-otp request
+            val result = runCatching {
+                ApiClient.mobileAuth.verifyOtp(
+                    VerifyOtpRequest(dialCode = dialCode, phone = phoneNumber, code = code),
+                ).data
+            }
             isVerifying = false
-            if (code == DEV_FIXED_OTP) {
+            result.onSuccess { data ->
+                AuthSession.token = data?.token
+                AuthSession.user = data?.user
                 isSuccess = true
                 delay(300)
                 onVerified()
-            } else {
+            }.onFailure {
                 hasError = true
+                errorMessage = it.serverMessage() ?: genericOtpError
                 triggerShake()
             }
         }
@@ -131,10 +141,20 @@ fun OtpScreen(phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
     fun resend() {
         for (i in digits.indices) digits[i] = ""
         hasError = false
+        errorMessage = null
         isSuccess = false
         timerKey++
         focusRequesters[0].requestFocus()
-        // Real resend-otp call would go here once the backend endpoint exists.
+        scope.launch {
+            runCatching {
+                ApiClient.mobileAuth.resendOtp(
+                    OtpRequest(dialCode = dialCode, phone = phoneNumber),
+                )
+            }.onFailure {
+                hasError = true
+                errorMessage = it.serverMessage() ?: genericOtpError
+            }
+        }
     }
 
     Column(
@@ -151,7 +171,7 @@ fun OtpScreen(phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
         Text(stringResource(R.string.otp_title), style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
         Spacer(Modifier.height(8.dp))
         Text(
-            stringResource(R.string.otp_subtitle, phoneNumber),
+            stringResource(R.string.otp_subtitle, listOf(dialCode, phoneNumber).filter { it.isNotBlank() }.joinToString(" ")),
             style = MaterialTheme.typography.bodyMedium,
             color = AppColors.textSecondary,
             textAlign = TextAlign.Center,
@@ -193,6 +213,17 @@ fun OtpScreen(phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
 
         Spacer(Modifier.height(32.dp))
         TimerOrResend(countdown = countdown, canResend = canResend, onResend = ::resend)
+
+        Spacer(Modifier.height(12.dp))
+        val message = errorMessage
+        if (hasError && message != null) {
+            Text(
+                message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AppColors.danger,
+                textAlign = TextAlign.Center,
+            )
+        }
 
         Spacer(Modifier.weight(1f))
 

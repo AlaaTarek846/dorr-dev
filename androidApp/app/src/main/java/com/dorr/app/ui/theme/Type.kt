@@ -1,6 +1,7 @@
 package com.dorr.app.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
@@ -15,6 +16,7 @@ import com.dorr.app.R
  * shipping a separate static file per weight — same font file the Flutter
  * app bundles, see app/src/main/res/font/cairo.ttf.
  */
+@OptIn(ExperimentalTextApi::class)
 private fun cairoWeight(weight: Int) = Font(
     resId = R.font.cairo,
     weight = FontWeight(weight),

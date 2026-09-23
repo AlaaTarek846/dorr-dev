@@ -8,6 +8,20 @@ use App\Services\General\CountryService;
 
 class CountryController extends CatalogController
 {
+    protected static function adminPermissionGroup(): string
+    {
+        return 'countries';
+    }
+
+    /**
+     * User and provider login screens call this before an admin session exists.
+     * Admin routes that use the same action stay behind auth:admin_api.
+     */
+    protected static function permissionsOnDropdown(): bool
+    {
+        return false;
+    }
+
     public function __construct(CountryService $service)
     {
         parent::__construct($service);

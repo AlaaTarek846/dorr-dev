@@ -1,6 +1,6 @@
 <?php
 
-use App\Http\Controllers\General\CountryController;
+use App\Http\Controllers\General\Public\GeneralController;
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\UserAuthController;
 use Modules\User\Http\Controllers\UserPasswordResetController;
@@ -10,8 +10,8 @@ use Modules\User\Http\Controllers\UserRegistrationController;
 Route::middleware('locale')->prefix('user/v1')->group(function () {
     // Public catalog data — needed on pre-login screens (e.g. the phone-entry
     // step needs a dial code before there's a session to authenticate with).
-    Route::get('countries/dropdown', [CountryController::class, 'dropdown']);
-    Route::get('countries/detect', [CountryController::class, 'detect']);
+    Route::get('countries/dropdown', [GeneralController::class, 'countriesDropdown']);
+    Route::get('countries/detect', [GeneralController::class, 'countriesDetect']);
 
     Route::middleware('guest:user_api')->group(function () {
         Route::post('login', [UserAuthController::class, 'login']);
@@ -25,7 +25,6 @@ Route::middleware('locale')->prefix('user/v1')->group(function () {
     });
 
     Route::middleware('auth:user_api')->group(function () {
-        Route::get('countries/dropdown', [CountryController::class, 'dropdown']);
         Route::get('me', [UserAuthController::class, 'me']);
         Route::post('logout', [UserAuthController::class, 'logout']);
         Route::post('profile', [UserProfileController::class, 'update']);

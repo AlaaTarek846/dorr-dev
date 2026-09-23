@@ -3,7 +3,6 @@ import { resolvePage } from '../../dashboard/resolvePage';
 import { resolveShell } from '../../dashboard/resolveShell';
 import guest from '../../router/middleware/guest';
 import auth from '../../router/middleware/auth';
-
 const page = (viewPath) => resolvePage('admin', viewPath);
 
 export default [
@@ -21,6 +20,11 @@ export default [
                 component: page('Login'),
                 meta: { middleware: [guest] },
             },
+            {
+                path: 'errors/404',
+                name: 'Page404',
+                component: page('errors/404'),
+            },
         ],
     },
     {
@@ -37,25 +41,25 @@ export default [
                 path: 'flags',
                 name: 'admin.flags.index',
                 component: page('flag/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'flags.view' },
             },
             {
                 path: 'countries',
                 name: 'admin.countries.index',
                 component: page('country/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'countries.view' },
             },
             {
                 path: 'currencies',
                 name: 'admin.currencies.index',
                 component: page('currency/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'currencies.view' },
             },
             {
                 path: 'languages',
                 name: 'admin.languages.index',
                 component: page('language/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'languages.view' },
             },
             {
                 path: 'profile',
@@ -67,13 +71,13 @@ export default [
                 path: 'dashboard-themes',
                 name: 'admin.dashboard-themes.index',
                 component: page('dashboard-theme/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'dashboard_themes.view' },
             },
             {
                 path: 'platform-settings',
                 name: 'admin.platform-settings',
                 component: page('platform-settings/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'platform_settings.view' },
             },
             {
                 path: 'ai-settings',
@@ -85,13 +89,25 @@ export default [
                 path: 'users',
                 name: 'admin.users.index',
                 component: page('user/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'users.view' },
+            },
+            {
+                path: 'employees',
+                name: 'admin.employees.index',
+                component: page('employee/index'),
+                meta: { middleware: [auth], permission: 'admins.view' },
+            },
+            {
+                path: 'roles',
+                name: 'admin.roles.index',
+                component: page('role/index'),
+                meta: { middleware: [auth], permission: 'roles.view' },
             },
             {
                 path: 'service-categories',
                 name: 'admin.service-categories.index',
                 component: page('service-category/index'),
-                meta: { middleware: [auth] },
+                meta: { middleware: [auth], permission: 'service_categories.view' },
             },
             {
                 path: 'providers',
