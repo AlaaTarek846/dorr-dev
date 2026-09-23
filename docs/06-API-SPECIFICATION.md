@@ -290,6 +290,37 @@ Middleware: `locale`, `auth:user_api`
 
 ---
 
+## Mobile API — `/api/mobile/v1`
+
+Mobile-only endpoints for the Android app. Guard: `user_api` (Sanctum, `users`
+provider). Combined login/register by phone: `POST /auth/otp` creates the user if
+the phone does not exist yet, then sends a fixed demo OTP
+(`config('auth_flow.phone_otp_fixed')`, default `123456`) stored in
+`verification_codes` via `App\Traits\SendsPhoneOtp`. Authenticated routes require
+`ensure-phone-verified` — i.e. `users.phone_verified_at` must be non-null.
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| POST | `/auth/otp` | `guest:user_api` | Request OTP (login or auto-register) |
+| POST | `/auth/verify` | `guest:user_api` | Verify OTP → marks phone verified, issues bearer token |
+| POST | `/auth/resend` | `guest:user_api` | Resend OTP (cooldown enforced) |
+| GET | `/auth/me` | `auth:user_api` + `ensure-phone-verified` | Current user |
+| POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token |
+
+Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
+`code`. User matched/stored by full phone `+<dial><phone>`.
+
+Phone validation is country-aware: the matching country is resolved by
+`dial_code`, then `phone` must respect its `phone_length` (exact digit count) and
+`phone_starts_with` prefix. Errors (localized) return under `dial_code`
+(`phone_invalid_country`) or `phone` (`phone_invalid_length`,
+`phone_invalid_start`).
+
+Responses:
+- OTP/verify/resend per `docs/modules/user/API.md`.
+
+---
+
 ## Web Routes (Non-API)
 
 | Method | Path | Description |

@@ -2,6 +2,7 @@ package com.dorr.app.ui.screens
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,8 +65,8 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AppLocale
 import com.dorr.app.network.CountryDto
 import com.dorr.app.network.LanguageDto
+import com.dorr.app.network.OtpRequest
 import com.dorr.app.ui.theme.AppColors
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -73,14 +74,16 @@ fun LoginScreen(onOtpRequested: (dialCode: String, phone: String) -> Unit) {
     var phone by remember { mutableStateOf("") }
     var acceptedTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
     var menuExpanded by remember { mutableStateOf(false) }
 
-    // Seeded default country is Saudi Arabia until detect/dropdown answer.
+    // Seeded default country is Saudi Arabia until dropdown answer.
     var selectedCountryId by remember { mutableStateOf<Int?>(null) }
     var flagCode by remember { mutableStateOf("sa") }
     var dialCode by remember { mutableStateOf("+966") }
     var phoneLength by remember { mutableStateOf(9) }
+    var phoneStartsWith by remember { mutableStateOf("") }
 
     val scope = rememberCoroutineScope()
 
@@ -90,20 +93,29 @@ fun LoginScreen(onOtpRequested: (dialCode: String, phone: String) -> Unit) {
         dialCode = formatDialCode(country.dialCode)
         val length = country.phoneLength ?: phoneLength
         phoneLength = length
+        phoneStartsWith = country.phoneStartsWith.orEmpty()
         if (phone.length > length) phone = phone.take(length)
     }
 
     LaunchedEffect(Unit) {
         val listed = runCatching { ApiClient.countries.list().data.orEmpty() }.getOrDefault(emptyList())
-        val detected = runCatching { ApiClient.countries.detect().data }.getOrNull()
         countries = listed
-        val chosen = detected?.let { detectedCountry ->
-            listed.find { it.id == detectedCountry.id } ?: detectedCountry
-        } ?: listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
+        val chosen = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
         chosen?.let(::applyCountry)
     }
 
-    val canSubmit = !isLoading && acceptedTerms && phone.length == phoneLength
+    val canSubmit = !isLoading && acceptedTerms && phone.length == phoneLength && phone.startsWith(phoneStartsWith)
+
+    val genericError = stringResource(R.string.login_error_generic)
+
+    val phoneError: String? = when {
+        phone.isEmpty() -> null
+        phone.length != phoneLength ->
+            stringResource(R.string.login_error_phone_invalid_length, phoneLength)
+        phoneStartsWith.isNotEmpty() && !phone.startsWith(phoneStartsWith) ->
+            stringResource(R.string.login_error_phone_invalid_start, phoneStartsWith)
+        else -> null
+    }
 
     Box(Modifier.fillMaxSize()) {
         LoginBackdrop(Modifier.fillMaxSize())
@@ -113,10 +125,12 @@ fun LoginScreen(onOtpRequested: (dialCode: String, phone: String) -> Unit) {
             onAcceptedTermsChange = { acceptedTerms = it },
             isLoading = isLoading,
             canSubmit = canSubmit,
+            phoneError = phoneError,
             countries = countries,
             selectedCountryId = selectedCountryId,
             flagCode = flagCode,
             dialCode = dialCode,
+            phoneStartsWith = phoneStartsWith,
             menuExpanded = menuExpanded,
             onMenuExpandedChange = { menuExpanded = it },
             onCountrySelected = {
@@ -127,13 +141,32 @@ fun LoginScreen(onOtpRequested: (dialCode: String, phone: String) -> Unit) {
             onPhoneChange = { if (it.length <= phoneLength) phone = it },
             onSubmit = {
                 isLoading = true
+                errorMessage = null
                 scope.launch {
-                    delay(500)
-                    isLoading = false
-                    onOtpRequested(dialCode, phone)
+                    runCatching {
+                        ApiClient.mobileAuth.requestOtp(
+                            OtpRequest(dialCode = dialCode, phone = phone),
+                        ).data
+                    }.onSuccess {
+                        isLoading = false
+                        onOtpRequested(dialCode, phone)
+                    }.onFailure {
+                        isLoading = false
+                        errorMessage = it.serverMessage() ?: genericError
+                    }
                 }
             },
         )
+
+        errorMessage?.let { message ->
+            Text(
+                text = message,
+                color = AppColors.danger,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp),
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -181,10 +214,12 @@ private fun LoginContent(
     onAcceptedTermsChange: (Boolean) -> Unit,
     isLoading: Boolean,
     canSubmit: Boolean,
+    phoneError: String?,
     countries: List<CountryDto>,
     selectedCountryId: Int?,
     flagCode: String,
     dialCode: String,
+    phoneStartsWith: String,
     menuExpanded: Boolean,
     onMenuExpandedChange: (Boolean) -> Unit,
     onCountrySelected: (CountryDto) -> Unit,
@@ -237,10 +272,23 @@ private fun LoginContent(
             menuExpanded = menuExpanded,
             onMenuExpandedChange = onMenuExpandedChange,
             onCountrySelected = onCountrySelected,
+            phoneStartsWith = phoneStartsWith,
             phoneLength = phoneLength,
             phone = phone,
             onPhoneChange = onPhoneChange,
         )
+
+        phoneError?.let { message ->
+            Text(
+                text = message,
+                color = AppColors.danger,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                textAlign = TextAlign.Center,
+            )
+        }
 
         Spacer(Modifier.height(12.dp))
 
@@ -269,8 +317,31 @@ private fun LoginContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(48.dp)
+                .then(
+                    if (canSubmit) {
+                        Modifier.shadow(
+                            elevation = 8.dp,
+                            shape = RoundedCornerShape(999.dp),
+                            ambientColor = Color(0x59E50914),
+                            spotColor = Color(0x66E50914),
+                        )
+                    } else {
+                        Modifier
+                    },
+                )
                 .clip(RoundedCornerShape(999.dp))
-                .background(Color(0xFFE50914))
+                .background(if (canSubmit) Color(0xFFE50914) else Color.Transparent)
+                .then(
+                    if (canSubmit) {
+                        Modifier
+                    } else {
+                        Modifier.border(
+                            width = 1.dp,
+                            color = Color(0x33E50914),
+                            shape = RoundedCornerShape(999.dp),
+                        )
+                    },
+                )
                 .clickable(enabled = canSubmit, onClick = onSubmit),
             contentAlignment = Alignment.Center,
         ) {
@@ -279,7 +350,7 @@ private fun LoginContent(
             } else {
                 Text(
                     stringResource(R.string.login_cta),
-                    color = Color.White,
+                    color = if (canSubmit) Color.White else Color(0x80E50914),
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -296,6 +367,7 @@ private fun PhoneField(
     menuExpanded: Boolean,
     onMenuExpandedChange: (Boolean) -> Unit,
     onCountrySelected: (CountryDto) -> Unit,
+    phoneStartsWith: String,
     phoneLength: Int,
     phone: String,
     onPhoneChange: (String) -> Unit,
@@ -392,10 +464,11 @@ private fun PhoneField(
                     .background(AppColors.border),
             )
             Spacer(Modifier.width(8.dp))
+            val placeholder = phoneStartsWith + "*".repeat(if (phoneLength > phoneStartsWith.length) phoneLength - phoneStartsWith.length else 0)
             OutlinedTextField(
                 value = phone,
                 onValueChange = onPhoneChange,
-                placeholder = { Text("0".repeat(phoneLength), color = AppColors.textMuted) },
+                placeholder = { Text(placeholder, color = AppColors.textMuted) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 colors = OutlinedTextFieldDefaults.colors(

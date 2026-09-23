@@ -335,6 +335,16 @@ svg[fill] { fill: currentColor; stroke: none; }
 }
 .login-terms { font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 24px; }
 
+.phone-error {
+  font-size: 12px;
+  color: var(--danger, #F05252);
+  text-align: center;
+  margin: 8px 0 0;
+  font-weight: 600;
+  min-height: 0;
+}
+#screen-login .phone-error { color: #F05252; margin-top: 8px; }
+
 /* Login visual treatment — layout and shape only, same fields as before. */
 #screen-login {
   background:
@@ -573,10 +583,23 @@ svg[fill] { fill: currentColor; stroke: none; }
   margin-top: 16px;
   border-radius: 999px;
   font-size: 15px;
-  background: #E50914;
-  box-shadow: 0 8px 16px rgba(229, 9, 20, .22);
+  background: transparent;
+  border: 1px solid rgba(229, 9, 20, .2);
+  color: rgba(229, 9, 20, .5);
+  box-shadow: none;
+  transition: background .25s ease, border-color .25s ease, color .25s ease, box-shadow .25s ease, opacity .2s, transform .1s;
 }
-#screen-login .btn-primary:disabled { opacity: 1; }
+#screen-login .btn-primary:not(:disabled) {
+  background: #E50914;
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 8px 22px rgba(229, 9, 20, .4);
+}
+#screen-login .btn-primary:not(:disabled):hover {
+  box-shadow: 0 10px 28px rgba(229, 9, 20, .5);
+  transform: translateY(-1px);
+}
+#screen-login .btn-primary:disabled { opacity: 1; cursor: default; }
 #screen-otp {
   background:
     radial-gradient(ellipse 130% 78% at -8% -12%, #EFA8B4 0%, #F6C9D2 28%, rgba(246, 201, 210, 0) 70%),

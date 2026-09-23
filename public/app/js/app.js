@@ -1,7 +1,6 @@
-// Design preview — mostly mirrors the screens/animations built in the real
-// Kotlin/Compose project (androidApp/), but the country detection below is a
-// REAL call to the Laravel backend (same origin, dorr.test), so this page
-// doubles as a way to sanity-check that API before wiring it into Kotlin.
+// Design preview — mirrors the screens/animations built in the real
+// Kotlin/Compose project (androidApp/). Country data comes from the
+// Laravel backend dropdown (same origin, dorr.test).
 
 const $ = (sel, ctx = document) => ctx.querySelector(sel);
 const $$ = (sel, ctx = document) => [...ctx.querySelectorAll(sel)];
@@ -34,6 +33,7 @@ const countryListEl = $('#phone-code-list');
 const countrySearch = $('#phone-country-search');
 const countryEmpty = $('#phone-code-empty');
 const termsCheck = $('#login-terms-check');
+const phoneErrorEl = $('#phone-error');
 const langBtns = $$('.login-lang-btn');
 const langNameEls = $$('.login-lang-name');
 const langMenuEls = $$('.login-lang-menu');
@@ -52,6 +52,9 @@ const LOGIN_COPY = {
     otpConfirm: 'تأكيد',
     otpResend: 'إعادة إرسال الكود',
     otpTimer: 'إعادة الإرسال بعد {n} ثانية',
+    errorInvalidLength: 'يجب أن يتكون رقم الهاتف من {length} أرقام.',
+    errorInvalidStart: 'يجب أن يبدأ رقم الهاتف بالرقم {starts}.',
+    errorGeneric: 'حدث خطأ ما. حاول مرة أخرى.',
   },
   en: {
     title: 'Sign in',
@@ -66,6 +69,9 @@ const LOGIN_COPY = {
     otpConfirm: 'Confirm',
     otpResend: 'Resend code',
     otpTimer: 'Resend in {n}s',
+    errorInvalidLength: 'The phone number must be {length} digits.',
+    errorInvalidStart: 'The phone number must start with {starts}.',
+    errorGeneric: 'Something went wrong. Please try again.',
   },
 };
 
@@ -73,12 +79,16 @@ let languages = [];
 let selectedLanguageCode = 'ar';
 
 function syncSendEnabled() {
-  sendBtn.disabled = phoneInput.value.length !== phoneLength || !termsCheck.checked;
+  sendBtn.disabled =
+    phoneInput.value.length !== phoneLength ||
+    !phoneInput.value.startsWith(phoneStartsWith) ||
+    !termsCheck.checked;
 }
 
-// Seeded default country is Saudi Arabia until detect/dropdown answer.
+// Seeded default country is Saudi Arabia until dropdown answer.
 let dialCode = '+966';
 let phoneLength = 9;
+let phoneStartsWith = '';
 let flagCode = 'sa';
 let selectedCountryId = null;
 let countries = [];
@@ -112,14 +122,37 @@ function applyCountry(country) {
   flagCode = country.flag?.code || country.code || flagCode;
   dialCode = formatDialCode(country.dial_code) || dialCode;
   phoneLength = country.phone_length || phoneLength;
+  phoneStartsWith = country.phone_starts_with || '';
   dialText.textContent = dialCode;
   flagEl.src = flagUrl(flagCode);
   flagEl.alt = flagCode;
   phoneInput.maxLength = phoneLength;
-  phoneInput.placeholder = '0'.repeat(phoneLength);
+  phoneInput.placeholder = phoneStartsWith + '*'.repeat(Math.max(0, phoneLength - phoneStartsWith.length));
   phoneInput.value = phoneInput.value.replace(/\D/g, '').slice(0, phoneLength);
   syncSendEnabled();
   renderCountryMenu();
+}
+
+function syncPhoneError() {
+  const copy = LOGIN_COPY[selectedLanguageCode] || LOGIN_COPY.ar;
+  const value = phoneInput.value;
+  let message = null;
+  if (value) {
+    if (value.length !== phoneLength) {
+      message = copy.errorInvalidLength.replace('{length}', String(phoneLength));
+    } else if (phoneStartsWith && !value.startsWith(phoneStartsWith)) {
+      message = copy.errorInvalidStart.replace('{starts}', phoneStartsWith);
+    }
+  }
+  if (message) {
+    phoneInput.closest('.screen-view').classList.add('has-error');
+    phoneErrorEl.textContent = message;
+    phoneErrorEl.hidden = false;
+  } else {
+    phoneInput.closest('.screen-view').classList.remove('has-error');
+    phoneErrorEl.textContent = '';
+    phoneErrorEl.hidden = true;
+  }
 }
 
 function filteredCountries() {
@@ -233,7 +266,8 @@ function applyLanguage(language) {
   renderLanguageMenu();
   if (localeChanged) {
     loadLanguages();
-    loadCountries(false);
+    loadCountries();
+    syncPhoneError();
   }
 }
 
@@ -278,7 +312,7 @@ langMenuEls.forEach((menu) => {
 });
 
 loadLanguages();
-loadCountries(true);
+loadCountries();
 loadBranding();
 
 function paintBrandName() {
@@ -332,26 +366,14 @@ function loadBranding() {
     });
 }
 
-function loadCountries(detect) {
+function loadCountries() {
   const headers = { ...apiHeaders };
-  const requests = [
-    fetch('/api/general/v1/countries/dropdown', { headers }).then((r) => r.json()).catch(() => null),
-  ];
-  if (detect) {
-    requests.push(fetch('/api/general/v1/countries/detect', { headers }).then((r) => r.json()).catch(() => null));
-  }
-  return Promise.all(requests)
-    .then(([listRes, detectRes]) => {
-      const listed = Array.isArray(listRes?.data) ? listRes.data : [];
+  return fetch('/api/general/v1/countries/dropdown', { headers })
+    .then((r) => r.json())
+    .then((res) => {
+      const listed = Array.isArray(res?.data) ? res.data : [];
       if (listed.length) countries = listed;
-      if (!detect) {
-        renderCountryMenu();
-        return;
-      }
-      const detected = detectRes?.data;
-      const chosen = (detected && (countries.find((item) => item.id === detected.id) || detected))
-        || countries.find((item) => item.is_default)
-        || countries[0];
+      const chosen = countries.find((item) => item.is_default) || countries[0];
       if (chosen) applyCountry(chosen);
       else renderCountryMenu();
     })
@@ -363,6 +385,7 @@ function loadCountries(detect) {
 phoneInput.addEventListener('input', () => {
   phoneInput.value = phoneInput.value.replace(/\D/g, '').slice(0, phoneLength);
   syncSendEnabled();
+  syncPhoneError();
 });
 
 termsCheck.addEventListener('change', syncSendEnabled);

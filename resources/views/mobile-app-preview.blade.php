@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>درر — معاينة التصميم</title>
-<link rel="stylesheet" href="css/styles.css?v=25">
+<title>درر — معاينة تطبيق الموبايل</title>
+<link rel="stylesheet" href="{{ asset('app/css/styles.css?v=25') }}">
 </head>
 <body>
 
@@ -378,6 +378,6 @@
   <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M12.5 3H4v8.5L14 21l8.5-8.5z"/><circle cx="8" cy="8" r="1.5"/></symbol>
 </svg>
 
-<script src="js/app.js?v=11"></script>
+<script src="{{ asset('app/js/app.js?v=11') }}"></script>
 </body>
 </html>
