@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens
 
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.padding
@@ -27,6 +28,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.screens.wallet.WalletScreen
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 
@@ -63,10 +66,12 @@ private val tabs = listOf(
 fun MainScreen(
     onLogout: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenWallet: () -> Unit,
     onOpenServices: () -> Unit,
 ) {
     var currentTab by remember { mutableIntStateOf(0) }
+    // The wallet lives *inside* this screen, above the tab content and below the bar, so the tab bar
+    // stays visible on every wallet page; choosing any tab leaves (and so re-locks) the wallet.
+    var walletOpen by remember { mutableStateOf(false) }
 
     // Gentle session check on entry: refresh the profile from /auth/me and, if
     // the token is expired/revoked, the backend answers 401 — the ApiClient
@@ -93,26 +98,32 @@ fun MainScreen(
         bottomBar = {
             BottomAppBar(
                 actions = {
-                    TabItem(tabs[0], selected = currentTab == 0) { currentTab = 0 }
-                    TabItem(tabs[1], selected = currentTab == 1) { currentTab = 1 }
+                    TabItem(tabs[0], selected = currentTab == 0 && !walletOpen) { currentTab = 0; walletOpen = false }
+                    TabItem(tabs[1], selected = currentTab == 1 && !walletOpen) { currentTab = 1; walletOpen = false }
                     Spacer(Modifier.width(48.dp))
-                    TabItem(tabs[2], selected = currentTab == 2) { currentTab = 2 }
-                    TabItem(tabs[3], selected = currentTab == 3) { currentTab = 3 }
+                    TabItem(tabs[2], selected = currentTab == 2 && !walletOpen) { currentTab = 2; walletOpen = false }
+                    TabItem(tabs[3], selected = currentTab == 3 && !walletOpen) { currentTab = 3; walletOpen = false }
                 },
             )
         },
     ) { padding ->
-        Crossfade(targetState = currentTab, label = "mainTab", modifier = Modifier.padding(padding)) { tab ->
+        Box(Modifier.padding(padding)) {
+        Crossfade(targetState = currentTab, label = "mainTab") { tab ->
             when (tab) {
                 0 -> HomeScreen(
                     onOpenAccount = { currentTab = 3 },
                     onOpenNotifications = onOpenNotifications,
-                    onOpenWallet = onOpenWallet,
+                    onOpenWallet = { walletOpen = true },
                     onOpenServices = onOpenServices,
                 )
                 3 -> ProfileScreen(onLogout = onLogout)
                 else -> PlaceholderScreen()
             }
+        }
+        if (walletOpen) {
+            // Bottom inset = the part of the docked FAB that pokes above the bar, so buttons never sit under it.
+            Box(Modifier.padding(bottom = 28.dp)) { WalletScreen(onExit = { walletOpen = false }) }
+        }
         }
     }
 }

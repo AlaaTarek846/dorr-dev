@@ -65,6 +65,7 @@ import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
 import com.dorr.app.ui.screens.profile.PersonalDataScreen
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
 import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
+import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 
@@ -256,17 +257,7 @@ private fun ConfirmDialog(title: String, message: String, onConfirm: () -> Unit,
 private fun AboutDialog(onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        icon = {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AppColors.primary.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Rounded.Build, contentDescription = null, tint = AppColors.primary)
-            }
-        },
+        icon = { DorrLogo(width = 150.dp) },
         title = { Text(stringResource(R.string.app_name)) },
         text = {
             Column {

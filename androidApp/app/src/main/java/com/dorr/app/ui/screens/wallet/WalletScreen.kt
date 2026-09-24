@@ -1,264 +1,266 @@
 package com.dorr.app.ui.screens.wallet
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
-import com.dorr.app.network.WalletBalanceDto
-import com.dorr.app.ui.components.SettingsScaffold
-import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.network.CreatePinRequest
+import com.dorr.app.network.apiFailure
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 
 /**
- * Sub-screens of the wallet. Withdraw is added with
- * its backend phase (8) — a screen without an endpoint behind it
- * would only be a placeholder.
+ * The wallet, as one visit: PIN gate first (every time it is entered — leaving re-locks it), then a
+ * small stack of pages that slide over each other, with bottom sheets and a toast on top. It is drawn
+ * *inside* the main screen, above the tab content and below the tab bar, so the bar stays visible.
  */
-private enum class WalletSub { OVERVIEW, TOPUP, TRANSFER, HISTORY }
-
-/** Opened from the wallet icon in the Home header. */
 @Composable
-fun WalletScreen(onBack: () -> Unit) {
-    // Not remembered across visits: every time this screen is entered the PIN is asked again.
+fun WalletScreen(onExit: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    val host = remember { WalletHost(scope, onExit) }
     var unlocked by remember { mutableStateOf(false) }
-    if (!unlocked) {
-        WalletPinGate(onUnlocked = { unlocked = true }, onCancel = onBack)
-        return
-    }
 
-    var sub by remember { mutableStateOf(WalletSub.OVERVIEW) }
-    var balance by remember { mutableStateOf<WalletBalanceDto?>(null) }
-    var loading by remember { mutableStateOf(true) }
-    var failed by remember { mutableStateOf(false) }
-    // Bumped to re-fetch the balance (first open, and after a finished top-up).
-    var reloadKey by remember { mutableStateOf(0) }
-
-    LaunchedEffect(reloadKey) {
-        loading = true
-        failed = false
-        runCatching { ApiClient.wallet.balance(walletAuth()).data }
-            .onSuccess { balance = it }
-            .onFailure { failed = true }
-        loading = false
-    }
-
-    fun goBack() {
-        if (sub == WalletSub.OVERVIEW) {
-            onBack()
-        } else {
-            sub = WalletSub.OVERVIEW
-        }
-    }
-    BackHandler { goBack() }
-
-    val title = stringResource(
-        when (sub) {
-            WalletSub.TOPUP -> R.string.wallet_topup_title
-            WalletSub.TRANSFER -> R.string.wallet_transfer_title
-            WalletSub.HISTORY -> R.string.wallet_history_title
-            WalletSub.OVERVIEW -> R.string.wallet_title
-        },
-    )
-    SettingsScaffold(title = title, onBack = { goBack() }) { padding ->
-        Box(modifier = Modifier.padding(padding)) {
-            when (sub) {
-                WalletSub.OVERVIEW -> WalletOverview(
-                    balance = balance,
-                    loading = loading,
-                    failed = failed,
-                    onRetry = { reloadKey++ },
-                    onTopup = { sub = WalletSub.TOPUP },
-                    onHistory = { sub = WalletSub.HISTORY },
-                    onTransfer = { sub = WalletSub.TRANSFER },
-                )
-                WalletSub.TRANSFER -> TransferScreen(
-                    balance = balance,
-                    onDone = { reloadKey++; sub = WalletSub.OVERVIEW },
-                )
-                WalletSub.TOPUP -> TopupScreen(
-                    balance = balance,
-                    onDone = { reloadKey++; sub = WalletSub.OVERVIEW },
-                )
-                WalletSub.HISTORY -> HistoryScreen(currency = balance?.currencyCode)
+    CompositionLocalProvider(LocalWallet provides host) {
+        Box(Modifier.fillMaxSize().background(Wa.Bg)) {
+            if (!unlocked) {
+                BackHandler { onExit() }
+                WaGate(onUnlocked = { unlocked = true }, onCancel = onExit)
+            } else {
+                BackHandler { host.pop() }
+                WalletPages(host)
+                WaSheetHost(host)
+                WaToastHost(host)
             }
         }
     }
 }
 
 @Composable
-private fun WalletOverview(
-    balance: WalletBalanceDto?,
-    loading: Boolean,
-    failed: Boolean,
-    onRetry: () -> Unit,
-    onTopup: () -> Unit,
-    onHistory: () -> Unit,
-    onTransfer: () -> Unit,
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        when {
-            balance == null && loading -> Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+private fun WalletPages(host: WalletHost) {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    // Pages come in from the "next" edge of the reading direction and leave towards the other one.
+    val sign = if (rtl) -1 else 1
+
+    AnimatedContent(
+        targetState = host.current,
+        transitionSpec = {
+            val forward = host.forward
+            val enter = slideInHorizontally(tween(340)) { full -> (if (forward) sign else -sign) * full / 6 } + fadeIn(tween(300))
+            val exit = slideOutHorizontally(tween(300)) { full -> (if (forward) -sign else sign) * full / 10 } + fadeOut(tween(220))
+            ContentTransform(enter, exit)
+        },
+        label = "walletPages",
+    ) { route ->
+        when (route) {
+            WaRoute.Home -> WalletHome()
+            WaRoute.Topup -> WalletTopup()
+            WaRoute.Transfer -> WalletTransfer()
+            is WaRoute.TransferConfirm -> WalletTransferConfirm(route.who)
+            WaRoute.MyQr -> WalletMyQr()
+            WaRoute.Scanner -> WalletScanner()
+            WaRoute.History -> WalletHistory()
+            WaRoute.PinSettings -> WalletPinSettings()
+        }
+    }
+}
+
+@Composable
+private fun WaToastHost(host: WalletHost) {
+    val message = host.toast
+    var last by remember { mutableStateOf("") }
+    if (message != null) last = message
+    Box(Modifier.fillMaxSize().padding(bottom = 26.dp), contentAlignment = Alignment.BottomCenter) {
+        AnimatedVisibility(
+            visible = message != null,
+            enter = slideInVertically(tween(300)) { it / 2 } + fadeIn(tween(250)),
+            exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
+        ) {
+            Row(
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Ink).padding(horizontal = 18.dp, vertical = 11.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                Text(last, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
             }
-            balance == null && failed -> {
-                Text(stringResource(R.string.wallet_error_network), color = MaterialTheme.colorScheme.error)
-                OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.wallet_retry)) }
-            }
-            balance != null -> {
-                BalanceCard(balance)
-                MyWalletNumber(balance)
-                balance.otherWallets.orEmpty().takeIf { it.isNotEmpty() }?.let { others ->
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(stringResource(R.string.wallet_other_wallets), fontWeight = FontWeight.SemiBold)
-                        others.forEach { other ->
-                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                Text(other.countryCode.orEmpty())
-                                Text(formatMinor(other.totalMinor, other.currencyCode))
+        }
+    }
+}
+
+/**
+ * Asks for the PIN before the wallet opens. With a PIN it verifies it; without one it walks the
+ * person through creating it (enter + confirm) — the same screen either way, like the preview.
+ */
+@Composable
+private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
+    val networkError = stringResource(R.string.wa_error_network)
+    val enterTitle = stringResource(R.string.wa_gate_enter_title)
+    val enterSub = stringResource(R.string.wa_gate_enter_sub)
+    val createTitle = stringResource(R.string.wa_gate_create_title)
+    val createSub = stringResource(R.string.wa_gate_create_sub)
+    val confirmTitle = stringResource(R.string.wa_pin_confirm_title)
+    val confirmSub = stringResource(R.string.wa_pin_confirm_sub)
+    val mismatch = stringResource(R.string.wa_pin_mismatch)
+
+    var hasPin by remember { mutableStateOf<Boolean?>(null) }
+    var failed by remember { mutableStateOf<String?>(null) }
+    var attempt by remember { mutableIntStateOf(0) }
+    var step by remember { mutableStateOf("enter") }
+    var first by remember { mutableStateOf("") }
+
+    LaunchedEffect(attempt) {
+        failed = null
+        hasPin = null
+        try {
+            val status = ApiClient.wallet.pinStatus(walletAuth()).data
+            hasPin = status?.hasPin
+            if (status == null) failed = networkError
+            step = if (status?.hasPin == true) "enter" else "create"
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            failed = e.apiFailure().message ?: networkError
+        }
+    }
+
+    WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+            when {
+                failed != null -> WaEmpty(
+                    icon = Icons.Rounded.Warning, tone = Tone.Gray,
+                    title = stringResource(R.string.wa_load_failed), text = failed.orEmpty(),
+                    action = { WaButton(stringResource(R.string.wa_retry), onClick = { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
+                )
+                hasPin == null -> WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
+                else -> Column(Modifier.fillMaxWidth().waRise(0)) {
+                    val (title, sub) = when (step) {
+                        "enter" -> enterTitle to enterSub
+                        "create" -> createTitle to createSub
+                        else -> confirmTitle to confirmSub
+                    }
+                    WaPinPad(title = title, sub = sub, onComplete = { pin ->
+                        when (step) {
+                            "enter" -> {
+                                try {
+                                    ApiClient.wallet.verifyPin(walletAuth(), pin)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    val failure = e.apiFailure()
+                                    return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                                }
+                                onUnlocked()
+                                PadResult.Ok
+                            }
+                            "create" -> {
+                                first = pin
+                                step = "confirm"
+                                PadResult.Reset
+                            }
+                            else -> {
+                                if (pin != first) {
+                                    step = "create"
+                                    return@WaPinPad PadResult.Error(mismatch)
+                                }
+                                try {
+                                    ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(pin, pin))
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    step = "create"
+                                    return@WaPinPad PadResult.Error(e.apiFailure().message ?: networkError)
+                                }
+                                onUnlocked()
+                                PadResult.Ok
                             }
                         }
-                        Text(
-                            stringResource(R.string.wallet_other_wallets_note),
-                            color = AppColors.textSecondary,
-                            style = MaterialTheme.typography.bodySmall,
-                        )
-                    }
-                }
-                Button(
-                    onClick = onTopup,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) {
-                    Icon(Icons.Rounded.Add, contentDescription = null)
-                    Text(stringResource(R.string.wallet_topup_title), modifier = Modifier.padding(start = 8.dp))
-                }
-                OutlinedButton(
-                    onClick = onTransfer,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) {
-                    Text(stringResource(R.string.wallet_transfer_title))
-                }
-                OutlinedButton(
-                    onClick = onHistory,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp),
-                ) {
-                    Text(stringResource(R.string.wallet_history_title))
+                    })
                 }
             }
         }
     }
 }
 
-/** The number others use to send money to THIS country wallet, with a copy button. */
-@Composable
-private fun MyWalletNumber(balance: WalletBalanceDto) {
-    val number = balance.walletNumber ?: return
-    val shown = balance.walletNumberFormatted ?: number
-    val clipboard = LocalClipboardManager.current
-    var copied by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.wallet_my_number, balance.countryCode.orEmpty()),
-                color = AppColors.textSecondary,
-                style = MaterialTheme.typography.bodySmall,
-            )
-            Text(shown, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+/**
+ * Opens the PIN sheet for a protected action. Asks the server first whether a PIN exists so a
+ * first-time user gets the create form instead of a "wrong PIN" error.
+ */
+fun WalletHost.requestPin(
+    subtitle: String,
+    onError: (String) -> Unit,
+    onSubmit: suspend (String) -> PinOutcome,
+    onClose: (String) -> Unit = onError,
+) {
+    scope.launch {
+        val hasPin = try {
+            ApiClient.wallet.pinStatus(walletAuth()).data?.hasPin
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            onError(e.apiFailure().message ?: "")
+            return@launch
         }
-        TextButton(onClick = { clipboard.setText(AnnotatedString(shown)); copied = true }) {
-            Text(stringResource(if (copied) R.string.wallet_number_copied else R.string.wallet_number_copy))
-        }
+        openSheet(WaSheet.Pin(hasPin = hasPin ?: true, subtitle = subtitle, onSubmit = onSubmit, onClose = onClose))
     }
 }
 
+/**
+ * The PIN screen reached from Account → Wallet PIN, outside a wallet visit: same page, its own
+ * little host (so the toast and back handling work), leaving straight back to the account menu.
+ */
 @Composable
-private fun BalanceCard(balance: WalletBalanceDto) {
-    val currency = balance.currencyCode
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(AppColors.headerBackground)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Text(stringResource(R.string.wallet_total_balance), color = Color.White.copy(alpha = 0.8f))
-        Text(
-            formatMinor(balance.totalMinor, currency),
-            color = Color.White,
-            style = MaterialTheme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-        )
-        BalancePart(stringResource(R.string.wallet_withdrawable), stringResource(R.string.wallet_withdrawable_note), formatMinor(balance.withdrawableMinor, currency))
-        BalancePart(stringResource(R.string.wallet_spend_only), stringResource(R.string.wallet_spend_only_note), formatMinor(balance.spendOnlyMinor, currency))
-        if (balance.heldMinor > 0) {
-            BalancePart(stringResource(R.string.wallet_held), stringResource(R.string.wallet_held_note), formatMinor(balance.heldMinor, currency))
+fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) {
+    val scope = rememberCoroutineScope()
+    val host = remember { WalletHost(scope, onBack) }
+    CompositionLocalProvider(LocalWallet provides host) {
+        BackHandler { onBack() }
+        Box(Modifier.fillMaxSize()) {
+            WalletPinSettings()
+            WaToastHost(host)
         }
-    }
-}
-
-@Composable
-private fun BalancePart(label: String, note: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, color = Color.White, fontWeight = FontWeight.SemiBold)
-            Text(note, color = Color.White.copy(alpha = 0.7f), style = MaterialTheme.typography.bodySmall)
-        }
-        Spacer(Modifier.width(12.dp))
-        Text(value, color = Color.White, fontWeight = FontWeight.SemiBold)
     }
 }

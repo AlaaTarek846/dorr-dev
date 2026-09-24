@@ -7,11 +7,12 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 /**
  * Backend reached through an ngrok tunnel (HTTPS, works from any network —
- * no adb reverse or Wi-Fi IP needed). The tunnel host is a free ngrok domain:
- * if it changes, update [BASE_HOST] only. The local dev host below is what
+ * no adb reverse or Wi-Fi IP needed). The tunnel host is the account's reserved static ngrok domain:
+ * it stays the same across restarts — start the tunnel with:
+ * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
  * Laravel builds absolute media URLs with, so those get rewritten to the tunnel.
  */
-private const val BASE_HOST = "juncture-calibrate-tingly.ngrok-free.dev"
+private const val BASE_HOST = "exploring-molasses-pretended.ngrok-free.dev"
 private const val BASE_URL = "https://$BASE_HOST/api/"
 private const val LOCAL_MEDIA_HOST = "dorr.test"
 
@@ -53,6 +54,7 @@ object ApiClient {
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
+    val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
 
     /**
