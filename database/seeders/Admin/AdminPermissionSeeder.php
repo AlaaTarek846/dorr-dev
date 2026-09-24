@@ -119,6 +119,64 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
+            'payment-methods' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'wallet-fee-rules' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'wallets' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'manual-adjustment',
+                ],
+            ],
+            'wallet-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
+            'withdrawal-requests' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'approve',
+                    'reject',
+                ],
+            ],
+            'financial-entries' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                ],
+            ],
+            'online-transactions' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'reconcile',
+                    'refund',
+                ],
+            ],
             'users' => [
                 'module_name' => 'system_users',
                 'actions' => [

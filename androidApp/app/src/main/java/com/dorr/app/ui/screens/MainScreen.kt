@@ -60,7 +60,12 @@ private val tabs = listOf(
  * (tab 3, mapped to [ProfileScreen]) are fully designed per this request.
  */
 @Composable
-fun MainScreen(onLogout: () -> Unit, onOpenNotifications: () -> Unit) {
+fun MainScreen(
+    onLogout: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenWallet: () -> Unit,
+    onOpenServices: () -> Unit,
+) {
     var currentTab by remember { mutableIntStateOf(0) }
 
     // Gentle session check on entry: refresh the profile from /auth/me and, if
@@ -99,7 +104,12 @@ fun MainScreen(onLogout: () -> Unit, onOpenNotifications: () -> Unit) {
     ) { padding ->
         Crossfade(targetState = currentTab, label = "mainTab", modifier = Modifier.padding(padding)) { tab ->
             when (tab) {
-                0 -> HomeScreen(onOpenAccount = { currentTab = 3 }, onOpenNotifications = onOpenNotifications)
+                0 -> HomeScreen(
+                    onOpenAccount = { currentTab = 3 },
+                    onOpenNotifications = onOpenNotifications,
+                    onOpenWallet = onOpenWallet,
+                    onOpenServices = onOpenServices,
+                )
                 3 -> ProfileScreen(onLogout = onLogout)
                 else -> PlaceholderScreen()
             }
