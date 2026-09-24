@@ -107,6 +107,41 @@ const UI_COPY = {
     accSettingsSub: 'اللغة والإشعارات والحساب',
     accPlacesTitle: 'العناوين',
     accPlacesSub: 'عناوين المنزل والعمل',
+    addrTitle: 'العناوين',
+    addrSearch: 'ابحث عن عنوان',
+    addrAdd: 'إضافة عنوان',
+    addrAddTitle: 'إضافة عنوان',
+    addrEditTitle: 'تعديل العنوان',
+    addrUpdate: 'تحديث',
+    addrEdit: 'تعديل',
+    addrDelete: 'حذف',
+    addrDeleteAsk: 'هل تريد المسح',
+    addrYes: 'نعم',
+    addrNo: 'إلغاء',
+    addrHome: 'المنزل',
+    addrWork: 'العمل',
+    addrOther: 'أخرى',
+    addrKindLabel: 'نوع العنوان',
+    addrNameLabel: 'اسم العنوان',
+    addrNameHint: 'مثال: بيت العائلة',
+    addrBuilding: 'رقم المبنى',
+    addrFloor: 'الدور',
+    addrDetailsLabel: 'العنوان بالتفصيل',
+    addrDetailsSection: 'تفاصيل العنوان',
+    addrOptional: '(اختياري)',
+    addrDetailsHint: 'الحي والشارع والمدينة',
+    addrLandmark: 'علامة مميزة',
+    addrLandmarkHint: 'بجوار مسجد أو محل',
+    addrSetDefault: 'تعيين كافتراضي',
+    addrMap: 'الخريطة',
+    addrDefault: 'افتراضي',
+    addrEmpty: 'لا توجد عناوين مطابقة',
+    addrNone: 'أضف عنوانك الأول',
+    toastAddrSaved: 'تم حفظ العنوان',
+    toastAddrUpdated: 'تم تحديث العنوان',
+    toastAddrDeleted: 'تم حذف العنوان',
+    toastAddrDetails: 'اكتب تفاصيل العنوان',
+    toastAddrName: 'اكتب اسم العنوان',
     accPaymentsTitle: 'طرق الدفع',
     accPaymentsSub: 'البطاقات والمحافظ',
     accPromoTitle: 'أكواد الخصم',
@@ -262,6 +297,41 @@ const UI_COPY = {
     accSettingsSub: 'Language, notifications and account',
     accPlacesTitle: 'Addresses',
     accPlacesSub: 'Home and work addresses',
+    addrTitle: 'Addresses',
+    addrSearch: 'Search addresses',
+    addrAdd: 'Add address',
+    addrAddTitle: 'Add address',
+    addrEditTitle: 'Edit address',
+    addrUpdate: 'Update',
+    addrEdit: 'Edit',
+    addrDelete: 'Delete',
+    addrDeleteAsk: 'Delete this address?',
+    addrYes: 'Yes',
+    addrNo: 'Cancel',
+    addrHome: 'Home',
+    addrWork: 'Work',
+    addrOther: 'Other',
+    addrKindLabel: 'Address type',
+    addrNameLabel: 'Address name',
+    addrNameHint: 'Example: Family house',
+    addrBuilding: 'Building number',
+    addrFloor: 'Floor',
+    addrDetailsLabel: 'Address details',
+    addrDetailsSection: 'Address details',
+    addrOptional: '(Optional)',
+    addrDetailsHint: 'District, street, and city',
+    addrLandmark: 'Landmark',
+    addrLandmarkHint: 'Near a mosque or shop',
+    addrSetDefault: 'Set as default',
+    addrMap: 'Map',
+    addrDefault: 'Default',
+    addrEmpty: 'No matching addresses',
+    addrNone: 'Add your first address',
+    toastAddrSaved: 'Address saved',
+    toastAddrUpdated: 'Address updated',
+    toastAddrDeleted: 'Address deleted',
+    toastAddrDetails: 'Enter the address details',
+    toastAddrName: 'Enter an address name',
     accPaymentsTitle: 'Payment methods',
     accPaymentsSub: 'Cards and wallets',
     accPromoTitle: 'Discount codes',
@@ -696,8 +766,8 @@ function paintMainScreenCopy() {
 
 function loadLanguages() {
   fetch('/api/general/v1/languages/dropdown', { headers: apiHeaders })
-    .then((r) => r.json())
-    .then((res) => {
+  .then((r) => r.json())
+  .then((res) => {
       languages = Array.isArray(res?.data) ? res.data : [];
       const chosen = languages.find((item) => String(item.code).toLowerCase() === selectedLanguageCode)
         || languages.find((item) => String(item.code).toLowerCase() === 'ar')
@@ -707,8 +777,8 @@ function loadLanguages() {
         renderLanguageMenu();
         refreshLanguageDialogIfOpen();
       }
-    })
-    .catch(() => {
+  })
+  .catch(() => {
       // Offline — keep the Arabic label already in the markup.
     });
 }
@@ -990,9 +1060,9 @@ function goToSlide(i) {
 
 if (track && slideCount) {
   goToSlide(0);
-  setInterval(() => {
-    goToSlide((bannerIndex + 1) % slideCount);
-  }, 5000);
+setInterval(() => {
+  goToSlide((bannerIndex + 1) % slideCount);
+}, 5000);
 }
 
 // ===================== Profile menu (staggered slide-in) =====================
@@ -1118,6 +1188,7 @@ $$('[data-account-link]').forEach((button) => {
     if (link === 'personal-data') openSubScreen('personal-data');
     else if (link === 'settings') openAccountSettings();
     else if (link === 'help') openSheet('faq');
+    else if (link === 'places') openSubScreen('addresses');
     else showToast(t('comingSoon'));
   });
 });
@@ -1635,6 +1706,16 @@ const SUB_SCREENS = {
       input.focus();
     },
   },
+  addresses: {
+    title: () => t('addrTitle'),
+    render: () => renderAddresses(),
+    afterRender: (root) => bindAddresses(root),
+  },
+  'add-address': {
+    title: () => (addressEditingId ? t('addrEditTitle') : t('addrAddTitle')),
+    render: () => renderAddAddress(),
+    afterRender: (root) => bindAddAddress(root),
+  },
   notifications: {
     title: () => t('notifTitle'),
     render: () => `
@@ -1646,7 +1727,7 @@ const SUB_SCREENS = {
           ${notifToggleRow('icon-email', t('notifToggle4Title'), t('notifToggle4Desc'), false)}
         </div>
       </div>`,
-afterRender: (root) => {
+    afterRender: (root) => {
       $$('.toggle', root).forEach((tl) => {
         tl.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -1682,8 +1763,269 @@ function notifToggleRow(icon, title, desc, on) {
 
 const PROFILE_SCREENS = new Set([
   'personal-data', 'edit-name', 'edit-gender', 'edit-phone', 'edit-email',
-  'notifications', 'privacy',
+  'notifications', 'privacy', 'addresses', 'add-address',
 ]);
+
+let addressQuery = '';
+let addressSeq = 3;
+let addressEditingId = null;
+const addressDraft = {
+  kind: 'home',
+  building: '',
+  floor: '',
+  details: '',
+  landmark: '',
+  isDefault: true,
+};
+const savedAddresses = [
+  { id: 1, kind: 'home', building: '', floor: '', line: 'حي النرجس، شارع التحلية، الرياض', landmark: '', isDefault: true },
+  { id: 2, kind: 'work', building: '', floor: '', line: 'طريق الملك فهد، العليا، الرياض', landmark: '', isDefault: false },
+];
+
+function addressTitle(item) {
+  if (item.kind === 'home') return t('addrHome');
+  if (item.kind === 'work') return t('addrWork');
+  return item.label || t('addrOther');
+}
+
+function addressIcon(kind) {
+  if (kind === 'home') return 'icon-home';
+  if (kind === 'work') return 'icon-briefcase';
+  return 'icon-location';
+}
+
+function addressSummary(item) {
+  const line = item.line || '';
+  return [
+    line,
+    item.building ? `${t('addrBuilding')} ${item.building}` : '',
+    item.floor ? `${t('addrFloor')} ${item.floor}` : '',
+    item.landmark || '',
+  ].filter(Boolean).join(' · ');
+}
+
+function filteredAddresses() {
+  const q = addressQuery.trim().toLowerCase();
+  if (!q) return savedAddresses;
+  return savedAddresses.filter((item) => {
+    const hay = `${addressTitle(item)} ${addressSummary(item)}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+function resetAddressDraft() {
+  addressEditingId = null;
+  addressDraft.kind = 'home';
+  addressDraft.building = '';
+  addressDraft.floor = '';
+  addressDraft.details = '';
+  addressDraft.landmark = '';
+  addressDraft.isDefault = savedAddresses.length === 0;
+  addressDetailsOpen = false;
+}
+
+function openAddressEditor(item) {
+  if (item) {
+    addressEditingId = item.id;
+    addressDraft.kind = item.kind;
+    addressDraft.building = item.building || '';
+    addressDraft.floor = item.floor || '';
+    addressDraft.details = item.line || '';
+    addressDraft.landmark = item.landmark || '';
+    addressDraft.isDefault = item.isDefault;
+    addressDetailsOpen = Boolean(item.line || item.building || item.floor || item.landmark);
+  } else {
+    resetAddressDraft();
+  }
+  openSubScreen('add-address', { nested: true });
+}
+
+function renderAddresses() {
+  const items = filteredAddresses();
+  const cards = items.map((item) => `
+    <div class="account-link addr-card" data-id="${item.id}" role="button" tabindex="0">
+      <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#${addressIcon(item.kind)}"/></svg></span>
+      <span class="account-link-text">
+        <strong>${escapeHtml(addressTitle(item))}${item.isDefault ? `<span class="addr-badge">${t('addrDefault')}</span>` : ''}</strong>
+        <small>${escapeHtml(addressSummary(item))}</small>
+      </span>
+      <span class="addr-actions">
+        <button type="button" class="addr-action" data-addr-edit="${item.id}" aria-label="${escapeHtml(t('addrEdit'))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-edit"/></svg>
+        </button>
+        <button type="button" class="addr-action addr-action--delete" data-addr-delete="${item.id}" aria-label="${escapeHtml(t('addrDelete'))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-delete"/></svg>
+        </button>
+      </span>
+    </div>`).join('');
+  const empty = savedAddresses.length
+    ? t('addrEmpty')
+    : t('addrNone');
+  return `
+    <div class="addr-page">
+      <label class="addr-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="addr-search" type="search" value="${escapeHtml(addressQuery)}" placeholder="${escapeHtml(t('addrSearch'))}" autocomplete="off">
+      </label>
+      <div class="account-links addr-list">
+        ${cards || `<p class="addr-empty">${empty}</p>`}
+      </div>
+      <button type="button" class="btn-primary" id="addr-add-btn"><span class="btn-label">${t('addrAdd')}</span></button>
+    </div>`;
+}
+
+function bindAddresses(root) {
+  const search = $('#addr-search', root);
+  search.addEventListener('input', () => {
+    addressQuery = search.value;
+    paintSubScreen();
+    const next = $('#addr-search', subBodyEl);
+    if (next) {
+      next.focus();
+      const end = next.value.length;
+      next.setSelectionRange(end, end);
+    }
+  });
+  $$('.addr-card', root).forEach((card) => {
+    card.addEventListener('click', () => {
+      const id = Number(card.dataset.id);
+      savedAddresses.forEach((item) => { item.isDefault = item.id === id; });
+      paintSubScreen();
+    });
+  });
+  $$('[data-addr-edit]', root).forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const item = savedAddresses.find((entry) => entry.id === Number(button.dataset.addrEdit));
+      if (item) openAddressEditor(item);
+    });
+  });
+  $$('[data-addr-delete]', root).forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openAddressDeleteConfirm(Number(button.dataset.addrDelete));
+    });
+  });
+  $('#addr-add-btn', root).addEventListener('click', () => openAddressEditor(null));
+}
+
+function addrInput(id, icon, label, value, placeholder) {
+  return `
+    <label class="profile-field-label" for="${id}">${label}</label>
+    <div class="profile-icon-field addr-field">
+      <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span>
+      <input id="${id}" type="text" maxlength="160" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}">
+    </div>`;
+}
+
+let addressDetailsOpen = false;
+
+function setAddressDetailsOpen(root, open) {
+  addressDetailsOpen = open;
+  const box = $('.addr-collapse', root);
+  const toggle = $('#addr-details-toggle', root);
+  const body = $('.addr-collapse-body', root);
+  if (!box || !toggle || !body) return;
+  box.classList.toggle('open', open);
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  body.hidden = !open;
+}
+
+function renderAddAddress() {
+  const kind = (value, label) => `
+    <button type="button" class="addr-kind${addressDraft.kind === value ? ' selected' : ''}" data-kind="${value}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${addressIcon(value)}"/></svg>
+      <span>${label}</span>
+    </button>`;
+  return `
+    <div class="profile-form addr-add">
+      <div class="addr-kinds">
+        ${kind('home', t('addrHome'))}
+        ${kind('work', t('addrWork'))}
+        ${kind('other', t('addrOther'))}
+      </div>
+      <div class="addr-map">
+        <iframe title="${escapeHtml(t('addrMap'))}" loading="lazy" referrerpolicy="no-referrer" src="https://www.openstreetmap.org/export/embed.html?bbox=46.62%2C24.64%2C46.78%2C24.78&amp;layer=mapnik&amp;marker=24.7136%2C46.6753"></iframe>
+        <span class="addr-map-label"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-location"/></svg>${t('addrMap')}</span>
+      </div>
+      <div class="addr-collapse${addressDetailsOpen ? ' open' : ''}">
+        <button type="button" class="addr-collapse-toggle" id="addr-details-toggle" aria-expanded="${addressDetailsOpen ? 'true' : 'false'}">
+          <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-description"/></svg></span>
+          <span class="addr-collapse-title">${t('addrDetailsSection')} <span class="addr-collapse-optional">${t('addrOptional')}</span></span>
+          <svg class="menu-chevron addr-collapse-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chevron"/></svg>
+        </button>
+        <div class="addr-collapse-body"${addressDetailsOpen ? '' : ' hidden'}>
+          ${addrInput('addr-building', 'icon-building', t('addrBuilding'), addressDraft.building, t('addrBuilding'))}
+          ${addrInput('addr-floor', 'icon-stairs', t('addrFloor'), addressDraft.floor, t('addrFloor'))}
+          ${addrInput('addr-details', 'icon-location', t('addrDetailsLabel'), addressDraft.details, t('addrDetailsHint'))}
+          ${addrInput('addr-landmark', 'icon-flag', t('addrLandmark'), addressDraft.landmark, t('addrLandmarkHint'))}
+        </div>
+      </div>
+      <div class="profile-form-card">
+        <button type="button" class="addr-default" id="addr-default-btn">
+          <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-tag"/></svg></span>
+          <span>${t('addrSetDefault')}</span>
+          <span class="toggle${addressDraft.isDefault ? ' on' : ''}" role="switch" aria-checked="${addressDraft.isDefault ? 'true' : 'false'}"></span>
+        </button>
+      </div>
+      <button type="button" class="btn-primary" id="addr-save-btn"><span class="btn-label">${addressEditingId ? t('addrUpdate') : t('save')}</span></button>
+    </div>`;
+}
+
+function bindAddAddress(root) {
+  $('#addr-details-toggle', root).addEventListener('click', () => {
+    setAddressDetailsOpen(root, !addressDetailsOpen);
+  });
+  $$('[data-kind]', root).forEach((button) => {
+    button.addEventListener('click', () => {
+      addressDraft.kind = button.dataset.kind;
+      $$('[data-kind]', root).forEach((item) => {
+        item.classList.toggle('selected', item.dataset.kind === addressDraft.kind);
+      });
+    });
+  });
+  $('#addr-default-btn', root).addEventListener('click', () => {
+    const toggle = $('.toggle', root);
+    addressDraft.isDefault = !addressDraft.isDefault;
+    toggle.classList.toggle('on', addressDraft.isDefault);
+    toggle.setAttribute('aria-checked', addressDraft.isDefault ? 'true' : 'false');
+  });
+  $('#addr-save-btn', root).addEventListener('click', () => {
+    const building = $('#addr-building', root).value.trim();
+    const floor = $('#addr-floor', root).value.trim();
+    const details = $('#addr-details', root).value.trim();
+    const landmark = $('#addr-landmark', root).value.trim();
+    if (details.length < 4) {
+      setAddressDetailsOpen(root, true);
+      showToast(t('toastAddrDetails'));
+      $('#addr-details', root).focus();
+      return;
+    }
+    const makeDefault = addressDraft.isDefault || savedAddresses.length === 0;
+    if (makeDefault) {
+      savedAddresses.forEach((item) => { item.isDefault = false; });
+    }
+    const payload = {
+      kind: addressDraft.kind,
+      building,
+      floor,
+      line: details,
+      landmark,
+      isDefault: makeDefault,
+    };
+    if (addressEditingId) {
+      const current = savedAddresses.find((item) => item.id === addressEditingId);
+      if (current) Object.assign(current, payload);
+      showToast(t('toastAddrUpdated'));
+    } else {
+      savedAddresses.unshift({ id: addressSeq++, ...payload });
+      showToast(t('toastAddrSaved'));
+    }
+    addressEditingId = null;
+    addressQuery = '';
+    closeSubScreen();
+  });
+}
 
 function paintSubScreen() {
   const type = subStack[subStack.length - 1];
@@ -1691,6 +2033,7 @@ function paintSubScreen() {
   if (!cfg) return;
   subTitleEl.textContent = typeof cfg.title === 'function' ? cfg.title() : cfg.title;
   subScreenEl.classList.toggle('is-profile', PROFILE_SCREENS.has(type));
+  subScreenEl.classList.toggle('keeps-tabs', type === 'addresses' || type === 'add-address');
   subBodyEl.innerHTML = cfg.render();
   cfg.afterRender?.(subBodyEl);
   subScreenEl.classList.add('open');
@@ -1887,8 +2230,45 @@ function openDialog(type) {
       });
   }
 }
+function deleteAddress(id) {
+  const index = savedAddresses.findIndex((entry) => entry.id === id);
+  if (index < 0) return;
+  const wasDefault = savedAddresses[index].isDefault;
+  savedAddresses.splice(index, 1);
+  if (wasDefault && savedAddresses.length) savedAddresses[0].isDefault = true;
+  showToast(t('toastAddrDeleted'));
+  if (subStack[subStack.length - 1] === 'addresses') paintSubScreen();
+}
+
+function openAddressDeleteConfirm(id) {
+  const item = savedAddresses.find((entry) => entry.id === id);
+  if (!item) return;
+  dialogOpenType = 'addr-delete';
+  dialogBox.className = 'dialog-box app-dialog addr-confirm-box';
+  dialogBox.innerHTML = `
+    <div class="addr-confirm">
+      <span class="account-link-icon addr-confirm-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><use href="#icon-delete"/></svg>
+      </span>
+      <h3>${t('addrDeleteAsk')}</h3>
+      <p>${escapeHtml(addressTitle(item))}</p>
+      <div class="addr-confirm-actions">
+        <button type="button" class="btn-primary" id="addr-confirm-yes">${t('addrYes')}</button>
+        <button type="button" class="addr-confirm-cancel" id="addr-confirm-no">${t('addrNo')}</button>
+      </div>
+    </div>`;
+  $('#addr-confirm-yes', dialogBox).addEventListener('click', () => {
+    deleteAddress(id);
+    closeDialog();
+  });
+  $('#addr-confirm-no', dialogBox).addEventListener('click', closeDialog);
+  dialogBackdrop.classList.add('open');
+}
+
 function closeDialog() {
   dialogBackdrop.classList.remove('open');
+  dialogOpenType = null;
+  dialogBox.className = 'dialog-box app-dialog';
 }
 dialogBackdrop.addEventListener('click', (e) => {
   if (e.target === dialogBackdrop) closeDialog();
