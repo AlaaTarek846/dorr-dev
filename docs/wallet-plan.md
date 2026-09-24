@@ -453,7 +453,7 @@ Jawad فيه نظام محاسبة بسيط ومفيد: `FinancialCategory` + `F
 ## 15. الاتجاه المقترح (مسودة للنقاش، مش قرار)
 
 ### المالك: Morph لـ User و Provider
-- `owner_type` / `owner_id` (polymorphic) للمحفظة، مع **`Relation::enforceMorphMap`** بأسماء ثابتة (`user`, `provider`, `platform`) بدل تخزين أسماء الكلاسات في الـ DB.
+- `owner_type` / `owner_id` (polymorphic) للمحفظة، بأسماء alias ثابتة (`user`, `provider`, `platform`) بدل تخزين أسماء الكلاسات في الـ DB — لكن عن طريق mapping محلي جوه موديول Wallet (`OwnerType`)، **مش** `Relation::morphMap()`/`enforceMorphMap()` العالمية (دي كسرت علاقة polymorphic تانية غير متعلقة بالمحفظة وقت التنفيذ الفعلي — التفاصيل في `wallet-structure.md § 0`).
 - trait `HasWallets` على `User` و`Provider` (علاقة `wallets()` + `walletFor(Country)`) **من غير أي منطق مالي جواهم**؛ كل المنطق في `WalletService`.
 - الإعدادات والقواعد ممكن تتحدد حسب `owner_type`.
 

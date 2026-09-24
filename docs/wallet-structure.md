@@ -41,13 +41,17 @@ Modules/Wallet/
 - **التعليقات:** كل عمود بتعليق عربي (`->comment('...')`) زي باقي migrations المشروع.
 - **الحذف:** `softDeletes()` على الجداول الإعدادية/المرجعية (`payment_methods`, `withdrawal_methods`, `wallet_fee_rules`, `financial_categories`, `financial_entries`). **الجداول المالية الأساسية (`wallets`, `wallet_transactions`, `payment_transactions`, `withdrawal_requests`) من غير `softDeletes`** — مفيش حذف خالص، التصحيح بيبقى حركة/حالة جديدة (خط أحمر، فصل 10 في الخطة).
 - **الترجمة:** نفس نمط `country_translations`/`service_category_translations` الموجود بالفعل: جدول `..._translations` بعمود `locale` مفتوح (مش عمود ثابت لكل لغة) + `unique(parent_id, locale)`.
-- **المورف:** `config/wallet.php` بيسجل morph map ثابت (`Relation::enforceMorphMap`)، مش أسماء كلاسات كاملة في الـ DB:
+- **المورف:** `owner_type` بيتخزن كـ alias قصير (`user`/`provider`/`admin`) مش اسم كلاس كامل — **لكن مش عن طريق `Relation::morphMap()`/`enforceMorphMap()` بتاعة Eloquent.** ده قرار اتصحح فعلياً أثناء التنفيذ: `User`/`Provider`/`Admin` عندهم علاقات polymorphic تانية في الكود مالهاش علاقة بالمحفظة (زي `HasVerificationCodes` لأكواد الـ OTP)، وتسجيل alias عن طريق `morphMap()` **بيأثر على كل العلاقات دي عالمياً**، مش على المحفظة بس — جرّبناها فعلياً وكسرت اختبار الـ OTP الموجود (`authenticatable_type` اتسجّل `user` بدل `Modules\User\Models\User`). الحل: mapping محلي جوه موديول Wallet بس (`Modules\Wallet\Support\OwnerType`، مقروء من `config/config.php`)، من غير ما يلمس إعدادات Eloquent العالمية خالص:
   ```php
-  'user' => Modules\User\Models\User::class,
-  'provider' => Modules\Provider\Models\Provider::class,
-  'admin' => Modules\Admin\Models\Admin::class,
-  'platform' => null, // مفيش موديول حقيقي؛ owner_id ثابت = 0 (بند 1.1)
+  // Modules/Wallet/config/config.php
+  'morph_map' => [
+      'user' => \Modules\User\Models\User::class,
+      'provider' => \Modules\Provider\Models\Provider::class,
+      'admin' => \Modules\Admin\Models\Admin::class,
+      // 'platform' بدون موديول حقيقي؛ owner_id ثابت = 0 (بند 1.1)
+  ],
   ```
+  وعلاقة `owner()` على `Wallet`/`WalletPin` بقت accessor يدوي (`OwnerType::modelClassFor($this->owner_type)::find($this->owner_id)`) مش `morphTo()` عادي.
 
 ---
 

@@ -2,8 +2,12 @@
 
 namespace Modules\Wallet\Providers;
 
-use Nwidart\Modules\Support\ModuleServiceProvider;
+use App\Models\Country;
 use Illuminate\Console\Scheduling\Schedule;
+use Nwidart\Modules\Support\ModuleServiceProvider;
+use Modules\Wallet\Console\ExpireStalePayments;
+use Modules\Wallet\Console\ReconcileWallets;
+use Modules\Wallet\Observers\WalletSettingObserver;
 
 class WalletServiceProvider extends ModuleServiceProvider
 {
@@ -22,7 +26,10 @@ class WalletServiceProvider extends ModuleServiceProvider
      *
      * @var string[]
      */
-    // protected array $commands = [];
+    protected array $commands = [
+        ReconcileWallets::class,
+        ExpireStalePayments::class,
+    ];
 
     /**
      * Provider classes to register.
@@ -34,13 +41,23 @@ class WalletServiceProvider extends ModuleServiceProvider
         RouteServiceProvider::class,
     ];
 
+    public function boot(): void
+    {
+        parent::boot();
+
+        // No Relation::morphMap() call here on purpose — see
+        // Modules\Wallet\Support\OwnerType's docblock.
+        Country::observe(WalletSettingObserver::class);
+    }
+
     /**
      * Define module schedules.
-     * 
+     *
      * @param $schedule
      */
-    // protected function configureSchedules(Schedule $schedule): void
-    // {
-    //     $schedule->command('inspire')->hourly();
-    // }
+    protected function configureSchedules(Schedule $schedule): void
+    {
+        $schedule->command(ReconcileWallets::class)->hourly()->withoutOverlapping();
+        $schedule->command(ExpireStalePayments::class)->everyFiveMinutes()->withoutOverlapping();
+    }
 }

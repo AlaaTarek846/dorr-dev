@@ -31,6 +31,7 @@ import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Help
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
@@ -62,10 +63,11 @@ import com.dorr.app.ui.screens.profile.FaqSheet
 import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
 import com.dorr.app.ui.screens.profile.PersonalDataScreen
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 
-private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, PRIVACY }
+private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY }
 
 private data class MenuEntry(
     val icon: ImageVector,
@@ -88,11 +90,19 @@ fun ProfileScreen(onLogout: () -> Unit) {
             )
         }
         ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.NONE })
+        ProfileSub.WALLET_PIN -> {
+            val context = LocalContext.current
+            WalletPinSettingsScreen(
+                onBack = { subScreen = ProfileSub.NONE },
+                onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+            )
+        }
         ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.NONE })
         ProfileSub.NONE -> ProfileMenuScreen(
             onLogout = onLogout,
             onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
             onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
+            onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
             onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
         )
     }
@@ -103,6 +113,7 @@ private fun ProfileMenuScreen(
     onLogout: () -> Unit,
     onOpenPersonalData: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenWalletPin: () -> Unit,
     onOpenPrivacy: () -> Unit,
 ) {
     val themeState = LocalThemeState.current
@@ -118,6 +129,7 @@ private fun ProfileMenuScreen(
     val menuItems = listOf(
         MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, onClick = onOpenNotifications),
+        MenuEntry(Icons.Rounded.Lock, R.string.account_wallet_pin, onClick = onOpenWalletPin),
         MenuEntry(Icons.Rounded.Language, R.string.account_language) { showLanguageDialog = true },
         MenuEntry(
             icon = Icons.Rounded.DarkMode,
