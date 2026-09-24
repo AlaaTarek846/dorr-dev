@@ -9,6 +9,7 @@ use App\Models\Concerns\HasVerificationCodes;
 use App\Models\Country;
 use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
+use App\Traits\SendsPhoneOtp;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -21,8 +22,8 @@ use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasMedia
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, HasSocialAccounts, HasVerificationCodes, Notifiable, SearchFilterTrait, SoftDeletes;
+    /** @use HasFactory<UserFactory> */
+    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, HasSocialAccounts, HasVerificationCodes, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
 
     /**
      * @var list<string>

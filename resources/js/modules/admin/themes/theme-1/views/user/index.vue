@@ -82,7 +82,7 @@
 
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount"
+                                v-if="canMultipleDelete && selectedCount"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
@@ -91,7 +91,12 @@
                                 {{ t('users.delete_count', { count: selectedCount }) }}
                             </button>
 
-                            <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                            <button
+                                v-if="canCreate"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreate"
+                            >
                                 <i class="ri-add-line me-1 align-middle"></i>
                                 {{ t('users.add_short') }}
                             </button>
@@ -103,7 +108,7 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="ps-4" style="width: 48px;">
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -118,21 +123,21 @@
                                         <th scope="col">{{ t('users.gender') }}</th>
                                         <th scope="col">{{ t('users.status') }}</th>
                                         <th scope="col">{{ t('users.created_at') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('users.actions') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('users.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" :columns="8" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
                                     <tr v-else-if="!users.length">
-                                        <td colspan="8" class="border-0">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-user-line fs-2 text-primary"></i>
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('users.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('users.empty') }}</p>
-                                                <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="canCreate" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('users.add') }}
                                                 </button>
@@ -146,7 +151,7 @@
                                             :key="user.id"
                                             class="crm-contact"
                                         >
-                                            <td class="ps-4">
+                                            <td v-if="canMultipleDelete" class="ps-4">
                                                 <input
                                                     class="form-check-input"
                                                     type="checkbox"
@@ -169,12 +174,14 @@
                                                     </span>
                                                     <div>
                                                         <button
+                                                            v-if="canUpdate"
                                                             type="button"
                                                             class="btn btn-link p-0 text-start fw-semibold text-default"
                                                             @click="openEdit(user)"
                                                         >
                                                             {{ user.name }}
                                                         </button>
+                                                        <span v-else class="fw-semibold text-default">{{ user.name }}</span>
                                                         <span class="d-block text-muted fs-11">
                                                             #{{ user.id }}
                                                         </span>
@@ -191,6 +198,7 @@
                                             <td>{{ genderLabel(user.gender) }}</td>
                                             <td>
                                                 <select
+                                                    v-if="canChangeStatus"
                                                     class="form-select form-select-sm w-auto users-status-select"
                                                     :class="statusSelectClass(user.status)"
                                                     :value="user.status"
@@ -205,6 +213,17 @@
                                                         {{ label }}
                                                     </option>
                                                 </select>
+                                                <span
+                                                    v-else
+                                                    class="badge"
+                                                    :class="{
+                                                        'bg-success-transparent': user.status === 'active',
+                                                        'bg-danger-transparent': user.status === 'blocked',
+                                                        'bg-secondary-transparent': user.status === 'inactive',
+                                                    }"
+                                                >
+                                                    {{ statusOptions[user.status] ?? user.status }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <span class="d-block">{{ formatDate(user.created_at) }}</span>
@@ -212,9 +231,10 @@
                                                     {{ t('users.updated') }}: {{ formatDate(user.updated_at) }}
                                                 </span>
                                             </td>
-                                            <td class="text-end pe-4">
+                                            <td v-if="showActionsColumn" class="text-end pe-4">
                                                 <div class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-info-light btn-icon"
                                                         :title="t('users.edit_title')"
@@ -223,6 +243,7 @@
                                                         <i class="ri-pencil-line"></i>
                                                     </button>
                                                     <button
+                                                        v-if="canDelete"
                                                         type="button"
                                                         class="btn btn-sm btn-danger-light btn-icon"
                                                         :title="t('users.confirm_delete')"
@@ -314,6 +335,7 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useUsers } from '../../../../../../composables/useUsers';
 import { useUsersStore } from '../../../../../../stores/users';
@@ -322,6 +344,29 @@ import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
 const usersStore = useUsersStore();
+
+const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canChangeStatus,
+    canMultipleDelete,
+    showActionsColumn,
+} = useCatalogPermissions('users');
+
+const tableColumnCount = computed(() => {
+    let count = 6;
+
+    if (canMultipleDelete.value) {
+        count += 1;
+    }
+
+    if (showActionsColumn.value) {
+        count += 1;
+    }
+
+    return count;
+});
 
 const usersApi = useUsers();
 const {

@@ -8,6 +8,11 @@ use App\Services\General\FlagService;
 
 class FlagController extends CatalogController
 {
+    protected static function adminPermissionGroup(): string
+    {
+        return 'flags';
+    }
+
     public function __construct(FlagService $service)
     {
         parent::__construct($service);

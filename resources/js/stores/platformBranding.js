@@ -60,7 +60,7 @@ export const usePlatformBrandingStore = defineStore('platformBranding', {
             this.loading = true;
 
             try {
-                const { data } = await adminAxios.get('/api/admin/v1/platform-settings/branding');
+                const { data } = await adminAxios.get('/api/general/v1/platform-settings/branding');
                 this.applyPayload(data.data ?? {});
                 this.applyToDocument();
                 this.loaded = true;

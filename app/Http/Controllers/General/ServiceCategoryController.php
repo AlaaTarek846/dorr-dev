@@ -8,6 +8,26 @@ use App\Services\General\ServiceCategoryService;
 
 class ServiceCategoryController extends CatalogController
 {
+    protected static function adminPermissionGroup(): string
+    {
+        return 'service_categories';
+    }
+
+    protected static function permissionsOnDropdown(): bool
+    {
+        return false;
+    }
+
+    /**
+     * @return list<array{0: string, 1: list<string>}>
+     */
+    protected static function extraAdminPermissionActionMethods(): array
+    {
+        return [
+            ['view', ['tree', 'treeOptions', 'leafOptions']],
+        ];
+    }
+
     public function __construct(ServiceCategoryService $service)
     {
         parent::__construct($service);

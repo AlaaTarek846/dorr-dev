@@ -13,6 +13,10 @@ class ServiceCategoriesSeeder extends Seeder
     public function run(): void
     {
         $rows = [
+            ['name' => ['ar' => 'الخدمات العامة', 'en' => 'General Services'], 'module_name' => 'general_services', 'requires_provider' => false],
+            ['name' => ['ar' => 'مستخدمين النظام', 'en' => 'System Users'], 'module_name' => 'system_users', 'requires_provider' => false],
+            ['name' => ['ar' => 'لوحة الإدارة', 'en' => 'Admin'], 'module_name' => 'admin', 'requires_provider' => false],
+            ['name' => ['ar' => 'صلاحيات الإدارة', 'en' => 'Admin Permissions'], 'module_name' => 'admin_permission', 'requires_provider' => false],
             ['name' => ['ar' => 'الدردشة', 'en' => 'Chat'], 'module_name' => 'chat', 'requires_provider' => false],
             ['name' => ['ar' => 'توصيل الركاب', 'en' => 'Passenger Ride'], 'module_name' => 'passenger_ride', 'requires_provider' => true],
             ['name' => ['ar' => 'تأجير السيارات', 'en' => 'Car Rental'], 'module_name' => 'car_rental', 'requires_provider' => true],

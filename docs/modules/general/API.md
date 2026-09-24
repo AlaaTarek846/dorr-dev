@@ -2,14 +2,23 @@
 
 > Full details: [../../06-API-SPECIFICATION.md](../../06-API-SPECIFICATION.md)
 
-## Admin Routes (`/api/admin/v1`)
+## Public General API (`/api/general/v1`)
 
-### Public (locale middleware only)
+No authentication. Used by mobile apps and pre-login flows.
 
 | Method | Endpoint |
 |--------|----------|
-| GET | `/platform-settings/branding` |
+| GET | `/countries/dropdown` |
+| GET | `/countries/detect` |
 | GET | `/languages/dropdown` |
+| GET | `/platform-settings/branding` |
+
+Controller: `App\Http\Controllers\General\Public\GeneralController`  
+Routes: `routes/general.php` (loaded from `routes/api.php`).
+
+`/countries/dropdown` returns: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`.
+
+## Admin Routes (`/api/admin/v1`)
 
 ### Authenticated — Platform Settings
 
@@ -51,10 +60,7 @@ Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
 
 | Method | Endpoint | Auth |
 |--------|----------|------|
-| GET | `/countries/dropdown` | user_api |
+| GET | `/countries/dropdown` | public (alias → same handler as general) |
+| GET | `/countries/detect` | public (alias → same handler as general) |
 
-`/countries/dropdown` returns: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`.
-
-## PLANNED
-
-Public website API under `/api/public/v1` — **NEEDS-DECISION**, not implemented.
+Prefer **`/api/general/v1/*`** for new clients (mobile, shared catalog).

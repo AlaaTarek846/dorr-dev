@@ -34,7 +34,7 @@ export const useAvailableLanguagesStore = defineStore('availableLanguages', {
 
             pendingFetch = (async () => {
                 try {
-                    const { data } = await adminAxios.get('/api/admin/v1/languages/dropdown');
+                    const { data } = await adminAxios.get('/api/general/v1/languages/dropdown');
 
                     this.items = data.data ?? [];
                     this.loaded = true;

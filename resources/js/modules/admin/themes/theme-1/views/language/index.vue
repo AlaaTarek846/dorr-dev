@@ -83,7 +83,7 @@
 
                         <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount && statusFilter !== 'deleted'"
+                                v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
@@ -92,7 +92,7 @@
                                 {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="selectedCount && statusFilter === 'deleted'"
+                                v-if="canDelete && selectedCount && statusFilter === 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmForceDeleteSelected"
@@ -101,7 +101,7 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="statusFilter !== 'deleted'"
+                                v-if="canCreate && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -117,7 +117,7 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="ps-4" style="width: 48px;">
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -134,21 +134,21 @@
                                         <th scope="col">{{ t('languages.stores_translation') }}</th>
                                         <th scope="col">{{ t('languages.status') }}</th>
                                         <th scope="col">{{ t('languages.created_at') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('languages.actions') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('languages.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" :columns="10" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
                                     <tr v-else-if="!languages.length">
-                                        <td colspan="10" class="border-0">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-translate-2 fs-2 text-primary"></i>
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('languages.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('languages.empty') }}</p>
-                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('languages.add') }}
                                                 </button>
@@ -162,7 +162,7 @@
                                             :key="language.id"
                                             class="crm-contact"
                                         >
-                                            <td class="ps-4">
+                                            <td v-if="canMultipleDelete" class="ps-4">
                                                 <input
                                                     class="form-check-input"
                                                     type="checkbox"
@@ -180,7 +180,7 @@
                                                     />
                                                     <div>
                                                         <button
-                                                            v-if="!isTrashedRecord(language)"
+                                                            v-if="canUpdate && !isTrashedRecord(language)"
                                                             type="button"
                                                             class="btn btn-link p-0 text-start fw-semibold text-default"
                                                             @click="openEdit(language)"
@@ -261,7 +261,7 @@
                                                     {{ t('catalog.deleted_badge') }}
                                                 </span>
                                                 <div
-                                                    v-else
+                                                    v-else-if="canChangeStatus"
                                                     class="toggle toggle-success mb-0 catalog-status-toggle"
                                                     :class="{
                                                         on: language.status,
@@ -275,6 +275,9 @@
                                                 >
                                                     <span></span>
                                                 </div>
+                                                <span v-else class="badge" :class="language.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                    {{ language.status ? t('languages.active') : t('languages.inactive') }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <span class="d-block">{{ formatCatalogDate(catalogPrimaryDate(language), locale) }}</span>
@@ -285,9 +288,10 @@
                                                     {{ t('catalog.deleted_at') }}: {{ formatCatalogDate(language.deleted_at, locale) }}
                                                 </span>
                                             </td>
-                                            <td class="text-end pe-4">
+                                            <td v-if="showActionsColumn" class="text-end pe-4">
                                                 <div v-if="isTrashedRecord(language)" class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-success-light btn-icon"
                                                         :title="t('catalog.restore_title')"
@@ -296,6 +300,7 @@
                                                         <i class="ri-arrow-go-back-line"></i>
                                                     </button>
                                                     <button
+                                                        v-if="canDelete"
                                                         type="button"
                                                         class="btn btn-sm btn-danger-light btn-icon"
                                                         :title="t('catalog.force_delete_title')"
@@ -306,6 +311,7 @@
                                                 </div>
                                                 <div v-else-if="!isTrashedRecord(language)" class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-info-light btn-icon"
                                                         :title="t('languages.edit_title')"
@@ -314,6 +320,7 @@
                                                         <i class="ri-pencil-line"></i>
                                                     </button>
                                                     <button
+                                                        v-if="canDelete"
                                                         type="button"
                                                         class="btn btn-sm btn-danger-light btn-icon"
                                                         :title="t('languages.confirm_delete')"
@@ -406,6 +413,7 @@ import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import FlagImage from '../../../../../../components/ui/FlagImage.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useCatalogTrashActions } from '../../../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useLanguages } from '../../../../../../composables/useLanguages';
@@ -425,6 +433,29 @@ import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 const { t, locale } = useI18n();
 const languagesStore = useLanguagesStore();
 const availableLanguagesStore = useAvailableLanguagesStore();
+
+const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canChangeStatus,
+    canMultipleDelete,
+    showActionsColumn,
+} = useCatalogPermissions('languages');
+
+const tableColumnCount = computed(() => {
+    let count = 8;
+
+    if (canMultipleDelete.value) {
+        count += 1;
+    }
+
+    if (showActionsColumn.value) {
+        count += 1;
+    }
+
+    return count;
+});
 
 const languagesApi = useLanguages();
 const {

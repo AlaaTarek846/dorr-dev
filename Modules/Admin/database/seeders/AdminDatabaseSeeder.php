@@ -2,6 +2,8 @@
 
 namespace Modules\Admin\Database\Seeders;
 
+use Database\Seeders\Admin\AdminPermissionSeeder;
+use Database\Seeders\Admin\AdminSeeder;
 use Illuminate\Database\Seeder;
 
 class AdminDatabaseSeeder extends Seeder
@@ -11,6 +13,9 @@ class AdminDatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // $this->call([]);
+        $this->call([
+            AdminSeeder::class,
+            AdminPermissionSeeder::class,
+        ]);
     }
 }

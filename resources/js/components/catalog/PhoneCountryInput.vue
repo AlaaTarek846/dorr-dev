@@ -6,15 +6,17 @@
         </label>
         <div class="input-group phone-country-input" style="direction: ltr;" :class="{ 'is-invalid-group': invalid }">
             <button
+                ref="toggleRef"
                 type="button"
                 class="btn btn-light dropdown-toggle phone-country-input__toggle"
                 data-bs-toggle="dropdown"
+                data-bs-auto-close="outside"
                 aria-expanded="false"
             >
                 <span v-if="selectedCountry" class="phone-country-input__flag">
                     <FlagImage
                         :code="resolveCountryFlagCode(selectedCountry)"
-                        :size="20"
+                        :size="40"
                         :width="24"
                         :height="18"
                     />
@@ -24,11 +26,31 @@
                 </span>
                 <span class="phone-country-input__dial">{{ selectedDialCode || '—' }}</span>
             </button>
-            <ul class="dropdown-menu phone-country-input__menu">
+            <ul
+                class="dropdown-menu phone-country-input__menu"
+                @hidden.bs.dropdown="countrySearch = ''"
+            >
+                <li v-if="countries.length" class="phone-country-input__search">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text">
+                            <i class="ri-search-line text-muted"></i>
+                        </span>
+                        <input
+                            v-model="countrySearch"
+                            type="search"
+                            class="form-control"
+                            :placeholder="t('profile.search_countries')"
+                            @click.stop
+                        >
+                    </div>
+                </li>
                 <li v-if="! countries.length" class="dropdown-item text-muted">
                     {{ loading ? t('profile.loading_countries') : t('profile.no_countries') }}
                 </li>
-                <li v-for="country in countries" :key="country.id">
+                <li v-else-if="! filteredCountries.length" class="dropdown-item text-muted">
+                    {{ t('profile.no_countries_match') }}
+                </li>
+                <li v-for="country in filteredCountries" :key="country.id">
                     <button
                         type="button"
                         class="dropdown-item d-flex align-items-center gap-2"
@@ -38,7 +60,7 @@
                         <span class="phone-country-input__flag">
                             <FlagImage
                                 :code="resolveCountryFlagCode(country)"
-                                :size="20"
+                                :size="40"
                                 :width="24"
                                 :height="18"
                             />
@@ -132,6 +154,24 @@ const emit = defineEmits(['update:countryId', 'update:phone', 'country-change', 
 const { t } = useI18n();
 const countries = ref([]);
 const loading = ref(false);
+const countrySearch = ref('');
+const toggleRef = ref(null);
+
+const filteredCountries = computed(() => {
+    const query = countrySearch.value.trim().toLowerCase();
+
+    if (! query) {
+        return countries.value;
+    }
+
+    return countries.value.filter((country) => {
+        const name = String(country.name ?? '').toLowerCase();
+        const code = String(country.code ?? '').toLowerCase();
+        const dial = String(country.dial_code ?? '');
+
+        return name.includes(query) || code.includes(query) || dial.includes(query);
+    });
+});
 
 const selectedCountry = computed(() => countries.value.find(
     (country) => Number(country.id) === Number(props.countryId),
@@ -142,6 +182,17 @@ const selectedDialCode = computed(() => formatDialCodeForPayload(selectedCountry
 function selectCountry(country) {
     emit('update:countryId', country?.id ? Number(country.id) : null);
     emit('country-change', country ?? null);
+    closeDropdown();
+}
+
+function closeDropdown() {
+    countrySearch.value = '';
+
+    if (! toggleRef.value || ! window.bootstrap?.Dropdown) {
+        return;
+    }
+
+    window.bootstrap.Dropdown.getInstance(toggleRef.value)?.hide();
 }
 
 function onPhoneInput(event) {
@@ -210,6 +261,16 @@ onMounted(() => {
     min-width: 24px;
     height: 18px;
     flex-shrink: 0;
+}
+
+.phone-country-input__search {
+    padding: 0.4rem 0.5rem 0.5rem;
+    border-bottom: 1px solid var(--default-border, #e2e5e9);
+    margin-bottom: 0.25rem;
+}
+
+.phone-country-input__search .input-group-text {
+    padding-inline: 0.5rem;
 }
 
 .phone-country-input__menu {

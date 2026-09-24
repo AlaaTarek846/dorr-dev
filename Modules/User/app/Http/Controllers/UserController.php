@@ -3,12 +3,26 @@
 namespace Modules\User\Http\Controllers;
 
 use App\Enums\UserStatus;
+use App\Http\Controllers\Concerns\DefinesAdminCatalogPermissions;
 use App\Http\Controllers\Controller;
+use Illuminate\Routing\Controllers\HasMiddleware;
 use Modules\User\Http\Requests\UserRequest;
 use Modules\User\Services\UserService;
 
-class UserController extends Controller
+class UserController extends Controller implements HasMiddleware
 {
+    use DefinesAdminCatalogPermissions;
+
+    protected static function adminPermissionGroup(): string
+    {
+        return 'users';
+    }
+
+    protected static function permissionsOnDropdown(): bool
+    {
+        return false;
+    }
+
     public function __construct(protected UserService $service) {}
 
     public function index()

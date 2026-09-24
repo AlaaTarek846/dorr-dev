@@ -230,7 +230,7 @@ export function useHeader() {
             return;
         }
 
-        if (! authStore.isAuthenticated || authStore.admin) {
+        if (! authStore.isAuthenticated) {
             return;
         }
 

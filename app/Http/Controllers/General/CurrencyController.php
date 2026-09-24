@@ -8,6 +8,21 @@ use App\Services\General\CurrencyService;
 
 class CurrencyController extends CatalogController
 {
+    protected static function adminPermissionGroup(): string
+    {
+        return 'currencies';
+    }
+
+    /**
+     * @return list<array{0: string, 1: list<string>}>
+     */
+    protected static function extraAdminPermissionActionMethods(): array
+    {
+        return [
+            ['update', ['syncExchangeRates']],
+        ];
+    }
+
     public function __construct(CurrencyService $service)
     {
         parent::__construct($service);

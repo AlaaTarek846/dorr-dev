@@ -83,7 +83,7 @@
 
                         <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount && statusFilter !== 'deleted'"
+                                v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
@@ -92,7 +92,7 @@
                                 {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="selectedCount && statusFilter === 'deleted'"
+                                v-if="canDelete && selectedCount && statusFilter === 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmForceDeleteSelected"
@@ -101,7 +101,7 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="statusFilter !== 'deleted'"
+                                v-if="canCreate && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -117,7 +117,7 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="ps-4" style="width: 48px;">
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -133,21 +133,21 @@
                                         <th scope="col">{{ t('dashboard_themes.sort_order') }}</th>
                                         <th scope="col">{{ t('dashboard_themes.status') }}</th>
                                         <th scope="col">{{ t('dashboard_themes.created_at') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('dashboard_themes.actions') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('dashboard_themes.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" :columns="9" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
                                     <tr v-else-if="!dashboardThemes.length">
-                                        <td colspan="9" class="border-0">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-palette-line fs-2 text-primary"></i>
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('dashboard_themes.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('dashboard_themes.empty') }}</p>
-                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('dashboard_themes.add') }}
                                                 </button>
@@ -160,7 +160,7 @@
                                             v-for="theme in dashboardThemes"
                                             :key="theme.id"
                                         >
-                                            <td class="ps-4">
+                                            <td v-if="canMultipleDelete" class="ps-4">
                                                 <input
                                                     class="form-check-input"
                                                     type="checkbox"
@@ -195,7 +195,7 @@
                                                     {{ t('catalog.deleted_badge') }}
                                                 </span>
                                                 <div
-                                                    v-else
+                                                    v-else-if="canChangeStatus"
                                                     class="toggle toggle-success mb-0 catalog-status-toggle"
                                                     :class="{
                                                         on: theme.status,
@@ -209,6 +209,9 @@
                                                 >
                                                     <span></span>
                                                 </div>
+                                                <span v-else class="badge" :class="theme.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                    {{ theme.status ? t('dashboard_themes.filter_active') : t('dashboard_themes.filter_inactive') }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <span class="d-block">{{ formatDate(catalogPrimaryDate(theme)) }}</span>
@@ -219,9 +222,10 @@
                                                     {{ t('catalog.deleted_at') }}: {{ formatDate(theme.deleted_at) }}
                                                 </span>
                                             </td>
-                                            <td class="text-end pe-4">
+                                            <td v-if="showActionsColumn" class="text-end pe-4">
                                                 <div v-if="isTrashedRecord(theme)" class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-success-light btn-icon"
                                                         :title="t('catalog.restore_title')"
@@ -230,6 +234,7 @@
                                                         <i class="ri-arrow-go-back-line"></i>
                                                     </button>
                                                     <button
+                                                        v-if="canDelete"
                                                         type="button"
                                                         class="btn btn-sm btn-danger-light btn-icon"
                                                         :title="t('catalog.force_delete_title')"
@@ -240,6 +245,7 @@
                                                 </div>
                                                 <div v-else-if="!isTrashedRecord(theme)" class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-info-light btn-icon"
                                                         :title="t('dashboard_themes.edit_title')"
@@ -248,6 +254,7 @@
                                                         <i class="ri-pencil-line"></i>
                                                     </button>
                                                     <button
+                                                        v-if="canDelete"
                                                         type="button"
                                                         class="btn btn-sm btn-danger-light btn-icon"
                                                         :title="t('dashboard_themes.confirm_delete')"
@@ -321,6 +328,7 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useCatalogTrashActions } from '../../../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useDashboardThemes } from '../../../../../../composables/useDashboardThemes';
@@ -336,6 +344,29 @@ import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
 const themesStore = useDashboardThemesStore();
+
+const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canChangeStatus,
+    canMultipleDelete,
+    showActionsColumn,
+} = useCatalogPermissions('dashboard_themes');
+
+const tableColumnCount = computed(() => {
+    let count = 7;
+
+    if (canMultipleDelete.value) {
+        count += 1;
+    }
+
+    if (showActionsColumn.value) {
+        count += 1;
+    }
+
+    return count;
+});
 
 const themesApi = useDashboardThemes();
 const {

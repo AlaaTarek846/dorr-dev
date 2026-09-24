@@ -3,6 +3,7 @@
         <a
             href="javascript:void(0);"
             class="header-link dropdown-toggle header-service-select__toggle"
+            :class="{ disabled: ! services.length }"
             data-bs-toggle="dropdown"
             data-bs-auto-close="true"
             aria-expanded="false"
@@ -26,26 +27,6 @@
         </a>
 
         <ul class="dropdown-menu header-service-select__menu dropdown-menu-end py-1">
-            <li>
-                <button
-                    type="button"
-                    class="dropdown-item d-flex align-items-center gap-2 py-2"
-                    :class="{ active: isSelected(GENERAL_ITEM) }"
-                    @click="selectService(GENERAL_ITEM)"
-                >
-                    <img
-                        :src="serviceImage(GENERAL_ITEM)"
-                        alt="img"
-                        class="header-service-select__option-img"
-                    >
-                    <span class="flex-grow-1 text-start">{{ serviceName(GENERAL_ITEM) }}</span>
-                    <i
-                        v-if="isSelected(GENERAL_ITEM)"
-                        class="ri-check-line text-success fs-16"
-                    ></i>
-                </button>
-            </li>
-
             <template v-if="! services.length">
                 <li>
                     <span class="dropdown-item-text text-muted py-2">
@@ -62,8 +43,8 @@
                     <button
                         type="button"
                         class="dropdown-item d-flex align-items-center gap-2 py-2"
-                        :class="{ active: isSelected(service) }"
-                        @click="selectService(service)"
+                        :class="{ active: isSelected(service.id) }"
+                        @click="selectService(service.id)"
                     >
                         <img
                             :src="serviceImage(service)"
@@ -72,7 +53,7 @@
                         >
                         <span class="flex-grow-1 text-start">{{ serviceName(service) }}</span>
                         <i
-                            v-if="isSelected(service)"
+                            v-if="isSelected(service.id)"
                             class="ri-check-line text-success fs-16"
                         ></i>
                     </button>
@@ -83,54 +64,49 @@
 </template>
 
 <script setup>
-import { computed, onMounted, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
+import { useAuthStore } from '../../../stores/auth';
 import { useAdminServiceSelectionStore } from '../../../stores/adminServiceSelection';
 
 const { t } = useI18n();
+const authStore = useAuthStore();
 const selectionStore = useAdminServiceSelectionStore();
 const { selectedService, services } = storeToRefs(selectionStore);
 
 const rootElement = ref(null);
 
 const DEFAULT_SERVICE_IMAGE = '/dashboard/themes/theme-1/assets/images/media/media-1.jpg';
-const GENERAL_ITEM = { id: null };
 
 const selectedServiceName = computed(() => {
     if (! selectedService.value) {
-        return t('admin_services.general');
+        return t('admin_services.select_service');
     }
 
     return serviceName(selectedService.value);
 });
 
-onMounted(() => {
-    selectionStore.fetchServices();
-});
+watch(
+    () => authStore.admin?.services,
+    (adminServices) => selectionStore.replaceSelection(adminServices ?? []),
+    { immediate: true },
+);
 
 function serviceName(service) {
-    if (service?.id === null) {
-        return t('admin_services.general');
-    }
-
-    return service?.name ?? service?.translations?.[0]?.name ?? '';
+    return service.category?.name ?? service.category?.translations?.[0]?.name ?? '';
 }
 
 function serviceImage(service) {
-    return service?.image ?? DEFAULT_SERVICE_IMAGE;
+    return service.category?.image ?? DEFAULT_SERVICE_IMAGE;
 }
 
-function isSelected(service) {
-    if (service?.id === null) {
-        return ! selectedService.value;
-    }
-
-    return String(service?.id) === String(selectedService.value?.id);
+function isSelected(serviceId) {
+    return String(serviceId) === String(selectedService.value?.id);
 }
 
-function selectService(service) {
-    selectionStore.selectService(service?.id ?? null);
+function selectService(serviceId) {
+    selectionStore.selectService(serviceId);
     closeDropdown();
 }
 

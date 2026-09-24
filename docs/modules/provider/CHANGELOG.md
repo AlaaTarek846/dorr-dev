@@ -25,6 +25,16 @@
 
 ---
 
+## [2026-09-20] — Documentation sync
+
+### Updated
+
+- Module docs aligned with codebase: `apps/provider/provider-app.js`, themed views under `themes/theme-1/views`, `ProviderShell`, shared `dashboard/shell.blade.php`
+- Global API spec: provider SPA route table, admin provider restore/force endpoints
+- Architecture + checkpoint: three SPAs, provider OAuth and guest JSON guard
+
+---
+
 ## [Unreleased]
 
 ### Added

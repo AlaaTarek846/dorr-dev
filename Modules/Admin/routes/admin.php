@@ -4,6 +4,8 @@ use Illuminate\Support\Facades\Route;
 use Modules\Admin\Http\Controllers\AdminAuthController;
 use Modules\Admin\Http\Controllers\AdminController;
 use Modules\Admin\Http\Controllers\AdminProfileController;
+use Modules\Admin\Http\Controllers\PermissionController;
+use Modules\Admin\Http\Controllers\RoleController;
 
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
     require base_path('routes/admin.php');
@@ -24,5 +26,11 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::delete('admins/{admin}/force', [AdminController::class, 'forceDestroy']);
         Route::patch('admins/{admin}/status', [AdminController::class, 'changeStatus']);
         Route::apiResource('admins', AdminController::class)->names('admin');
+
+        Route::post('roles/delete-multiple', [RoleController::class, 'deleteMultiple']);
+        Route::apiResource('roles', RoleController::class);
+
+        Route::post('permissions/delete-multiple', [PermissionController::class, 'deleteMultiple']);
+        Route::apiResource('permissions', PermissionController::class);
     });
 });

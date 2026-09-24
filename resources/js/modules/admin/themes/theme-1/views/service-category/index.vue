@@ -83,7 +83,7 @@
 
                         <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                             <button
-                                v-if="selectedCount && statusFilter !== 'deleted'"
+                                v-if="canMultipleDelete && selectedCount && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmDeleteSelected"
@@ -92,7 +92,7 @@
                                 {{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="selectedCount && statusFilter === 'deleted'"
+                                v-if="canDelete && selectedCount && statusFilter === 'deleted'"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
                                 @click="confirmForceDeleteSelected"
@@ -101,7 +101,7 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="statusFilter !== 'deleted'"
+                                v-if="canCreate && statusFilter !== 'deleted'"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -117,7 +117,7 @@
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th scope="col" class="ps-4" style="width: 48px;">
+                                        <th v-if="canMultipleDelete" scope="col" class="ps-4" style="width: 48px;">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -135,21 +135,21 @@
                                         <th scope="col">{{ t('service_categories.sort_order') }}</th>
                                         <th scope="col">{{ t('service_categories.status') }}</th>
                                         <th scope="col">{{ t('service_categories.created_at') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('service_categories.actions') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('service_categories.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="8" :columns="11" />
+                                    <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
                                     <tr v-else-if="!categories.length">
-                                        <td colspan="11" class="border-0">
+                                        <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                                     <i class="ri-list-settings-line fs-2 text-primary"></i>
                                                 </span>
                                                 <p class="fw-semibold mb-1">{{ t('service_categories.empty_title') }}</p>
                                                 <p class="text-muted mb-3">{{ t('service_categories.empty') }}</p>
-                                                <button v-if="!isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                                                <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
                                                     {{ t('service_categories.add') }}
                                                 </button>
@@ -162,7 +162,7 @@
                                         v-for="category in categories"
                                         :key="category.id"
                                     >
-                                        <td class="ps-4">
+                                        <td v-if="canMultipleDelete" class="ps-4">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
@@ -188,7 +188,7 @@
                                                 </span>
                                                 <div>
                                                     <button
-                                                        v-if="!isTrashedRecord(category)"
+                                                        v-if="canUpdate && !isTrashedRecord(category)"
                                                         type="button"
                                                         class="btn btn-link p-0 text-start fw-semibold text-default"
                                                         @click="openEdit(category)"
@@ -252,7 +252,7 @@
                                                 {{ t('catalog.deleted_badge') }}
                                             </span>
                                             <div
-                                                v-else
+                                                v-else-if="canChangeStatus"
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
                                                     on: category.status,
@@ -266,6 +266,9 @@
                                             >
                                                 <span></span>
                                             </div>
+                                            <span v-else class="badge" :class="category.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                {{ category.status ? t('service_categories.filter_active') : t('service_categories.filter_inactive') }}
+                                            </span>
                                         </td>
                                         <td>
                                             <span class="d-block">{{ formatDate(catalogPrimaryDate(category)) }}</span>
@@ -276,9 +279,10 @@
                                                 {{ t('catalog.deleted_at') }}: {{ formatDate(category.deleted_at) }}
                                             </span>
                                         </td>
-                                        <td class="text-end pe-4">
+                                        <td v-if="showActionsColumn" class="text-end pe-4">
                                             <div v-if="isTrashedRecord(category)" class="btn-list justify-content-end">
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-success-light btn-icon"
                                                     :title="t('catalog.restore_title')"
@@ -287,6 +291,7 @@
                                                     <i class="ri-arrow-go-back-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('catalog.force_delete_title')"
@@ -297,6 +302,7 @@
                                             </div>
                                             <div v-else-if="!isTrashedRecord(category)" class="btn-list justify-content-end">
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
                                                     :title="t('service_categories.edit_title')"
@@ -305,6 +311,7 @@
                                                     <i class="ri-pencil-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('service_categories.confirm_delete')"
@@ -396,6 +403,7 @@ import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useCatalogTrashActions } from '../../../../../../composables/useCatalogTrashActions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useServiceCategories } from '../../../../../../composables/useServiceCategories';
@@ -412,6 +420,29 @@ import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
 const categoriesStore = useServiceCategoriesStore();
+
+const {
+    canCreate,
+    canUpdate,
+    canDelete,
+    canChangeStatus,
+    canMultipleDelete,
+    showActionsColumn,
+} = useCatalogPermissions('service_categories');
+
+const tableColumnCount = computed(() => {
+    let count = 9;
+
+    if (canMultipleDelete.value) {
+        count += 1;
+    }
+
+    if (showActionsColumn.value) {
+        count += 1;
+    }
+
+    return count;
+});
 
 const categoriesApi = useServiceCategories();
 const {

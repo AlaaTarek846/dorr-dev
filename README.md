@@ -22,7 +22,7 @@ Laravel 12 + Vue 3 platform with three dashboard SPAs (Admin + User + Provider),
 | **Admin** | Admin auth + admin management |
 | **User** | User auth, registration, profile, social login |
 | **AI** | AI provider config + user chat |
-| **Provider** | Business provider profiles (admin CRUD + provider self-service portal) |
+| **Provider** | Business provider profiles (admin CRUD + `/provider` self-service SPA, no AI chat) |
 
 ---
 

@@ -19,9 +19,6 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('platform-settings/branding', [PlatformSettingController::class, 'branding']);
-Route::get('languages/dropdown', [LanguageController::class, 'dropdown']);
-
 Route::middleware('auth:admin_api')->group(function () {
     Route::get('platform-settings', [PlatformSettingController::class, 'show']);
     Route::post('platform-settings', [PlatformSettingController::class, 'update']);

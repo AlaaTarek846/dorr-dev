@@ -8,6 +8,7 @@
         </div>
 
         <form @submit.prevent="submitSettings">
+            <fieldset :disabled="!canUpdate">
             <div class="row g-4">
                 <div class="col-xl-5">
                     <div class="card custom-card">
@@ -63,8 +64,9 @@
                     </div>
                 </div>
             </div>
+            </fieldset>
 
-            <div class="d-flex justify-content-end mt-4">
+            <div v-if="canUpdate" class="d-flex justify-content-end mt-4">
                 <button type="submit" class="btn btn-primary" :disabled="submitting">
                     {{ submitting ? t('platform_settings.saving') : t('save_changes') }}
                 </button>
@@ -78,6 +80,7 @@ import useVuelidate from '@vuelidate/core';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import SettingsAssetUpload from '../../../../../../components/settings/SettingsAssetUpload.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
@@ -129,6 +132,7 @@ const ASSET_FIELDS = [
 ];
 
 const { t } = useI18n();
+const { canUpdate } = useCatalogPermissions('platform_settings');
 const brandingStore = usePlatformBrandingStore();
 const { showSuccess, showError, showWarning } = useToast();
 const {
@@ -251,6 +255,10 @@ async function loadSettings() {
 }
 
 async function submitSettings() {
+    if (! canUpdate.value) {
+        return;
+    }
+
     v$.value.$touch();
 
     if (v$.value.$invalid) {

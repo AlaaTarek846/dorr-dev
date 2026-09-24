@@ -18,7 +18,7 @@ class LanguageSeeder extends Seeder
     {
         $this->truncateModels(Language::class);
 
-        $egyptFlag = Flag::query()->where('code', 'eg')->value('id');
+        $saudiFlag = Flag::query()->where('code', 'sa')->value('id');
         $usFlag = Flag::query()->where('code', 'us')->value('id');
         $germanFlag = Flag::query()->where('code', 'de')->value('id');
         $frenchFlag = Flag::query()->where('code', 'fr')->value('id');
@@ -30,7 +30,7 @@ class LanguageSeeder extends Seeder
             'is_default_dashboard' => false,
             'stores_translation' => true,
             'status' => Status::Active,
-            'flag_id' => $egyptFlag,
+            'flag_id' => $saudiFlag,
         ]);
         $arabic->save();
         $this->syncTranslations($arabic, [
