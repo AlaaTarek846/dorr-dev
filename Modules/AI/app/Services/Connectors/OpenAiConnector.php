@@ -57,4 +57,43 @@ class OpenAiConnector extends AbstractHttpConnector
             return $this->success(__('ai.connected_with_models', ['count' => count($models)]), $models);
         });
     }
+
+    /**
+     * Real embeddings support via OpenAI's /embeddings endpoint - the only
+     * connector with a genuine implementation right now (Anthropic has no
+     * embeddings API; Google/Groq are not wired up yet). The Knowledge
+     * Retriever degrades to lexical-only search when this fails, rather
+     * than pretending every provider can do this.
+     *
+     * @return array{success: bool, message: string, vector: ?list<float>}
+     */
+    public function embed(AiProvider $provider, string $text): array
+    {
+        if (! $provider->hasApiKey()) {
+            return ['success' => false, 'message' => __('ai.api_key_missing'), 'vector' => null];
+        }
+
+        try {
+            $response = $this->client()
+                ->withHeaders(['Authorization' => 'Bearer '.$provider->api_key])
+                ->post($this->baseUrl($provider).'/embeddings', [
+                    'model' => config('ai.knowledge.embedding_model', 'text-embedding-3-small'),
+                    'input' => $text,
+                ]);
+
+            if (! $response->successful()) {
+                return ['success' => false, 'message' => $this->errorMessageFromResponse($response), 'vector' => null];
+            }
+
+            $vector = $response->json('data.0.embedding');
+
+            if (! is_array($vector) || $vector === []) {
+                return ['success' => false, 'message' => __('ai.empty_reply'), 'vector' => null];
+            }
+
+            return ['success' => true, 'message' => '', 'vector' => array_map('floatval', $vector)];
+        } catch (\Throwable $exception) {
+            return ['success' => false, 'message' => __('ai.unexpected_error', ['message' => $exception->getMessage()]), 'vector' => null];
+        }
+    }
 }

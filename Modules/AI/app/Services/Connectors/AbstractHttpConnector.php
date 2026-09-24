@@ -27,6 +27,18 @@ abstract class AbstractHttpConnector implements AiConnector
      */
     abstract public function sendChat(AiProvider $provider, array $messages): array;
 
+    /**
+     * Default: no embeddings support. Only connectors that actually
+     * implement a real embeddings call (currently OpenAiConnector) should
+     * override this - never fake a vector here.
+     *
+     * @return array{success: bool, message: string, vector: ?list<float>}
+     */
+    public function embed(AiProvider $provider, string $text): array
+    {
+        return ['success' => false, 'message' => __('ai.embeddings_not_supported', ['provider' => $provider->name]), 'vector' => null];
+    }
+
     protected function baseUrl(AiProvider $provider): string
     {
         $baseUrl = $provider->base_url ?: config("ai.providers.{$this->providerKey()}.base_url") ?: $this->defaultBaseUrl();

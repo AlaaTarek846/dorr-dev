@@ -26,4 +26,16 @@ interface AiConnector
      * @return array{success: bool, message: string, content: ?string}
      */
     public function sendChat(AiProvider $provider, array $messages): array;
+
+    /**
+     * Turn a piece of text into an embedding vector for the Knowledge
+     * base / RAG retriever (v2.0 doc, section 5.3). Not every provider
+     * exposes an embeddings API - a connector without real support
+     * returns success=false with an explanatory message rather than
+     * faking a vector, so the retriever can fall back to lexical-only
+     * search instead of silently comparing meaningless numbers.
+     *
+     * @return array{success: bool, message: string, vector: ?list<float>}
+     */
+    public function embed(AiProvider $provider, string $text): array;
 }

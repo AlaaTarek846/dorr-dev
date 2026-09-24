@@ -88,6 +88,19 @@ class AiProviderRepository extends BaseRepository
         return $usable->count() === 1 ? $usable->first() : null;
     }
 
+    /**
+     * Whether the chat feature has anything at all to talk to - true the
+     * moment at least one provider is enabled and has an API key, even
+     * with several enabled and no explicit default (AiRoutingEngine
+     * decides which one handles each message; resolveActiveForChat()'s
+     * single-provider requirement only matters for its own legacy
+     * fallback path).
+     */
+    public function hasAnyUsableProvider(): bool
+    {
+        return $this->all()->contains(fn (AiProvider $provider) => $provider->isUsableForChat());
+    }
+
     public function ensureDefaults(): void
     {
         foreach (AiProviderKey::cases() as $providerKey) {

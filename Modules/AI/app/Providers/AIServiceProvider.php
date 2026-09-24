@@ -2,8 +2,14 @@
 
 namespace Modules\AI\Providers;
 
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Nwidart\Modules\Support\ModuleServiceProvider;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
+use Modules\AI\Console\Commands\EnforceAiDataRetention;
+use Modules\AI\Console\Commands\RunAiBenchmark;
 
 class AIServiceProvider extends ModuleServiceProvider
 {
@@ -22,7 +28,10 @@ class AIServiceProvider extends ModuleServiceProvider
      *
      * @var string[]
      */
-    // protected array $commands = [];
+    protected array $commands = [
+        EnforceAiDataRetention::class,
+        RunAiBenchmark::class,
+    ];
 
     /**
      * Provider classes to register.
@@ -34,13 +43,82 @@ class AIServiceProvider extends ModuleServiceProvider
         RouteServiceProvider::class,
     ];
 
+    public function boot(): void
+    {
+        parent::boot();
+
+        // AI chat is shared between the User and Provider dashboards:
+        // ai_conversations.owner is polymorphic (owner_type + owner_id).
+        // A morph map keeps the stored owner_type short and decoupled from
+        // the real model namespace.
+        //
+        // Deliberately morphMap() and NOT enforceMorphMap(): the enforced
+        // variant makes Laravel throw ClassMorphViolationException for
+        // *any* polymorphic relation anywhere in the whole app that still
+        // uses a full class name instead of an alias - including ones this
+        // module has nothing to do with (e.g. App\Models\PlatformSetting).
+        // A plain, non-enforced map only supplies short aliases for the
+        // classes we register here, and leaves every other model in the
+        // app free to keep using its full class name as before.
+        Relation::morphMap([
+            'user' => \Modules\User\Models\User::class,
+            'provider' => \Modules\Provider\Models\Provider::class,
+        ]);
+
+        $this->registerRateLimiters();
+    }
+
+    /**
+     * v2.0 requirements doc S15.4 (rate limiting for costly operations).
+     *
+     * Two named limiters, keyed per authenticated owner (falling back to
+     * IP only for the rare unauthenticated case) rather than globally, so
+     * one heavy user cannot starve another:
+     *
+     * - ai-chat-general: the read/list/admin-ish endpoints (status, usage,
+     *   conversation CRUD) - generous, this is not where the cost is.
+     * - ai-chat-send: sending an actual message, which triggers a real
+     *   paid call to an AI provider - deliberately tighter. This is
+     *   independent of, and in addition to, AiChatUsageGuard's per-plan
+     *   minute quota: that guard enforces the *business* limit (how much
+     *   usage a plan grants), this limiter enforces *abuse* protection
+     *   (how fast requests may arrive) even for a user still well within
+     *   their plan quota.
+     */
+    protected function registerRateLimiters(): void
+    {
+        RateLimiter::for('ai-chat-general', function (Request $request) {
+            return Limit::perMinute(60)->by($this->rateLimitKey($request));
+        });
+
+        RateLimiter::for('ai-chat-send', function (Request $request) {
+            return Limit::perMinute(15)->by($this->rateLimitKey($request));
+        });
+
+        // Admin CRUD/config endpoints are trusted-staff traffic, not the
+        // AI-provider cost path, so this is generous headroom against a
+        // runaway script/loop rather than a tight business limit.
+        RateLimiter::for('ai-admin-general', function (Request $request) {
+            return Limit::perMinute(180)->by($this->rateLimitKey($request));
+        });
+    }
+
+    protected function rateLimitKey(Request $request): string
+    {
+        $owner = $request->user('user_api') ?? $request->user('provider_api') ?? $request->user('admin_api');
+
+        return $owner ? $owner->getMorphClass().':'.$owner->getAuthIdentifier() : $request->ip();
+    }
+
     /**
      * Define module schedules.
      * 
      * @param $schedule
      */
-    // protected function configureSchedules(Schedule $schedule): void
-    // {
-    //     $schedule->command('inspire')->hourly();
-    // }
+    protected function configureSchedules(Schedule $schedule): void
+    {
+        // v2.0 requirements doc 17.3 (data retention): purge AI audit
+        // rows older than the configured policy once a day.
+        $schedule->command('ai:enforce-retention')->daily();
+    }
 }

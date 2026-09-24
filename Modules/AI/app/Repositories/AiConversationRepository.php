@@ -3,6 +3,7 @@
 namespace Modules\AI\Repositories;
 
 use App\Repositories\BaseRepository;
+use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Database\Eloquent\Collection;
 use Modules\AI\Models\AiConversation;
 
@@ -16,33 +17,67 @@ class AiConversationRepository extends BaseRepository
     /**
      * @return Collection<int, AiConversation>
      */
-    public function listForUser(int $userId): Collection
+    public function listForOwner(Authenticatable $owner): Collection
     {
         return $this->model->newQuery()
-            ->where('user_id', $userId)
+            ->where('owner_type', $owner->getMorphClass())
+            ->where('owner_id', $owner->getAuthIdentifier())
             ->with('latestMessage')
             ->withCount('messages')
             ->orderByDesc('updated_at')
             ->get();
     }
 
-    public function findForUser(int $userId, int|string $id): AiConversation
+    public function findForOwner(Authenticatable $owner, int|string $id): AiConversation
     {
         return $this->model->newQuery()
-            ->where('user_id', $userId)
-            ->with('messages')
+            ->where('owner_type', $owner->getMorphClass())
+            ->where('owner_id', $owner->getAuthIdentifier())
+            ->with('messages.attachments')
             ->findOrFail($id);
     }
 
-    public function createForUser(int $userId): AiConversation
+    public function createForOwner(Authenticatable $owner): AiConversation
     {
-        return $this->model->newQuery()->create(['user_id' => $userId]);
+        return $this->model->newQuery()->create([
+            'owner_type' => $owner->getMorphClass(),
+            'owner_id' => $owner->getAuthIdentifier(),
+        ]);
     }
 
-    public function deleteForUser(int $userId, int|string $id): bool
+    public function deleteForOwner(Authenticatable $owner, int|string $id): bool
     {
-        $conversation = $this->findForUser($userId, $id);
+        $conversation = $this->findForOwner($owner, $id);
 
         return (bool) $conversation->delete();
+    }
+
+    /**
+     * @return Collection<int, AiConversation>
+     */
+    public function listForOwnerWithMessages(Authenticatable $owner): Collection
+    {
+        return $this->model->newQuery()
+            ->where('owner_type', $owner->getMorphClass())
+            ->where('owner_id', $owner->getAuthIdentifier())
+            ->with(['messages.attachments'])
+            ->orderBy('created_at')
+            ->get();
+    }
+
+    /**
+     * v2.0 requirements doc 17.3: an authorized self-service erase of all
+     * of this owner's AI conversations. ai_conversations -> ai_messages ->
+     * ai_conversation_attachments all cascade on delete, so removing the
+     * conversations is enough to remove the product-data side.
+     */
+    public function deleteAllForOwner(Authenticatable $owner): int
+    {
+        return $this->model->newQuery()
+            ->where('owner_type', $owner->getMorphClass())
+            ->where('owner_id', $owner->getAuthIdentifier())
+            ->get()
+            ->each(fn (AiConversation $conversation) => $conversation->delete())
+            ->count();
     }
 }
