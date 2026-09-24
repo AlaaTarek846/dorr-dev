@@ -14,7 +14,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.LayoutDirection
 import com.dorr.app.network.AppLocale
 import java.util.Locale
@@ -54,7 +53,7 @@ val LocalAppLanguage = staticCompositionLocalOf<AppLanguageState> {
 
 /**
  * Wraps the whole app content in a locale-aware [Context] and recomposes
- * every [LocalResources]/[LocalConfiguration]/[LocalLayoutDirection] reader
+ * every [LocalContext]/[LocalConfiguration]/[LocalLayoutDirection] reader
  * when the language changes — so stringResource, RTL/LTR flipping and
  * isSystemInDarkTheme all follow the persisted preference without recreating
  * the Activity (in-memory state like ThemeState and the nav graph survive).
@@ -76,7 +75,7 @@ fun LocalizedApp(content: @Composable () -> Unit) {
     }
 
     CompositionLocalProvider(
-        LocalResources provides localizedContext.resources,
+        LocalContext provides localizedContext,
         LocalConfiguration provides localizedContext.resources.configuration,
         LocalLayoutDirection provides (if (code == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr),
         LocalAppLanguage provides state,

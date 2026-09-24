@@ -6,23 +6,32 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 /**
- * Points at the Laragon-hosted Laravel backend (`dorr.test`) from an Android
- * emulator. `10.0.2.2` is the emulator's alias for the host machine's
- * localhost; Laragon serves `dorr.test` as a name-based virtual host, so we
- * also force the `Host` header — otherwise Apache would route the request to
- * whatever vhost is default instead of this project.
+ * Points the app at the Dorr backend through a public ngrok tunnel
+ * (`https://juncture-calibrate-tingly.ngrok-free.dev`), which forwards to the
+ * Laragon-hosted Laravel app (`dorr.test`).
  *
- * On a physical device this won't resolve: swap BASE_URL for the host
- * machine's LAN IP (same Wi-Fi), keeping the `Host` header override.
+ * A real public HTTPS hostname was chosen on purpose:
+ *  - It works from a **physical device** on any network — no 10.0.2.2 emulator
+ *    alias, no LAN-IP swap, no Wi-Fi requirement.
+ *  - The same URL is used for the emulator too, so there's one BASE_URL for
+ *    both cases.
+ *  - HTTPS means no cleartext exception and (crucially) **no Host-header
+ *    override**. ngrok returns 421 Misdirected Request when a request arrives
+ *    with a `Host:` value that doesn't match the tunnel hostname, so the old
+ *    `Host: dorr.test` override is gone — a real hostname routes by DNS as-is.
+ *
+ * Note on vhost routing: ngrok forwards to Laragon Apache, which routes
+ * `dorr.test` as a name-based vhost. For the tunnel to resolve cleanly, the
+ * Laragon vhost for `dorr` needs `ServerAlias juncture-calibrate-tingly.ngrok-free.dev`
+ * (or a fresh tunnel must use Laragon's auto *.dorr.test wildcard). If the
+ * preview returns 404, that's the missing ServerAlias — add it, then rebuild.
  */
-private const val DEV_HOST = "dorr.test"
-private const val BASE_URL = "http://10.0.2.2/api/"
+private const val BASE_URL = "https://juncture-calibrate-tingly.ngrok-free.dev/api/"
 
 object ApiClient {
     private val okHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
-                .header("Host", DEV_HOST)
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
                 .build()
