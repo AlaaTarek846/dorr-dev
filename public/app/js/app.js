@@ -75,6 +75,351 @@ const LOGIN_COPY = {
   },
 };
 
+// ===================== Whole-app UI copy (mirrors the Compose i18n) =====================
+// The login/OTP strings live in LOGIN_COPY above; this table covers the rest
+// of the app (Home, Account, settings menu, sub-screens, sheets, dialogs,
+// notifications, toasts). Picking a language re-paints every screen, exactly
+// like LocalizedApp in the Android project.
+const UI_COPY = {
+  ar: {
+    hello: 'مرحباً',
+    guestUser: 'مستخدم زائر',
+    bannerWelcome: 'مرحباً بك',
+    bannerOffers: 'عروض خاصة',
+    bannerBook: 'احجز خدمة الآن',
+    quickContact: 'اتصل بنا',
+    quickHistory: 'السجل',
+    tabHome: 'الرئيسية',
+    tabServices: 'الخدمات',
+    tabHistory: 'السجل',
+    tabAccount: 'الحساب',
+    accountTitle: 'حسابي',
+    settingsTitle: 'الإعدادات',
+    premium: 'عضو مميز',
+    walletLabel: 'رصيد المحفظة',
+    walletAdd: 'إضافة رصيد',
+    statOrders: 'إجمالي الطلبات',
+    statRating: 'التقييم',
+    statActive: 'الطلبات النشطة',
+    accPersonalTitle: 'البيانات الشخصية',
+    accPersonalSub: 'الاسم والهاتف والبريد',
+    accSettingsTitle: 'الإعدادات',
+    accSettingsSub: 'اللغة والإشعارات والحساب',
+    accPlacesTitle: 'العناوين',
+    accPlacesSub: 'عناوين المنزل والعمل',
+    accPaymentsTitle: 'طرق الدفع',
+    accPaymentsSub: 'البطاقات والمحافظ',
+    accPromoTitle: 'أكواد الخصم',
+    accPromoSub: 'خصومات وعروض خاصة',
+    accHelpTitle: 'المساعدة والدعم',
+    accHelpSub: 'الأسئلة الشائعة وتواصل معنا',
+    setPersonalTitle: 'البيانات الشخصية',
+    setPersonalSub: 'الاسم والهاتف والبريد',
+    setNotifTitle: 'الإشعارات',
+    setNotifSub: 'التحكم في التنبيهات',
+    setLangTitle: 'اللغة',
+    setLangSub: 'لغة واجهة التطبيق',
+    setDarkTitle: 'الوضع الليلي',
+    setDarkSub: 'مظهر داكن للتطبيق',
+    setFaqTitle: 'الأسئلة الشائعة',
+    setFaqSub: 'إجابات سريعة',
+    setContactTitle: 'تواصل معنا',
+    setContactSub: 'هاتف واتساب وبريد',
+    setAboutTitle: 'عن التطبيق',
+    setAboutSub: 'الإصدار والمعلومات',
+    setPrivacyTitle: 'سياسة الخصوصية',
+    setPrivacySub: 'كيف نتعامل مع بياناتك',
+    setLogoutTitle: 'تسجيل خروج',
+    setLogoutSub: 'الخروج من هذا الجهاز',
+    setDeleteTitle: 'حذف الحساب',
+    setDeleteSub: 'إجراء لا يمكن التراجع عنه',
+    pdTitle: 'البيانات الشخصية',
+    pdName: 'الاسم',
+    pdGender: 'الجنس',
+    pdPhone: 'رقم الهاتف',
+    pdEmail: 'البريد الإلكتروني',
+    pdNotAdded: 'غير مضاف',
+    genderUnspecified: 'غير محدد',
+    genderMale: 'ذكر',
+    genderFemale: 'أنثى',
+    editNameTitle: 'تعديل الاسم',
+    editNameLabel: 'الاسم',
+    editNameHint: 'اكتب الاسم كما يظهر في حسابك.',
+    save: 'حفظ',
+    toastEnterName: 'اكتب الاسم',
+    toastNameUpdated: 'تم تحديث الاسم',
+    editGenderTitle: 'تعديل الجنس',
+    editGenderHint: 'اختر الجنس ثم احفظ.',
+    toastPickGender: 'اختر الجنس',
+    toastGenderUpdated: 'تم تحديث الجنس',
+    editPhoneTitle: 'تعديل رقم الهاتف',
+    editPhoneLabel: 'رقم الهاتف',
+    phoneCodeLabel: 'كود الدولة',
+    countrySearchPlaceholder: 'ابحث عن دولة',
+    countrySearchEmpty: 'لا توجد نتائج',
+    editPhoneHint: 'اكتب الرقم الجديد. بنرسل كود تأكيد، والتعديل يتم بعد التأكد.',
+    sendCode: 'إرسال الكود',
+    toastValidPhone: 'اكتب رقم هاتف صحيح',
+    editEmailTitle: 'تعديل البريد الإلكتروني',
+    editEmailLabel: 'البريد الإلكتروني',
+    editEmailHint: 'اكتب البريد الجديد. بنرسل كود تأكيد، والتعديل يتم بعد التأكد.',
+    toastValidEmail: 'اكتب بريد إلكتروني صحيح',
+    otpHint: 'أدخل كود التأكيد المرسل إلى {target}، وبعد التأكيد يتم حفظ التعديل.',
+    otpTimer: 'إعادة الإرسال بعد {n} ثانية',
+    otpResend: 'إعادة إرسال الكود',
+    otpDevHint: 'نسخة تجريبية: الكود 123456',
+    confirmBtn: 'تأكيد',
+    toastWrongCode: 'الكود غير صحيح',
+    toastCodeSent: 'تم إرسال الكود',
+    toastPhoneUpdated: 'تم تحديث رقم الهاتف',
+    toastEmailUpdated: 'تم تحديث البريد الإلكتروني',
+    notifTitle: 'الإشعارات',
+    notifMarkAll: 'قراءة الكل',
+    notifEmptyTitle: 'لا توجد إشعارات',
+    notifEmptySub: 'ستظهر هنا الإشعارات عند وجود تحديثات جديدة',
+    notifToggle1Title: 'الإشعارات الفورية',
+    notifToggle1Desc: 'استقبل إشعارات على هذا الجهاز',
+    notifToggle2Title: 'تحديثات الطلبات والخدمة',
+    notifToggle2Desc: 'تغييرات حالة طلباتك',
+    notifToggle3Title: 'العروض والتخفيضات',
+    notifToggle3Desc: 'أخبار وعروض خاصة',
+    notifToggle4Title: 'إشعارات البريد الإلكتروني',
+    notifToggle4Desc: 'استقبل التحديثات على بريدك أيضاً',
+    privacyTitle: 'سياسة الخصوصية',
+    privacyHead: 'خصوصيتك مهمة',
+    privacyBody: 'هذا نص مبدئي لسياسة الخصوصية. استبدله بسياستك الحقيقية قبل الإطلاق: ما هي البيانات التي تجمعها، لماذا تجمعها، كيف يتم تخزينها، مع من تتم مشاركتها، وكيف يمكن للمستخدم طلب حذف بياناته.\n\nحتى ذلك الحين، هذه الشاشة موجودة فقط لتوضيح شكل وتنسيق صفحة محتوى ثابت طويلة.',
+    faqTitle: 'الأسئلة الشائعة',
+    faq1q: 'إزاي أقدر أعدل بياناتي الشخصية؟',
+    faq1a: 'افتح الحساب ← البيانات الشخصية، ثم اختر الحقل اللي عاوز تعدّله.',
+    faq2q: 'إزاي أغيّر لغة التطبيق؟',
+    faq2a: 'افتح الحساب ← اللغة واختر العربية أو الإنجليزية.',
+    faq3q: 'التطبيق بيدعم الوضع الليلي؟',
+    faq3a: 'أيوة — فعّله من الحساب ← الوضع الليلي.',
+    faq4q: 'إزاي أتواصل مع الدعم؟',
+    faq4a: 'افتح الحساب ← تواصل معنا للاتصال أو واتساب أو إيميل.',
+    contactTitle: 'تواصل معنا',
+    contactCall: 'اتصال هاتفي',
+    contactWhatsapp: 'واتساب',
+    contactEmail: 'البريد الإلكتروني',
+    aboutHead: 'عن التطبيق',
+    aboutVersion: 'الإصدار 1.0.0',
+    aboutBody: 'تطبيق عام لإدارة الخدمات. هذه الشاشة، زي باقي التطبيق، نقطة بداية تقدر تخصصها حسب نشاطك.',
+    closeLabel: 'إغلاق',
+    goBack: 'رجوع',
+    verified: 'موثّق',
+    placeholderSub: 'سيتم إضافة شاشات هذا القسم لاحقاً.',
+    langDialogTitle: 'اللغة',
+    langLoading: 'جاري تحميل اللغات…',
+    langLoadFail: 'تعذّر تحميل اللغات',
+    logoutConfirm: 'هل أنت متأكد من تسجيل الخروج؟',
+    deleteConfirm: 'سيتم حذف حسابك وكل بياناتك نهائياً. هل أنت متأكد؟',
+    comingSoon: 'قريباً',
+    walletDemo: 'إضافة الرصيد لسه مش متوصلة في النسخة التجريبية',
+    notifNow: 'الآن',
+    notifMin: 'منذ {n} دقيقة',
+    notifHour: 'منذ {n} ساعة',
+    notifDay: 'منذ يوم',
+    notifDays: 'منذ {n} يوم',
+    notifWeeks: 'منذ {n} أسابيع',
+    notifDetailDefault: 'إشعار',
+    notif1Title: 'تحديث حالة طلبك',
+    notif1Body: 'طلب الخدمة بتاعك بقى "قيد التنفيذ".',
+    notif2Title: 'عرض سعر جاهز للمراجعة',
+    notif2Body: 'راجع البنود واعتمد العرض للمتابعة.',
+    notif3Title: 'فاتورة جديدة',
+    notif3Body: 'تم إصدار فاتورة لآخر خدمة طلبتها.',
+    notif4Title: 'صيانة قادمة',
+    notif4Body: 'في فحص دوري مستحق قريبًا.',
+    notif5Title: 'عرض لفترة محدودة',
+    notif5Body: 'عندنا عرض خاص الأسبوع ده.',
+    notif6Title: 'أهلاً بيك في التطبيق',
+    notif6Body: 'شكرًا لتسجيلك معانا.',
+    deviceLabel: 'معاينة تصميم — Dorr Android (Compose)',
+  },
+  en: {
+    hello: 'Hello',
+    guestUser: 'Guest user',
+    bannerWelcome: 'Welcome',
+    bannerOffers: 'Special offers',
+    bannerBook: 'Book a service now',
+    quickContact: 'Contact us',
+    quickHistory: 'History',
+    tabHome: 'Home',
+    tabServices: 'Services',
+    tabHistory: 'History',
+    tabAccount: 'Account',
+    accountTitle: 'My account',
+    settingsTitle: 'Settings',
+    premium: 'Premium member',
+    walletLabel: 'Wallet balance',
+    walletAdd: 'Add funds',
+    statOrders: 'Total orders',
+    statRating: 'Rating',
+    statActive: 'Active orders',
+    accPersonalTitle: 'Personal data',
+    accPersonalSub: 'Name, phone and email',
+    accSettingsTitle: 'Settings',
+    accSettingsSub: 'Language, notifications and account',
+    accPlacesTitle: 'Addresses',
+    accPlacesSub: 'Home and work addresses',
+    accPaymentsTitle: 'Payment methods',
+    accPaymentsSub: 'Cards and wallets',
+    accPromoTitle: 'Discount codes',
+    accPromoSub: 'Discounts and special offers',
+    accHelpTitle: 'Help & support',
+    accHelpSub: 'FAQs and contact us',
+    setPersonalTitle: 'Personal data',
+    setPersonalSub: 'Name, phone and email',
+    setNotifTitle: 'Notifications',
+    setNotifSub: 'Manage alerts',
+    setLangTitle: 'Language',
+    setLangSub: 'App UI language',
+    setDarkTitle: 'Dark mode',
+    setDarkSub: 'Dark theme for the app',
+    setFaqTitle: 'FAQs',
+    setFaqSub: 'Quick answers',
+    setContactTitle: 'Contact us',
+    setContactSub: 'Phone, WhatsApp and email',
+    setAboutTitle: 'About',
+    setAboutSub: 'Version and information',
+    setPrivacyTitle: 'Privacy policy',
+    setPrivacySub: 'How we handle your data',
+    setLogoutTitle: 'Sign out',
+    setLogoutSub: 'Leave this device',
+    setDeleteTitle: 'Delete account',
+    setDeleteSub: 'Cannot be undone',
+    pdTitle: 'Personal data',
+    pdName: 'Name',
+    pdGender: 'Gender',
+    pdPhone: 'Phone number',
+    pdEmail: 'Email',
+    pdNotAdded: 'Not added',
+    genderUnspecified: 'Unspecified',
+    genderMale: 'Male',
+    genderFemale: 'Female',
+    editNameTitle: 'Edit name',
+    editNameLabel: 'Name',
+    editNameHint: 'Type the name as it appears on your account.',
+    save: 'Save',
+    toastEnterName: 'Enter a name',
+    toastNameUpdated: 'Name updated',
+    editGenderTitle: 'Edit gender',
+    editGenderHint: 'Choose a gender then save.',
+    toastPickGender: 'Choose a gender',
+    toastGenderUpdated: 'Gender updated',
+    editPhoneTitle: 'Edit phone number',
+    editPhoneLabel: 'Phone number',
+    phoneCodeLabel: 'Country code',
+    countrySearchPlaceholder: 'Search for a country',
+    countrySearchEmpty: 'No results',
+    editPhoneHint: 'Enter the new number. We\'ll send a code and the change applies after verification.',
+    sendCode: 'Send code',
+    toastValidPhone: 'Enter a valid phone number',
+    editEmailTitle: 'Edit email',
+    editEmailLabel: 'Email',
+    editEmailHint: 'Enter the new email. We\'ll send a code and the change applies after verification.',
+    toastValidEmail: 'Enter a valid email',
+    otpHint: 'Enter the code sent to {target}. The change is saved after verification.',
+    otpTimer: 'Resend in {n}s',
+    otpResend: 'Resend code',
+    otpDevHint: 'Demo: code is 123456',
+    confirmBtn: 'Confirm',
+    toastWrongCode: 'Incorrect code',
+    toastCodeSent: 'Code sent',
+    toastPhoneUpdated: 'Phone number updated',
+    toastEmailUpdated: 'Email updated',
+    notifTitle: 'Notifications',
+    notifMarkAll: 'Mark all read',
+    notifEmptyTitle: 'No notifications',
+    notifEmptySub: 'Notifications will appear here when there are updates',
+    notifToggle1Title: 'Push notifications',
+    notifToggle1Desc: 'Receive notifications on this device',
+    notifToggle2Title: 'Order & service updates',
+    notifToggle2Desc: 'Changes to your order status',
+    notifToggle3Title: 'Offers and discounts',
+    notifToggle3Desc: 'News and special offers',
+    notifToggle4Title: 'Email notifications',
+    notifToggle4Desc: 'Also receive updates on your email',
+    privacyTitle: 'Privacy policy',
+    privacyHead: 'Your privacy matters',
+    privacyBody: 'This is a placeholder privacy policy. Replace it with your real policy before launch: what data you collect, why you collect it, how it is stored, who it is shared with, and how users can request their data to be deleted.\n\nUntil then, this screen only exists to show the shape and layout of a long static content page.',
+    faqTitle: 'FAQs',
+    faq1q: 'How do I edit my personal data?',
+    faq1a: 'Open Account ← Personal data, then pick the field you want to change.',
+    faq2q: 'How do I change the app language?',
+    faq2a: 'Open Account ← Language and choose Arabic or English.',
+    faq3q: 'Does the app support dark mode?',
+    faq3a: 'Yes — enable it from Account ← Dark mode.',
+    faq4q: 'How do I contact support?',
+    faq4a: 'Open Account ← Contact us to call, WhatsApp or email us.',
+    contactTitle: 'Contact us',
+    contactCall: 'Phone call',
+    contactWhatsapp: 'WhatsApp',
+    contactEmail: 'Email',
+    aboutHead: 'About',
+    aboutVersion: 'Version 1.0.0',
+    aboutBody: 'A general service-management app. This screen, like the rest of the app, is a starting point you can tailor to your business.',
+    closeLabel: 'Close',
+    goBack: 'Back',
+    verified: 'Verified',
+    placeholderSub: 'This section\'s screens will be added later.',
+    langDialogTitle: 'Language',
+    langLoading: 'Loading languages…',
+    langLoadFail: 'Failed to load languages',
+    logoutConfirm: 'Are you sure you want to sign out?',
+    deleteConfirm: 'Your account and all data will be permanently deleted. Are you sure?',
+    comingSoon: 'Coming soon',
+    walletDemo: 'Adding funds isn\'t wired up in this demo yet',
+    notifNow: 'now',
+    notifMin: '{n} min ago',
+    notifHour: '{n} hr ago',
+    notifDay: '1 day ago',
+    notifDays: '{n} days ago',
+    notifWeeks: '{n} weeks ago',
+    notifDetailDefault: 'Notification',
+    notif1Title: 'Order status update',
+    notif1Body: 'Your service order is now "in progress".',
+    notif2Title: 'Quote ready for review',
+    notif2Body: 'Review the items and approve the quote to continue.',
+    notif3Title: 'New invoice',
+    notif3Body: 'An invoice was issued for your latest service order.',
+    notif4Title: 'Upcoming maintenance',
+    notif4Body: 'A scheduled check-up is due soon.',
+    notif5Title: 'Limited-time offer',
+    notif5Body: 'We have a special offer this week.',
+    notif6Title: 'Welcome to the app',
+    notif6Body: 'Thank you for signing up.',
+    deviceLabel: 'Design preview — Dorr Android (Compose)',
+  },
+};
+
+const UI_COPY_KEYS = Object.keys(UI_COPY.ar);
+
+function t(key, params) {
+  const dict = UI_COPY[selectedLanguageCode] || UI_COPY.ar;
+  let str = dict[key] ?? UI_COPY.ar[key] ?? key;
+  if (params) {
+    Object.entries(params).forEach(([k, v]) => {
+      str = str.replace(new RegExp(`{${k}}`, 'g'), v);
+    });
+  }
+  return str;
+}
+
+function persistLanguage(code) {
+  try {
+    localStorage.setItem('dorr_preview_lang', code);
+  } catch (_) { /* private mode etc. */ }
+}
+
+function storedLanguage() {
+  try {
+    return localStorage.getItem('dorr_preview_lang');
+  } catch (_) {
+    return null;
+  }
+}
+
 let languages = [];
 let selectedLanguageCode = 'ar';
 
@@ -259,6 +604,7 @@ function applyLanguage(language) {
   const code = String(language.code || 'ar').toLowerCase();
   const localeChanged = apiHeaders['X-Locale'] !== code;
   selectedLanguageCode = code;
+  persistLanguage(code);
   document.documentElement.lang = code;
   document.documentElement.dir = String(language.direction || '').toLowerCase() === 'ltr' ? 'ltr' : 'rtl';
   langNameEls.forEach((el) => { el.textContent = language.name || code; });
@@ -276,11 +622,77 @@ function applyLanguage(language) {
   paintBrandName();
   renderLanguageMenu();
   refreshLanguageDialogIfOpen();
+  paintWholeAppCopy();
   if (localeChanged) {
     loadLanguages();
     loadCountries();
     syncPhoneError();
   }
+}
+
+// Re-paints every static label the moment the language flips — the web
+// analogue of Compose's LocalizedApp recomposing the whole subtree.
+function paintWholeAppCopy() {
+  paintMainScreenCopy();
+  paintProfileMenu(false);
+  paintSubScreenIfOpen();
+  paintOpenSheet();
+  paintOpenDialog();
+  paintNotifications();
+  paintDeviceLabel();
+}
+
+function paintSubScreenIfOpen() {
+  if (subScreenEl.classList.contains('open') && subStack.length) paintSubScreen();
+}
+
+function paintOpenSheet() {
+  if (sheetBackdrop.classList.contains('open') && sheetOpenType) {
+    const cfg = SHEETS[sheetOpenType];
+    if (cfg) {
+      sheetPanel.innerHTML = cfg.render();
+      cfg.afterRender?.(sheetPanel);
+    }
+  }
+}
+
+function paintOpenDialog() {
+  if (dialogBackdrop.classList.contains('open') && dialogOpenType) {
+    const cfg = DIALOGS[dialogOpenType];
+    if (cfg) {
+      dialogBox.innerHTML = cfg.render();
+      $('[data-close]', dialogBox).addEventListener('click', closeDialog);
+      cfg.afterRender?.(dialogBox);
+    }
+  }
+}
+
+function paintNotifications() {
+  const open = notifScreenEl.classList.contains('open');
+  if (open) renderNotifications();
+}
+
+function paintDeviceLabel() {
+  const label = $('.device-label');
+  if (!label) return;
+  const prefix = label.childNodes[0];
+  if (prefix) prefix.textContent = `${t('deviceLabel')} · `;
+}
+
+// Localizes the static home/account markup (banner, shortcuts, tabs, account
+// header stats and links). Elements carry data-i18n / data-i18n-label keys.
+function paintMainScreenCopy() {
+  $$('[data-i18n]').forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  $$('[data-i18n-ph]').forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  $$('[data-i18n-aria]').forEach((el) => {
+    el.setAttribute('aria-label', t(el.dataset.i18nAria));
+  });
+  const greeting = $('#home-greeting');
+  if (greeting && profileState) greeting.textContent = `${t('hello')}، ${displayName()}`;
 }
 
 function loadLanguages() {
@@ -325,6 +737,18 @@ langMenuEls.forEach((menu) => {
     closeLanguageMenu();
   });
 });
+
+// Restore the persisted language before any network call, so the whole app
+// (login copy, direction, and every painted label) boots in the saved locale.
+(function restoreBootLanguage() {
+  const boot = storedLanguage();
+  if (boot && String(boot).toLowerCase() !== 'ar') {
+    selectedLanguageCode = String(boot).toLowerCase();
+    document.documentElement.lang = selectedLanguageCode;
+    document.documentElement.dir = selectedLanguageCode === 'en' ? 'ltr' : 'rtl';
+    apiHeaders['X-Locale'] = selectedLanguageCode;
+  }
+})();
 
 loadLanguages();
 loadCountries();
@@ -613,17 +1037,16 @@ const ICONS = {
 };
 
 const SETTINGS_ITEMS = [
-  { icon: 'person', action: 'personal-data', title: 'البيانات الشخصية', subtitle: 'الاسم والهاتف والبريد' },
-  { icon: 'bell', action: 'notifications', title: 'الإشعارات', subtitle: 'التحكم في التنبيهات' },
-  { icon: 'lock', action: 'wallet-pin', title: 'الرقم السري للمحفظة', subtitle: 'حماية عمليات الدفع والشحن' },
-  { icon: 'language', action: 'language', title: 'اللغة', subtitle: 'لغة واجهة التطبيق' },
-  { icon: 'dark-mode', switch: true, title: 'الوضع الليلي', subtitle: 'مظهر داكن للتطبيق' },
-  { icon: 'help', action: 'faq', title: 'الأسئلة الشائعة', subtitle: 'إجابات سريعة' },
-  { icon: 'phone', action: 'contact', title: 'تواصل معنا', subtitle: 'هاتف وواتساب وبريد' },
-  { icon: 'info', action: 'about', title: 'عن التطبيق', subtitle: 'الإصدار والمعلومات' },
-  { icon: 'shield', action: 'privacy', title: 'سياسة الخصوصية', subtitle: 'كيف نتعامل مع بياناتك' },
-  { icon: 'logout', action: 'logout', title: 'تسجيل خروج', subtitle: 'الخروج من هذا الجهاز', danger: true },
-  { icon: 'delete', action: 'delete', title: 'حذف الحساب', subtitle: 'إجراء لا يمكن التراجع عنه', danger: true },
+  { icon: 'person', action: 'personal-data', title: 'setPersonalTitle', subtitle: 'setPersonalSub' },
+  { icon: 'bell', action: 'notifications', title: 'setNotifTitle', subtitle: 'setNotifSub' },
+  { icon: 'language', action: 'language', title: 'setLangTitle', subtitle: 'setLangSub' },
+  { icon: 'dark-mode', switch: true, title: 'setDarkTitle', subtitle: 'setDarkSub' },
+  { icon: 'help', action: 'faq', title: 'setFaqTitle', subtitle: 'setFaqSub' },
+  { icon: 'phone', action: 'contact', title: 'setContactTitle', subtitle: 'setContactSub' },
+  { icon: 'info', action: 'about', title: 'setAboutTitle', subtitle: 'setAboutSub' },
+  { icon: 'shield', action: 'privacy', title: 'setPrivacyTitle', subtitle: 'setPrivacySub' },
+  { icon: 'logout', action: 'logout', title: 'setLogoutTitle', subtitle: 'setLogoutSub', danger: true },
+  { icon: 'delete', action: 'delete', title: 'setDeleteTitle', subtitle: 'setDeleteSub', danger: true },
 ];
 
 function settingsMenuHtml() {
@@ -639,18 +1062,23 @@ function settingsMenuHtml() {
     return `
       <button type="button" class="account-link${danger}${switchCls}"${actionAttr}${switchAttr}>
         <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#${iconId}"/></svg></span>
-        <span class="account-link-text"><strong>${item.title}</strong><small>${item.subtitle}</small></span>
+        <span class="account-link-text"><strong>${t(item.title)}</strong><small>${t(item.subtitle)}</small></span>
         ${trail}
       </button>`;
   }).join('');
 }
 
 let profileRendered = false;
-function renderProfileMenu() {
-  if (profileRendered) return;
+function renderProfileMenu(force = false) {
+  if (profileRendered && !force) return;
   profileRendered = true;
   const menu = $('#profile-menu');
   menu.innerHTML = settingsMenuHtml();
+  bindMenuRows(menu);
+  if (force) bindMenuRows(menu);
+}
+
+function bindMenuRows(menu) {
   $$('[data-switch="1"]', menu).forEach((row) => {
     row.addEventListener('click', (event) => {
       event.preventDefault();
@@ -662,6 +1090,14 @@ function renderProfileMenu() {
   $$('[data-action]', menu).forEach((row) => {
     row.addEventListener('click', () => handleProfileAction(row.dataset.action));
   });
+}
+
+// Repaints the in-page profile menu list with the current language.
+function paintProfileMenu(force = false) {
+  if (!profileRendered) return;
+  const menu = $('#profile-menu');
+  menu.innerHTML = settingsMenuHtml();
+  bindMenuRows(menu);
 }
 
 function handleProfileAction(action) {
@@ -677,8 +1113,8 @@ function handleProfileAction(action) {
     case 'logout':
     case 'delete': {
       const msg = action === 'logout'
-        ? 'هل أنت متأكد من تسجيل الخروج؟'
-        : 'سيتم حذف حسابك وكل بياناتك نهائياً. هل أنت متأكد؟';
+        ? t('logoutConfirm')
+        : t('deleteConfirm');
       if (confirm(msg)) {
         if (authToken) {
           fetch('/api/mobile/v1/auth/logout', { method: 'POST', headers: { ...apiHeaders, Authorization: `Bearer ${authToken}` } }).catch(() => {});
@@ -717,7 +1153,7 @@ $$('[data-account-link]').forEach((button) => {
     if (link === 'personal-data') openSubScreen('personal-data');
     else if (link === 'settings') openAccountSettings();
     else if (link === 'help') openSheet('faq');
-    else showToast('قريباً');
+    else showToast(t('comingSoon'));
   });
 });
 
@@ -748,9 +1184,9 @@ const contactDraft = {
 let profileOtpTimer = null;
 
 function genderLabel(value) {
-  if (value === 'male') return 'ذكر';
-  if (value === 'female') return 'أنثى';
-  return 'غير محدد';
+  if (value === 'male') return t('genderMale');
+  if (value === 'female') return t('genderFemale');
+  return t('genderUnspecified');
 }
 
 function profilePhoneText() {
@@ -789,11 +1225,15 @@ function syncProfilePhoneFromLogin() {
   ensureProfileCountry();
 }
 
+function displayName() {
+  return (!profileState.name || profileState.name === 'مستخدم زائر') ? t('guestUser') : profileState.name;
+}
+
 function paintProfileSurfaces() {
   const nameEl = $('#profile-name');
-  if (nameEl) nameEl.textContent = profileState.name;
+  if (nameEl) nameEl.textContent = displayName();
   const homeGreeting = $('#home-greeting');
-  if (homeGreeting) homeGreeting.textContent = `مرحباً، ${profileState.name}`;
+  if (homeGreeting) homeGreeting.textContent = `${t('hello')}، ${displayName()}`;
   const contact = $('#profile-contact');
   if (contact) contact.textContent = profilePhoneText();
 }
@@ -803,7 +1243,7 @@ function clearProfileOtpTimer() {
   profileOtpTimer = null;
 }
 
-const verifiedMark = '<svg class="profile-edit-check" viewBox="0 0 24 24" aria-label="موثّق"><circle cx="12" cy="12" r="10"/><path d="M7.2 12.2l3.1 3.1 6.5-6.6"/></svg>';
+const verifiedMark = `<svg class="profile-edit-check" viewBox="0 0 24 24" aria-label="${t('verified')}"><circle cx="12" cy="12" r="10"/><path d="M7.2 12.2l3.1 3.1 6.5-6.6"/></svg>`;
 
 function profileOtpMarkup(target) {
   const boxes = Array.from({ length: 6 }, (_, i) =>
@@ -812,13 +1252,13 @@ function profileOtpMarkup(target) {
   return `
     <div class="profile-form">
       <div class="profile-form-card profile-otp">
-        <p class="profile-form-hint">أدخل كود التأكيد المرسل إلى <bdi dir="ltr">${escapeHtml(target)}</bdi>، وبعد التأكيد يتم حفظ التعديل.</p>
+        <p class="profile-form-hint">${t('otpHint', { target: `<bdi dir="ltr">${escapeHtml(target)}</bdi>` })}</p>
         <div class="otp-boxes" id="profile-otp-boxes" dir="ltr">${boxes}</div>
-        <p class="profile-otp-timer" id="profile-otp-timer">إعادة الإرسال بعد <span id="profile-otp-count">60</span> ثانية</p>
-        <button type="button" class="profile-otp-resend" id="profile-otp-resend" hidden>إعادة إرسال الكود</button>
-        <p class="profile-dev-hint">نسخة تجريبية: الكود 123456</p>
+        <p class="profile-otp-timer" id="profile-otp-timer">${t('otpTimer', { n: '<span id="profile-otp-count">60</span>' })}</p>
+        <button type="button" class="profile-otp-resend" id="profile-otp-resend" hidden>${t('otpResend')}</button>
+        <p class="profile-dev-hint">${t('otpDevHint')}</p>
       </div>
-      <button type="button" class="btn-primary" id="profile-otp-confirm" disabled><span class="btn-label">تأكيد</span></button>
+      <button type="button" class="btn-primary" id="profile-otp-confirm" disabled><span class="btn-label">${t('confirmBtn')}</span></button>
     </div>`;
 }
 
@@ -865,7 +1305,7 @@ function bindProfileOtp(root, onSuccess) {
       setTimeout(() => wrap.classList.remove('shake'), 400);
       busy = false;
       confirmBtn.disabled = false;
-      showToast('الكود غير صحيح');
+      showToast(t('toastWrongCode'));
     }, 280);
   }
 
@@ -893,7 +1333,7 @@ function bindProfileOtp(root, onSuccess) {
     confirmBtn.disabled = true;
     busy = false;
     startProfileOtpTimer(root);
-    showToast('تم إرسال الكود');
+    showToast(t('toastCodeSent'));
     boxes[0]?.focus();
   });
   startProfileOtpTimer(root);
@@ -1004,7 +1444,7 @@ function bindProfilePhone(root) {
 
 const SUB_SCREENS = {
   'personal-data': {
-    title: 'البيانات الشخصية',
+    title: () => t('pdTitle'),
     render: () => {
       const phone = profilePhoneText();
       const email = profileState.email;
@@ -1023,10 +1463,10 @@ const SUB_SCREENS = {
             </span>
           </div>
           <div class="account-links profile-fields">
-            ${field('name', '<svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>', 'الاسم', escapeHtml(profileState.name), false)}
-            ${field('gender', '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M6.5 19.5c.4-2.8 2.6-4.8 5.5-4.8s5.1 2 5.5 4.8"/></svg>', 'الجنس', escapeHtml(genderLabel(profileState.gender)), false)}
-            ${field('phone', '<svg viewBox="0 0 24 24"><use href="#icon-phone"/></svg>', 'رقم الهاتف', phone ? `<span dir="ltr">${escapeHtml(phone)}</span>` : 'غير مضاف', Boolean(phone))}
-            ${field('email', '<svg viewBox="0 0 24 24"><use href="#icon-email"/></svg>', 'البريد الإلكتروني', email ? escapeHtml(email) : 'غير مضاف', Boolean(email))}
+            ${field('name', '<svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>', t('pdName'), escapeHtml(profileState.name), false)}
+            ${field('gender', '<svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.2"/><path d="M6.5 19.5c.4-2.8 2.6-4.8 5.5-4.8s5.1 2 5.5 4.8"/></svg>', t('pdGender'), escapeHtml(genderLabel(profileState.gender)), false)}
+            ${field('phone', '<svg viewBox="0 0 24 24"><use href="#icon-phone"/></svg>', t('pdPhone'), phone ? `<span dir="ltr">${escapeHtml(phone)}</span>` : t('pdNotAdded'), Boolean(phone))}
+            ${field('email', '<svg viewBox="0 0 24 24"><use href="#icon-email"/></svg>', t('pdEmail'), email ? escapeHtml(email) : t('pdNotAdded'), Boolean(email))}
           </div>
         </div>`;
     },
@@ -1043,38 +1483,38 @@ const SUB_SCREENS = {
     },
   },
   'edit-name': {
-    title: 'تعديل الاسم',
+    title: () => t('editNameTitle'),
     render: () => `
       <div class="profile-form">
         <div class="profile-form-card">
-          <label class="profile-field-label" for="profile-name-input">الاسم</label>
+          <label class="profile-field-label" for="profile-name-input">${t('editNameLabel')}</label>
           <div class="profile-icon-field">
             <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-person"/></svg></span>
             <input id="profile-name-input" type="text" maxlength="80" value="${escapeHtml(profileState.name)}">
           </div>
-          <p class="profile-form-hint">اكتب الاسم كما يظهر في حسابك.</p>
+          <p class="profile-form-hint">${t('editNameHint')}</p>
         </div>
-        <button type="button" class="btn-primary" id="profile-save-name"><span class="btn-label">حفظ</span></button>
+        <button type="button" class="btn-primary" id="profile-save-name"><span class="btn-label">${t('save')}</span></button>
       </div>`,
     afterRender: (root) => {
       const input = $('#profile-name-input', root);
       $('#profile-save-name', root).addEventListener('click', () => {
         const value = input.value.trim();
         if (value.length < 2) {
-          showToast('اكتب الاسم');
+          showToast(t('toastEnterName'));
           input.focus();
           return;
         }
         profileState.name = value;
         paintProfileSurfaces();
-        showToast('تم تحديث الاسم');
+        showToast(t('toastNameUpdated'));
         closeSubScreen();
       });
       input.focus();
     },
   },
   'edit-gender': {
-    title: 'تعديل الجنس',
+    title: () => t('editGenderTitle'),
     render: () => {
       const icons = {
         male: '<circle cx="10" cy="14.5" r="5"/><path d="M13.6 10.9L19 5.5M15.2 5.5H19V9.3"/>',
@@ -1089,14 +1529,14 @@ const SUB_SCREENS = {
       return `
         <div class="profile-form">
           <div class="profile-form-card">
-            <p class="profile-field-label">الجنس</p>
+            <p class="profile-field-label">${t('pdGender')}</p>
             <div class="gender-options">
-              ${option('male', 'ذكر')}
-              ${option('female', 'أنثى')}
+              ${option('male', t('genderMale'))}
+              ${option('female', t('genderFemale'))}
             </div>
-            <p class="profile-form-hint">اختر الجنس ثم احفظ.</p>
+            <p class="profile-form-hint">${t('editGenderHint')}</p>
           </div>
-          <button type="button" class="btn-primary" id="profile-save-gender"><span class="btn-label">حفظ</span></button>
+          <button type="button" class="btn-primary" id="profile-save-gender"><span class="btn-label">${t('save')}</span></button>
         </div>`;
     },
     afterRender: (root) => {
@@ -1109,17 +1549,17 @@ const SUB_SCREENS = {
       });
       $('#profile-save-gender', root).addEventListener('click', () => {
         if (!selected) {
-          showToast('اختر الجنس');
+          showToast(t('toastPickGender'));
           return;
         }
         profileState.gender = selected;
-        showToast('تم تحديث الجنس');
+        showToast(t('toastGenderUpdated'));
         closeSubScreen();
       });
     },
   },
   'edit-phone': {
-    title: 'تعديل رقم الهاتف',
+    title: () => t('editPhoneTitle'),
     render: () => {
       if (contactDraft.step === 'otp') {
         return profileOtpMarkup(`${contactDraft.dial} ${contactDraft.value}`);
@@ -1130,14 +1570,14 @@ const SUB_SCREENS = {
       return `
         <div class="profile-form">
           <div class="profile-form-card">
-          <label class="profile-field-label" for="profile-phone-input">رقم الهاتف</label>
+          <label class="profile-field-label" for="profile-phone-input">${t('editPhoneLabel')}</label>
           <div class="phone-field">
             <span class="phone-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><path d="M7 3.5h2.2l1.2 3-1.7 1a11 11 0 0 0 5.8 5.8l1-1.7 3 1.2V15a2 2 0 0 1-2.2 2A13.5 13.5 0 0 1 5 7.7 2 2 0 0 1 7 3.5z"/></svg>
             </span>
             <span class="phone-sep"></span>
             <div class="phone-code-wrap" id="profile-phone-wrap">
-              <button type="button" class="phone-code" id="profile-dial-btn" aria-haspopup="listbox" aria-label="كود الدولة">
+              <button type="button" class="phone-code" id="profile-dial-btn" aria-haspopup="listbox" aria-label="${t('phoneCodeLabel')}">
                 <img class="phone-flag" id="profile-flag" alt="" width="20" height="15" src="${flagUrl(flag)}">
                 <span id="profile-dial-text">${escapeHtml(dial)}</span>
                 <span class="phone-code-caret" aria-hidden="true"></span>
@@ -1145,18 +1585,18 @@ const SUB_SCREENS = {
               <div class="phone-code-menu" id="profile-phone-menu" hidden>
                 <label class="phone-code-search">
                   <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-                  <input type="search" id="profile-country-search" placeholder="ابحث عن دولة" autocomplete="off" aria-label="بحث عن دولة">
+                  <input type="search" id="profile-country-search" placeholder="${t('countrySearchPlaceholder')}" autocomplete="off" aria-label="${t('countrySearchPlaceholder')}">
                 </label>
                 <ul id="profile-country-list"></ul>
-                <p class="phone-code-empty" id="profile-country-empty" hidden>لا توجد نتائج</p>
+                <p class="phone-code-empty" id="profile-country-empty" hidden>${t('countrySearchEmpty')}</p>
               </div>
             </div>
             <span class="phone-sep"></span>
             <input type="tel" id="profile-phone-input" maxlength="${length}" placeholder="${'0'.repeat(length)}" inputmode="numeric" value="${escapeHtml(contactDraft.value || '')}">
           </div>
-          <p class="profile-form-hint">اكتب الرقم الجديد. بنرسل كود تأكيد، والتعديل يتم بعد التأكد.</p>
+          <p class="profile-form-hint">${t('editPhoneHint')}</p>
           </div>
-          <button type="button" class="btn-primary" id="profile-send-code"><span class="btn-label">إرسال الكود</span></button>
+          <button type="button" class="btn-primary" id="profile-send-code"><span class="btn-label">${t('sendCode')}</span></button>
         </div>`;
     },
     afterRender: (root) => {
@@ -1167,7 +1607,7 @@ const SUB_SCREENS = {
           profileState.phoneLength = contactDraft.phoneLength;
           profileState.countryId = contactDraft.countryId;
           profileState.phone = contactDraft.value;
-          finishContactEdit('تم تحديث رقم الهاتف');
+          finishContactEdit(t('toastPhoneUpdated'));
         });
         return;
       }
@@ -1177,40 +1617,40 @@ const SUB_SCREENS = {
         const length = contactDraft.phoneLength || phoneLength;
         const digits = input.value.replace(/\D/g, '');
         if (digits.length !== length) {
-          showToast('اكتب رقم هاتف صحيح');
+          showToast(t('toastValidPhone'));
           input.focus();
           return;
         }
         contactDraft.value = digits;
         contactDraft.step = 'otp';
         paintSubScreen();
-        showToast('تم إرسال الكود');
+        showToast(t('toastCodeSent'));
       });
       input.focus();
     },
   },
   'edit-email': {
-    title: 'تعديل البريد الإلكتروني',
+    title: () => t('editEmailTitle'),
     render: () => {
       if (contactDraft.step === 'otp') return profileOtpMarkup(contactDraft.value);
       return `
         <div class="profile-form">
           <div class="profile-form-card">
-            <label class="profile-field-label" for="profile-email-input">البريد الإلكتروني</label>
+            <label class="profile-field-label" for="profile-email-input">${t('editEmailLabel')}</label>
             <div class="profile-icon-field">
               <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-email"/></svg></span>
               <input id="profile-email-input" type="email" inputmode="email" maxlength="120" dir="ltr" value="${escapeHtml(profileState.email)}" placeholder="name@example.com">
             </div>
-            <p class="profile-form-hint">اكتب البريد الجديد. بنرسل كود تأكيد، والتعديل يتم بعد التأكد.</p>
+            <p class="profile-form-hint">${t('editEmailHint')}</p>
           </div>
-          <button type="button" class="btn-primary" id="profile-send-email"><span class="btn-label">إرسال الكود</span></button>
+          <button type="button" class="btn-primary" id="profile-send-email"><span class="btn-label">${t('sendCode')}</span></button>
         </div>`;
     },
     afterRender: (root) => {
       if (contactDraft.step === 'otp') {
         bindProfileOtp(root, () => {
           profileState.email = contactDraft.value;
-          finishContactEdit('تم تحديث البريد الإلكتروني');
+          finishContactEdit(t('toastEmailUpdated'));
         });
         return;
       }
@@ -1218,48 +1658,48 @@ const SUB_SCREENS = {
       $('#profile-send-email', root).addEventListener('click', () => {
         const email = input.value.trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-          showToast('اكتب بريد إلكتروني صحيح');
+          showToast(t('toastValidEmail'));
           input.focus();
           return;
         }
         contactDraft.value = email;
         contactDraft.step = 'otp';
         paintSubScreen();
-        showToast('تم إرسال الكود');
+        showToast(t('toastCodeSent'));
       });
       input.focus();
     },
   },
   notifications: {
-    title: 'الإشعارات',
+    title: () => t('notifTitle'),
     render: () => `
       <div class="profile-form">
         <div class="profile-form-card notif-settings">
-          ${notifToggleRow('icon-bell', 'الإشعارات الفورية', 'استقبل إشعارات على هذا الجهاز', true)}
-          ${notifToggleRow('icon-receipt', 'تحديثات الطلبات والخدمة', 'تغييرات حالة طلباتك', true)}
-          ${notifToggleRow('icon-tag', 'العروض والتخفيضات', 'أخبار وعروض خاصة', true)}
-          ${notifToggleRow('icon-email', 'إشعارات البريد الإلكتروني', 'استقبل التحديثات على بريدك أيضاً', false)}
+          ${notifToggleRow('icon-bell', t('notifToggle1Title'), t('notifToggle1Desc'), true)}
+          ${notifToggleRow('icon-receipt', t('notifToggle2Title'), t('notifToggle2Desc'), true)}
+          ${notifToggleRow('icon-tag', t('notifToggle3Title'), t('notifToggle3Desc'), true)}
+          ${notifToggleRow('icon-email', t('notifToggle4Title'), t('notifToggle4Desc'), false)}
         </div>
       </div>`,
-    afterRender: (root) => {
-      $$('.toggle', root).forEach((t) => {
-        t.addEventListener('click', (event) => {
+afterRender: (root) => {
+      $$('.toggle', root).forEach((tl) => {
+        tl.addEventListener('click', (event) => {
           event.stopPropagation();
-          t.classList.toggle('on');
+          tl.classList.toggle('on');
         });
       });
     },
   },
   privacy: {
-    title: 'سياسة الخصوصية',
+    title: () => t('privacyTitle'),
     render: () => `
       <div class="profile-form">
         <div class="profile-form-card privacy-card">
           <div class="content-head">
             <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-shield"/></svg></span>
-            <strong>خصوصيتك مهمة</strong>
+            <strong>${t('privacyHead')}</strong>
           </div>
-          <p class="privacy-text">هذا نص مبدئي لسياسة الخصوصية. استبدله بسياستك الحقيقية قبل الإطلاق: ما هي البيانات التي تجمعها، لماذا تجمعها، كيف يتم تخزينها، مع من تتم مشاركتها، وكيف يمكن للمستخدم طلب حذف بياناته.\n\nحتى ذلك الحين، هذه الشاشة موجودة فقط لتوضيح شكل وتنسيق صفحة محتوى ثابت طويلة.</p>
+          <p class="privacy-text">${t('privacyBody')}</p>
         </div>
       </div>`,
   },
@@ -1284,7 +1724,7 @@ function paintSubScreen() {
   const type = subStack[subStack.length - 1];
   const cfg = SUB_SCREENS[type];
   if (!cfg) return;
-  subTitleEl.textContent = cfg.title;
+  subTitleEl.textContent = typeof cfg.title === 'function' ? cfg.title() : cfg.title;
   subScreenEl.classList.toggle('is-profile', PROFILE_SCREENS.has(type));
   subBodyEl.innerHTML = cfg.render();
   cfg.afterRender?.(subBodyEl);
@@ -1320,12 +1760,14 @@ $('#sub-back-btn').addEventListener('click', closeSubScreen);
 // ===================== Bottom sheets (FAQ / Contact us) =====================
 const sheetBackdrop = $('#sheet-backdrop');
 const sheetPanel = $('#sheet-panel');
+let sheetOpenType = null;
+let dialogOpenType = null;
 
 const FAQ_ITEMS = [
-  ['إزاي أقدر أعدل بياناتي الشخصية؟', 'افتح الحساب ← البيانات الشخصية، ثم اختر الحقل اللي عاوز تعدّله.'],
-  ['إزاي أغيّر لغة التطبيق؟', 'افتح الحساب ← اللغة واختر العربية أو الإنجليزية.'],
-  ['التطبيق بيدعم الوضع الليلي؟', 'أيوة — فعّله من الحساب ← الوضع الليلي.'],
-  ['إزاي أتواصل مع الدعم؟', 'افتح الحساب ← تواصل معنا للاتصال أو واتساب أو إيميل.'],
+  ['faq1q', 'faq1a'],
+  ['faq2q', 'faq2a'],
+  ['faq3q', 'faq3a'],
+  ['faq4q', 'faq4a'],
 ];
 
 const SHEETS = {
@@ -1333,15 +1775,15 @@ const SHEETS = {
     render: () => `
       <div class="sheet-head">
         <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-help"/></svg></span>
-        <h3>الأسئلة الشائعة</h3>
+        <h3>${t('faqTitle')}</h3>
       </div>
       <div class="sheet-list">
-      ${FAQ_ITEMS.map(([q, a]) => `
+      ${FAQ_ITEMS.map(([qKey, aKey]) => `
         <div class="faq-item">
           <span class="account-link-icon faq-icon"><svg viewBox="0 0 24 24"><use href="#icon-help"/></svg></span>
           <div class="faq-copy">
-            <div class="faq-q">${q}</div>
-            <div class="faq-a">${a}</div>
+            <div class="faq-q">${t(qKey)}</div>
+            <div class="faq-a">${t(aKey)}</div>
           </div>
           <svg class="menu-chevron faq-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
         </div>
@@ -1356,12 +1798,12 @@ const SHEETS = {
     render: () => `
       <div class="sheet-head">
         <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-phone"/></svg></span>
-        <h3>تواصل معنا</h3>
+        <h3>${t('contactTitle')}</h3>
       </div>
       <div class="sheet-list">
-      ${contactTile('icon-phone', 'اتصال هاتفي', '+96522200000', 'tel:+96522200000')}
-      ${contactTile('icon-chat', 'واتساب', '96522200000', 'https://wa.me/96522200000')}
-      ${contactTile('icon-email', 'البريد الإلكتروني', 'support@dorr.app', 'mailto:support@dorr.app')}
+      ${contactTile('icon-phone', t('contactCall'), '+96522200000', 'tel:+96522200000')}
+      ${contactTile('icon-chat', t('contactWhatsapp'), '96522200000', 'https://wa.me/96522200000')}
+      ${contactTile('icon-email', t('contactEmail'), 'support@dorr.app', 'mailto:support@dorr.app')}
       </div>
     `,
   },
@@ -1379,6 +1821,7 @@ function contactTile(icon, label, value, href) {
 
 function openSheet(type) {
   const cfg = SHEETS[type];
+  sheetOpenType = type;
   sheetPanel.className = 'sheet-panel app-sheet';
   sheetPanel.innerHTML = cfg.render();
   cfg.afterRender?.(sheetPanel);
@@ -1400,10 +1843,10 @@ const DIALOGS = {
     render: () => `
       <div class="dialog-head">
         <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-info"/></svg></span>
-        <h3>درر</h3>
+        <h3>${appName}</h3>
       </div>
-      <p>الإصدار 1.0.0<br><br>تطبيق عام لإدارة الخدمات. هذه الشاشة، زي باقي التطبيق، نقطة بداية تقدر تخصصها حسب نشاطك.</p>
-      <button class="dialog-close" data-close>إغلاق</button>
+      <p>${t('aboutVersion')}<br><br>${t('aboutBody')}</p>
+      <button class="dialog-close" data-close>${t('closeLabel')}</button>
     `,
   },
   language: {
@@ -1416,12 +1859,12 @@ function renderLanguageDialogMarkup() {
   const head = `
     <div class="dialog-head">
       <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-language"/></svg></span>
-      <h3>اللغة</h3>
+      <h3>${t('langDialogTitle')}</h3>
     </div>`;
   if (!languages.length) {
     return `${head}
-      <p class="lang-loading">جاري تحميل اللغات…</p>
-      <button class="dialog-close" data-close>إغلاق</button>`;
+      <p class="lang-loading">${t('langLoading')}</p>
+      <button class="dialog-close" data-close>${t('closeLabel')}</button>`;
   }
   const options = languages.map((language) => {
     const code = String(language.code || '').toLowerCase();
@@ -1438,7 +1881,7 @@ function renderLanguageDialogMarkup() {
   }).join('');
   return `${head}
     <div class="lang-options">${options}</div>
-    <button class="dialog-close" data-close>إغلاق</button>`;
+    <button class="dialog-close" data-close>${t('closeLabel')}</button>`;
 }
 
 function bindLanguageDialog(root) {
@@ -1461,6 +1904,7 @@ function refreshLanguageDialogIfOpen() {
 
 function openDialog(type) {
   const cfg = DIALOGS[type];
+  dialogOpenType = type;
   dialogBox.className = 'dialog-box app-dialog';
   dialogBox.innerHTML = cfg.render();
   $('[data-close]', dialogBox).addEventListener('click', closeDialog);
@@ -1474,7 +1918,7 @@ function openDialog(type) {
         refreshLanguageDialogIfOpen();
       })
       .catch(() => {
-        dialogBox.querySelector('.lang-loading').textContent = 'تعذّر تحميل اللغات';
+        dialogBox.querySelector('.lang-loading').textContent = t('langLoadFail');
       });
   }
 }
@@ -1509,7 +1953,6 @@ const NOTIF_TYPE_STYLE = {
   general: { icon: 'icon-bell', color: 'var(--primary)' },
 };
 
-let notifications = [];
 
 /** Which look a row gets, from the event the backend raised (see WalletNotifier). */
 function notifStyleFor(n) {
@@ -1518,14 +1961,22 @@ function notifStyleFor(n) {
   if (n.event?.startsWith('wallet.')) return NOTIF_TYPE_STYLE.wallet;
   return NOTIF_TYPE_STYLE[n.type] || NOTIF_TYPE_STYLE.general;
 }
+let notifications = [
+  { id: '1', type: 'job_update', titleKey: 'notif1Title', bodyKey: 'notif1Body', minutesAgo: 5, unread: true },
+  { id: '2', type: 'quote', titleKey: 'notif2Title', bodyKey: 'notif2Body', minutesAgo: 40, unread: true },
+  { id: '3', type: 'invoice', titleKey: 'notif3Title', bodyKey: 'notif3Body', minutesAgo: 180, unread: false },
+  { id: '4', type: 'maintenance', titleKey: 'notif4Title', bodyKey: 'notif4Body', minutesAgo: 1500, unread: false },
+  { id: '5', type: 'promo', titleKey: 'notif5Title', bodyKey: 'notif5Body', minutesAgo: 4000, unread: false },
+  { id: '6', type: 'general', titleKey: 'notif6Title', bodyKey: 'notif6Body', minutesAgo: 10000, unread: false },
+];
 
 function notifRelativeTime(minutesAgo) {
-  if (minutesAgo < 1) return 'الآن';
-  if (minutesAgo < 60) return `منذ ${minutesAgo} دقيقة`;
-  if (minutesAgo < 24 * 60) return `منذ ${Math.floor(minutesAgo / 60)} ساعة`;
-  if (minutesAgo < 2 * 24 * 60) return 'منذ يوم';
-  if (minutesAgo < 7 * 24 * 60) return `منذ ${Math.floor(minutesAgo / (24 * 60))} يوم`;
-  return `منذ ${Math.floor(minutesAgo / (7 * 24 * 60))} أسابيع`;
+  if (minutesAgo < 1) return t('notifNow');
+  if (minutesAgo < 60) return t('notifMin', { n: minutesAgo });
+  if (minutesAgo < 24 * 60) return t('notifHour', { n: Math.floor(minutesAgo / 60) });
+  if (minutesAgo < 2 * 24 * 60) return t('notifDay');
+  if (minutesAgo < 7 * 24 * 60) return t('notifDays', { n: Math.floor(minutesAgo / (24 * 60)) });
+  return t('notifWeeks', { n: Math.floor(minutesAgo / (7 * 24 * 60)) });
 }
 
 const notifScreenEl = $('#notifications-screen');
@@ -1578,8 +2029,8 @@ function renderNotifications() {
     notifListEl.innerHTML = `
       <div class="notif-empty">
         <div class="notif-empty-icon"><svg viewBox="0 0 24 24"><use href="#icon-bell"/></svg></div>
-        <h3>لا توجد إشعارات</h3>
-        <p>ستظهر هنا الإشعارات عند وجود تحديثات جديدة</p>
+        <h3>${t('notifEmptyTitle')}</h3>
+        <p>${t('notifEmptySub')}</p>
       </div>
     `;
     return;

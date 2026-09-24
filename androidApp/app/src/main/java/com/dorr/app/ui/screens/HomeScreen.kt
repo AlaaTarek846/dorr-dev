@@ -40,6 +40,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
+import com.dorr.app.network.AuthSession
 import com.dorr.app.ui.components.HeroBannerSlider
 import com.dorr.app.ui.components.ServicesSection
 import com.dorr.app.ui.components.StatChip
@@ -63,7 +64,11 @@ fun HomeScreen(
         item { Spacer(Modifier.height(16.dp)) }
         item {
             HeroBannerSlider(
-                slides = listOf("Welcome", "Special offers", "Book a service"),
+                slides = listOf(
+                    stringResource(R.string.banner_slide_welcome),
+                    stringResource(R.string.banner_slide_offers),
+                    stringResource(R.string.banner_slide_book),
+                ),
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
@@ -97,7 +102,7 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
             }
             Spacer(Modifier.width(14.dp))
             Text(
-                text = stringResource(R.string.home_greeting, stringResource(R.string.account_default_user)),
+                text = stringResource(R.string.home_greeting, AuthSession.user?.name ?: stringResource(R.string.account_default_user)),
                 color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,

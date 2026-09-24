@@ -30,6 +30,10 @@
     <string name="home_call">اتصل بنا</string>
     <string name="home_history">السجل</string>
 
+    <string name="banner_slide_welcome">مرحباً بك</string>
+    <string name="banner_slide_offers">عروض خاصة</string>
+    <string name="banner_slide_book">احجز خدمة</string>
+
     <string name="tab_home">الرئيسية</string>
     <string name="tab_items">العناصر</string>
     <string name="tab_history">السجل</string>
@@ -209,4 +213,17 @@
     <string name="services_search_hint">ابحث في الخدمات</string>
     <string name="services_no_results">لا توجد خدمات مطابقة لبحثك</string>
     <string name="services_count">%1$d خدمة</string>
+    <!-- إشعارات تجريبية (بيانات مبدئية — استبدلها ببيانات حقيقية من السيرفر) -->
+    <string name="notif_sample_title_status_changed">تغيرت حالة طلبك</string>
+    <string name="notif_sample_body_status_changed">انتقل طلبك إلى «قيد التنفيذ».</string>
+    <string name="notif_sample_title_quote_ready">عرض سعر جاهز للمراجعة</string>
+    <string name="notif_sample_body_quote_ready">راجع العناصر ثم وافق للمتابعة.</string>
+    <string name="notif_sample_title_invoice">تم إصدار فاتورة جديدة</string>
+    <string name="notif_sample_body_invoice">تم إصدار فاتورة مقابل خدمتك الأخيرة.</string>
+    <string name="notif_sample_title_maintenance">صيانة قادمة</string>
+    <string name="notif_sample_body_maintenance">يوجد فحص دوري قريباً.</string>
+    <string name="notif_sample_title_promo">عرض لفترة محدودة</string>
+    <string name="notif_sample_body_promo">يتوفر عرض خاص هذا الأسبوع.</string>
+    <string name="notif_sample_title_welcome">مرحباً بك في التطبيق</string>
+    <string name="notif_sample_body_welcome">شكراً لتسجيلك معنا.</string>
 </resources>
