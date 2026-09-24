@@ -51,6 +51,15 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
 - Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
 - Dashboard theme infrastructure: Blade `dashboard/shell`, `DashboardThemeResolver`, Vue `themes/theme-1` shells + themed views paths
+- **Notification System** (migrated from Jawad, 2026-09-23):
+  - `app/Notifications/GeneralNotification.php` — DB + Pusher broadcast, multi-lang (resolves locale from notifiable model or app locale, not hardcoded ar/en)
+  - `app/Notifications/BroadcastOnlyNotification.php` — Pusher broadcast only (no DB), for ephemeral events
+  - `app/Support/helpers.php`: `sendNotification()` and `sendPushNotification()` global helpers
+  - `lang/ar/notifications.php` + `lang/en/notifications.php` — notification translation key files (empty, fill per feature)
+  - `config/broadcasting.php` — Pusher/Soketi, Reverb, Ably, Redis, log, null drivers
+  - `config/services.php` — `onesignal` config block added
+  - `.env.example` — Pusher + OneSignal env vars added
+  - **NEEDS-DECISION**: `onesignal_player_id` field not yet on User/Provider models; add it when push notifications are implemented per audience
 - **UNKNOWN:** No other active work tracked in repo
 
 ---
@@ -85,7 +94,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 | Suite | Status | Count |
 |-------|--------|-------|
-| PHPUnit | Passing | 16 tests, 47 assertions |
+| PHPUnit | Passing | 137 tests, 429 assertions |
 | Frontend | Not configured | 0 |
 
 **Command:** `composer test` or `php artisan test`

@@ -29,7 +29,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 private const val BASE_URL = "https://juncture-calibrate-tingly.ngrok-free.dev/api/"
 
 object ApiClient {
-    private val okHttpClient = OkHttpClient.Builder()
+    /** Shared with the image loader so media requests get the same dev Host header. */
+    val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .header("Accept", "application/json")
@@ -63,4 +64,12 @@ object ApiClient {
     val languages: LanguageApi by lazy { retrofit.create(LanguageApi::class.java) }
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
+    val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
+    val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
+
+    /**
+     * Media URLs come back absolute for the server's own host (`http://dorr.test/...`),
+     * which an emulator can't resolve — point them at the emulator's host alias.
+     */
+    fun mediaUrl(url: String?): String? = url?.replace("://dorr.test", "://10.0.2.2")
 }

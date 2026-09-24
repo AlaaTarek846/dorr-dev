@@ -110,6 +110,55 @@ export default [
                 meta: { middleware: [auth], permission: 'service_categories.view' },
             },
             {
+                // No permission: every admin has their own notifications.
+                path: 'notifications',
+                name: 'admin.notifications.index',
+                component: page('notifications/index'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'wallet/wallets',
+                name: 'admin.wallet.wallets',
+                component: page('wallet/wallets/index'),
+                meta: { middleware: [auth], permission: 'wallets.view' },
+            },
+            {
+                path: 'wallet/online-transactions',
+                name: 'admin.wallet.online-transactions',
+                component: page('wallet/online-transactions/index'),
+                meta: { middleware: [auth], permission: 'online-transactions.view' },
+            },
+            {
+                path: 'wallet/withdrawals',
+                name: 'admin.wallet.withdrawals',
+                component: page('wallet/withdrawals/index'),
+                meta: { middleware: [auth], permission: 'withdrawal-requests.view' },
+            },
+            {
+                path: 'wallet/financial-entries',
+                name: 'admin.wallet.financial-entries',
+                component: page('wallet/financial-entries/index'),
+                meta: { middleware: [auth], permission: 'financial-entries.view' },
+            },
+            {
+                path: 'wallet/payment-methods',
+                name: 'admin.wallet.payment-methods',
+                component: page('wallet/payment-methods/index'),
+                meta: { middleware: [auth], permission: 'payment-methods.view' },
+            },
+            {
+                path: 'wallet/fee-rules',
+                name: 'admin.wallet.fee-rules',
+                component: page('wallet/fee-rules/index'),
+                meta: { middleware: [auth], permission: 'wallet-fee-rules.view' },
+            },
+            {
+                path: 'wallet/settings',
+                name: 'admin.wallet.settings',
+                component: page('wallet/settings/index'),
+                meta: { middleware: [auth], permission: 'wallet-settings.view' },
+            },
+            {
                 path: 'providers',
                 name: 'admin.providers.index',
                 component: page('provider/index'),

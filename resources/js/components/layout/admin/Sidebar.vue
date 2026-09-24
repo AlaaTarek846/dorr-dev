@@ -141,6 +141,19 @@
                             </li>
                         </template>
 
+                        <template v-if="showWalletSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.wallet') }}</span>
+                            </li>
+
+                            <li v-for="item in walletItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
                         <template v-if="showStaffSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.staff') }}</span>
@@ -235,6 +248,19 @@ const showCatalogSection = computed(
         || can('currencies.view')
         || can('languages.view'),
 );
+
+/** Wallet screens (Modules/Wallet); each entry is shown only to admins holding its `.view` permission. */
+const walletItems = [
+    { route: 'admin.wallet.wallets', permission: 'wallets.view', icon: 'ri-wallet-3-line', label: 'wallet.wallets.title' },
+    { route: 'admin.wallet.online-transactions', permission: 'online-transactions.view', icon: 'ri-bank-card-line', label: 'wallet.online.title' },
+    { route: 'admin.wallet.withdrawals', permission: 'withdrawal-requests.view', icon: 'ri-hand-coin-line', label: 'wallet.withdrawals.title' },
+    { route: 'admin.wallet.financial-entries', permission: 'financial-entries.view', icon: 'ri-file-list-3-line', label: 'wallet.ledger.title' },
+    { route: 'admin.wallet.payment-methods', permission: 'payment-methods.view', icon: 'ri-secure-payment-line', label: 'wallet.methods.title' },
+    { route: 'admin.wallet.fee-rules', permission: 'wallet-fee-rules.view', icon: 'ri-percent-line', label: 'wallet.rules.title' },
+    { route: 'admin.wallet.settings', permission: 'wallet-settings.view', icon: 'ri-settings-4-line', label: 'wallet.settings.title' },
+];
+
+const showWalletSection = computed(() => walletItems.some((item) => can(item.permission)));
 
 const showStaffSection = computed(
     () => can('admins.view') || can('roles.view'),

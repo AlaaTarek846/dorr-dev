@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Build
@@ -41,13 +42,25 @@ import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.network.AuthSession
 import com.dorr.app.ui.components.HeroBannerSlider
+import com.dorr.app.ui.components.ServicesSection
 import com.dorr.app.ui.components.StatChip
 import com.dorr.app.ui.theme.AppColors
 
 @Composable
-fun HomeScreen(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit) {
+fun HomeScreen(
+    onOpenAccount: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenWallet: () -> Unit,
+    onOpenServices: () -> Unit,
+) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item { HomeHeader(onOpenAccount = onOpenAccount, onOpenNotifications = onOpenNotifications) }
+        item {
+            HomeHeader(
+                onOpenAccount = onOpenAccount,
+                onOpenNotifications = onOpenNotifications,
+                onOpenWallet = onOpenWallet,
+            )
+        }
         item { Spacer(Modifier.height(16.dp)) }
         item {
             HeroBannerSlider(
@@ -59,14 +72,16 @@ fun HomeScreen(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
-        item { Spacer(Modifier.height(20.dp)) }
+        item { Spacer(Modifier.height(24.dp)) }
+        item { ServicesSection(onViewAll = onOpenServices, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { Spacer(Modifier.height(24.dp)) }
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }
     }
 }
 
 @Composable
-private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit) {
+private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -94,6 +109,20 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
                 modifier = Modifier.weight(1f),
                 maxLines = 1,
             )
+            IconButton(
+                onClick = onOpenWallet,
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(Color.White.copy(alpha = 0.15f)),
+            ) {
+                Icon(
+                    Icons.Rounded.AccountBalanceWallet,
+                    contentDescription = stringResource(R.string.wallet_title),
+                    tint = Color.White,
+                )
+            }
+            Spacer(Modifier.width(8.dp))
             Box {
                 IconButton(
                     onClick = onOpenNotifications,

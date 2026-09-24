@@ -11,13 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
+use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
 
 class Admin extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, SearchFilterTrait, SoftDeletes;
+    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, Notifiable, SearchFilterTrait, SoftDeletes;
 
     protected string $guard_name = 'admin_api';
 
@@ -61,5 +62,10 @@ class Admin extends Authenticatable implements HasMedia
     public function services(): HasMany
     {
         return $this->hasMany(AdminService::class);
+    }
+
+    public function receivesBroadcastNotificationsOn(): string
+    {
+        return 'App.Models.Admin.'.$this->id;
     }
 }
