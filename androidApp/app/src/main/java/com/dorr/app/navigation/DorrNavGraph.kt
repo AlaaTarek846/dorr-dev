@@ -23,7 +23,6 @@ import com.dorr.app.ui.screens.NotificationsScreen
 import com.dorr.app.ui.screens.OtpScreen
 import com.dorr.app.ui.screens.ServicesScreen
 import com.dorr.app.ui.screens.SplashScreen
-import com.dorr.app.ui.screens.wallet.WalletScreen
 import kotlinx.coroutines.launch
 
 object Routes {
@@ -32,7 +31,6 @@ object Routes {
     const val OTP = "otp"
     const val MAIN = "main"
     const val NOTIFICATIONS = "notifications"
-    const val WALLET = "wallet"
     const val SERVICES = "services"
 }
 
@@ -119,7 +117,6 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             MainScreen(
                 onLogout = { logout() },
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
-                onOpenWallet = { navController.navigate(Routes.WALLET) },
                 onOpenServices = { navController.navigate(Routes.SERVICES) },
             )
         }
@@ -128,9 +125,6 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         }
         composable(Routes.SERVICES) {
             ServicesScreen(onBack = { navController.popBackStack() })
-        }
-        composable(Routes.WALLET) {
-            WalletScreen(onBack = { navController.popBackStack() })
         }
     }
 }

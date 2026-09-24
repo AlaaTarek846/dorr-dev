@@ -67,6 +67,7 @@ import com.dorr.app.network.LanguageDto
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.locale.LocalAppLanguage
+import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.launch
 
@@ -254,14 +255,7 @@ private fun LoginContent(
         )
         Spacer(Modifier.height(28.dp))
 
-        Box(
-            modifier = Modifier
-                .size(96.dp)
-                .background(Color.White, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(Icons.Rounded.Build, contentDescription = null, tint = AppColors.primary, modifier = Modifier.size(44.dp))
-        }
+        DorrLogo(width = 190.dp)
         BrandName()
         Spacer(Modifier.height(20.dp))
 

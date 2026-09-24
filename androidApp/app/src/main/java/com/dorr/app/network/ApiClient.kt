@@ -6,24 +6,22 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 /**
- * Points at the Laragon-hosted Laravel backend (`dorr.test`) from an Android
- * emulator. `10.0.2.2` is the emulator's alias for the host machine's
- * localhost; Laragon serves `dorr.test` as a name-based virtual host, so we
- * also force the `Host` header — otherwise Apache would route the request to
- * whatever vhost is default instead of this project.
- *
- * On a physical device this won't resolve: swap BASE_URL for the host
- * machine's LAN IP (same Wi-Fi), keeping the `Host` header override.
+ * Backend reached through an ngrok tunnel (HTTPS, works from any network —
+ * no adb reverse or Wi-Fi IP needed). The tunnel host is the account's reserved static ngrok domain:
+ * it stays the same across restarts — start the tunnel with:
+ * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
+ * Laravel builds absolute media URLs with, so those get rewritten to the tunnel.
  */
-private const val DEV_HOST = "dorr.test"
-private const val BASE_URL = "http://10.0.2.2/api/"
+private const val BASE_HOST = "exploring-molasses-pretended.ngrok-free.dev"
+private const val BASE_URL = "https://$BASE_HOST/api/"
+private const val LOCAL_MEDIA_HOST = "dorr.test"
 
 object ApiClient {
     /** Shared with the image loader so media requests get the same dev Host header. */
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
-                .header("Host", DEV_HOST)
+                .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
                 .build()
@@ -56,11 +54,12 @@ object ApiClient {
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
+    val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
 
     /**
      * Media URLs come back absolute for the server's own host (`http://dorr.test/...`),
-     * which an emulator can't resolve — point them at the emulator's host alias.
+     * which the device can't resolve — point them at the tunnel.
      */
-    fun mediaUrl(url: String?): String? = url?.replace("://$DEV_HOST", "://10.0.2.2")
+    fun mediaUrl(url: String?): String? = url?.replace("http://$LOCAL_MEDIA_HOST", "https://$BASE_HOST")?.replace("://$LOCAL_MEDIA_HOST", "://$BASE_HOST")
 }
