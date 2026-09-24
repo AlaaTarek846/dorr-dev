@@ -16,6 +16,7 @@ use Database\Seeders\User\UserSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Modules\AI\Database\Seeders\AIDatabaseSeeder;
+use Modules\Wallet\Database\Seeders\WalletDatabaseSeeder;
 
 class DatabaseSeeder extends Seeder
 {
@@ -31,6 +32,7 @@ class DatabaseSeeder extends Seeder
             LanguageSeeder::class,
             CurrencySeeder::class,
             CountrySeeder::class,
+            WalletDatabaseSeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
             DashboardThemeSeeder::class,

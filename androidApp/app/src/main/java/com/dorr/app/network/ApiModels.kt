@@ -10,6 +10,13 @@ data class ApiEnvelope<T>(
     val code: Int,
     val message: String,
     val data: T?,
+    /** Present only on paginated lists. */
+    val pagination: PaginationDto? = null,
+)
+
+data class PaginationDto(
+    @SerializedName("current_page") val currentPage: Int,
+    @SerializedName("has_more_pages") val hasMorePages: Boolean,
 )
 
 /** Pulls a human-readable message out of an API error body (422 and friends).
@@ -24,6 +31,24 @@ fun Throwable.serverMessage(): String? {
         val firstError = errors?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
         firstError ?: root.get("message")?.takeIf { !it.isJsonNull }?.asString
     }.getOrNull()
+}
+
+/** A failed API call, parsed once (an OkHttp error body can only be read once,
+ *  so [serverMessage] and the error code can't be read separately).
+ *  `errorCode` is the machine-readable code of a domain error (e.g.
+ *  `wallet_pin_invalid`) — lets the UI branch on the kind of failure without
+ *  matching on localized text; null for plain validation/server errors.
+ *  `message` is null for network failures (no HTTP response at all). */
+data class ApiFailure(val message: String?, val errorCode: String?, val httpStatus: Int?)
+
+fun Throwable.apiFailure(): ApiFailure {
+    if (this !is retrofit2.HttpException) return ApiFailure(null, null, null)
+    val raw = response()?.errorBody()?.string()
+    val root = raw?.let { runCatching { JsonParser.parseString(it).asJsonObject }.getOrNull() }
+    val firstError = root?.getAsJsonObject("errors")?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
+    val message = firstError ?: root?.get("message")?.takeIf { !it.isJsonNull }?.asString
+    val errorCode = root?.get("error_code")?.takeIf { !it.isJsonNull }?.asString
+    return ApiFailure(message, errorCode, code())
 }
 
 data class CountryDto(
@@ -84,4 +109,21 @@ data class UserDto(
     val email: String?,
     val phone: String?,
     @SerializedName("phone_verified_at") val phoneVerifiedAt: String?,
+)
+
+data class ServiceDto(
+    val id: Int,
+    val name: String,
+    @SerializedName("module_name") val moduleName: String?,
+    val image: String?,
+    @SerializedName("requires_provider") val requiresProvider: Boolean?,
+    @SerializedName("has_children") val hasChildren: Boolean?,
+    val children: List<ServiceChildDto>?,
+)
+
+data class ServiceChildDto(
+    val id: Int,
+    val name: String,
+    @SerializedName("module_name") val moduleName: String?,
+    val image: String?,
 )

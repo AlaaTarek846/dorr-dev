@@ -12,9 +12,12 @@ No authentication. Used by mobile apps and pre-login flows.
 | GET | `/countries/detect` |
 | GET | `/languages/dropdown` |
 | GET | `/platform-settings/branding` |
+| GET | `/services` |
 
 Controller: `App\Http\Controllers\General\Public\GeneralController`  
 Routes: `routes/general.php` (loaded from `routes/api.php`).
+
+`/services` returns the customer-app home services — active top-level service categories with `is_login_dashboard = true`, ordered by `sort_order` — each as `id`, `name` (translated), `module_name`, `image`, `requires_provider`, `has_children`, `children[] {id, name, module_name, image}` (active children only). Managed from the admin dashboard (service categories).
 
 `/countries/dropdown` returns: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`.
 

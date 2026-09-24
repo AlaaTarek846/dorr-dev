@@ -4,6 +4,7 @@ namespace Modules\User\Models;
 
 use App\Enums\Gender;
 use App\Enums\UserStatus;
+use App\Models\Concerns\HasNotificationDevices;
 use App\Models\Concerns\HasSocialAccounts;
 use App\Models\Concerns\HasVerificationCodes;
 use App\Models\Country;
@@ -17,13 +18,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Modules\Wallet\Concerns\HasWallets;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasMedia
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, HasSocialAccounts, HasVerificationCodes, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
+    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, HasNotificationDevices, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
 
     /**
      * @var list<string>

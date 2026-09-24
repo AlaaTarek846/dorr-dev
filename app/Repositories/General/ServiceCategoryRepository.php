@@ -43,6 +43,33 @@ class ServiceCategoryRepository extends TranslatableRepository
     }
 
     /**
+     * Active top-level categories flagged for the app home (is_login_dashboard),
+     * each with its active children — what the customer-facing home lists.
+     *
+     * @return EloquentCollection<int, ServiceCategory>
+     */
+    public function publicServices(): EloquentCollection
+    {
+        return $this->model->newQuery()
+            ->with([
+                'translations',
+                'translation',
+                'children' => fn ($query) => $query
+                    ->where('status', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+                'children.translations',
+                'children.translation',
+            ])
+            ->whereNull('parent_id')
+            ->where('status', true)
+            ->where('is_login_dashboard', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+    }
+
+    /**
      * Leaf categories only (no children) - the only ones a provider is allowed to be linked to.
      *
      * @return EloquentCollection<int, ServiceCategory>

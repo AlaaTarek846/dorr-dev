@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>درر — معاينة التصميم</title>
+<link rel="stylesheet" href="css/styles.css?v=1790245203">
+<link rel="stylesheet" href="css/wallet.css?v=10">
 <link rel="stylesheet" href="css/styles.css?v=46">
 
 </head>
@@ -192,6 +194,9 @@
                 <svg viewBox="0 0 24 24"><use href="#icon-person"/></svg>
               </button>
               <h1 class="home-greeting" id="home-greeting">مرحباً، مستخدم زائر</h1>
+              <button type="button" class="home-icon-btn" id="home-wallet-btn" aria-label="المحفظة">
+                <svg viewBox="0 0 24 24"><use href="#icon-wallet"/></svg>
+              </button>
               <button type="button" class="home-icon-btn home-bell" id="bell-btn" aria-label="الإشعارات" data-i18n-aria="notifTitle">
                 <svg viewBox="0 0 24 24"><use href="#icon-bell"/></svg>
                 <span class="home-bell-dot"></span>
@@ -208,6 +213,21 @@
               </div>
               <div class="dots home-dots" id="banner-dots"></div>
             </div>
+
+            <button type="button" class="home-wallet" id="home-wallet-card">
+              <span class="hw-ico"><svg viewBox="0 0 24 24"><use href="#icon-wallet"/></svg></span>
+              <span class="hw-txt"><small>رصيد المحفظة</small><b dir="ltr"><span id="home-wallet-amount">0.00</span> <i id="home-wallet-cur">ر.س</i></b></span>
+              <span class="hw-cta">شحن +</span>
+            </button>
+
+            <section class="hs" id="home-services" aria-label="الخدمات">
+              <div class="hs-head">
+                <span class="hs-bar"></span>
+                <h2>الخدمات</h2>
+                <button type="button" class="hs-toggle" id="hs-toggle" hidden></button>
+              </div>
+              <div class="hs-grid" id="hs-grid"></div>
+            </section>
 
             <div class="home-quick">
               <button type="button" class="home-quick-card">
@@ -275,11 +295,11 @@
                 </div>
                 <div class="wallet-amount">
                   <svg class="money-mark" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v9M9.4 9.7c.6-.8 1.5-1.2 2.6-1.2 1.6 0 2.6.8 2.6 1.9s-1 1.7-2.6 1.7-2.6.7-2.6 1.9.1 1.9 2.6 1.9c1.1 0 2-.4 2.6-1.2"/></svg>
-                  <b>120.50</b>
-                  <span><bdi>ر.س</bdi></span>
+                  <b id="wallet-card-amount">0.00</b>
+                  <span><bdi id="wallet-card-currency">ر.س</bdi></span>
                 </div>
               </div>
-              <button type="button" class="wallet-add" id="wallet-add-btn"><span aria-hidden="true">+</span> <span data-i18n="walletAdd">إضافة رصيد</span></button>
+              <div class="wallet-actions"><button type="button" class="wallet-add" id="wallet-add-btn"><span aria-hidden="true">+</span> شحن</button><button type="button" class="wallet-add ghost" id="wallet-send-btn">تحويل</button></div>
             </div>
 
             <div class="account-stats">
@@ -407,6 +427,21 @@
       <div class="sub-body notif-list" id="notif-list"></div>
     </section>
 
+    <!-- ===================== Services page (all dashboard services) ===================== -->
+    <section id="services-screen" class="sub-screen">
+      <header class="sub-header">
+        <button class="sub-back" id="services-back-btn">
+          <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+        </button>
+        <span>الخدمات</span>
+      </header>
+      <div class="sub-body">
+        <input type="search" class="sv-search" id="sv-search" placeholder="ابحث في الخدمات" autocomplete="off">
+        <p class="sv-count" id="sv-count"></p>
+        <div class="sv-list" id="sv-list"></div>
+      </div>
+    </section>
+
     <!-- ===================== Bottom sheet (FAQ / Contact us / Notification detail) ===================== -->
     <div id="sheet-backdrop" class="overlay-backdrop">
       <div class="sheet-panel" id="sheet-panel"></div>
@@ -453,10 +488,15 @@
   <symbol id="icon-description" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M15 2v5h5M8 12h8M8 16h8M8 8h3"/></symbol>
   <symbol id="icon-receipt" viewBox="0 0 24 24"><path d="M5 2h14v20l-2.5-1.5L14 22l-2-1.5L10 22l-2.5-1.5L5 22z"/><path d="M8 7h8M8 11h8M8 15h5"/></symbol>
   <symbol id="icon-event" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 2v6M16 2v6"/></symbol>
+  <symbol id="icon-wallet" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="12" rx="2.4"/><path d="M3 11h18M16 14.5h2.4M6.5 7V5.8A1.8 1.8 0 0 1 8.3 4h8.2"/></symbol>
+  <symbol id="icon-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3M12 15v2"/></symbol>
   <symbol id="icon-tag" viewBox="0 0 24 24"><path d="M12.5 3H4v8.5L14 21l8.5-8.5z"/><circle cx="8" cy="8" r="1.5"/></symbol>
 </svg>
 
-<script src="js/app.js?v=24"></script>
+<script src="js/app.js?v=1790245203"></script>
+<script src="js/vendor/qrcode.js"></script>
+<script src="js/vendor/jsQR.js"></script>
+<script src="js/wallet.js?v=17"></script>
 
 </body>
 </html>
