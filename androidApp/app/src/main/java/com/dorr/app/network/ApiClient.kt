@@ -6,33 +6,22 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 /**
- * Points the app at the Dorr backend through a public ngrok tunnel
- * (`https://juncture-calibrate-tingly.ngrok-free.dev`), which forwards to the
- * Laragon-hosted Laravel app (`dorr.test`).
- *
- * A real public HTTPS hostname was chosen on purpose:
- *  - It works from a **physical device** on any network — no 10.0.2.2 emulator
- *    alias, no LAN-IP swap, no Wi-Fi requirement.
- *  - The same URL is used for the emulator too, so there's one BASE_URL for
- *    both cases.
- *  - HTTPS means no cleartext exception and (crucially) **no Host-header
- *    override**. ngrok returns 421 Misdirected Request when a request arrives
- *    with a `Host:` value that doesn't match the tunnel hostname, so the old
- *    `Host: dorr.test` override is gone — a real hostname routes by DNS as-is.
- *
- * Note on vhost routing: ngrok forwards to Laragon Apache, which routes
- * `dorr.test` as a name-based vhost. For the tunnel to resolve cleanly, the
- * Laragon vhost for `dorr` needs `ServerAlias juncture-calibrate-tingly.ngrok-free.dev`
- * (or a fresh tunnel must use Laragon's auto *.dorr.test wildcard). If the
- * preview returns 404, that's the missing ServerAlias — add it, then rebuild.
+ * Backend reached through an ngrok tunnel (HTTPS, works from any network —
+ * no adb reverse or Wi-Fi IP needed). The tunnel host is the account's reserved static ngrok domain:
+ * it stays the same across restarts — start the tunnel with:
+ * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
+ * Laravel builds absolute media URLs with, so those get rewritten to the tunnel.
  */
-private const val BASE_URL = "https://juncture-calibrate-tingly.ngrok-free.dev/api/"
+private const val BASE_HOST = "juncture-calibrate-tingly.ngrok-free.dev"
+private const val BASE_URL = "https://$BASE_HOST/api/"
+private const val LOCAL_MEDIA_HOST = "dorr.test"
 
 object ApiClient {
     /** Shared with the image loader so media requests get the same dev Host header. */
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
+                .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
                 .build()
@@ -65,11 +54,12 @@ object ApiClient {
     val branding: BrandingApi by lazy { retrofit.create(BrandingApi::class.java) }
     val mobileAuth: MobileAuthApi by lazy { retrofit.create(MobileAuthApi::class.java) }
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
+    val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
 
     /**
      * Media URLs come back absolute for the server's own host (`http://dorr.test/...`),
-     * which an emulator can't resolve — point them at the emulator's host alias.
+     * which the device can't resolve — point them at the tunnel.
      */
-    fun mediaUrl(url: String?): String? = url?.replace("://dorr.test", "://10.0.2.2")
+    fun mediaUrl(url: String?): String? = url?.replace("http://$LOCAL_MEDIA_HOST", "https://$BASE_HOST")?.replace("://$LOCAL_MEDIA_HOST", "://$BASE_HOST")
 }

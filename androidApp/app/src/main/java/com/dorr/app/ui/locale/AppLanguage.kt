@@ -75,6 +75,8 @@ fun LocalizedApp(content: @Composable () -> Unit) {
     }
 
     CompositionLocalProvider(
+        // Compose UI 1.7 (BOM 2024.09) has no LocalResources — stringResource reads
+        // resources off LocalContext, so swap in the locale-wrapped context instead.
         LocalContext provides localizedContext,
         LocalConfiguration provides localizedContext.resources.configuration,
         LocalLayoutDirection provides (if (code == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr),
