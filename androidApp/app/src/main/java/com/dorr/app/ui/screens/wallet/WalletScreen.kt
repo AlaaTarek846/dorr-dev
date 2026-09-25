@@ -168,57 +168,66 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     }
 
     WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
-        Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
             when {
-                failed != null -> WaEmpty(
-                    icon = Icons.Rounded.Warning, tone = Tone.Gray,
-                    title = stringResource(R.string.wa_load_failed), text = failed.orEmpty(),
-                    action = { WaButton(stringResource(R.string.wa_retry), onClick = { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
-                )
-                hasPin == null -> WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
-                else -> Column(Modifier.fillMaxWidth().waRise(0)) {
+                failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    WaEmpty(
+                        icon = Icons.Rounded.Warning, tone = Tone.Gray,
+                        title = stringResource(R.string.wa_load_failed), text = failed.orEmpty(),
+                        action = { WaButton(stringResource(R.string.wa_retry), onClick = { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
+                    )
+                }
+                hasPin == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
+                }
+                else -> {
                     val (title, sub) = when (step) {
                         "enter" -> enterTitle to enterSub
                         "create" -> createTitle to createSub
                         else -> confirmTitle to confirmSub
                     }
-                    WaPinPad(title = title, sub = sub, onComplete = { pin ->
-                        when (step) {
-                            "enter" -> {
-                                try {
-                                    ApiClient.wallet.verifyPin(walletAuth(), pin)
-                                } catch (e: CancellationException) {
-                                    throw e
-                                } catch (e: Exception) {
-                                    val failure = e.apiFailure()
-                                    return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                    WaPinPad(
+                        title = title,
+                        sub = sub,
+                        modifier = Modifier.fillMaxSize().waRise(0),
+                        onComplete = { pin ->
+                            when (step) {
+                                "enter" -> {
+                                    try {
+                                        ApiClient.wallet.verifyPin(walletAuth(), pin)
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        val failure = e.apiFailure()
+                                        return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                                    }
+                                    onUnlocked()
+                                    PadResult.Ok
                                 }
-                                onUnlocked()
-                                PadResult.Ok
-                            }
-                            "create" -> {
-                                first = pin
-                                step = "confirm"
-                                PadResult.Reset
-                            }
-                            else -> {
-                                if (pin != first) {
-                                    step = "create"
-                                    return@WaPinPad PadResult.Error(mismatch)
+                                "create" -> {
+                                    first = pin
+                                    step = "confirm"
+                                    PadResult.Reset
                                 }
-                                try {
-                                    ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(pin, pin))
-                                } catch (e: CancellationException) {
-                                    throw e
-                                } catch (e: Exception) {
-                                    step = "create"
-                                    return@WaPinPad PadResult.Error(e.apiFailure().message ?: networkError)
+                                else -> {
+                                    if (pin != first) {
+                                        step = "create"
+                                        return@WaPinPad PadResult.Error(mismatch)
+                                    }
+                                    try {
+                                        ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(pin, pin))
+                                    } catch (e: CancellationException) {
+                                        throw e
+                                    } catch (e: Exception) {
+                                        step = "create"
+                                        return@WaPinPad PadResult.Error(e.apiFailure().message ?: networkError)
+                                    }
+                                    onUnlocked()
+                                    PadResult.Ok
                                 }
-                                onUnlocked()
-                                PadResult.Ok
                             }
-                        }
-                    })
+                        },
+                    )
                 }
             }
         }

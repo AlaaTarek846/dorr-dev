@@ -45,6 +45,8 @@ data class NotificationDto(
     val id: String,
     val title: String,
     val message: String,
+    /** e.g. "job_update" — mirrors the preview's n.type; falls back to event. */
+    val type: String? = null,
     /** e.g. "wallet.transfer.received" — what the app keys its icon and deep link on. */
     val event: String? = null,
     val data: JsonObject? = null,

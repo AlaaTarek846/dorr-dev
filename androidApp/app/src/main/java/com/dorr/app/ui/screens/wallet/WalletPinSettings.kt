@@ -83,7 +83,7 @@ fun WalletPinSettings() {
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 12.dp))
                 WaButton(stringResource(R.string.wa_done), { host.pop() }, modifier = Modifier.padding(horizontal = 20.dp))
             }
-            else -> Box(Modifier.fillMaxSize().padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
+            else -> Box(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                 val isChange = changing == true
                 val (title, sub) = when (step) {
                     "current" -> textCurrent
@@ -92,7 +92,7 @@ fun WalletPinSettings() {
                 }
                 WaPinPad(
                     title = title, sub = sub, icon = Icons.Rounded.Shield,
-                    modifier = Modifier.waRise(0),
+                    modifier = Modifier.fillMaxSize().waRise(0),
                     onComplete = { pin ->
                         when (step) {
                             "current" -> {

@@ -76,15 +76,16 @@ fun WaSheetHost(host: WalletHost) {
             enter = slideInVertically(tween(380)) { it } + fadeIn(tween(200)),
             exit = slideOutVertically(tween(280)) { it } + fadeOut(tween(200)),
         ) {
+            val isPinSheet = lastSheet is WaSheet.Pin
+            val scrollState = rememberScrollState()
             Column(
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 620.dp)
+                    .let { if (isPinSheet) it.height(520.dp) else it.heightIn(max = 620.dp).verticalScroll(scrollState) }
                     .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
                     .background(Color.White)
                     .clickable(interactionSource = MutableInteractionSource(), indication = null) {}
                     .navigationBarsPadding()
-                    .verticalScroll(rememberScrollState())
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {

@@ -3,6 +3,9 @@ package com.dorr.app.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -66,9 +69,31 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(listOf(AppColors.primary, AppColors.primaryDark)),
-            ),
+            .drawBehind {
+                // 1:1 port of #screen-splash's pink radial-gradient background.
+                drawRect(Color.White)
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                        center = Offset(size.width * -0.08f, size.height * -0.12f),
+                        radius = size.width * 1.3f,
+                    ),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
+                        center = Offset(size.width * 0.5f, size.height * -0.18f),
+                        radius = size.width * 1.1f,
+                    ),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
+                        center = Offset(size.width * 1.12f, size.height * -0.08f),
+                        radius = size.width * 0.9f,
+                    ),
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -80,20 +105,43 @@ fun SplashScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(3f))
-            DorrLogo(
-                width = 240.dp,
-                onDark = true,
-                modifier = Modifier.graphicsLayer {
-                    translationY = (1f - rise.value) * 140.dp.toPx()
-                    alpha = rise.value
-                },
+            Box(
+                modifier = Modifier
+                    .size(104.dp)
+                    .shadow(10.dp, RoundedCornerShape(22.dp))
+                    .background(Color.White, RoundedCornerShape(22.dp))
+                    .padding(8.dp)
+                    .graphicsLayer {
+                        translationY = (1f - rise.value) * 140.dp.toPx()
+                        alpha = rise.value
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.Build,
+                    contentDescription = null,
+                    tint = AppColors.primary,
+                    modifier = Modifier.size(88.dp),
+                )
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                color = AppColors.waRed,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
-            Spacer(Modifier.height(60.dp))
-            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.height(12.dp))
+            CircularProgressIndicator(
+                color = AppColors.waRed,
+                trackColor = AppColors.waRed.copy(alpha = 0.18f),
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(28.dp),
+            )
             Spacer(Modifier.weight(3f))
             Text(
                 text = stringResource(R.string.app_tagline),
-                color = Color.White.copy(alpha = 0.5f),
+                color = AppColors.textSecondary,
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(24.dp))
