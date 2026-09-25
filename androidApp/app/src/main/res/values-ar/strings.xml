@@ -14,6 +14,8 @@
     <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
     <string name="login_error_phone_invalid_country">الدولة أو كود الاتصال غير صالح.</string>
     <string name="login_error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
+    <string name="session_expired_title">انتهت صلاحية الجلسة</string>
+    <string name="session_expired_message">انتهت صلاحية جلستك. يرجى تسجيل الدخول مجددًا للمتابعة.</string>
 
     <string name="otp_title">تأكيد رقم الهاتف</string>
     <string name="otp_subtitle">أدخل الكود المرسل إلى %1$s</string>
