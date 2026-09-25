@@ -1,5 +1,8 @@
 package com.dorr.app.ui.screens
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,7 +24,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.LocalOffer
@@ -52,9 +57,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
+import com.dorr.app.network.NotificationDto
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import com.dorr.app.ui.theme.AppColors
 
-private enum class NotificationType { JOB_UPDATE, QUOTE, INVOICE, MAINTENANCE, PROMO, GENERAL }
+private enum class NotificationType { JOB_UPDATE, QUOTE, INVOICE, MAINTENANCE, PROMO, GENERAL, WALLET, WALLET_PIN }
 
 private data class NotificationItem(
     val id: String,
@@ -65,18 +76,6 @@ private data class NotificationItem(
     val unread: Boolean,
 )
 
-// Placeholder feed — wire this to a real notifications endpoint later
-// (pagination + push-triggered refresh, like the reference app's provider).
-@Composable
-private fun sampleNotifications() = listOf(
-    NotificationItem("1", NotificationType.JOB_UPDATE, stringResource(R.string.notif_sample_title_status_changed), stringResource(R.string.notif_sample_body_status_changed), 5, unread = true),
-    NotificationItem("2", NotificationType.QUOTE, stringResource(R.string.notif_sample_title_quote_ready), stringResource(R.string.notif_sample_body_quote_ready), 40, unread = true),
-    NotificationItem("3", NotificationType.INVOICE, stringResource(R.string.notif_sample_title_invoice), stringResource(R.string.notif_sample_body_invoice), 180, unread = false),
-    NotificationItem("4", NotificationType.MAINTENANCE, stringResource(R.string.notif_sample_title_maintenance), stringResource(R.string.notif_sample_body_maintenance), 1500, unread = false),
-    NotificationItem("5", NotificationType.PROMO, stringResource(R.string.notif_sample_title_promo), stringResource(R.string.notif_sample_body_promo), 4000, unread = false),
-    NotificationItem("6", NotificationType.GENERAL, stringResource(R.string.notif_sample_title_welcome), stringResource(R.string.notif_sample_body_welcome), 10000, unread = false),
-)
-
 private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (type) {
     NotificationType.JOB_UPDATE -> Icons.Rounded.Build to AppColors.info
     NotificationType.QUOTE -> Icons.Rounded.Description to AppColors.warning
@@ -84,6 +83,24 @@ private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (
     NotificationType.MAINTENANCE -> Icons.Rounded.Event to AppColors.accent
     NotificationType.PROMO -> Icons.Rounded.LocalOffer to AppColors.danger
     NotificationType.GENERAL -> Icons.Rounded.Notifications to AppColors.primary
+    NotificationType.WALLET -> Icons.Rounded.AccountBalanceWallet to Color(0xFF16A34A)
+    NotificationType.WALLET_PIN -> Icons.Rounded.Lock to AppColors.danger
+}
+
+private fun NotificationDto.toItem(): NotificationItem {
+    // Same precedence as the preview's notifStyleFor: wallet event first, then server type.
+    val type = when {
+        event?.startsWith("wallet.pin") == true -> NotificationType.WALLET_PIN
+        event?.startsWith("wallet.") == true -> NotificationType.WALLET
+        type == "job_update" -> NotificationType.JOB_UPDATE
+        type == "quote" -> NotificationType.QUOTE
+        type == "invoice" -> NotificationType.INVOICE
+        type == "maintenance" -> NotificationType.MAINTENANCE
+        type == "promo" -> NotificationType.PROMO
+        else -> NotificationType.GENERAL
+    }
+    val minutes = runCatching { java.time.Duration.between(java.time.Instant.parse(createdAtIso), java.time.Instant.now()).toMinutes().toInt() }.getOrDefault(0)
+    return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null)
 }
 
 @Composable
@@ -99,40 +116,63 @@ private fun relativeTime(minutesAgo: Int): String = when {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
-    val sample = sampleNotifications()
-    val notifications = remember { mutableStateListOf(*sample.toTypedArray()) }
+    val notifications = remember { mutableStateListOf<NotificationItem>() }
+    val scope = rememberCoroutineScope()
+    var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<NotificationItem?>(null) }
     val hasUnread = notifications.any { it.unread }
 
+    // The real feed. Reloaded on entry; every row arrives in the language the app is using.
+    LaunchedEffect(Unit) {
+        runCatching { ApiClient.notifications.list("Bearer ${AuthSession.token.orEmpty()}").data.orEmpty() }
+            .onSuccess { rows ->
+                notifications.clear()
+                notifications.addAll(rows.map { it.toItem() })
+            }
+        loaded = true
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.notifications_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
-                actions = {
-                    if (hasUnread) {
-                        TextButton(onClick = {
-                            notifications.replaceAll { it.copy(unread = false) }
-                        }) {
-                            Text(stringResource(R.string.notifications_mark_all_read), color = AppColors.primary)
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            stringResource(R.string.notifications_title),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.textPrimary,
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
-                    }
-                },
-            )
+                    },
+                    actions = {
+                        if (hasUnread) {
+                            TextButton(onClick = {
+                                notifications.replaceAll { it.copy(unread = false) }
+                                scope.launch { runCatching { ApiClient.notifications.markAllRead("Bearer ${AuthSession.token.orEmpty()}") } }
+                            }) {
+                                Text(stringResource(R.string.notifications_mark_all_read), color = AppColors.primary)
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                )
+                HorizontalDivider(color = AppColors.border)
+            }
         },
     ) { padding ->
-        if (notifications.isEmpty()) {
+        if (loaded && notifications.isEmpty()) {
             EmptyNotifications(modifier = Modifier.padding(padding))
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(notifications, key = { it.id }) { item ->
@@ -142,6 +182,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                             val index = notifications.indexOfFirst { it.id == item.id }
                             if (index >= 0) notifications[index] = item.copy(unread = false)
                             selected = item.copy(unread = false)
+                            if (item.unread) scope.launch { runCatching { ApiClient.notifications.markRead("Bearer ${AuthSession.token.orEmpty()}", item.id) } }
                         },
                     )
                 }

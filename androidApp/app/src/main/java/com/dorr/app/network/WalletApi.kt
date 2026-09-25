@@ -113,6 +113,8 @@ data class WalletBalanceDto(
     /** The number others send to for THIS wallet (one per country wallet), raw and grouped ("123 4567 8901"). */
     @SerializedName("wallet_number") val walletNumber: String? = null,
     @SerializedName("wallet_number_formatted") val walletNumberFormatted: String? = null,
+    /** What this wallet's QR code encodes (public facts only). */
+    @SerializedName("qr_payload") val qrPayload: String? = null,
     @SerializedName("currency_code") val currencyCode: String?,
     @SerializedName("currency_symbol") val currencySymbol: String?,
     @SerializedName("total_minor") val totalMinor: Long,
@@ -177,11 +179,13 @@ data class TopupRequest(
 
 data class ConfirmOtpRequest(val otp: String)
 
-/** `mode` is "phone" (national number, as typed) or "wallet" (the 11-digit wallet number). */
+/** `mode` is "phone" (national number, as typed), "wallet" (the 11-digit wallet number) or "qr" (a scanned code). */
 data class TransferLookupRequest(
     val mode: String,
     val phone: String? = null,
     @SerializedName("wallet_number") val walletNumber: String? = null,
+    /** The text a scanned wallet QR code held (mode "qr"). */
+    val qr: String? = null,
 )
 
 /** The person the money is about to reach, shown for confirmation before anything is sent. */

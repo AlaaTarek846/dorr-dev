@@ -1,7 +1,11 @@
 package com.dorr.app.ui.screens
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
@@ -31,6 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -45,6 +50,8 @@ import kotlinx.coroutines.launch
 fun SplashScreen(onFinished: () -> Unit) {
     val alphaAnim = remember { Animatable(0f) }
     val scale = remember { Animatable(0.85f) }
+    // The logo rises into place from below the centre while everything fades in.
+    val rise = remember { Animatable(0f) }
 
     LaunchedEffect(Unit) {
         launch { alphaAnim.animateTo(1f, tween(900)) }
@@ -54,16 +61,39 @@ fun SplashScreen(onFinished: () -> Unit) {
                 tween(900, easing = { fraction -> overshoot(fraction) }),
             )
         }
-        delay(1600)
+        launch { rise.animateTo(1f, tween(1100, easing = FastOutSlowInEasing)) }
+        delay(1800)
         onFinished()
     }
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(listOf(AppColors.primary, AppColors.primaryDark)),
-            ),
+            .drawBehind {
+                // 1:1 port of #screen-splash's pink radial-gradient background.
+                drawRect(Color.White)
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                        center = Offset(size.width * -0.08f, size.height * -0.12f),
+                        radius = size.width * 1.3f,
+                    ),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
+                        center = Offset(size.width * 0.5f, size.height * -0.18f),
+                        radius = size.width * 1.1f,
+                    ),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
+                        center = Offset(size.width * 1.12f, size.height * -0.08f),
+                        radius = size.width * 0.9f,
+                    ),
+                )
+            },
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -77,31 +107,41 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.weight(3f))
             Box(
                 modifier = Modifier
-                    .background(Color.White.copy(alpha = 0.08f), RoundedCornerShape(24.dp))
-                    .border(1.dp, Color.White.copy(alpha = 0.15f), RoundedCornerShape(24.dp))
-                    .padding(28.dp),
+                    .size(104.dp)
+                    .shadow(10.dp, RoundedCornerShape(22.dp))
+                    .background(Color.White, RoundedCornerShape(22.dp))
+                    .padding(8.dp)
+                    .graphicsLayer {
+                        translationY = (1f - rise.value) * 140.dp.toPx()
+                        alpha = rise.value
+                    },
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
-                    imageVector = Icons.Rounded.Build,
+                    Icons.Rounded.Build,
                     contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(72.dp),
+                    tint = AppColors.primary,
+                    modifier = Modifier.size(88.dp),
                 )
             }
             Spacer(Modifier.height(24.dp))
             Text(
-                text = stringResource(R.string.app_name).uppercase(),
-                color = Color.White,
-                fontSize = 32.sp,
-                fontWeight = FontWeight.Black,
-                letterSpacing = 6.sp,
+                text = stringResource(R.string.app_name),
+                color = AppColors.waRed,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
-            Spacer(Modifier.height(60.dp))
-            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(28.dp))
+            Spacer(Modifier.height(12.dp))
+            CircularProgressIndicator(
+                color = AppColors.waRed,
+                trackColor = AppColors.waRed.copy(alpha = 0.18f),
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(28.dp),
+            )
             Spacer(Modifier.weight(3f))
             Text(
                 text = stringResource(R.string.app_tagline),
-                color = Color.White.copy(alpha = 0.5f),
+                color = AppColors.textSecondary,
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(24.dp))

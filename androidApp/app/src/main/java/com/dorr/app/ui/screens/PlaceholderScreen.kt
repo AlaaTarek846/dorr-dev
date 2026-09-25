@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Construction
 import androidx.compose.material3.Icon
@@ -30,9 +31,18 @@ fun PlaceholderScreen() {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(Icons.Outlined.Construction, contentDescription = null, tint = AppColors.textMuted)
+        Icon(
+            Icons.Outlined.Construction,
+            contentDescription = null,
+            tint = AppColors.textMuted,
+            modifier = Modifier.size(40.dp),
+        )
         Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.placeholder_title), style = MaterialTheme.typography.titleMedium)
+        Text(
+            stringResource(R.string.placeholder_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = AppColors.textPrimary,
+        )
         Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.placeholder_body),
