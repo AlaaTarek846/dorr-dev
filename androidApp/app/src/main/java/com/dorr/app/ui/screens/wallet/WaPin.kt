@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -126,7 +128,14 @@ fun WaPinPad(
         if (value.length == 4) complete(value)
     }
 
-    Column(modifier.fillMaxWidth().alpha(if (busy) 0.55f else 1f), horizontalAlignment = Alignment.CenterHorizontally) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .fillMaxHeight()
+            .alpha(if (busy) 0.55f else 1f),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.weight(0.15f))
         WaIconWell(icon, tone, size = 58.dp, iconSize = 28.dp)
         Spacer(Modifier.height(10.dp))
         Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Wa.Ink, textAlign = TextAlign.Center)
@@ -134,7 +143,7 @@ fun WaPinPad(
         Text(sub, color = Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
 
         Row(
-            Modifier.padding(top = 20.dp, bottom = 8.dp).graphicsLayer { translationX = shake.value * 6.dp.toPx() },
+            Modifier.padding(top = 16.dp, bottom = 6.dp).graphicsLayer { translationX = shake.value * 6.dp.toPx() },
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             repeat(4) { index ->
@@ -152,16 +161,28 @@ fun WaPinPad(
             }
         }
 
-        Text(error, color = Wa.Danger, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 22.dp).padding(vertical = 4.dp))
+        Text(error, color = Wa.Danger, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 22.dp).padding(vertical = 2.dp))
+
+        Spacer(Modifier.weight(0.25f))
 
         // Digits always read left-to-right, whatever the app language.
+        // The keypad stretches to fill the screen down to the bottom bar.
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Column(Modifier.widthIn(max = 300.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                Modifier
+                    .widthIn(max = 320.dp)
+                    .weight(3.2f)
+                    .padding(bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "del")).forEach { row ->
-                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.weight(1f),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
                         row.forEach { key ->
-                            Box(Modifier.weight(1f)) {
-                                if (key.isNotEmpty()) PadKey(key) { press(key) }
+                            Box(Modifier.weight(1f).fillMaxHeight()) {
+                                if (key.isNotEmpty()) PadKey(key, Modifier.fillMaxSize()) { press(key) }
                             }
                         }
                     }
@@ -172,14 +193,12 @@ fun WaPinPad(
 }
 
 @Composable
-private fun PadKey(key: String, onClick: () -> Unit) {
+private fun PadKey(key: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressScale by rememberPressScale(source, 0.9f)
     val isDelete = key == "del"
     Box(
-        Modifier
-            .fillMaxWidth()
-            .height(58.dp)
+        modifier
             .scale(pressScale)
             .clip(RoundedCornerShape(18.dp))
             .background(if (isDelete) Color.Transparent else Wa.Key)

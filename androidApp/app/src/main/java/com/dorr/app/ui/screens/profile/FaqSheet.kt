@@ -1,5 +1,18 @@
 package com.dorr.app.ui.screens.profile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Help
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -36,7 +49,19 @@ private val faqItems = listOf(
 fun FaqSheet(onDismiss: () -> Unit) {
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-            Text(stringResource(R.string.faq_title), style = MaterialTheme.typography.headlineMedium)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(AppColors.primary.copy(alpha = 0.1f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.Help, contentDescription = null, tint = AppColors.primary, modifier = Modifier.size(22.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(stringResource(R.string.faq_title), style = MaterialTheme.typography.headlineMedium)
+            }
             Spacer(Modifier.height(12.dp))
             faqItems.forEachIndexed { index, item ->
                 FaqRow(item)
@@ -56,7 +81,21 @@ private fun FaqRow(item: FaqItem) {
             .clickable { expanded = !expanded }
             .padding(vertical = 12.dp),
     ) {
-        Text(stringResource(item.question), style = MaterialTheme.typography.titleMedium)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                stringResource(item.question),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Icon(
+                Icons.Rounded.ChevronRight,
+                contentDescription = null,
+                tint = AppColors.textMuted,
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { rotationZ = if (expanded) 90f else 0f },
+            )
+        }
         if (expanded) {
             Text(
                 stringResource(item.answer),

@@ -18,9 +18,9 @@ class PlatformSettingSeeder extends Seeder
     private const MEDIA_SOURCES = [
         'logo' => 'logo.png',
         'logo_dark' => 'logo_dark.png',
-        'favicon_ico' => 'favicon.ico',
-        'favicon_16' => 'favicon-16x16.png',
-        'favicon_32' => 'favicon-32x32.png',
+        'favicon_ico' => 'favicon_ico.ico',
+        'favicon_16' => 'favicon_16.png',
+        'favicon_32' => 'favicon_32.png',
         'apple_touch_icon' => 'apple-touch-icon.png',
         'web_manifest' => 'site.webmanifest',
     ];

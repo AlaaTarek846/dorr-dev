@@ -1,5 +1,8 @@
 package com.dorr.app.ui.screens
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -85,9 +88,15 @@ private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (
 }
 
 private fun NotificationDto.toItem(): NotificationItem {
+    // Same precedence as the preview's notifStyleFor: wallet event first, then server type.
     val type = when {
         event?.startsWith("wallet.pin") == true -> NotificationType.WALLET_PIN
         event?.startsWith("wallet.") == true -> NotificationType.WALLET
+        type == "job_update" -> NotificationType.JOB_UPDATE
+        type == "quote" -> NotificationType.QUOTE
+        type == "invoice" -> NotificationType.INVOICE
+        type == "maintenance" -> NotificationType.MAINTENANCE
+        type == "promo" -> NotificationType.PROMO
         else -> NotificationType.GENERAL
     }
     val minutes = runCatching { java.time.Duration.between(java.time.Instant.parse(createdAtIso), java.time.Instant.now()).toMinutes().toInt() }.getOrDefault(0)
@@ -125,24 +134,35 @@ fun NotificationsScreen(onBack: () -> Unit) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.notifications_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
-                },
-                actions = {
-                    if (hasUnread) {
-                        TextButton(onClick = {
-                            notifications.replaceAll { it.copy(unread = false) }
-                            scope.launch { runCatching { ApiClient.notifications.markAllRead("Bearer ${AuthSession.token.orEmpty()}") } }
-                        }) {
-                            Text(stringResource(R.string.notifications_mark_all_read), color = AppColors.primary)
+            Column {
+                TopAppBar(
+                    title = {
+                        Text(
+                            stringResource(R.string.notifications_title),
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AppColors.textPrimary,
+                        )
+                    },
+                    navigationIcon = {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
-                    }
-                },
-            )
+                    },
+                    actions = {
+                        if (hasUnread) {
+                            TextButton(onClick = {
+                                notifications.replaceAll { it.copy(unread = false) }
+                                scope.launch { runCatching { ApiClient.notifications.markAllRead("Bearer ${AuthSession.token.orEmpty()}") } }
+                            }) {
+                                Text(stringResource(R.string.notifications_mark_all_read), color = AppColors.primary)
+                            }
+                        }
+                    },
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                )
+                HorizontalDivider(color = AppColors.border)
+            }
         },
     ) { padding ->
         if (loaded && notifications.isEmpty()) {
@@ -152,7 +172,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(notifications, key = { it.id }) { item ->

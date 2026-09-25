@@ -2,6 +2,19 @@ package com.dorr.app.ui.screens
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.foundation.Canvas
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -160,15 +173,52 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .drawBehind {
+                // 1:1 port of #screen-otp's pink radial-gradient background.
+                drawRect(Color.White)
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                        center = Offset(size.width * -0.08f, size.height * -0.12f),
+                        radius = size.width * 1.3f,
+                    ),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
+                        center = Offset(size.width * 0.5f, size.height * -0.18f),
+                        radius = size.width * 1.1f,
+                    ),
+                )
+                drawRect(
+                    Brush.radialGradient(
+                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
+                        center = Offset(size.width * 1.12f, size.height * -0.08f),
+                        radius = size.width * 0.9f,
+                    ),
+                )
+            }
+            .padding(horizontal = 22.dp, vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         IconButton(onClick = onBack, modifier = Modifier.align(Alignment.Start)) {
             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
         }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
 
-        Text(stringResource(R.string.otp_title), style = MaterialTheme.typography.headlineLarge, textAlign = TextAlign.Center)
+        // Decorative OTP shield (matches the preview's otp-shield).
+        OtpShield(modifier = Modifier.align(Alignment.CenterHorizontally), isError = hasError)
+
+        Spacer(Modifier.height(20.dp))
+        Text(
+            stringResource(R.string.otp_title),
+            style = MaterialTheme.typography.headlineLarge.copy(
+                fontSize = 26.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = AppColors.textPrimary,
+            ),
+            textAlign = TextAlign.Center,
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             stringResource(R.string.otp_subtitle, listOf(dialCode, phoneNumber).filter { it.isNotBlank() }.joinToString(" ")),
@@ -211,7 +261,34 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
             }
         }
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(22.dp))
+        Button(
+            onClick = ::verify,
+            enabled = !isVerifying && digits.joinToString("").length == OTP_LENGTH,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppColors.waRed,
+                disabledContainerColor = AppColors.waRed,
+                contentColor = Color.White,
+                disabledContentColor = Color.White,
+            ),
+            shape = RoundedCornerShape(50),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp)
+                .shadow(8.dp, RoundedCornerShape(50), spotColor = AppColors.waRed),
+        ) {
+            if (isVerifying) {
+                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = Color.White)
+            } else {
+                Text(
+                    stringResource(R.string.otp_verify),
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(14.dp))
         TimerOrResend(countdown = countdown, canResend = canResend, onResend = ::resend)
 
         Spacer(Modifier.height(12.dp))
@@ -225,22 +302,7 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
             )
         }
 
-        Spacer(Modifier.weight(1f))
-
-        Button(
-            onClick = ::verify,
-            enabled = !isVerifying && digits.joinToString("").length == OTP_LENGTH,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(52.dp),
-        ) {
-            if (isVerifying) {
-                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-            } else {
-                Text(stringResource(R.string.otp_verify))
-            }
-        }
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(16.dp))
         Text(
             stringResource(R.string.otp_dev_hint),
             style = MaterialTheme.typography.bodySmall,
@@ -279,17 +341,22 @@ private fun DigitBox(
             }
         },
         singleLine = true,
-        textStyle = MaterialTheme.typography.headlineMedium.copy(textAlign = TextAlign.Center),
+        textStyle = MaterialTheme.typography.headlineMedium.copy(
+            textAlign = TextAlign.Center,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = AppColors.textPrimary,
+        ),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = overrideBorderColor ?: AppColors.border,
-            focusedBorderColor = overrideBorderColor ?: AppColors.primary,
+            unfocusedBorderColor = overrideBorderColor ?: AppColors.otpPinkBorder,
+            focusedBorderColor = overrideBorderColor ?: AppColors.waRed,
         ),
         modifier = Modifier
             .padding(horizontal = 4.dp)
-            .width(48.dp)
-            .height(56.dp)
+            .width(44.dp)
+            .height(52.dp)
             .scale(scale.value)
             .focusRequester(focusRequester)
             .onPreviewKeyEvent { event ->
@@ -307,7 +374,7 @@ private fun DigitBox(
                 if (highlightFill) {
                     it.background(
                         (overrideBorderColor ?: AppColors.border).copy(alpha = 0.05f),
-                        RoundedCornerShape(12.dp),
+                        RoundedCornerShape(14.dp),
                     )
                 } else {
                     it
@@ -322,8 +389,9 @@ private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Un
         TextButton(onClick = onResend) {
             Text(
                 stringResource(R.string.otp_resend),
-                style = MaterialTheme.typography.titleMedium,
-                color = AppColors.primary,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = AppColors.waRed,
             )
         }
         return
@@ -346,5 +414,56 @@ private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Un
             style = MaterialTheme.typography.bodySmall,
             color = AppColors.textMuted,
         )
+    }
+}
+
+// Decorative OTP shield — 1:1 port of the preview's .otp-shield block:
+// 118dp circle ring (red 28%) + 92dp red shield with a white lock.
+@Composable
+fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false) {
+    val badgeColor by animateColorAsState(
+        targetValue = if (isError) AppColors.danger else AppColors.waRed,
+        animationSpec = tween(600), label = "otpShieldBadge",
+    )
+    val ringColor = badgeColor.copy(alpha = 0.28f)
+    Box(
+        modifier = modifier.size(118.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawCircle(color = ringColor, style = Stroke(width = 2.dp.toPx()))
+        }
+        Canvas(modifier = Modifier.size(92.dp)) {
+            val s = size.width / 64f
+            val shield = Path().apply {
+                moveTo(32f * s, 6f * s)
+                lineTo(54f * s, 14.2f * s)
+                lineTo(54f * s, 32.8f * s)
+                cubicTo(54f * s, 46f * s, 45.4f * s, 55.6f * s, 32f * s, 60.4f * s)
+                cubicTo(18.6f * s, 55.6f * s, 10f * s, 46f * s, 10f * s, 32.8f * s)
+                lineTo(10f * s, 14.2f * s)
+                close()
+            }
+            drawPath(shield, color = badgeColor)
+            // White lock body.
+            drawRoundRect(
+                color = Color.White,
+                topLeft = Offset(23f * s, 31f * s),
+                size = androidx.compose.ui.geometry.Size(18f * s, 13f * s),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(2.5f * s, 2.5f * s),
+            )
+            // White shackle.
+            val shackle = Path().apply {
+                moveTo(27f * s, 31.5f * s)
+                lineTo(27f * s, 27.3f * s)
+                cubicTo(27f * s, 24.5f * s, 29.2f * s, 22.3f * s, 32f * s, 22.3f * s)
+                cubicTo(34.8f * s, 22.3f * s, 37f * s, 24.5f * s, 37f * s, 27.3f * s)
+                lineTo(37f * s, 31.5f * s)
+            }
+            drawPath(
+                shackle, color = Color.White,
+                style = Stroke(width = 2.6f * s, cap = androidx.compose.ui.graphics.StrokeCap.Round),
+            )
+        }
     }
 }

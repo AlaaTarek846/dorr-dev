@@ -12,7 +12,7 @@ import retrofit2.converter.gson.GsonConverterFactory
  * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
  * Laravel builds absolute media URLs with, so those get rewritten to the tunnel.
  */
-private const val BASE_HOST = "exploring-molasses-pretended.ngrok-free.dev"
+private const val BASE_HOST = "juncture-calibrate-tingly.ngrok-free.dev"
 private const val BASE_URL = "https://$BASE_HOST/api/"
 private const val LOCAL_MEDIA_HOST = "dorr.test"
 

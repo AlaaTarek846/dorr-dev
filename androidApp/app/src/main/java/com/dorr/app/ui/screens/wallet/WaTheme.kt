@@ -351,7 +351,7 @@ fun WaPage(
                 .weight(1f)
                 .fillMaxWidth()
                 .let { if (scroll) it.verticalScroll(rememberScrollState()) else it }
-                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = if (cta != null) 110.dp else 28.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = if (cta != null) 110.dp else if (!scroll) 0.dp else 28.dp)
             Column(body, content = content)
         }
         if (cta != null) {

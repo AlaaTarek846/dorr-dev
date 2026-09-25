@@ -243,6 +243,8 @@ private fun LoginContent(
             text = stringResource(R.string.login_title),
             color = Color(0xFFE50914),
             fontWeight = FontWeight.ExtraBold,
+            fontSize = 30.sp,
+            lineHeight = 38.sp,
             style = MaterialTheme.typography.headlineLarge,
             textAlign = TextAlign.Center,
         )
