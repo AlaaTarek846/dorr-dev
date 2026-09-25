@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -40,6 +41,13 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     // round-trip through URL encoding on its way to the OTP screen.
     var pendingDialCode by remember { mutableStateOf("") }
     var pendingPhone by remember { mutableStateOf("") }
+    var sessionExpiredNotice by remember { mutableStateOf(false) }
+
+    // Preserve the page the user was on before being kicked out by 401
+    var targetRouteAfterLogin by remember { mutableStateOf<String?>(null) }
+    var lastMainTab by remember { mutableIntStateOf(0) }
+    var lastWalletOpen by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
 
     // A 401 on any authenticated request (expired/revoked token) is detected
@@ -49,7 +57,11 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     DisposableEffect(Unit) {
         AuthSession.onUnauthorized = {
             Handler(Looper.getMainLooper()).post {
+                sessionExpiredNotice = true
                 val currentRoute = navController.currentDestination?.route
+                if (currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.SPLASH && currentRoute != Routes.OTP) {
+                    targetRouteAfterLogin = currentRoute
+                }
                 if (currentRoute != Routes.LOGIN) {
                     navController.navigate(Routes.LOGIN) {
                         popUpTo(0) { inclusive = true }
@@ -63,6 +75,10 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     fun logout() {
         val token = AuthSession.token
         AuthSession.clear()
+        targetRouteAfterLogin = null
+        lastMainTab = 0
+        lastWalletOpen = false
+        sessionExpiredNotice = false
         if (!token.isNullOrBlank()) {
             scope.launch {
                 runCatching {
@@ -95,7 +111,10 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         }
         composable(Routes.LOGIN) {
             LoginScreen(
+                sessionExpiredNotice = sessionExpiredNotice,
+                onDismissSessionExpired = { sessionExpiredNotice = false },
                 onOtpRequested = { dialCode, phone ->
+                    sessionExpiredNotice = false
                     pendingDialCode = dialCode
                     pendingPhone = phone
                     navController.navigate(Routes.OTP)
@@ -108,14 +127,26 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
                 phoneNumber = pendingPhone,
                 onBack = { navController.popBackStack() },
                 onVerified = {
+                    val returnDestination = targetRouteAfterLogin
+                    targetRouteAfterLogin = null
                     navController.navigate(Routes.MAIN) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                    // If the user was on another screen (e.g. Notifications or Services), navigate to it
+                    if (returnDestination != null && returnDestination != Routes.MAIN) {
+                        navController.navigate(returnDestination)
                     }
                 },
             )
         }
         composable(Routes.MAIN) {
             MainScreen(
+                initialTab = lastMainTab,
+                initialWalletOpen = lastWalletOpen,
+                onStateChanged = { tab, wallet ->
+                    lastMainTab = tab
+                    lastWalletOpen = wallet
+                },
                 onLogout = { logout() },
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                 onOpenServices = { navController.navigate(Routes.SERVICES) },

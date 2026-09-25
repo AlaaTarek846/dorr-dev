@@ -85,9 +85,16 @@ fun MainScreen(
     onLogout: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenServices: () -> Unit,
+    initialTab: Int = 0,
+    initialWalletOpen: Boolean = false,
+    onStateChanged: (tab: Int, walletOpen: Boolean) -> Unit = { _, _ -> },
 ) {
-    var currentTab by remember { mutableIntStateOf(0) }
-    var walletOpen by remember { mutableStateOf(false) }
+    var currentTab by remember(initialTab) { mutableIntStateOf(initialTab) }
+    var walletOpen by remember(initialWalletOpen) { mutableStateOf(initialWalletOpen) }
+
+    LaunchedEffect(currentTab, walletOpen) {
+        onStateChanged(currentTab, walletOpen)
+    }
 
     LaunchedEffect(Unit) {
         val token = AuthSession.token

@@ -14,6 +14,8 @@
     <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
     <string name="login_error_phone_invalid_country">The selected country or dial code is invalid.</string>
     <string name="login_error_generic">Something went wrong. Please try again.</string>
+    <string name="session_expired_title">Session Expired</string>
+    <string name="session_expired_message">Your session has expired. Please sign in again to continue.</string>
 
     <string name="otp_title">Verify your phone</string>
     <string name="otp_subtitle">Enter the code sent to %1$s</string>

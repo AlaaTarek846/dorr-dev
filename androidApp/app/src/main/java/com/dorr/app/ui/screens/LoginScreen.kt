@@ -1,14 +1,20 @@
 package com.dorr.app.ui.screens
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -37,6 +43,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
@@ -90,10 +97,22 @@ import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.theme.LocalThemeState
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
-fun LoginScreen(onOtpRequested: (dialCode: String, phone: String) -> Unit) {
+fun LoginScreen(
+    onOtpRequested: (dialCode: String, phone: String) -> Unit,
+    sessionExpiredNotice: Boolean = false,
+    onDismissSessionExpired: () -> Unit = {},
+) {
+    LaunchedEffect(sessionExpiredNotice) {
+        if (sessionExpiredNotice) {
+            delay(5500)
+            onDismissSessionExpired()
+        }
+    }
     var phone by remember { mutableStateOf("") }
     var acceptedTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
@@ -195,6 +214,106 @@ fun LoginScreen(onOtpRequested: (dialCode: String, phone: String) -> Unit) {
                 .navigationBarsPadding()
                 .imePadding(),
         )
+
+        // Animated Session Expired Notification Banner
+        AnimatedVisibility(
+            visible = sessionExpiredNotice,
+            enter = slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(400, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(300)),
+            exit = slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(300, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(250)),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                .widthIn(max = 440.dp),
+        ) {
+            SessionExpiredBanner(onDismiss = onDismissSessionExpired)
+        }
+    }
+}
+
+@Composable
+private fun SessionExpiredBanner(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val bgColor = if (isDark) Color(0xFF2B191C) else Color(0xFFFFF5F5)
+    val borderColor = if (isDark) Color(0xFFE50914).copy(alpha = 0.45f) else Color(0xFFFCA5A5)
+    val iconBgColor = if (isDark) Color(0xFF4A1E24) else Color(0xFFFEE2E2)
+    val titleColor = if (isDark) Color(0xFFFDE8E8) else Color(0xFF991B1B)
+    val messageColor = if (isDark) Color(0xFFE5C0C4) else Color(0xFF7F1D1D)
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color(0x33E50914),
+                spotColor = Color(0x33E50914),
+            )
+            .clip(RoundedCornerShape(16.dp))
+            .background(bgColor)
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(iconBgColor),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Lock,
+                contentDescription = null,
+                tint = Color(0xFFE50914),
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.session_expired_title),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                ),
+                color = titleColor,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.session_expired_message),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                ),
+                color = messageColor,
+            )
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = "Dismiss",
+                tint = messageColor.copy(alpha = 0.8f),
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 
