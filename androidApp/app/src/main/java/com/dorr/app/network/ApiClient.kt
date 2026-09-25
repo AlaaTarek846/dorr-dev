@@ -30,11 +30,9 @@ object ApiClient {
         .addInterceptor { chain ->
             val request = chain.request()
             val response = chain.proceed(request)
-            // Any request that carried a Bearer token and came back 401 means
-            // the session is expired/revoked: drop it locally and let the UI
-            // route back to Login. Public endpoints (no Authorization header)
-            // are left alone.
-            if (response.code == 401 && request.header("Authorization") != null) {
+            // Any API request returning 401 (unauthorized / session expired)
+            // drops session locally and routes the user back to the login screen.
+            if (response.code == 401) {
                 AuthSession.clear()
                 AuthSession.onUnauthorized?.invoke()
             }

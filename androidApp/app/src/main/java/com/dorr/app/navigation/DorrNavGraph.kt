@@ -49,9 +49,10 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     DisposableEffect(Unit) {
         AuthSession.onUnauthorized = {
             Handler(Looper.getMainLooper()).post {
-                if (navController.currentDestination?.route != Routes.LOGIN) {
+                val currentRoute = navController.currentDestination?.route
+                if (currentRoute != Routes.LOGIN) {
                     navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.MAIN) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             }
@@ -70,7 +71,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             }
         }
         navController.navigate(Routes.LOGIN) {
-            popUpTo(Routes.MAIN) { inclusive = true }
+            popUpTo(0) { inclusive = true }
         }
     }
 
