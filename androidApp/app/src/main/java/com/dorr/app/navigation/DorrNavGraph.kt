@@ -2,6 +2,9 @@ package com.dorr.app.navigation
 
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
@@ -94,10 +97,35 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     NavHost(
         navController = navController,
         startDestination = Routes.SPLASH,
-        enterTransition = { fadeIn() },
-        exitTransition = { fadeOut() },
+        enterTransition = {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(340, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        exitTransition = {
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(320, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(240))
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(340, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(320, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(240))
+        },
     ) {
-        composable(Routes.SPLASH) {
+        composable(
+            route = Routes.SPLASH,
+            exitTransition = { fadeOut(animationSpec = tween(400)) },
+        ) {
             SplashScreen(
                 onFinished = {
                     // A persisted session (restored in DorrApp.onCreate) skips

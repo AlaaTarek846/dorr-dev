@@ -1,10 +1,15 @@
 package com.dorr.app.ui.screens
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.Paid
@@ -117,39 +122,62 @@ private data class MenuEntry(
 @Composable
 fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
+    val isAtRoot = subScreen == ProfileSub.NONE
 
-    when (subScreen) {
-        ProfileSub.PERSONAL_DATA -> {
-            val context = LocalContext.current
-            PersonalDataScreen(
+    AnimatedContent(
+        targetState = subScreen,
+        label = "profileSub",
+        transitionSpec = {
+            if (targetState == ProfileSub.NONE) {
+                // Popping back → slide in from leading edge, slide out to trailing edge
+                val enter = slideInHorizontally(tween(340, easing = FastOutSlowInEasing)) { -it / 5 } +
+                    fadeIn(tween(280))
+                val exit = slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { it / 5 } +
+                    fadeOut(tween(220))
+                ContentTransform(enter, exit, sizeTransform = null)
+            } else {
+                // Pushing forward → slide in from trailing edge, slide out to leading edge
+                val enter = slideInHorizontally(tween(340, easing = FastOutSlowInEasing)) { it / 5 } +
+                    fadeIn(tween(280))
+                val exit = slideOutHorizontally(tween(300, easing = FastOutSlowInEasing)) { -it / 5 } +
+                    fadeOut(tween(220))
+                ContentTransform(enter, exit, sizeTransform = null)
+            }
+        },
+    ) { currentSub ->
+        when (currentSub) {
+            ProfileSub.PERSONAL_DATA -> {
+                val context = LocalContext.current
+                PersonalDataScreen(
+                    onBack = { subScreen = ProfileSub.NONE },
+                    onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                )
+            }
+            ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.WALLET_PIN -> {
+                val context = LocalContext.current
+                WalletPinSettingsScreen(
+                    onBack = { subScreen = ProfileSub.NONE },
+                    onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                )
+            }
+            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
-                onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                onLogout = onLogout,
+                onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
+                onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
+                onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
+                onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
+            )
+            ProfileSub.NONE -> ProfileMenuScreen(
+                onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
+                onOpenSettings = { subScreen = ProfileSub.SETTINGS },
+                onOpenAddresses = { subScreen = ProfileSub.ADDRESSES },
+                onOpenWallet = onOpenWallet,
             )
         }
-        ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.NONE })
-        ProfileSub.WALLET_PIN -> {
-            val context = LocalContext.current
-            WalletPinSettingsScreen(
-                onBack = { subScreen = ProfileSub.NONE },
-                onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
-            )
-        }
-        ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.NONE })
-        ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
-        ProfileSub.SETTINGS -> SettingsMenuScreen(
-            onBack = { subScreen = ProfileSub.NONE },
-            onLogout = onLogout,
-            onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
-            onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
-            onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
-            onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
-        )
-        ProfileSub.NONE -> ProfileMenuScreen(
-            onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
-            onOpenSettings = { subScreen = ProfileSub.SETTINGS },
-            onOpenAddresses = { subScreen = ProfileSub.ADDRESSES },
-            onOpenWallet = onOpenWallet,
-        )
     }
 }
 
