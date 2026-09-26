@@ -78,16 +78,17 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CountryDto
@@ -320,12 +321,12 @@ private fun SessionExpiredBanner(
 @Composable
 private fun LoginBackdrop(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        drawRect(Color(0xFFFAFAFC))
+        drawRect(Color.White)
 
         fun glow(center: Offset, radius: Float, color: Color) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(color, color.copy(alpha = 0.45f), Color.Transparent),
+                    colors = listOf(color, color.copy(alpha = 0.55f), Color.Transparent),
                     center = center,
                     radius = radius,
                 ),
@@ -334,11 +335,9 @@ private fun LoginBackdrop(modifier: Modifier = Modifier) {
             )
         }
 
-        // Ambient soft brand aura
-        glow(Offset(size.width * 0.15f, size.height * 0.05f), size.width * 0.95f, Color(0xFFFDE8EC))
-        glow(Offset(size.width * 0.85f, size.height * 0.08f), size.width * 0.85f, Color(0xFFFDE2E6))
-        glow(Offset(size.width * 0.5f, size.height * -0.05f), size.width * 1.1f, Color(0xFFFFF0F2))
-        glow(Offset(size.width * 0.9f, size.height * 0.92f), size.width * 0.75f, Color(0xFFFDEBED))
+        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFEFA8B4))
+        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFF3C4CC))
+        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF0B8C2))
     }
 }
 
@@ -374,7 +373,6 @@ private fun LoginContent(
             .padding(top = 12.dp, bottom = 28.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        // Top Bar: Language Selector safely padded below status bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -384,33 +382,24 @@ private fun LoginContent(
             LanguagePicker()
         }
 
-        // Generous vertical spacing to lower the content nicely
-        Spacer(Modifier.height(36.dp))
+        Spacer(Modifier.height(8.dp))
 
-        // Card Container constrained for perfect mobile & tablet dimensions
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .widthIn(max = 440.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Branding & Logo
-            DorrLogo(width = 175.dp)
-            BrandName()
-
-            Spacer(Modifier.height(32.dp))
-
-            // Title and Subtitle
             Text(
                 text = stringResource(R.string.login_title),
-                color = Color(0xFF111928),
+                color = Color(0xFFE50914),
                 fontWeight = FontWeight.ExtraBold,
-                fontSize = 28.sp,
-                lineHeight = 36.sp,
+                fontSize = 30.sp,
+                lineHeight = 38.sp,
                 textAlign = TextAlign.Center,
             )
 
-            Spacer(Modifier.height(10.dp))
+            Spacer(Modifier.height(8.dp))
 
             Text(
                 text = stringResource(R.string.login_subtitle),
@@ -418,10 +407,26 @@ private fun LoginContent(
                 lineHeight = 22.sp,
                 color = Color(0xFF6B7280),
                 textAlign = TextAlign.Center,
-                modifier = Modifier.padding(horizontal = 12.dp),
+                modifier = Modifier.widthIn(max = 260.dp),
             )
 
-            Spacer(Modifier.height(36.dp))
+            Box(
+                modifier = Modifier
+                    .padding(top = 26.dp, bottom = 28.dp)
+                    .size(104.dp)
+                    .shadow(
+                        elevation = 10.dp,
+                        shape = RoundedCornerShape(22.dp),
+                        ambientColor = Color(0x14111928),
+                        spotColor = Color(0x14111928),
+                    )
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(Color.White)
+                    .padding(8.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                DorrLogo(width = 88.dp)
+            }
 
             // Phone Input Field (56.dp height, perfectly centered, no text cutoff)
             PhoneField(
@@ -475,16 +480,15 @@ private fun LoginContent(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
 
-            // Terms and Conditions Checkbox
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(10.dp))
                     .clickable { onAcceptedTermsChange(!acceptedTerms) }
                     .padding(vertical = 4.dp, horizontal = 2.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalAlignment = Alignment.Top,
             ) {
                 Checkbox(
                     checked = acceptedTerms,
@@ -502,33 +506,38 @@ private fun LoginContent(
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
                     ),
-                    color = Color(0xFF4B5563),
+                    color = Color(0xFF6B7280),
                 )
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Action CTA Button (Never disappears on click, maintains solid red with spinner)
+            val buttonShape = RoundedCornerShape(999.dp)
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit,
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFE50914),
-                    disabledContainerColor = if (isLoading) Color(0xFFE50914) else Color(0xFFE5E7EB),
+                    disabledContainerColor = if (isLoading) Color(0xFFE50914) else Color.Transparent,
                     contentColor = Color.White,
-                    disabledContentColor = if (isLoading) Color.White else Color(0xFF9CA3AF),
+                    disabledContentColor = if (isLoading) Color.White else Color(0x80E50914),
                 ),
-                shape = RoundedCornerShape(16.dp),
+                shape = buttonShape,
+                border = if (!canSubmit && !isLoading) {
+                    androidx.compose.foundation.BorderStroke(1.dp, Color(0x33E50914))
+                } else {
+                    null
+                },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(54.dp)
+                    .height(48.dp)
                     .then(
                         if (isFormValid && !isLoading) {
                             Modifier.shadow(
-                                elevation = 10.dp,
-                                shape = RoundedCornerShape(16.dp),
-                                ambientColor = Color(0x33E50914),
-                                spotColor = Color(0x55E50914),
+                                elevation = 8.dp,
+                                shape = buttonShape,
+                                ambientColor = Color(0x66E50914),
+                                spotColor = Color(0x66E50914),
                             )
                         } else {
                             Modifier
@@ -544,9 +553,9 @@ private fun LoginContent(
                 } else {
                     Text(
                         text = stringResource(R.string.login_cta),
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isFormValid) Color.White else Color(0xFF9CA3AF),
+                        color = if (isFormValid) Color.White else Color(0x80E50914),
                     )
                 }
             }
@@ -627,19 +636,26 @@ private fun PhoneField(
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
-            shape = RoundedCornerShape(16.dp),
+                .height(44.dp),
+            shape = RoundedCornerShape(999.dp),
             color = Color.White,
-            shadowElevation = if (isFocused) 4.dp else 2.dp,
-            border = androidx.compose.foundation.BorderStroke(borderWidth, borderColor),
+            shadowElevation = 3.dp,
+            border = if (isFocused) androidx.compose.foundation.BorderStroke(borderWidth, borderColor) else null,
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = 12.dp),
+                    .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // Country Picker Area
+                Icon(
+                    Icons.Rounded.Phone,
+                    contentDescription = null,
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier.size(18.dp),
+                )
+                PhoneSep()
+
                 Box {
                     Row(
                         modifier = Modifier
@@ -648,12 +664,12 @@ private fun PhoneField(
                             .padding(horizontal = 6.dp, vertical = 6.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        FlagEmoji(flagCode)
-                        Spacer(Modifier.width(6.dp))
+                        FlagImage(flagCode)
+                        Spacer(Modifier.width(4.dp))
                         Text(
                             text = dialCode,
                             style = TextStyle(
-                                fontSize = 15.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = AppColors.textPrimary,
                             ),
@@ -725,7 +741,7 @@ private fun PhoneField(
                                         modifier = Modifier.fillMaxWidth(),
                                         verticalAlignment = Alignment.CenterVertically,
                                     ) {
-                                        FlagEmoji(country.flag?.code ?: country.code)
+                                        FlagImage(country.flag?.code ?: country.code)
                                         Spacer(Modifier.width(10.dp))
                                         Text(
                                             text = country.name.ifBlank { country.code },
@@ -752,27 +768,11 @@ private fun PhoneField(
                     }
                 }
 
-                // Vertical Divider
-                Spacer(Modifier.width(6.dp))
-                Box(
-                    modifier = Modifier
-                        .width(1.dp)
-                        .height(26.dp)
-                        .background(Color(0xFFE5E7EB)),
-                )
-                Spacer(Modifier.width(10.dp))
+                PhoneSep()
 
-                // Phone Icon
-                Icon(
-                    Icons.Rounded.Phone,
-                    contentDescription = null,
-                    tint = if (isFocused) Color(0xFFE50914) else Color(0xFF9CA3AF),
-                    modifier = Modifier.size(20.dp),
+                val placeholder = phoneStartsWith + "*".repeat(
+                    if (phoneLength > phoneStartsWith.length) phoneLength - phoneStartsWith.length else 0,
                 )
-                Spacer(Modifier.width(8.dp))
-
-                // Text Input (Vertically centered, full visibility of digits)
-                val placeholder = phoneStartsWith + "•".repeat(if (phoneLength > phoneStartsWith.length) phoneLength - phoneStartsWith.length else 0)
                 BasicTextField(
                     value = phone,
                     onValueChange = { input ->
@@ -783,8 +783,8 @@ private fun PhoneField(
                     },
                     singleLine = true,
                     textStyle = TextStyle(
-                        fontSize = 17.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
                         color = AppColors.textPrimary,
                         textDirection = TextDirection.Ltr,
                     ),
@@ -810,8 +810,8 @@ private fun PhoneField(
                                 Text(
                                     text = placeholder,
                                     color = AppColors.textMuted,
-                                    fontSize = 17.sp,
-                                    fontWeight = FontWeight.Normal,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
                                 )
                             }
                             innerTextField()
@@ -856,7 +856,7 @@ private fun BrandName() {
 }
 
 @Composable
-private fun LanguagePicker() {
+internal fun LanguagePicker() {
     val appLanguage = LocalAppLanguage.current
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
@@ -873,35 +873,34 @@ private fun LanguagePicker() {
     Box {
         Surface(
             shape = RoundedCornerShape(999.dp),
-            color = Color.White.copy(alpha = 0.95f),
-            shadowElevation = 3.dp,
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE5E7EB)),
+            color = Color.White,
+            shadowElevation = 6.dp,
             modifier = Modifier.clickable { if (languages.isNotEmpty()) expanded = true },
         ) {
             Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 7.dp),
+                modifier = Modifier
+                    .height(36.dp)
+                    .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(
-                    Icons.Rounded.Language,
-                    contentDescription = null,
-                    tint = Color(0xFFE50914),
-                    modifier = Modifier.size(16.dp),
-                )
-                Spacer(Modifier.width(6.dp))
+                FlagImage(languageFlagCode(selected))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     text = selected?.name ?: stringResource(R.string.language_arabic),
-                    color = Color(0xFF1F2937),
+                    color = Color(0xFF374151),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
                 )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    Icons.Rounded.KeyboardArrowDown,
-                    contentDescription = null,
-                    tint = Color(0xFF9CA3AF),
-                    modifier = Modifier.size(16.dp),
-                )
+                Spacer(Modifier.width(8.dp))
+                Canvas(Modifier.size(8.dp, 5.dp)) {
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(0f, 0f)
+                        lineTo(size.width, 0f)
+                        lineTo(size.width / 2f, size.height)
+                        close()
+                    }
+                    drawPath(path, Color(0xFFE50914))
+                }
             }
         }
         DropdownMenu(
@@ -916,6 +915,8 @@ private fun LanguagePicker() {
                 DropdownMenuItem(
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            FlagImage(languageFlagCode(language))
+                            Spacer(Modifier.width(8.dp))
                             Text(
                                 language.name,
                                 color = if (isSelected) Color(0xFFE50914) else Color(0xFF374151),
@@ -947,24 +948,37 @@ private fun LanguagePicker() {
 }
 
 @Composable
-private fun FlagEmoji(code: String?) {
-    val emoji = flagEmoji(code)
-    if (emoji.isEmpty()) return
-    Text(
-        text = emoji,
-        fontFamily = FontFamily.Default,
-        fontSize = 18.sp,
+private fun PhoneSep() {
+    Box(
+        modifier = Modifier
+            .padding(horizontal = 8.dp)
+            .width(1.dp)
+            .height(18.dp)
+            .background(Color(0xFFE5E7EB)),
     )
 }
 
-/** ISO 3166-1 alpha-2 → regional-indicator emoji (e.g. "sa" → 🇸🇦). */
-private fun flagEmoji(code: String?): String {
-    val iso = code?.trim()?.uppercase() ?: return ""
-    if (iso.length != 2 || iso.any { it !in 'A'..'Z' }) return ""
-    val base = 0x1F1E6
-    return buildString {
-        appendCodePoint(base + (iso[0] - 'A'))
-        appendCodePoint(base + (iso[1] - 'A'))
+@Composable
+private fun FlagImage(code: String?) {
+    val iso = code?.trim()?.lowercase().orEmpty()
+    if (iso.length != 2) return
+    AsyncImage(
+        model = "https://flagcdn.com/w40/$iso.png",
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        modifier = Modifier
+            .size(width = 20.dp, height = 15.dp)
+            .clip(RoundedCornerShape(2.dp)),
+    )
+}
+
+private fun languageFlagCode(language: LanguageDto?): String {
+    val fromFlag = language?.flag?.code?.trim()?.lowercase().orEmpty()
+    if (fromFlag.length == 2) return fromFlag
+    return when (language?.code?.lowercase()) {
+        "ar" -> "sa"
+        "en" -> "us"
+        else -> language?.code?.lowercase()?.take(2).orEmpty()
     }
 }
 
