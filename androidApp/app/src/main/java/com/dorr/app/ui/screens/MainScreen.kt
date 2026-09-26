@@ -1,6 +1,15 @@
 package com.dorr.app.ui.screens
 
-import androidx.compose.animation.Crossfade
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -40,6 +49,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -89,11 +100,12 @@ fun MainScreen(
     initialWalletOpen: Boolean = false,
     onStateChanged: (tab: Int, walletOpen: Boolean) -> Unit = { _, _ -> },
 ) {
-    var currentTab by remember(initialTab) { mutableIntStateOf(initialTab) }
-    var walletOpen by remember(initialWalletOpen) { mutableStateOf(initialWalletOpen) }
+    var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
+    var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
 
+    val currentOnStateChanged by rememberUpdatedState(onStateChanged)
     LaunchedEffect(currentTab, walletOpen) {
-        onStateChanged(currentTab, walletOpen)
+        currentOnStateChanged(currentTab, walletOpen)
     }
 
     LaunchedEffect(Unit) {
@@ -123,7 +135,15 @@ fun MainScreen(
         },
     ) { padding ->
         Box(Modifier.padding(padding)) {
-            Crossfade(targetState = currentTab, label = "mainTab") { tab ->
+            AnimatedContent(
+                targetState = currentTab,
+                label = "mainTab",
+                transitionSpec = {
+                    val enter = fadeIn(animationSpec = tween(280, easing = FastOutSlowInEasing))
+                    val exit = fadeOut(animationSpec = tween(220, easing = FastOutSlowInEasing))
+                    ContentTransform(enter, exit, sizeTransform = null)
+                },
+            ) { tab ->
                 when (tab) {
                     0 -> HomeScreen(
                         onOpenAccount = { currentTab = 3 },
@@ -136,7 +156,17 @@ fun MainScreen(
                     else -> PlaceholderScreen()
                 }
             }
-            if (walletOpen) {
+            AnimatedVisibility(
+                visible = walletOpen,
+                enter = slideInVertically(
+                    animationSpec = tween(420, easing = FastOutSlowInEasing),
+                    initialOffsetY = { it },
+                ) + fadeIn(animationSpec = tween(320)),
+                exit = slideOutVertically(
+                    animationSpec = tween(340, easing = FastOutSlowInEasing),
+                    targetOffsetY = { it },
+                ) + fadeOut(animationSpec = tween(260)),
+            ) {
                 WalletScreen(onExit = { walletOpen = false })
             }
         }

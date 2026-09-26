@@ -922,8 +922,8 @@ sendBtn.addEventListener('click', async () => {
   $('.btn-label', sendBtn).hidden = true;
   $('.btn-spinner', sendBtn).hidden = false;
   const result = await authRequest('otp', { dial_code: dialCode, phone: phoneInput.value });
-  $('.btn-label', sendBtn).hidden = false;
-  $('.btn-spinner', sendBtn).hidden = true;
+    $('.btn-label', sendBtn).hidden = false;
+    $('.btn-spinner', sendBtn).hidden = true;
   if (result && (result.status < 200 || result.status >= 300)) {
     const errors = result.json?.errors;
     const first = errors ? Object.values(errors)[0]?.[0] : null;
@@ -931,10 +931,10 @@ sendBtn.addEventListener('click', async () => {
     syncSendEnabled();
     return;
   }
-  $('#otp-phone-target').textContent = `${dialCode} ${phoneInput.value}`;
-  resetOtpBoxes();
-  startOtpTimer();
-  showScreen('otp');
+    $('#otp-phone-target').textContent = `${dialCode} ${phoneInput.value}`;
+    resetOtpBoxes();
+    startOtpTimer();
+    showScreen('otp');
 });
 
 // ===================== OTP (6 individual digit boxes) =====================
@@ -1029,8 +1029,8 @@ async function verifyOtp() {
   $('.btn-label', verifyBtn).hidden = true;
   $('.btn-spinner', verifyBtn).hidden = false;
   const result = await authRequest('verify', { dial_code: dialCode, phone: phoneInput.value, code });
-  $('.btn-label', verifyBtn).hidden = false;
-  $('.btn-spinner', verifyBtn).hidden = true;
+    $('.btn-label', verifyBtn).hidden = false;
+    $('.btn-spinner', verifyBtn).hidden = true;
 
   const token = result?.json?.data?.token;
   const demoFallback = result === null && code === DEV_FIXED_OTP; // backend unreachable
@@ -1038,22 +1038,22 @@ async function verifyOtp() {
     authToken = token || null;
     const name = result?.json?.data?.user?.name;
     if (name) profileState.name = name;
-    otpBoxesEl.classList.add('success');
-    clearInterval(otpTimerInterval);
-    setTimeout(() => {
+      otpBoxesEl.classList.add('success');
+      clearInterval(otpTimerInterval);
+      setTimeout(() => {
       const contact = $('#profile-contact');
       if (contact) contact.textContent = `${dialCode} ${phoneInput.value}`;
       paintProfileSurfaces();
-      showScreen('main');
+        showScreen('main');
       refreshBellBadge();
-      switchTab('home');
+        switchTab('home');
       window.walletOnLogin?.();
-    }, 300);
-  } else {
-    otpBoxesEl.classList.add('error', 'shake');
-    setTimeout(() => otpBoxesEl.classList.remove('shake'), 400);
-    verifyBtn.disabled = false;
-  }
+      }, 300);
+    } else {
+      otpBoxesEl.classList.add('error', 'shake');
+      setTimeout(() => otpBoxesEl.classList.remove('shake'), 400);
+      verifyBtn.disabled = false;
+    }
 }
 
 verifyBtn.addEventListener('click', verifyOtp);
@@ -2442,7 +2442,7 @@ function renderNotifications() {
       const item = notifications.find((n) => String(n.id) === card.dataset.id);
       if (!item) return;
       if (item.unread) {
-        item.unread = false;
+      item.unread = false;
         notifApi(`/${encodeURIComponent(item.id)}/read`, 'POST');
       }
       renderNotifications();
