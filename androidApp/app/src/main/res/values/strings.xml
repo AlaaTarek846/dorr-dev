@@ -93,6 +93,10 @@
     <string name="addr_floor">Floor</string>
     <string name="addr_details_label">Address details</string>
     <string name="addr_details_hint">District, street, and city</string>
+    <string name="addr_details_section">Address details</string>
+    <string name="addr_optional">(Optional)</string>
+    <string name="addr_map">Map</string>
+    <string name="addr_details_error">Enter the address details</string>
     <string name="addr_landmark">Landmark</string>
     <string name="addr_landmark_hint">Near a mosque or shop</string>
     <string name="addr_set_default">Set as default</string>
@@ -116,6 +120,7 @@
     <string name="edit_phone_title">Edit phone number</string>
     <string name="edit_phone_label">Phone number</string>
     <string name="edit_phone_hint">Enter the new number. A confirmation code will be sent, and the change applies after verification.</string>
+    <string name="pd_send_code">Send code</string>
     <string name="toast_valid_phone">Enter a valid phone number</string>
     <string name="edit_email_title">Edit email</string>
     <string name="edit_email_label">Email</string>
@@ -144,8 +149,8 @@
     <string name="account_privacy_sub">How we handle your data</string>
     <string name="account_logout_sub">Leave this device</string>
     <string name="account_delete_sub">Cannot be undone</string>
-    <string name="logout_confirm_message">Are you sure you want to logout?</string>
-    <string name="delete_confirm_message">Your account and all data will be permanently deleted. This action cannot be undone.</string>
+    <string name="logout_confirm_message">Are you sure you want to sign out?</string>
+    <string name="delete_confirm_message">Your account and all data will be permanently deleted. Are you sure?</string>
 
     <string name="common_back">Back</string>
     <string name="common_save">Save</string>
@@ -191,10 +196,13 @@
     <string name="contact_email">Email</string>
 
     <!-- About -->
-    <string name="about_description">A general-purpose service app. This screen, like the rest of the app, is a starter you customize for your business.</string>
+    <string name="about_version">Version 1.0.0</string>
+    <string name="about_description">A general service-management app. This screen, like the rest of the app, is a starting point you can tailor to your business.</string>
 
     <!-- Language -->
     <string name="language_title">Language</string>
+    <string name="language_loading">Loading languages…</string>
+    <string name="privacy_head">Your privacy matters</string>
     <string name="language_arabic">Arabic — العربية</string>
     <string name="language_english">English</string>
 

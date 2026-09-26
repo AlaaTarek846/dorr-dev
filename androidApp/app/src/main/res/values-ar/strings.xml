@@ -82,7 +82,7 @@
     <string name="addr_update">تحديث</string>
     <string name="addr_edit">تعديل</string>
     <string name="addr_delete">حذف</string>
-    <string name="addr_delete_ask">هل تريد مسح هذا العنوان؟</string>
+    <string name="addr_delete_ask">هل تريد المسح</string>
     <string name="addr_yes">نعم</string>
     <string name="addr_home">المنزل</string>
     <string name="addr_work">العمل</string>
@@ -93,6 +93,10 @@
     <string name="addr_floor">الدور</string>
     <string name="addr_details_label">العنوان بالتفصيل</string>
     <string name="addr_details_hint">الحي والشارع والمدينة</string>
+    <string name="addr_details_section">تفاصيل العنوان</string>
+    <string name="addr_optional">(اختياري)</string>
+    <string name="addr_map">الخريطة</string>
+    <string name="addr_details_error">اكتب تفاصيل العنوان</string>
     <string name="addr_landmark">علامة مميزة</string>
     <string name="addr_landmark_hint">بجوار مسجد أو محل</string>
     <string name="addr_set_default">تعيين كافتراضي</string>
@@ -116,6 +120,7 @@
     <string name="edit_phone_title">تعديل رقم الهاتف</string>
     <string name="edit_phone_label">رقم الهاتف</string>
     <string name="edit_phone_hint">اكتب الرقم الجديد. بنرسل كود تأكيد، والتعديل يتم بعد التأكد.</string>
+    <string name="pd_send_code">إرسال الكود</string>
     <string name="toast_valid_phone">اكتب رقم هاتف صحيح</string>
     <string name="edit_email_title">تعديل البريد الإلكتروني</string>
     <string name="edit_email_label">البريد الإلكتروني</string>
@@ -145,7 +150,7 @@
     <string name="account_logout_sub">الخروج من هذا الجهاز</string>
     <string name="account_delete_sub">إجراء لا يمكن التراجع عنه</string>
     <string name="logout_confirm_message">هل أنت متأكد من تسجيل الخروج؟</string>
-    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. هل أنت متأكد؟</string>
 
     <string name="common_back">رجوع</string>
     <string name="common_save">حفظ</string>
@@ -191,10 +196,13 @@
     <string name="contact_email">البريد الإلكتروني</string>
 
     <!-- عن التطبيق -->
+    <string name="about_version">الإصدار 1.0.0</string>
     <string name="about_description">تطبيق عام لإدارة الخدمات. هذه الشاشة، زي باقي التطبيق، نقطة بداية تقدر تخصصها حسب نشاطك.</string>
 
     <!-- اللغة -->
     <string name="language_title">اللغة</string>
+    <string name="language_loading">جاري تحميل اللغات…</string>
+    <string name="privacy_head">خصوصيتك مهمة</string>
     <string name="language_arabic">العربية</string>
     <string name="language_english">English — إنجليزي</string>
 

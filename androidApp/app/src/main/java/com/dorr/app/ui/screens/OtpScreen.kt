@@ -11,6 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -35,12 +36,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -212,75 +211,66 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
                 .padding(top = 10.dp, bottom = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            // Top Bar: Back Button safely below status bar
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 440.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
-                    onClick = onBack,
+                Box(
                     modifier = Modifier
+                        .size(36.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.95f))
-                        .border(1.dp, Color(0xFFE5E7EB), CircleShape)
-                        .size(42.dp),
+                        .clickable(onClick = onBack),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.common_back),
-                        tint = AppColors.textPrimary,
-                        modifier = Modifier.size(20.dp),
+                        tint = Color(0xFF111928),
+                        modifier = Modifier.size(22.dp),
                     )
                 }
+                LanguagePicker()
             }
 
-            // Lower the content gracefully
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(8.dp))
 
-            // Main container restricted to max mobile width
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .widthIn(max = 440.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                // Shield graphic
                 OtpShield(
-                    modifier = Modifier.size(110.dp),
+                    modifier = Modifier.size(118.dp),
                     isError = hasError,
                 )
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(6.dp))
 
-                // Title
                 Text(
                     text = stringResource(R.string.otp_title),
-                    style = MaterialTheme.typography.headlineLarge.copy(
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = Color(0xFF111928),
-                    ),
+                    color = Color(0xFF111928),
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 26.sp,
                     textAlign = TextAlign.Center,
                 )
 
                 Spacer(Modifier.height(8.dp))
 
-                // Subtitle with phone number
                 val formattedPhone = listOf(dialCode, phoneNumber).filter { it.isNotBlank() }.joinToString(" ")
                 Text(
                     text = stringResource(R.string.otp_subtitle, formattedPhone),
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontSize = 14.sp,
-                        lineHeight = 22.sp,
-                    ),
+                    fontSize = 14.sp,
+                    lineHeight = 22.sp,
                     color = Color(0xFF6B7280),
                     textAlign = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                    modifier = Modifier.widthIn(max = 280.dp),
                 )
 
-                Spacer(Modifier.height(36.dp))
+                Spacer(Modifier.height(22.dp))
 
                 // OTP Digits (always LTR, perfectly centered, no clipping)
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -311,52 +301,46 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
                     }
                 }
 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(22.dp))
 
-                // Verify Button (Stays solid red on click with spinner, never disappears)
+                val buttonShape = RoundedCornerShape(999.dp)
                 Button(
                     onClick = ::verify,
                     enabled = canVerify,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = Color(0xFFE50914),
-                        disabledContainerColor = if (isVerifying) Color(0xFFE50914) else Color(0xFFE5E7EB),
+                        disabledContainerColor = Color(0xFFE50914),
                         contentColor = Color.White,
-                        disabledContentColor = if (isVerifying) Color.White else Color(0xFF9CA3AF),
+                        disabledContentColor = Color.White,
                     ),
-                    shape = RoundedCornerShape(16.dp),
+                    shape = buttonShape,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(54.dp)
-                        .then(
-                            if (isComplete && !isVerifying) {
-                                Modifier.shadow(
-                                    elevation = 10.dp,
-                                    shape = RoundedCornerShape(16.dp),
-                                    ambientColor = Color(0x33E50914),
-                                    spotColor = Color(0x55E50914),
-                                )
-                            } else {
-                                Modifier
-                            },
+                        .height(48.dp)
+                        .shadow(
+                            elevation = 8.dp,
+                            shape = buttonShape,
+                            ambientColor = Color(0x38E50914),
+                            spotColor = Color(0x38E50914),
                         ),
                 ) {
                     if (isVerifying) {
                         CircularProgressIndicator(
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(22.dp),
                             strokeWidth = 2.5.dp,
                             color = Color.White,
                         )
                     } else {
                         Text(
                             text = stringResource(R.string.otp_verify),
-                            fontSize = 16.sp,
+                            fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (isComplete) Color.White else Color(0xFF9CA3AF),
+                            color = Color.White,
                         )
                     }
                 }
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(14.dp))
 
                 // Countdown Timer / Resend Action
                 TimerOrResend(
@@ -402,11 +386,10 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
 
                 Spacer(Modifier.height(16.dp))
 
-                // Dev hint if present
                 Text(
                     text = stringResource(R.string.otp_dev_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.warning,
+                    fontSize = 12.sp,
+                    color = Color(0xFFF59E0B),
                     textAlign = TextAlign.Center,
                 )
             }
@@ -421,12 +404,12 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
 @Composable
 private fun OtpBackdrop(modifier: Modifier = Modifier) {
     Canvas(modifier) {
-        drawRect(Color(0xFFFAFAFC))
+        drawRect(Color.White)
 
         fun glow(center: Offset, radius: Float, color: Color) {
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(color, color.copy(alpha = 0.45f), Color.Transparent),
+                    colors = listOf(color, color.copy(alpha = 0.55f), Color.Transparent),
                     center = center,
                     radius = radius,
                 ),
@@ -435,10 +418,9 @@ private fun OtpBackdrop(modifier: Modifier = Modifier) {
             )
         }
 
-        glow(Offset(size.width * 0.15f, size.height * 0.05f), size.width * 0.95f, Color(0xFFFDE8EC))
-        glow(Offset(size.width * 0.85f, size.height * 0.08f), size.width * 0.85f, Color(0xFFFDE2E6))
-        glow(Offset(size.width * 0.5f, size.height * -0.05f), size.width * 1.1f, Color(0xFFFFF0F2))
-        glow(Offset(size.width * 0.9f, size.height * 0.92f), size.width * 0.75f, Color(0xFFFDEBED))
+        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFEFA8B4))
+        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFF3C4CC))
+        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF0B8C2))
     }
 }
 
@@ -455,24 +437,20 @@ private fun DigitBox(
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
 
-    val boxBorderColor = overrideBorderColor ?: if (isFocused) Color(0xFFE50914) else Color(0xFFE5E7EB)
-    val borderWidth = if (isFocused || overrideBorderColor != null) 2.dp else 1.dp
+    val boxBorderColor = overrideBorderColor ?: if (isFocused) Color(0xFFE50914) else Color(0xFFF3C4CC)
 
     Surface(
         modifier = Modifier
-            .width(48.dp)
-            .height(56.dp)
+            .width(44.dp)
+            .height(52.dp)
             .scale(scale.value),
         shape = RoundedCornerShape(14.dp),
         color = if (highlightFill && overrideBorderColor != null) {
-            overrideBorderColor.copy(alpha = 0.08f)
-        } else if (isFocused) {
-            Color.White
+            overrideBorderColor.copy(alpha = 0.05f)
         } else {
-            Color(0xFFFAFAFA)
+            Color.White
         },
-        shadowElevation = if (isFocused) 4.dp else 1.dp,
-        border = androidx.compose.foundation.BorderStroke(borderWidth, boxBorderColor),
+        border = androidx.compose.foundation.BorderStroke(1.5.dp, boxBorderColor),
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -492,9 +470,9 @@ private fun DigitBox(
                 },
                 singleLine = true,
                 textStyle = TextStyle(
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = AppColors.textPrimary,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF111928),
                     textAlign = TextAlign.Center,
                 ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -530,58 +508,23 @@ private fun DigitBox(
 @Composable
 private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Unit) {
     if (canResend) {
-        Button(
-            onClick = onResend,
-            colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = Color(0xFFE50914),
-            ),
-            shape = RoundedCornerShape(12.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE50914).copy(alpha = 0.4f)),
-            modifier = Modifier.height(42.dp),
-        ) {
-            Icon(
-                Icons.Rounded.Refresh,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = stringResource(R.string.otp_resend),
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Bold,
-            )
-        }
+        Text(
+            text = stringResource(R.string.otp_resend),
+            color = Color(0xFFE50914),
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.clickable(onClick = onResend),
+        )
         return
     }
 
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(Color.White.copy(alpha = 0.9f))
-            .border(1.dp, Color(0xFFE5E7EB), RoundedCornerShape(999.dp))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        Box(modifier = Modifier.size(20.dp), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(
-                progress = { countdown / 60f },
-                strokeWidth = 2.5.dp,
-                color = Color(0xFFE50914),
-                trackColor = Color(0xFFF3F4F6),
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-        Spacer(Modifier.width(8.dp))
-        Text(
-            text = stringResource(R.string.otp_resend_in, countdown),
-            style = MaterialTheme.typography.bodySmall.copy(
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium,
-            ),
-            color = AppColors.textSecondary,
-        )
-    }
+    Text(
+        text = stringResource(R.string.otp_resend_in, countdown),
+        fontSize = 12.sp,
+        color = Color(0xFF9CA3AF),
+        textAlign = TextAlign.Center,
+    )
 }
 
 // Decorative OTP shield
@@ -591,15 +534,15 @@ fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false) {
         targetValue = if (isError) AppColors.danger else Color(0xFFE50914),
         animationSpec = tween(600), label = "otpShieldBadge",
     )
-    val ringColor = badgeColor.copy(alpha = 0.2f)
+    val ringColor = badgeColor.copy(alpha = 0.28f)
     Box(
-        modifier = modifier.size(110.dp),
+        modifier = modifier.size(118.dp),
         contentAlignment = Alignment.Center,
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
             drawCircle(color = ringColor, style = Stroke(width = 2.dp.toPx()))
         }
-        Canvas(modifier = Modifier.size(86.dp)) {
+        Canvas(modifier = Modifier.size(92.dp)) {
             val s = size.width / 64f
             val shield = Path().apply {
                 moveTo(32f * s, 6f * s)
