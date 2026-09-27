@@ -6,12 +6,16 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
 /**
- * Backend reached through an ngrok tunnel (HTTPS, works from any network —
- * no adb reverse or Wi-Fi IP needed). The tunnel host is the account's reserved static ngrok domain:
- * it stays the same across restarts — start the tunnel with:
+ * Backend reached over the LAN (phone + PC on the same Wi-Fi) while ngrok is
+ * down on this machine (the agent cannot authenticate: CRL fetch failure, so
+ * it never opens a tunnel). Apache serves the app for this IP via a
+ * ServerAlias, cleartext HTTP is allowed by the manifest.
+ * To go back to ngrok: BASE_HOST = "juncture-calibrate-tingly.ngrok-free.dev",
+ * BASE_URL = "https://$BASE_HOST/api/", and start:
  * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
- * Laravel builds absolute media URLs with, so those get rewritten to the tunnel.
+ * Laravel builds absolute media URLs with, so those get rewritten to the LAN host.
  */
+//private const val BASE_HOST = "192.168.1.4"
 private const val BASE_HOST = "unafraid-occupy-geography.ngrok-free.dev"
 private const val BASE_URL = "https://$BASE_HOST/api/"
 private const val LOCAL_MEDIA_HOST = "dorr.test"
@@ -54,6 +58,7 @@ object ApiClient {
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
+    val addresses: AddressApi by lazy { retrofit.create(AddressApi::class.java) }
 
     /**
      * Media URLs come back absolute for the server's own host (`http://dorr.test/...`),

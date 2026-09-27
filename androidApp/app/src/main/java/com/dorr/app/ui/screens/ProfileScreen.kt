@@ -108,6 +108,7 @@ import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 
+
 private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, ADDRESSES, SETTINGS }
 
 private data class MenuEntry(
@@ -118,6 +119,7 @@ private data class MenuEntry(
     val trailing: (@Composable () -> Unit)? = null,
     val onClick: () -> Unit = {},
 )
+
 
 @Composable
 fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
