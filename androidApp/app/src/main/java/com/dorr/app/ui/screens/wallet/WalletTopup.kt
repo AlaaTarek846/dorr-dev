@@ -303,7 +303,7 @@ private fun MethodCard(method: PaymentMethodDto, selected: Boolean, onClick: () 
             .alpha(if (soon) 0.72f else 1f)
             .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x0D111928), spotColor = Color(0x14111928))
             .clip(RoundedCornerShape(20.dp))
-            .background(if (selected) Color(0xFFFFF6F7) else if (soon) Color(0xFFF7F8FA) else Color.White)
+            .background(if (selected) (if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFFF6F7)) else if (soon) (if (walletNight()) Wa.Surface else Color(0xFFF7F8FA)) else Wa.Surface)
             .border(2.dp, if (selected) Wa.Red else Color.Transparent, RoundedCornerShape(20.dp))
             .clickable(interactionSource = source, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
@@ -325,7 +325,7 @@ private fun MethodCard(method: PaymentMethodDto, selected: Boolean, onClick: () 
             )
         } else {
             Box(
-                Modifier.size(24.dp).clip(CircleShape).background(if (selected) Wa.Red else Color.Transparent).border(2.dp, if (selected) Wa.Red else Color(0xFFD1D5DB), CircleShape),
+                Modifier.size(24.dp).clip(CircleShape).background(if (selected) Wa.Red else Color.Transparent).border(2.dp, if (selected) Wa.Red else if (walletNight()) Wa.Line else Color(0xFFD1D5DB), CircleShape),
                 contentAlignment = Alignment.Center,
             ) { if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
         }
@@ -338,7 +338,13 @@ private fun QuoteRow(icon: ImageVector, label: String, value: String, total: Boo
         Modifier
             .fillMaxWidth()
             .padding(top = if (total) 6.dp else 0.dp)
-            .let { if (total) it.clip(RoundedCornerShape(16.dp)).background(Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6)))).padding(12.dp) else it.padding(vertical = 7.dp) },
+            .let {
+                if (!total) it.padding(vertical = 7.dp)
+                else it.clip(RoundedCornerShape(16.dp)).background(
+                    if (walletNight()) Brush.linearGradient(listOf(com.dorr.app.ui.screens.AccountDark.well, com.dorr.app.ui.screens.AccountDark.card))
+                    else Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6))),
+                ).padding(12.dp)
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -452,10 +458,10 @@ private fun OtpField(value: String, onChange: (String) -> Unit) {
             modifier = Modifier.fillMaxWidth(0.8f),
             decorationBox = { inner ->
                 Box(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White).border(2.dp, if (value.isEmpty()) Wa.Line else Wa.Red, RoundedCornerShape(16.dp)).padding(14.dp),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Wa.Surface).border(2.dp, if (value.isEmpty()) Wa.Line else Wa.Red, RoundedCornerShape(16.dp)).padding(14.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    if (value.isEmpty()) Text("••••••", fontSize = 26.sp, color = Color(0xFFD1D5DB), letterSpacing = 10.sp)
+                    if (value.isEmpty()) Text("••••••", fontSize = 26.sp, color = if (walletNight()) Wa.Soft else Color(0xFFD1D5DB), letterSpacing = 10.sp)
                     inner()
                 }
             },
@@ -470,7 +476,7 @@ private fun GatewayLayer(url: String?, onClose: () -> Unit) {
     var last by remember { mutableStateOf("") }
     if (url != null) last = url
     AnimatedVisibility(visible = url != null, enter = slideInVertically(tween(380)) { it } + fadeIn(tween(200))) {
-        Column(Modifier.fillMaxSize().background(Color.White)) {
+        Column(Modifier.fillMaxSize().background(Wa.Bg)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Rounded.Lock, null, tint = Wa.Ink, modifier = Modifier.size(16.dp))

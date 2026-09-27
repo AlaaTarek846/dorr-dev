@@ -12,6 +12,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -214,7 +215,8 @@ private fun HomeAction(icon: ImageVector, tone: Tone, label: String, index: Int,
             .scale(scale)
             .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x14111928), spotColor = Color(0x1F111928))
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(Wa.Surface)
+            .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, RoundedCornerShape(20.dp)) else Modifier)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
             .padding(top = 13.dp, bottom = 11.dp, start = 4.dp, end = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -342,7 +344,8 @@ private fun MyNumberCard(balance: WalletBalanceDto, host: WalletHost) {
             .waRise(1)
             .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x0D111928), spotColor = Color(0x14111928))
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(Wa.Surface)
+            .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, RoundedCornerShape(20.dp)) else Modifier)
             .padding(horizontal = 14.dp, vertical = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -369,7 +372,7 @@ private fun MyNumberCard(balance: WalletBalanceDto, host: WalletHost) {
                     host.showToast(copiedText)
                 },
                 tint = if (copied) Color.White else Wa.Ink,
-                background = if (copied) Wa.Green else Color.White,
+                background = if (copied) Wa.Green else Wa.Surface,
             )
         }
         Text(
@@ -422,7 +425,7 @@ internal fun WaTxRow(tx: WalletTransactionDto, host: WalletHost, withDay: Boolea
                     Text(
                         stringResource(R.string.wa_services_only_badge),
                         color = Wa.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFFDE8EC)).padding(horizontal = 7.dp, vertical = 2.dp),
+                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFDE8EC)).padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                 }
             }

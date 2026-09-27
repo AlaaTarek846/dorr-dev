@@ -127,7 +127,7 @@ private fun WaToastHost(host: WalletHost) {
             exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
         ) {
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Ink).padding(horizontal = 18.dp, vertical = 11.dp),
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF111928)).padding(horizontal = 18.dp, vertical = 11.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

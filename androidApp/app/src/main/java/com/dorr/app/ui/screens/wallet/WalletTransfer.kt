@@ -315,7 +315,7 @@ private fun Segmented(options: List<Pair<String, androidx.compose.ui.graphics.ve
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFECEEF2))
+            .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFECEEF2))
             .padding(4.dp),
     ) {
         val tabWidth = maxWidth / options.size
@@ -328,7 +328,7 @@ private fun Segmented(options: List<Pair<String, androidx.compose.ui.graphics.ve
                 .graphicsLayer { translationX = (if (rtl) -1 else 1) * fraction * tabPx }
                 .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x1A111928), spotColor = Color(0x26111928))
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White),
+                .background(Wa.Surface),
         )
         Row(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (label, icon) ->
@@ -385,7 +385,7 @@ private fun InputCard(
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(RoundedCornerShape(15.dp))
-                    .background(if (focused) Color.White else Wa.Field)
+                    .background(if (focused) Wa.Surface else Wa.Field)
                     .border(2.dp, border, RoundedCornerShape(15.dp))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -414,7 +414,7 @@ private fun InputCard(
                     modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (value.isEmpty()) Text(placeholder, color = Color(0xFFD1D5DB), fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)
+                            if (value.isEmpty()) Text(placeholder, color = if (walletNight()) Wa.Soft else Color(0xFFD1D5DB), fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)
                             inner()
                         }
                     },
@@ -437,7 +437,7 @@ private fun InputCard(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFFEE2E2).copy(alpha = 0.85f))
+                        .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
                         .padding(horizontal = 12.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,

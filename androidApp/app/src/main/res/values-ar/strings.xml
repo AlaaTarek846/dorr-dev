@@ -154,7 +154,14 @@
     <string name="toast_email_updated">تم تحديث البريد الإلكتروني</string>
     <string name="addr_default">افتراضي</string>
     <string name="addr_empty">لا توجد عناوين مطابقة</string>
-    <string name="addr_none">أضف عنوانك الأول</string>
+    <string name="addr_empty_sub">لم نتمكن من العثور على أي عنوان يطابق بحثك الحالى.</string>
+    <string name="addr_none">لا توجد عناوين محفوظة بعد</string>
+    <string name="addr_none_sub">احفظ أماكنك المفضلة (المنزل، العمل، وغيرها) لتوصيل أسرع وأسهل لطلباتك.</string>
+    <string name="addr_clear_search">مسح البحث</string>
+    <string name="addr_toast_saved">تم حفظ العنوان</string>
+    <string name="addr_toast_updated">تم تحديث العنوان</string>
+    <string name="addr_toast_deleted">تم حذف العنوان</string>
+    <string name="addr_toast_default">تم تحديث العنوان الافتراضي</string>
     <string name="account_personal_data_sub">الاسم والهاتف والبريد</string>
     <string name="account_notifications_sub">التحكم في التنبيهات</string>
     <string name="account_wallet_pin_sub">إدارة الرقم السري للمحفظة</string>

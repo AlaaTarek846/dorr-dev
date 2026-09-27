@@ -86,6 +86,7 @@ fun WaPinPad(
     modifier: Modifier = Modifier,
     icon: ImageVector = Icons.Rounded.Lock,
     tone: Tone = Tone.Red,
+    dark: Boolean = false,
 ) {
     var value by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
@@ -94,6 +95,7 @@ fun WaPinPad(
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val night = dark || walletNight()
 
     fun complete(pin: String) {
         scope.launch {
@@ -142,17 +144,21 @@ fun WaPinPad(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp)
-                .shadow(12.dp, cardShape, ambientColor = Color(0x1AE50914), spotColor = Color(0x24E50914))
+                .then(
+                    if (night) Modifier
+                    else Modifier.shadow(12.dp, cardShape, ambientColor = Color(0x1AE50914), spotColor = Color(0x24E50914)),
+                )
                 .clip(cardShape)
-                .background(Color.White)
+                .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Color.White)
+                .then(if (night) Modifier.border(1.dp, com.dorr.app.ui.screens.AccountDark.line, cardShape) else Modifier)
                 .padding(horizontal = 16.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             WaIconWell(icon, tone, size = 58.dp, iconSize = 28.dp)
             Spacer(Modifier.height(10.dp))
-            Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Wa.Ink, textAlign = TextAlign.Center)
+            Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (night) com.dorr.app.ui.screens.AccountDark.ink else Wa.Ink, textAlign = TextAlign.Center)
             Spacer(Modifier.height(4.dp))
-            Text(sub, color = Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
+            Text(sub, color = if (night) com.dorr.app.ui.screens.AccountDark.mut else Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
             Row(
                 Modifier.padding(top = 16.dp).graphicsLayer { translationX = shake.value * 6.dp.toPx() },
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
@@ -167,7 +173,7 @@ fun WaPinPad(
                             .scale(dotScale)
                             .clip(CircleShape)
                             .background(fill)
-                            .border(2.dp, if (on) fill else Color(0xFFD1D5DB), CircleShape),
+                            .border(2.dp, if (on) fill else if (night) com.dorr.app.ui.screens.AccountDark.line else Color(0xFFD1D5DB), CircleShape),
                     )
                 }
             }
@@ -193,7 +199,7 @@ fun WaPinPad(
                     ) {
                         row.forEach { key ->
                             Box(Modifier.weight(1f).fillMaxHeight()) {
-                                if (key.isNotEmpty()) PadKey(key, Modifier.fillMaxSize()) { press(key) }
+                                if (key.isNotEmpty()) PadKey(key, Modifier.fillMaxSize(), night) { press(key) }
                             }
                         }
                     }
@@ -204,7 +210,7 @@ fun WaPinPad(
 }
 
 @Composable
-private fun PadKey(key: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun PadKey(key: String, modifier: Modifier = Modifier, dark: Boolean = false, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val pressScale by rememberPressScale(source, 0.9f)
     val isDelete = key == "del"
@@ -213,16 +219,17 @@ private fun PadKey(key: String, modifier: Modifier = Modifier, onClick: () -> Un
         modifier
             .scale(pressScale)
             .then(
-                if (isDelete) Modifier
+                if (isDelete || dark) Modifier
                 else Modifier.shadow(6.dp, keyShape, ambientColor = Color(0x14E50914), spotColor = Color(0x1AE50914)),
             )
             .clip(keyShape)
-            .background(if (isDelete) Color.Transparent else Color.White)
+            .background(if (isDelete) Color.Transparent else if (dark) com.dorr.app.ui.screens.AccountDark.card else Color.White)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (isDelete) Icon(Icons.AutoMirrored.Rounded.Backspace, null, tint = Wa.Ink, modifier = Modifier.size(24.dp))
-        else Text(key, fontSize = 23.sp, fontWeight = FontWeight.Bold, color = Wa.Ink)
+        val ink = if (dark) com.dorr.app.ui.screens.AccountDark.ink else Wa.Ink
+        if (isDelete) Icon(Icons.AutoMirrored.Rounded.Backspace, null, tint = ink, modifier = Modifier.size(24.dp))
+        else Text(key, fontSize = 23.sp, fontWeight = FontWeight.Bold, color = ink)
     }
 }
 

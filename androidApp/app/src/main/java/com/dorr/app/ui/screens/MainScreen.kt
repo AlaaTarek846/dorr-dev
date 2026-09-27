@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -44,6 +45,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
+import com.dorr.app.ui.theme.LocalThemeState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -120,9 +122,9 @@ fun MainScreen(
         }
     }
 
-    val accountDark = currentTab == 3 && !walletOpen
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     Scaffold(
-        containerColor = if (accountDark) AccountDark.bg else MaterialTheme.colorScheme.background,
+        containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
             DorrBottomNavigationBar(
                 currentTab = currentTab,
@@ -186,7 +188,8 @@ private fun DorrBottomNavigationBar(
 ) {
     val barHeight = 64.dp
     val fabSize = 54.dp
-    val accountDark = currentTab == 3 && !walletOpen
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val accountDark = night
     val barColor = if (accountDark) AccountDark.bg else Color.White
     val ringColor = if (accountDark) AccountDark.bg else Color.White
 
