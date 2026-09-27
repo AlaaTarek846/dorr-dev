@@ -3,6 +3,16 @@
     <string name="app_name">Dorr</string>
     <string name="app_tagline">Powered by Dorr</string>
 
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get started</string>
+    <string name="onboarding_services_title">Services in one place</string>
+    <string name="onboarding_services_body">Browse services and request what you need.</string>
+    <string name="onboarding_wallet_title">Your wallet</string>
+    <string name="onboarding_wallet_body">Top up, pay, and follow your balance.</string>
+    <string name="onboarding_account_title">Your account</string>
+    <string name="onboarding_account_body">Keep your details, addresses, and preferences.</string>
+
     <string name="login_title">Sign In</string>
     <string name="login_subtitle">Enter your phone number and we\'ll send a verification code</string>
     <string name="login_hint">6000 0000</string>
@@ -10,10 +20,16 @@
     <string name="login_country_code">Country code</string>
     <string name="login_country_search">Search country</string>
     <string name="login_terms">By signing in you agree to the Terms of Use and Privacy Policy</string>
+    <string name="login_terms_prefix">By signing in you agree to the </string>
+    <string name="login_terms_use">Terms of Use</string>
+    <string name="login_terms_mid"> and </string>
+    <string name="login_terms_privacy">Privacy Policy</string>
     <string name="login_error_phone_invalid_length">The phone number must be %1$d digits.</string>
     <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
     <string name="login_error_phone_invalid_country">The selected country or dial code is invalid.</string>
     <string name="login_error_generic">Something went wrong. Please try again.</string>
+    <string name="session_expired_title">Session Expired</string>
+    <string name="session_expired_message">Your session has expired. Please sign in again to continue.</string>
 
     <string name="otp_title">Verify your phone</string>
     <string name="otp_subtitle">Enter the code sent to %1$s</string>
@@ -91,10 +107,16 @@
     <string name="addr_floor">Floor</string>
     <string name="addr_details_label">Address details</string>
     <string name="addr_details_hint">District, street, and city</string>
+    <string name="addr_details_section">Address details</string>
+    <string name="addr_optional">(Optional)</string>
+    <string name="addr_map">Map</string>
+    <string name="addr_details_error">Enter the address details</string>
     <string name="addr_landmark">Landmark</string>
     <string name="addr_landmark_hint">Near a mosque or shop</string>
     <string name="addr_set_default">Set as default</string>
+    <string name="pd_change_photo">Change photo</string>
     <string name="pd_name">Name</string>
+    <string name="pd_name_more">You can edit more details later</string>
     <string name="pd_gender">Gender</string>
     <string name="pd_phone">Phone number</string>
     <string name="pd_email">Email</string>
@@ -107,6 +129,7 @@
     <string name="edit_name_hint">Type the name as it appears on your account.</string>
     <string name="toast_enter_name">Enter a name</string>
     <string name="toast_name_updated">Name updated</string>
+    <string name="toast_profile_updated">Details saved</string>
     <string name="edit_gender_title">Edit gender</string>
     <string name="edit_gender_hint">Choose a gender then save.</string>
     <string name="toast_pick_gender">Choose a gender</string>
@@ -114,6 +137,7 @@
     <string name="edit_phone_title">Edit phone number</string>
     <string name="edit_phone_label">Phone number</string>
     <string name="edit_phone_hint">Enter the new number. A confirmation code will be sent, and the change applies after verification.</string>
+    <string name="pd_send_code">Send code</string>
     <string name="toast_valid_phone">Enter a valid phone number</string>
     <string name="edit_email_title">Edit email</string>
     <string name="edit_email_label">Email</string>
@@ -142,8 +166,8 @@
     <string name="account_privacy_sub">How we handle your data</string>
     <string name="account_logout_sub">Leave this device</string>
     <string name="account_delete_sub">Cannot be undone</string>
-    <string name="logout_confirm_message">Are you sure you want to logout?</string>
-    <string name="delete_confirm_message">Your account and all data will be permanently deleted. This action cannot be undone.</string>
+    <string name="logout_confirm_message">Are you sure you want to sign out?</string>
+    <string name="delete_confirm_message">Your account and all data will be permanently deleted. Are you sure?</string>
 
     <string name="common_back">Back</string>
     <string name="common_save">Save</string>
@@ -189,10 +213,13 @@
     <string name="contact_email">Email</string>
 
     <!-- About -->
-    <string name="about_description">A general-purpose service app. This screen, like the rest of the app, is a starter you customize for your business.</string>
+    <string name="about_version">Version 1.0.0</string>
+    <string name="about_description">A general service-management app. This screen, like the rest of the app, is a starting point you can tailor to your business.</string>
 
     <!-- Language -->
     <string name="language_title">Language</string>
+    <string name="language_loading">Loading languages…</string>
+    <string name="privacy_head">Your privacy matters</string>
     <string name="language_arabic">Arabic — العربية</string>
     <string name="language_english">English</string>
 

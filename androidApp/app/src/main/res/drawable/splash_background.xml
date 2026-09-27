@@ -1,7 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The window behind the very first frame, before Compose draws anything. It is the same soft pink
-     wash on white as the login / account screens (not a brand-colour block), so the launch flows
-     straight into the app without a jarring colour change. -->
+<!-- Same pink wash as the login screen, so the system splash does not flash teal. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
@@ -11,11 +9,34 @@
     <item>
         <shape android:shape="rectangle">
             <gradient
-                android:angle="270"
+                android:type="radial"
+                android:gradientRadius="520dp"
+                android:centerX="0"
+                android:centerY="0"
+                android:startColor="#EFA8B4"
+                android:endColor="#00EFA8B4" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="440dp"
+                android:centerX="0.5"
+                android:centerY="0"
                 android:startColor="#F3C4CC"
-                android:centerColor="#F8DDE2"
-                android:centerY="0.22"
-                android:endColor="#00FFFFFF" />
+                android:endColor="#00F3C4CC" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="360dp"
+                android:centerX="1"
+                android:centerY="0"
+                android:startColor="#F0B8C2"
+                android:endColor="#00F0B8C2" />
         </shape>
     </item>
 </layer-list>

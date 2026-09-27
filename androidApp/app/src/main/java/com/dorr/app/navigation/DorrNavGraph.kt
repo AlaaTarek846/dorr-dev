@@ -2,11 +2,15 @@ package com.dorr.app.navigation
 
 import android.os.Handler
 import android.os.Looper
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -17,9 +21,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.OnboardingStore
 import com.dorr.app.ui.screens.LoginScreen
 import com.dorr.app.ui.screens.MainScreen
 import com.dorr.app.ui.screens.NotificationsScreen
+import com.dorr.app.ui.screens.OnboardingScreen
 import com.dorr.app.ui.screens.OtpScreen
 import com.dorr.app.ui.screens.ServicesScreen
 import com.dorr.app.ui.screens.SplashScreen
@@ -27,6 +33,7 @@ import kotlinx.coroutines.launch
 
 object Routes {
     const val SPLASH = "splash"
+    const val ONBOARDING = "onboarding"
     const val LOGIN = "login"
     const val OTP = "otp"
     const val MAIN = "main"
@@ -34,12 +41,31 @@ object Routes {
     const val SERVICES = "services"
 }
 
+/** Where Splash goes once its animation finishes. */
+internal fun routeAfterSplash(onboardingCompleted: Boolean, authenticated: Boolean): String =
+    when {
+        !onboardingCompleted -> Routes.ONBOARDING
+        authenticated -> Routes.MAIN
+        else -> Routes.LOGIN
+    }
+
+/** Where onboarding goes after Skip or the last step. */
+internal fun routeAfterOnboarding(authenticated: Boolean): String =
+    if (authenticated) Routes.MAIN else Routes.LOGIN
+
 @Composable
 fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     // Held here (not as a nav argument) so the phone number never has to
     // round-trip through URL encoding on its way to the OTP screen.
     var pendingDialCode by remember { mutableStateOf("") }
     var pendingPhone by remember { mutableStateOf("") }
+    var sessionExpiredNotice by remember { mutableStateOf(false) }
+
+    // Preserve the page the user was on before being kicked out by 401
+    var targetRouteAfterLogin by remember { mutableStateOf<String?>(null) }
+    var lastMainTab by remember { mutableIntStateOf(0) }
+    var lastWalletOpen by remember { mutableStateOf(false) }
+
     val scope = rememberCoroutineScope()
 
     // A 401 on any authenticated request (expired/revoked token) is detected
@@ -49,9 +75,14 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     DisposableEffect(Unit) {
         AuthSession.onUnauthorized = {
             Handler(Looper.getMainLooper()).post {
-                if (navController.currentDestination?.route != Routes.LOGIN) {
+                sessionExpiredNotice = true
+                val currentRoute = navController.currentDestination?.route
+                if (currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.SPLASH && currentRoute != Routes.OTP && currentRoute != Routes.ONBOARDING) {
+                    targetRouteAfterLogin = currentRoute
+                }
+                if (currentRoute != Routes.LOGIN) {
                     navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.MAIN) { inclusive = true }
+                        popUpTo(0) { inclusive = true }
                     }
                 }
             }
@@ -62,6 +93,10 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     fun logout() {
         val token = AuthSession.token
         AuthSession.clear()
+        targetRouteAfterLogin = null
+        lastMainTab = 0
+        lastWalletOpen = false
+        sessionExpiredNotice = false
         if (!token.isNullOrBlank()) {
             scope.launch {
                 runCatching {
@@ -70,31 +105,70 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             }
         }
         navController.navigate(Routes.LOGIN) {
-            popUpTo(Routes.MAIN) { inclusive = true }
+            popUpTo(0) { inclusive = true }
         }
     }
 
     NavHost(
         navController = navController,
         startDestination = Routes.SPLASH,
-        enterTransition = { fadeIn() },
-        exitTransition = { fadeOut() },
+        enterTransition = {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(340, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        exitTransition = {
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.Start,
+                animationSpec = tween(320, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(240))
+        },
+        popEnterTransition = {
+            slideIntoContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(340, easing = FastOutSlowInEasing),
+            ) + fadeIn(animationSpec = tween(280))
+        },
+        popExitTransition = {
+            slideOutOfContainer(
+                towards = AnimatedContentTransitionScope.SlideDirection.End,
+                animationSpec = tween(320, easing = FastOutSlowInEasing),
+            ) + fadeOut(animationSpec = tween(240))
+        },
     ) {
-        composable(Routes.SPLASH) {
+        composable(
+            route = Routes.SPLASH,
+            exitTransition = { fadeOut(animationSpec = tween(400)) },
+        ) {
             SplashScreen(
                 onFinished = {
-                    // A persisted session (restored in DorrApp.onCreate) skips
-                    // the auth flow and lands directly on Main.
-                    val destination = if (AuthSession.isAuthenticated) Routes.MAIN else Routes.LOGIN
+                    val destination = routeAfterSplash(
+                        onboardingCompleted = OnboardingStore.isCompleted,
+                        authenticated = AuthSession.isAuthenticated,
+                    )
                     navController.navigate(destination) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
                     }
                 },
             )
         }
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(
+                onFinished = {
+                    OnboardingStore.markCompleted()
+                    navController.navigate(routeAfterOnboarding(AuthSession.isAuthenticated)) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                },
+            )
+        }
         composable(Routes.LOGIN) {
             LoginScreen(
+                sessionExpiredNotice = sessionExpiredNotice,
+                onDismissSessionExpired = { sessionExpiredNotice = false },
                 onOtpRequested = { dialCode, phone ->
+                    sessionExpiredNotice = false
                     pendingDialCode = dialCode
                     pendingPhone = phone
                     navController.navigate(Routes.OTP)
@@ -107,14 +181,26 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
                 phoneNumber = pendingPhone,
                 onBack = { navController.popBackStack() },
                 onVerified = {
+                    val returnDestination = targetRouteAfterLogin
+                    targetRouteAfterLogin = null
                     navController.navigate(Routes.MAIN) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
+                    }
+                    // If the user was on another screen (e.g. Notifications or Services), navigate to it
+                    if (returnDestination != null && returnDestination != Routes.MAIN) {
+                        navController.navigate(returnDestination)
                     }
                 },
             )
         }
         composable(Routes.MAIN) {
             MainScreen(
+                initialTab = lastMainTab,
+                initialWalletOpen = lastWalletOpen,
+                onStateChanged = { tab, wallet ->
+                    lastMainTab = tab
+                    lastWalletOpen = wallet
+                },
                 onLogout = { logout() },
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                 onOpenServices = { navController.navigate(Routes.SERVICES) },

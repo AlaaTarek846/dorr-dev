@@ -1,8 +1,13 @@
 package com.dorr.app.ui.screens.wallet
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -28,6 +33,7 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -50,6 +56,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -60,6 +67,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.TransferLookupRequest
@@ -136,8 +144,31 @@ fun WalletTransfer() {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val national = nationalPhone(phoneRaw, balance?.dialCode, balance?.phoneLength)
-    val phoneOk = phoneState(national, balance?.phoneLength, balance?.phoneStartsWith)
+    val dialCode = balance?.dialCode?.takeIf { it.isNotBlank() } ?: "+966"
+    val countryCode = balance?.countryCode?.lowercase() ?: "sa"
+    val phoneLength = balance?.phoneLength ?: 9
+    val phoneStartsWith = balance?.phoneStartsWith.orEmpty().ifBlank { "5" }
+
+    val isPhoneValid = phoneRaw.length == phoneLength && (phoneStartsWith.isEmpty() || phoneRaw.startsWith(phoneStartsWith))
+    val phoneError: String? = when {
+        phoneRaw.isEmpty() -> null
+        phoneRaw.length != phoneLength ->
+            stringResource(R.string.login_error_phone_invalid_length, phoneLength)
+        phoneStartsWith.isNotEmpty() && !phoneRaw.startsWith(phoneStartsWith) ->
+            stringResource(R.string.login_error_phone_invalid_start, phoneStartsWith)
+        else -> null
+    }
+
+    val phonePlaceholder = phoneStartsWith + "*".repeat(
+        if (phoneLength > phoneStartsWith.length) phoneLength - phoneStartsWith.length else 0,
+    )
+    val phoneOk = when {
+        phoneRaw.isEmpty() -> FieldState.Empty
+        phoneError != null -> FieldState.Bad
+        isPhoneValid -> FieldState.Ok
+        else -> FieldState.Typing
+    }
+
     val walletDigits = asciiDigits(walletRaw).take(11)
     val walletOk = when {
         walletDigits.isEmpty() -> FieldState.Empty
@@ -145,13 +176,13 @@ fun WalletTransfer() {
         isValidWalletNumber(walletDigits) -> FieldState.Ok
         else -> FieldState.Bad
     }
-    val ready = if (mode == TransferMode.PHONE) phoneOk == FieldState.Ok else walletOk == FieldState.Ok
+    val ready = if (mode == TransferMode.PHONE) isPhoneValid else walletOk == FieldState.Ok
 
     val phoneHint = buildString {
         append(stringResource(R.string.wa_phone_hint_country, country))
         val parts = listOfNotNull(
-            balance?.phoneLength?.let { stringResource(R.string.wa_phone_digits, it) },
-            balance?.phoneStartsWith?.takeIf { it.isNotBlank() }?.let { stringResource(R.string.wa_phone_starts, it) },
+            stringResource(R.string.wa_phone_digits, phoneLength),
+            phoneStartsWith.takeIf { it.isNotBlank() }?.let { stringResource(R.string.wa_phone_starts, it) },
         )
         if (parts.isNotEmpty()) append(": ").append(parts.joinToString(" "))
     }
@@ -167,7 +198,7 @@ fun WalletTransfer() {
                     busy = true
                     scope.launch {
                         try {
-                            val request = if (mode == TransferMode.PHONE) TransferLookupRequest("phone", phone = national)
+                            val request = if (mode == TransferMode.PHONE) TransferLookupRequest("phone", phone = phoneRaw)
                             else TransferLookupRequest("wallet", walletNumber = walletDigits)
                             val who = ApiClient.wallet.transferLookup(walletAuth(), request).data
                             if (who != null) host.push(WaRoute.TransferConfirm(who)) else error = networkError
@@ -217,14 +248,16 @@ fun WalletTransfer() {
         if (mode == TransferMode.PHONE) {
             InputCard(
                 label = stringResource(R.string.wa_recipient_phone),
-                prefix = balance?.dialCode.orEmpty(),
+                prefix = dialCode,
                 prefixIcon = Icons.Rounded.Phone,
                 value = phoneRaw,
-                onChange = { phoneRaw = it.take(20) },
-                placeholder = balance?.phoneStartsWith?.let { it + "X".repeat(((balance.phoneLength ?: 9) - it.length).coerceAtLeast(0)) } ?: "5XXXXXXXX",
+                onChange = { phoneRaw = asciiDigits(it).take(phoneLength) },
+                placeholder = phonePlaceholder,
                 state = phoneOk,
-                hint = if (phoneOk == FieldState.Bad) phoneHint + " — " + stringResource(R.string.wa_phone_mismatch) else phoneHint,
+                hint = phoneHint,
                 keyboard = KeyboardType.Phone,
+                flagCode = countryCode,
+                errorMessage = phoneError,
                 modifier = Modifier.waRise(2),
             )
         } else {
@@ -329,13 +362,16 @@ private fun InputCard(
     state: FieldState,
     hint: String,
     keyboard: KeyboardType,
+    flagCode: String? = null,
+    errorMessage: String? = null,
     modifier: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val isError = errorMessage != null || state == FieldState.Bad
     val border by animateColorAsState(
         when {
             state == FieldState.Ok -> Wa.Green
-            state == FieldState.Bad -> Wa.Danger
+            isError -> Wa.Danger
             focused -> Color(0x73E50914)
             else -> Color.Transparent
         },
@@ -353,33 +389,79 @@ private fun InputCard(
                     .border(2.dp, border, RoundedCornerShape(15.dp))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Icon(prefixIcon, null, tint = Wa.Soft, modifier = Modifier.size(16.dp))
+                if (!flagCode.isNullOrBlank()) {
+                    AsyncImage(
+                        model = "https://flagcdn.com/w40/${flagCode.lowercase()}.png",
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .size(width = 20.dp, height = 15.dp)
+                            .clip(RoundedCornerShape(2.dp)),
+                    )
+                }
                 if (!prefix.isNullOrEmpty()) {
-                    Text(prefix, color = Wa.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text(prefix, color = Wa.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                     Box(Modifier.width(1.dp).fillMaxHeight(0.5f).background(Wa.Line))
                 }
                 BasicTextField(
                     value = value, onValueChange = onChange, singleLine = true,
-                    textStyle = TextStyle(fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Wa.Ink),
+                    textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, letterSpacing = 0.5.sp),
                     keyboardOptions = KeyboardOptions(keyboardType = keyboard),
                     cursorBrush = SolidColor(Wa.Red),
                     modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (value.isEmpty()) Text(placeholder, color = Color(0xFFD1D5DB), fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                            if (value.isEmpty()) Text(placeholder, color = Color(0xFFD1D5DB), fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)
                             inner()
                         }
                     },
                 )
-                when (state) {
-                    FieldState.Ok -> Box(Modifier.size(22.dp).clip(CircleShape).background(Wa.Green), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
-                    FieldState.Bad -> Box(Modifier.size(22.dp).clip(CircleShape).background(Wa.Danger), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
+                when {
+                    state == FieldState.Ok -> Box(Modifier.size(22.dp).clip(CircleShape).background(Wa.Green), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
+                    isError -> Box(Modifier.size(22.dp).clip(CircleShape).background(Wa.Danger), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Close, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
                     else -> Unit
                 }
             }
         }
-        Text(hint, color = if (state == FieldState.Bad) Wa.Danger else Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
+        AnimatedVisibility(
+            visible = errorMessage != null,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            errorMessage?.let { message ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(Color(0xFFFEE2E2).copy(alpha = 0.85f))
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Icon(
+                        Icons.Rounded.ErrorOutline,
+                        contentDescription = null,
+                        tint = Wa.Danger,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        text = message,
+                        color = Wa.Danger,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+        if (errorMessage == null) {
+            Text(hint, color = if (state == FieldState.Bad) Wa.Danger else Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
+        }
     }
 }
+

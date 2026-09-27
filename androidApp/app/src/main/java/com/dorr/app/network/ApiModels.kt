@@ -78,6 +78,7 @@ data class LanguageDto(
     val code: String,
     val name: String,
     val direction: String,
+    val flag: FlagDto? = null,
 )
 
 data class OtpRequest(

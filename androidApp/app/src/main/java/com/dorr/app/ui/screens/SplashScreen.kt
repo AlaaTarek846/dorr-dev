@@ -3,11 +3,9 @@ package com.dorr.app.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -16,10 +14,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -83,15 +78,28 @@ fun SplashScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(3f))
-            // The real Dorr logo (mark + wordmark) — it rises into place while everything fades in.
-            DorrLogo(
-                width = 230.dp,
-                modifier = Modifier.graphicsLayer {
-                    translationY = (1f - rise.value) * 140.dp.toPx()
-                    alpha = rise.value
-                },
+            Box(
+                modifier = Modifier
+                    .size(104.dp)
+                    .shadow(10.dp, RoundedCornerShape(22.dp))
+                    .background(Color.White, RoundedCornerShape(22.dp))
+                    .padding(8.dp)
+                    .graphicsLayer {
+                        translationY = (1f - rise.value) * 140.dp.toPx()
+                        alpha = rise.value
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                DorrLogo(width = 88.dp)
+            }
+            Spacer(Modifier.height(24.dp))
+            Text(
+                text = stringResource(R.string.app_name),
+                color = AppColors.waRed,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(12.dp))
             CircularProgressIndicator(
                 color = AppColors.waRed,
                 trackColor = AppColors.waRed.copy(alpha = 0.18f),

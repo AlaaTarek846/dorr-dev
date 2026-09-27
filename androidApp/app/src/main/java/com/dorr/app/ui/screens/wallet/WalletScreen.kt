@@ -53,6 +53,9 @@ import com.dorr.app.network.apiFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.rememberUpdatedState
+
 /**
  * The wallet, as one visit: PIN gate first (every time it is entered — leaving re-locks it), then a
  * small stack of pages that slide over each other, with bottom sheets and a toast on top. It is drawn
@@ -60,15 +63,19 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun WalletScreen(onExit: () -> Unit) {
+    val currentOnExit by rememberUpdatedState(onExit)
     val scope = rememberCoroutineScope()
-    val host = remember { WalletHost(scope, onExit) }
+    val host = remember { WalletHost(scope, onExit = { currentOnExit() }) }
+    SideEffect {
+        host.onExit = { currentOnExit() }
+    }
     var unlocked by remember { mutableStateOf(false) }
 
     CompositionLocalProvider(LocalWallet provides host) {
         Box(Modifier.fillMaxSize().background(Wa.Bg)) {
             if (!unlocked) {
-                BackHandler { onExit() }
-                WaGate(onUnlocked = { unlocked = true }, onCancel = onExit)
+                BackHandler { currentOnExit() }
+                WaGate(onUnlocked = { unlocked = true }, onCancel = { currentOnExit() })
             } else {
                 BackHandler { host.pop() }
                 WalletPages(host)
@@ -242,10 +249,14 @@ fun WalletHost.requestPin(
  */
 @Composable
 fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) {
+    val currentOnBack by rememberUpdatedState(onBack)
     val scope = rememberCoroutineScope()
-    val host = remember { WalletHost(scope, onBack) }
+    val host = remember { WalletHost(scope, onExit = { currentOnBack() }) }
+    SideEffect {
+        host.onExit = { currentOnBack() }
+    }
     CompositionLocalProvider(LocalWallet provides host) {
-        BackHandler { onBack() }
+        BackHandler { currentOnBack() }
         Box(Modifier.fillMaxSize()) {
             WalletPinSettings()
             WaToastHost(host)

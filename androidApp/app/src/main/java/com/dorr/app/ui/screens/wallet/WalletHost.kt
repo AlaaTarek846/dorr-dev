@@ -59,7 +59,7 @@ internal val PIN_ERROR_CODES = setOf("wallet_pin_invalid", "wallet_pin_locked", 
  * module-level `state`/`stack`.
  */
 @Stable
-class WalletHost(val scope: CoroutineScope, private val onExit: () -> Unit) {
+class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
     var balance by mutableStateOf<WalletBalanceDto?>(null)
     var hideBalance by mutableStateOf(false)
     var sheet by mutableStateOf<WaSheet?>(null)

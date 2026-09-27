@@ -3,6 +3,16 @@
     <string name="app_name">درر</string>
     <string name="app_tagline">بدعم من درر</string>
 
+    <string name="onboarding_skip">تخطي</string>
+    <string name="onboarding_next">التالي</string>
+    <string name="onboarding_start">ابدأ</string>
+    <string name="onboarding_services_title">الخدمات في مكان واحد</string>
+    <string name="onboarding_services_body">تصفّح الخدمات واطلب اللي تحتاجه.</string>
+    <string name="onboarding_wallet_title">محفظتك</string>
+    <string name="onboarding_wallet_body">اشحن، ادفع، وتابع رصيدك.</string>
+    <string name="onboarding_account_title">حسابك</string>
+    <string name="onboarding_account_body">احفظ بياناتك وعناوينك وتفضيلاتك.</string>
+
     <string name="login_title">تسجيل الدخول</string>
     <string name="login_subtitle">أدخل رقم هاتفك سيتم إرسال كود للتأكيد</string>
     <string name="login_hint">6000 0000</string>
@@ -10,10 +20,16 @@
     <string name="login_country_code">كود الدولة</string>
     <string name="login_country_search">ابحث عن دولة</string>
     <string name="login_terms">بتسجيلك أنت موافق على شروط الاستخدام وسياسة الخصوصية</string>
+    <string name="login_terms_prefix">بتسجيلك أنت موافق على </string>
+    <string name="login_terms_use">شروط الاستخدام</string>
+    <string name="login_terms_mid"> و</string>
+    <string name="login_terms_privacy">سياسة الخصوصية</string>
     <string name="login_error_phone_invalid_length">يجب أن يتكون رقم الهاتف من %1$d أرقام.</string>
     <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
     <string name="login_error_phone_invalid_country">الدولة أو كود الاتصال غير صالح.</string>
     <string name="login_error_generic">حدث خطأ ما. حاول مرة أخرى.</string>
+    <string name="session_expired_title">انتهت صلاحية الجلسة</string>
+    <string name="session_expired_message">انتهت صلاحية جلستك. يرجى تسجيل الدخول مجددًا للمتابعة.</string>
 
     <string name="otp_title">تأكيد رقم الهاتف</string>
     <string name="otp_subtitle">أدخل الكود المرسل إلى %1$s</string>
@@ -80,7 +96,7 @@
     <string name="addr_update">تحديث</string>
     <string name="addr_edit">تعديل</string>
     <string name="addr_delete">حذف</string>
-    <string name="addr_delete_ask">هل تريد مسح هذا العنوان؟</string>
+    <string name="addr_delete_ask">هل تريد المسح</string>
     <string name="addr_yes">نعم</string>
     <string name="addr_home">المنزل</string>
     <string name="addr_work">العمل</string>
@@ -91,10 +107,16 @@
     <string name="addr_floor">الدور</string>
     <string name="addr_details_label">العنوان بالتفصيل</string>
     <string name="addr_details_hint">الحي والشارع والمدينة</string>
+    <string name="addr_details_section">تفاصيل العنوان</string>
+    <string name="addr_optional">(اختياري)</string>
+    <string name="addr_map">الخريطة</string>
+    <string name="addr_details_error">اكتب تفاصيل العنوان</string>
     <string name="addr_landmark">علامة مميزة</string>
     <string name="addr_landmark_hint">بجوار مسجد أو محل</string>
     <string name="addr_set_default">تعيين كافتراضي</string>
+    <string name="pd_change_photo">تغيير الصورة</string>
     <string name="pd_name">الاسم</string>
+    <string name="pd_name_more">في بيانات تانية تقدر تعدّلها لاحقًا</string>
     <string name="pd_gender">الجنس</string>
     <string name="pd_phone">رقم الهاتف</string>
     <string name="pd_email">البريد الإلكتروني</string>
@@ -107,6 +129,7 @@
     <string name="edit_name_hint">اكتب الاسم كما يظهر في حسابك.</string>
     <string name="toast_enter_name">اكتب الاسم</string>
     <string name="toast_name_updated">تم تحديث الاسم</string>
+    <string name="toast_profile_updated">تم حفظ البيانات</string>
     <string name="edit_gender_title">تعديل الجنس</string>
     <string name="edit_gender_hint">اختر الجنس ثم احفظ.</string>
     <string name="toast_pick_gender">اختر الجنس</string>
@@ -114,6 +137,7 @@
     <string name="edit_phone_title">تعديل رقم الهاتف</string>
     <string name="edit_phone_label">رقم الهاتف</string>
     <string name="edit_phone_hint">اكتب الرقم الجديد. بنرسل كود تأكيد، والتعديل يتم بعد التأكد.</string>
+    <string name="pd_send_code">إرسال الكود</string>
     <string name="toast_valid_phone">اكتب رقم هاتف صحيح</string>
     <string name="edit_email_title">تعديل البريد الإلكتروني</string>
     <string name="edit_email_label">البريد الإلكتروني</string>
@@ -143,7 +167,7 @@
     <string name="account_logout_sub">الخروج من هذا الجهاز</string>
     <string name="account_delete_sub">إجراء لا يمكن التراجع عنه</string>
     <string name="logout_confirm_message">هل أنت متأكد من تسجيل الخروج؟</string>
-    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. هل أنت متأكد؟</string>
 
     <string name="common_back">رجوع</string>
     <string name="common_save">حفظ</string>
@@ -189,10 +213,13 @@
     <string name="contact_email">البريد الإلكتروني</string>
 
     <!-- عن التطبيق -->
+    <string name="about_version">الإصدار 1.0.0</string>
     <string name="about_description">تطبيق عام لإدارة الخدمات. هذه الشاشة، زي باقي التطبيق، نقطة بداية تقدر تخصصها حسب نشاطك.</string>
 
     <!-- اللغة -->
     <string name="language_title">اللغة</string>
+    <string name="language_loading">جاري تحميل اللغات…</string>
+    <string name="privacy_head">خصوصيتك مهمة</string>
     <string name="language_arabic">العربية</string>
     <string name="language_english">English — إنجليزي</string>
 
