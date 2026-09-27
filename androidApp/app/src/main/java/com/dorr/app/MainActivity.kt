@@ -3,6 +3,7 @@ package com.dorr.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
+import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import android.graphics.Color as AndroidColor
@@ -45,6 +46,9 @@ class MainActivity : ComponentActivity() {
         val networkMonitor = NetworkMonitor.getInstance(this)
 
         setContent {
+            // LocalizedApp swaps LocalContext for a locale-only context, which
+            // hides the Activity from the photo picker. Keep the registry here.
+            CompositionLocalProvider(LocalActivityResultRegistryOwner provides this) {
             LocalizedApp {
                 val themeState = remember { ThemeState() }
                 val isOnline by networkMonitor.isOnline.collectAsState()
@@ -77,6 +81,7 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 }
+            }
             }
         }
     }

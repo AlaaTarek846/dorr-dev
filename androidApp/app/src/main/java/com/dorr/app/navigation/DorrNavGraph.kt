@@ -21,9 +21,11 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.OnboardingStore
 import com.dorr.app.ui.screens.LoginScreen
 import com.dorr.app.ui.screens.MainScreen
 import com.dorr.app.ui.screens.NotificationsScreen
+import com.dorr.app.ui.screens.OnboardingScreen
 import com.dorr.app.ui.screens.OtpScreen
 import com.dorr.app.ui.screens.ServicesScreen
 import com.dorr.app.ui.screens.SplashScreen
@@ -31,12 +33,25 @@ import kotlinx.coroutines.launch
 
 object Routes {
     const val SPLASH = "splash"
+    const val ONBOARDING = "onboarding"
     const val LOGIN = "login"
     const val OTP = "otp"
     const val MAIN = "main"
     const val NOTIFICATIONS = "notifications"
     const val SERVICES = "services"
 }
+
+/** Where Splash goes once its animation finishes. */
+internal fun routeAfterSplash(onboardingCompleted: Boolean, authenticated: Boolean): String =
+    when {
+        !onboardingCompleted -> Routes.ONBOARDING
+        authenticated -> Routes.MAIN
+        else -> Routes.LOGIN
+    }
+
+/** Where onboarding goes after Skip or the last step. */
+internal fun routeAfterOnboarding(authenticated: Boolean): String =
+    if (authenticated) Routes.MAIN else Routes.LOGIN
 
 @Composable
 fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
@@ -62,7 +77,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             Handler(Looper.getMainLooper()).post {
                 sessionExpiredNotice = true
                 val currentRoute = navController.currentDestination?.route
-                if (currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.SPLASH && currentRoute != Routes.OTP) {
+                if (currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.SPLASH && currentRoute != Routes.OTP && currentRoute != Routes.ONBOARDING) {
                     targetRouteAfterLogin = currentRoute
                 }
                 if (currentRoute != Routes.LOGIN) {
@@ -128,11 +143,22 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         ) {
             SplashScreen(
                 onFinished = {
-                    // A persisted session (restored in DorrApp.onCreate) skips
-                    // the auth flow and lands directly on Main.
-                    val destination = if (AuthSession.isAuthenticated) Routes.MAIN else Routes.LOGIN
+                    val destination = routeAfterSplash(
+                        onboardingCompleted = OnboardingStore.isCompleted,
+                        authenticated = AuthSession.isAuthenticated,
+                    )
                     navController.navigate(destination) {
                         popUpTo(Routes.SPLASH) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(
+                onFinished = {
+                    OnboardingStore.markCompleted()
+                    navController.navigate(routeAfterOnboarding(AuthSession.isAuthenticated)) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
                     }
                 },
             )

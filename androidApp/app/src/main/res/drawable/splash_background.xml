@@ -1,13 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Matches the Compose SplashScreen gradient (primary -> primaryDark) so the
-     native pre-Compose window background doesn't flash a different color. -->
+<!-- Same pink wash as the login screen, so the system splash does not flash teal. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
             <gradient
-                android:angle="270"
-                android:startColor="#21888F"
-                android:endColor="#166064" />
+                android:type="radial"
+                android:gradientRadius="520dp"
+                android:centerX="0"
+                android:centerY="0"
+                android:startColor="#EFA8B4"
+                android:endColor="#00EFA8B4" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="440dp"
+                android:centerX="0.5"
+                android:centerY="0"
+                android:startColor="#F3C4CC"
+                android:endColor="#00F3C4CC" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="360dp"
+                android:centerX="1"
+                android:centerY="0"
+                android:startColor="#F0B8C2"
+                android:endColor="#00F0B8C2" />
         </shape>
     </item>
 </layer-list>

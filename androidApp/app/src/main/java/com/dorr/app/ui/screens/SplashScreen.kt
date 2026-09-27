@@ -7,7 +7,6 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -16,10 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -117,12 +113,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                     },
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(
-                    Icons.Rounded.Build,
-                    contentDescription = null,
-                    tint = AppColors.primary,
-                    modifier = Modifier.size(88.dp),
-                )
+                DorrLogo(width = 88.dp)
             }
             Spacer(Modifier.height(24.dp))
             Text(

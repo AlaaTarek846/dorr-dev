@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
@@ -34,6 +35,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.ClickableText
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -77,8 +79,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -97,6 +103,7 @@ import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
+import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 import kotlinx.coroutines.delay
@@ -116,6 +123,7 @@ fun LoginScreen(
     }
     var phone by remember { mutableStateOf("") }
     var acceptedTerms by remember { mutableStateOf(false) }
+    var showPrivacy by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
@@ -190,6 +198,7 @@ fun LoginScreen(
             phone = phone,
             acceptedTerms = acceptedTerms,
             onAcceptedTermsChange = { acceptedTerms = it },
+            onOpenPrivacy = { showPrivacy = true },
             isLoading = isLoading,
             isFormValid = isFormValid,
             canSubmit = canSubmit,
@@ -234,6 +243,11 @@ fun LoginScreen(
                 .widthIn(max = 440.dp),
         ) {
             SessionExpiredBanner(onDismiss = onDismissSessionExpired)
+        }
+
+        if (showPrivacy) {
+            BackHandler { showPrivacy = false }
+            PrivacyPolicyScreen(onBack = { showPrivacy = false })
         }
     }
 }
@@ -346,6 +360,7 @@ private fun LoginContent(
     phone: String,
     acceptedTerms: Boolean,
     onAcceptedTermsChange: (Boolean) -> Unit,
+    onOpenPrivacy: () -> Unit,
     isLoading: Boolean,
     isFormValid: Boolean,
     canSubmit: Boolean,
@@ -485,8 +500,6 @@ private fun LoginContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { onAcceptedTermsChange(!acceptedTerms) }
                     .padding(vertical = 4.dp, horizontal = 2.dp),
                 verticalAlignment = Alignment.Top,
             ) {
@@ -500,13 +513,34 @@ private fun LoginContent(
                     ),
                 )
                 Spacer(Modifier.width(6.dp))
-                Text(
-                    text = stringResource(R.string.login_terms),
+                val terms = buildAnnotatedString {
+                    val link = SpanStyle(
+                        color = Color(0xFFE50914),
+                        textDecoration = TextDecoration.Underline,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    append(stringResource(R.string.login_terms_prefix))
+                    pushStringAnnotation("link", "privacy")
+                    withStyle(link) { append(stringResource(R.string.login_terms_use)) }
+                    pop()
+                    append(stringResource(R.string.login_terms_mid))
+                    pushStringAnnotation("link", "privacy")
+                    withStyle(link) { append(stringResource(R.string.login_terms_privacy)) }
+                    pop()
+                }
+                ClickableText(
+                    text = terms,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
+                        color = Color(0xFF6B7280),
                     ),
-                    color = Color(0xFF6B7280),
+                    modifier = Modifier.weight(1f),
+                    onClick = { offset ->
+                        if (terms.getStringAnnotations("link", offset, offset).isNotEmpty()) {
+                            onOpenPrivacy()
+                        }
+                    },
                 )
             }
 

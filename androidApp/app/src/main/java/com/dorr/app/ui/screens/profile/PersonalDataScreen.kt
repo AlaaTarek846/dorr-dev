@@ -1,7 +1,11 @@
 package com.dorr.app.ui.screens.profile
 
 import android.content.Context
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
@@ -60,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -94,12 +99,17 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.CountryDto
 import com.dorr.app.ui.theme.AppColors
+import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-private enum class PdSub { NONE, NAME, GENDER, PHONE, EMAIL }
+private enum class PdSub { NONE, NAME, PHONE, EMAIL }
 
 private const val PD_PREFS = "dorr_profile"
 private const val PD_GENDER = "gender"
+private const val PD_PHOTO = "photo"
 private val Pink = Color(0xFFFDE8EC)
 private val FieldFill = Color(0xFFFBF7F8)
 private val FieldBorder = Color(0xFFF3D5DB)
@@ -112,6 +122,33 @@ private fun loadGender(context: Context): String =
 private fun saveGender(context: Context, gender: String) {
     context.getSharedPreferences(PD_PREFS, Context.MODE_PRIVATE).edit().putString(PD_GENDER, gender).apply()
 }
+
+private fun loadPhoto(context: Context): String? =
+    context.getSharedPreferences(PD_PREFS, Context.MODE_PRIVATE)
+        .getString(PD_PHOTO, null)
+        ?.takeIf { File(it).exists() }
+
+private fun saveProfilePhoto(context: Context, uri: Uri): String? = runCatching {
+    val dest = File(context.filesDir, "profile_photo.jpg")
+    context.contentResolver.openInputStream(uri)?.use { input ->
+        dest.outputStream().use { output -> input.copyTo(output) }
+    } ?: return null
+    context.getSharedPreferences(PD_PREFS, Context.MODE_PRIVATE)
+        .edit()
+        .putString(PD_PHOTO, dest.absolutePath)
+        .apply()
+    dest.absolutePath
+}.getOrNull()
+
+private data class FieldRow(
+    val icon: ImageVector,
+    val label: String,
+    val value: String,
+    val verified: Boolean,
+    val ltr: Boolean,
+    val sub: PdSub,
+    val note: String?,
+)
 
 private fun formatDial(value: String): String {
     val digits = value.trim().removePrefix("+")
@@ -144,7 +181,6 @@ fun PersonalDataScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     ) { currentSub ->
         when (currentSub) {
             PdSub.NAME -> EditNameScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
-            PdSub.GENDER -> EditGenderScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
             PdSub.PHONE -> EditPhoneScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
             PdSub.EMAIL -> EditEmailScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
             PdSub.NONE -> PdHub(onBack = onBack, refreshKey = refresh, onOpen = { sub = it })
@@ -155,15 +191,18 @@ fun PersonalDataScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
 @Composable
 private fun PdHub(onBack: () -> Unit, refreshKey: Int, onOpen: (PdSub) -> Unit) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val notAdded = stringResource(R.string.pd_not_added)
     val user = remember(refreshKey) { AuthSession.user }
-    val gender = remember(refreshKey) { loadGender(context) }
-    val genderLabel = when (gender) {
-        "male" -> stringResource(R.string.gender_male)
-        "female" -> stringResource(R.string.gender_female)
-        else -> stringResource(R.string.gender_unspecified)
-    }
     val emailVerified = !user?.email.isNullOrBlank()
+    var photoPath by remember { mutableStateOf(loadPhoto(context)) }
+    val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val saved = withContext(Dispatchers.IO) { saveProfilePhoto(context, uri) }
+            if (saved != null) photoPath = saved
+        }
+    }
 
     PdScreen(title = stringResource(R.string.personal_data_title), onBack = onBack) {
         Column(
@@ -176,52 +215,69 @@ private fun PdHub(onBack: () -> Unit, refreshKey: Int, onOpen: (PdSub) -> Unit) 
             // Avatar — slides in from the top
             AnimatedVisibility(
                 visible = true,
+                modifier = Modifier.fillMaxWidth(),
                 enter = slideInVertically(tween(400, delayMillis = 60, easing = FastOutSlowInEasing)) { -it / 3 } +
                     fadeIn(tween(360, delayMillis = 60)),
             ) {
                 Box(
                     modifier = Modifier
-                        .padding(top = 6.dp, bottom = 14.dp)
-                        .size(92.dp)
-                        .align(Alignment.CenterHorizontally),
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 14.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
                     Box(
                         modifier = Modifier
-                            .fillMaxSize()
-                            .shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914))
-                            .clip(CircleShape)
-                            .background(Color.White),
-                        contentAlignment = Alignment.Center,
+                            .size(92.dp)
+                            .clickable {
+                                photoPicker.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                                )
+                            },
                     ) {
-                        Icon(Icons.Rounded.Person, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(44.dp))
-                    }
-                    Box(
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .size(28.dp)
-                            .shadow(4.dp, CircleShape, ambientColor = Color(0x40E50914), spotColor = Color(0x40E50914))
-                            .clip(CircleShape)
-                            .background(AppColors.waRed),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914))
+                                .clip(CircleShape)
+                                .background(Color.White),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            if (photoPath != null) {
+                                AsyncImage(
+                                    model = File(photoPath!!),
+                                    contentDescription = stringResource(R.string.pd_change_photo),
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            } else {
+                                Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = AppColors.waRed, modifier = Modifier.size(44.dp))
+                            }
+                        }
+                        Box(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .size(28.dp)
+                                .shadow(4.dp, CircleShape, ambientColor = Color(0x40E50914), spotColor = Color(0x40E50914))
+                                .clip(CircleShape)
+                                .background(AppColors.waRed),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
                     }
                 }
             }
             // Staggered field rows
             val fields = listOf(
-                Triple(Icons.Rounded.Person, stringResource(R.string.pd_name),
-                    (user?.name?.takeIf { it.isNotBlank() } ?: notAdded) to Triple(false, false, PdSub.NAME)),
-                Triple(Icons.Rounded.Person, stringResource(R.string.pd_gender),
-                    genderLabel to Triple(false, false, PdSub.GENDER)),
-                Triple(Icons.Rounded.Phone, stringResource(R.string.pd_phone),
-                    (user?.phone?.takeIf { it.isNotBlank() } ?: notAdded) to Triple(user?.phoneVerifiedAt != null, true, PdSub.PHONE)),
-                Triple(Icons.Rounded.Email, stringResource(R.string.pd_email),
-                    (user?.email?.takeIf { it.isNotBlank() } ?: notAdded) to Triple(emailVerified, true, PdSub.EMAIL)),
+                FieldRow(Icons.Rounded.Person, stringResource(R.string.pd_name),
+                    user?.name?.takeIf { it.isNotBlank() } ?: notAdded, false, false, PdSub.NAME,
+                    stringResource(R.string.pd_name_more)),
+                FieldRow(Icons.Rounded.Phone, stringResource(R.string.pd_phone),
+                    user?.phone?.takeIf { it.isNotBlank() } ?: notAdded, user?.phoneVerifiedAt != null, true, PdSub.PHONE, null),
+                FieldRow(Icons.Rounded.Email, stringResource(R.string.pd_email),
+                    user?.email?.takeIf { it.isNotBlank() } ?: notAdded, emailVerified, true, PdSub.EMAIL, null),
             )
-            fields.forEachIndexed { index, (icon, label, valueMeta) ->
-                val (value, meta) = valueMeta
-                val (verified, ltr, pdSub) = meta
+            fields.forEachIndexed { index, field ->
                 AnimatedVisibility(
                     visible = true,
                     enter = slideInVertically(
@@ -229,12 +285,13 @@ private fun PdHub(onBack: () -> Unit, refreshKey: Int, onOpen: (PdSub) -> Unit) 
                     ) { it / 3 } + fadeIn(tween(320, delayMillis = 120 + index * 60)),
                 ) {
                     PdFieldRow(
-                        icon = icon,
-                        label = label,
-                        value = value,
-                        verified = verified,
-                        ltr = ltr,
-                        onClick = { onOpen(pdSub) },
+                        icon = field.icon,
+                        label = field.label,
+                        value = field.value,
+                        verified = field.verified,
+                        ltr = field.ltr,
+                        note = field.note,
+                        onClick = { onOpen(field.sub) },
                     )
                 }
             }
@@ -250,6 +307,7 @@ private fun PdFieldRow(
     value: String,
     verified: Boolean,
     ltr: Boolean = false,
+    note: String? = null,
     onClick: () -> Unit,
 ) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
@@ -304,6 +362,14 @@ private fun PdFieldRow(
                     }
                 }
             }
+            if (!note.isNullOrBlank()) {
+                Text(
+                    note,
+                    fontSize = 11.sp,
+                    color = AppColors.textMuted,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
         }
         Icon(
             Icons.Rounded.ChevronRight,
@@ -320,8 +386,9 @@ private fun PdFieldRow(
 private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     val context = LocalContext.current
     var name by remember { mutableStateOf(AuthSession.user?.name.orEmpty()) }
+    var gender by remember { mutableStateOf(loadGender(context)) }
     val enterName = stringResource(R.string.toast_enter_name)
-    val updated = stringResource(R.string.toast_name_updated)
+    val updated = stringResource(R.string.toast_profile_updated)
 
     PdScreen(title = stringResource(R.string.edit_name_title), onBack = onBack) {
         FormColumn {
@@ -333,30 +400,7 @@ private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                     icon = Icons.Rounded.Person,
                 )
                 Hint(stringResource(R.string.edit_name_hint))
-            }
-            PdSaveButton(label = stringResource(R.string.common_save)) {
-                if (name.trim().length < 2) {
-                    Toast.makeText(context, enterName, Toast.LENGTH_SHORT).show()
-                    return@PdSaveButton
-                }
-                AuthSession.user = AuthSession.user?.copy(name = name.trim())
-                onSaved(updated)
-                onBack()
-            }
-        }
-    }
-}
-
-@Composable
-private fun EditGenderScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
-    val context = LocalContext.current
-    var gender by remember { mutableStateOf(loadGender(context)) }
-    val pickGender = stringResource(R.string.toast_pick_gender)
-    val updated = stringResource(R.string.toast_gender_updated)
-
-    PdScreen(title = stringResource(R.string.edit_gender_title), onBack = onBack) {
-        FormColumn {
-            PdFormCard {
+                Spacer(Modifier.height(14.dp))
                 Text(
                     stringResource(R.string.pd_gender),
                     fontSize = 13.sp,
@@ -367,14 +411,14 @@ private fun EditGenderScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                 GenderOption(stringResource(R.string.gender_male), Icons.Rounded.Male, gender == "male") { gender = "male" }
                 Spacer(Modifier.height(8.dp))
                 GenderOption(stringResource(R.string.gender_female), Icons.Rounded.Female, gender == "female") { gender = "female" }
-                Hint(stringResource(R.string.edit_gender_hint))
             }
             PdSaveButton(label = stringResource(R.string.common_save)) {
-                if (gender != "male" && gender != "female") {
-                    Toast.makeText(context, pickGender, Toast.LENGTH_SHORT).show()
+                if (name.trim().length < 2) {
+                    Toast.makeText(context, enterName, Toast.LENGTH_SHORT).show()
                     return@PdSaveButton
                 }
-                saveGender(context, gender)
+                AuthSession.user = AuthSession.user?.copy(name = name.trim())
+                if (gender == "male" || gender == "female") saveGender(context, gender)
                 onSaved(updated)
                 onBack()
             }
