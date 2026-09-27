@@ -6,6 +6,7 @@ Migrations:
 - `database/migrations/0001_01_01_000000_create_users_table.php`
 - `Modules/User/database/migrations/2026_09_15_130000_update_users_table.php`
 - `Modules/User/database/migrations/2026_09_15_160000_add_gender_and_country_id_to_users_table.php`
+- `Modules/User/database/migrations/2026_09_27_000000_create_addresses_table.php`
 - `database/migrations/2026_09_15_150000_make_users_password_nullable.php`
 
 Key fields:
@@ -27,3 +28,16 @@ Key fields:
 - belongsTo Country
 - morphMany SocialAccount, VerificationCode
 - hasMany AiConversation
+- hasMany Address (`addresses()`)
+
+## Table: `addresses`
+
+Migration: `Modules/User/database/migrations/2026_09_27_000000_create_addresses_table.php`
+
+Fields: `user_id` → users (cascade), `type` (home/work/other), `title`?,
+`building_number`?, `floor`?, `address_details`?, `landmark`?,
+`latitude`/`longitude` (decimal 10,7)?, `is_default` (default false),
+soft deletes, timestamps. Indexes: `(user_id)`, `(user_id, is_default)`.
+
+Model `Modules\User\Models\Address`: SoftDeletes, `user()` belongsTo,
+`default()` scope (`$user->addresses()->default()->first()`).

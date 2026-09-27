@@ -137,7 +137,14 @@
     <string name="toast_email_updated">Email updated</string>
     <string name="addr_default">Default</string>
     <string name="addr_empty">No matching addresses</string>
+    <string name="addr_empty_sub">We couldn\'t find any address matching your search query.</string>
     <string name="addr_none">Add your first address</string>
+    <string name="addr_none_sub">Save your favorite delivery locations (home, work, etc.) for quick and seamless checkout.</string>
+    <string name="addr_clear_search">Clear search</string>
+    <string name="addr_toast_saved">Address saved</string>
+    <string name="addr_toast_updated">Address updated</string>
+    <string name="addr_toast_deleted">Address deleted</string>
+    <string name="addr_toast_default">Default address updated</string>
     <string name="account_personal_data_sub">Name, phone and email</string>
     <string name="account_notifications_sub">Manage alerts</string>
     <string name="account_wallet_pin_sub">Manage the wallet PIN</string>
