@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
@@ -78,6 +79,13 @@ fun WalletScreen(onExit: () -> Unit) {
                 WaGate(onUnlocked = { unlocked = true }, onCancel = { currentOnExit() })
             } else {
                 BackHandler { host.pop() }
+                // A wallet QR tapped in a chat: straight to its transfer confirmation.
+                LaunchedEffect(Unit) {
+                    val qr = WalletDeepLink.consumeQr() ?: return@LaunchedEffect
+                    runCatching { ApiClient.wallet.transferLookup(walletAuth(), com.dorr.app.network.TransferLookupRequest(mode = "qr", qr = qr)).data }
+                        .onSuccess { who -> who?.let { host.push(WaRoute.TransferConfirm(it)) } }
+                        .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+                }
                 WalletPages(host)
                 WaSheetHost(host)
                 WaToastHost(host)
@@ -144,6 +152,8 @@ private fun WaToastHost(host: WalletHost) {
  */
 @Composable
 private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val activity = context as? androidx.fragment.app.FragmentActivity
     val networkError = stringResource(R.string.wa_error_network)
     val enterTitle = stringResource(R.string.wa_gate_enter_title)
     val enterSub = stringResource(R.string.wa_gate_enter_sub)
@@ -154,6 +164,9 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     var forgot by remember { mutableStateOf(false) }
     // The PIN typed at the gate when it turned out to be the reset value 0000: it has to be replaced first.
     var resetPin by remember { mutableStateOf<String?>(null) }
+    // The PIN that verified fine but came from a device this wallet has never opened from before —
+    // kept only long enough to resend it as X-Wallet-Pin while proving the phone (wallet policy bend 3).
+    var untrustedDevicePin by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(attempt) {
         failed = null
@@ -170,6 +183,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
 
     val current = status
     when {
+        failed == null && current != null && current.isFrozen -> WaFrozenPage(current, onExit = onCancel, onLifted = { attempt++ })
         failed == null && current != null && !current.hasPin -> WaPinSetupPage(
             onExit = onCancel,
             onDone = onUnlocked,
@@ -177,6 +191,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
             showSaved = false,
         )
         resetPin != null -> WaForcePinChangePage(resetPin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
+        untrustedDevicePin != null -> WaDeviceTrustPage(untrustedDevicePin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
         forgot -> WaForgotPinPage(current, onExit = { forgot = false }, onDone = { forgot = false; attempt++ })
         else -> WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
             when {
@@ -190,25 +205,60 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                 current == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
                 }
-                else -> Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                    WaPinPad(
-                        title = enterTitle,
-                        sub = enterSub,
-                        modifier = Modifier.weight(1f).waRise(0),
-                        onComplete = { pin ->
-                            val verified = try {
-                                ApiClient.wallet.verifyPin(walletAuth(), pin).data
-                            } catch (e: CancellationException) {
-                                throw e
-                            } catch (e: Exception) {
-                                val failure = e.apiFailure()
-                                return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                else -> {
+                    val scope = rememberCoroutineScope()
+
+                    suspend fun completeWithPin(pin: String): PadResult {
+                        val verified = try {
+                            ApiClient.wallet.verifyPin(walletAuth(), pin).data
+                        } catch (e: CancellationException) {
+                            throw e
+                        } catch (e: Exception) {
+                            val failure = e.apiFailure()
+                            // Froze between loading this screen and typing the PIN: reload so the
+                            // frozen branch above takes over, instead of just showing a pad error.
+                            if (failure.errorCode == "wallet_pin_frozen") {
+                                attempt++
+                                return PadResult.Reset
                             }
-                            if (verified?.mustChange == true) resetPin = pin else onUnlocked()
-                            PadResult.Ok
-                        },
-                    )
-                    WaButton(stringResource(R.string.wa_forgot_link), { forgot = true }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(bottom = 6.dp))
+                            return PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                        }
+                        when {
+                            verified?.mustChange == true -> resetPin = pin
+                            verified?.deviceTrusted == false -> untrustedDevicePin = pin
+                            else -> onUnlocked()
+                        }
+                        return PadResult.Ok
+                    }
+
+                    Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+                        WaPinPad(
+                            title = enterTitle,
+                            sub = enterSub,
+                            modifier = Modifier.weight(1f).waRise(0),
+                            onComplete = { pin -> completeWithPin(pin) },
+                        )
+                        if (activity != null && WaBiometric.isEnabled(context)) {
+                            WaButton(
+                                stringResource(R.string.wa_biometric_unlock_button),
+                                {
+                                    WaBiometric.unlock(activity) { pin ->
+                                        if (pin == null) return@unlock
+                                        scope.launch {
+                                            if (completeWithPin(pin) is PadResult.Error) {
+                                                // The stored PIN no longer matches the server's — drop it
+                                                // rather than fail silently on every future attempt.
+                                                WaBiometric.disable(context)
+                                            }
+                                        }
+                                    }
+                                },
+                                style = WaButtonStyle.Ghost,
+                                icon = Icons.Rounded.Fingerprint,
+                            )
+                        }
+                        WaButton(stringResource(R.string.wa_forgot_link), { forgot = true }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(bottom = 6.dp))
+                    }
                 }
             }
         }

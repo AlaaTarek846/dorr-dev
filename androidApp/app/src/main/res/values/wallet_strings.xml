@@ -219,4 +219,24 @@
     <string name="wa_force_page_title">New PIN</string>
     <string name="wa_force_title">Choose a new PIN</string>
     <string name="wa_force_sub">Your PIN was reset to 0000. Choose one only you know.</string>
+    <string name="wa_frozen_title">Wallet frozen</string>
+    <string name="wa_frozen_sub">Your wallet was permanently frozen after wrong PIN attempts. Take a selfie and upload an ID photo for support to review.</string>
+    <string name="wa_frozen_id_label">ID or passport photo</string>
+    <string name="wa_frozen_selfie_label">A selfie of yourself</string>
+    <string name="wa_frozen_pending_title">Under review</string>
+    <string name="wa_frozen_pending_text">Support will verify your identity as soon as possible.</string>
+    <string name="wa_transfer_amount_label">Amount</string>
+    <string name="wa_transfer_fee_label">App fee (%1$s%%)</string>
+    <string name="wa_transfer_total_label">Total charged to you</string>
+    <string name="wa_transfer_receives_label">Recipient receives</string>
+    <string name="wa_transfer_number_changed_warning">This person\'s phone number changed recently. Make sure this is still who you think it is before sending.</string>
+    <string name="wa_biometric_prompt_title">Confirm it\'s you</string>
+    <string name="wa_biometric_prompt_cancel">Cancel</string>
+    <string name="wa_biometric_toggle">Unlock with fingerprint / face</string>
+    <string name="wa_biometric_toggle_hint">A faster way to open the wallet on this device — never used for a payment or transfer by itself, and turns off automatically if your fingerprint/face changes.</string>
+    <string name="wa_biometric_unlock_button">Unlock with fingerprint</string>
+    <string name="wa_biometric_setup_failed">Could not turn on fingerprint unlock on this device.</string>
+    <string name="wa_biometric_unlock_failed">Fingerprint unlock failed. Enter your PIN instead.</string>
+    <string name="wa_device_trust_title">New device</string>
+    <string name="wa_device_trust_sub">We sent a 4-digit code to the phone on your account. Enter it to trust this device.</string>
 </resources>

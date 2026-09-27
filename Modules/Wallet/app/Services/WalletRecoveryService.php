@@ -9,8 +9,10 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Modules\Wallet\Enums\PinRecoveryReason;
 use Modules\Wallet\Enums\PinRecoveryStatus;
 use Modules\Wallet\Enums\RecoveryMethod;
+use Modules\Wallet\Exceptions\PinFrozenException;
 use Modules\Wallet\Exceptions\PinNotSetException;
 use Modules\Wallet\Exceptions\RecoveryException;
 use Modules\Wallet\Models\PinRecoveryRequest;
@@ -96,6 +98,9 @@ class WalletRecoveryService
             'has_pin' => $this->pins->has($owner),
             // true after an approved recovery request: the PIN is 0000 and has to be replaced
             'must_change' => $this->pins->mustChange($owner),
+            // permanently locked (a wrong attempt right after a temporary lock) — only a selfie + ID,
+            // reviewed by a person, lifts it; every other action, self-service recovery included, is refused
+            'is_frozen' => $this->pins->isFrozen($owner),
             'recovery' => $record === null ? null : [
                 'method' => $record->method->value,
                 'ready' => $record->isReady(),
@@ -106,6 +111,7 @@ class WalletRecoveryService
             'request' => $request === null ? null : [
                 'id' => $request->id,
                 'method' => $request->method->value,
+                'reason' => $request->reason->value,
                 'status' => $request->status->value,
                 'rejection_reason' => $request->rejection_reason,
                 'created_at' => $request->created_at?->toISOString(),
@@ -235,6 +241,12 @@ class WalletRecoveryService
      */
     public function recover(Model $owner, array $input, string $newPin): void
     {
+        // Frozen means "prove it's you in person" — self-service (even with the right password/date/code)
+        // is refused on purpose; see requestSecurityUnfreeze().
+        if ($this->pins->isFrozen($owner)) {
+            throw new PinFrozenException;
+        }
+
         $record = $this->methodFor($owner);
 
         if ($record === null || ! $record->isReady()) {
@@ -276,6 +288,10 @@ class WalletRecoveryService
      */
     public function requestWithDocument(Model $owner, UploadedFile $document): PinRecoveryRequest
     {
+        if ($this->pins->isFrozen($owner)) {
+            throw new PinFrozenException;
+        }
+
         $record = $this->methodFor($owner);
 
         if ($record === null || ! $record->isReady()) {
@@ -299,6 +315,7 @@ class WalletRecoveryService
                 'owner_type' => OwnerType::aliasFor($owner),
                 'owner_id' => $owner->getKey(),
                 'method' => $record->method,
+                'reason' => PinRecoveryReason::RecoveryDocument,
                 'status' => PinRecoveryStatus::Pending,
             ]);
 
@@ -315,10 +332,50 @@ class WalletRecoveryService
         return $request;
     }
 
+    /**
+     * The only way out of a permanent freeze ({@see PinFrozenException}): a selfie *and* an ID/passport
+     * photo, whatever the owner's configured recovery method actually is — the freeze exists because a
+     * wrong PIN followed a temporary lock, which is reason enough to ask for a person's judgment instead
+     * of trusting the method already on file.
+     */
+    public function requestSecurityUnfreeze(Model $owner, UploadedFile $idDocument, UploadedFile $selfie): PinRecoveryRequest
+    {
+        if (! $this->pins->isFrozen($owner)) {
+            throw RecoveryException::notFrozen();
+        }
+
+        if ($this->pendingRequestFor($owner) !== null) {
+            throw RecoveryException::pendingExists();
+        }
+
+        // Always exists: a PIN — which is what got frozen — can't be created before a recovery method is.
+        $method = $this->methodFor($owner)?->method ?? throw RecoveryException::notConfigured();
+
+        $request = DB::transaction(function () use ($owner, $method, $idDocument, $selfie) {
+            $request = PinRecoveryRequest::query()->create([
+                'owner_type' => OwnerType::aliasFor($owner),
+                'owner_id' => $owner->getKey(),
+                'method' => $method,
+                'reason' => PinRecoveryReason::SecurityFreeze,
+                'status' => PinRecoveryStatus::Pending,
+            ]);
+
+            $request->setSingleMedia('original_document', $idDocument);
+            $request->setSingleMedia('new_document', $selfie);
+
+            return $request;
+        });
+
+        $this->notifier->pinRecoveryRequested($request);
+
+        return $request;
+    }
+
     // ------------------------------------------------------------------ the reviewer
 
     /**
-     * Approves: the PIN becomes {@see self::RESET_PIN} and the owner is told so.
+     * Approves: the PIN becomes {@see self::RESET_PIN} and the owner is told so. For a security freeze
+     * this also lifts it — {@see PinService::set()} always clears `frozen_at`.
      */
     public function approve(PinRecoveryRequest $request, int $adminId): PinRecoveryRequest
     {

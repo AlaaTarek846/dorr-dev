@@ -1,11 +1,11 @@
 package com.dorr.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -30,7 +30,10 @@ import com.dorr.app.ui.theme.DorrTheme
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.ThemeState
 
-class MainActivity : ComponentActivity() {
+// FragmentActivity (not plain ComponentActivity) so BiometricPrompt — which needs a FragmentManager —
+// has somewhere to host its invisible tracking fragment. Still a ComponentActivity underneath: every
+// Compose API used below (setContent, enableEdgeToEdge…) works exactly as before.
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(

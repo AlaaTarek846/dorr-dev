@@ -95,4 +95,17 @@ class WalletRecoveryController extends Controller
 
         return ApiResponse::success($this->recovery->summary($owner), __('api.updated'));
     }
+
+    /**
+     * The only way out of a permanent freeze: a selfie + an ID/passport photo, reviewed by a person —
+     * whatever the owner's configured recovery method actually is (see WalletRecoveryService::requestSecurityUnfreeze()).
+     */
+    public function unfreeze(WalletRecoveryRequest $request)
+    {
+        $owner = $request->user();
+
+        $this->recovery->requestSecurityUnfreeze($owner, $request->file('id_document'), $request->file('selfie'));
+
+        return ApiResponse::created($this->recovery->summary($owner), __('api.created'));
+    }
 }

@@ -374,3 +374,5 @@ Any valid admin token accesses all admin routes; any valid user token accesses a
 ## Module Documentation
 
 Detailed module APIs: see `docs/modules/*/API.md`.
+
+- **Chat:** `/api/mobile/v1/chat/*` (guard `user_api`) and `/api/admin/v1/chat-settings`. See [modules/chat/API.md](modules/chat/API.md).

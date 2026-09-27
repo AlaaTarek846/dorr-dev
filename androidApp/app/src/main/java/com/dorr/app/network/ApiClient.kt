@@ -24,6 +24,7 @@ object ApiClient {
                 .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
+                .header("X-Device-Id", DeviceId.current)
                 .build()
             chain.proceed(request)
         }
@@ -54,6 +55,10 @@ object ApiClient {
     val wallet: WalletApi by lazy { retrofit.create(WalletApi::class.java) }
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
+    val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+
+    /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
+    const val ORIGIN = "https://$BASE_HOST"
 
     /**
      * Media URLs come back absolute for the server's own host (`http://dorr.test/...`),

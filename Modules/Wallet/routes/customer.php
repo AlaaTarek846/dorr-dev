@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Wallet\Http\Controllers\General\AvailablePaymentMethodController;
+use Modules\Wallet\Http\Controllers\General\DeviceTrustController;
 use Modules\Wallet\Http\Controllers\General\TopupController;
 use Modules\Wallet\Http\Controllers\General\WalletBalanceController;
 use Modules\Wallet\Http\Controllers\General\WalletEligibilityController;
@@ -30,6 +31,8 @@ Route::post('wallet/pin/recovery', [WalletRecoveryController::class, 'setup'])->
 Route::post('wallet/pin/recovery/email-code', [WalletRecoveryController::class, 'sendEmailCode'])->middleware('throttle:5,1,pin-recovery-code');
 Route::post('wallet/pin/recovery/confirm-email', [WalletRecoveryController::class, 'confirmEmail'])->middleware('throttle:10,1,pin-recovery');
 Route::post('wallet/pin/recover', [WalletRecoveryController::class, 'recover'])->middleware('throttle:10,1,pin-recovery');
+// A frozen wallet's only way out: a selfie + an ID photo, reviewed by a person.
+Route::post('wallet/pin/unfreeze', [WalletRecoveryController::class, 'unfreeze'])->middleware('throttle:10,1,pin-recovery');
 
 Route::post('wallet/topups/quote', [TopupController::class, 'quote']);
 Route::get('wallet/topups/{uuid}', [TopupController::class, 'show']);
@@ -41,4 +44,8 @@ Route::post('wallet/pin/verify', [WalletPinController::class, 'verify'])->middle
 Route::middleware(RequiresWalletPin::class)->group(function () {
     Route::post('wallet/topups', [TopupController::class, 'store']);
     Route::post('wallet/topups/{uuid}/confirm', [TopupController::class, 'confirm']);
+
+    // A device pin/verify just reported as untrusted proves the phone on file is reachable from it.
+    Route::post('wallet/device/verify-code', [DeviceTrustController::class, 'sendCode'])->middleware('throttle:5,1,device-trust');
+    Route::post('wallet/device/confirm', [DeviceTrustController::class, 'confirm'])->middleware('throttle:10,1,device-trust');
 });

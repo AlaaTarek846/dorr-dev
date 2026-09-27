@@ -22,6 +22,7 @@ class PinRecoveryRequestResource extends JsonResource
         return [
             'id' => $this->id,
             'method' => $this->method->value,
+            'reason' => $this->reason->value,
             'status' => $this->status->value,
             'owner' => [
                 'type' => $this->owner_type,

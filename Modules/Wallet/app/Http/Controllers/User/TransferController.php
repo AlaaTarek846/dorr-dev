@@ -5,13 +5,17 @@ namespace Modules\Wallet\Http\Controllers\User;
 use App\Http\Controllers\Controller;
 use App\Models\Country;
 use App\Support\Api\ApiResponse;
+use Illuminate\Http\Request;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Exceptions\TransferException;
 use Modules\Wallet\Http\Requests\TransferRequest;
+use Modules\Wallet\Http\Resources\WalletBeneficiaryResource;
 use Modules\Wallet\Http\Resources\WalletTransactionResource;
+use Modules\Wallet\Models\WalletBeneficiary;
 use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Services\TransferRecipientResolver;
 use Modules\Wallet\Services\TransferService;
+use Modules\Wallet\Support\OwnerType;
 
 /**
  * User → user transfer, in two steps (mobile/user only):
@@ -29,6 +33,26 @@ class TransferController extends Controller
         private readonly TransferService $transfers,
         private readonly TransferRecipientResolver $recipients,
     ) {}
+
+    /**
+     * "People I've already sent money to, in this country" — a quick-pick list, most recently used
+     * first (wallet policy bend 10). Written automatically by TransferService::send(); this is read-only.
+     */
+    public function beneficiaries(Request $request)
+    {
+        $country = $this->country();
+
+        $beneficiaries = WalletBeneficiary::query()
+            ->where('owner_type', OwnerType::aliasFor($request->user()))
+            ->where('owner_id', $request->user()->id)
+            ->where('country_id', $country->id)
+            ->with('beneficiary')
+            ->orderByDesc('last_used_at')
+            ->limit(20)
+            ->get();
+
+        return ApiResponse::success(WalletBeneficiaryResource::collection($beneficiaries), __('api.retrieved'));
+    }
 
     public function lookup(TransferRequest $request)
     {

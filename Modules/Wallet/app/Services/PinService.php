@@ -3,6 +3,7 @@
 namespace Modules\Wallet\Services;
 
 use Illuminate\Database\Eloquent\Model;
+use Modules\Wallet\Exceptions\PinFrozenException;
 use Modules\Wallet\Exceptions\PinLockedException;
 use Modules\Wallet\Exceptions\PinMismatchException;
 use Modules\Wallet\Exceptions\PinNotSetException;
@@ -14,11 +15,14 @@ use Modules\Wallet\Support\OwnerType;
  * payment/withdrawal/withdrawal-method changes (docs/wallet-structure.md §1.2).
  *
  * A 4-digit PIN is only 10,000 combinations, so the real protection is the
- * attempt limit + temporary lockout below, not the hash itself.
+ * attempt limit + lockout below, not the hash itself. Two stages, not one:
+ * a wrong PIN twice earns a 15-minute *temporary* lock (which lifts itself);
+ * a wrong PIN right after that lock has already been served earns a
+ * *permanent* freeze that only a person can lift (see PinFrozenException).
  */
 class PinService
 {
-    private const MAX_ATTEMPTS = 5;
+    private const MAX_ATTEMPTS = 2;
 
     private const LOCK_MINUTES = 15;
 
@@ -33,6 +37,12 @@ class PinService
     public function mustChange(Model $owner): bool
     {
         return $this->find($owner)?->must_change === true;
+    }
+
+    /** Permanently locked — see PinFrozenException. Lifted only by {@see WalletRecoveryService::approve()}. */
+    public function isFrozen(Model $owner): bool
+    {
+        return $this->find($owner)?->frozen_at !== null;
     }
 
     /**
@@ -55,6 +65,9 @@ class PinService
                 'must_change' => $mustChange,
                 'failed_attempts' => 0,
                 'locked_until' => null,
+                // A freshly-set PIN — by creation, self-recovery, or an admin-approved freeze review —
+                // is definitionally no longer the thing the freeze was protecting against.
+                'frozen_at' => null,
                 'changed_at' => now(),
             ],
         );
@@ -62,7 +75,8 @@ class PinService
 
     /**
      * @throws PinNotSetException     no PIN exists yet — caller should offer PIN creation instead
-     * @throws PinLockedException     too many recent failures
+     * @throws PinFrozenException     permanently locked — needs a person to clear it
+     * @throws PinLockedException     temporarily locked (lifts itself)
      * @throws PinMismatchException   wrong PIN (also registers the failure)
      */
     public function verify(Model $owner, string $pin): void
@@ -73,12 +87,26 @@ class PinService
             throw new PinNotSetException;
         }
 
+        if ($record->frozen_at !== null) {
+            throw new PinFrozenException;
+        }
+
         if ($record->locked_until !== null && $record->locked_until->isFuture()) {
             throw new PinLockedException($record->locked_until);
         }
 
         if (! password_verify($pin.$this->pepper(), $record->pin_hash)) {
             $this->registerFailure($record, $owner);
+
+            // registerFailure() just mutated $record in place — its current state says what this
+            // particular wrong attempt actually did: nothing yet, started a temporary lock, or froze it.
+            if ($record->frozen_at !== null) {
+                throw new PinFrozenException;
+            }
+
+            if ($record->locked_until !== null) {
+                throw new PinLockedException($record->locked_until);
+            }
 
             throw new PinMismatchException;
         }
@@ -90,11 +118,21 @@ class PinService
 
     private function registerFailure(WalletPin $record, Model $owner): void
     {
+        // A temporary lock has already been served once (it may or may not still be in effect — either
+        // way, a fresh wrong attempt after it was set is the second strike): freeze for good.
+        if ($record->locked_until !== null) {
+            $record->update(['failed_attempts' => 0, 'locked_until' => null, 'frozen_at' => now()]);
+
+            app(WalletNotifier::class)->pinFrozen($owner);
+
+            return;
+        }
+
         $attempts = $record->failed_attempts + 1;
 
         if ($attempts >= self::MAX_ATTEMPTS) {
             $record->update([
-                'failed_attempts' => 0,
+                'failed_attempts' => $attempts,
                 'locked_until' => now()->addMinutes(self::LOCK_MINUTES),
             ]);
 

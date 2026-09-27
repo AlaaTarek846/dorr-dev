@@ -42,6 +42,10 @@ class WalletRecoveryRequest extends FormRequest
                 'document' => ['nullable', ...$photo],
                 'pin' => ['nullable', 'digits:4', 'confirmed'],
             ],
+            'unfreeze' => [
+                'id_document' => ['required', ...$photo],
+                'selfie' => ['required', ...$photo],
+            ],
             default => [],
         };
     }

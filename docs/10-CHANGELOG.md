@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- `Modules/Chat`: WhatsApp-style chat backend (conversations, groups, messages, wallet cards, contacts, privacy, presence, LiveKit calls, push, admin `chat-settings`). API in `docs/modules/chat/API.md`.
 - Professional documentation system under `docs/`
 - Module documentation under `docs/modules/`
 - `AI-INSTRUCTIONS.md` for AI coding assistants

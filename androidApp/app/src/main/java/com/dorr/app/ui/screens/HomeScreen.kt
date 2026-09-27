@@ -63,6 +63,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenWallet: () -> Unit,
     onOpenServices: () -> Unit,
+    onOpenChat: () -> Unit = {},
 ) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
@@ -70,6 +71,7 @@ fun HomeScreen(
                 onOpenAccount = onOpenAccount,
                 onOpenNotifications = onOpenNotifications,
                 onOpenWallet = onOpenWallet,
+                onOpenChat = onOpenChat,
             )
         }
         item { Spacer(Modifier.height(14.dp)) }
@@ -98,7 +100,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit) {
+private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenChat: () -> Unit) {
     var hasUnread by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         hasUnread = runCatching {
@@ -148,6 +150,8 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
                 modifier = Modifier.size(18.dp),
             )
         }
+        Spacer(Modifier.width(8.dp))
+        com.dorr.app.ui.screens.chat.HomeChatButton(onClick = onOpenChat)
         Spacer(Modifier.width(8.dp))
         Box {
             Box(

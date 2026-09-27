@@ -219,4 +219,24 @@
     <string name="wa_force_page_title">رقم سري جديد</string>
     <string name="wa_force_title">اختر رقماً سرياً جديداً</string>
     <string name="wa_force_sub">تمت إعادة ضبط رقمك السري إلى 0000. اختر رقماً لا يعرفه غيرك.</string>
+    <string name="wa_frozen_title">المحفظة مقفلة</string>
+    <string name="wa_frozen_sub">تم قفل محفظتك بشكل دائم بعد محاولات خاطئة للرقم السري. ارفع صورة هويتك وصورة شخصية (سيلفي) ليراجعهما الدعم.</string>
+    <string name="wa_frozen_id_label">صورة الهوية أو جواز السفر</string>
+    <string name="wa_frozen_selfie_label">صورة شخصية (سيلفي)</string>
+    <string name="wa_frozen_pending_title">قيد المراجعة</string>
+    <string name="wa_frozen_pending_text">سيقوم الدعم بالتحقق من هويتك في أقرب وقت.</string>
+    <string name="wa_transfer_amount_label">المبلغ</string>
+    <string name="wa_transfer_fee_label">رسوم التطبيق (%1$s%%)</string>
+    <string name="wa_transfer_total_label">الإجمالي المطلوب منك</string>
+    <string name="wa_transfer_receives_label">سيستلمه المستلم</string>
+    <string name="wa_transfer_number_changed_warning">رقم جوال هذا الشخص اتغيّر مؤخراً. تأكد إنه هو فعلاً الشخص اللي تقصده قبل ما ترسل.</string>
+    <string name="wa_biometric_prompt_title">أكّد هويتك</string>
+    <string name="wa_biometric_prompt_cancel">إلغاء</string>
+    <string name="wa_biometric_toggle">فتح المحفظة بالبصمة / الوجه</string>
+    <string name="wa_biometric_toggle_hint">طريقة أسرع لفتح المحفظة على هذا الجهاز — لا تُستخدم أبداً وحدها لتنفيذ دفع أو تحويل، وتتوقف تلقائياً لو اتغيّرت بصمتك أو وجهك المسجَّل.</string>
+    <string name="wa_biometric_unlock_button">افتح بالبصمة</string>
+    <string name="wa_biometric_setup_failed">تعذّر تفعيل الفتح بالبصمة على هذا الجهاز.</string>
+    <string name="wa_biometric_unlock_failed">فشل الفتح بالبصمة. أدخل رقمك السري بدلاً منه.</string>
+    <string name="wa_device_trust_title">جهاز جديد</string>
+    <string name="wa_device_trust_sub">أرسلنا رمزاً من 4 أرقام إلى رقم جوالك المسجَّل. أدخله لتوثيق هذا الجهاز.</string>
 </resources>

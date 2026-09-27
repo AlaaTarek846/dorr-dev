@@ -26,6 +26,7 @@
                                 <th>{{ t('wallet.common.date') }}</th>
                                 <th>{{ t('wallet.common.owner') }}</th>
                                 <th>{{ t('wallet.pinrec.document') }}</th>
+                                <th>{{ t('wallet.pinrec.reason_column') }}</th>
                                 <th>{{ t('wallet.common.status') }}</th>
                                 <th class="text-end pe-4"></th>
                             </tr>
@@ -42,6 +43,11 @@
                                         <div class="fs-12 text-muted" dir="ltr">{{ row.owner?.phone }}</div>
                                     </td>
                                     <td>{{ t(`wallet.pinrec.method.${row.method}`) }}</td>
+                                    <td>
+                                        <span class="badge" :class="row.reason === 'security_freeze' ? 'bg-danger-transparent' : 'bg-info-transparent'">
+                                            {{ t(`wallet.pinrec.reason.${row.reason}`) }}
+                                        </span>
+                                    </td>
                                     <td><span class="badge" :class="statusClass(row.status)">{{ t(`wallet.wstatus.${row.status}`) }}</span></td>
                                     <td class="text-end pe-4">
                                         <button type="button" class="btn btn-sm btn-info-light btn-icon" @click.stop="open(row.id)"><i class="ri-eye-line"></i></button>
@@ -74,11 +80,13 @@
                     </div>
                 </div>
 
-                <div class="alert alert-info fs-13 py-2">{{ t('wallet.pinrec.compare_hint') }}</div>
+                <div class="alert py-2" :class="detail.reason === 'security_freeze' ? 'alert-danger' : 'alert-info'">
+                    {{ t(`wallet.pinrec.compare_hint.${detail.reason}`) }}
+                </div>
 
                 <div class="row g-3 mb-3">
                     <div v-for="side in sides" :key="side.key" class="col-md-6">
-                        <div class="fw-semibold mb-2">{{ t(`wallet.pinrec.${side.key}`) }}</div>
+                        <div class="fw-semibold mb-2">{{ t(`wallet.pinrec.${side.key}.${detail.reason}`) }}</div>
                         <div class="border rounded d-flex align-items-center justify-content-center bg-light" style="min-height: 240px">
                             <span v-if="images[side.key] === undefined" class="spinner-border spinner-border-sm"></span>
                             <span v-else-if="images[side.key] === null" class="text-muted fs-13">{{ t('wallet.pinrec.no_image') }}</span>

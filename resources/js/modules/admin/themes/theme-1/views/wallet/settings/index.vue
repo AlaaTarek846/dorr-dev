@@ -35,6 +35,9 @@
                                         <span class="badge" :class="row.transfers_enabled ? 'bg-success-transparent' : 'bg-secondary-transparent'">
                                             {{ row.transfers_enabled ? t('wallet.settings.enabled') : t('wallet.settings.disabled') }}
                                         </span>
+                                        <span v-if="Number(row.transfer_fee_percent) > 0" class="fs-11 text-muted d-block mt-1">
+                                            {{ t('wallet.settings.fee_summary', { percent: row.transfer_fee_percent, payer: t(`wallet.settings.fee_payer_${row.transfer_fee_payer}`) }) }}
+                                        </span>
                                     </td>
                                     <td>{{ debt(row.min_allowed_balance_provider_minor) }}</td>
                                     <td>{{ debt(row.min_allowed_balance_user_minor) }}</td>
@@ -70,6 +73,26 @@
                         <label class="form-label">{{ t(`wallet.settings.${f}`) }}</label>
                         <input v-model="form[f]" type="text" inputmode="decimal" dir="ltr" class="form-control" :class="{ 'is-invalid': errors[f] }" :placeholder="t('wallet.settings.no_limit')">
                         <div v-if="errors[f]" class="invalid-feedback">{{ errors[f] }}</div>
+                    </div>
+                </div>
+
+                <p class="text-muted fs-12">{{ t('wallet.settings.fee_hint') }}</p>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-4">
+                        <label class="form-label">{{ t('wallet.settings.transfer_fee_percent') }}</label>
+                        <div class="input-group">
+                            <input v-model="form.transfer_fee_percent" type="text" inputmode="decimal" dir="ltr" class="form-control" :class="{ 'is-invalid': errors.transfer_fee_percent }" placeholder="0">
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <div v-if="errors.transfer_fee_percent" class="invalid-feedback d-block">{{ errors.transfer_fee_percent }}</div>
+                    </div>
+                    <div class="col-md-8">
+                        <label class="form-label">{{ t('wallet.settings.transfer_fee_payer') }}</label>
+                        <select v-model="form.transfer_fee_payer" class="form-select" :class="{ 'is-invalid': errors.transfer_fee_payer }">
+                            <option value="recipient">{{ t('wallet.settings.fee_payer_recipient') }}</option>
+                            <option value="sender">{{ t('wallet.settings.fee_payer_sender') }}</option>
+                        </select>
+                        <div v-if="errors.transfer_fee_payer" class="invalid-feedback">{{ errors.transfer_fee_payer }}</div>
                     </div>
                 </div>
 
@@ -156,7 +179,13 @@ async function load() {
 
 function edit(row) {
     Object.keys(errors).forEach((key) => delete errors[key]);
-    Object.assign(form, { country_id: row.country_id, country_code: row.country_code, transfers_enabled: !!row.transfers_enabled });
+    Object.assign(form, {
+        country_id: row.country_id,
+        country_code: row.country_code,
+        transfers_enabled: !!row.transfers_enabled,
+        transfer_fee_percent: row.transfer_fee_percent != null ? String(row.transfer_fee_percent) : '0',
+        transfer_fee_payer: row.transfer_fee_payer || 'recipient',
+    });
 
     [...withdrawalFields, ...transferFields].forEach((f) => { form[f] = majorFromMinor(row[f]); });
     debtFields.forEach((f) => { form[f] = row[f] ? majorFromMinor(Math.abs(row[f])) : ''; });
@@ -167,7 +196,19 @@ function edit(row) {
 async function save() {
     Object.keys(errors).forEach((key) => delete errors[key]);
 
-    const payload = { transfers_enabled: form.transfers_enabled };
+    const feePercent = Number(String(form.transfer_fee_percent).replace(',', '.'));
+
+    if (Number.isNaN(feePercent) || feePercent < 0 || feePercent > 100) {
+        errors.transfer_fee_percent = t('wallet.common.invalid_amount');
+
+        return;
+    }
+
+    const payload = {
+        transfers_enabled: form.transfers_enabled,
+        transfer_fee_percent: feePercent,
+        transfer_fee_payer: form.transfer_fee_payer,
+    };
     let invalid = false;
 
     [...withdrawalFields, ...transferFields, ...debtFields].forEach((f) => {

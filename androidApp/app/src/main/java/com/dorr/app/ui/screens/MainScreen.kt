@@ -102,6 +102,22 @@ fun MainScreen(
 ) {
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
+    var chatOpen by rememberSaveable { mutableStateOf(false) }
+
+    // Chat real-time for the whole signed-in session, plus "online" while the app is in front.
+    val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        com.dorr.app.chat.ChatRealtime.start()
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> com.dorr.app.chat.ChatRealtime.onForeground()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> com.dorr.app.chat.ChatRealtime.onBackground()
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     val currentOnStateChanged by rememberUpdatedState(onStateChanged)
     LaunchedEffect(currentTab, walletOpen) {
@@ -119,6 +135,7 @@ fun MainScreen(
         }
     }
 
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
             DorrBottomNavigationBar(
@@ -150,6 +167,7 @@ fun MainScreen(
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
                         onOpenServices = onOpenServices,
+                        onOpenChat = { chatOpen = true },
                     )
                     1 -> ServicesScreen(onBack = { currentTab = 0 })
                     3 -> ProfileScreen(onLogout = onLogout, onOpenWallet = { walletOpen = true })
@@ -170,6 +188,26 @@ fun MainScreen(
                 WalletScreen(onExit = { walletOpen = false })
             }
         }
+    }
+
+    // The chat covers the whole screen (tab bar included): a conversation needs the room for its composer.
+    AnimatedVisibility(
+        visible = chatOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.chat.ChatScreen(
+            onExit = { chatOpen = false },
+            openWalletQr = { payload ->
+                com.dorr.app.ui.screens.wallet.WalletDeepLink.openQr(payload)
+                chatOpen = false
+                walletOpen = true
+            },
+        )
+    }
+
+    // A call can ring over anything.
+    com.dorr.app.ui.screens.chat.CallOverlay()
     }
 }
 

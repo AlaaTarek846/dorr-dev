@@ -30,10 +30,14 @@ return [
     // -------------------------------------------------------------- wallet: PIN
     'wallet_pin_created_title' => 'Wallet PIN created',
     'wallet_pin_created_body' => 'A PIN was set for your wallet. If this was not you, contact support right away.',
+    'phone_changed_title' => 'Phone number changed',
+    'phone_changed_body' => 'Your account phone number was changed to :phone. If this was not you, contact support right away.',
     'wallet_pin_changed_title' => 'Wallet PIN changed',
     'wallet_pin_changed_body' => 'Your wallet PIN was changed. If this was not you, contact support right away.',
     'wallet_pin_locked_title' => 'Wallet temporarily locked',
-    'wallet_pin_locked_body' => 'Too many wrong PIN attempts. Try again in :minutes minutes. If this was not you, contact support.',
+    'wallet_pin_locked_body' => 'Too many wrong PIN attempts. Try again in :minutes minutes. One more wrong attempt will freeze your wallet permanently. If this was not you, contact support.',
+    'wallet_pin_frozen_title' => 'Your wallet is permanently frozen',
+    'wallet_pin_frozen_body' => 'A wrong PIN attempt right after a temporary lock has frozen your wallet permanently. Take a selfie and upload an ID photo in the app for support to review.',
 
     // -------------------------------------------------------------- wallet: withdrawals
     'wallet_withdrawal_requested_title' => 'Withdrawal request received',
@@ -68,5 +72,11 @@ return [
     'wallet_recovery_approved_body' => 'Your PIN recovery request was approved. Your wallet PIN is now :pin (four zeros) — you will be asked to choose a new one when you open the wallet.',
     'wallet_recovery_rejected_title' => 'PIN recovery request rejected',
     'wallet_recovery_rejected_body' => 'Your PIN recovery request was rejected. Reason: :reason',
+    'wallet_security_requested_title' => 'Identity check received',
+    'wallet_security_requested_body' => 'We received your ID photo and selfie. Support will verify your identity as soon as possible.',
+    'wallet_security_review_title' => 'Identity check for a frozen wallet',
+    'wallet_security_review_body' => ":name's wallet was permanently frozen after wrong PIN attempts, and they submitted an ID photo and a selfie for review.",
+    'wallet_security_approved_title' => 'Your identity has been verified',
+    'wallet_security_approved_body' => 'Your identity has been verified, and your PIN is now :pin. You will be asked to choose a new one when you open the wallet.',
 
 ];

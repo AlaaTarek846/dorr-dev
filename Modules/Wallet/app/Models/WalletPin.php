@@ -21,6 +21,7 @@ class WalletPin extends Model
         'must_change',
         'failed_attempts',
         'locked_until',
+        'frozen_at',
         'changed_at',
     ];
 
@@ -35,6 +36,7 @@ class WalletPin extends Model
             'must_change' => 'boolean',
             'failed_attempts' => 'integer',
             'locked_until' => 'datetime',
+            'frozen_at' => 'datetime',
             'changed_at' => 'datetime',
         ];
     }

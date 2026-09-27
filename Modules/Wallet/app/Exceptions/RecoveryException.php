@@ -86,4 +86,10 @@ class RecoveryException extends RuntimeException implements ApiRenderable
     {
         return new self('pin_recovery_not_pending', 'wallet.errors.pin_recovery_not_pending', 409);
     }
+
+    /** A selfie + ID was submitted, but the wallet isn't actually frozen — nothing to review. */
+    public static function notFrozen(): self
+    {
+        return new self('pin_recovery_not_frozen', 'wallet.errors.pin_recovery_not_frozen', 422);
+    }
 }

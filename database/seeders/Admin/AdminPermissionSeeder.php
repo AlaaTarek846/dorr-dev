@@ -155,6 +155,13 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                 ],
             ],
+            'chat-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
             'withdrawal-requests' => [
                 'module_name' => 'general_services',
                 'actions' => [

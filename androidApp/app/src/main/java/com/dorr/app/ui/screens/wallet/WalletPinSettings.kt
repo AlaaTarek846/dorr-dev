@@ -2,15 +2,19 @@ package com.dorr.app.ui.screens.wallet
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,8 +24,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.fragment.app.FragmentActivity
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ChangePinRequest
@@ -37,11 +45,14 @@ import kotlinx.coroutines.CancellationException
 @Composable
 fun WalletPinSettings() {
     val host = LocalWallet.current
+    val activity = LocalContext.current as? FragmentActivity
     val networkError = stringResource(R.string.wa_error_network)
     val mismatch = stringResource(R.string.wa_pin_mismatch)
+    val setupFailed = stringResource(R.string.wa_biometric_setup_failed)
     val textCurrent = stringResource(R.string.wa_pin_current_title) to stringResource(R.string.wa_pin_current_sub)
     val textNew = stringResource(R.string.wa_pin_new_title) to stringResource(R.string.wa_pin_digits_sub)
     val textConfirm = stringResource(R.string.wa_pin_confirm_title) to stringResource(R.string.wa_pin_confirm_sub)
+    val textBiometricPin = stringResource(R.string.wa_pin_enter_title) to stringResource(R.string.wa_biometric_toggle)
 
     var status by remember { mutableStateOf<PinStatusDto?>(null) }
     var forgot by remember { mutableStateOf(false) }
@@ -69,6 +80,10 @@ fun WalletPinSettings() {
     }
 
     val loaded = status
+    if (loaded != null && loaded.isFrozen && failed == null) {
+        WaFrozenPage(loaded, onExit = { host.pop() }, onLifted = { attempt++ })
+        return
+    }
     if (loaded != null && !loaded.hasPin && failed == null) {
         // First PIN: choose how it can be recovered, then create it.
         WaPinSetupPage(onExit = { host.pop() }, onDone = { host.pop() })
@@ -105,6 +120,7 @@ fun WalletPinSettings() {
                 val (title, sub) = when (step) {
                     "current" -> textCurrent
                     "new" -> textNew
+                    "biometric-pin" -> textBiometricPin
                     else -> textConfirm
                 }
                 WaPinPad(
@@ -121,6 +137,25 @@ fun WalletPinSettings() {
                                 fresh = pin
                                 step = "confirm"
                                 PadResult.Reset
+                            }
+                            "biometric-pin" -> {
+                                try {
+                                    ApiClient.wallet.verifyPin(walletAuth(), pin)
+                                } catch (e: CancellationException) {
+                                    throw e
+                                } catch (e: Exception) {
+                                    val failure = e.apiFailure()
+                                    return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                                }
+                                if (activity == null) {
+                                    step = "current"
+                                    return@WaPinPad PadResult.Ok
+                                }
+                                WaBiometric.enable(activity, pin) { ok ->
+                                    if (!ok) host.showToast(setupFailed)
+                                }
+                                step = "current"
+                                PadResult.Ok
                             }
                             else -> {
                                 if (pin != fresh) {
@@ -145,9 +180,44 @@ fun WalletPinSettings() {
                 )
                 if (step == "current") {
                     WaButton(stringResource(R.string.wa_forgot_link), { forgot = true }, style = WaButtonStyle.Quiet)
-                    WaButton(stringResource(R.string.wa_rec_change_link), { changeMethod = true }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(bottom = 6.dp))
+                    WaButton(stringResource(R.string.wa_rec_change_link), { changeMethod = true }, style = WaButtonStyle.Quiet)
+                    WaBiometricToggleRow(onEnableRequested = { step = "biometric-pin" })
                 }
             }
         }
+    }
+}
+
+/**
+ * The one-time PIN entry that unlocks biometric setup: the PIN pad above already handles it (its
+ * "biometric-pin" step), this is just the switch that starts it, plus turning it off (no PIN needed
+ * to turn a local convenience *off*).
+ */
+@Composable
+private fun WaBiometricToggleRow(onEnableRequested: () -> Unit) {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(WaBiometric.isEnabled(context)) }
+    val available = remember { WaBiometric.isAvailable(context) }
+    if (!available) return
+
+    Column(Modifier.padding(top = 4.dp, bottom = 6.dp)) {
+        Row(
+            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(stringResource(R.string.wa_biometric_toggle), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, modifier = Modifier.weight(1f))
+            Switch(
+                checked = enabled,
+                onCheckedChange = { checked ->
+                    if (checked) {
+                        onEnableRequested()
+                    } else {
+                        WaBiometric.disable(context)
+                        enabled = false
+                    }
+                },
+            )
+        }
+        Text(stringResource(R.string.wa_biometric_toggle_hint), fontSize = 11.5.sp, color = Wa.Mut, lineHeight = 17.sp)
     }
 }

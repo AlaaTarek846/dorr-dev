@@ -114,8 +114,8 @@ enum class RecoveryMethodUi(val wire: String, val icon: ImageVector, val tone: T
 /** A picture chosen from the gallery, already shrunk and turned into a JPEG the server accepts (max 5 MB). */
 class PickedPhoto(val bytes: ByteArray, val preview: ImageBitmap)
 
-internal fun PickedPhoto.toPart(): MultipartBody.Part =
-    MultipartBody.Part.createFormData("document", "document.jpg", bytes.toRequestBody("image/jpeg".toMediaType()))
+internal fun PickedPhoto.toPart(field: String = "document"): MultipartBody.Part =
+    MultipartBody.Part.createFormData(field, "$field.jpg", bytes.toRequestBody("image/jpeg".toMediaType()))
 
 /** Decodes at most ~2000px, honours the camera's rotation, re-encodes as JPEG. Null when the file is not a picture. */
 internal suspend fun readPhoto(context: Context, uri: Uri): PickedPhoto? = withContext(Dispatchers.IO) {
@@ -776,3 +776,144 @@ fun WaForcePinChangePage(current: String, onExit: () -> Unit, onDone: () -> Unit
         }
     }
 }
+
+// ------------------------------------------------------------------------------- a device seen for the first time
+
+/**
+ * Shown after the right PIN comes from a device (`X-Device-Id`) this wallet has never opened from
+ * before (wallet policy bend 3, docs/wallet-tasks.md §10.10). A code goes to the phone on file
+ * automatically as this page opens; entering it proves the device, and `wallet/device/confirm`
+ * remembers it so this page is skipped next time.
+ */
+@Composable
+fun WaDeviceTrustPage(pin: String, onExit: () -> Unit, onDone: () -> Unit) {
+    val networkError = stringResource(R.string.wa_error_network)
+    val codeSent = stringResource(R.string.wa_rec_code_sent)
+    val scope = rememberCoroutineScope()
+    var notice by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { ApiClient.wallet.sendDeviceTrustCode(walletAuth(), pin) }
+    }
+
+    WaPage(title = stringResource(R.string.wa_device_trust_title), onBack = onExit, scroll = false) {
+        Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 8.dp)) {
+            WaPinPad(
+                title = stringResource(R.string.wa_device_trust_title),
+                sub = stringResource(R.string.wa_device_trust_sub),
+                icon = Icons.Rounded.Shield,
+                modifier = Modifier.fillMaxSize().waRise(0),
+                onComplete = { code ->
+                    notice = null
+                    try {
+                        ApiClient.wallet.confirmDeviceTrust(walletAuth(), pin, RecoveryCodeRequest(code))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        val failure = e.apiFailure()
+                        return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
+                    }
+                    onDone()
+                    PadResult.Ok
+                },
+            )
+        }
+        WaButton(
+            stringResource(R.string.wa_rec_code_resend),
+            {
+                scope.launch {
+                    try {
+                        ApiClient.wallet.sendDeviceTrustCode(walletAuth(), pin)
+                        notice = codeSent
+                        error = null
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        error = e.apiFailure().message ?: networkError
+                    }
+                }
+            },
+            style = WaButtonStyle.Quiet,
+        )
+        (notice ?: error)?.let {
+            Text(it, color = if (error != null) Wa.Danger else Wa.Green, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------- a permanent freeze
+
+/**
+ * Shown instead of the PIN pad when the wallet is permanently frozen — a wrong attempt right after a
+ * temporary lock (point 5, docs/wallet-tasks.md). The only way out: a selfie + an ID/passport photo,
+ * reviewed by a person — whatever the owner's configured recovery method actually is.
+ */
+@Composable
+fun WaFrozenPage(status: PinStatusDto?, onExit: () -> Unit, onLifted: () -> Unit) {
+    val networkError = stringResource(R.string.wa_error_network)
+    val photoRequired = stringResource(R.string.wa_rec_photo_required)
+    val photoUnreadable = stringResource(R.string.wa_rec_photo_unreadable)
+    val scope = rememberCoroutineScope()
+
+    var request by remember { mutableStateOf(status?.request) }
+    var idPhoto by remember { mutableStateOf<PickedPhoto?>(null) }
+    var selfie by remember { mutableStateOf<PickedPhoto?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var busy by remember { mutableStateOf(false) }
+
+    fun submit() {
+        val id = idPhoto
+        val self = selfie
+        if (id == null || self == null) {
+            error = photoRequired
+            return
+        }
+        scope.launch {
+            busy = true
+            try {
+                val next = ApiClient.wallet.unfreezePin(walletAuth(), id.toPart("id_document"), self.toPart("selfie")).data
+                request = next?.request
+                error = null
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                error = e.apiFailure().message ?: networkError
+            } finally {
+                busy = false
+            }
+        }
+    }
+
+    WaPage(title = stringResource(R.string.wa_frozen_title), onBack = onExit, scroll = false) {
+        when (request?.status) {
+            "pending" -> WaStatusColumn {
+                WaIconWellBig(Icons.Rounded.HourglassTop, Tone.Amber)
+                WaStatusTitle(stringResource(R.string.wa_frozen_pending_title))
+                WaStatusText(stringResource(R.string.wa_frozen_pending_text))
+                Spacer(Modifier.height(12.dp))
+                WaButton(stringResource(R.string.wa_retry), onLifted, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 40.dp))
+                WaButton(stringResource(R.string.wa_done), onExit, modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
+            }
+
+            else -> WaFormStep(
+                cta = {
+                    WaError(error)
+                    WaButton(stringResource(R.string.wa_forgot_send), { submit() }, loading = busy)
+                },
+            ) {
+                WaStepHeader(Icons.Rounded.Warning, Tone.Red, stringResource(R.string.wa_frozen_title), stringResource(R.string.wa_frozen_sub))
+                if (request?.status == "rejected") {
+                    WaNote(listOfNotNull(stringResource(R.string.wa_forgot_rejected_title), request?.rejectionReason?.takeIf { it.isNotBlank() }).joinToString(" — "), icon = Icons.Rounded.Warning)
+                    Spacer(Modifier.height(12.dp))
+                }
+                Text(stringResource(R.string.wa_frozen_id_label), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink, modifier = Modifier.padding(bottom = 8.dp))
+                WaPhotoPicker(idPhoto, { idPhoto = it; error = null }, onUnreadable = { error = photoUnreadable })
+                Spacer(Modifier.height(18.dp))
+                Text(stringResource(R.string.wa_frozen_selfie_label), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink, modifier = Modifier.padding(bottom = 8.dp))
+                WaPhotoPicker(selfie, { selfie = it; error = null }, onUnreadable = { error = photoUnreadable })
+            }
+        }
+    }
+}
+

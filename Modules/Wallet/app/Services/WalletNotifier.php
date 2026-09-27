@@ -4,6 +4,7 @@ namespace Modules\Wallet\Services;
 
 use App\Services\Notifications\NotificationCenter;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Wallet\Enums\PinRecoveryReason;
 use Modules\Wallet\Enums\RecoveryMethod;
 use Modules\Wallet\Enums\WalletDirection;
 use Modules\Wallet\Models\PaymentTransaction;
@@ -116,6 +117,13 @@ class WalletNotifier
         $this->center->send($owner, 'wallet.pin.locked', 'wallet_pin_locked_title', 'wallet_pin_locked_body', ['minutes' => $minutes], ['type' => 'wallet_pin']);
     }
 
+    /** Permanently frozen — a wrong attempt right after a temporary lock. Only a selfie + ID, reviewed by
+     *  a person, lifts it (see WalletRecoveryService::requestSecurityUnfreeze()). */
+    public function pinFrozen(Model $owner): void
+    {
+        $this->center->send($owner, 'wallet.pin.frozen', 'wallet_pin_frozen_title', 'wallet_pin_frozen_body', [], ['type' => 'wallet_pin']);
+    }
+
     // ---------------------------------------------------------------- PIN recovery
 
     /** A way back into the wallet was chosen — worth knowing if it wasn't you. */
@@ -134,12 +142,13 @@ class WalletNotifier
     public function pinRecoveryRequested(PinRecoveryRequest $request): void
     {
         $owner = $request->owner();
+        $frozen = $request->reason === PinRecoveryReason::SecurityFreeze;
 
         $this->center->send(
             $owner,
             'wallet.pin.recovery_requested',
-            'wallet_recovery_requested_title',
-            'wallet_recovery_requested_body',
+            $frozen ? 'wallet_security_requested_title' : 'wallet_recovery_requested_title',
+            $frozen ? 'wallet_security_requested_body' : 'wallet_recovery_requested_body',
             [],
             ['type' => 'wallet_pin', 'recovery_request_id' => $request->id],
         );
@@ -147,8 +156,8 @@ class WalletNotifier
         $this->center->send(
             $this->center->adminsWith('pin-recovery-requests.approve'),
             'wallet.pin.recovery_review',
-            'wallet_recovery_review_title',
-            'wallet_recovery_review_body',
+            $frozen ? 'wallet_security_review_title' : 'wallet_recovery_review_title',
+            $frozen ? 'wallet_security_review_body' : 'wallet_recovery_review_body',
             ['name' => (string) ($owner?->name ?: ($owner?->phone ?? '#'.$owner?->getKey()))],
             ['type' => 'wallet_pin_recovery', 'recovery_request_id' => $request->id],
             push: false,
@@ -158,11 +167,13 @@ class WalletNotifier
     /** Approved: tells the owner what their PIN is now (by design — it is the temporary 0000). */
     public function pinRecoveryApproved(PinRecoveryRequest $request): void
     {
+        $frozen = $request->reason === PinRecoveryReason::SecurityFreeze;
+
         $this->center->send(
             $request->owner(),
             'wallet.pin.recovery_approved',
-            'wallet_recovery_approved_title',
-            'wallet_recovery_approved_body',
+            $frozen ? 'wallet_security_approved_title' : 'wallet_recovery_approved_title',
+            $frozen ? 'wallet_security_approved_body' : 'wallet_recovery_approved_body',
             ['pin' => WalletRecoveryService::RESET_PIN],
             ['type' => 'wallet_pin', 'recovery_request_id' => $request->id],
         );

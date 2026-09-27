@@ -17,6 +17,7 @@ use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 use Modules\Wallet\Enums\PinRecoveryStatus;
 use Modules\Wallet\Models\PinRecoveryRequest;
+use Modules\Wallet\Models\WalletPin;
 use Modules\Wallet\Models\WalletRecoveryMethod;
 use Modules\Wallet\Services\PinService;
 use Modules\Wallet\Services\WalletRecoveryService;
@@ -519,5 +520,131 @@ class WalletPinRecoveryTest extends TestCase
         $this->postJson(self::BASE.'/recovery', ['method' => 'birth_date', 'birth_date' => '1990-05-17'], $pin)->assertOk()
             ->assertJsonPath('data.recovery.method', 'birth_date')
             ->assertJsonPath('data.recovery.pending_email', null);
+    }
+
+    // ------------------------------------------------------------------ two wrong attempts, then a permanent freeze
+
+    private function freeze(User $user): void
+    {
+        WalletPin::query()->where('owner_type', 'user')->where('owner_id', $user->id)->update(['frozen_at' => now()]);
+    }
+
+    public function test_two_wrong_attempts_lock_for_fifteen_minutes_then_a_third_freezes_permanently(): void
+    {
+        $this->walletWith(['method' => 'password', 'password' => 'secret123', 'password_confirmation' => 'secret123']);
+        $wrongPin = ['X-Wallet-Pin' => '0000'];
+
+        // #1: a plain wrong PIN, nothing locked yet.
+        $this->postJson('/api/mobile/v1/wallet/topups', [], $this->headers($wrongPin + ['Idempotency-Key' => 'k1']))
+            ->assertStatus(422)->assertJsonPath('error_code', 'wallet_pin_invalid');
+
+        // #2: this one starts the 15-minute lock — and says so, right on this response.
+        $this->postJson('/api/mobile/v1/wallet/topups', [], $this->headers($wrongPin + ['Idempotency-Key' => 'k2']))
+            ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_locked');
+
+        // Still within the lock: even the *right* PIN is refused the same way.
+        $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '1234']))
+            ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_locked');
+
+        // Fast-forward past the 15 minutes (nothing auto-unlocks; this only ends the wait).
+        WalletPin::query()->update(['locked_until' => now()->subMinute()]);
+
+        // #3: the grace attempt after the lock is wrong too → permanent freeze, not another temporary lock.
+        $this->postJson(self::BASE.'/verify', [], $this->headers($wrongPin))
+            ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_frozen');
+
+        $this->getJson(self::BASE, $this->headers())->assertOk()->assertJsonPath('data.is_frozen', true);
+
+        // Frozen beats everything — even the correct PIN no longer opens the wallet...
+        $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '1234']))
+            ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_frozen');
+        // ...and no money moves either.
+        $this->postJson('/api/mobile/v1/wallet/topups', [], $this->headers(['X-Wallet-Pin' => '1234', 'Idempotency-Key' => 'k3']))
+            ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_frozen');
+        // Self-service recovery (even with the right password) is refused too — only the selfie+ID path works.
+        $this->postJson(self::BASE.'/recover', ['password' => 'secret123', 'pin' => '4444', 'pin_confirmation' => '4444'], $this->headers())
+            ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_frozen');
+    }
+
+    public function test_a_correct_pin_between_two_wrong_ones_resets_the_counter(): void
+    {
+        $this->walletWith(['method' => 'password', 'password' => 'secret123', 'password_confirmation' => 'secret123']);
+
+        $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '0000']))->assertStatus(422);
+        $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '1234']))->assertOk();
+        // Back to a clean slate: this wrong attempt is "#1" again, not "#2" — no lock yet.
+        $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '0000']))->assertStatus(422)->assertJsonPath('error_code', 'wallet_pin_invalid');
+    }
+
+    public function test_unfreezing_needs_a_selfie_and_an_id_photo_and_only_works_while_frozen(): void
+    {
+        $this->walletWith(['method' => 'password', 'password' => 'secret123', 'password_confirmation' => 'secret123']);
+
+        // Not frozen — nothing to review.
+        $this->post(self::BASE.'/unfreeze', ['id_document' => $this->photo('id.jpg'), 'selfie' => $this->photo('selfie.jpg')], $this->headers(['Accept' => 'application/json']))
+            ->assertStatus(422)->assertJsonPath('error_code', 'pin_recovery_not_frozen');
+
+        $this->freeze($this->alice);
+
+        $this->post(self::BASE.'/unfreeze', [], $this->headers(['Accept' => 'application/json']))
+            ->assertStatus(422)->assertJsonValidationErrors(['id_document', 'selfie']);
+
+        $this->post(self::BASE.'/unfreeze', ['id_document' => $this->photo('id.jpg'), 'selfie' => $this->photo('selfie.jpg')], $this->headers(['Accept' => 'application/json']))
+            ->assertCreated()
+            ->assertJsonPath('data.request.reason', 'security_freeze')
+            ->assertJsonPath('data.request.status', 'pending');
+
+        // Only one open request at a time.
+        $this->post(self::BASE.'/unfreeze', ['id_document' => $this->photo('id2.jpg'), 'selfie' => $this->photo('selfie2.jpg')], $this->headers(['Accept' => 'application/json']))
+            ->assertStatus(409)->assertJsonPath('error_code', 'pin_recovery_pending_exists');
+    }
+
+    public function test_approving_a_security_freeze_request_resets_the_pin_and_lifts_the_freeze(): void
+    {
+        // The configured method is a document one here on purpose: proves the freeze path uses its own
+        // fresh photos (id_document/selfie), not whatever was uploaded at setup.
+        $this->walletWith(['method' => 'id_photo', 'document' => $this->photo('original.jpg')]);
+        $this->freeze($this->alice);
+
+        $this->post(self::BASE.'/unfreeze', ['id_document' => $this->photo('id-now.jpg'), 'selfie' => $this->photo('selfie-now.jpg')], $this->headers(['Accept' => 'application/json']))
+            ->assertCreated();
+        $request = PinRecoveryRequest::query()->where('reason', 'security_freeze')->firstOrFail();
+
+        $this->admin(['pin-recovery-requests.view', 'pin-recovery-requests.approve']);
+
+        $this->getJson('/api/admin/v1/pin-recovery-requests?status=pending')->assertOk()
+            ->assertJsonPath('data.0.reason', 'security_freeze')
+            ->assertJsonPath('data.0.original_image', "/api/admin/v1/pin-recovery-requests/{$request->id}/image/original")
+            ->assertJsonPath('data.0.new_image', "/api/admin/v1/pin-recovery-requests/{$request->id}/image/new");
+
+        $this->get("/api/admin/v1/pin-recovery-requests/{$request->id}/image/original")->assertOk();
+        $this->get("/api/admin/v1/pin-recovery-requests/{$request->id}/image/new")->assertOk();
+
+        $this->postJson("/api/admin/v1/pin-recovery-requests/{$request->id}/approve")->assertOk()->assertJsonPath('data.status', 'approved');
+
+        $this->assertTrue($this->pinIs(WalletRecoveryService::RESET_PIN), 'the PIN is now 0000');
+        $this->assertFalse(app(PinService::class)->isFrozen($this->alice), 'approving lifts the freeze');
+        $this->assertTrue(app(PinService::class)->mustChange($this->alice), 'a reset PIN still has to be replaced');
+
+        $note = $this->alice->notifications()->get()->firstWhere(fn ($n) => $n->data['title'] === 'wallet_security_approved_title');
+        $this->assertNotNull($note, 'the freeze approval uses its own wording, not the document-recovery one');
+        $this->assertSame('0000', $note->data['variables']['pin']);
+    }
+
+    public function test_rejecting_a_security_freeze_request_leaves_the_wallet_frozen(): void
+    {
+        $this->walletWith(['method' => 'password', 'password' => 'secret123', 'password_confirmation' => 'secret123']);
+        $this->freeze($this->alice);
+        $this->post(self::BASE.'/unfreeze', ['id_document' => $this->photo('id.jpg'), 'selfie' => $this->photo('selfie.jpg')], $this->headers(['Accept' => 'application/json']))->assertCreated();
+        $request = PinRecoveryRequest::query()->where('reason', 'security_freeze')->firstOrFail();
+
+        $this->admin(['pin-recovery-requests.view', 'pin-recovery-requests.reject']);
+        $this->postJson("/api/admin/v1/pin-recovery-requests/{$request->id}/reject", ['rejection_reason' => 'الصورتان غير واضحتين'])->assertOk();
+
+        $this->assertTrue(app(PinService::class)->isFrozen($this->alice), 'a rejection changes nothing about the freeze');
+
+        // A fresh selfie + ID can be submitted again.
+        $this->post(self::BASE.'/unfreeze', ['id_document' => $this->photo('id2.jpg'), 'selfie' => $this->photo('selfie2.jpg')], $this->headers(['Accept' => 'application/json']))
+            ->assertCreated();
     }
 }

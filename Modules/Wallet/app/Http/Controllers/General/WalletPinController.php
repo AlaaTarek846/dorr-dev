@@ -9,6 +9,7 @@ use Illuminate\Validation\ValidationException;
 use Modules\Wallet\Exceptions\PinAlreadySetException;
 use Modules\Wallet\Exceptions\RecoveryException;
 use Modules\Wallet\Http\Requests\WalletPinRequest;
+use Modules\Wallet\Services\DeviceTrustService;
 use Modules\Wallet\Services\PinService;
 use Modules\Wallet\Services\WalletRecoveryService;
 use Modules\Wallet\Services\WalletNotifier;
@@ -24,6 +25,7 @@ class WalletPinController extends Controller
         private readonly PinService $pins,
         private readonly WalletNotifier $notifier,
         private readonly WalletRecoveryService $recovery,
+        private readonly DeviceTrustService $devices,
     ) {}
 
     public function show(Request $request)
@@ -58,7 +60,21 @@ class WalletPinController extends Controller
      */
     public function verify(Request $request)
     {
-        return ApiResponse::success(['verified' => true, 'must_change' => $this->pins->mustChange($request->user())], __('api.retrieved'));
+        $owner = $request->user();
+        $deviceId = $request->header('X-Device-Id');
+        $trusted = $this->devices->isTrusted($owner, $deviceId);
+
+        if ($trusted) {
+            $this->devices->touch($owner, $deviceId);
+        }
+
+        return ApiResponse::success([
+            'verified' => true,
+            'must_change' => $this->pins->mustChange($owner),
+            // A device that has never opened this wallet before still has to prove the phone on file
+            // is reachable from it — wallet/device/verify-code + wallet/device/confirm (wallet policy bend 3).
+            'device_trusted' => $trusted,
+        ], __('api.retrieved'));
     }
 
     /**
