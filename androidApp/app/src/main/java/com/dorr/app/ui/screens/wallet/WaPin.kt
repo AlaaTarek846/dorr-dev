@@ -39,6 +39,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -135,33 +136,43 @@ fun WaPinPad(
             .alpha(if (busy) 0.55f else 1f),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Spacer(Modifier.weight(0.15f))
-        WaIconWell(icon, tone, size = 58.dp, iconSize = 28.dp)
-        Spacer(Modifier.height(10.dp))
-        Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Wa.Ink, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(4.dp))
-        Text(sub, color = Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
-
-        Row(
-            Modifier.padding(top = 16.dp, bottom = 6.dp).graphicsLayer { translationX = shake.value * 6.dp.toPx() },
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+        Spacer(Modifier.weight(0.12f))
+        val cardShape = RoundedCornerShape(22.dp)
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp)
+                .shadow(12.dp, cardShape, ambientColor = Color(0x1AE50914), spotColor = Color(0x24E50914))
+                .clip(cardShape)
+                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            repeat(4) { index ->
-                val on = index < value.length
-                val dotScale by animateFloatAsState(if (on) 1.18f else 1f, spring(dampingRatio = 0.45f, stiffness = 500f), label = "dot")
-                val fill = if (on) (if (bad) Wa.Danger else Wa.Red) else Color.Transparent
-                Box(
-                    Modifier
-                        .size(16.dp)
-                        .scale(dotScale)
-                        .clip(CircleShape)
-                        .background(fill)
-                        .border(2.dp, if (on) fill else Color(0xFFD1D5DB), CircleShape),
-                )
+            WaIconWell(icon, tone, size = 58.dp, iconSize = 28.dp)
+            Spacer(Modifier.height(10.dp))
+            Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Wa.Ink, textAlign = TextAlign.Center)
+            Spacer(Modifier.height(4.dp))
+            Text(sub, color = Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
+            Row(
+                Modifier.padding(top = 16.dp).graphicsLayer { translationX = shake.value * 6.dp.toPx() },
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                repeat(4) { index ->
+                    val on = index < value.length
+                    val dotScale by animateFloatAsState(if (on) 1.18f else 1f, spring(dampingRatio = 0.45f, stiffness = 500f), label = "dot")
+                    val fill = if (on) (if (bad) Wa.Danger else Wa.Red) else Color.Transparent
+                    Box(
+                        Modifier
+                            .size(16.dp)
+                            .scale(dotScale)
+                            .clip(CircleShape)
+                            .background(fill)
+                            .border(2.dp, if (on) fill else Color(0xFFD1D5DB), CircleShape),
+                    )
+                }
             }
+            Text(error, color = Wa.Danger, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 22.dp).padding(top = 6.dp))
         }
-
-        Text(error, color = Wa.Danger, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 22.dp).padding(vertical = 2.dp))
 
         Spacer(Modifier.weight(0.25f))
 
@@ -197,11 +208,16 @@ private fun PadKey(key: String, modifier: Modifier = Modifier, onClick: () -> Un
     val source = remember { MutableInteractionSource() }
     val pressScale by rememberPressScale(source, 0.9f)
     val isDelete = key == "del"
+    val keyShape = RoundedCornerShape(18.dp)
     Box(
         modifier
             .scale(pressScale)
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (isDelete) Color.Transparent else Wa.Key)
+            .then(
+                if (isDelete) Modifier
+                else Modifier.shadow(6.dp, keyShape, ambientColor = Color(0x14E50914), spotColor = Color(0x1AE50914)),
+            )
+            .clip(keyShape)
+            .background(if (isDelete) Color.Transparent else Color.White)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

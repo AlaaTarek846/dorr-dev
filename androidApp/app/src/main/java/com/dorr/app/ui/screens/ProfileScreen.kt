@@ -180,6 +180,18 @@ fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
     }
 }
 
+/** Dark palette for the account tab only. Settings stays on the light pink screen. */
+internal object AccountDark {
+    val bg = Color(0xFF101216)
+    val card = Color(0xFF1A1D24)
+    val well = Color(0xFF2C2226)
+    val line = Color(0xFF2C313A)
+    val ink = Color(0xFFF4F5F7)
+    val mut = Color(0xFF9AA1AC)
+    val accent = Color(0xFFFF4D57)
+    val chevron = Color(0xFF8B93A0)
+}
+
 @Composable
 private fun ProfileMenuScreen(
     onOpenPersonalData: () -> Unit,
@@ -207,27 +219,19 @@ private fun ProfileMenuScreen(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                // 1:1 port of the account tab's pink radial-gradient background.
-                drawRect(Color.White)
+                drawRect(AccountDark.bg)
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
-                        center = Offset(size.width * -0.08f, size.height * -0.12f),
-                        radius = size.width * 1.3f,
+                        colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
+                        center = Offset(size.width * 0.5f, size.height * -0.08f),
+                        radius = size.width * 0.85f,
                     ),
                 )
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
-                        center = Offset(size.width * 0.5f, size.height * -0.18f),
-                        radius = size.width * 1.1f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
-                        center = Offset(size.width * 1.12f, size.height * -0.08f),
-                        radius = size.width * 0.9f,
+                        colors = listOf(Color(0x33E50914), Color.Transparent),
+                        center = Offset(size.width * 1.05f, size.height * 0.02f),
+                        radius = size.width * 0.55f,
                     ),
                 )
             }
@@ -245,22 +249,22 @@ private fun ProfileMenuScreen(
                     stringResource(R.string.account_title),
                     fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = AppColors.waRed,
+                    color = AccountDark.accent,
                     modifier = Modifier.weight(1f),
                 )
                 Box(
                     modifier = Modifier
                         .size(34.dp)
-                        .shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914))
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(AccountDark.card)
+                        .border(1.dp, AccountDark.line, CircleShape)
                         .clickable(onClick = onOpenSettings),
                     contentAlignment = Alignment.Center,
                 ) {
                     Icon(
                         Icons.Rounded.Settings,
                         contentDescription = stringResource(R.string.account_settings),
-                        tint = AppColors.waRed,
+                        tint = AccountDark.accent,
                         modifier = Modifier.size(16.dp),
                     )
                 }
@@ -275,12 +279,12 @@ private fun ProfileMenuScreen(
                 Box(
                     modifier = Modifier
                         .size(56.dp)
-                        .shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.1f))
                         .clip(CircleShape)
-                        .background(Color.White),
+                        .background(AccountDark.card)
+                        .border(1.dp, AccountDark.line, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.Person, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Rounded.Person, contentDescription = null, tint = AccountDark.accent, modifier = Modifier.size(28.dp))
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -289,7 +293,7 @@ private fun ProfileMenuScreen(
                             text = user?.takeIf { !it.name.isNullOrBlank() }?.name ?: stringResource(R.string.account_default_user),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = AppColors.textPrimary,
+                            color = AccountDark.ink,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
@@ -315,7 +319,7 @@ private fun ProfileMenuScreen(
                             Text(
                                 text = phone,
                                 fontSize = 12.sp,
-                                color = AppColors.textMuted,
+                                color = AccountDark.mut,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -325,17 +329,17 @@ private fun ProfileMenuScreen(
                         modifier = Modifier
                             .padding(top = 4.dp)
                             .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFFDE8EC))
+                            .background(AccountDark.well)
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(Icons.Rounded.Star, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(12.dp))
+                        Icon(Icons.Rounded.Star, contentDescription = null, tint = AccountDark.accent, modifier = Modifier.size(12.dp))
                         Spacer(Modifier.width(5.dp))
                         Text(
                             stringResource(R.string.account_premium),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = AppColors.waRed,
+                            color = AccountDark.accent,
                         )
                     }
                 }
@@ -352,24 +356,24 @@ private fun ProfileMenuScreen(
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 AccountStat(
                     icon = Icons.Rounded.DirectionsCar,
-                    iconTint = Color(0xFF2563EB),
-                    iconBg = Color(0xFFEFF6FF),
+                    iconTint = Color(0xFFA8C7FF),
+                    iconBg = Color(0xFF1C2838),
                     value = "12",
                     label = stringResource(R.string.account_stat_orders),
                     modifier = Modifier.weight(1f),
                 )
                 AccountStat(
                     icon = Icons.Rounded.Star,
-                    iconTint = Color(0xFFD97706),
-                    iconBg = Color(0xFFFEF3C7),
+                    iconTint = Color(0xFFF6C56B),
+                    iconBg = Color(0xFF2C2618),
                     value = "4.9",
                     label = stringResource(R.string.account_stat_rating),
                     modifier = Modifier.weight(1f),
                 )
                 AccountStat(
                     icon = Icons.Rounded.Event,
-                    iconTint = Color(0xFF2563EB),
-                    iconBg = Color(0xFFEFF6FF),
+                    iconTint = Color(0xFFA8C7FF),
+                    iconBg = Color(0xFF1C2838),
                     value = "3",
                     label = stringResource(R.string.account_stat_active),
                     modifier = Modifier.weight(1f),
@@ -386,7 +390,7 @@ private fun ProfileMenuScreen(
                 enter = fadeIn(tween(350, delayMillis = index * 40)) +
                     slideInHorizontally(tween(350, delayMillis = index * 40)) { fullWidth -> -fullWidth / 3 },
             ) {
-                MenuRow(entry, mirrorChevron = rtl)
+                MenuRow(entry, mirrorChevron = rtl, dark = true)
             }
         }
     }
@@ -552,9 +556,9 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(16.dp), spotColor = AppColors.waRed.copy(alpha = 0.07f))
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
+            .background(AccountDark.card)
+            .border(1.dp, AccountDark.line, RoundedCornerShape(16.dp))
             .clickable(onClick = onOpenWallet)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -564,7 +568,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                 Icon(
                     Icons.Rounded.AccountBalanceWallet,
                     contentDescription = null,
-                    tint = AppColors.waRed,
+                    tint = AccountDark.accent,
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(5.dp))
@@ -572,7 +576,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                     stringResource(R.string.home_wallet_balance),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.textPrimary,
+                    color = AccountDark.mut,
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -580,7 +584,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                 Icon(
                     Icons.Outlined.Paid,
                     contentDescription = null,
-                    tint = AppColors.waRed,
+                    tint = AccountDark.accent,
                     modifier = Modifier.size(18.dp),
                 )
                 Spacer(Modifier.width(6.dp))
@@ -588,7 +592,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                     balanceText,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = AppColors.textPrimary,
+                    color = AccountDark.ink,
                 )
                 if (currencyText.isNotBlank()) {
                     Spacer(Modifier.width(6.dp))
@@ -596,7 +600,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                         currencyText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = AppColors.textSecondary,
+                        color = AccountDark.mut,
                     )
                 }
             }
@@ -631,10 +635,9 @@ private fun AccountStat(
 ) {
     Row(
         modifier = modifier
-            .shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color(0xFF111928).copy(alpha = 0.04f))
             .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .border(1.dp, AppColors.divider, RoundedCornerShape(12.dp))
+            .background(AccountDark.card)
+            .border(1.dp, AccountDark.line, RoundedCornerShape(12.dp))
             .padding(8.dp, 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -653,14 +656,14 @@ private fun AccountStat(
                 value,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = AppColors.textPrimary,
+                color = AccountDark.ink,
                 maxLines = 1,
             )
             Text(
                 label,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,
-                color = AppColors.textMuted,
+                color = AccountDark.mut,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -669,14 +672,19 @@ private fun AccountStat(
 }
 
 @Composable
-private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false) {
+private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false, dark: Boolean = false) {
+    val shape = RoundedCornerShape(14.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .shadow(6.dp, RoundedCornerShape(14.dp), spotColor = AppColors.waRed.copy(alpha = 0.07f))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .then(
+                if (dark) Modifier
+                else Modifier.shadow(6.dp, shape, spotColor = AppColors.waRed.copy(alpha = 0.07f)),
+            )
+            .clip(shape)
+            .background(if (dark) AccountDark.card else Color.White)
+            .then(if (dark) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
             .clickable(onClick = entry.onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -685,10 +693,10 @@ private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false) {
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFFDE8EC)),
+                .background(if (dark) AccountDark.well else Color(0xFFFDE8EC)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(entry.icon, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+            Icon(entry.icon, contentDescription = null, tint = if (dark) AccountDark.accent else AppColors.waRed, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -696,13 +704,21 @@ private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false) {
                 stringResource(entry.label),
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Bold,
-                color = if (entry.danger) AppColors.waRed else AppColors.textPrimary,
+                color = when {
+                    entry.danger -> AppColors.waRed
+                    dark -> AccountDark.ink
+                    else -> AppColors.textPrimary
+                },
             )
             entry.subtitle?.let { sub ->
                 Text(
                     stringResource(sub),
                     fontSize = 11.sp,
-                    color = if (entry.danger) AppColors.otpGlowDeep else AppColors.textMuted,
+                    color = when {
+                        entry.danger -> AppColors.otpGlowDeep
+                        dark -> AccountDark.mut
+                        else -> AppColors.textMuted
+                    },
                 )
             }
         }
@@ -712,7 +728,7 @@ private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false) {
             Icon(
                 Icons.Rounded.ChevronRight,
                 contentDescription = null,
-                tint = AppColors.otpGlowDeep,
+                tint = if (dark) AccountDark.chevron else AppColors.otpGlowDeep,
                 modifier = Modifier
                     .size(16.dp)
                     .graphicsLayer { if (mirrorChevron) scaleX = -1f },

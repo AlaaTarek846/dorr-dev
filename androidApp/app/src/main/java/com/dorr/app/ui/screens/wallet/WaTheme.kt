@@ -61,7 +61,9 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.State
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import com.dorr.app.R
 
 /**
  * The wallet's look, ported 1:1 from the web preview (public/app/css/wallet.css) so the app and
@@ -340,12 +342,28 @@ fun WaPage(
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 8.dp),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                WaCircleButton(Icons.AutoMirrored.Rounded.ArrowBack, onBack)
-                Text(title, color = Wa.Red, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
-                actions()
+                Text(title, color = Wa.Red, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    actions()
+                    Box(
+                        Modifier
+                            .size(34.dp)
+                            .shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914))
+                            .clip(CircleShape)
+                            .background(Color.White)
+                            .clickable(onClick = onBack),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = stringResource(R.string.common_back),
+                            tint = Wa.Red,
+                            modifier = Modifier.size(16.dp).graphicsLayer { scaleX = -1f },
+                        )
+                    }
+                }
             }
             val body = Modifier
                 .weight(1f)
