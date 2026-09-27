@@ -48,6 +48,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Provider dashboard SPA **documented** (module docs + API spec aligned with code, 2026-09-20)
 - Provider profile services dropdown + sidebar links from `services[]` / `category.module_name`
 - **Mobile phone auth (Android):** `/api/mobile/v1/*` guard `user_api`; combined login/register by phone only; fixed demo OTP `123456` via `App\Traits\SendsPhoneOtp` (writes `verification_codes`); phone validated against `countries.phone_starts_with` / `phone_length`; `EnsurePhoneVerified` middleware blocks routes until `phone_verified_at` set; Android `LoginScreen`/`OtpScreen` wired to real APIs (`MobileAuthApi`)
+- **Android first launch:** Splash (login logo) then a 3-step onboarding, only while `dorr_onboarding` / `onboarding_completed` is false. Skip and finish both set the flag. After that, Splash goes to Home when a session exists, otherwise Login. Logout does not reset the flag.
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
 - Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
 - Dashboard theme infrastructure: Blade `dashboard/shell`, `DashboardThemeResolver`, Vue `themes/theme-1` shells + themed views paths

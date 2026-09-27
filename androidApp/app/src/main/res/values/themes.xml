@@ -8,8 +8,7 @@
         <item name="android:windowBackground">@android:color/white</item>
     </style>
 
-    <!-- Splash-only theme: solid brand background so there's no white flash
-         between process start and the first Compose frame. -->
+    <!-- Splash-only theme: login pink wash so the first frame matches Sign In. -->
     <style name="Theme.Dorr.Splash" parent="Theme.Dorr">
         <item name="android:windowBackground">@drawable/splash_background</item>
     </style>

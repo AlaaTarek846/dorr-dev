@@ -166,7 +166,6 @@ fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onLogout = onLogout,
-                onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
                 onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
                 onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
@@ -399,7 +398,6 @@ private fun ProfileMenuScreen(
 private fun SettingsMenuScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
-    onOpenPersonalData: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenWalletPin: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -415,7 +413,6 @@ private fun SettingsMenuScreen(
     var showLanguageDialog by remember { mutableStateOf(false) }
 
     val menuItems = listOf(
-        MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
         MenuEntry(Icons.Rounded.Lock, R.string.account_wallet_pin, R.string.account_wallet_pin_sub, onClick = onOpenWalletPin),
         MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },

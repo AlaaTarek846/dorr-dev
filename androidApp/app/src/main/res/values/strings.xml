@@ -3,6 +3,16 @@
     <string name="app_name">Dorr</string>
     <string name="app_tagline">Powered by Dorr</string>
 
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_start">Get started</string>
+    <string name="onboarding_services_title">Services in one place</string>
+    <string name="onboarding_services_body">Browse services and request what you need.</string>
+    <string name="onboarding_wallet_title">Your wallet</string>
+    <string name="onboarding_wallet_body">Top up, pay, and follow your balance.</string>
+    <string name="onboarding_account_title">Your account</string>
+    <string name="onboarding_account_body">Keep your details, addresses, and preferences.</string>
+
     <string name="login_title">Sign In</string>
     <string name="login_subtitle">Enter your phone number and we\'ll send a verification code</string>
     <string name="login_hint">6000 0000</string>
@@ -10,6 +20,10 @@
     <string name="login_country_code">Country code</string>
     <string name="login_country_search">Search country</string>
     <string name="login_terms">By signing in you agree to the Terms of Use and Privacy Policy</string>
+    <string name="login_terms_prefix">By signing in you agree to the </string>
+    <string name="login_terms_use">Terms of Use</string>
+    <string name="login_terms_mid"> and </string>
+    <string name="login_terms_privacy">Privacy Policy</string>
     <string name="login_error_phone_invalid_length">The phone number must be %1$d digits.</string>
     <string name="login_error_phone_invalid_start">The phone number must start with %1$s.</string>
     <string name="login_error_phone_invalid_country">The selected country or dial code is invalid.</string>
@@ -100,7 +114,9 @@
     <string name="addr_landmark">Landmark</string>
     <string name="addr_landmark_hint">Near a mosque or shop</string>
     <string name="addr_set_default">Set as default</string>
+    <string name="pd_change_photo">Change photo</string>
     <string name="pd_name">Name</string>
+    <string name="pd_name_more">You can edit more details later</string>
     <string name="pd_gender">Gender</string>
     <string name="pd_phone">Phone number</string>
     <string name="pd_email">Email</string>
@@ -113,6 +129,7 @@
     <string name="edit_name_hint">Type the name as it appears on your account.</string>
     <string name="toast_enter_name">Enter a name</string>
     <string name="toast_name_updated">Name updated</string>
+    <string name="toast_profile_updated">Details saved</string>
     <string name="edit_gender_title">Edit gender</string>
     <string name="edit_gender_hint">Choose a gender then save.</string>
     <string name="toast_pick_gender">Choose a gender</string>
