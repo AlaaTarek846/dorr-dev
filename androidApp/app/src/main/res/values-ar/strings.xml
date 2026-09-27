@@ -3,6 +3,16 @@
     <string name="app_name">درر</string>
     <string name="app_tagline">بدعم من درر</string>
 
+    <string name="onboarding_skip">تخطي</string>
+    <string name="onboarding_next">التالي</string>
+    <string name="onboarding_start">ابدأ</string>
+    <string name="onboarding_services_title">الخدمات في مكان واحد</string>
+    <string name="onboarding_services_body">تصفّح الخدمات واطلب اللي تحتاجه.</string>
+    <string name="onboarding_wallet_title">محفظتك</string>
+    <string name="onboarding_wallet_body">اشحن، ادفع، وتابع رصيدك.</string>
+    <string name="onboarding_account_title">حسابك</string>
+    <string name="onboarding_account_body">احفظ بياناتك وعناوينك وتفضيلاتك.</string>
+
     <string name="login_title">تسجيل الدخول</string>
     <string name="login_subtitle">أدخل رقم هاتفك سيتم إرسال كود للتأكيد</string>
     <string name="login_hint">6000 0000</string>
@@ -10,6 +20,10 @@
     <string name="login_country_code">كود الدولة</string>
     <string name="login_country_search">ابحث عن دولة</string>
     <string name="login_terms">بتسجيلك أنت موافق على شروط الاستخدام وسياسة الخصوصية</string>
+    <string name="login_terms_prefix">بتسجيلك أنت موافق على </string>
+    <string name="login_terms_use">شروط الاستخدام</string>
+    <string name="login_terms_mid"> و</string>
+    <string name="login_terms_privacy">سياسة الخصوصية</string>
     <string name="login_error_phone_invalid_length">يجب أن يتكون رقم الهاتف من %1$d أرقام.</string>
     <string name="login_error_phone_invalid_start">يجب أن يبدأ رقم الهاتف بالرقم %1$s.</string>
     <string name="login_error_phone_invalid_country">الدولة أو كود الاتصال غير صالح.</string>
@@ -100,7 +114,9 @@
     <string name="addr_landmark">علامة مميزة</string>
     <string name="addr_landmark_hint">بجوار مسجد أو محل</string>
     <string name="addr_set_default">تعيين كافتراضي</string>
+    <string name="pd_change_photo">تغيير الصورة</string>
     <string name="pd_name">الاسم</string>
+    <string name="pd_name_more">في بيانات تانية تقدر تعدّلها لاحقًا</string>
     <string name="pd_gender">الجنس</string>
     <string name="pd_phone">رقم الهاتف</string>
     <string name="pd_email">البريد الإلكتروني</string>
@@ -113,6 +129,7 @@
     <string name="edit_name_hint">اكتب الاسم كما يظهر في حسابك.</string>
     <string name="toast_enter_name">اكتب الاسم</string>
     <string name="toast_name_updated">تم تحديث الاسم</string>
+    <string name="toast_profile_updated">تم حفظ البيانات</string>
     <string name="edit_gender_title">تعديل الجنس</string>
     <string name="edit_gender_hint">اختر الجنس ثم احفظ.</string>
     <string name="toast_pick_gender">اختر الجنس</string>
