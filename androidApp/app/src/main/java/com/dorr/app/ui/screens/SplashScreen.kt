@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DorrLogo
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,10 +63,24 @@ fun SplashScreen(onFinished: () -> Unit) {
         onFinished()
     }
 
+    val night = settingsNight()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
+                if (night) {
+                    drawRect(AccountDark.bg)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
+                            center = Offset(size.width * 0.5f, size.height * -0.08f),
+                            radius = size.width * 0.85f,
+                        ),
+                        radius = size.width * 0.85f,
+                        center = Offset(size.width * 0.5f, size.height * -0.08f),
+                    )
+                    return@drawBehind
+                }
                 // 1:1 port of #screen-splash's pink radial-gradient background.
                 drawRect(Color.White)
                 drawRect(
@@ -104,8 +119,8 @@ fun SplashScreen(onFinished: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(104.dp)
-                    .shadow(10.dp, RoundedCornerShape(22.dp))
-                    .background(Color.White, RoundedCornerShape(22.dp))
+                    .then(if (night) Modifier else Modifier.shadow(10.dp, RoundedCornerShape(22.dp)))
+                    .background(if (night) AccountDark.card else Color.White, RoundedCornerShape(22.dp))
                     .padding(8.dp)
                     .graphicsLayer {
                         translationY = (1f - rise.value) * 140.dp.toPx()
@@ -118,21 +133,21 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.app_name),
-                color = AppColors.waRed,
+                color = if (night) AccountDark.accent else AppColors.waRed,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
             Spacer(Modifier.height(12.dp))
             CircularProgressIndicator(
-                color = AppColors.waRed,
-                trackColor = AppColors.waRed.copy(alpha = 0.18f),
+                color = if (night) AccountDark.accent else AppColors.waRed,
+                trackColor = (if (night) AccountDark.accent else AppColors.waRed).copy(alpha = 0.18f),
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(28.dp),
             )
             Spacer(Modifier.weight(3f))
             Text(
                 text = stringResource(R.string.app_tagline),
-                color = AppColors.textSecondary,
+                color = if (night) AccountDark.mut else AppColors.textSecondary,
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(24.dp))

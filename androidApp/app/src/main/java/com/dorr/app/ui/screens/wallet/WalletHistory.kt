@@ -141,7 +141,7 @@ fun WaChip(text: String, icon: ImageVector?, selected: Boolean, onClick: () -> U
         Modifier
             .scale(pressScale)
             .clip(RoundedCornerShape(999.dp))
-            .background(if (selected) Wa.Red else Color.White)
+            .background(if (selected) Wa.Red else Wa.Surface)
             .border(1.5.dp, if (selected) Wa.Red else Wa.Line, RoundedCornerShape(999.dp))
             .clickable(interactionSource = source, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),

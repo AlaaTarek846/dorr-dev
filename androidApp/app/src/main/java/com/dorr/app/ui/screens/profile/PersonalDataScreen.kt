@@ -95,6 +95,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.CountryDto
@@ -237,9 +238,9 @@ private fun PdHub(onBack: () -> Unit, refreshKey: Int, onOpen: (PdSub) -> Unit) 
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914))
+                                .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914)))
                                 .clip(CircleShape)
-                                .background(Color.White),
+                                .background(if (settingsNight()) AccountDark.card else Color.White),
                             contentAlignment = Alignment.Center,
                         ) {
                             if (photoPath != null) {
@@ -250,7 +251,7 @@ private fun PdHub(onBack: () -> Unit, refreshKey: Int, onOpen: (PdSub) -> Unit) 
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
-                                Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = AppColors.waRed, modifier = Modifier.size(44.dp))
+                                Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = settingsAccent(), modifier = Modifier.size(44.dp))
                             }
                         }
                         Box(
@@ -314,9 +315,7 @@ private fun PdFieldRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = CardShadow, spotColor = CardShadow)
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .settingsSurface(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -325,21 +324,21 @@ private fun PdFieldRow(
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Pink),
+                .background(if (settingsNight()) AccountDark.well else Pink),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = AppColors.textMuted)
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = settingsMut())
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val valueText: @Composable () -> Unit = {
                     Text(
                         value,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.textPrimary,
+                        color = settingsInk(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
@@ -366,7 +365,7 @@ private fun PdFieldRow(
                 Text(
                     note,
                     fontSize = 11.sp,
-                    color = AppColors.textMuted,
+                    color = settingsMut(),
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -374,7 +373,7 @@ private fun PdFieldRow(
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFFEFA8B4),
+            tint = if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4),
             modifier = Modifier
                 .size(16.dp)
                 .graphicsLayer { if (rtl) scaleX = -1f },
@@ -405,7 +404,7 @@ private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                     stringResource(R.string.pd_gender),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.textPrimary,
+                    color = settingsInk(),
                 )
                 Spacer(Modifier.height(8.dp))
                 GenderOption(stringResource(R.string.gender_male), Icons.Rounded.Male, gender == "male") { gender = "male" }
@@ -432,25 +431,25 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) Pink else FieldFill)
+            .background(if (selected) (if (settingsNight()) AccountDark.well else Pink) else if (settingsNight()) AccountDark.bg else FieldFill)
             .border(1.5.dp, if (selected) AppColors.waRed else Color.Transparent, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = if (selected) AppColors.waRed else AppColors.textMuted, modifier = Modifier.size(22.dp))
+        Icon(icon, contentDescription = null, tint = if (selected) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(10.dp))
         Text(
             label,
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
-            color = if (selected) AppColors.waRed else AppColors.textPrimary,
+            color = if (selected) settingsAccent() else settingsInk(),
             modifier = Modifier.weight(1f),
         )
         Box(
             modifier = Modifier
                 .size(18.dp)
-                .border(2.dp, if (selected) AppColors.waRed else Color(0xFFEFA8B4), CircleShape),
+                .border(2.dp, if (selected) AppColors.waRed else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
@@ -518,7 +517,7 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                     stringResource(R.string.edit_phone_label),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
-                    color = AppColors.textPrimary,
+                    color = settingsInk(),
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
                 ProfilePhoneField(
@@ -658,7 +657,7 @@ private fun PdOtpStep(title: String, target: String, onBack: () -> Unit, onVerif
                     stringResource(R.string.profile_otp_hint, target),
                     fontSize = 12.sp,
                     lineHeight = 19.sp,
-                    color = AppColors.textSecondary,
+                    color = if (settingsNight()) settingsMut() else AppColors.textSecondary,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -691,7 +690,7 @@ private fun PdOtpStep(title: String, target: String, onBack: () -> Unit, onVerif
                     Text(
                         stringResource(R.string.profile_otp_timer, countdown),
                         fontSize = 13.sp,
-                        color = AppColors.textSecondary,
+                        color = if (settingsNight()) settingsMut() else AppColors.textSecondary,
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -717,7 +716,7 @@ private fun PdOtpStep(title: String, target: String, onBack: () -> Unit, onVerif
                 Text(
                     stringResource(R.string.profile_otp_dev_hint),
                     fontSize = 12.sp,
-                    color = AppColors.textMuted,
+                    color = settingsMut(),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -750,7 +749,7 @@ private fun OtpDigit(
             .width(40.dp)
             .height(48.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .background(if (settingsNight()) AccountDark.card else Color.White)
             .border(1.5.dp, border, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
     ) {
@@ -761,7 +760,7 @@ private fun OtpDigit(
             textStyle = TextStyle(
                 fontSize = 20.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = AppColors.textPrimary,
+                color = settingsInk(),
                 textAlign = TextAlign.Center,
             ),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
@@ -803,7 +802,7 @@ private fun ProfilePhoneField(
                 .fillMaxWidth()
                 .height(44.dp)
                 .clip(RoundedCornerShape(999.dp))
-                .background(if (focused) Color.White else FieldFill)
+                .background(if (settingsNight()) AccountDark.bg else if (focused) Color.White else FieldFill)
                 .border(1.dp, borderColor, RoundedCornerShape(999.dp))
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -815,14 +814,14 @@ private fun ProfilePhoneField(
             ) {
                 PdFlag(flag)
                 Spacer(Modifier.width(6.dp))
-                Text(dial, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = AppColors.textPrimary)
+                Text(dial, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = settingsInk())
             }
             PhoneSep()
             BasicTextField(
                 value = phone,
                 onValueChange = onPhone,
                 singleLine = true,
-                textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = AppColors.textPrimary, letterSpacing = 0.5.sp),
+                textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = settingsInk(), letterSpacing = 0.5.sp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 cursorBrush = SolidColor(AppColors.waRed),
                 modifier = Modifier
@@ -862,7 +861,7 @@ private fun PhoneSep() {
             .padding(horizontal = 8.dp)
             .width(1.dp)
             .height(18.dp)
-            .background(Color(0xFFE5E7EB)),
+            .background(if (settingsNight()) AccountDark.line else Color(0xFFE5E7EB)),
     )
 }
 
@@ -889,9 +888,7 @@ private fun PdFormCard(content: @Composable () -> Unit) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = CardShadow, spotColor = CardShadow)
-                .clip(RoundedCornerShape(18.dp))
-                .background(Color.White)
+                .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
                 .padding(16.dp),
         ) {
             content()
@@ -910,25 +907,25 @@ private fun IconField(
     keyboardType: KeyboardType = KeyboardType.Text,
 ) {
     var focused by remember { mutableStateOf(false) }
-    Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = AppColors.textPrimary, modifier = Modifier.padding(bottom = 8.dp))
+    Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.padding(bottom = 8.dp))
     val field = @Composable {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(44.dp)
                 .clip(RoundedCornerShape(999.dp))
-                .background(if (focused) Color.White else FieldFill)
-                .border(1.dp, if (focused) AppColors.waRed else FieldBorder, RoundedCornerShape(999.dp))
+                .background(if (settingsNight()) AccountDark.bg else if (focused) Color.White else FieldFill)
+                .border(1.dp, if (focused) AppColors.waRed else if (settingsNight()) AccountDark.line else FieldBorder, RoundedCornerShape(999.dp))
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 singleLine = true,
-                textStyle = TextStyle(fontSize = 15.sp, color = AppColors.textPrimary),
+                textStyle = TextStyle(fontSize = 15.sp, color = settingsInk()),
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                 cursorBrush = SolidColor(AppColors.waRed),
                 modifier = Modifier
@@ -958,7 +955,7 @@ private fun Hint(text: String) {
         text,
         fontSize = 12.sp,
         lineHeight = 19.sp,
-        color = AppColors.textSecondary,
+        color = if (settingsNight()) settingsMut() else AppColors.textSecondary,
         modifier = Modifier.padding(top = 10.dp, start = 2.dp, end = 2.dp),
     )
 }
@@ -991,9 +988,9 @@ private fun PdSaveButton(label: String, enabled: Boolean = true, onClick: () -> 
 @Composable
 private fun PdScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
     Box(Modifier.fillMaxSize()) {
-        PdBackdrop(Modifier.fillMaxSize())
+        PinkBackdrop(Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize()) {
-            PdHeader(title, onBack)
+            SubHeader(title, onBack)
             content()
         }
     }

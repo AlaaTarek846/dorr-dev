@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.ui.locale.LocalAppLanguage
+import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 import kotlinx.coroutines.delay
@@ -82,11 +83,10 @@ fun NoInternetScreen(
     var isChecking by remember { mutableStateOf(false) }
     var showStillOfflineMessage by remember { mutableStateOf(false) }
 
-    val bgColor = if (isDark) AppColors.darkBackground else AppColors.background
-    val cardBg = if (isDark) AppColors.darkSurface else AppColors.surface
-    val cardBorder = if (isDark) AppColors.darkBorder.copy(alpha = 0.5f) else AppColors.border
-    val textPrimaryColor = if (isDark) AppColors.darkTextPrimary else AppColors.textPrimary
-    val textSecondaryColor = if (isDark) AppColors.darkTextSecondary else AppColors.textSecondary
+    val cardBg = if (isDark) AccountDark.card else AppColors.surface
+    val cardBorder = if (isDark) AccountDark.line else AppColors.border
+    val textPrimaryColor = if (isDark) AccountDark.ink else AppColors.textPrimary
+    val textSecondaryColor = if (isDark) AccountDark.mut else AppColors.textSecondary
 
     // Subtle pulsing animation on the offline halo
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -112,13 +112,13 @@ fun NoInternetScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(bgColor)
             // Intercept all touches so nothing underneath receives clicks
             .pointerInput(Unit) {}
             .statusBarsPadding()
             .navigationBarsPadding(),
         contentAlignment = Alignment.Center,
     ) {
+        PinkBackdrop(Modifier.matchParentSize())
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -252,15 +252,15 @@ fun NoInternetScreen(
                                 .fillMaxWidth()
                                 .padding(bottom = 12.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFFEBEB))
-                                .border(1.dp, Color(0xFFF87171), RoundedCornerShape(12.dp))
+                                .background(if (isDark) AccountDark.well else Color(0xFFFFEBEB))
+                                .border(1.dp, if (isDark) AccountDark.accent else Color(0xFFF87171), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 14.dp, vertical = 10.dp),
                             contentAlignment = Alignment.Center,
                         ) {
                             Text(
                                 text = if (isArabic) "ما زال غير متصل بالإنترنت، يرجى المحاولة بعد قليل" else "Still offline. Please check connection and try again",
                                 style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
-                                color = Color(0xFFB91C1C),
+                                color = if (isDark) AccountDark.accent else Color(0xFFB91C1C),
                                 textAlign = TextAlign.Center,
                             )
                         }
@@ -337,10 +337,10 @@ private fun TipItem(
     desc: String,
     isDark: Boolean,
 ) {
-    val textPrimary = if (isDark) AppColors.darkTextPrimary else AppColors.textPrimary
-    val textSecondary = if (isDark) AppColors.darkTextSecondary else AppColors.textSecondary
-    val iconBg = if (isDark) Color(0xFF2C3440) else Color(0xFFF3F4F6)
-    val iconTint = if (isDark) AppColors.primaryLight else AppColors.primary
+    val textPrimary = if (isDark) AccountDark.ink else AppColors.textPrimary
+    val textSecondary = if (isDark) AccountDark.mut else AppColors.textSecondary
+    val iconBg = if (isDark) AccountDark.well else Color(0xFFF3F4F6)
+    val iconTint = if (isDark) AccountDark.accent else AppColors.waRed
 
     Row(
         modifier = Modifier.fillMaxWidth(),

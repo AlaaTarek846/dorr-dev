@@ -11,6 +11,7 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -39,10 +40,12 @@ import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.GridView
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.ripple
+import com.dorr.app.ui.theme.LocalThemeState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -119,7 +122,9 @@ fun MainScreen(
         }
     }
 
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     Scaffold(
+        containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
             DorrBottomNavigationBar(
                 currentTab = currentTab,
@@ -183,21 +188,28 @@ private fun DorrBottomNavigationBar(
 ) {
     val barHeight = 64.dp
     val fabSize = 54.dp
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val accountDark = night
+    val barColor = if (accountDark) AccountDark.bg else Color.White
+    val ringColor = if (accountDark) AccountDark.bg else Color.White
 
     Box(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().background(barColor),
         contentAlignment = Alignment.BottomCenter,
     ) {
-        // 1. White bottom navigation bar surface
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(
-                    elevation = 10.dp,
-                    spotColor = BottomBarActiveRed.copy(alpha = 0.08f),
-                    ambientColor = Color.Black.copy(alpha = 0.04f),
+                .then(
+                    if (accountDark) Modifier
+                    else Modifier.shadow(
+                        elevation = 10.dp,
+                        spotColor = BottomBarActiveRed.copy(alpha = 0.08f),
+                        ambientColor = Color.Black.copy(alpha = 0.04f),
+                    ),
                 ),
-            color = Color.White,
+            color = barColor,
+            tonalElevation = 0.dp,
         ) {
             Column(
                 modifier = Modifier
@@ -209,14 +221,17 @@ private fun DorrBottomNavigationBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
-                        .background(
-                            brush = Brush.horizontalGradient(
-                                colors = listOf(
-                                    Color(0xFFEEEEEE),
-                                    Color(0xFFFDE8EB),
-                                    Color(0xFFF9C0C8),
-                                    Color(0xFFFDE8EB),
-                                    Color(0xFFEEEEEE),
+                        .then(
+                            if (accountDark) Modifier.background(Color(0xFF2C313A))
+                            else Modifier.background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFFEEEEEE),
+                                        Color(0xFFFDE8EB),
+                                        Color(0xFFF9C0C8),
+                                        Color(0xFFFDE8EB),
+                                        Color(0xFFEEEEEE),
+                                    ),
                                 ),
                             ),
                         ),
@@ -298,7 +313,7 @@ private fun DorrBottomNavigationBar(
                         ambientColor = BottomBarActiveRed.copy(alpha = 0.18f),
                     )
                     .background(BottomBarActiveRed, CircleShape)
-                    .border(3.5.dp, Color.White, CircleShape)
+                    .border(3.5.dp, ringColor, CircleShape)
                     .clip(CircleShape)
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },

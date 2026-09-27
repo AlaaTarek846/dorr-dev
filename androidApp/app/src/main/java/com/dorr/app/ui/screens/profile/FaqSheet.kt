@@ -83,7 +83,7 @@ fun FaqSheet(onDismiss: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                     PinkIcon(Icons.Rounded.Help)
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.faq_title), color = AppColors.waRed, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.faq_title), color = settingsAccent(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 faqItems.forEach { item ->
                     FaqRow(item, rtl)
@@ -101,9 +101,7 @@ private fun FaqRow(item: FaqItem, rtl: Boolean) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .settingsSurface(RoundedCornerShape(14.dp))
             .clickable { open = !open }
             .padding(12.dp),
         verticalAlignment = Alignment.Top,
@@ -111,12 +109,12 @@ private fun FaqRow(item: FaqItem, rtl: Boolean) {
         PinkIcon(Icons.Rounded.Help)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(stringResource(item.question), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = AppColors.textPrimary, lineHeight = 19.sp)
+            Text(stringResource(item.question), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk(), lineHeight = 19.sp)
             if (open) {
                 Text(
                     stringResource(item.answer),
                     fontSize = 12.sp,
-                    color = AppColors.textSecondary,
+                    color = settingsMut(),
                     lineHeight = 19.sp,
                     modifier = Modifier.padding(top = 6.dp),
                 )
@@ -125,7 +123,7 @@ private fun FaqRow(item: FaqItem, rtl: Boolean) {
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFFEFA8B4),
+            tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFEFA8B4),
             modifier = Modifier
                 .padding(top = 2.dp)
                 .size(16.dp)

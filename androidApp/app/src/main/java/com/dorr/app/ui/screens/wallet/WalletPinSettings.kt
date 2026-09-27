@@ -17,10 +17,12 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ChangePinRequest
@@ -65,7 +67,8 @@ fun WalletPinSettings() {
         }
     }
 
-    WaPage(title = stringResource(R.string.wa_pin_page_title), onBack = { host.pop() }, scroll = false) {
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    WaPage(title = stringResource(R.string.wa_pin_page_title), onBack = { host.pop() }, scroll = false, dark = night) {
         when {
             failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 WaEmpty(
@@ -91,7 +94,7 @@ fun WalletPinSettings() {
                     else -> textConfirm
                 }
                 WaPinPad(
-                    title = title, sub = sub, icon = Icons.Rounded.Shield,
+                    title = title, sub = sub, icon = Icons.Rounded.Shield, dark = night,
                     modifier = Modifier.fillMaxSize().waRise(0),
                     onComplete = { pin ->
                         when (step) {
