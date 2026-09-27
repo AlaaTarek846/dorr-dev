@@ -28,11 +28,22 @@ class PinService
     }
 
     /**
+     * The PIN was reset to a well-known value (approved recovery request) and still has to be replaced.
+     */
+    public function mustChange(Model $owner): bool
+    {
+        return $this->find($owner)?->must_change === true;
+    }
+
+    /**
      * Creates the PIN on first use, or overwrites it on an explicit change —
      * callers are responsible for requiring the *old* PIN before calling this
      * for a change (this method itself doesn't distinguish create vs change).
+     *
+     * [$mustChange] marks a PIN that was reset to a well-known value: it opens the wallet but nothing
+     * that moves money, until the owner sets a real one (any later set() without the flag clears it).
      */
-    public function set(Model $owner, string $pin): WalletPin
+    public function set(Model $owner, string $pin, bool $mustChange = false): WalletPin
     {
         return WalletPin::query()->updateOrCreate(
             [
@@ -41,6 +52,7 @@ class PinService
             ],
             [
                 'pin_hash' => $this->hash($pin),
+                'must_change' => $mustChange,
                 'failed_attempts' => 0,
                 'locked_until' => null,
                 'changed_at' => now(),

@@ -53,8 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.CompositionLocalProvider
 import com.dorr.app.R
-import com.dorr.app.network.ApiClient
-import com.dorr.app.network.CreatePinRequest
 import com.dorr.app.network.apiFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -211,50 +209,13 @@ private fun PadKey(key: String, modifier: Modifier = Modifier, onClick: () -> Un
 }
 
 /**
- * One PIN prompt for every protected action, as the pad inside a bottom sheet. Creation is lazy:
- * with no PIN yet the enter + confirm steps replace the verify step right here. [onSubmit] runs
- * the action and says how to react (done / retry with a message / close with a message).
+ * One PIN prompt for every protected action, as the pad inside a bottom sheet. [onSubmit] runs the
+ * action and says how to react (done / retry with a message / close with a message). A PIN is always
+ * created on its own page first (recovery method + PIN), never here.
  */
 @Composable
 fun WaPinSheetContent(sheet: WaSheet.Pin, host: WalletHost) {
-    val enterTitle = stringResource(R.string.wa_pin_enter_title)
-    val createTitle = stringResource(R.string.wa_pin_create_title_sheet)
-    val createSub = stringResource(R.string.wa_pin_create_sub_sheet)
-    val confirmTitle = stringResource(R.string.wa_pin_confirm_title)
-    val confirmSub = stringResource(R.string.wa_pin_confirm_sub)
-    val mismatch = stringResource(R.string.wa_pin_mismatch)
-    val networkError = stringResource(R.string.wa_error_network)
-
-    var step by remember { mutableStateOf(if (sheet.hasPin) "enter" else "create") }
-    var first by remember { mutableStateOf("") }
-
-    val (title, sub) = when (step) {
-        "enter" -> enterTitle to sheet.subtitle
-        "create" -> createTitle to createSub
-        else -> confirmTitle to confirmSub
-    }
-
-    WaPinPad(title = title, sub = sub, onComplete = { pin ->
-        if (step == "create") {
-            first = pin
-            step = "confirm"
-            return@WaPinPad PadResult.Reset
-        }
-        if (step == "confirm") {
-            if (pin != first) {
-                step = "create"
-                return@WaPinPad PadResult.Error(mismatch)
-            }
-            try {
-                ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(pin, pin))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                step = "create"
-                return@WaPinPad PadResult.Error(e.apiFailure().message ?: networkError)
-            }
-            step = "enter"
-        }
+    WaPinPad(title = stringResource(R.string.wa_pin_enter_title), sub = sheet.subtitle, onComplete = { pin ->
         when (val outcome = sheet.onSubmit(pin)) {
             is PinOutcome.Retry -> PadResult.Error(outcome.message)
             is PinOutcome.Close -> {

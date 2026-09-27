@@ -51,4 +51,22 @@ return [
     'wallet_adjusted_debit_title' => 'Balance deducted from your wallet',
     'wallet_adjusted_debit_body' => ':amount was deducted from your wallet by the administration. Reason: :reason',
 
+    // -------------------------------------------------------------- wallet: PIN recovery
+    'wallet_recovery_set_title' => 'PIN recovery method set',
+    'wallet_recovery_set_password_body' => 'If you forget your wallet PIN you can get it back with your password. If this was not you, contact support.',
+    'wallet_recovery_set_birth_date_body' => 'If you forget your wallet PIN you can get it back with your date of birth. If this was not you, contact support.',
+    'wallet_recovery_set_id_photo_body' => 'If you forget your wallet PIN you can get it back with your ID photo. If this was not you, contact support.',
+    'wallet_recovery_set_passport_photo_body' => 'If you forget your wallet PIN you can get it back with your passport photo. If this was not you, contact support.',
+    'wallet_recovery_set_email_body' => 'If you forget your wallet PIN you can get it back with your e-mail. If this was not you, contact support.',
+    'wallet_pin_recovered_title' => 'Wallet PIN reset',
+    'wallet_pin_recovered_body' => 'Your wallet PIN was reset using your recovery method. If this was not you, contact support right away.',
+    'wallet_recovery_requested_title' => 'PIN recovery request received',
+    'wallet_recovery_requested_body' => 'We received your request to recover your wallet PIN. It is being reviewed and you will be notified of the result.',
+    'wallet_recovery_review_title' => 'New PIN recovery request',
+    'wallet_recovery_review_body' => ':name asked to recover their wallet PIN with a document. It is waiting for review.',
+    'wallet_recovery_approved_title' => 'PIN recovery approved',
+    'wallet_recovery_approved_body' => 'Your PIN recovery request was approved. Your wallet PIN is now :pin (four zeros) — you will be asked to choose a new one when you open the wallet.',
+    'wallet_recovery_rejected_title' => 'PIN recovery request rejected',
+    'wallet_recovery_rejected_body' => 'Your PIN recovery request was rejected. Reason: :reason',
+
 ];

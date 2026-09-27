@@ -20,7 +20,7 @@
     <string name="otp_verify">Verify</string>
     <string name="otp_resend">Resend code</string>
     <string name="otp_resend_in">Resend in %1$d seconds</string>
-    <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 123456</string>
+    <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 1234</string>
     <string name="otp_error_generic">The verification code is incorrect or expired. Try again.</string>
 
     <string name="home_greeting">Hello, %1$s</string>
@@ -122,7 +122,7 @@
     <string name="profile_otp_hint">Enter the code sent to %1$s. The change is saved after verification.</string>
     <string name="profile_otp_timer">Resend in %1$d seconds</string>
     <string name="profile_otp_resend">Resend code</string>
-    <string name="profile_otp_dev_hint">Demo: code is 123456</string>
+    <string name="profile_otp_dev_hint">Demo: code is 1234</string>
     <string name="profile_otp_confirm">Confirm</string>
     <string name="toast_wrong_code">Incorrect code</string>
     <string name="toast_code_sent">Code sent</string>

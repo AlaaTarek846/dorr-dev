@@ -11,7 +11,7 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         // User → user transfer (providers don't send transfers), in two steps:
         // look the recipient up and confirm who it is (moves nothing, but rate-limited so it
         // can't be used to scan for accounts), then pay — which moves money, so PIN.
-        Route::post('wallet/transfers/lookup', [TransferController::class, 'lookup'])->middleware('throttle:20,1');
+        Route::post('wallet/transfers/lookup', [TransferController::class, 'lookup'])->middleware('throttle:20,1,transfer-lookup');
         Route::post('wallet/transfers', [TransferController::class, 'store'])->middleware(RequiresWalletPin::class);
     });
 });

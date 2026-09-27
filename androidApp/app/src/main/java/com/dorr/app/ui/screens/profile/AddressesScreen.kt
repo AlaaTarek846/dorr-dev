@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens.profile
 
+import com.dorr.app.ui.components.DorrTextField
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -160,18 +161,12 @@ fun AddressesScreen(onBack: () -> Unit) {
                 .padding(horizontal = 20.dp),
         ) {
             Spacer(Modifier.height(12.dp))
-            OutlinedTextField(
+            DorrTextField(
                 value = query,
                 onValueChange = { query = it },
-                singleLine = true,
-                placeholder = { Text(stringResource(R.string.addr_search), color = AppColors.textMuted) },
+                placeholder = stringResource(R.string.addr_search),
                 leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = AppColors.textMuted) },
                 shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = AppColors.border,
-                    focusedBorderColor = AppColors.primary,
-                ),
-                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
             val q = query.trim()
@@ -403,48 +398,43 @@ private fun AddressEditor(
                     .padding(16.dp),
             ) {
                 if (kind == "other") {
-                    OutlinedTextField(
+                    DorrTextField(
                         value = label,
                         onValueChange = { label = it },
-                        label = { Text(stringResource(R.string.addr_name_label)) },
-                        placeholder = { Text(stringResource(R.string.addr_name_hint), color = AppColors.textMuted) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
+                        label = stringResource(R.string.addr_name_label),
+                        placeholder = stringResource(R.string.addr_name_hint),
                     )
                     Spacer(Modifier.height(12.dp))
                 }
-                OutlinedTextField(
+                DorrTextField(
                     value = details,
                     onValueChange = { details = it },
-                    label = { Text(stringResource(R.string.addr_details_label)) },
-                    placeholder = { Text(stringResource(R.string.addr_details_hint), color = AppColors.textMuted) },
-                    modifier = Modifier.fillMaxWidth(),
+                    label = stringResource(R.string.addr_details_label),
+                    placeholder = stringResource(R.string.addr_details_hint),
+                    singleLine = false,
+                    minLines = 2,
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    OutlinedTextField(
+                    DorrTextField(
                         value = building,
                         onValueChange = { building = it },
-                        label = { Text(stringResource(R.string.addr_building)) },
-                        singleLine = true,
+                        label = stringResource(R.string.addr_building),
                         modifier = Modifier.weight(1f),
                     )
-                    OutlinedTextField(
+                    DorrTextField(
                         value = floor,
                         onValueChange = { floor = it },
-                        label = { Text(stringResource(R.string.addr_floor)) },
-                        singleLine = true,
+                        label = stringResource(R.string.addr_floor),
                         modifier = Modifier.weight(1f),
                     )
                 }
                 Spacer(Modifier.height(12.dp))
-                OutlinedTextField(
+                DorrTextField(
                     value = landmark,
                     onValueChange = { landmark = it },
-                    label = { Text(stringResource(R.string.addr_landmark)) },
-                    placeholder = { Text(stringResource(R.string.addr_landmark_hint), color = AppColors.textMuted) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    label = stringResource(R.string.addr_landmark),
+                    placeholder = stringResource(R.string.addr_landmark_hint),
                 )
                 Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

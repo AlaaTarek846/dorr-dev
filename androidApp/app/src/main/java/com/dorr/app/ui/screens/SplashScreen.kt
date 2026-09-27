@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DorrLogo
+import com.dorr.app.ui.components.dorrPageWash
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -48,10 +49,11 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
-    val alphaAnim = remember { Animatable(0f) }
-    val scale = remember { Animatable(0.85f) }
+    val inspecting = androidx.compose.ui.platform.LocalInspectionMode.current
+    val alphaAnim = remember { Animatable(if (inspecting) 1f else 0f) }
+    val scale = remember { Animatable(if (inspecting) 1f else 0.85f) }
     // The logo rises into place from below the centre while everything fades in.
-    val rise = remember { Animatable(0f) }
+    val rise = remember { Animatable(if (inspecting) 1f else 0f) }
 
     LaunchedEffect(Unit) {
         launch { alphaAnim.animateTo(1f, tween(900)) }
@@ -69,31 +71,7 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .drawBehind {
-                // 1:1 port of #screen-splash's pink radial-gradient background.
-                drawRect(Color.White)
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
-                        center = Offset(size.width * -0.08f, size.height * -0.12f),
-                        radius = size.width * 1.3f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
-                        center = Offset(size.width * 0.5f, size.height * -0.18f),
-                        radius = size.width * 1.1f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
-                        center = Offset(size.width * 1.12f, size.height * -0.08f),
-                        radius = size.width * 0.9f,
-                    ),
-                )
-            },
+            .dorrPageWash(),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -105,33 +83,15 @@ fun SplashScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(3f))
-            Box(
-                modifier = Modifier
-                    .size(104.dp)
-                    .shadow(10.dp, RoundedCornerShape(22.dp))
-                    .background(Color.White, RoundedCornerShape(22.dp))
-                    .padding(8.dp)
-                    .graphicsLayer {
-                        translationY = (1f - rise.value) * 140.dp.toPx()
-                        alpha = rise.value
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Rounded.Build,
-                    contentDescription = null,
-                    tint = AppColors.primary,
-                    modifier = Modifier.size(88.dp),
-                )
-            }
-            Spacer(Modifier.height(24.dp))
-            Text(
-                text = stringResource(R.string.app_name),
-                color = AppColors.waRed,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.ExtraBold,
+            // The real Dorr logo (mark + wordmark) — it rises into place while everything fades in.
+            DorrLogo(
+                width = 230.dp,
+                modifier = Modifier.graphicsLayer {
+                    translationY = (1f - rise.value) * 140.dp.toPx()
+                    alpha = rise.value
+                },
             )
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(28.dp))
             CircularProgressIndicator(
                 color = AppColors.waRed,
                 trackColor = AppColors.waRed.copy(alpha = 0.18f),

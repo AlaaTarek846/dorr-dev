@@ -254,6 +254,7 @@ const walletItems = [
     { route: 'admin.wallet.wallets', permission: 'wallets.view', icon: 'ri-wallet-3-line', label: 'wallet.wallets.title' },
     { route: 'admin.wallet.online-transactions', permission: 'online-transactions.view', icon: 'ri-bank-card-line', label: 'wallet.online.title' },
     { route: 'admin.wallet.withdrawals', permission: 'withdrawal-requests.view', icon: 'ri-hand-coin-line', label: 'wallet.withdrawals.title' },
+    { route: 'admin.wallet.pin-recovery', permission: 'pin-recovery-requests.view', icon: 'ri-lock-unlock-line', label: 'wallet.pinrec.title' },
     { route: 'admin.wallet.financial-entries', permission: 'financial-entries.view', icon: 'ri-file-list-3-line', label: 'wallet.ledger.title' },
     { route: 'admin.wallet.payment-methods', permission: 'payment-methods.view', icon: 'ri-secure-payment-line', label: 'wallet.methods.title' },
     { route: 'admin.wallet.fee-rules', permission: 'wallet-fee-rules.view', icon: 'ri-percent-line', label: 'wallet.rules.title' },

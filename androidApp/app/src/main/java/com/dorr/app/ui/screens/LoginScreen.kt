@@ -1,5 +1,7 @@
 package com.dorr.app.ui.screens
 
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -439,7 +441,7 @@ private fun PhoneField(
                                         modifier = Modifier.widthIn(max = 160.dp),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis,
-                                        color = if (selected) AppColors.primary else AppColors.textPrimary,
+                                        color = if (selected) AppColors.waRed else AppColors.textPrimary,
                                     )
                                     Spacer(Modifier.width(12.dp))
                                     Text(
@@ -462,17 +464,22 @@ private fun PhoneField(
             )
             Spacer(Modifier.width(8.dp))
             val placeholder = phoneStartsWith + "*".repeat(if (phoneLength > phoneStartsWith.length) phoneLength - phoneStartsWith.length else 0)
-            OutlinedTextField(
+            // A plain BasicTextField, not OutlinedTextField: this pill is 48dp tall and Material's field
+            // needs 56dp, which cut the lower half of every digit typed here.
+            BasicTextField(
                 value = phone,
                 onValueChange = onPhoneChange,
-                placeholder = { Text(placeholder, color = AppColors.textMuted) },
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                    focusedBorderColor = androidx.compose.ui.graphics.Color.Transparent,
-                ),
+                textStyle = MaterialTheme.typography.titleMedium.copy(color = AppColors.textPrimary),
+                cursorBrush = SolidColor(Color(0xFFE50914)),
                 modifier = Modifier.fillMaxWidth(),
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.CenterStart) {
+                        if (phone.isEmpty()) Text(placeholder, style = MaterialTheme.typography.titleMedium, color = AppColors.textMuted)
+                        inner()
+                    }
+                },
             )
         }
     }

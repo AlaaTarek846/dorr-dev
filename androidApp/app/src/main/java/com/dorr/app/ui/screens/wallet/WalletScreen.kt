@@ -48,7 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
-import com.dorr.app.network.CreatePinRequest
+import com.dorr.app.network.PinStatusDto
 import com.dorr.app.network.apiFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
@@ -132,34 +132,28 @@ private fun WaToastHost(host: WalletHost) {
 }
 
 /**
- * Asks for the PIN before the wallet opens. With a PIN it verifies it; without one it walks the
- * person through creating it (enter + confirm) — the same screen either way, like the preview.
+ * Asks for the PIN before the wallet opens. With a PIN it verifies it (and offers "forgot your PIN?");
+ * without one it walks the person through the recovery-method choice and then creating the PIN.
  */
 @Composable
 private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val networkError = stringResource(R.string.wa_error_network)
     val enterTitle = stringResource(R.string.wa_gate_enter_title)
     val enterSub = stringResource(R.string.wa_gate_enter_sub)
-    val createTitle = stringResource(R.string.wa_gate_create_title)
-    val createSub = stringResource(R.string.wa_gate_create_sub)
-    val confirmTitle = stringResource(R.string.wa_pin_confirm_title)
-    val confirmSub = stringResource(R.string.wa_pin_confirm_sub)
-    val mismatch = stringResource(R.string.wa_pin_mismatch)
 
-    var hasPin by remember { mutableStateOf<Boolean?>(null) }
+    var status by remember { mutableStateOf<PinStatusDto?>(null) }
     var failed by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
-    var step by remember { mutableStateOf("enter") }
-    var first by remember { mutableStateOf("") }
+    var forgot by remember { mutableStateOf(false) }
+    // The PIN typed at the gate when it turned out to be the reset value 0000: it has to be replaced first.
+    var resetPin by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(attempt) {
         failed = null
-        hasPin = null
+        status = null
         try {
-            val status = ApiClient.wallet.pinStatus(walletAuth()).data
-            hasPin = status?.hasPin
-            if (status == null) failed = networkError
-            step = if (status?.hasPin == true) "enter" else "create"
+            val loaded = ApiClient.wallet.pinStatus(walletAuth()).data
+            if (loaded == null) failed = networkError else status = loaded
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -167,8 +161,17 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
         }
     }
 
-    WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
-        Box(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
+    val current = status
+    when {
+        failed == null && current != null && !current.hasPin -> WaPinSetupPage(
+            onExit = onCancel,
+            onDone = onUnlocked,
+            title = stringResource(R.string.wa_gate_create_title),
+            showSaved = false,
+        )
+        resetPin != null -> WaForcePinChangePage(resetPin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
+        forgot -> WaForgotPinPage(current, onExit = { forgot = false }, onDone = { forgot = false; attempt++ })
+        else -> WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
             when {
                 failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaEmpty(
@@ -177,57 +180,28 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                         action = { WaButton(stringResource(R.string.wa_retry), onClick = { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
                     )
                 }
-                hasPin == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                current == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
                 }
-                else -> {
-                    val (title, sub) = when (step) {
-                        "enter" -> enterTitle to enterSub
-                        "create" -> createTitle to createSub
-                        else -> confirmTitle to confirmSub
-                    }
+                else -> Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                     WaPinPad(
-                        title = title,
-                        sub = sub,
-                        modifier = Modifier.fillMaxSize().waRise(0),
+                        title = enterTitle,
+                        sub = enterSub,
+                        modifier = Modifier.weight(1f).waRise(0),
                         onComplete = { pin ->
-                            when (step) {
-                                "enter" -> {
-                                    try {
-                                        ApiClient.wallet.verifyPin(walletAuth(), pin)
-                                    } catch (e: CancellationException) {
-                                        throw e
-                                    } catch (e: Exception) {
-                                        val failure = e.apiFailure()
-                                        return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
-                                    }
-                                    onUnlocked()
-                                    PadResult.Ok
-                                }
-                                "create" -> {
-                                    first = pin
-                                    step = "confirm"
-                                    PadResult.Reset
-                                }
-                                else -> {
-                                    if (pin != first) {
-                                        step = "create"
-                                        return@WaPinPad PadResult.Error(mismatch)
-                                    }
-                                    try {
-                                        ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(pin, pin))
-                                    } catch (e: CancellationException) {
-                                        throw e
-                                    } catch (e: Exception) {
-                                        step = "create"
-                                        return@WaPinPad PadResult.Error(e.apiFailure().message ?: networkError)
-                                    }
-                                    onUnlocked()
-                                    PadResult.Ok
-                                }
+                            val verified = try {
+                                ApiClient.wallet.verifyPin(walletAuth(), pin).data
+                            } catch (e: CancellationException) {
+                                throw e
+                            } catch (e: Exception) {
+                                val failure = e.apiFailure()
+                                return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
                             }
+                            if (verified?.mustChange == true) resetPin = pin else onUnlocked()
+                            PadResult.Ok
                         },
                     )
+                    WaButton(stringResource(R.string.wa_forgot_link), { forgot = true }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(bottom = 6.dp))
                 }
             }
         }
@@ -236,7 +210,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
 
 /**
  * Opens the PIN sheet for a protected action. Asks the server first whether a PIN exists so a
- * first-time user gets the create form instead of a "wrong PIN" error.
+ * first-time user is sent to create one instead of getting a "wrong PIN" error.
  */
 fun WalletHost.requestPin(
     subtitle: String,
@@ -253,7 +227,12 @@ fun WalletHost.requestPin(
             onError(e.apiFailure().message ?: "")
             return@launch
         }
-        openSheet(WaSheet.Pin(hasPin = hasPin ?: true, subtitle = subtitle, onSubmit = onSubmit, onClose = onClose))
+        // No PIN yet (the gate normally guarantees one): the PIN page walks through recovery method + PIN.
+        if (hasPin == false) {
+            push(WaRoute.PinSettings)
+            return@launch
+        }
+        openSheet(WaSheet.Pin(subtitle = subtitle, onSubmit = onSubmit, onClose = onClose))
     }
 }
 

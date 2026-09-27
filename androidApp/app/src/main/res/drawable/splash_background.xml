@@ -1,13 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Matches the Compose SplashScreen gradient (primary -> primaryDark) so the
-     native pre-Compose window background doesn't flash a different color. -->
+<!-- The window behind the very first frame, before Compose draws anything. It is the same soft pink
+     wash on white as the login / account screens (not a brand-colour block), so the launch flows
+     straight into the app without a jarring colour change. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF" />
+        </shape>
+    </item>
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:angle="270"
-                android:startColor="#21888F"
-                android:endColor="#166064" />
+                android:startColor="#F3C4CC"
+                android:centerColor="#F8DDE2"
+                android:centerY="0.22"
+                android:endColor="#00FFFFFF" />
         </shape>
     </item>
 </layer-list>

@@ -20,7 +20,7 @@
     <string name="otp_verify">تأكيد</string>
     <string name="otp_resend">إعادة إرسال الكود</string>
     <string name="otp_resend_in">إعادة الإرسال بعد %1$d ثانية</string>
-    <string name="otp_dev_hint">نسخة تجريبية: إرسال الرسالة الحقيقي لسه مش متوصل — استخدم 123456</string>
+    <string name="otp_dev_hint">نسخة تجريبية: إرسال الرسالة الحقيقي لسه مش متوصل — استخدم 1234</string>
     <string name="otp_error_generic">كود التحقق غير صحيح أو انتهت صلاحيته. حاول مرة أخرى.</string>
 
     <string name="home_greeting">مرحباً، %1$s</string>
@@ -122,7 +122,7 @@
     <string name="profile_otp_hint">أدخل كود التأكيد المرسل إلى %1$s، وبعد التأكيد يتم حفظ التعديل.</string>
     <string name="profile_otp_timer">إعادة الإرسال بعد %1$d ثانية</string>
     <string name="profile_otp_resend">إعادة إرسال الكود</string>
-    <string name="profile_otp_dev_hint">نسخة تجريبية: الكود 123456</string>
+    <string name="profile_otp_dev_hint">نسخة تجريبية: الكود 1234</string>
     <string name="profile_otp_confirm">تأكيد</string>
     <string name="toast_wrong_code">الكود غير صحيح</string>
     <string name="toast_code_sent">تم إرسال الكود</string>

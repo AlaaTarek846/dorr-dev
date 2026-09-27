@@ -163,6 +163,14 @@ class AdminPermissionSeeder extends Seeder
                     'reject',
                 ],
             ],
+            'pin-recovery-requests' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'approve',
+                    'reject',
+                ],
+            ],
             'financial-entries' => [
                 'module_name' => 'general_services',
                 'actions' => [

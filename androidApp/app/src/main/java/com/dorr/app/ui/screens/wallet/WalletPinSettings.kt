@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.wallet
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -24,13 +25,14 @@ import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ChangePinRequest
-import com.dorr.app.network.CreatePinRequest
+import com.dorr.app.network.PinStatusDto
 import com.dorr.app.network.apiFailure
 import kotlinx.coroutines.CancellationException
 
 /**
- * Create the wallet PIN, or change it (current → new → confirm). Does its own verification: a wrong
- * current PIN sends the person back to the first step. Ends on a "saved" seal.
+ * Create the wallet PIN (recovery method first, then the PIN), or change it (current → new → confirm).
+ * Does its own verification: a wrong current PIN sends the person back to the first step. Ends on a
+ * "saved" seal. "Forgot your PIN?" on the first step opens the recovery flow.
  */
 @Composable
 fun WalletPinSettings() {
@@ -39,10 +41,11 @@ fun WalletPinSettings() {
     val mismatch = stringResource(R.string.wa_pin_mismatch)
     val textCurrent = stringResource(R.string.wa_pin_current_title) to stringResource(R.string.wa_pin_current_sub)
     val textNew = stringResource(R.string.wa_pin_new_title) to stringResource(R.string.wa_pin_digits_sub)
-    val textCreate = stringResource(R.string.wa_pin_create_title_page) to stringResource(R.string.wa_pin_digits_sub)
     val textConfirm = stringResource(R.string.wa_pin_confirm_title) to stringResource(R.string.wa_pin_confirm_sub)
 
-    var changing by remember { mutableStateOf<Boolean?>(null) }
+    var status by remember { mutableStateOf<PinStatusDto?>(null) }
+    var forgot by remember { mutableStateOf(false) }
+    var changeMethod by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     var step by remember { mutableStateOf("current") }
@@ -52,17 +55,32 @@ fun WalletPinSettings() {
 
     LaunchedEffect(attempt) {
         failed = null
-        changing = null
+        status = null
         try {
-            val status = ApiClient.wallet.pinStatus(walletAuth()).data
-            changing = status?.hasPin
-            step = if (status?.hasPin == true) "current" else "new"
-            if (status == null) failed = networkError
+            val loaded = ApiClient.wallet.pinStatus(walletAuth()).data
+            status = loaded
+            step = "current"
+            if (loaded == null) failed = networkError
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             failed = e.apiFailure().message ?: networkError
         }
+    }
+
+    val loaded = status
+    if (loaded != null && !loaded.hasPin && failed == null) {
+        // First PIN: choose how it can be recovered, then create it.
+        WaPinSetupPage(onExit = { host.pop() }, onDone = { host.pop() })
+        return
+    }
+    if (changeMethod) {
+        WaChangeRecoveryPage(onExit = { changeMethod = false }, onDone = { changeMethod = false; attempt++ })
+        return
+    }
+    if (forgot) {
+        WaForgotPinPage(loaded, onExit = { forgot = false }, onDone = { forgot = false; attempt++ })
+        return
     }
 
     WaPage(title = stringResource(R.string.wa_pin_page_title), onBack = { host.pop() }, scroll = false) {
@@ -73,7 +91,7 @@ fun WalletPinSettings() {
                     action = { WaButton(stringResource(R.string.wa_retry), { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
                 )
             }
-            changing == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            loaded == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
             }
             saved -> WaStatusColumn {
@@ -83,16 +101,15 @@ fun WalletPinSettings() {
                 androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 12.dp))
                 WaButton(stringResource(R.string.wa_done), { host.pop() }, modifier = Modifier.padding(horizontal = 20.dp))
             }
-            else -> Box(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
-                val isChange = changing == true
+            else -> Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                 val (title, sub) = when (step) {
                     "current" -> textCurrent
-                    "new" -> if (isChange) textNew else textCreate
+                    "new" -> textNew
                     else -> textConfirm
                 }
                 WaPinPad(
                     title = title, sub = sub, icon = Icons.Rounded.Shield,
-                    modifier = Modifier.fillMaxSize().waRise(0),
+                    modifier = Modifier.weight(1f).waRise(0),
                     onComplete = { pin ->
                         when (step) {
                             "current" -> {
@@ -111,13 +128,12 @@ fun WalletPinSettings() {
                                     return@WaPinPad PadResult.Error(mismatch)
                                 }
                                 try {
-                                    if (isChange) ApiClient.wallet.changePin(walletAuth(), ChangePinRequest(current, fresh, pin))
-                                    else ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(fresh, pin))
+                                    ApiClient.wallet.changePin(walletAuth(), ChangePinRequest(current, fresh, pin))
                                 } catch (e: CancellationException) {
                                     throw e
                                 } catch (e: Exception) {
                                     // A wrong current PIN sends the person back to the start; anything else retries.
-                                    step = if (isChange) "current" else "new"
+                                    step = "current"
                                     val failure = e.apiFailure()
                                     return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
                                 }
@@ -127,6 +143,10 @@ fun WalletPinSettings() {
                         }
                     },
                 )
+                if (step == "current") {
+                    WaButton(stringResource(R.string.wa_forgot_link), { forgot = true }, style = WaButtonStyle.Quiet)
+                    WaButton(stringResource(R.string.wa_rec_change_link), { changeMethod = true }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(bottom = 6.dp))
+                }
             }
         }
     }

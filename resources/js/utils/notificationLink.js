@@ -9,6 +9,8 @@ export function notificationLink(notification) {
     switch (type) {
         case 'wallet_withdrawal':
             return { name: 'admin.wallet.withdrawals' };
+        case 'wallet_pin_recovery':
+            return { name: 'admin.wallet.pin-recovery' };
         case 'wallet':
             return { name: 'admin.wallet.online-transactions' };
         default:

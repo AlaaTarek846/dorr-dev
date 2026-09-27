@@ -960,6 +960,19 @@
             "approved": "Withdrawal approved.",
             "rejected": "Withdrawal rejected and the money released."
         },
+        "pinrec": {
+            "title": "PIN recovery requests",
+            "request": "PIN recovery request",
+            "document": "Document",
+            "original": "Photo uploaded at setup",
+            "new": "Photo submitted now",
+            "no_image": "No image",
+            "compare_hint": "Compare the two photos. Approve only if they show the same document belonging to the same person.",
+            "approve_hint": "Approving resets the wallet PIN to 0000 and notifies the user, who should change it from the wallet.",
+            "approved": "Approved. The PIN was reset to 0000.",
+            "rejected": "Request rejected.",
+            "method": { "id_photo": "ID photo", "passport_photo": "Passport photo" }
+        },
         "ledger": {
             "title": "Financial ledger",
             "income": "Income",

@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens
 
+import com.dorr.app.ui.components.DorrDigitBox
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.animateColorAsState
@@ -78,7 +79,7 @@ import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val OTP_LENGTH = 6
+private const val OTP_LENGTH = 4
 
 @Composable
 fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
@@ -328,7 +329,7 @@ private fun DigitBox(
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
 
-    OutlinedTextField(
+    DorrDigitBox(
         value = value,
         onValueChange = { new ->
             val digit = new.filter(Char::isDigit).takeLast(1)
@@ -340,19 +341,8 @@ private fun DigitBox(
                 }
             }
         },
-        singleLine = true,
-        textStyle = MaterialTheme.typography.headlineMedium.copy(
-            textAlign = TextAlign.Center,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = AppColors.textPrimary,
-        ),
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            unfocusedBorderColor = overrideBorderColor ?: AppColors.otpPinkBorder,
-            focusedBorderColor = overrideBorderColor ?: AppColors.waRed,
-        ),
+        borderColor = overrideBorderColor ?: AppColors.otpPinkBorder,
+        focusedBorderColor = overrideBorderColor ?: AppColors.waRed,
         modifier = Modifier
             .padding(horizontal = 4.dp)
             .width(44.dp)
@@ -402,7 +392,7 @@ private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Un
             CircularProgressIndicator(
                 progress = { countdown / 60f },
                 strokeWidth = 3.dp,
-                color = AppColors.primary,
+                color = AppColors.waRed,
                 trackColor = AppColors.border,
                 modifier = Modifier.fillMaxSize(),
             )
