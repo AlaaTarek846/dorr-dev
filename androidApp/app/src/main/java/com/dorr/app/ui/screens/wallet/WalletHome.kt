@@ -12,6 +12,7 @@ import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -47,7 +48,6 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -82,6 +82,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.WalletBalanceDto
 import com.dorr.app.network.WalletTransactionDto
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -107,24 +108,24 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
     val host = LocalWallet.current
     val scope = rememberCoroutineScope()
     var recent by remember { mutableStateOf(initialRecent) }
-    var failure by remember { mutableStateOf<String?>(null) }
     var loading by remember { mutableStateOf(true) }
-    val networkError = stringResource(R.string.wa_error_network)
     val spin = remember { Animatable(0f) }
 
     fun load() {
         scope.launch {
             loading = true
-            failure = null
-            val ok = host.refreshBalance()
+            // No error card here on purpose: no-internet is covered by the
+            // app-wide offline screen, and a reconnect auto-reloads through
+            // the tick below — so a failed load just keeps the skeleton until
+            // the next attempt (reconnect or the header refresh button).
+            host.refreshBalance()
             val rows = runCatching { ApiClient.wallet.transactions(walletAuth(), page = 1, perPage = 5).data.orEmpty() }.getOrNull()
-            if (!ok) failure = networkError
             if (rows != null) recent = rows else if (recent == null) recent = emptyList()
             loading = false
         }
     }
 
-    LaunchedEffect(Unit) { load() }
+    LaunchedEffect(collectReconnectTick()) { load() }
     LaunchedEffect(loading) {
         if (loading) {
             while (true) { spin.snapTo(0f); spin.animateTo(360f, tween(800, easing = LinearEasing)) }
@@ -142,14 +143,10 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
         val balance = host.balance
 
         Box(Modifier.waRise(0)) {
-            when {
-                balance != null -> WaHeroCard(balance, host)
-                failure != null -> WaCard(Modifier.fillMaxWidth()) {
-                    WaEmpty(Icons.Rounded.Warning, Tone.Gray, stringResource(R.string.wa_load_failed), failure.orEmpty(), action = {
-                        WaButton(stringResource(R.string.wa_retry), { load() }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 50.dp))
-                    })
-                }
-                else -> WaSkeleton(Modifier.fillMaxWidth().height(196.dp), RoundedCornerShape(28.dp))
+            if (balance != null) {
+                WaHeroCard(balance, host)
+            } else {
+                WaSkeleton(Modifier.fillMaxWidth().height(196.dp), RoundedCornerShape(28.dp))
             }
         }
 
@@ -214,7 +211,8 @@ private fun HomeAction(icon: ImageVector, tone: Tone, label: String, index: Int,
             .scale(scale)
             .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x14111928), spotColor = Color(0x1F111928))
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(Wa.Surface)
+            .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, RoundedCornerShape(20.dp)) else Modifier)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
             .padding(top = 13.dp, bottom = 11.dp, start = 4.dp, end = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -335,39 +333,50 @@ private fun MyNumberCard(balance: WalletBalanceDto, host: WalletHost) {
         }
     }
 
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
             .padding(top = 12.dp)
             .waRise(1)
             .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x0D111928), spotColor = Color(0x14111928))
             .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .background(Wa.Surface)
+            .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, RoundedCornerShape(20.dp)) else Modifier)
             .padding(horizontal = 14.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        WaIconWell(Icons.Rounded.AccountBalanceWallet, Tone.Blue)
-        Column(Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.wa_my_number_caption, countryName(balance.countryCode)),
-                color = Wa.Mut, fontSize = 11.5.sp, lineHeight = 18.sp,
-            )
-            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Text(number, color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 1.5.sp, modifier = Modifier.padding(top = 3.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            WaIconWell(Icons.Rounded.AccountBalanceWallet, Tone.Blue)
+            Box(Modifier.weight(1f)) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(
+                        number,
+                        color = Wa.Ink,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = 0.6.sp,
+                        maxLines = 1,
+                    )
+                }
             }
+            WaCircleButton(Icons.Rounded.QrCode2, { host.push(WaRoute.MyQr) })
+            WaCircleButton(
+                if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                {
+                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                    clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
+                    copied = true
+                    host.showToast(copiedText)
+                },
+                tint = if (copied) Color.White else Wa.Ink,
+                background = if (copied) Wa.Green else Wa.Surface,
+            )
         }
-        WaCircleButton(Icons.Rounded.QrCode2, { host.push(WaRoute.MyQr) })
-        WaCircleButton(
-            if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-            {
-                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
-                copied = true
-                host.showToast(copiedText)
-            },
-            tint = if (copied) Color.White else Wa.Ink,
-            background = if (copied) Wa.Green else Color.White,
+        Text(
+            stringResource(R.string.wa_my_number_caption, countryName(balance.countryCode)),
+            color = Wa.Mut,
+            fontSize = 11.5.sp,
+            lineHeight = 16.sp,
+            modifier = Modifier.padding(top = 8.dp),
         )
     }
 }
@@ -412,7 +421,7 @@ internal fun WaTxRow(tx: WalletTransactionDto, host: WalletHost, withDay: Boolea
                     Text(
                         stringResource(R.string.wa_services_only_badge),
                         color = Wa.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(Color(0xFFFDE8EC)).padding(horizontal = 7.dp, vertical = 2.dp),
+                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFDE8EC)).padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                 }
             }

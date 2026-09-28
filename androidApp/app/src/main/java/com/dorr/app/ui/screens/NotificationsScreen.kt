@@ -50,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -60,9 +61,13 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.NotificationDto
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 private enum class NotificationType { JOB_UPDATE, QUOTE, INVOICE, MAINTENANCE, PROMO, GENERAL, WALLET, WALLET_PIN }
@@ -121,9 +126,12 @@ fun NotificationsScreen(onBack: () -> Unit) {
     var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<NotificationItem?>(null) }
     val hasUnread = notifications.any { it.unread }
+    val night = settingsNight()
 
-    // The real feed. Reloaded on entry; every row arrives in the language the app is using.
-    LaunchedEffect(Unit) {
+    // The real feed. Reloaded on entry and on reconnect; every row arrives in
+    // the language the app is using.
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         runCatching { ApiClient.notifications.list("Bearer ${AuthSession.token.orEmpty()}").data.orEmpty() }
             .onSuccess { rows ->
                 notifications.clear()
@@ -132,46 +140,28 @@ fun NotificationsScreen(onBack: () -> Unit) {
         loaded = true
     }
 
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            stringResource(R.string.notifications_title),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.textPrimary,
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                        }
-                    },
-                    actions = {
-                        if (hasUnread) {
-                            TextButton(onClick = {
-                                notifications.replaceAll { it.copy(unread = false) }
-                                scope.launch { runCatching { ApiClient.notifications.markAllRead("Bearer ${AuthSession.token.orEmpty()}") } }
-                            }) {
-                                Text(stringResource(R.string.notifications_mark_all_read), color = AppColors.primary)
-                            }
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
-                )
-                HorizontalDivider(color = AppColors.border)
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.matchParentSize())
+        Column(Modifier.fillMaxSize()) {
+        SubHeader(stringResource(R.string.notifications_title), onBack)
+        if (hasUnread) {
+            TextButton(
+                onClick = {
+                    notifications.replaceAll { it.copy(unread = false) }
+                    scope.launch { runCatching { ApiClient.notifications.markAllRead("Bearer ${AuthSession.token.orEmpty()}") } }
+                },
+                modifier = Modifier.align(Alignment.End).padding(end = 8.dp),
+            ) {
+                Text(stringResource(R.string.notifications_mark_all_read), color = if (night) AccountDark.accent else AppColors.waRed, fontWeight = FontWeight.Bold)
             }
-        },
-    ) { padding ->
+        }
         if (loaded && notifications.isEmpty()) {
-            EmptyNotifications(modifier = Modifier.padding(padding))
+            EmptyNotifications(modifier = Modifier.weight(1f))
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
+                    .weight(1f),
                 contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
@@ -188,6 +178,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                 }
             }
         }
+        }
     }
 
     selected?.let { item ->
@@ -198,15 +189,24 @@ fun NotificationsScreen(onBack: () -> Unit) {
 @Composable
 private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
     val (icon, color) = typeStyle(item.type)
+    val night = settingsNight()
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (night) Modifier
+                else Modifier.shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+            )
             .clip(RoundedCornerShape(16.dp))
-            .background(if (item.unread) AppColors.tint(AppColors.primary) else AppColors.card)
+            .background(
+                if (night) {
+                    if (item.unread) AccountDark.well else AccountDark.card
+                } else if (item.unread) Color(0xFFFFF6F7) else Color.White,
+            )
             .border(
                 1.dp,
-                if (item.unread) AppColors.primary.copy(alpha = 0.15f) else AppColors.border,
+                if (night) AccountDark.line else Color.Transparent,
                 RoundedCornerShape(16.dp),
             )
             .clickable(onClick = onClick)
@@ -217,7 +217,7 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(8.dp)
-                    .background(if (item.unread) AppColors.primary else Color.Transparent, CircleShape),
+                    .background(if (item.unread) (if (night) AccountDark.accent else AppColors.waRed) else Color.Transparent, CircleShape),
             )
             Spacer(Modifier.height(4.dp))
             Box(
@@ -238,16 +238,17 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
                     fontWeight = if (item.unread) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = AppColors.textMuted)
+                Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = if (night) AccountDark.mut else AppColors.textMuted)
             }
             Spacer(Modifier.height(4.dp))
             Text(
                 item.body,
                 style = MaterialTheme.typography.bodySmall,
-                color = AppColors.textSecondary,
+                color = if (night) AccountDark.mut else AppColors.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -259,8 +260,12 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
 @Composable
 private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Unit) {
     val (icon, color) = typeStyle(item.type)
+    val night = settingsNight()
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = if (night) AccountDark.card else MaterialTheme.colorScheme.surface,
+    ) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Box(
@@ -277,13 +282,14 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
                         item.title.ifBlank { stringResource(R.string.notification_default_title) },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = AppColors.textMuted)
+                    Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = if (night) AccountDark.mut else AppColors.textMuted)
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Text(item.body, style = MaterialTheme.typography.bodyLarge)
+            Text(item.body, style = MaterialTheme.typography.bodyLarge, color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -291,6 +297,7 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
 
 @Composable
 private fun EmptyNotifications(modifier: Modifier = Modifier) {
+    val night = settingsNight()
     Column(
         modifier = modifier.fillMaxSize().padding(40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -299,18 +306,23 @@ private fun EmptyNotifications(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(AppColors.primary.copy(alpha = 0.08f), CircleShape),
+                .background(if (night) AccountDark.well else AppColors.primary.copy(alpha = 0.08f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Notifications, contentDescription = null, tint = AppColors.textMuted, modifier = Modifier.size(48.dp))
+            Icon(Icons.Rounded.Notifications, contentDescription = null, tint = if (night) AccountDark.mut else AppColors.textMuted, modifier = Modifier.size(48.dp))
         }
         Spacer(Modifier.height(24.dp))
-        Text(stringResource(R.string.notifications_empty_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(R.string.notifications_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             stringResource(R.string.notifications_empty_body),
             style = MaterialTheme.typography.bodyMedium,
-            color = AppColors.textSecondary,
+            color = if (night) AccountDark.mut else AppColors.textSecondary,
         )
     }
 }

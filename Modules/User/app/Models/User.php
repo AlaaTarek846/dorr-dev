@@ -14,6 +14,7 @@ use App\Traits\SendsPhoneOtp;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -25,7 +26,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasMedia
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, HasNotificationDevices, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
+    use HasApiTokens, HasFactory, HasMediaTrait, HasNotificationDevices, HasRoles, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
 
     /**
      * @var list<string>
@@ -67,6 +68,11 @@ class User extends Authenticatable implements HasMedia
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
     }
 
     protected static function newFactory(): UserFactory

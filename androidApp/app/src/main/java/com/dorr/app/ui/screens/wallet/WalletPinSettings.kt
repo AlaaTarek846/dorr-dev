@@ -9,32 +9,41 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+<<<<<<< HEAD
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+=======
+import androidx.compose.material.icons.rounded.Shield
+>>>>>>> main
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+<<<<<<< HEAD
 import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
+=======
+import com.dorr.app.ui.theme.LocalThemeState
+>>>>>>> main
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ChangePinRequest
 import com.dorr.app.network.PinStatusDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -54,16 +63,21 @@ fun WalletPinSettings() {
     val textConfirm = stringResource(R.string.wa_pin_confirm_title) to stringResource(R.string.wa_pin_confirm_sub)
     val textBiometricPin = stringResource(R.string.wa_pin_enter_title) to stringResource(R.string.wa_biometric_toggle)
 
+<<<<<<< HEAD
     var status by remember { mutableStateOf<PinStatusDto?>(null) }
     var forgot by remember { mutableStateOf(false) }
     var changeMethod by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
+=======
+    var changing by remember { mutableStateOf<Boolean?>(null) }
+>>>>>>> main
     var step by remember { mutableStateOf("current") }
     var current by remember { mutableStateOf("") }
     var fresh by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf(false) }
 
+<<<<<<< HEAD
     LaunchedEffect(attempt) {
         failed = null
         status = null
@@ -72,13 +86,25 @@ fun WalletPinSettings() {
             status = loaded
             step = "current"
             if (loaded == null) failed = networkError
+=======
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
+        changing = null
+        try {
+            val status = ApiClient.wallet.pinStatus(walletAuth()).data
+            changing = status?.hasPin
+            step = if (status?.hasPin == true) "current" else "new"
+>>>>>>> main
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            failed = e.apiFailure().message ?: networkError
+            // No error card on purpose: offline is covered by the app-wide
+            // screen and a reconnect reloads, so changing stays null
+            // (skeleton) until an attempt succeeds.
         }
     }
 
+<<<<<<< HEAD
     val loaded = status
     if (loaded != null && loaded.isFrozen && failed == null) {
         WaFrozenPage(loaded, onExit = { host.pop() }, onLifted = { attempt++ })
@@ -107,6 +133,12 @@ fun WalletPinSettings() {
                 )
             }
             loaded == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+=======
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    WaPage(title = stringResource(R.string.wa_pin_page_title), onBack = { host.pop() }, scroll = false, dark = night) {
+        when {
+            changing == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+>>>>>>> main
                 WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
             }
             saved -> WaStatusColumn {
@@ -124,8 +156,13 @@ fun WalletPinSettings() {
                     else -> textConfirm
                 }
                 WaPinPad(
+<<<<<<< HEAD
                     title = title, sub = sub, icon = Icons.Rounded.Shield,
                     modifier = Modifier.weight(1f).waRise(0),
+=======
+                    title = title, sub = sub, icon = Icons.Rounded.Shield, dark = night,
+                    modifier = Modifier.fillMaxSize().waRise(0),
+>>>>>>> main
                     onComplete = { pin ->
                         when (step) {
                             "current" -> {

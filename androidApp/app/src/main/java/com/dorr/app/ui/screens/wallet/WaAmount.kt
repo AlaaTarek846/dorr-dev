@@ -70,7 +70,7 @@ fun WaAmountEntry(
             .fillMaxWidth()
             .shadow(if (focused) 16.dp else 10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = if (focused) Color(0x40E50914) else Color(0x26111928))
             .clip(Wa.CardShape)
-            .background(Color.White)
+            .background(Wa.Surface)
             .border(2.dp, glow, Wa.CardShape)
             .padding(start = 16.dp, end = 16.dp, top = 22.dp, bottom = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -88,7 +88,7 @@ fun WaAmountEntry(
                     modifier = Modifier.widthIn(min = 96.dp, max = 190.dp).focusRequester(focusRequester).onFocusChanged { focused = it.isFocused },
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.Center) {
-                            if (amountText.isEmpty()) Text("0.00", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold, color = Color(0xFFD1D5DB), letterSpacing = (-1).sp)
+                            if (amountText.isEmpty()) Text("0.00", fontSize = 48.sp, fontWeight = FontWeight.ExtraBold, color = if (walletNight()) Wa.Soft else Color(0xFFD1D5DB), letterSpacing = (-1).sp)
                             inner()
                         }
                     },
