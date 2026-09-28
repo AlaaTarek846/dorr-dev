@@ -248,6 +248,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                             sub = enterSub,
                             modifier = Modifier.weight(1f).waRise(0),
                             onComplete = { pin -> completeWithPin(pin) },
+                            lockedUntil = current.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() },
                         )
                         if (activity != null && WaBiometric.isEnabled(context)) {
                             WaButton(
@@ -287,8 +288,8 @@ fun WalletHost.requestPin(
     onClose: (String) -> Unit = onError,
 ) {
     scope.launch {
-        val hasPin = try {
-            ApiClient.wallet.pinStatus(walletAuth()).data?.hasPin
+        val status = try {
+            ApiClient.wallet.pinStatus(walletAuth()).data
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -296,11 +297,12 @@ fun WalletHost.requestPin(
             return@launch
         }
         // No PIN yet (the gate normally guarantees one): the PIN page walks through recovery method + PIN.
-        if (hasPin == false) {
+        if (status?.hasPin == false) {
             push(WaRoute.PinSettings)
             return@launch
         }
-        openSheet(WaSheet.Pin(subtitle = subtitle, onSubmit = onSubmit, onClose = onClose))
+        val lockedUntil = status?.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+        openSheet(WaSheet.Pin(subtitle = subtitle, onSubmit = onSubmit, onClose = onClose, lockedUntil = lockedUntil))
     }
 }
 
