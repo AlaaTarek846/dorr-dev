@@ -29,6 +29,7 @@ import com.dorr.app.ui.screens.OnboardingScreen
 import com.dorr.app.ui.screens.OtpScreen
 import com.dorr.app.ui.screens.ServicesScreen
 import com.dorr.app.ui.screens.SplashScreen
+import com.dorr.app.ui.theme.LocalAppearance
 import kotlinx.coroutines.launch
 
 object Routes {
@@ -67,6 +68,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     var lastWalletOpen by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
+    val appearance = LocalAppearance.current
 
     // A 401 on any authenticated request (expired/revoked token) is detected
     // by the ApiClient interceptor, which clears AuthSession and fires this
@@ -75,6 +77,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     DisposableEffect(Unit) {
         AuthSession.onUnauthorized = {
             Handler(Looper.getMainLooper()).post {
+                appearance.clear()
                 sessionExpiredNotice = true
                 val currentRoute = navController.currentDestination?.route
                 if (currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.SPLASH && currentRoute != Routes.OTP && currentRoute != Routes.ONBOARDING) {
@@ -92,6 +95,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
 
     fun logout() {
         val token = AuthSession.token
+        appearance.clear()
         AuthSession.clear()
         targetRouteAfterLogin = null
         lastMainTab = 0

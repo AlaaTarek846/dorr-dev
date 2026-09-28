@@ -57,6 +57,7 @@ import com.dorr.app.ui.components.HeroBannerSlider
 import com.dorr.app.ui.components.ServicesSection
 import com.dorr.app.ui.components.StatChip
 import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
@@ -113,7 +114,7 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
         }.getOrDefault(0) > 0
     }
     val night = settingsNight()
-    val accent = if (night) AccountDark.accent else AppColors.waRed
+    val accent = if (night) AccountDark.accent else settingsAccent()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -123,7 +124,7 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f)))
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                 .clip(CircleShape)
                 .background(if (night) AccountDark.card else Color.White)
                 .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
@@ -145,7 +146,7 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f)))
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                 .clip(CircleShape)
                 .background(if (night) AccountDark.card else Color.White)
                 .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
@@ -164,7 +165,7 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
             Box(
                 modifier = Modifier
                     .size(34.dp)
-                    .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f)))
+                    .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                     .clip(CircleShape)
                     .background(if (night) AccountDark.card else Color.White)
                     .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
@@ -179,7 +180,7 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
                         .align(Alignment.TopEnd)
                         .padding(5.dp)
                         .size(8.dp)
-                        .background(AppColors.waRed, CircleShape)
+                        .background(settingsAccent(), CircleShape)
                         .border(1.5.dp, if (night) AccountDark.card else Color.White, CircleShape),
                 )
             }
@@ -206,7 +207,7 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
-            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = AppColors.waRed.copy(alpha = 0.08f)))
+            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
             .clip(cardShape)
             .background(if (night) AccountDark.card else Color.White)
             .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
@@ -218,13 +219,13 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(15.dp))
-                .background(if (night) AccountDark.well else Color(0xFFFDE8EC)),
+                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.AccountBalanceWallet,
                 contentDescription = null,
-                tint = if (night) AccountDark.accent else AppColors.waRed,
+                tint = if (night) AccountDark.accent else settingsAccent(),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -258,9 +259,9 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
         }
         Box(
             modifier = Modifier
-                .shadow(8.dp, RoundedCornerShape(50), spotColor = AppColors.waRed.copy(alpha = 0.25f))
+                .shadow(8.dp, RoundedCornerShape(50), spotColor = settingsAccent().copy(alpha = 0.25f))
                 .clip(RoundedCornerShape(50))
-                .background(AppColors.waRed)
+                .background(settingsAccent())
                 .clickable(onClick = onOpenWallet)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
@@ -297,7 +298,7 @@ private fun QuickActionCard(icon: ImageVector, label: String, modifier: Modifier
     val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = modifier
-            .then(if (night) Modifier else Modifier.shadow(6.dp, shape, spotColor = AppColors.waRed.copy(alpha = 0.07f)))
+            .then(if (night) Modifier else Modifier.shadow(6.dp, shape, spotColor = settingsAccent().copy(alpha = 0.07f)))
             .clip(shape)
             .background(if (night) AccountDark.card else Color.White)
             .then(if (night) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
@@ -311,10 +312,10 @@ private fun QuickActionCard(icon: ImageVector, label: String, modifier: Modifier
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (night) AccountDark.well else Color(0xFFFDE8EC)),
+                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = if (night) AccountDark.accent else AppColors.waRed, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = if (night) AccountDark.accent else settingsAccent(), modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.height(10.dp))
         Text(

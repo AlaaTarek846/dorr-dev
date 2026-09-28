@@ -80,6 +80,7 @@ object ApiClient {
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val addresses: AddressApi by lazy { retrofit.create(AddressApi::class.java) }
+    val appearance: AppearanceApi by lazy { retrofit.create(AppearanceApi::class.java) }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
 
     /**

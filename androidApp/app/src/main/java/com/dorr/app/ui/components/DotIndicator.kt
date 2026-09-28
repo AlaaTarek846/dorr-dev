@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.AppColors
 
 /** Growing-pill page indicator — same shape/timing as the reference app's banner + carousel dots. */
@@ -30,7 +31,7 @@ fun DotIndicator(count: Int, activeIndex: Int, modifier: Modifier = Modifier) {
                     .width(width)
                     .height(8.dp)
                     .background(
-                        if (active) AppColors.waRed else AppColors.border,
+                        if (active) settingsAccent() else AppColors.border,
                         RoundedCornerShape(4.dp),
                     ),
             )

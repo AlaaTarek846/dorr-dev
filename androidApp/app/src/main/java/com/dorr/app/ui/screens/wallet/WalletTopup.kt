@@ -344,7 +344,7 @@ private fun QuoteRow(icon: ImageVector, label: String, value: String, total: Boo
                 if (!total) it.padding(vertical = 7.dp)
                 else it.clip(RoundedCornerShape(16.dp)).background(
                     if (walletNight()) Brush.linearGradient(listOf(com.dorr.app.ui.screens.AccountDark.well, com.dorr.app.ui.screens.AccountDark.card))
-                    else Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6))),
+                    else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
                 ).padding(12.dp)
             },
         verticalAlignment = Alignment.CenterVertically,

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\Mobile\AddressController;
+use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
 
@@ -29,5 +30,8 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::match(['put', 'patch'], 'addresses/{id}', [AddressController::class, 'update']);
         Route::delete('addresses/{id}', [AddressController::class, 'destroy']);
         Route::patch('addresses/{id}/set-default', [AddressController::class, 'setDefault']);
+
+        Route::get('appearance', [MobileAppearanceController::class, 'show']);
+        Route::put('appearance', [MobileAppearanceController::class, 'update']);
     });
 });
