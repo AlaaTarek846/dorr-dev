@@ -147,6 +147,12 @@ export default [
                 meta: { middleware: [auth], permission: 'withdrawal-requests.view' },
             },
             {
+                path: 'wallet/pin-recovery',
+                name: 'admin.wallet.pin-recovery',
+                component: page('wallet/pin-recovery/index'),
+                meta: { middleware: [auth], permission: 'pin-recovery-requests.view' },
+            },
+            {
                 path: 'wallet/financial-entries',
                 name: 'admin.wallet.financial-entries',
                 component: page('wallet/financial-entries/index'),

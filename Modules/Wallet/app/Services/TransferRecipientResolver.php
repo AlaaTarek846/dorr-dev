@@ -8,8 +8,11 @@ use Illuminate\Contracts\Encryption\DecryptException;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\ValidationException;
 use Modules\User\Models\User;
+use Modules\User\Models\UserPhoneHistory;
 use Modules\Wallet\Exceptions\TransferException;
 use Modules\Wallet\Models\Wallet;
+use Modules\Wallet\Models\WalletBeneficiary;
+use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Support\MaskedName;
 use Modules\Wallet\Support\WalletNumber;
 
@@ -209,6 +212,12 @@ class TransferRecipientResolver
      */
     private function present(User $sender, Country $country, User $recipient, ?Wallet $wallet, string $via, array $extra): array
     {
+        // DORR's optional cut, if any, shown up front so the confirm screen can compute it as the
+        // sender types the amount — the actual rate applied is only ever decided (and snapshotted) at
+        // send time, so a change here between lookup and send is never surprising money, just a stale
+        // preview.
+        $settings = WalletSetting::query()->where('country_id', $country->id)->first();
+
         $token = Crypt::encryptString(json_encode([
             'sender' => $sender->id,
             'country_id' => $country->id,
@@ -227,6 +236,14 @@ class TransferRecipientResolver
             'wallet_number' => $via === 'wallet' ? $wallet?->wallet_number : null,
             'country_code' => $country->code,
             'currency_code' => $country->currency?->code,
+            'fee_percent' => (string) ($settings->transfer_fee_percent ?? '0.0000'),
+            'fee_payer' => $settings->transfer_fee_payer ?? 'recipient',
+            // Not proof of anything by itself — just a heads-up: "the number you're sending to changed
+            // recently, make sure this is still who you think it is."
+            'number_recently_changed' => UserPhoneHistory::query()
+                ->where('user_id', $recipient->id)
+                ->where('changed_at', '>=', now()->subDays(WalletBeneficiary::PHONE_CHANGE_WARNING_DAYS))
+                ->exists(),
         ] + $extra;
     }
 }

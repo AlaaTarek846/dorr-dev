@@ -32,7 +32,6 @@ sealed interface WaSheet {
     data object Explain : WaSheet
     data class Tx(val tx: WalletTransactionDto) : WaSheet
     data class Pin(
-        val hasPin: Boolean,
         val subtitle: String,
         val onSubmit: suspend (String) -> PinOutcome,
         val onClose: (String) -> Unit,

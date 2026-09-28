@@ -5,14 +5,17 @@ namespace Modules\Wallet\Services;
 use App\Models\Country;
 use Illuminate\Support\Facades\DB;
 use Modules\User\Models\User;
+use Modules\Wallet\Enums\FinancialEntryType;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Exceptions\IdempotencyConflictException;
 use Modules\Wallet\Exceptions\InsufficientBalanceException;
 use Modules\Wallet\Exceptions\TransferException;
 use Modules\Wallet\Models\Wallet;
+use Modules\Wallet\Models\WalletBeneficiary;
 use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Models\WalletTransaction;
+use Modules\Wallet\Support\OwnerType;
 use Modules\Wallet\Support\RequestHasher;
 
 /**
@@ -32,6 +35,7 @@ class TransferService
         private readonly WalletService $wallets,
         private readonly TransferRecipientResolver $recipients,
         private readonly WalletNotifier $notifier,
+        private readonly FinancialLedgerService $ledger,
     ) {}
 
     /**
@@ -87,7 +91,12 @@ class TransferService
         // Addressed by wallet number → exactly that wallet; by phone → their wallet in this country (created on first receipt).
         $recipientWallet = $target['wallet'] ?? $this->wallets->firstOrCreateWallet($recipient, $country);
 
-        return DB::transaction(function () use ($senderWallet, $recipientWallet, $settings, $amountMinor, $fromBucket, $scopedKey, $requestHash, $idempotencyKey) {
+        // DORR's optional cut, snapshotted now so a later change to the settings never rewrites history.
+        $feePercent = (string) $settings->transfer_fee_percent;
+        $feeMinor = $this->feeMinor($amountMinor, $feePercent);
+        $senderPaysFee = $settings->transfer_fee_payer === 'sender';
+
+        return DB::transaction(function () use ($sender, $recipient, $country, $senderWallet, $recipientWallet, $settings, $amountMinor, $fromBucket, $feePercent, $feeMinor, $senderPaysFee, $scopedKey, $requestHash, $idempotencyKey) {
             // Both wallets locked in ascending id order *before* anything is
             // read, so two people sending to each other at the same moment
             // can't deadlock, and the limit sums below can't be raced.
@@ -106,18 +115,85 @@ class TransferService
 
             $this->assertWithinPeriodLimits($from, $settings, $amountMinor);
 
-            $bucket = $this->chooseBucket($from, $amountMinor, $fromBucket);
+            // A sender-paid fee has to fit in the same bucket as the principal — chosen (or checked)
+            // against the combined total, so the debit below can never fail after the transfer succeeded.
+            $bucket = $this->chooseBucket($from, $amountMinor + ($senderPaysFee ? $feeMinor : 0), $fromBucket);
 
             $result = $this->wallets->transfer($from, $to, $amountMinor, $bucket, [
                 'idempotency_key' => $scopedKey,
                 'request_hash' => $requestHash,
                 'reference_type' => 'transfer',
+                'fee_percent' => $feePercent,
             ]);
 
+            if ($feeMinor > 0) {
+                $feeWallet = $senderPaysFee ? $from : $to;
+                // The recipient only ever holds spend_only; a sender-side fee comes from the same
+                // bucket the principal did.
+                $feeBucket = $senderPaysFee ? $bucket : WalletBucket::SpendOnly;
+
+                $feeTransaction = $this->wallets->debit($feeWallet, $feeMinor, $feeBucket, WalletTransactionType::TransferFee, [
+                    'idempotency_key' => $scopedKey.':fee',
+                    'reference_type' => 'transfer',
+                    'reference_id' => $result['out']->id,
+                    'fee_percent' => $feePercent,
+                    'notes' => ['key' => 'wallet.notes.transfer_fee', 'variables' => []],
+                ]);
+
+                $this->ledger->record(
+                    'transfer_fee',
+                    FinancialEntryType::Income,
+                    $feeMinor,
+                    $feeWallet->currency ?? $feeWallet->loadMissing('currency')->currency,
+                    $feeWallet->country ?? $feeWallet->loadMissing('country')->country,
+                    reference: $feeWallet,
+                    notes: ['key' => 'wallet.notes.transfer_fee', 'variables' => []],
+                    walletTransaction: $feeTransaction,
+                );
+            }
+
             $this->notifier->transfer($from, $to, $amountMinor);
+            $this->rememberBeneficiary($sender, $country, $recipient);
 
             return $result;
         });
+    }
+
+    /**
+     * "People I've already sent money to, in this country" (wallet policy bend 10) — written on every
+     * successful transfer, never by hand. `first_added_at` is only ever set once; `last_used_at` moves
+     * forward each time, so the list can be shown most-recent-first.
+     */
+    private function rememberBeneficiary(User $sender, Country $country, User $recipient): void
+    {
+        $beneficiary = WalletBeneficiary::query()->firstOrNew([
+            'owner_type' => OwnerType::aliasFor($sender),
+            'owner_id' => $sender->id,
+            'country_id' => $country->id,
+            'beneficiary_user_id' => $recipient->id,
+        ]);
+
+        if (! $beneficiary->exists) {
+            $beneficiary->first_added_at = now();
+        }
+
+        $beneficiary->last_used_at = now();
+        $beneficiary->save();
+    }
+
+    /**
+     * Integer-only maths (basis points), rounding half up — no float drift on money. Mirrors
+     * FeeService::quote(): 1% = 10000 bp, fee = amount × bp ÷ 1,000,000.
+     */
+    private function feeMinor(int $amountMinor, string $percent): int
+    {
+        if ((float) $percent <= 0.0) {
+            return 0;
+        }
+
+        $basisPoints = (int) round((float) $percent * 10000);
+
+        return intdiv($amountMinor * $basisPoints + 500_000, 1_000_000);
     }
 
     /**

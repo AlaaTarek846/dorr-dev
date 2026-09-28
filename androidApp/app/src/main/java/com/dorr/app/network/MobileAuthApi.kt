@@ -25,4 +25,26 @@ interface MobileAuthApi {
     /** POST /api/mobile/v1/auth/logout — revoke the current bearer token. */
     @POST("mobile/v1/auth/logout")
     suspend fun logout(@Header("Authorization") authorization: String): ApiEnvelope<Any?>
+
+    /**
+     * A code goes to the *new* number. Behind the wallet PIN once one exists — a first attempt
+     * without [pin] on such an account fails with `wallet_pin_required`, so the caller can ask for
+     * the PIN and retry with it, exactly like every other PIN-gated action.
+     */
+    @POST("mobile/v1/phone/change")
+    suspend fun startPhoneChange(
+        @Header("Authorization") authorization: String,
+        @Body body: OtpRequest,
+        @Header("X-Wallet-Pin") pin: String? = null,
+    ): ApiEnvelope<Any?>
+
+    @POST("mobile/v1/phone/change/confirm")
+    suspend fun confirmPhoneChange(
+        @Header("Authorization") authorization: String,
+        @Body body: PhoneChangeCodeRequest,
+    ): ApiEnvelope<PhoneChangedDto>
 }
+
+data class PhoneChangeCodeRequest(val code: String)
+
+data class PhoneChangedDto(val phone: String)

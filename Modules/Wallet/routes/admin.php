@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Wallet\Http\Controllers\Admin\FinancialEntryController;
 use Modules\Wallet\Http\Controllers\Admin\OnlineTransactionController;
 use Modules\Wallet\Http\Controllers\Admin\PaymentMethodController;
+use Modules\Wallet\Http\Controllers\Admin\PinRecoveryRequestController;
 use Modules\Wallet\Http\Controllers\Admin\WalletController;
 use Modules\Wallet\Http\Controllers\Admin\WithdrawalRequestController;
 use Modules\Wallet\Http\Controllers\Admin\WalletFeeRuleController;
@@ -42,6 +43,12 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('withdrawal-requests/{withdrawal_request}/receipt', [WithdrawalRequestController::class, 'receipt']);
         Route::post('withdrawal-requests/{withdrawal_request}/approve', [WithdrawalRequestController::class, 'approve']);
         Route::post('withdrawal-requests/{withdrawal_request}/reject', [WithdrawalRequestController::class, 'reject']);
+
+        Route::get('pin-recovery-requests', [PinRecoveryRequestController::class, 'index']);
+        Route::get('pin-recovery-requests/{pin_recovery_request}', [PinRecoveryRequestController::class, 'show']);
+        Route::get('pin-recovery-requests/{pin_recovery_request}/image/{kind}', [PinRecoveryRequestController::class, 'image']);
+        Route::post('pin-recovery-requests/{pin_recovery_request}/approve', [PinRecoveryRequestController::class, 'approve']);
+        Route::post('pin-recovery-requests/{pin_recovery_request}/reject', [PinRecoveryRequestController::class, 'reject']);
 
         Route::get('online-transactions/summary', [OnlineTransactionController::class, 'summary']);
         Route::get('online-transactions', [OnlineTransactionController::class, 'index']);

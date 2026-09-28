@@ -193,6 +193,7 @@ if (! function_exists('sendPushNotification')) {
         ?string $url = null,
         ?array $buttons = null,
         ?string $schedule = null,
+        array $options = [],
     ): bool {
         $appId = config('services.onesignal.app_id') ?: env('ONESIGNAL_APP_ID');
         $restApiKey = config('services.onesignal.rest_api_key') ?: env('ONESIGNAL_REST_API_KEY');
@@ -245,6 +246,9 @@ if (! function_exists('sendPushNotification')) {
         if ($schedule) {
             $params['send_after'] = $schedule;
         }
+
+        // Extra OneSignal fields for special pushes (e.g. an incoming call: priority 10, a short ttl).
+        $params = array_merge($params, $options);
 
         try {
             $response = Http::withHeaders([

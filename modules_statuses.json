@@ -3,5 +3,6 @@
     "User": true,
     "AI": true,
     "Provider": true,
-    "Wallet": true
+    "Wallet": true,
+    "Chat": true
 }

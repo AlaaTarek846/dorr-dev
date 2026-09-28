@@ -94,7 +94,7 @@ import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val OTP_LENGTH = 6
+private const val OTP_LENGTH = 4
 
 @Composable
 fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {

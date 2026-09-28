@@ -3,7 +3,6 @@ package com.dorr.app.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.background
@@ -32,8 +31,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DorrLogo
+<<<<<<< HEAD
+import com.dorr.app.ui.components.dorrPageWash
+=======
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
+>>>>>>> origin/main
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -46,10 +49,11 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
-    val alphaAnim = remember { Animatable(0f) }
-    val scale = remember { Animatable(0.85f) }
+    val inspecting = androidx.compose.ui.platform.LocalInspectionMode.current
+    val alphaAnim = remember { Animatable(if (inspecting) 1f else 0f) }
+    val scale = remember { Animatable(if (inspecting) 1f else 0.85f) }
     // The logo rises into place from below the centre while everything fades in.
-    val rise = remember { Animatable(0f) }
+    val rise = remember { Animatable(if (inspecting) 1f else 0f) }
 
     LaunchedEffect(Unit) {
         launch { alphaAnim.animateTo(1f, tween(900)) }
@@ -70,6 +74,9 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
+<<<<<<< HEAD
+            .dorrPageWash(),
+=======
             .drawBehind {
                 if (night) {
                     drawRect(nightBg)
@@ -108,6 +115,7 @@ fun SplashScreen(onFinished: () -> Unit) {
                     ),
                 )
             },
+>>>>>>> origin/main
         contentAlignment = Alignment.Center,
     ) {
         Column(
