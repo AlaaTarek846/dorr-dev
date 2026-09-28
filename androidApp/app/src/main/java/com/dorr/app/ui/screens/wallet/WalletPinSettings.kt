@@ -7,25 +7,25 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ChangePinRequest
 import com.dorr.app.network.CreatePinRequest
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.CancellationException
 
 /**
@@ -43,36 +43,30 @@ fun WalletPinSettings() {
     val textConfirm = stringResource(R.string.wa_pin_confirm_title) to stringResource(R.string.wa_pin_confirm_sub)
 
     var changing by remember { mutableStateOf<Boolean?>(null) }
-    var failed by remember { mutableStateOf<String?>(null) }
-    var attempt by remember { mutableIntStateOf(0) }
     var step by remember { mutableStateOf("current") }
     var current by remember { mutableStateOf("") }
     var fresh by remember { mutableStateOf("") }
     var saved by remember { mutableStateOf(false) }
 
-    LaunchedEffect(attempt) {
-        failed = null
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         changing = null
         try {
             val status = ApiClient.wallet.pinStatus(walletAuth()).data
             changing = status?.hasPin
             step = if (status?.hasPin == true) "current" else "new"
-            if (status == null) failed = networkError
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            failed = e.apiFailure().message ?: networkError
+            // No error card on purpose: offline is covered by the app-wide
+            // screen and a reconnect reloads, so changing stays null
+            // (skeleton) until an attempt succeeds.
         }
     }
 
-    WaPage(title = stringResource(R.string.wa_pin_page_title), onBack = { host.pop() }, scroll = false) {
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    WaPage(title = stringResource(R.string.wa_pin_page_title), onBack = { host.pop() }, scroll = false, dark = night) {
         when {
-            failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                WaEmpty(
-                    Icons.Rounded.Warning, Tone.Gray, stringResource(R.string.wa_load_failed), failed.orEmpty(),
-                    action = { WaButton(stringResource(R.string.wa_retry), { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
-                )
-            }
             changing == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
             }
@@ -91,7 +85,7 @@ fun WalletPinSettings() {
                     else -> textConfirm
                 }
                 WaPinPad(
-                    title = title, sub = sub, icon = Icons.Rounded.Shield,
+                    title = title, sub = sub, icon = Icons.Rounded.Shield, dark = night,
                     modifier = Modifier.fillMaxSize().waRise(0),
                     onComplete = { pin ->
                         when (step) {

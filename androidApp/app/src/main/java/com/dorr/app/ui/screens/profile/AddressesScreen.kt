@@ -25,6 +25,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -60,7 +61,6 @@ import androidx.compose.material.icons.rounded.AddLocationAlt
 import androidx.compose.material.icons.rounded.Article
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Domain
 import androidx.compose.material.icons.rounded.Edit
@@ -76,13 +76,13 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material.icons.rounded.Work
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -99,6 +99,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.shadow
@@ -117,13 +118,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.dorr.app.R
 import com.dorr.app.network.AddressDto
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.SaveAddressRequest
 import com.dorr.app.network.SetDefaultRequest
+import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.network.serverMessage
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -164,7 +168,6 @@ private fun authHeader(): String = "Bearer ${AuthSession.token.orEmpty()}"
 
 private enum class AddressListState {
     Loading,
-    Error,
     Empty,
     Content,
 }
@@ -179,7 +182,6 @@ fun AddressesScreen(onBack: () -> Unit) {
     var debouncedQuery by remember { mutableStateOf("") }
     var addresses by remember { mutableStateOf<List<SavedAddress>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    var loadError by remember { mutableStateOf<String?>(null) }
     var page by remember { mutableIntStateOf(1) }
     var hasMore by remember { mutableStateOf(false) }
     var reloadKey by remember { mutableIntStateOf(0) }
@@ -194,23 +196,33 @@ fun AddressesScreen(onBack: () -> Unit) {
         page = 1
     }
 
+    // A reconnect restarts the list from the first page: appending a fresh
+    // page onto stale rows would duplicate them.
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) { page = 1 }
+
     suspend fun load() {
         loading = true
-        if (page == 1) loadError = null
         runCatching {
             ApiClient.addresses.list(authHeader(), debouncedQuery.ifBlank { null }, page = page)
         }.onSuccess { envelope ->
             val rows = envelope.data.orEmpty().map { it.toUi() }
             addresses = if (page == 1) rows else addresses + rows
             hasMore = envelope.pagination?.hasMorePages == true
+            loading = false
         }.onFailure {
-            if (page == 1) loadError = it.serverMessage() ?: genericError
-            else Toast.makeText(context, it.serverMessage() ?: genericError, Toast.LENGTH_SHORT).show()
+            // No error card on purpose: offline is covered by the app-wide
+            // screen and a reconnect reloads. A first-page failure keeps the
+            // spinner (loading stays true); a later-page failure toasts and
+            // keeps the rows already on screen.
+            if (page != 1) {
+                Toast.makeText(context, it.serverMessage() ?: genericError, Toast.LENGTH_SHORT).show()
+                loading = false
+            }
         }
-        loading = false
     }
 
-    LaunchedEffect(debouncedQuery, page, reloadKey) { load() }
+    LaunchedEffect(debouncedQuery, page, reloadKey, reconnectTick) { load() }
 
     fun toastError(error: Throwable) {
         Toast.makeText(context, error.serverMessage() ?: genericError, Toast.LENGTH_SHORT).show()
@@ -235,6 +247,7 @@ fun AddressesScreen(onBack: () -> Unit) {
     val toastUpdated = stringResource(R.string.addr_toast_updated)
     val toastDeleted = stringResource(R.string.addr_toast_deleted)
     val toastDefault = stringResource(R.string.addr_toast_default)
+    val toastCannotDeleteDefault = stringResource(R.string.addr_toast_cannot_delete_default)
 
     Box(modifier = Modifier.fillMaxSize()) {
     AnimatedContent(
@@ -279,22 +292,25 @@ fun AddressesScreen(onBack: () -> Unit) {
                 },
             )
         } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color(0xFFFFE0E5),
-                                Color(0xFFFFF2F4),
-                                Color(0xFFF9FAFB),
-                                Color(0xFFF9FAFB),
+            Box(modifier = Modifier.fillMaxSize()) {
+                if (settingsNight()) {
+                    PinkBackdrop(Modifier.matchParentSize())
+                } else {
+                    Box(
+                        Modifier.matchParentSize().background(
+                            Brush.verticalGradient(
+                                colors = listOf(
+                                    Color(0xFFFFE0E5),
+                                    Color(0xFFFFF2F4),
+                                    Color(0xFFF9FAFB),
+                                    Color(0xFFF9FAFB),
+                                ),
+                                startY = 0f,
+                                endY = 500f,
                             ),
-                            startY = 0f,
-                            endY = 500f,
                         ),
-                    ),
-            ) {
+                    )
+                }
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -321,7 +337,6 @@ fun AddressesScreen(onBack: () -> Unit) {
 
                     val listState = when {
                         loading && addresses.isEmpty() -> AddressListState.Loading
-                        loadError != null && addresses.isEmpty() -> AddressListState.Error
                         addresses.isEmpty() -> AddressListState.Empty
                         else -> AddressListState.Content
                     }
@@ -347,39 +362,6 @@ fun AddressesScreen(onBack: () -> Unit) {
                                         strokeWidth = 2.5.dp,
                                         modifier = Modifier.size(32.dp),
                                     )
-                                }
-                            }
-                            AddressListState.Error -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(22.dp))
-                                        .background(AppColors.danger.copy(alpha = 0.06f))
-                                        .padding(20.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.CloudOff,
-                                        contentDescription = null,
-                                        tint = AppColors.textMuted,
-                                        modifier = Modifier.size(42.dp),
-                                    )
-                                    Spacer(Modifier.height(10.dp))
-                                    Text(
-                                        loadError.orEmpty(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = AppColors.textPrimary,
-                                        textAlign = TextAlign.Center,
-                                    )
-                                    Spacer(Modifier.height(6.dp))
-                                    TextButton(onClick = { reloadKey++ }) {
-                                        Text(
-                                            stringResource(R.string.services_retry),
-                                            color = AppColors.waRed,
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
                                 }
                             }
                             AddressListState.Empty -> {
@@ -413,7 +395,13 @@ fun AddressesScreen(onBack: () -> Unit) {
                                                     }
                                                 },
                                                 onEdit = { editing = item },
-                                                onDelete = { deleting = item },
+                                                // The default address is protected: it can only be
+                                                // replaced, never deleted, so the platform always
+                                                // has somewhere to deliver to.
+                                                onDelete = {
+                                                    if (item.isDefault) showToast(toastCannotDeleteDefault)
+                                                    else deleting = item
+                                                },
                                             )
                                         }
                                     }
@@ -462,11 +450,22 @@ fun AddressesScreen(onBack: () -> Unit) {
     }
 
     deleting?.let { item ->
-        AlertDialog(
-            onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.addr_delete_ask), fontWeight = FontWeight.Bold) },
-            confirmButton = {
-                TextButton(onClick = {
+        val itemName = when (item.kind) {
+            "home" -> stringResource(R.string.addr_home)
+            "work" -> stringResource(R.string.addr_work)
+            else -> item.label.ifBlank { stringResource(R.string.addr_other) }
+        }
+        DeleteAddressDialog(
+            name = itemName,
+            onDismiss = { deleting = null },
+            onConfirm = {
+                // Second guard: the card-level check already blocks this, but
+                // the row could have become the default while the dialog was
+                // open, so never trust the dialog alone.
+                if (item.isDefault) {
+                    deleting = null
+                    showToast(toastCannotDeleteDefault)
+                } else {
                     val id = item.id
                     deleting = null
                     scope.launch {
@@ -474,16 +473,119 @@ fun AddressesScreen(onBack: () -> Unit) {
                             .onSuccess { refreshFirstPage(); showToast(toastDeleted) }
                             .onFailure(::toastError)
                     }
-                }) {
-                    Text(stringResource(R.string.addr_yes), color = AppColors.danger, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleting = null }) {
-                    Text(stringResource(R.string.common_cancel), color = AppColors.textSecondary)
                 }
             },
         )
+    }
+}
+
+/**
+ * Delete confirmation matching the design: a rounded card with a soft trash
+ * icon on top, a red question title, the address name underneath, and two
+ * equal buttons — solid red confirm on the (RTL) start side and an outlined
+ * cancel next to it. Follows the screen's night mode like every other card.
+ */
+@Composable
+private fun DeleteAddressDialog(
+    name: String,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val night = settingsNight()
+    val red = if (night) AccountDark.accent else AppColors.waRed
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(28.dp))
+                .background(if (night) AccountDark.card else Color.White)
+                .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(28.dp)) else Modifier)
+                .padding(horizontal = 22.dp, vertical = 26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(if (night) AccountDark.well else Color(0xFFFDE8EC)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Rounded.DeleteOutline,
+                    contentDescription = null,
+                    tint = red,
+                    modifier = Modifier.size(30.dp),
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                stringResource(R.string.addr_delete_ask),
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = red,
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(Modifier.height(6.dp))
+
+            Text(
+                name,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = if (night) AccountDark.mut else Color(0xFF4B5563),
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            Spacer(Modifier.height(22.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Button(
+                    onClick = onConfirm,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = AppColors.waRed,
+                        contentColor = Color.White,
+                    ),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp)
+                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = AppColors.waRed.copy(alpha = 0.4f)),
+                ) {
+                    Text(
+                        stringResource(R.string.addr_yes),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                OutlinedButton(
+                    onClick = onDismiss,
+                    shape = RoundedCornerShape(16.dp),
+                    border = BorderStroke(1.dp, if (night) AccountDark.line else Color(0xFFFECDD3)),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = if (night) Color.Transparent else Color.White,
+                        contentColor = red,
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(52.dp),
+                ) {
+                    Text(
+                        stringResource(R.string.common_cancel),
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = red,
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -506,22 +608,23 @@ private fun AddressesTopHeader(
             text = title,
             fontSize = 24.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = AppColors.waRed,
+            color = settingsAccent(),
         )
 
         Box(
             modifier = Modifier
                 .size(42.dp)
-                .shadow(6.dp, CircleShape, spotColor = Color(0x20000000))
+                .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = Color(0x20000000)))
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.AutoMirrored.Rounded.KeyboardArrowRight,
                 contentDescription = null,
-                tint = AppColors.waRed,
+                tint = settingsAccent(),
                 modifier = Modifier.size(24.dp),
             )
         }
@@ -540,9 +643,10 @@ private fun CustomSearchPill(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(50), spotColor = Color(0x12000000))
+            .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, RoundedCornerShape(50), spotColor = Color(0x12000000)))
             .clip(RoundedCornerShape(50))
-            .background(Color.White)
+            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(50)) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
         Row(
@@ -552,7 +656,7 @@ private fun CustomSearchPill(
             Icon(
                 Icons.Rounded.Search,
                 contentDescription = null,
-                tint = AppColors.waRed,
+                tint = settingsAccent(),
                 modifier = Modifier.size(20.dp),
             )
             Spacer(Modifier.width(10.dp))
@@ -560,7 +664,7 @@ private fun CustomSearchPill(
                 if (query.isEmpty()) {
                     Text(
                         placeholder,
-                        color = Color(0xFF9CA3AF),
+                        color = settingsMut(),
                         fontSize = 14.sp,
                     )
                 }
@@ -570,7 +674,7 @@ private fun CustomSearchPill(
                     singleLine = true,
                     textStyle = TextStyle(
                         fontSize = 14.sp,
-                        color = Color(0xFF1E293B),
+                        color = if (settingsNight()) AccountDark.ink else Color(0xFF1E293B),
                         fontWeight = FontWeight.Medium,
                     ),
                     cursorBrush = SolidColor(AppColors.waRed),
@@ -653,9 +757,7 @@ private fun AddressCard(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(22.dp), spotColor = Color(0x10000000))
-            .clip(RoundedCornerShape(22.dp))
-            .background(Color.White)
+            .settingsSurface(RoundedCornerShape(22.dp))
             .clickable(onClick = onSelect)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -665,13 +767,13 @@ private fun AddressCard(
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(Color(0xFFFDE8EC)),
+                .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 kindIcon(item.kind),
                 contentDescription = null,
-                tint = AppColors.waRed,
+                tint = settingsAccent(),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -685,7 +787,7 @@ private fun AddressCard(
                     kindTitle,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
+                    color = settingsInk(),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -694,7 +796,7 @@ private fun AddressCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(Color(0xFFFDE8EC))
+                            .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
@@ -710,7 +812,7 @@ private fun AddressCard(
             Text(
                 if (summary.isNotBlank()) summary else stringResource(R.string.addr_details_hint),
                 fontSize = 12.sp,
-                color = Color(0xFF94A3B8),
+                color = settingsMut(),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -723,34 +825,36 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFFDE8EC))
+                .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC))
                 .clickable(onClick = onEdit),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.Edit,
                 contentDescription = stringResource(R.string.addr_edit),
-                tint = AppColors.waRed,
+                tint = settingsAccent(),
                 modifier = Modifier.size(18.dp),
             )
         }
 
         Spacer(Modifier.width(8.dp))
 
-        // Delete button (Outlined rounded box)
+        // Delete button (Outlined rounded box). Dimmed on the default address
+        // as a visual hint that it is protected — tapping it explains why.
         Box(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(Color.White)
-                .border(1.dp, Color(0xFFFECDD3), RoundedCornerShape(12.dp))
+                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFFECDD3), RoundedCornerShape(12.dp))
+                .alpha(if (item.isDefault) 0.35f else 1f)
                 .clickable(onClick = onDelete),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.DeleteOutline,
                 contentDescription = stringResource(R.string.addr_delete),
-                tint = AppColors.waRed,
+                tint = if (item.isDefault) settingsMut() else AppColors.waRed,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -774,7 +878,7 @@ private fun AddressEditor(
     var floor by remember { mutableStateOf(initial?.floor.orEmpty()) }
     var landmark by remember { mutableStateOf(initial?.landmark.orEmpty()) }
     var isDefault by remember { mutableStateOf(initial?.isDefault ?: false) }
-    var isDetailsExpanded by remember { mutableStateOf(true) }
+    var isDetailsExpanded by remember { mutableStateOf(false) }
 
     val canSave = !saving
 
@@ -793,22 +897,25 @@ private fun AddressEditor(
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFFFE0E5),
-                        Color(0xFFFFF2F4),
-                        Color(0xFFF9FAFB),
-                        Color(0xFFF9FAFB),
+    Box(modifier = Modifier.fillMaxSize()) {
+        if (settingsNight()) {
+            PinkBackdrop(Modifier.matchParentSize())
+        } else {
+            Box(
+                Modifier.matchParentSize().background(
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color(0xFFFFE0E5),
+                            Color(0xFFFFF2F4),
+                            Color(0xFFF9FAFB),
+                            Color(0xFFF9FAFB),
+                        ),
+                        startY = 0f,
+                        endY = 500f,
                     ),
-                    startY = 0f,
-                    endY = 500f,
                 ),
-            ),
-    ) {
+            )
+        }
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -869,9 +976,7 @@ private fun AddressEditor(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(6.dp, RoundedCornerShape(22.dp), spotColor = Color(0x10000000))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White)
+                    .settingsSurface(RoundedCornerShape(22.dp))
                     .padding(16.dp),
             ) {
                 Column(modifier = Modifier.fillMaxWidth()) {
@@ -893,13 +998,13 @@ private fun AddressEditor(
                             stringResource(R.string.addr_details_section),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
-                            color = Color(0xFF0F172A),
+                            color = settingsInk(),
                         )
                         Spacer(Modifier.width(6.dp))
                         Text(
                             stringResource(R.string.addr_optional),
                             fontSize = 12.sp,
-                            color = Color(0xFF94A3B8),
+                            color = settingsMut(),
                             modifier = Modifier.weight(1f),
                         )
                         Icon(
@@ -985,12 +1090,11 @@ private fun AddressEditor(
             Spacer(Modifier.height(16.dp))
 
             // Set as default Card
+            val night = settingsNight()
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .shadow(6.dp, RoundedCornerShape(22.dp), spotColor = Color(0x10000000))
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White)
+                    .settingsSurface(RoundedCornerShape(22.dp))
                     .padding(horizontal = 16.dp, vertical = 14.dp),
             ) {
                 Row(
@@ -1000,7 +1104,7 @@ private fun AddressEditor(
                     Icon(
                         Icons.Rounded.LocalOffer,
                         contentDescription = null,
-                        tint = AppColors.waRed,
+                        tint = settingsAccent(),
                         modifier = Modifier.size(22.dp),
                     )
                     Spacer(Modifier.width(10.dp))
@@ -1008,7 +1112,7 @@ private fun AddressEditor(
                         stringResource(R.string.addr_set_default),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF0F172A),
+                        color = settingsInk(),
                         modifier = Modifier.weight(1f),
                     )
                     Switch(
@@ -1018,7 +1122,7 @@ private fun AddressEditor(
                             checkedThumbColor = Color.White,
                             checkedTrackColor = AppColors.waRed,
                             uncheckedThumbColor = Color.White,
-                            uncheckedTrackColor = Color(0xFFE2E8F0),
+                            uncheckedTrackColor = if (night) Color(0xFF3A3F48) else Color(0xFFE2E8F0),
                             uncheckedBorderColor = Color.Transparent,
                         ),
                     )
@@ -1083,7 +1187,7 @@ private fun EditorKindChip(
     modifier: Modifier = Modifier,
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (selected) AppColors.waRed else Color.White,
+        targetValue = if (selected) AppColors.waRed else if (settingsNight()) AccountDark.card else Color.White,
         label = "chip_bg",
     )
     val contentColor by animateColorAsState(
@@ -1140,7 +1244,7 @@ private fun EditorFieldSection(
             title,
             fontSize = 14.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF0F172A),
+            color = settingsInk(),
         )
         Spacer(Modifier.height(6.dp))
         Box(
@@ -1148,8 +1252,8 @@ private fun EditorFieldSection(
                 .fillMaxWidth()
                 .shadow(2.dp, RoundedCornerShape(50), spotColor = Color(0x08000000))
                 .clip(RoundedCornerShape(50))
-                .background(Color(0xFFFBFBFD))
-                .border(1.dp, Color(0xFFF1F5F9), RoundedCornerShape(50))
+                .background(if (settingsNight()) AccountDark.card else Color(0xFFFBFBFD))
+                .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFF1F5F9), RoundedCornerShape(50))
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Row(
@@ -1167,7 +1271,7 @@ private fun EditorFieldSection(
                     if (value.isEmpty()) {
                         Text(
                             placeholder,
-                            color = Color(0xFF94A3B8),
+                            color = settingsMut(),
                             fontSize = 14.sp,
                         )
                     }
@@ -1177,7 +1281,7 @@ private fun EditorFieldSection(
                         singleLine = true,
                         textStyle = TextStyle(
                             fontSize = 14.sp,
-                            color = Color(0xFF0F172A),
+                            color = if (settingsNight()) AccountDark.ink else Color(0xFF0F172A),
                             fontWeight = FontWeight.Medium,
                         ),
                         cursorBrush = SolidColor(AppColors.waRed),
@@ -1247,7 +1351,7 @@ private fun MapPreviewCard() {
                     stringResource(R.string.addr_map),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF0F172A),
+                    color = settingsInk(),
                 )
             }
         }
@@ -1438,7 +1542,7 @@ private fun EmptyAddressView(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
             fontSize = 17.sp,
-            color = Color(0xFF0F172A),
+            color = settingsInk(),
             textAlign = TextAlign.Center,
         )
 
@@ -1449,7 +1553,7 @@ private fun EmptyAddressView(
             style = MaterialTheme.typography.bodyMedium,
             fontSize = 13.sp,
             lineHeight = 21.sp,
-            color = Color(0xFF64748B),
+            color = settingsMut(),
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
@@ -1500,8 +1604,8 @@ private fun ShowMoreButton(loading: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
-            .background(Color.White)
-            .border(1.5.dp, AppColors.waRed.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .border(1.5.dp, if (settingsNight()) AccountDark.line else AppColors.waRed.copy(alpha = 0.35f), RoundedCornerShape(50))
             .clickable(enabled = !loading, onClick = onClick)
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,

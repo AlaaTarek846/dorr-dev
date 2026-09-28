@@ -79,7 +79,7 @@ fun ContactUsSheet(onDismiss: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                     PinkIcon(Icons.Rounded.Call)
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.contact_title), color = AppColors.waRed, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.contact_title), color = settingsAccent(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 ContactTile(Icons.Rounded.Call, stringResource(R.string.contact_phone), CONTACT_PHONE, rtl) {
                     tryStart(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$CONTACT_PHONE")))
@@ -103,9 +103,7 @@ private fun ContactTile(icon: ImageVector, label: String, value: String, rtl: Bo
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .settingsSurface(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -113,13 +111,13 @@ private fun ContactTile(icon: ImageVector, label: String, value: String, rtl: Bo
         PinkIcon(icon)
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = AppColors.textPrimary)
-            Text(value, fontSize = 12.sp, color = AppColors.textMuted)
+            Text(label, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+            Text(value, fontSize = 12.sp, color = settingsMut())
         }
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = Color(0xFFEFA8B4),
+            tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFEFA8B4),
             modifier = Modifier.size(16.dp).graphicsLayer { if (rtl) scaleX = -1f },
         )
     }
