@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,6 +52,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DotIndicator
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.launch
 
@@ -74,6 +77,10 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     val lastPage = pagerState.currentPage == pages.lastIndex
     val cardShape = RoundedCornerShape(28.dp)
     val buttonShape = RoundedCornerShape(999.dp)
+    val night = settingsNight()
+    val nightBg = AccountDark.bg
+    val nightGlow = AccountDark.accent
+    val brand = settingsAccent()
 
     BackHandler(enabled = pagerState.currentPage > 0) {
         scope.launch {
@@ -88,10 +95,23 @@ fun OnboardingScreen(onFinished: () -> Unit) {
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
-                drawRect(Color(0xFFFDE8EC))
+                if (night) {
+                    drawRect(nightBg)
+                    drawCircle(
+                        brush = Brush.radialGradient(
+                            colors = listOf(nightGlow.copy(alpha = 0.35f), nightGlow.copy(alpha = 0.10f), Color.Transparent),
+                            center = Offset(size.width * 0.5f, size.height * -0.08f),
+                            radius = size.width * 0.85f,
+                        ),
+                        radius = size.width * 0.85f,
+                        center = Offset(size.width * 0.5f, size.height * -0.08f),
+                    )
+                    return@drawBehind
+                }
+                drawRect(Color.White)
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                        colors = listOf(brand.copy(alpha = 0.28f), brand.copy(alpha = 0.08f), Color.Transparent),
                         center = Offset(size.width * -0.08f, size.height * -0.12f),
                         radius = size.width * 1.3f,
                     ),
@@ -126,23 +146,23 @@ fun OnboardingScreen(onFinished: () -> Unit) {
             ) {
                 Row(
                     modifier = Modifier
-                        .shadow(4.dp, RoundedCornerShape(999.dp), spotColor = Color(0x14111928))
+                        .then(if (night) Modifier else Modifier.shadow(4.dp, RoundedCornerShape(999.dp), spotColor = Color(0x14111928)))
                         .clip(RoundedCornerShape(999.dp))
-                        .background(Color.White)
+                        .background(if (night) AccountDark.card else Color.White)
                         .clickable(onClick = onFinished)
                         .padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = stringResource(R.string.onboarding_skip),
-                        color = AppColors.textSecondary,
+                        color = if (night) AccountDark.mut else AppColors.textSecondary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                     )
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowForward,
                         contentDescription = null,
-                        tint = AppColors.textSecondary,
+                        tint = if (night) AccountDark.mut else AppColors.textSecondary,
                         modifier = Modifier
                             .padding(start = 2.dp)
                             .size(16.dp),
@@ -174,14 +194,18 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 modifier = Modifier
                     .padding(horizontal = 18.dp)
                     .fillMaxWidth()
-                    .shadow(
-                        elevation = 18.dp,
-                        shape = cardShape,
-                        ambientColor = Color(0x33111928),
-                        spotColor = Color(0x40111928),
+                    .then(
+                        if (night) Modifier
+                        else Modifier.shadow(
+                            elevation = 18.dp,
+                            shape = cardShape,
+                            ambientColor = Color(0x33111928),
+                            spotColor = Color(0x40111928),
+                        ),
                     )
                     .clip(cardShape)
-                    .background(Color.White)
+                    .background(if (night) AccountDark.card else Color.White)
+                    .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
                     .padding(horizontal = 20.dp, vertical = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
@@ -189,7 +213,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 Spacer(Modifier.height(14.dp))
                 Text(
                     text = highlightedTitle(stringResource(page.title)),
-                    color = AppColors.textPrimary,
+                    color = if (night) AccountDark.ink else AppColors.textPrimary,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
                     textAlign = TextAlign.Center,
@@ -198,7 +222,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                 Spacer(Modifier.height(8.dp))
                 Text(
                     text = "\'${stringResource(page.body)}\'",
-                    color = AppColors.textSecondary,
+                    color = if (night) AccountDark.mut else AppColors.textSecondary,
                     fontSize = 14.sp,
                     lineHeight = 22.sp,
                     textAlign = TextAlign.Center,
@@ -219,7 +243,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.waRed,
+                        containerColor = settingsAccent(),
                         contentColor = Color.White,
                     ),
                     shape = buttonShape,
@@ -255,6 +279,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 
 private val titleHighlights = listOf("محفظتك", "محفظة", "wallet", "Wallet")
 
+@Composable
 private fun highlightedTitle(text: String) = buildAnnotatedString {
     val match = titleHighlights
         .mapNotNull { word -> text.indexOf(word).takeIf { it >= 0 }?.let { it to word } }
@@ -265,7 +290,7 @@ private fun highlightedTitle(text: String) = buildAnnotatedString {
     }
     val (start, word) = match
     append(text.substring(0, start))
-    withStyle(SpanStyle(color = AppColors.waRed)) {
+    withStyle(SpanStyle(color = settingsAccent())) {
         append(text.substring(start, start + word.length))
     }
     append(text.substring(start + word.length))

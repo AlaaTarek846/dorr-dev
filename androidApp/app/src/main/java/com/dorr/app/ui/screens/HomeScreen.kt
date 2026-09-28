@@ -9,6 +9,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.wallet.formatMinor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -55,6 +56,9 @@ import com.dorr.app.network.AuthSession
 import com.dorr.app.ui.components.HeroBannerSlider
 import com.dorr.app.ui.components.ServicesSection
 import com.dorr.app.ui.components.StatChip
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 @Composable
@@ -65,6 +69,8 @@ fun HomeScreen(
     onOpenServices: () -> Unit,
     onOpenChat: () -> Unit = {},
 ) {
+    Box(Modifier.fillMaxSize()) {
+    PinkBackdrop(Modifier.matchParentSize())
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         item {
             HomeHeader(
@@ -97,16 +103,20 @@ fun HomeScreen(
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }
     }
+    }
 }
 
 @Composable
 private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenChat: () -> Unit) {
     var hasUnread by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         hasUnread = runCatching {
             ApiClient.notifications.unreadCount("Bearer ${AuthSession.token.orEmpty()}").data?.count ?: 0
         }.getOrDefault(0) > 0
     }
+    val night = settingsNight()
+    val accent = if (night) AccountDark.accent else settingsAccent()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -116,18 +126,19 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f))
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(if (night) AccountDark.card else Color.White)
+                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onOpenAccount),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Person, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+            Icon(Icons.Rounded.Person, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(10.dp))
         Text(
             text = stringResource(R.string.home_greeting, AuthSession.user?.name ?: stringResource(R.string.account_default_user)),
-            color = AppColors.waRed,
+            color = accent,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.weight(1f),
@@ -137,16 +148,17 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f))
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(if (night) AccountDark.card else Color.White)
+                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onOpenWallet),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.AccountBalanceWallet,
                 contentDescription = stringResource(R.string.wallet_title),
-                tint = AppColors.waRed,
+                tint = accent,
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -157,13 +169,14 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
             Box(
                 modifier = Modifier
                     .size(34.dp)
-                    .shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f))
+                    .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                     .clip(CircleShape)
-                    .background(Color.White)
+                    .background(if (night) AccountDark.card else Color.White)
+                    .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                     .clickable(onClick = onOpenNotifications),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
             }
             if (hasUnread) {
                 Box(
@@ -171,8 +184,8 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
                         .align(Alignment.TopEnd)
                         .padding(5.dp)
                         .size(8.dp)
-                        .background(AppColors.waRed, CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape),
+                        .background(settingsAccent(), CircleShape)
+                        .border(1.5.dp, if (night) AccountDark.card else Color.White, CircleShape),
                 )
             }
         }
@@ -183,7 +196,8 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
 private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifier) {
     var balanceText by remember { mutableStateOf("0.00") }
     var currencyText by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         runCatching { ApiClient.wallet.balance("Bearer ${AuthSession.token.orEmpty()}").data }.onSuccess { dto ->
             dto?.let {
                 balanceText = formatMinor(it.totalMinor, null)
@@ -191,13 +205,16 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
             }
         }
     }
+    val night = settingsNight()
+    val cardShape = RoundedCornerShape(20.dp)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 12.dp)
-            .shadow(10.dp, RoundedCornerShape(20.dp), spotColor = AppColors.waRed.copy(alpha = 0.08f))
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color.White)
+            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
+            .clip(cardShape)
+            .background(if (night) AccountDark.card else Color.White)
+            .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
             .clickable(onClick = onOpenWallet)
             .padding(12.dp, 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -206,13 +223,13 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(15.dp))
-                .background(Color(0xFFFDE8EC)),
+                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.AccountBalanceWallet,
                 contentDescription = null,
-                tint = AppColors.waRed,
+                tint = if (night) AccountDark.accent else settingsAccent(),
                 modifier = Modifier.size(22.dp),
             )
         }
@@ -222,14 +239,14 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
                 stringResource(R.string.home_wallet_balance),
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = AppColors.textSecondary,
+                color = if (night) AccountDark.mut else AppColors.textSecondary,
             )
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
                     balanceText,
                     fontSize = 20.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = AppColors.textPrimary,
+                    color = if (night) AccountDark.ink else AppColors.textPrimary,
                     modifier = Modifier.alignByBaseline(),
                 )
                 if (currencyText.isNotBlank()) {
@@ -238,7 +255,7 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
                         currencyText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.textSecondary,
+                        color = if (night) AccountDark.mut else AppColors.textSecondary,
                         modifier = Modifier.alignByBaseline(),
                     )
                 }
@@ -246,9 +263,9 @@ private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifi
         }
         Box(
             modifier = Modifier
-                .shadow(8.dp, RoundedCornerShape(50), spotColor = AppColors.waRed.copy(alpha = 0.25f))
+                .shadow(8.dp, RoundedCornerShape(50), spotColor = settingsAccent().copy(alpha = 0.25f))
                 .clip(RoundedCornerShape(50))
-                .background(AppColors.waRed)
+                .background(settingsAccent())
                 .clickable(onClick = onOpenWallet)
                 .padding(horizontal = 14.dp, vertical = 8.dp),
             contentAlignment = Alignment.Center,
@@ -281,11 +298,14 @@ private fun QuickActionsRow(modifier: Modifier = Modifier) {
 
 @Composable
 private fun QuickActionCard(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
+    val night = settingsNight()
+    val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = modifier
-            .shadow(6.dp, RoundedCornerShape(14.dp), spotColor = AppColors.waRed.copy(alpha = 0.07f))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
+            .then(if (night) Modifier else Modifier.shadow(6.dp, shape, spotColor = settingsAccent().copy(alpha = 0.07f)))
+            .clip(shape)
+            .background(if (night) AccountDark.card else Color.White)
+            .then(if (night) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
             .clickable { /* placeholder */ }
             .padding(12.dp)
             .heightIn(min = 96.dp),
@@ -296,17 +316,17 @@ private fun QuickActionCard(icon: ImageVector, label: String, modifier: Modifier
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFFFDE8EC)),
+                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(icon, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = null, tint = if (night) AccountDark.accent else settingsAccent(), modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.height(10.dp))
         Text(
             label,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = AppColors.textPrimary,
+            color = if (night) AccountDark.ink else AppColors.textPrimary,
         )
     }
 }

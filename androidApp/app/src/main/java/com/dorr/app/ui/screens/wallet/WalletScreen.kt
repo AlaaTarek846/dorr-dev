@@ -23,16 +23,18 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+<<<<<<< HEAD
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
+=======
+>>>>>>> origin/main
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -51,6 +53,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.PinStatusDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -135,7 +138,7 @@ private fun WaToastHost(host: WalletHost) {
             exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
         ) {
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Ink).padding(horizontal = 18.dp, vertical = 11.dp),
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF111928)).padding(horizontal = 18.dp, vertical = 11.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -158,6 +161,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val enterTitle = stringResource(R.string.wa_gate_enter_title)
     val enterSub = stringResource(R.string.wa_gate_enter_sub)
 
+<<<<<<< HEAD
     var status by remember { mutableStateOf<PinStatusDto?>(null) }
     var failed by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
@@ -174,10 +178,25 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
         try {
             val loaded = ApiClient.wallet.pinStatus(walletAuth()).data
             if (loaded == null) failed = networkError else status = loaded
+=======
+    var hasPin by remember { mutableStateOf<Boolean?>(null) }
+    var step by remember { mutableStateOf("enter") }
+    var first by remember { mutableStateOf("") }
+
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
+        hasPin = null
+        try {
+            val status = ApiClient.wallet.pinStatus(walletAuth()).data
+            hasPin = status?.hasPin
+            step = if (status?.hasPin == true) "enter" else "create"
+>>>>>>> origin/main
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            failed = e.apiFailure().message ?: networkError
+            // No error card on purpose: offline is covered by the app-wide
+            // screen and a reconnect reloads, so hasPin stays null (skeleton)
+            // until an attempt succeeds.
         }
     }
 
@@ -195,6 +214,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
         forgot -> WaForgotPinPage(current, onExit = { forgot = false }, onDone = { forgot = false; attempt++ })
         else -> WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
             when {
+<<<<<<< HEAD
                 failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaEmpty(
                         icon = Icons.Rounded.Warning, tone = Tone.Gray,
@@ -203,6 +223,9 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                     )
                 }
                 current == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+=======
+                hasPin == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+>>>>>>> origin/main
                     WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
                 }
                 else -> {

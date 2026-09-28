@@ -97,6 +97,24 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                 ],
             ],
+            'mobile_app_fonts' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'mobile_app_color_defaults' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
             'service_categories' => [
                 'module_name' => 'general_services',
                 'actions' => [

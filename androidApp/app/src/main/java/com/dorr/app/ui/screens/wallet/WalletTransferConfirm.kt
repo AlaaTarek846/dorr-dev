@@ -209,11 +209,17 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
     Box(
         modifier
             .fillMaxWidth()
-            .shadow(10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = Color(0x26111928))
+            .then(if (walletNight()) Modifier else Modifier.shadow(10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = Color(0x26111928)))
             .clip(Wa.CardShape)
-            .background(Color.White),
+            .background(Wa.Surface)
+            .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, Wa.CardShape) else Modifier),
     ) {
-        Box(Modifier.fillMaxWidth().height(84.dp).background(Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6)))))
+        Box(
+            Modifier.fillMaxWidth().height(84.dp).background(
+                if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
+                else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
+            ),
+        )
         Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
                 Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFE5F6EC)).padding(horizontal = 12.dp, vertical = 5.dp),
@@ -233,7 +239,7 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
             Text(who.nameMasked, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(
-                    Modifier.padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFFF3F4F6)).padding(horizontal = 14.dp, vertical = 8.dp),
+                    Modifier.padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFF3F4F6)).padding(horizontal = 14.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Text(line, color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.5.sp)

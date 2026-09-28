@@ -76,6 +76,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -93,6 +94,10 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ServiceChildDto
 import com.dorr.app.network.ServiceDto
+import com.dorr.app.network.collectReconnectTick
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 private const val COLLAPSED_COUNT = 6
@@ -170,8 +175,9 @@ internal class ServicesLoader(val state: ServicesState, val reload: () -> Unit)
 internal fun rememberServicesLoader(): ServicesLoader {
     var reloadKey by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<ServicesState>(ServicesState.Loading) }
+    val reconnectTick = collectReconnectTick()
 
-    LaunchedEffect(reloadKey) {
+    LaunchedEffect(reloadKey, reconnectTick) {
         state = ServicesState.Loading
         state = runCatching { ApiClient.services.list().data.orEmpty() }
             .fold({ ServicesState.Loaded(it) }, { ServicesState.Error })
@@ -224,20 +230,21 @@ private fun SectionHeader(total: Int, onViewAll: () -> Unit) {
             modifier = Modifier
                 .width(4.dp)
                 .height(20.dp)
-                .background(AppColors.primary, RoundedCornerShape(2.dp)),
+                .background(if (settingsNight()) AccountDark.accent else settingsAccent(), RoundedCornerShape(2.dp)),
         )
         Spacer(Modifier.width(8.dp))
         Text(
             stringResource(R.string.services_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
+            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
             modifier = Modifier.weight(1f),
         )
         if (total > COLLAPSED_COUNT) {
             TextButton(onClick = onViewAll) {
                 Text(
                     stringResource(R.string.services_view_all, total),
-                    color = AppColors.primary,
+                    color = if (settingsNight()) AccountDark.accent else settingsAccent(),
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -285,9 +292,13 @@ private fun ServiceTile(
         modifier = modifier
             .alpha(enter.value)
             .scale(0.92f + 0.08f * enter.value)
+            .then(
+                if (settingsNight()) Modifier
+                else Modifier.shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+            )
             .clip(RoundedCornerShape(20.dp))
-            .background(color.copy(alpha = 0.07f))
-            .border(1.dp, color.copy(alpha = 0.18f), RoundedCornerShape(20.dp))
+            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -300,8 +311,8 @@ private fun ServiceTile(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(20.dp)
-                        .background(color, CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape),
+                        .background(if (settingsNight()) AccountDark.accent else settingsAccent(), CircleShape)
+                        .border(1.5.dp, if (settingsNight()) AccountDark.card else Color.White, CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("$childCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -317,6 +328,7 @@ private fun ServiceTile(
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
+            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
         )
     }
 }
@@ -332,11 +344,11 @@ internal fun ServiceAvatar(image: String?, icon: ImageVector, color: Color, size
         modifier = Modifier
             .size(size.dp)
             .clip(shape)
-            .background(color.copy(alpha = 0.14f)),
+            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center,
     ) {
         if (image.isNullOrBlank()) {
-            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size((size * 0.5f).dp))
+            Icon(icon, contentDescription = null, tint = if (settingsNight()) AccountDark.accent else settingsAccent(), modifier = Modifier.size((size * 0.5f).dp))
         } else {
             AsyncImage(
                 model = ApiClient.mediaUrl(image),
@@ -367,7 +379,7 @@ internal fun ServicesSkeleton() {
                             .height(112.dp)
                             .alpha(pulse)
                             .clip(RoundedCornerShape(20.dp))
-                            .background(AppColors.border),
+                            .background(if (settingsNight()) AccountDark.line else AppColors.border),
                     )
                 }
             }
@@ -386,11 +398,15 @@ internal fun ServicesError(onRetry: () -> Unit) {
             .padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.Rounded.CloudOff, contentDescription = null, tint = AppColors.textMuted, modifier = Modifier.size(36.dp))
+        Icon(Icons.Rounded.CloudOff, contentDescription = null, tint = if (settingsNight()) AccountDark.mut else AppColors.textMuted, modifier = Modifier.size(36.dp))
         Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.services_error), style = MaterialTheme.typography.bodyMedium)
+        Text(
+            stringResource(R.string.services_error),
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+        )
         TextButton(onClick = onRetry) {
-            Text(stringResource(R.string.services_retry), color = AppColors.primary, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.services_retry), color = if (settingsNight()) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -402,17 +418,26 @@ internal fun ServiceChildrenSheet(service: ServiceDto, color: Color, onDismiss: 
     val context = LocalContext.current
     val comingSoon = stringResource(R.string.services_coming_soon)
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    val night = settingsNight()
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = if (night) AccountDark.card else MaterialTheme.colorScheme.surface,
+    ) {
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ServiceAvatar(service.image, serviceIcon(service.moduleName), color, size = 48)
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text(service.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(
+                        service.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = if (night) AccountDark.ink else Color.Unspecified,
+                    )
                     Text(
                         stringResource(R.string.services_sub_count, children.size),
                         style = MaterialTheme.typography.bodySmall,
-                        color = AppColors.textSecondary,
+                        color = if (night) AccountDark.mut else AppColors.textSecondary,
                     )
                 }
             }
@@ -435,7 +460,12 @@ private fun ChildRow(child: ServiceChildDto, color: Color, onClick: () -> Unit) 
     ) {
         ServiceAvatar(child.image, serviceIcon(child.moduleName), color, size = 40)
         Spacer(Modifier.width(12.dp))
-        Text(child.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = AppColors.textMuted)
+        Text(
+            child.name,
+            style = MaterialTheme.typography.bodyLarge,
+            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+            modifier = Modifier.weight(1f),
+        )
+        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (settingsNight()) AccountDark.chevron else AppColors.textMuted)
     }
 }

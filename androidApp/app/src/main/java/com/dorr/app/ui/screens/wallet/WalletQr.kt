@@ -17,6 +17,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -125,11 +126,17 @@ fun WalletMyQr() {
             Modifier
                 .fillMaxWidth()
                 .waRise(0)
-                .shadow(10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = Color(0x26111928))
+                .then(if (walletNight()) Modifier else Modifier.shadow(10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = Color(0x26111928)))
                 .clip(Wa.CardShape)
-                .background(Color.White),
+                .background(Wa.Surface)
+                .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, Wa.CardShape) else Modifier),
         ) {
-            Box(Modifier.fillMaxWidth().height(120.dp).background(Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6)))))
+            Box(
+                Modifier.fillMaxWidth().height(120.dp).background(
+                    if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
+                    else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
+                ),
+            )
             Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
                     Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFE5F6EC)).padding(horizontal = 12.dp, vertical = 5.dp),
@@ -198,7 +205,7 @@ private fun QrCanvas(matrix: BitMatrix) {
         val cell = size.width / modules
         drawRect(Color.White)
         for (x in 0 until matrix.width) for (y in 0 until matrix.height) {
-            if (matrix[x, y]) drawRect(Wa.Ink, topLeft = Offset((x + quiet) * cell, (y + quiet) * cell), size = Size(cell + 0.5f, cell + 0.5f))
+            if (matrix[x, y]) drawRect(Color(0xFF111928), topLeft = Offset((x + quiet) * cell, (y + quiet) * cell), size = Size(cell + 0.5f, cell + 0.5f))
         }
     }
 }

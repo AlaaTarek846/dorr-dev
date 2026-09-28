@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -70,9 +71,17 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
+import com.dorr.app.network.CountryCache
+import com.dorr.app.network.CountryDto
+import com.dorr.app.network.FlagDto
 import com.dorr.app.network.TransferLookupRequest
 import com.dorr.app.network.TransferRecipientDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.flagIso
+import com.dorr.app.network.formattedDial
+import com.dorr.app.network.resolveForPhone
+import com.dorr.app.network.UserCountryDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -133,10 +142,23 @@ internal fun isValidWalletNumber(digits: String): Boolean {
 @Composable
 fun WalletTransfer() {
     val host = LocalWallet.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val balance = host.balance
     val networkError = stringResource(R.string.wa_error_network)
-    val country = countryName(balance?.countryCode)
+    val uc = AuthSession.user?.country
+    val resolved = uc?.let { userCountry ->
+        CountryDto(
+            id = 0, code = userCountry.code ?: "", name = "",
+            dialCode = userCountry.dialCode ?: "",
+            phoneLength = userCountry.phoneLength,
+            phoneStartsWith = userCountry.phoneStartsWith,
+            isDefault = false,
+            flag = userCountry.flag?.let { FlagDto(id = 0, code = it.code ?: "") },
+        )
+    } ?: CountryCache.resolveForPhone(context, AuthSession.user?.phone)
+        ?: CountryCache.pickDefault(context)
+    val country = countryName(resolved?.code)
 
     var mode by remember { mutableStateOf(TransferMode.PHONE) }
     var phoneRaw by remember { mutableStateOf("") }
@@ -144,10 +166,10 @@ fun WalletTransfer() {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val dialCode = balance?.dialCode?.takeIf { it.isNotBlank() } ?: "+966"
-    val countryCode = balance?.countryCode?.lowercase() ?: "sa"
-    val phoneLength = balance?.phoneLength ?: 9
-    val phoneStartsWith = balance?.phoneStartsWith.orEmpty().ifBlank { "5" }
+    val dialCode = resolved?.formattedDial()?.takeIf { it.isNotBlank() } ?: "+966"
+    val countryCode = resolved?.flagIso() ?: "sa"
+    val phoneLength = resolved?.phoneLength ?: 9
+    val phoneStartsWith = resolved?.phoneStartsWith.orEmpty().ifBlank { "5" }
 
     val isPhoneValid = phoneRaw.length == phoneLength && (phoneStartsWith.isEmpty() || phoneRaw.startsWith(phoneStartsWith))
     val phoneError: String? = when {
@@ -315,7 +337,7 @@ private fun Segmented(options: List<Pair<String, androidx.compose.ui.graphics.ve
         modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(18.dp))
-            .background(Color(0xFFECEEF2))
+            .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFECEEF2))
             .padding(4.dp),
     ) {
         val tabWidth = maxWidth / options.size
@@ -328,7 +350,7 @@ private fun Segmented(options: List<Pair<String, androidx.compose.ui.graphics.ve
                 .graphicsLayer { translationX = (if (rtl) -1 else 1) * fraction * tabPx }
                 .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x1A111928), spotColor = Color(0x26111928))
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White),
+                .background(Wa.Surface),
         )
         Row(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (label, icon) ->
@@ -385,7 +407,7 @@ private fun InputCard(
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(RoundedCornerShape(15.dp))
-                    .background(if (focused) Color.White else Wa.Field)
+                    .background(if (focused) Wa.Surface else Wa.Field)
                     .border(2.dp, border, RoundedCornerShape(15.dp))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -414,7 +436,7 @@ private fun InputCard(
                     modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
-                            if (value.isEmpty()) Text(placeholder, color = Color(0xFFD1D5DB), fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)
+                            if (value.isEmpty()) Text(placeholder, color = if (walletNight()) Wa.Soft else Color(0xFFD1D5DB), fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)
                             inner()
                         }
                     },
@@ -437,7 +459,7 @@ private fun InputCard(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFFFEE2E2).copy(alpha = 0.85f))
+                        .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
                         .padding(horizontal = 12.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.Center,

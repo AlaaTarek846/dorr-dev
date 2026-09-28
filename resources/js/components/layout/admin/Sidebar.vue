@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <aside class="app-sidebar sticky" id="sidebar">
         <div class="main-sidebar-header">
             <PlatformLogo href="/admin/dashboard" />
@@ -192,6 +192,20 @@
                                     <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
                                 </router-link>
                             </li>
+
+                            <li v-if="can('mobile_app_fonts.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-fonts.index' }" class="side-menu__item">
+                                    <i class="ri-font-size-2 side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_fonts.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('mobile_app_color_defaults.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-colors' }" class="side-menu__item">
+                                    <i class="ri-smartphone-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_color_defaults.title') }}</span>
+                                </router-link>
+                            </li>
                         </template>
                     </template>
                 </ul>
@@ -268,7 +282,10 @@ const showStaffSection = computed(
 );
 
 const showSettingsSection = computed(
-    () => can('dashboard_themes.view') || can('platform_settings.view'),
+    () => can('dashboard_themes.view')
+        || can('platform_settings.view')
+        || can('mobile_app_fonts.view')
+        || can('mobile_app_color_defaults.view'),
 );
 
 const isGeneralVisible = computed(() => {

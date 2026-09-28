@@ -88,6 +88,8 @@ import com.dorr.app.network.AuthSession
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.VerifyOtpRequest
 import com.dorr.app.network.serverMessage
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -194,6 +196,7 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
     }
 
     val scrollState = rememberScrollState()
+    val night = settingsNight()
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Full bleed background canvas
@@ -228,7 +231,7 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
                     Icon(
                         Icons.AutoMirrored.Rounded.ArrowBack,
                         contentDescription = stringResource(R.string.common_back),
-                        tint = Color(0xFF111928),
+                        tint = if (night) AccountDark.accent else Color(0xFF111928),
                         modifier = Modifier.size(22.dp),
                     )
                 }
@@ -252,7 +255,7 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
 
                 Text(
                     text = stringResource(R.string.otp_title),
-                    color = Color(0xFF111928),
+                    color = settingsAccent(),
                     fontWeight = FontWeight.ExtraBold,
                     fontSize = 26.sp,
                     textAlign = TextAlign.Center,
@@ -265,7 +268,7 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
                     text = stringResource(R.string.otp_subtitle, formattedPhone),
                     fontSize = 14.sp,
                     lineHeight = 22.sp,
-                    color = Color(0xFF6B7280),
+                    color = if (night) AccountDark.mut else Color(0xFF6B7280),
                     textAlign = TextAlign.Center,
                     modifier = Modifier.widthIn(max = 280.dp),
                 )
@@ -308,8 +311,8 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
                     onClick = ::verify,
                     enabled = canVerify,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFE50914),
-                        disabledContainerColor = Color(0xFFE50914),
+                        containerColor = settingsAccent(),
+                        disabledContainerColor = settingsAccent(),
                         contentColor = Color.White,
                         disabledContentColor = Color.White,
                     ),
@@ -361,21 +364,21 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
                                 .fillMaxWidth()
                                 .padding(top = 16.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFFDE8EC))
-                                .border(1.dp, Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
+                                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                                .border(1.dp, if (night) AccountDark.accent else Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
                                 Icons.Rounded.ErrorOutline,
                                 contentDescription = null,
-                                tint = Color(0xFFE50914),
+                                tint = settingsAccent(),
                                 modifier = Modifier.size(20.dp),
                             )
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 text = message,
-                                color = Color(0xFF991B1B),
+                                color = if (night) AccountDark.accent else Color(0xFF991B1B),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
@@ -403,24 +406,29 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
 
 @Composable
 private fun OtpBackdrop(modifier: Modifier = Modifier) {
+    val night = settingsNight()
+    val base = if (night) AccountDark.bg else Color.White
+    val glow = if (night) AccountDark.accent else settingsAccent()
     Canvas(modifier) {
-        drawRect(Color.White)
-
-        fun glow(center: Offset, radius: Float, color: Color) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(color, color.copy(alpha = 0.55f), Color.Transparent),
-                    center = center,
-                    radius = radius,
-                ),
-                radius = radius,
-                center = center,
-            )
-        }
-
-        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFEFA8B4))
-        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFF3C4CC))
-        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF0B8C2))
+        drawRect(base)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
+                center = Offset(size.width * 0.5f, size.height * -0.08f),
+                radius = size.width * 0.85f,
+            ),
+            radius = size.width * 0.85f,
+            center = Offset(size.width * 0.5f, size.height * -0.08f),
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
+                center = Offset(size.width * 1.05f, size.height * 0.02f),
+                radius = size.width * 0.55f,
+            ),
+            radius = size.width * 0.55f,
+            center = Offset(size.width * 1.05f, size.height * 0.02f),
+        )
     }
 }
 
@@ -437,7 +445,8 @@ private fun DigitBox(
     val scale = remember { Animatable(1f) }
     val scope = rememberCoroutineScope()
 
-    val boxBorderColor = overrideBorderColor ?: if (isFocused) Color(0xFFE50914) else Color(0xFFF3C4CC)
+    val night = settingsNight()
+    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.line else Color(0xFFF3C4CC)
 
     Surface(
         modifier = Modifier
@@ -448,7 +457,7 @@ private fun DigitBox(
         color = if (highlightFill && overrideBorderColor != null) {
             overrideBorderColor.copy(alpha = 0.05f)
         } else {
-            Color.White
+            if (night) AccountDark.card else Color.White
         },
         border = androidx.compose.foundation.BorderStroke(1.5.dp, boxBorderColor),
     ) {
@@ -472,11 +481,11 @@ private fun DigitBox(
                 textStyle = TextStyle(
                     fontSize = 22.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFF111928),
+                    color = if (night) AccountDark.ink else Color(0xFF111928),
                     textAlign = TextAlign.Center,
                 ),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                cursorBrush = SolidColor(Color(0xFFE50914)),
+                cursorBrush = SolidColor(settingsAccent()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(focusRequester)
@@ -510,7 +519,7 @@ private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Un
     if (canResend) {
         Text(
             text = stringResource(R.string.otp_resend),
-            color = Color(0xFFE50914),
+            color = if (settingsNight()) AccountDark.accent else settingsAccent(),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -522,7 +531,7 @@ private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Un
     Text(
         text = stringResource(R.string.otp_resend_in, countdown),
         fontSize = 12.sp,
-        color = Color(0xFF9CA3AF),
+        color = if (settingsNight()) AccountDark.mut else Color(0xFF9CA3AF),
         textAlign = TextAlign.Center,
     )
 }
@@ -531,7 +540,7 @@ private fun TimerOrResend(countdown: Int, canResend: Boolean, onResend: () -> Un
 @Composable
 fun OtpShield(modifier: Modifier = Modifier, isError: Boolean = false) {
     val badgeColor by animateColorAsState(
-        targetValue = if (isError) AppColors.danger else Color(0xFFE50914),
+        targetValue = if (isError) AppColors.danger else settingsAccent(),
         animationSpec = tween(600), label = "otpShieldBadge",
     )
     val ringColor = badgeColor.copy(alpha = 0.28f)

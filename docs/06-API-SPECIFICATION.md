@@ -306,6 +306,18 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/auth/resend` | `guest:user_api` | Resend OTP (cooldown enforced) |
 | GET | `/auth/me` | `auth:user_api` + `ensure-phone-verified` | Current user |
 | POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token |
+| POST | `/profile/phone/request` | `auth:user_api` + `ensure-phone-verified` | Change phone step 1: validate new number, cache it, send OTP to it |
+| POST | `/profile/phone/confirm` | `auth:user_api` + `ensure-phone-verified` | Change phone step 2: verify `code` → swap number, re-mark verified |
+| PUT | `/profile/identity` | `auth:user_api` + `ensure-phone-verified` | Update `name` + `gender` (`male`/`female`) directly |
+| POST | `/profile/avatar` | `auth:user_api` + `ensure-phone-verified` | Replace avatar (`avatar`: jpeg/jpg/png/webp ≤ 2MB, multipart) |
+| GET | `/addresses?search=` | `auth:user_api` + `ensure-phone-verified` | Own addresses, newest first, paginated (`page`/`per_page`, `all=1` for all) |
+| POST | `/addresses` | `auth:user_api` + `ensure-phone-verified` | Create address (201) |
+| GET | `/addresses/{id}` | `auth:user_api` + `ensure-phone-verified` | Single own address (404 for others') |
+| PUT/PATCH | `/addresses/{id}` | `auth:user_api` + `ensure-phone-verified` | Update own address |
+| DELETE | `/addresses/{id}` | `auth:user_api` + `ensure-phone-verified` | Soft delete |
+| PATCH | `/addresses/{id}/set-default` | `auth:user_api` + `ensure-phone-verified` | Pin/unpin default (`is_default: bool`) |
+| POST | `/profile/email/request` | `auth:user_api` + `ensure-phone-verified` | Change email step 1: validate, cache, mail OTP to the new address |
+| POST | `/profile/email/confirm` | `auth:user_api` + `ensure-phone-verified` | Change email step 2: verify `code` → swap address, mark verified |
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.

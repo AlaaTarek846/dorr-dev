@@ -44,6 +44,18 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/auth/resend` | guest:user_api | MobileAuthController::resendOtp |
 | GET | `/auth/me` | auth:user_api + ensure-phone-verified | MobileAuthController::me |
 | POST | `/auth/logout` | auth:user_api + ensure-phone-verified | MobileAuthController::logout |
+| POST | `/profile/phone/request` | auth:user_api + ensure-phone-verified | MobileProfileController::requestPhoneChange |
+| POST | `/profile/phone/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmPhoneChange |
+| PUT | `/profile/identity` | auth:user_api + ensure-phone-verified | MobileProfileController::updateIdentity |
+| POST | `/profile/avatar` | auth:user_api + ensure-phone-verified | MobileProfileController::updateAvatar |
+| GET | `/addresses?search=` | auth:user_api + ensure-phone-verified | AddressController::index |
+| POST | `/addresses` | auth:user_api + ensure-phone-verified | AddressController::store |
+| GET | `/addresses/{id}` | auth:user_api + ensure-phone-verified | AddressController::show |
+| PUT/PATCH | `/addresses/{id}` | auth:user_api + ensure-phone-verified | AddressController::update |
+| DELETE | `/addresses/{id}` | auth:user_api + ensure-phone-verified | AddressController::destroy |
+| PATCH | `/addresses/{id}/set-default` | auth:user_api + ensure-phone-verified | AddressController::setDefault |
+| POST | `/profile/email/request` | auth:user_api + ensure-phone-verified | MobileProfileController::requestEmailChange |
+| POST | `/profile/email/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmEmailChange |
 
 Request payload (otp / verify / resend): `dial_code` (e.g. `+966`), `phone` (local
 digits); verify also sends `code` (6 digits). The user is matched/stored by the
@@ -64,6 +76,22 @@ Responses:
 - `POST /auth/resend` → `{ masked_phone, resend_cooldown_seconds }`
 - `GET /auth/me` → `UserResource`
 - `POST /auth/logout` → `{}`
+- `POST /profile/phone/request` → `{ masked_phone, resend_cooldown_seconds }`
+- `POST /profile/phone/confirm` → `UserResource` (number swapped, re-verified)
+- `PUT /profile/identity` (`name`, `gender: male|female`) → `UserResource`
+- `POST /profile/avatar` (multipart `avatar`: jpeg/jpg/png/webp ≤ 2MB) → `UserResource` (old file removed)
+- `GET /addresses?search=` → `AddressResource[]` (own addresses, newest first, paginated: `page`/`per_page` max 50, meta has `current_page`/`has_more_pages`; `all=1` returns everything)
+- `POST /addresses` (`type: home|work|other`, optional title/building/floor/details/landmark/lat/lng/is_default) → `AddressResource` (201)
+- `GET /addresses/{id}` → `AddressResource` (own only, else 404)
+- `PUT/PATCH /addresses/{id}` → `AddressResource`
+- `DELETE /addresses/{id}` → `{}` (soft delete)
+- `PATCH /addresses/{id}/set-default` (`is_default: bool`) → `AddressResource` (pinning clears other defaults in a transaction)
+- `POST /profile/email/request` → `{ masked_email, resend_cooldown_seconds }`
+- `POST /profile/email/confirm` → `UserResource` (address swapped, verified)
+
+Phone/email changes are two-step: nothing on the user row changes until the
+`confirm` call verifies the code. The pending value lives in Cache with the OTP
+expiry TTL; an expired/missing pending value returns `change_request_expired`.
 
 ## Admin-managed Users
 
