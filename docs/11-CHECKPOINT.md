@@ -16,7 +16,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 ## Completed Work
 
 ### Backend
-- Laravel 12 monolith with 4 modules (Admin, User, AI, Provider)
+- Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
 - Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, PlatformSetting)
 - Sanctum auth with `admin_api`, `user_api`, and `provider_api` guards
 - Standard API response envelope
@@ -28,6 +28,11 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Provider OAuth web routes + shared Google/Apple callback via `social_auth_panel` session
 - `RedirectIfAuthenticated`: JSON 403 for authenticated guests on `api/provider/*`
 - `SocialAuthService::authenticate(..., $allowRegistration)` — explicit registration flag for OAuth
+- SMS module via `Modules/Sms/routes/admin.php`: `/api/admin/v1/sms-providers*` and `/api/admin/v1/sms-accounts*` (CRUD, status, single default, connection test, draft test, send test, balance)
+- SMS provider registry with 2 adapters (twilio, sms_misr); `SmsProvider` holds identity/status plus an optional encrypted per-provider `configuration` (seeds the account form, supports `test-draft`), while `SmsAccount` is the single source of truth for sending credentials (`encrypted:array` cast)
+- `SmsException implements ApiRenderable` — service-layer business errors become standard API error envelopes without controller try/catch
+- Country-driven E.164 normalisation (`PhoneNumberNormalizer`) using `Country::dial_code` / `phone_starts_with` / `phone_length`; no `libphonenumber` in the project
+- See [docs/modules/sms/README.md](./modules/sms/README.md)
 
 ### Frontend
 - Admin SPA: full catalog CRUD, users, providers, AI settings, platform settings

@@ -73,6 +73,39 @@
                         </ul>
                     </li>
 
+                    <template v-if="smsSectionReady && showSmsSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.sms') }}</span>
+                        </li>
+
+                        <li class="slide has-sub">
+                            <a
+                                href="javascript:void(0);"
+                                class="side-menu__item"
+                                @click.prevent="toggleSubMenu"
+                            >
+                                <i class="ri-message-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
+                                </li>
+                                <li v-if="can('sms-providers.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.providers') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('sms-accounts.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.accounts.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.accounts') }}
+                                    </router-link>
+                                </li>
+                            </ul>
+                        </li>
+                    </template>
+
                     <template v-if="showSystemUsersSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.users') }}</span>
@@ -207,7 +240,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import PlatformLogo from '../PlatformLogo.vue';
@@ -237,6 +270,33 @@ const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system
 
 const showSystemUsersSection = computed(
     () => isSystemUsersVisible.value && can('users.view'),
+);
+
+/**
+ * The theme's sidebar script (defaultmenu.min.js) binds its own click toggle to every
+ * top-level `.slide.has-sub` that exists when it runs — which is after Vue mounts
+ * (useDashboard loads it dynamically). Chat/AI dropdowns escape that double-binding
+ * because they only render later. The SMS section must wait for the theme scripts to
+ * finish loading, otherwise both toggles fire on every click and cancel each other out.
+ */
+const smsSectionReady = ref(false);
+
+onMounted(() => {
+    const reveal = () => {
+        smsSectionReady.value = true;
+    };
+
+    if (document.documentElement.dataset.dashboardThemeReady !== undefined) {
+        reveal();
+
+        return;
+    }
+
+    window.addEventListener('dashboard-theme-scripts-ready', reveal, { once: true });
+});
+
+const showSmsSection = computed(
+    () => can('sms-providers.view') || can('sms-accounts.view'),
 );
 
 /** Providers nav has no permission gate yet; section shows if it or service categories are visible. */
@@ -285,6 +345,7 @@ watch(
 );
 
 function toggleSubMenu(event) {
+    event.stopImmediatePropagation();
     const toggle = event.currentTarget;
     const submenu = toggle.nextElementSibling;
 

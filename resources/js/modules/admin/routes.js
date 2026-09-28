@@ -164,6 +164,18 @@ export default [
                 component: page('provider/index'),
                 meta: { middleware: [auth] },
             },
+            {
+                path: 'sms/providers',
+                name: 'admin.sms.providers.index',
+                component: page('sms-providers/index'),
+                meta: { middleware: [auth], permission: 'sms-providers.view' },
+            },
+            {
+                path: 'sms/accounts',
+                name: 'admin.sms.accounts.index',
+                component: page('sms-accounts/index'),
+                meta: { middleware: [auth], permission: 'sms-accounts.view' },
+            },
         ],
     },
 ];
