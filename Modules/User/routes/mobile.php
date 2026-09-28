@@ -22,8 +22,10 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::post('phone/change', [PhoneChangeController::class, 'start'])->middleware('throttle:5,1,phone-change');
         Route::post('phone/change/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
 
-        Route::post('profile/phone/request', [MobileProfileController::class, 'requestPhoneChange']);
-        Route::post('profile/phone/confirm', [MobileProfileController::class, 'confirmPhoneChange']);
+
+        // Same guarded flow as phone/change — the profile screen's older paths must not bypass it.
+        Route::post('profile/phone/request', [PhoneChangeController::class, 'start'])->middleware('throttle:5,1,phone-change');
+        Route::post('profile/phone/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
         Route::put('profile/identity', [MobileProfileController::class, 'updateIdentity']);
         Route::post('profile/avatar', [MobileProfileController::class, 'updateAvatar']);
         Route::post('profile/email/request', [MobileProfileController::class, 'requestEmailChange']);

@@ -281,4 +281,22 @@
     <string name="st_just_now">الآن</string>
     <string name="st_minutes_ago">منذ %d د</string>
     <string name="st_hours_ago">منذ %d س</string>
+<<<<<<< HEAD
+=======
+    <string name="ch_chat_theme">ثيم المحادثة</string>
+    <string name="ch_chat_theme_sub">الخلفية وألوان الفقاعات — بتظهر ليك إنت بس.</string>
+    <string name="ch_theme_dorr">دُر</string>
+    <string name="ch_apply">تطبيق</string>
+    <string name="ch_theme_sample_in">أهلاً! عامل إيه؟ 👋</string>
+    <string name="ch_theme_sample_out">تمام الحمد لله 😊</string>
+    <string name="ch_report">إبلاغ</string>
+    <string name="ch_report_title">إبلاغ عن %1$s</string>
+    <string name="ch_report_sub">بتبلّغ عن المحادثة دي ليه؟</string>
+    <string name="ch_report_details_hint">احكيلنا أكتر (اختياري)</string>
+    <string name="ch_report_also_block">واحظر الشخص ده كمان</string>
+    <string name="ch_report_also_leave">واخرج من الجروب كمان</string>
+    <string name="ch_report_evidence_note">آخر 30 رسالة في المحادثة بيتبعتوا مع البلاغ، ومحدش هيعرف إنك بلّغت.</string>
+    <string name="ch_report_sent">البلاغ اتبعت، شكراً ليك</string>
+    <string name="ch_call_people">%d أشخاص</string>
+>>>>>>> main
 </resources>

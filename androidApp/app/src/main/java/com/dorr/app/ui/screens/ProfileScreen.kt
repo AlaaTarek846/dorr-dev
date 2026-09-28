@@ -240,29 +240,27 @@ private fun AccountAvatar(user: UserDto?, dark: Boolean, size: Dp) {
             modifier = Modifier.fillMaxSize(),
         )
     } else {
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.fillMaxSize(),
-        ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Icon(
                 Icons.Rounded.Person,
                 contentDescription = null,
-                tint = if (dark) AccountDark.accent else AppColors.waRed,
+                tint = if (dark) AccountDark.accent else settingsAccent(),
                 modifier = Modifier.size(size / 2),
-            )
-            // TEMP DIAG
-            Text(
-                text = if (user?.avatar == null) "AVATAR_NULL" else "LOAD_FAIL",
-                fontSize = 6.sp,
-                color = Color.Red,
             )
         }
     }
 }
 
-private fun Modifier.accountBackdrop(dark: Boolean): Modifier = drawBehind {
+@Composable
+private fun Modifier.accountBackdrop(dark: Boolean): Modifier {
+    val glow = if (dark) AccountDark.accent else settingsAccent()
+    val nightBg = AccountDark.bg
+    return drawBehind { drawAccountBackdrop(dark, glow, nightBg) }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAccountBackdrop(dark: Boolean, glow: Color, nightBg: Color) {
     if (dark) {
-        drawRect(AccountDark.bg)
+        drawRect(nightBg)
         drawRect(
             Brush.radialGradient(
                 colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),

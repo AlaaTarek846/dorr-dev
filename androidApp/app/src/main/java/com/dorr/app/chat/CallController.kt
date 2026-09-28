@@ -36,6 +36,17 @@ enum class CallPhase { Incoming, Outgoing, Connecting, Active, Ended }
 /** Someone's video in the call (their camera track), keyed by their participant key ("user:7"). */
 data class CallVideo(val key: String, val track: VideoTrack, val isLocal: Boolean)
 
+/** Someone in the call as the group grid shows them: their camera when it's on, else their photo. */
+data class CallMember(
+    val key: String,
+    val name: String?,
+    val avatar: String?,
+    val video: CallVideo?,
+    val micOn: Boolean,
+    val speaking: Boolean,
+    val isLocal: Boolean,
+)
+
 /**
  * The one call this phone can be in (app-wide — a call rings over any screen). It drives the
  * server's ringing state machine (start / accept / decline / leave) and the LiveKit room that
@@ -88,6 +99,9 @@ object CallController {
     var error by mutableStateOf<String?>(null)
 
     val videos = mutableStateListOf<CallVideo>()
+
+    /** Everyone in the room, me last — what a group call shows as a grid. */
+    val members = mutableStateListOf<CallMember>()
 
     var room: Room? = null
         private set
@@ -200,7 +214,7 @@ object CallController {
 
     fun toggleMic() {
         micOn = !micOn
-        scope.launch { runCatching { room?.localParticipant?.setMicrophoneEnabled(micOn) } }
+        scope.launch { runCatching { room?.localParticipant?.setMicrophoneEnabled(micOn) }; refreshVideos() }
     }
 
     fun toggleCamera() {
@@ -231,7 +245,8 @@ object CallController {
             r.events.collect { event ->
                 when (event) {
                     is RoomEvent.TrackSubscribed, is RoomEvent.TrackUnsubscribed, is RoomEvent.TrackMuted, is RoomEvent.TrackUnmuted,
-                    is RoomEvent.ParticipantConnected, is RoomEvent.ParticipantDisconnected -> refreshVideos()
+                    is RoomEvent.ParticipantConnected, is RoomEvent.ParticipantDisconnected,
+                    is RoomEvent.ActiveSpeakersChanged -> refreshVideos()
                     is RoomEvent.Disconnected -> if (phase == CallPhase.Active) end(localOnly = true)
                     else -> Unit
                 }
@@ -268,7 +283,21 @@ object CallController {
         }
         videos.clear()
         videos.addAll(list)
+
+        val people = r.remoteParticipants.values.map { p ->
+            val key = keyOf(p)
+            CallMember(key, p.name, avatarOf(p), list.firstOrNull { !it.isLocal && it.key == key }, p.isMicrophoneEnabled(), p.isSpeaking, isLocal = false)
+        }.sortedBy { it.name.orEmpty() }
+        val me = r.localParticipant
+        members.clear()
+        members.addAll(people)
+        members.add(CallMember(keyOf(me), me.name, avatarOf(me), list.firstOrNull { it.isLocal }, micOn, me.isSpeaking, isLocal = true))
     }
+
+    /** The token carries `{"avatar": …}` as participant metadata (CallService::join). */
+    private fun avatarOf(p: Participant): String? = runCatching {
+        gson.fromJson(p.metadata, com.google.gson.JsonObject::class.java)?.get("avatar")?.takeIf { !it.isJsonNull }?.asString
+    }.getOrNull()
 
     private fun keyOf(p: Participant): String = p.identity?.value ?: p.sid.value
 
@@ -288,6 +317,7 @@ object CallController {
         runCatching { room?.release() }
         room = null
         videos.clear()
+        members.clear()
         connectedAt = null
         scope.launch {
             delay(1400) // show "call ended" for a moment

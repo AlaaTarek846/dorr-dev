@@ -18,6 +18,7 @@ use Database\Seeders\User\UserSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Modules\AI\Database\Seeders\AIDatabaseSeeder;
+use Modules\Chat\Database\Seeders\ChatDatabaseSeeder;
 use Modules\Wallet\Database\Seeders\WalletDatabaseSeeder;
 
 class DatabaseSeeder extends Seeder
@@ -35,6 +36,7 @@ class DatabaseSeeder extends Seeder
             CurrencySeeder::class,
             CountrySeeder::class,
             WalletDatabaseSeeder::class,
+            ChatDatabaseSeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
             MobileAppColorDefaultSeeder::class,

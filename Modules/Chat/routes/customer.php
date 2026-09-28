@@ -10,6 +10,7 @@ use Modules\Chat\Http\Controllers\General\MessageController;
 use Modules\Chat\Http\Controllers\General\PrivacyController;
 use Modules\Chat\Http\Controllers\General\RealtimeConfigController;
 use Modules\Chat\Http\Controllers\General\StoryController;
+use Modules\Chat\Http\Controllers\General\ThemeReportController;
 
 /*
  * Chat endpoints shared by every kind of participant. Required from inside each audience's own
@@ -108,6 +109,11 @@ Route::prefix('chat')->group(function () {
     Route::put('stories/{story}/reaction', [StoryController::class, 'react']);
     Route::post('stories/{story}/reply', [StoryController::class, 'reply']);
     Route::get('stories/{story}/viewers', [StoryController::class, 'viewers']);
+
+    // ------------------------------------------------------------ themes & reports
+    Route::get('themes', [ThemeReportController::class, 'themes']);
+    Route::get('report-types', [ThemeReportController::class, 'reportTypes']);
+    Route::post('conversations/{conversation}/report', [ThemeReportController::class, 'report'])->middleware('throttle:10,1,chat-report');
 
     // ------------------------------------------------------------ calls (LiveKit)
     Route::get('calls', [CallController::class, 'index']);

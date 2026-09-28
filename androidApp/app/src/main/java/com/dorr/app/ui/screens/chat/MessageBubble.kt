@@ -265,21 +265,21 @@ private val FailedRed = Color(0xFFDC2626)
 @Composable
 private fun ForwardedLabel(many: Boolean, mine: Boolean) {
     Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Rounded.Forward, null, tint = if (mine) Color.White.copy(alpha = 0.75f) else Ch.Soft, modifier = Modifier.size(14.dp))
+        Icon(Icons.Rounded.Forward, null, tint = if (mine) Ch.OutText.copy(alpha = 0.75f) else Ch.Soft, modifier = Modifier.size(14.dp))
         Spacer(Modifier.width(4.dp))
-        Text(stringResource(if (many) R.string.ch_forwarded_many else R.string.ch_forwarded), color = if (mine) Color.White.copy(alpha = 0.75f) else Ch.Soft, fontSize = 11.5.sp, fontStyle = FontStyle.Italic)
+        Text(stringResource(if (many) R.string.ch_forwarded_many else R.string.ch_forwarded), color = if (mine) Ch.OutText.copy(alpha = 0.75f) else Ch.Soft, fontSize = 11.5.sp, fontStyle = FontStyle.Italic)
     }
 }
 
 @Composable
 private fun ReplyQuote(reply: com.dorr.app.network.ReplyPreviewDto, mine: Boolean, onClick: () -> Unit) {
-    val accent = if (mine) Color.White else Ch.colorFor(reply.sender?.key)
+    val accent = if (mine) Ch.OutText else Ch.colorFor(reply.sender?.key)
     Row(
         Modifier
             .padding(start = 6.dp, end = 6.dp, top = 6.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (mine) Color.White.copy(alpha = 0.16f) else Ch.SurfaceMuted)
+            .background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted)
             .clickable(onClick = onClick)
             .height(IntrinsicSize.Min),
     ) {
@@ -291,10 +291,10 @@ private fun ReplyQuote(reply: com.dorr.app.network.ReplyPreviewDto, mine: Boolea
             )
             val (icon, label) = previewOf(reply.type ?: "text", reply.isDeleted)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) Icon(icon, null, tint = if (mine) Color.White.copy(alpha = 0.8f) else Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
+                if (icon != null) Icon(icon, null, tint = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
                 Text(
                     if (reply.isDeleted) stringResource(R.string.ch_deleted) else reply.body?.takeIf { it.isNotBlank() } ?: label,
-                    color = if (mine) Color.White.copy(alpha = 0.85f) else Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                    color = if (mine) Ch.OutText.copy(alpha = 0.85f) else Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 )
             }
         }
@@ -346,15 +346,15 @@ private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
     val thumb = meta?.str("thumbnail")
     Row(
         Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp).fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp)).background(if (mine) Color.White.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min),
+            .clip(RoundedCornerShape(12.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min),
     ) {
         Box(Modifier.width(4.dp).fillMaxHeight().background(if (mine) Color.White else Ch.Red))
         Column(Modifier.weight(1f).padding(horizontal = 9.dp, vertical = 7.dp)) {
-            Text(stringResource(R.string.st_status_label), color = if (mine) Color.White else Ch.Red, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.st_status_label), color = if (mine) Ch.OutText else Ch.Red, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
             val (icon, label) = previewOf(meta?.str("story_type") ?: "text", false)
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (icon != null) Icon(icon, null, tint = if (mine) Color.White.copy(alpha = 0.8f) else Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
-                Text(text?.takeIf { it.isNotBlank() } ?: label, color = if (mine) Color.White.copy(alpha = 0.85f) else Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (icon != null) Icon(icon, null, tint = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
+                Text(text?.takeIf { it.isNotBlank() } ?: label, color = if (mine) Ch.OutText.copy(alpha = 0.85f) else Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
         Box(Modifier.width(44.dp).height(62.dp).background(StoryLook.brush(style?.str("background"))), contentAlignment = Alignment.Center) {
@@ -375,9 +375,9 @@ private fun TextBody(m: UiMessage, mine: Boolean) {
     val body = dto.body.orEmpty()
     val onlyEmoji = body.length <= 8 && body.isNotEmpty() && body.all { !it.isLetterOrDigit() && !it.isWhitespace() }
     val context = LocalContext.current
-    val linkColor = if (mine) Color.White else Color(0xFF2563EB)
+    val linkColor = if (mine) Ch.OutText else Color(0xFF2563EB)
     val mentionNames = dto.mentions.mapNotNull { it.name }.filter { it.isNotBlank() }
-    val mentionColor = if (mine) Color.White else Ch.Red
+    val mentionColor = if (mine) Ch.OutText else Ch.Red
     val annotated = remember(body, mine, mentionNames) {
         buildAnnotatedString {
             // "@Sara" of a real mention: bold, in the brand colour (white on my own red bubble).
@@ -422,7 +422,7 @@ private fun Footer(m: UiMessage, mine: Boolean, overlay: Boolean, modifier: Modi
     val dto = m.dto
     val color = when {
         overlay -> Color.White
-        mine -> Color.White.copy(alpha = 0.8f)
+        mine -> Ch.OutText.copy(alpha = 0.8f)
         else -> Ch.Soft
     }
     Row(
@@ -541,8 +541,8 @@ private fun VoiceNote(m: UiMessage, mine: Boolean) {
             ?: List(36) { i -> (20 + ((i * 37) % 60)) }
     }
     val durationMs = dto.meta?.get("duration_ms")?.let { runCatching { it.asLong }.getOrNull() } ?: dto.attachments.firstOrNull()?.durationMs ?: 0L
-    val fg = if (mine) Color.White else Ch.Red
-    val track = if (mine) Color.White.copy(alpha = 0.38f) else Ch.Red.copy(alpha = 0.22f)
+    val fg = if (mine) Ch.OutText else Ch.Red
+    val track = if (mine) Ch.OutText.copy(alpha = 0.38f) else Ch.Red.copy(alpha = 0.22f)
     val buttonScale by animateFloatAsState(if (playing) 1.08f else 1f, spring(dampingRatio = 0.4f), label = "play")
 
     Row(Modifier.width(250.dp).padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -572,7 +572,7 @@ private fun VoiceNote(m: UiMessage, mine: Boolean) {
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(durationText(if (current) VoicePlayer.positionMs else durationMs), color = if (mine) Color.White.copy(alpha = 0.85f) else Ch.Mut, fontSize = 11.sp)
+                Text(durationText(if (current) VoicePlayer.positionMs else durationMs), color = if (mine) Ch.OutText.copy(alpha = 0.85f) else Ch.Mut, fontSize = 11.sp)
                 if (current) {
                     Spacer(Modifier.width(6.dp))
                     Text(
@@ -596,7 +596,7 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
     val ext = name.substringAfterLast('.', "").uppercase().take(4)
     Column(Modifier.width(260.dp).padding(6.dp)) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (mine) Color.White.copy(alpha = 0.16f) else Ch.SurfaceMuted)
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted)
                 .clickable(enabled = file != null) { file?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.mediaUrl(it.url)))) } } }
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -610,8 +610,8 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, color = if (mine) Color.White else Ch.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(fileSizeText(file?.size), color = if (mine) Color.White.copy(alpha = 0.75f) else Ch.Mut, fontSize = 11.sp)
+                Text(name, color = if (mine) Ch.OutText else Ch.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(fileSizeText(file?.size), color = if (mine) Ch.OutText.copy(alpha = 0.75f) else Ch.Mut, fontSize = 11.sp)
             }
         }
         if (!m.dto.body.isNullOrBlank()) TextBody(m, mine) else Footer(m, mine, overlay = false, modifier = Modifier.align(Alignment.End).padding(top = 4.dp, end = 4.dp))
@@ -647,9 +647,9 @@ private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
             Footer(m, mine, overlay = true, modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
         }
         Row(Modifier.padding(horizontal = 9.dp, vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Map, null, tint = if (mine) Color.White else Ch.Red, modifier = Modifier.size(16.dp))
+            Icon(Icons.Rounded.Map, null, tint = if (mine) Ch.OutText else Ch.Red, modifier = Modifier.size(16.dp))
             Spacer(Modifier.width(6.dp))
-            Text(name ?: stringResource(R.string.ch_open_maps), color = if (mine) Color.White else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(name ?: stringResource(R.string.ch_open_maps), color = if (mine) Ch.OutText else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }
 }
@@ -663,15 +663,15 @@ private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions:
             ChAvatar(null, name, phones.firstOrNull() ?: name, size = 44.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
-                Text(name, color = if (mine) Color.White else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, maxLines = 1)
-                phones.firstOrNull()?.let { Text(it, color = if (mine) Color.White.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp) }
+                Text(name, color = if (mine) Ch.OutText else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, maxLines = 1)
+                phones.firstOrNull()?.let { Text(it, color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp) }
             }
         }
         Spacer(Modifier.height(8.dp))
-        Box(Modifier.fillMaxWidth().height(1.dp).background(if (mine) Color.White.copy(alpha = 0.25f) else Ch.Line))
+        Box(Modifier.fillMaxWidth().height(1.dp).background(if (mine) Ch.OutText.copy(alpha = 0.25f) else Ch.Line))
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
-                stringResource(R.string.ch_message_contact), color = if (mine) Color.White else Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp,
+                stringResource(R.string.ch_message_contact), color = if (mine) Ch.OutText else Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp,
                 modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { phones.firstOrNull()?.let(actions.onMessageContact) }.padding(vertical = 4.dp),
             )
             Footer(m, mine, overlay = false)
@@ -771,10 +771,10 @@ private fun CallLine(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val missed = status == "missed" || status == "cancelled" || status == "declined"
     val duration = meta?.get("duration_seconds")?.takeIf { !it.isJsonNull }?.asInt
     Row(Modifier.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(if (mine) Color.White.copy(alpha = 0.2f) else if (missed) Color(0xFFFEE2E2) else Color(0xFFDCFCE7)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(38.dp).clip(CircleShape).background(if (mine) Ch.OutText.copy(alpha = 0.2f) else if (missed) Color(0xFFFEE2E2) else Color(0xFFDCFCE7)), contentAlignment = Alignment.Center) {
             Icon(
                 if (missed) Icons.Rounded.CallMissed else if (video) Icons.Rounded.Videocam else Icons.Rounded.Call, null,
-                tint = if (mine) Color.White else if (missed) Color(0xFFDC2626) else Color(0xFF16A34A), modifier = Modifier.size(20.dp),
+                tint = if (mine) Ch.OutText else if (missed) Color(0xFFDC2626) else Color(0xFF16A34A), modifier = Modifier.size(20.dp),
             )
         }
         Spacer(Modifier.width(10.dp))
@@ -789,10 +789,10 @@ private fun CallLine(meta: JsonObject?, m: UiMessage, mine: Boolean) {
                         else -> R.string.ch_call_voice
                     },
                 ),
-                color = if (mine) Color.White else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp,
+                color = if (mine) Ch.OutText else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp,
             )
             Row(verticalAlignment = Alignment.CenterVertically) {
-                if (duration != null && duration > 0) Text(durationText(duration * 1000L) + "  ", color = if (mine) Color.White.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp)
+                if (duration != null && duration > 0) Text(durationText(duration * 1000L) + "  ", color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp)
                 Footer(m, mine, overlay = false)
             }
         }

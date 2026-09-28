@@ -31,12 +31,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DorrLogo
-<<<<<<< HEAD
 import com.dorr.app.ui.components.dorrPageWash
-=======
+import androidx.compose.ui.draw.drawBehind
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
->>>>>>> origin/main
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -74,9 +72,6 @@ fun SplashScreen(onFinished: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-<<<<<<< HEAD
-            .dorrPageWash(),
-=======
             .drawBehind {
                 if (night) {
                     drawRect(nightBg)
@@ -115,7 +110,6 @@ fun SplashScreen(onFinished: () -> Unit) {
                     ),
                 )
             },
->>>>>>> origin/main
         contentAlignment = Alignment.Center,
     ) {
         Column(

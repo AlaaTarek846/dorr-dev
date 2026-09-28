@@ -39,10 +39,12 @@ import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
@@ -208,6 +210,7 @@ fun ChatInfoPage(id: String) {
                         value = if (conversation.isMuted) stringResource(R.string.ch_muted) else null) { sheet = "mute" }
                     SettingRow(Icons.Rounded.Timer, stringResource(R.string.ch_disappearing), value = disappearingLabel(conversation.disappearingSeconds)) { sheet = "disappearing" }
                     ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_lock_chat), conversation.isLocked) { update(mapOf("locked" to it)) }
+                    SettingRow(Icons.Rounded.Palette, stringResource(R.string.ch_chat_theme), value = conversation.theme?.applied?.name ?: stringResource(R.string.ch_theme_dorr)) { sheet = "theme" }
                 }
             }
 
@@ -258,6 +261,7 @@ fun ChatInfoPage(id: String) {
                     if (!conversation.isGroup && conversation.peer != null) {
                         SettingRow(Icons.Rounded.Block, stringResource(if (conversation.iBlocked == true) R.string.ch_unblock else R.string.ch_block), danger = true) { sheet = "block" }
                     }
+                    SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
                     SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true) { sheet = "clear" }
                     if (conversation.isGroup && conversation.isMember) SettingRow(Icons.AutoMirrored.Rounded.ExitToApp, stringResource(R.string.ch_leave_group), danger = true) { sheet = "leave" }
                     else SettingRow(Icons.Rounded.Delete, stringResource(R.string.ch_delete_chat), danger = true) { sheet = "delete" }
@@ -280,6 +284,15 @@ fun ChatInfoPage(id: String) {
         }
     }
     when (sheet) {
+        "theme" -> c?.let { current ->
+            ThemePickerSheet(current, onDismiss = { sheet = null }) { saved ->
+                c = saved
+                host.upsert(saved)
+            }
+        }
+        "report" -> c?.let { current ->
+            ReportSheet(current, onDismiss = { sheet = null }) { changed -> if (changed) scope.launch { reload() } }
+        }
         "mute" -> ChoiceSheet(stringResource(R.string.ch_mute_notifications), listOf(
             stringResource(R.string.ch_mute_8h) to { update(mapOf("mute" to "8h")); Unit },
             stringResource(R.string.ch_mute_1w) to { update(mapOf("mute" to "1w")); Unit },

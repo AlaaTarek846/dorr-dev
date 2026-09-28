@@ -74,6 +74,9 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
     val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val mode = com.dorr.app.chat.ChatStore.themeMode
     SideEffect { Ch.dark = when (mode) { "dark" -> true; "light" -> false; else -> appDark } }
+    // The accent the user chose for the app (appearance settings) colours the chat too.
+    val accent = com.dorr.app.ui.screens.wallet.Wa.Red
+    SideEffect { Ch.accent = accent }
 
     // A notification tapped for a conversation: open it on top of whatever chat page is showing.
     LaunchedEffect(Unit) {

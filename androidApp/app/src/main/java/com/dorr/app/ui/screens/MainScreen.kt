@@ -172,11 +172,7 @@ fun MainScreen(
         }
     }
 
-<<<<<<< HEAD
     Box(Modifier.fillMaxSize()) {
-=======
-    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
->>>>>>> origin/main
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {

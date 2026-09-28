@@ -1,7 +1,15 @@
 <?php
 
 return [
+<<<<<<< HEAD
     'errors' => [
+=======
+    'report_sent' => "Thanks — your report was sent. We'll review it.",
+
+    'errors' => [
+        'report_type_invalid' => 'This report reason is no longer available.',
+        'theme_invalid' => 'This theme is not available.',
+>>>>>>> main
         'not_participant' => 'You are not in this conversation.',
         'participant_disabled' => 'Chatting with this account is not available yet.',
         'blocked' => 'You can\'t message this person.',

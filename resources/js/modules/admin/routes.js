@@ -177,6 +177,30 @@ export default [
                 meta: { middleware: [auth], permission: 'wallet-settings.view' },
             },
             {
+                path: 'chat/settings',
+                name: 'admin.chat.settings',
+                component: page('chat/settings/index'),
+                meta: { middleware: [auth], permission: 'chat-settings.view' },
+            },
+            {
+                path: 'chat/themes',
+                name: 'admin.chat.themes',
+                component: page('chat/themes/index'),
+                meta: { middleware: [auth], permission: 'chat-themes.view' },
+            },
+            {
+                path: 'chat/report-types',
+                name: 'admin.chat.report-types',
+                component: page('chat/report-types/index'),
+                meta: { middleware: [auth], permission: 'chat-report-types.view' },
+            },
+            {
+                path: 'chat/reports',
+                name: 'admin.chat.reports',
+                component: page('chat/reports/index'),
+                meta: { middleware: [auth], permission: 'chat-reports.view' },
+            },
+            {
                 path: 'providers',
                 name: 'admin.providers.index',
                 component: page('provider/index'),

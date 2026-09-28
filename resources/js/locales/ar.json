@@ -1012,6 +1012,7 @@
             "request": "طلب استرجاع الرقم السري",
             "document": "المستند",
             "reason_column": "النوع",
+<<<<<<< HEAD
             "reason": {"recovery_document":"استرجاع الرقم السري","security_freeze":"تجميد أمني"},
             "original": {"recovery_document":"الصورة المرفوعة عند الإعداد","security_freeze":"صورة الهوية المقدَّمة الآن"},
             "new": {"recovery_document":"الصورة المقدّمة الآن","security_freeze":"الصورة الشخصية (سيلفي) المقدَّمة الآن"},
@@ -1021,6 +1022,32 @@
             "approved": "تمت الموافقة وأُعيد الرقم السري إلى 0000.",
             "rejected": "تم رفض الطلب.",
             "method": { "id_photo": "صورة الهوية", "passport_photo": "صورة جواز السفر" }
+=======
+            "reason": {
+                "recovery_document": "استرجاع الرقم السري",
+                "security_freeze": "تجميد أمني"
+            },
+            "original": {
+                "recovery_document": "الصورة المرفوعة عند الإعداد",
+                "security_freeze": "صورة الهوية المقدَّمة الآن"
+            },
+            "new": {
+                "recovery_document": "الصورة المقدّمة الآن",
+                "security_freeze": "الصورة الشخصية (سيلفي) المقدَّمة الآن"
+            },
+            "no_image": "لا توجد صورة",
+            "compare_hint": {
+                "recovery_document": "قارن بين الصورتين. وافق فقط إذا كانتا لنفس المستند ولنفس الشخص.",
+                "security_freeze": "اتقفلت المحفظة بشكل دائم بعد محاولات خاطئة للرقم السري. قارن صورة الهوية بالصورة الشخصية — وافق فقط لو واضح إنهما لنفس الشخص."
+            },
+            "approve_hint": "الموافقة تعيد الرقم السري للمحفظة إلى 0000 وتُخطر المستخدم ليغيّره من المحفظة.",
+            "approved": "تمت الموافقة وأُعيد الرقم السري إلى 0000.",
+            "rejected": "تم رفض الطلب.",
+            "method": {
+                "id_photo": "صورة الهوية",
+                "passport_photo": "صورة جواز السفر"
+            }
+>>>>>>> main
         },
         "ledger": {
             "title": "الحسابات المالية",
@@ -1258,5 +1285,100 @@
     },
     "global": {
         "home": "الرئيسية"
+    },
+    "chat": {
+        "common": {
+            "name": "الاسم",
+            "sort_order": "الترتيب",
+            "deleted": "اتمسح."
+        },
+        "settings": {
+            "title": "إعدادات الدردشة",
+            "intro": "حدود بتتطبق على كل المحادثات في المنصة، والتغيير بيسري فوراً.",
+            "saved": "إعدادات الدردشة اتحفظت.",
+            "section_messages": "الرسايل والملفات",
+            "section_groups": "الجروبات والفولدرات",
+            "section_stories": "الحالات (Stories)",
+            "section_calls": "المكالمات",
+            "max_file_size_mb": "أقصى حجم للملف",
+            "edit_window_minutes": "مدة تعديل الرسالة",
+            "delete_for_everyone_window_minutes": "مدة الحذف عند الجميع",
+            "deleted_message_retention_days": "الاحتفاظ بالرسايل المحذوفة",
+            "max_pinned_messages": "الرسايل المثبتة في المحادثة",
+            "max_forward_targets": "أقصى عدد لإعادة التوجيه",
+            "max_group_members": "أقصى عدد أعضاء الجروب",
+            "max_folders": "الفولدرات لكل شخص",
+            "story_duration_hours": "مدة ظهور الحالة",
+            "story_video_max_seconds": "أقصى طول لفيديو الحالة",
+            "max_call_participants": "أقصى عدد في المكالمة",
+            "stories_enabled": "مفعّلة",
+            "calls_enabled": "مفعّلة",
+            "hint_edit_window_minutes": "0 = التعديل مقفول.",
+            "hint_delete_for_everyone_window_minutes": "0 = من غير حد.",
+            "hint_deleted_message_retention_days": "بعدها بتتمسح من السيرفر نهائياً. 0 = تتمسح فوراً.",
+            "unit_mb": "ميجا",
+            "unit_minutes": "دقيقة",
+            "unit_days": "يوم",
+            "unit_hours": "ساعة",
+            "unit_seconds": "ثانية",
+            "unit_members": "شخص"
+        },
+        "themes": {
+            "title": "ثيمات الدردشة",
+            "intro": "المستخدم بيختار واحد منهم لكل محادثة (خلفية + ألوان الفقاعات). الافتراضي بيتطبق لو محدش اختار.",
+            "search": "ابحث في الثيمات...",
+            "add": "إضافة ثيم",
+            "edit": "تعديل الثيم",
+            "default": "افتراضي",
+            "sender_color": "فقاعتي",
+            "receiver_color": "فقاعة الطرف التاني",
+            "background_color": "الخلفية",
+            "wallpaper": "صورة الخلفية",
+            "remove_wallpaper": "شيل الصورة",
+            "is_dark": "خلفية غامقة",
+            "preview": "معاينة",
+            "sample_in": "أهلاً! عامل إيه؟ 👋",
+            "sample_out": "تمام الحمد لله 😊",
+            "saved": "الثيم اتحفظ.",
+            "confirm_delete": "تمسح ثيم \"{name}\"؟ المحادثات اللي عليه هترجع للافتراضي."
+        },
+        "report_types": {
+            "title": "أسباب البلاغ",
+            "search": "ابحث في الأسباب...",
+            "add": "إضافة سبب",
+            "edit": "تعديل السبب",
+            "reports_count": "البلاغات",
+            "saved": "السبب اتحفظ.",
+            "confirm_delete": "تمسح \"{name}\"؟ البلاغات القديمة هتفضل موجودة من غير سبب."
+        },
+        "reports": {
+            "title": "بلاغات الدردشة",
+            "report": "بلاغ",
+            "all_types": "كل الأسباب",
+            "reason": "السبب",
+            "reporter": "المُبلِّغ",
+            "reported": "المُبلَّغ عنه",
+            "conversation": "المحادثة",
+            "whole_group": "الجروب كله",
+            "type_direct": "محادثة فردية",
+            "type_group": "جروب",
+            "messages_count": "{count} رسالة",
+            "status_pending": "مستني",
+            "status_reviewing": "تحت المراجعة",
+            "status_resolved": "اتحل",
+            "status_dismissed": "مرفوض",
+            "admin_note": "ملاحظة الأدمن",
+            "reviewed_by": "راجعه",
+            "evidence": "آخر الرسايل (اتنسخت وقت البلاغ)",
+            "no_messages": "مفيش رسايل مرفقة.",
+            "deleted_message": "رسالة محذوفة",
+            "system_message": "رسالة نظام",
+            "attachment_image": "صورة",
+            "attachment_video": "فيديو",
+            "attachment_audio": "صوت",
+            "attachment_voice": "رسالة صوتية",
+            "attachment_file": "ملف",
+            "saved": "البلاغ اتحدث."
+        }
     }
 }
