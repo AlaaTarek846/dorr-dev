@@ -32,7 +32,6 @@ class SmsProviderResource extends JsonResource
                 $service->configurationSchema($this->key),
                 $this->configuration_plaintext,
             ),
-            'accounts_count' => $this->whenCounted('smsAccounts'),
             'created_at' => $this->created_at?->toDateString(),
             'updated_at' => $this->updated_at?->toDateString(),
         ];

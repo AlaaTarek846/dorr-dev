@@ -4,18 +4,20 @@ namespace Modules\Sms\Models;
 
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Modules\Sms\Services\Sms\SmsAdapterRegistry;
 
 /**
  * SmsProvider — one row per registered SMS provider adapter (Twilio, SMS Misr).
  *
- * It holds identity (name/key) + status, plus an optional default credential
- * blob in `configuration` (encrypted server-side only). The config SCHEMA is
- * derived live from its adapter (SmsAdapterRegistry), and `configuration` is
- * never exposed to the frontend — the resource only reports which fields are
- * set. Real per-account credentials live on the bound SmsAccount rows (single
- * source of truth for sending).
+ * It holds identity (name/key) + status + priority, plus an optional default
+ * credential blob in `configuration` (encrypted server-side only). The config
+ * SCHEMA is derived live from its adapter (SmsAdapterRegistry), and
+ * `configuration` is never exposed to the frontend. The provider configuration
+ * is the source of truth for sending; there are no per-account credentials.
+ *
+ * Countries supported by the provider are stored in the `sms_provider_countries`
+ * pivot table.
  */
 class SmsProvider extends Model
 {
@@ -27,6 +29,7 @@ class SmsProvider extends Model
     protected $fillable = [
         'name',
         'key',
+        'priority',
         'configuration',
         'is_active',
         'is_available',
@@ -47,6 +50,7 @@ class SmsProvider extends Model
         return [
             'is_active' => 'boolean',
             'is_available' => 'boolean',
+            'priority' => 'integer',
             'last_tested_at' => 'datetime',
             'configuration' => 'encrypted:array',
         ];
@@ -66,11 +70,16 @@ class SmsProvider extends Model
     }
 
     /**
-     * @return HasMany<SmsAccount, $this>
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsToMany<\App\Models\Country>
      */
-    public function smsAccounts(): HasMany
+    public function countries(): BelongsToMany
     {
-        return $this->hasMany(SmsAccount::class, 'provider_id');
+        return $this->belongsToMany(
+            \App\Models\Country::class,
+            'sms_provider_countries',
+            'sms_provider_id',
+            'country_id',
+        )->withPivot('is_active')->withTimestamps();
     }
 
     public function providerLabel(): string

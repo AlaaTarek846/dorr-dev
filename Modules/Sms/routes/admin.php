@@ -1,8 +1,9 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\Sms\Http\Controllers\SmsAccountController;
+use Modules\Sms\Http\Controllers\OtpController;
 use Modules\Sms\Http\Controllers\SmsProviderController;
+use Modules\Sms\Http\Controllers\WhatsAppController;
 
 Route::middleware('auth:admin_api')->group(function () {
     /* ------------------------------------------------------------------ *
@@ -19,18 +20,19 @@ Route::middleware('auth:admin_api')->group(function () {
         ->names('sms-providers');
 
     /* ------------------------------------------------------------------ *
-     | SMS accounts
+     | WhatsApp
      * ------------------------------------------------------------------ */
-    Route::get('sms-accounts/dropdown', [SmsAccountController::class, 'dropdown']);
-    Route::get('sms-accounts/providers-dropdown', [SmsAccountController::class, 'providersDropdown']);
-    Route::post('sms-accounts/test-draft', [SmsAccountController::class, 'testDraft']);
-    Route::post('sms-accounts/send-test', [SmsAccountController::class, 'sendTest']);
-    Route::post('sms-accounts/delete-multiple', [SmsAccountController::class, 'deleteMultiple']);
-    Route::post('sms-accounts/{sms_account}/test', [SmsAccountController::class, 'test']);
-    Route::get('sms-accounts/{sms_account}/balance', [SmsAccountController::class, 'balance']);
-    Route::post('sms-accounts/{sms_account}/set-default', [SmsAccountController::class, 'setDefault']);
-    Route::patch('sms-accounts/{sms_account}/status', [SmsAccountController::class, 'toggleActive']);
-    Route::apiResource('sms-accounts', SmsAccountController::class)
-        ->parameters(['sms-accounts' => 'sms_account'])
-        ->names('sms-accounts');
+    Route::get('whatsapp', [WhatsAppController::class, 'index']);
+    Route::get('whatsapp/show', [WhatsAppController::class, 'show']);
+    Route::post('whatsapp', [WhatsAppController::class, 'store']);
+    Route::patch('whatsapp', [WhatsAppController::class, 'update']);
+    Route::post('whatsapp/test-connection', [WhatsAppController::class, 'testConnection']);
+    Route::post('whatsapp/sync-template', [WhatsAppController::class, 'syncTemplate']);
+
+    /* ------------------------------------------------------------------ *
+     | OTP
+     * ------------------------------------------------------------------ */
+    Route::get('otp', [OtpController::class, 'index']);
+    Route::patch('otp', [OtpController::class, 'update']);
+    Route::post('otp/send', [OtpController::class, 'send']);
 });

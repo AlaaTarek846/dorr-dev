@@ -3,51 +3,54 @@
 namespace Modules\Sms\Services\Sms;
 
 use App\Models\Country;
-use Modules\Sms\Contracts\Sms\SmsProviderInterface;
+use Modules\Sms\Models\SmsProvider;
 use Modules\Sms\Exceptions\SmsException;
-use Modules\Sms\Models\SmsAccount;
+use Modules\Sms\Services\Sms\SmsAdapterRegistry;
+use Modules\Sms\Services\Sms\SmsAvailabilityService;
+use Modules\Sms\Services\Sms\SmsMessageHelper;
+use Modules\Sms\Services\Sms\PhoneNumberNormalizer;
 
 /**
- * SmsService — the gateway used to send an SMS through a configured account.
+ * SmsService — the gateway used to send an SMS through a provider
+ * configuration.
  *
- * Scope is deliberately narrow: resolve the account, guard it, normalize the
- * recipient for the selected country, and call the provider adapter. There is
- * NO SmsSend persistence, NO queue, and NO activity log here — the admin
- * "send a test SMS" flow only needs an immediate provider round-trip.
+ * Scope is deliberately narrow: resolve the provider config, guard it,
+ * normalize the recipient for the selected country, and call the provider
+ * adapter. There is NO SmsSend persistence, NO queue, and NO activity log
+ * here — the admin "send a test SMS" flow only needs an immediate
+ * provider round-trip.
  */
 class SmsService
 {
     public function __construct(
-        protected SmsAdapterRegistry $providerService,
+        protected SmsAdapterRegistry $registry,
         protected SmsAvailabilityService $availability,
         protected SmsMessageHelper $messageHelper,
         protected PhoneNumberNormalizer $normalizer,
     ) {}
 
     /**
-     * Send a single message through the account's provider, synchronously.
+     * Send a single message through a provider configuration, synchronously.
      *
      * @param  array{to: string, country_id: int|string, message?: string, from?: string|null, test_only?: bool}  $payload
      * @return array{success: bool, message: string, provider_message_id?: string|null, segments?: int, test_only: bool}
      *
      * @throws SmsException
      */
-    public function send(SmsAccount $account, array $payload): array
+    public function send(SmsProvider $provider, array $config, array $payload): array
     {
-        $this->assertUsable($account);
+        $this->assertProviderReady($provider);
 
-        $adapter = $this->providerService->adapter($account->provider?->key);
+        $adapter = $this->registry->adapter($provider->key);
 
         if (! $adapter) {
-            throw new SmsException(__('sms.accounts.unsupported_provider', [
-                'key' => (string) $account->provider?->key,
-            ]));
+            throw new SmsException(__('sms.providers.unsupported', ['key' => $provider->key]));
         }
 
         $message = trim((string) ($payload['message'] ?? ''));
 
         if ($message === '') {
-            throw new SmsException(__('sms.accounts.body_required'));
+            throw new SmsException(__('sms.providers.body_required'));
         }
 
         $to = $this->normalizer->normalize(
@@ -55,9 +58,9 @@ class SmsService
             $this->resolveCountry($payload),
         );
 
-        $result = $adapter->send($account->configuration_plaintext, [
+        $result = $adapter->send($config, [
             'to' => $to,
-            'from' => $payload['from'] ?? $account->sender,
+            'from' => $payload['from'] ?? null,
             'message' => $message,
             'test_only' => (bool) ($payload['test_only'] ?? false),
         ]);
@@ -73,56 +76,25 @@ class SmsService
     }
 
     /**
-     * Send a test message from the admin SMS settings screen. Honours the
-     * provider sandbox when the stored configuration selects one.
-     *
-     * @param  array{to: string, country_id: int|string, message?: string}  $payload
-     * @return array<string, mixed>
+     * A provider may only be used when it is active, available, has passed
+     * its connection test, and has configuration.
      *
      * @throws SmsException
      */
-    public function sendTestMessage(SmsAccount $account, array $payload): array
+    public function assertProviderReady(SmsProvider $provider): void
     {
-        return $this->send($account, [
-            'to' => $payload['to'],
-            'country_id' => $payload['country_id'],
-            'message' => $payload['message'] ?: __('sms.accounts.default_test_message'),
-            'test_only' => true,
-        ]);
-    }
-
-    /**
-     * An account may only be used when account active + test passed + provider
-     * active.
-     *
-     * @throws SmsException
-     */
-    public function assertUsable(SmsAccount $account): void
-    {
-        if (! $this->availability->accountReady($account)) {
-            throw new SmsException(__('sms.accounts.account_unavailable'));
+        if (! $this->availability->providerReady($provider)) {
+            throw new SmsException(__('sms.providers.account_unavailable'));
         }
-    }
-
-    /**
-     * True when the account's stored configuration selects a sandbox/test env.
-     */
-    public function sandboxConfigured(SmsAccount $account): bool
-    {
-        $config = $account->configuration_plaintext;
-
-        return ! empty($config['test_mode'])
-            || (($config['environment'] ?? 'live') === 'test')
-            || ! empty($config['test_api_key']);
     }
 
     /**
      * Is a provider's destination expected in E.164? Most providers want it;
      * the registry in config/sms.php is authoritative.
      */
-    public function wantsE164(SmsProviderInterface $adapter): bool
+    public function wantsE164(SmsProvider $provider): bool
     {
-        return in_array($adapter->key(), config('sms.e164_providers', []), true);
+        return in_array($provider->key(), config('sms.e164_providers', []), true);
     }
 
     /**
@@ -133,13 +105,13 @@ class SmsService
         $countryId = $payload['country_id'] ?? null;
 
         if (! $countryId) {
-            throw new SmsException(__('sms.accounts.country_required'));
+            throw new SmsException(__('sms.providers.country_required'));
         }
 
         $country = Country::find($countryId);
 
         if (! $country) {
-            throw new SmsException(__('sms.accounts.country_not_found'));
+            throw new SmsException(__('sms.providers.country_not_found'));
         }
 
         return $country;

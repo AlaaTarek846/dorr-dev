@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 import kotlinx.coroutines.delay
@@ -151,8 +152,8 @@ fun NoInternetScreen(
                                 .background(
                                     Brush.radialGradient(
                                         colors = listOf(
-                                            AppColors.waRed.copy(alpha = haloAlpha),
-                                            AppColors.waRed.copy(alpha = 0f),
+                                            settingsAccent().copy(alpha = haloAlpha),
+                                            settingsAccent().copy(alpha = 0f),
                                         ),
                                     ),
                                 ),
@@ -168,7 +169,7 @@ fun NoInternetScreen(
                                 )
                                 .border(
                                     width = 2.dp,
-                                    color = AppColors.waRed.copy(alpha = 0.3f),
+                                    color = settingsAccent().copy(alpha = 0.3f),
                                     shape = CircleShape,
                                 ),
                             contentAlignment = Alignment.Center,
@@ -176,7 +177,7 @@ fun NoInternetScreen(
                             Icon(
                                 imageVector = Icons.Rounded.WifiOff,
                                 contentDescription = if (isArabic) "لا يوجد إنترنت" else "No Internet",
-                                tint = AppColors.waRed,
+                                tint = settingsAccent(),
                                 modifier = Modifier.size(46.dp),
                             )
                         }
@@ -288,9 +289,9 @@ fun NoInternetScreen(
                             .height(52.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = AppColors.waRed,
+                            containerColor = settingsAccent(),
                             contentColor = Color.White,
-                            disabledContainerColor = AppColors.waRed.copy(alpha = 0.85f),
+                            disabledContainerColor = settingsAccent().copy(alpha = 0.85f),
                             disabledContentColor = Color.White,
                         ),
                         elevation = ButtonDefaults.buttonElevation(defaultElevation = 2.dp),
@@ -340,7 +341,7 @@ private fun TipItem(
     val textPrimary = if (isDark) AccountDark.ink else AppColors.textPrimary
     val textSecondary = if (isDark) AccountDark.mut else AppColors.textSecondary
     val iconBg = if (isDark) AccountDark.well else Color(0xFFF3F4F6)
-    val iconTint = if (isDark) AccountDark.accent else AppColors.waRed
+    val iconTint = if (isDark) AccountDark.accent else settingsAccent()
 
     Row(
         modifier = Modifier.fillMaxWidth(),

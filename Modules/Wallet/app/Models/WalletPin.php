@@ -18,8 +18,10 @@ class WalletPin extends Model
         'owner_type',
         'owner_id',
         'pin_hash',
+        'must_change',
         'failed_attempts',
         'locked_until',
+        'frozen_at',
         'changed_at',
     ];
 
@@ -31,8 +33,10 @@ class WalletPin extends Model
     protected function casts(): array
     {
         return [
+            'must_change' => 'boolean',
             'failed_attempts' => 'integer',
             'locked_until' => 'datetime',
+            'frozen_at' => 'datetime',
             'changed_at' => 'datetime',
         ];
     }

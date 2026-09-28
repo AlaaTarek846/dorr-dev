@@ -48,7 +48,7 @@ trait SendsPhoneOtp
      */
     public function phoneOtpCode(): string
     {
-        return (string) config('auth_flow.phone_otp_fixed', '123456');
+        return (string) config('auth_flow.phone_otp_fixed', '1234');
     }
 
     public function phoneOtpCooldownSeconds(): int

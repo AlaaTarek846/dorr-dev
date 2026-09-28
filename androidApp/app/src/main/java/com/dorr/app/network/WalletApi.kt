@@ -3,7 +3,11 @@ package com.dorr.app.network
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.Body
 import retrofit2.http.GET
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.Part
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -66,11 +70,89 @@ interface WalletApi {
         @Body body: ChangePinRequest,
     ): ApiEnvelope<PinStatusDto>
 
-    /** Succeeds (200) only if the PIN in `X-Wallet-Pin` is right — used to unlock the wallet screens. */
+    /**
+     * How the PIN can be got back — chosen before the PIN exists. JSON for password / birth date / e-mail;
+     * the photo methods use [setRecoveryDocument]. Changing it once a PIN exists needs `X-Wallet-Pin`.
+     */
+    @POST("mobile/v1/wallet/pin/recovery")
+    suspend fun setRecovery(
+        @Header("Authorization") authorization: String,
+        @Body body: RecoverySetupRequest,
+        @Header("X-Wallet-Pin") pin: String? = null,
+    ): ApiEnvelope<PinStatusDto>
+
+    @Multipart
+    @POST("mobile/v1/wallet/pin/recovery")
+    suspend fun setRecoveryDocument(
+        @Header("Authorization") authorization: String,
+        @Part("method") method: RequestBody,
+        @Part document: MultipartBody.Part,
+        @Header("X-Wallet-Pin") pin: String? = null,
+    ): ApiEnvelope<PinStatusDto>
+
+    /** Sends a 4-digit code to the e-mail given at setup; `pending` = the new address of a method switch still to be confirmed. */
+    @POST("mobile/v1/wallet/pin/recovery/email-code")
+    suspend fun sendRecoveryEmailCode(
+        @Header("Authorization") authorization: String,
+        @retrofit2.http.Query("pending") pending: Boolean? = null,
+    ): ApiEnvelope<Any?>
+
+    @POST("mobile/v1/wallet/pin/recovery/confirm-email")
+    suspend fun confirmRecoveryEmail(
+        @Header("Authorization") authorization: String,
+        @Body body: RecoveryCodeRequest,
+    ): ApiEnvelope<PinStatusDto>
+
+    /** "I forgot my PIN": proves the recovery secret and sets a new PIN in one call (password / birth date / e-mail code). */
+    @POST("mobile/v1/wallet/pin/recover")
+    suspend fun recoverPin(
+        @Header("Authorization") authorization: String,
+        @Body body: RecoverPinRequest,
+    ): ApiEnvelope<PinStatusDto>
+
+    /** Photo methods: uploads the new photo for a person to compare with the one from setup (201). */
+    @Multipart
+    @POST("mobile/v1/wallet/pin/recover")
+    suspend fun recoverPinWithDocument(
+        @Header("Authorization") authorization: String,
+        @Part document: MultipartBody.Part,
+    ): ApiEnvelope<PinStatusDto>
+
+    /**
+     * The only way out of a permanent freeze: a selfie + an ID/passport photo, reviewed by a person —
+     * whatever the recovery method on file actually is.
+     */
+    @Multipart
+    @POST("mobile/v1/wallet/pin/unfreeze")
+    suspend fun unfreezePin(
+        @Header("Authorization") authorization: String,
+        @Part idDocument: MultipartBody.Part,
+        @Part selfie: MultipartBody.Part,
+    ): ApiEnvelope<PinStatusDto>
+
+    /**
+     * Succeeds (200) only if the PIN in `X-Wallet-Pin` is right — used to unlock the wallet screens.
+     * `X-Device-Id` (added to every request by ApiClient) decides `device_trusted` in the answer.
+     */
     @POST("mobile/v1/wallet/pin/verify")
     suspend fun verifyPin(
         @Header("Authorization") authorization: String,
         @Header("X-Wallet-Pin") pin: String,
+    ): ApiEnvelope<PinVerifyDto>
+
+    /** A device that unlocked with the right PIN but was never seen before still has to prove the
+     *  phone on file is reachable from it — a code goes there (dev-fixed, same as everywhere else). */
+    @POST("mobile/v1/wallet/device/verify-code")
+    suspend fun sendDeviceTrustCode(
+        @Header("Authorization") authorization: String,
+        @Header("X-Wallet-Pin") pin: String,
+    ): ApiEnvelope<Any?>
+
+    @POST("mobile/v1/wallet/device/confirm")
+    suspend fun confirmDeviceTrust(
+        @Header("Authorization") authorization: String,
+        @Header("X-Wallet-Pin") pin: String,
+        @Body body: RecoveryCodeRequest,
     ): ApiEnvelope<Any?>
 
     @POST("mobile/v1/wallet/topups/quote")
@@ -159,7 +241,61 @@ data class PaymentMethodDto(
     @SerializedName("coming_soon") val comingSoon: Boolean = false,
 )
 
-data class PinStatusDto(@SerializedName("has_pin") val hasPin: Boolean)
+data class PinStatusDto(
+    @SerializedName("has_pin") val hasPin: Boolean,
+    /** The PIN was reset to 0000 (approved recovery request): it must be replaced before it can move money. */
+    @SerializedName("must_change") val mustChange: Boolean = false,
+    /** Permanently locked (a wrong attempt right after a temporary lock) — only a selfie + ID, reviewed
+     *  by a person, lifts it. Nothing else works while this is true, self-service recovery included. */
+    @SerializedName("is_frozen") val isFrozen: Boolean = false,
+    /** The recovery method on file; null until one is chosen. */
+    val recovery: RecoveryInfoDto? = null,
+    /** The latest recovery/freeze request, if any. */
+    val request: RecoveryRequestDto? = null,
+)
+
+/** `method`: password, birth_date, id_photo, passport_photo, email. `ready`: an e-mail method is only ready once confirmed. */
+data class RecoveryInfoDto(
+    val method: String,
+    val ready: Boolean,
+    val email: String? = null,
+    /** A new e-mail waiting for its code; the method above keeps working meanwhile. */
+    @SerializedName("pending_email") val pendingEmail: String? = null,
+)
+
+data class PinVerifyDto(
+    val verified: Boolean = true,
+    @SerializedName("must_change") val mustChange: Boolean = false,
+    /** False the first time this device (X-Device-Id) ever unlocks this wallet — see the wallet-device endpoints below. */
+    @SerializedName("device_trusted") val deviceTrusted: Boolean = true,
+)
+
+/** `status`: pending, approved or rejected. `reason`: recovery_document | security_freeze. */
+data class RecoveryRequestDto(
+    val id: Long,
+    val method: String,
+    val reason: String = "recovery_document",
+    val status: String,
+    @SerializedName("rejection_reason") val rejectionReason: String? = null,
+)
+
+data class RecoverySetupRequest(
+    val method: String,
+    val password: String? = null,
+    @SerializedName("password_confirmation") val passwordConfirmation: String? = null,
+    @SerializedName("birth_date") val birthDate: String? = null,
+    val email: String? = null,
+)
+
+data class RecoveryCodeRequest(val code: String)
+
+data class RecoverPinRequest(
+    val password: String? = null,
+    @SerializedName("birth_date") val birthDate: String? = null,
+    val code: String? = null,
+    val pin: String,
+    @SerializedName("pin_confirmation") val pinConfirmation: String,
+)
 
 data class CreatePinRequest(
     val pin: String,
@@ -201,6 +337,13 @@ data class TransferRecipientDto(
     @SerializedName("wallet_number") val walletNumber: String? = null,
     @SerializedName("country_code") val countryCode: String? = null,
     @SerializedName("currency_code") val currencyCode: String? = null,
+    /** DORR's optional cut of the transfer, e.g. "2.5000" — 0 means no fee. A preview only; the rate
+     *  actually applied is decided (and stamped onto the transaction) at send time. */
+    @SerializedName("fee_percent") val feePercent: String = "0.0000",
+    /** "sender" (added on top of the amount) or "recipient" (deducted from what they receive). */
+    @SerializedName("fee_payer") val feePayer: String = "recipient",
+    /** A heads-up, not proof of anything: this person's phone number changed recently. */
+    @SerializedName("number_recently_changed") val numberRecentlyChanged: Boolean = false,
 )
 
 data class TransferRequest(

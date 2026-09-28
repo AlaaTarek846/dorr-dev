@@ -1,11 +1,11 @@
 package com.dorr.app
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivityResultRegistryOwner
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.fragment.app.FragmentActivity
 import android.graphics.Color as AndroidColor
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -26,11 +27,17 @@ import com.dorr.app.navigation.DorrNavGraph
 import com.dorr.app.network.NetworkMonitor
 import com.dorr.app.ui.locale.LocalizedApp
 import com.dorr.app.ui.screens.NoInternetScreen
+import com.dorr.app.ui.theme.AppearanceState
 import com.dorr.app.ui.theme.DorrTheme
+import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.ThemeState
+import com.dorr.app.ui.theme.toThemeOverride
 
-class MainActivity : ComponentActivity() {
+// FragmentActivity (not plain ComponentActivity) so BiometricPrompt — which needs a FragmentManager —
+// has somewhere to host its invisible tracking fragment. Still a ComponentActivity underneath: every
+// Compose API used below (setContent, enableEdgeToEdge…) works exactly as before.
+class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -50,10 +57,18 @@ class MainActivity : ComponentActivity() {
             // hides the Activity from the photo picker. Keep the registry here.
             CompositionLocalProvider(LocalActivityResultRegistryOwner provides this) {
             LocalizedApp {
-                val themeState = remember { ThemeState() }
+                val appearance = remember { AppearanceState() }
+                val themeState = remember {
+                    ThemeState().apply { isDark = appearance.snapshot.toThemeOverride() }
+                }
+                val themeOverride = appearance.snapshot.toThemeOverride()
+                SideEffect { themeState.isDark = themeOverride }
                 val isOnline by networkMonitor.isOnline.collectAsState()
 
-                CompositionLocalProvider(LocalThemeState provides themeState) {
+                CompositionLocalProvider(
+                    LocalThemeState provides themeState,
+                    LocalAppearance provides appearance,
+                ) {
                     DorrTheme(darkTheme = themeState.isDark ?: isSystemInDarkTheme()) {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
@@ -67,7 +82,8 @@ class MainActivity : ComponentActivity() {
                                 DorrNavGraph()
 
                                 AnimatedVisibility(
-                                    visible = !isOnline,
+                                    // The chat reads its saved messages offline (and shows its own banner).
+                                    visible = !isOnline && !com.dorr.app.chat.ChatStore.screenOpen,
                                     enter = fadeIn(animationSpec = tween(300)),
                                     exit = fadeOut(animationSpec = tween(300)),
                                 ) {

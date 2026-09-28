@@ -59,7 +59,7 @@ class SmsProviderController extends Controller implements HasMiddleware
     public function show(int|string $sms_provider)
     {
         return ApiResponse::success(
-            new SmsProviderResource($this->service->findOrFail($sms_provider)->load('smsAccounts')),
+            new SmsProviderResource($this->service->findOrFail($sms_provider)),
             __('sms.providers.fetched'),
         );
     }

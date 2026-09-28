@@ -4,5 +4,6 @@
     "AI": true,
     "Provider": true,
     "Wallet": true,
-    "Sms": true
+    "Sms": true,
+    "Chat": true
 }

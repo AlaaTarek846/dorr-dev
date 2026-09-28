@@ -2,18 +2,19 @@
 
 namespace Modules\Sms\Services\Sms;
 
+use App\Models\Country;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Modules\Sms\Exceptions\SmsException;
 use Modules\Sms\Models\SmsProvider;
 
 /**
- * Provider management. A SmsProvider row is the identity + status of a provider
- * plus an optional default credential blob (encrypted). Every real per-account
- * secret still lives on the bound SmsAccount — the provider blot is an optional
- * default and is never exposed to the frontend. Adapter metadata comes from
- * SmsAdapterRegistry, so adding a provider never touches this class.
+ * Provider management. A SmsProvider row is the identity + status + priority
+ * of a provider plus its configuration blob (encrypted). The provider
+ * configuration is the source of truth for sending — there are no per-account
+ * credentials. Country support lives on the sms_provider_countries pivot.
  */
 class SmsProviderService
 {
@@ -26,10 +27,11 @@ class SmsProviderService
      */
     public function query(Request $request): Builder
     {
-        return SmsProvider::withCount('smsAccounts')
+        return SmsProvider::query()
             ->when($request->filled('search'), fn (Builder $q) => $q->searchAndFilter($request->input('search')))
             ->when($request->filled('date_from'), fn (Builder $q) => $q->whereDate('created_at', '>=', $request->date_from))
             ->when($request->filled('date_to'), fn (Builder $q) => $q->whereDate('created_at', '<=', $request->date_to))
+            ->orderBy('priority', 'asc')
             ->orderBy('id', $request->input('sort_order') === 'asc' ? 'asc' : 'desc');
     }
 
@@ -40,6 +42,7 @@ class SmsProviderService
     {
         $data['is_active'] = $data['is_active'] ?? true;
         $data['is_available'] = $data['is_available'] ?? true;
+        $data['priority'] = (int) ($data['priority'] ?? 1);
 
         $config = $data['configuration'] ?? null;
         unset($data['configuration']);
@@ -58,6 +61,10 @@ class SmsProviderService
     public function update(int|string $id, array $data): SmsProvider
     {
         $provider = $this->findOrFail($id);
+
+        if (isset($data['priority'])) {
+            $data['priority'] = (int) $data['priority'];
+        }
 
         if (! empty($data['configuration'])) {
             $config = $data['configuration'];
@@ -89,8 +96,6 @@ class SmsProviderService
     {
         $provider = SmsProvider::findOrFail($id);
 
-        $this->assertNotInUse($provider);
-
         $provider->delete();
     }
 
@@ -99,19 +104,6 @@ class SmsProviderService
      */
     public function deleteMultiple(array $ids): void
     {
-        $blocked = SmsProvider::whereIn('id', $ids)
-            ->whereHas('smsAccounts')
-            ->pluck('name');
-
-        if ($blocked->isNotEmpty()) {
-            throw SmsException::make(
-                __('sms.providers.in_use'),
-                400,
-                'sms_provider_in_use',
-                ['providers' => $blocked],
-            );
-        }
-
         SmsProvider::whereIn('id', $ids)->delete();
     }
 
@@ -131,6 +123,7 @@ class SmsProviderService
     public function dropdown(): array
     {
         return SmsProvider::where('is_active', true)
+            ->orderBy('priority', 'asc')
             ->orderBy('name')
             ->get()
             ->map(fn (SmsProvider $provider) => [
@@ -138,8 +131,25 @@ class SmsProviderService
                 'name' => $provider->name,
                 'key' => $provider->key,
                 'label' => $this->registry->label($provider->key),
+                'priority' => $provider->priority,
             ])
             ->all();
+    }
+
+    /**
+     * Active providers that support the given country, sorted by priority.
+     *
+     * @return Collection<int, SmsProvider>
+     */
+    public function activeProvidersForCountry(Country $country): Collection
+    {
+        return SmsProvider::where('is_active', true)
+            ->where('is_available', true)
+            ->whereHas('countries', fn ($q) => $q->where('country_id', $country->id)->where('is_active', true))
+            ->whereNotNull('configuration')
+            ->orderBy('priority', 'asc')
+            ->orderBy('id')
+            ->get();
     }
 
     /**
@@ -167,9 +177,8 @@ class SmsProviderService
     /**
      * Provider readiness check.
      *
-     * This confirms the adapter is registered and the provider is active and
-     * available. A live credential test goes through testDraft()/the bound
-     * account tests.
+     * Confirms the adapter is registered, the provider is active and available,
+     * it has a saved configuration, and its last connection test passed.
      *
      * @return array<string, mixed>
      */
@@ -179,7 +188,9 @@ class SmsProviderService
 
         $ready = $this->registry->adapter($provider->key) !== null
             && $provider->is_active
-            && $provider->is_available;
+            && $provider->is_available
+            && $provider->test_status === 'passed'
+            && ! empty($provider->configuration_plaintext);
 
         if (! $ready) {
             Log::channel(config('sms.log_channel', 'stack'))->warning('SMS provider not ready', [
@@ -231,16 +242,6 @@ class SmsProviderService
         return ['success' => true, 'message' => $result['message'] ?? __('sms.providers.connection_successful')];
     }
 
-    protected function assertNotInUse(SmsProvider $provider): void
-    {
-        if ($provider->smsAccounts()->exists()) {
-            throw SmsException::make(__('sms.providers.in_use'), 400, 'sms_provider_in_use');
-        }
-    }
-
-    /**
-     * @param  array<string, mixed>  $config
-     */
     protected function assertConfigurationComplete(string $key, array $config, bool $isUpdate = false): void
     {
         [$valid, $missing] = $this->registry->validateConfiguration($key, $config, $isUpdate);

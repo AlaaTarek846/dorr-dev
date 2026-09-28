@@ -16,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Public
@@ -57,7 +58,7 @@ import java.util.UUID
  * provably who gets paid.
  */
 @Composable
-fun WalletTransferConfirm(who: TransferRecipientDto) {
+fun WalletTransferConfirm(who: TransferRecipientDto, initialAmount: String = "") {
     val host = LocalWallet.current
     val balance = host.balance
     val currency = balance?.currencyCode.orEmpty()
@@ -66,11 +67,16 @@ fun WalletTransferConfirm(who: TransferRecipientDto) {
     val expiredText = stringResource(R.string.wa_transfer_expired)
     val pinSubtitle = stringResource(R.string.wa_pin_transfer_sub)
 
-    var amountText by remember { mutableStateOf("") }
+    var amountText by remember { mutableStateOf(initialAmount) }
     var error by remember { mutableStateOf<String?>(null) }
     var idempotencyKey by remember { mutableStateOf(UUID.randomUUID().toString()) }
     var sent by remember { mutableStateOf<WalletTransactionDto?>(null) }
     val amountMinor = parseAmountToMinor(amountText)
+
+    // DORR's optional cut (a preview only — the rate actually applied is decided at send time).
+    val feePercentValue = who.feePercent.toDoubleOrNull() ?: 0.0
+    val feeMinor = amountMinor?.let { Math.round(it * feePercentValue / 100.0) } ?: 0L
+    val senderPaysFee = who.feePayer == "sender"
 
     val done = sent
     if (done != null) {
@@ -99,7 +105,8 @@ fun WalletTransferConfirm(who: TransferRecipientDto) {
         onBack = { host.pop() },
         cta = {
             WaButton(
-                text = if (amountMinor != null) stringResource(R.string.wa_send_amount, money(amountMinor), currency) else stringResource(R.string.wa_send),
+                // Matches the "total charged to you" line above when the sender pays the fee.
+                text = if (amountMinor != null) stringResource(R.string.wa_send_amount, money(if (senderPaysFee) amountMinor + feeMinor else amountMinor), currency) else stringResource(R.string.wa_send),
                 onClick = {
                     error = null
                     host.requestPin(
@@ -144,6 +151,10 @@ fun WalletTransferConfirm(who: TransferRecipientDto) {
         },
     ) {
         RecipientCard(who, Modifier.waRise(0))
+        if (who.numberRecentlyChanged) {
+            Spacer(Modifier.height(12.dp))
+            WaNote(stringResource(R.string.wa_transfer_number_changed_warning), Modifier.waRise(0), icon = Icons.Rounded.Warning)
+        }
         Spacer(Modifier.height(12.dp))
         WaAmountEntry(
             label = stringResource(R.string.wa_transfer_how_much), amountText = amountText, onAmountChange = { amountText = it },
@@ -161,11 +172,32 @@ fun WalletTransferConfirm(who: TransferRecipientDto) {
                 }
             },
         )
+        if (amountMinor != null && feeMinor > 0) {
+            Spacer(Modifier.height(12.dp))
+            WaCard(Modifier.fillMaxWidth().waRise(2), padding = 14.dp) {
+                WaKeyValue(stringResource(R.string.wa_transfer_amount_label), money(amountMinor) + " " + currency, ltr = true)
+                WaKeyValue(
+                    stringResource(R.string.wa_transfer_fee_label, fmtPercent(feePercentValue)),
+                    money(feeMinor) + " " + currency,
+                    ltr = true,
+                )
+                WaDivider()
+                WaKeyValue(
+                    stringResource(if (senderPaysFee) R.string.wa_transfer_total_label else R.string.wa_transfer_receives_label),
+                    money(if (senderPaysFee) amountMinor + feeMinor else amountMinor - feeMinor) + " " + currency,
+                    bold = true, ltr = true,
+                )
+            }
+        }
         Spacer(Modifier.height(12.dp))
         WaNote(stringResource(R.string.wa_spend_only_transfer_note), Modifier.waRise(2), icon = Icons.Rounded.Info)
         WaError(error)
     }
 }
+
+/** "2.5000" → "2.5", "10.0000" → "10" — trims the trailing zeros a fixed-point percent snapshot carries. */
+private fun fmtPercent(value: Double): String =
+    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString().trimEnd('0').trimEnd('.')
 
 /** The "is this who you mean?" card: verified badge, avatar, masked name, number, country chips. */
 @Composable
@@ -185,7 +217,7 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
         Box(
             Modifier.fillMaxWidth().height(84.dp).background(
                 if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
-                else Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6))),
+                else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
             ),
         )
         Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

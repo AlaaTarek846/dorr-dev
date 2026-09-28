@@ -62,6 +62,7 @@ import com.dorr.app.ui.components.rememberServicesLoader
 import com.dorr.app.ui.components.serviceIcon
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
@@ -104,12 +105,12 @@ fun ServicesScreen(onBack: () -> Unit) {
                             shape = RoundedCornerShape(16.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = if (night) AccountDark.line else AppColors.border,
-                                focusedBorderColor = if (night) AccountDark.accent else AppColors.waRed,
+                                focusedBorderColor = if (night) AccountDark.accent else settingsAccent(),
                                 unfocusedContainerColor = if (night) AccountDark.card else Color.White,
                                 focusedContainerColor = if (night) AccountDark.card else Color.White,
                                 unfocusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
                                 focusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
-                                cursorColor = if (night) AccountDark.accent else AppColors.waRed,
+                                cursorColor = if (night) AccountDark.accent else settingsAccent(),
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         )

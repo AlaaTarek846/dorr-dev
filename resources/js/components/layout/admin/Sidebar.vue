@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <aside class="app-sidebar sticky" id="sidebar">
         <div class="main-sidebar-header">
             <PlatformLogo href="/admin/dashboard" />
@@ -225,6 +225,20 @@
                                     <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
                                 </router-link>
                             </li>
+
+                            <li v-if="can('mobile_app_fonts.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-fonts.index' }" class="side-menu__item">
+                                    <i class="ri-font-size-2 side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_fonts.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('mobile_app_color_defaults.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-colors' }" class="side-menu__item">
+                                    <i class="ri-smartphone-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_color_defaults.title') }}</span>
+                                </router-link>
+                            </li>
                         </template>
                     </template>
                 </ul>
@@ -314,6 +328,7 @@ const walletItems = [
     { route: 'admin.wallet.wallets', permission: 'wallets.view', icon: 'ri-wallet-3-line', label: 'wallet.wallets.title' },
     { route: 'admin.wallet.online-transactions', permission: 'online-transactions.view', icon: 'ri-bank-card-line', label: 'wallet.online.title' },
     { route: 'admin.wallet.withdrawals', permission: 'withdrawal-requests.view', icon: 'ri-hand-coin-line', label: 'wallet.withdrawals.title' },
+    { route: 'admin.wallet.pin-recovery', permission: 'pin-recovery-requests.view', icon: 'ri-lock-unlock-line', label: 'wallet.pinrec.title' },
     { route: 'admin.wallet.financial-entries', permission: 'financial-entries.view', icon: 'ri-file-list-3-line', label: 'wallet.ledger.title' },
     { route: 'admin.wallet.payment-methods', permission: 'payment-methods.view', icon: 'ri-secure-payment-line', label: 'wallet.methods.title' },
     { route: 'admin.wallet.fee-rules', permission: 'wallet-fee-rules.view', icon: 'ri-percent-line', label: 'wallet.rules.title' },
@@ -327,7 +342,10 @@ const showStaffSection = computed(
 );
 
 const showSettingsSection = computed(
-    () => can('dashboard_themes.view') || can('platform_settings.view'),
+    () => can('dashboard_themes.view')
+        || can('platform_settings.view')
+        || can('mobile_app_fonts.view')
+        || can('mobile_app_color_defaults.view'),
 );
 
 const isGeneralVisible = computed(() => {

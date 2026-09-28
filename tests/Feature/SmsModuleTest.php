@@ -9,7 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
-use Modules\Sms\Models\SmsAccount;
 use Modules\Sms\Models\SmsProvider;
 use Modules\Sms\Services\Sms\SmsAvailabilityService;
 use Spatie\Permission\Models\Permission;
@@ -17,8 +16,8 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
- * SMS module — provider registry, account credential handling and the
- * country-driven test-send flow.
+ * SMS module — provider registry, provider-level configuration,
+ * country mapping, priority, and the OTP-ready readiness checks.
  */
 class SmsModuleTest extends TestCase
 {
@@ -37,7 +36,6 @@ class SmsModuleTest extends TestCase
         $currency = Currency::create(['code' => 'EGP', 'symbol' => 'E£']);
         $flag = Flag::create(['code' => 'eg']);
 
-        // Mirrors database/seeders/data/country-phone-rules.json.
         $this->egypt = Country::create([
             'code' => 'EG',
             'dial_code' => '+20',
@@ -71,15 +69,10 @@ class SmsModuleTest extends TestCase
     {
         $actions = ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete', 'test'];
 
-        $permissions = [];
-
-        foreach (['sms-accounts', 'sms-providers'] as $group) {
-            foreach ($actions as $action) {
-                $permissions[] = "{$group}.{$action}";
-            }
-        }
-
-        return $permissions;
+        return array_map(
+            fn (string $action) => "sms-providers.{$action}",
+            $actions,
+        );
     }
 
     private function admin(array $permissions): Admin
@@ -105,9 +98,6 @@ class SmsModuleTest extends TestCase
     }
 
     /**
-     * Credential maps per adapter. The ADAPTER schema is derived, but the
-     * actual credential VALUES live ONLY on the account.
-     *
      * @return array<string, mixed>
      */
     private function credentials(string $key): array
@@ -131,7 +121,22 @@ class SmsModuleTest extends TestCase
      */
     private function provider(string $key, string $name, array $overrides = []): SmsProvider
     {
-        // Providers hold identity/status only — NO credentials.
+        return SmsProvider::create(array_merge([
+            'name' => $name,
+            'key' => $key,
+            'is_active' => true,
+            'is_available' => true,
+        ], $overrides));
+    }
+
+    /**
+     * Provider with stored configuration and a passed test — ready
+     * for OTP sending.
+     *
+     * @param  array<string, mixed>  $overrides
+     */
+    private function configuredProvider(string $key, string $name, array $overrides = []): SmsProvider
+    {
         return SmsProvider::create(array_merge([
             'name' => $name,
             'key' => $key,
@@ -139,6 +144,7 @@ class SmsModuleTest extends TestCase
             'is_available' => true,
             'test_status' => 'passed',
             'last_tested_at' => now(),
+            'configuration' => $this->credentials($key),
         ], $overrides));
     }
 
@@ -161,23 +167,17 @@ class SmsModuleTest extends TestCase
     /**
      * @param  array<string, mixed>  $overrides
      */
-    private function account(SmsProvider $provider, array $overrides = []): SmsAccount
+    private function twilioConfiguredProvider(array $overrides = []): SmsProvider
     {
-        $credentials = $this->credentials($provider->key);
+        return $this->configuredProvider('twilio', 'Primary Twilio', $overrides);
+    }
 
-        // The account is the single source of truth for credentials. Pass
-        // PLAINTEXT: the model's `encrypted:array` cast handles encryption.
-        return SmsAccount::create(array_merge([
-            'provider_id' => $provider->id,
-            'name' => 'Sales SMS',
-            'sender' => $credentials['from'] ?? $credentials['sender'] ?? '+201001234567',
-            'sender_type' => 'number',
-            'configuration' => $credentials,
-            'is_active' => true,
-            'is_default' => true,
-            'test_status' => 'passed',
-            'last_tested_at' => now(),
-        ], $overrides));
+    /**
+     * @param  array<string, mixed>  $overrides
+     */
+    private function smsMisrConfiguredProvider(array $overrides = []): SmsProvider
+    {
+        return $this->configuredProvider('sms_misr', 'Misr Primary', $overrides);
     }
 
     /* ------------------------------------------------------------------ *
@@ -190,8 +190,6 @@ class SmsModuleTest extends TestCase
 
         $this->getJson(self::BASE.'/sms-providers')->assertStatus(403);
         $this->postJson(self::BASE.'/sms-providers', [])->assertStatus(403);
-        $this->getJson(self::BASE.'/sms-accounts')->assertStatus(403);
-        $this->postJson(self::BASE.'/sms-accounts', [])->assertStatus(403);
     }
 
     public function test_registry_types_endpoint_exposes_every_adapter(): void
@@ -217,11 +215,12 @@ class SmsModuleTest extends TestCase
      | Providers
      * ------------------------------------------------------------------ */
 
-    public function test_provider_holds_no_configuration(): void
+    public function test_provider_can_hold_configuration(): void
     {
-        $provider = $this->twilioProvider();
+        $provider = $this->twilioConfiguredProvider();
 
-        $this->assertNull($provider->getRawOriginal('configuration'), 'Providers must not store credentials');
+        $this->assertNotNull($provider->getRawOriginal('configuration'), 'Provider must store credentials');
+        $this->assertSame('AC-test-sid-123456789', $provider->configuration_plaintext['account_sid']);
     }
 
     public function test_provider_create_rejects_unknown_key_but_requires_no_config(): void
@@ -248,10 +247,12 @@ class SmsModuleTest extends TestCase
             'name' => 'Misr Main',
             'key' => 'sms_misr',
             'is_active' => true,
+            'priority' => 2,
         ])->assertStatus(201);
 
         $provider = SmsProvider::where('key', 'sms_misr')->first();
         $this->assertNotNull($provider);
+        $this->assertSame(2, $provider->priority);
         $this->assertNull($provider->getRawOriginal('configuration'), 'No credentials stored on provider');
 
         $list = $this->getJson(self::BASE.'/sms-providers');
@@ -259,14 +260,26 @@ class SmsModuleTest extends TestCase
         $this->assertTrue(collect($list->json('data'))->contains('key', 'sms_misr'));
     }
 
-    public function test_provider_delete_blocked_when_accounts_exist(): void
+    public function test_provider_delete_works_without_accounts(): void
     {
         $this->admin($this->permissions());
 
         $provider = $this->twilioProvider();
-        $this->account($provider);
 
-        $this->deleteJson(self::BASE."/sms-providers/{$provider->id}")->assertStatus(400);
+        $this->deleteJson(self::BASE."/sms-providers/{$provider->id}")->assertOk();
+    }
+
+    public function test_provider_priority_defaults_to_one(): void
+    {
+        $this->admin($this->permissions());
+
+        $this->postJson(self::BASE.'/sms-providers', [
+            'name' => 'Twilio Priority',
+            'key' => 'twilio',
+        ])->assertStatus(201);
+
+        $provider = SmsProvider::where('key', 'twilio')->first();
+        $this->assertSame(1, $provider->priority);
     }
 
     public function test_provider_toggle_active(): void
@@ -284,37 +297,43 @@ class SmsModuleTest extends TestCase
     {
         $this->admin($this->permissions());
 
-        $ready = $this->twilioProvider();
+        // A configured provider with a passed test is ready.
+        $ready = $this->twilioConfiguredProvider();
         $this->postJson(self::BASE."/sms-providers/{$ready->id}/test")->assertOk();
 
+        // An inactive provider is not ready.
         $inactive = $this->provider('sms_misr', 'Misr Off', ['is_active' => false]);
         $this->postJson(self::BASE."/sms-providers/{$inactive->id}/test")->assertStatus(422);
+
+        // A provider without a passed test is not ready.
+        $ready->update(['test_status' => 'never_tested']);
+        $this->postJson(self::BASE."/sms-providers/{$ready->id}/test")->assertStatus(422);
     }
 
     /* ------------------------------------------------------------------ *
-     | Account credentials
+     | Configuration encryption (provider-level now)
      * ------------------------------------------------------------------ */
 
-    public function test_account_configuration_is_encrypted_at_rest(): void
+    public function test_provider_configuration_is_encrypted_at_rest(): void
     {
-        $account = $this->account($this->twilioProvider());
+        $provider = $this->twilioConfiguredProvider();
 
-        $raw = $account->getRawOriginal('configuration');
+        $raw = $provider->getRawOriginal('configuration');
 
         $this->assertStringNotContainsString('auth-token-secret-value', $raw, 'Secret must be encrypted at rest');
         $this->assertStringNotContainsString('account_sid', $raw, 'Configuration JSON must be encrypted');
 
-        $this->assertSame('AC-test-sid-123456789', $account->configuration_plaintext['account_sid']);
-        $this->assertSame('auth-token-secret-value', $account->configuration_plaintext['auth_token']);
+        $this->assertSame('AC-test-sid-123456789', $provider->configuration_plaintext['account_sid']);
+        $this->assertSame('auth-token-secret-value', $provider->configuration_plaintext['auth_token']);
     }
 
-    public function test_account_credentials_never_exposed_in_api(): void
+    public function test_provider_configuration_never_exposed_in_api(): void
     {
         $this->admin($this->permissions());
 
-        $account = $this->account($this->twilioProvider());
+        $provider = $this->twilioConfiguredProvider();
 
-        $response = $this->getJson(self::BASE."/sms-accounts/{$account->id}");
+        $response = $this->getJson(self::BASE."/sms-providers/{$provider->id}");
         $response->assertOk();
 
         $json = $response->json('data');
@@ -333,57 +352,13 @@ class SmsModuleTest extends TestCase
         $this->assertSame('+201001234567', $from['value'], 'Non-secret values are exposed');
     }
 
-    public function test_account_create_requires_credentials(): void
+    public function test_provider_update_preserves_blank_secrets(): void
     {
         $this->admin($this->permissions());
 
-        $provider = $this->twilioProvider();
+        $provider = $this->twilioConfiguredProvider();
 
-        // auth_token is missing -> 422.
-        $this->postJson(self::BASE.'/sms-accounts', [
-            'provider_id' => $provider->id,
-            'name' => 'Broken Account',
-            'configuration' => [
-                'account_sid' => 'AC-test-sid-123456789',
-                'from' => '+201001234567',
-            ],
-        ])->assertStatus(422);
-    }
-
-    public function test_account_store_persists_encrypted_configuration(): void
-    {
-        $this->admin($this->permissions());
-
-        $this->postJson(self::BASE.'/sms-accounts', [
-            'provider_id' => $this->twilioProvider()->id,
-            'name' => 'Brand New',
-            'is_default' => true,
-            'configuration' => [
-                'account_sid' => 'AC-test-sid-999999999',
-                'auth_token' => 'auth-token-new-secret',
-                'from' => '+201001234567',
-            ],
-        ])->assertStatus(201);
-
-        $account = SmsAccount::where('name', 'Brand New')->firstOrFail();
-
-        $this->assertStringNotContainsString(
-            'auth-token-new-secret',
-            $account->getRawOriginal('configuration'),
-            'Stored account configuration must be encrypted',
-        );
-        $this->assertSame('AC-test-sid-999999999', $account->configuration_plaintext['account_sid']);
-        $this->assertSame('auth-token-new-secret', $account->configuration_plaintext['auth_token']);
-    }
-
-    public function test_updating_credentials_keeps_blank_secrets_and_invalidates_the_test(): void
-    {
-        $this->admin($this->permissions());
-
-        $account = $this->account($this->twilioProvider());
-
-        // auth_token is left blank on purpose: the stored value must survive.
-        $this->putJson(self::BASE."/sms-accounts/{$account->id}", [
+        $this->putJson(self::BASE."/sms-providers/{$provider->id}", [
             'name' => 'Renamed',
             'configuration' => [
                 'account_sid' => 'AC-test-sid-123456789',
@@ -392,90 +367,18 @@ class SmsModuleTest extends TestCase
             ],
         ])->assertOk();
 
-        $account->refresh();
+        $provider->refresh();
 
-        $this->assertSame('Renamed', $account->name);
-        $this->assertSame('auth-token-secret-value', $account->configuration_plaintext['auth_token'], 'Blank secret must keep the stored value');
-        $this->assertSame('+201009999999', $account->configuration_plaintext['from']);
-        $this->assertSame('never_tested', $account->test_status, 'Editing credentials must invalidate the last test');
-    }
-
-    public function test_account_default_is_single(): void
-    {
-        $this->admin($this->permissions());
-
-        $provider = $this->twilioProvider();
-        $first = $this->account($provider, ['name' => 'A', 'is_default' => true]);
-        $second = $this->account($provider, ['name' => 'B', 'is_default' => false]);
-
-        $this->postJson(self::BASE."/sms-accounts/{$second->id}/set-default")->assertOk();
-
-        $this->assertFalse((bool) $first->refresh()->is_default, 'Old default must be cleared');
-        $this->assertTrue((bool) $second->refresh()->is_default, 'New default must be set');
-    }
-
-    public function test_account_toggle_active(): void
-    {
-        $this->admin($this->permissions());
-
-        $account = $this->account($this->twilioProvider(), ['is_active' => true]);
-
-        $this->patchJson(self::BASE."/sms-accounts/{$account->id}/status")->assertOk();
-
-        $this->assertFalse((bool) $account->refresh()->is_active);
-    }
-
-    public function test_delete_multiple_accounts(): void
-    {
-        $this->admin($this->permissions());
-
-        $provider = $this->twilioProvider();
-        $keep = $this->account($provider, ['name' => 'Keep']);
-        $drop = $this->account($provider, ['name' => 'Drop', 'is_default' => false]);
-
-        $this->postJson(self::BASE.'/sms-accounts/delete-multiple', ['ids' => [$drop->id]])->assertOk();
-
-        $this->assertDatabaseMissing('sms_accounts', ['id' => $drop->id]);
-        $this->assertDatabaseHas('sms_accounts', ['id' => $keep->id]);
+        $this->assertSame('Renamed', $provider->name);
+        $this->assertSame('auth-token-secret-value', $provider->configuration_plaintext['auth_token'], 'Blank secret must keep the stored value');
+        $this->assertSame('+201009999999', $provider->configuration_plaintext['from']);
     }
 
     /* ------------------------------------------------------------------ *
-     | Connection test
+     | Test-draft
      * ------------------------------------------------------------------ */
 
-    public function test_account_test_blocked_when_provider_inactive(): void
-    {
-        $this->admin($this->permissions());
-
-        $provider = $this->twilioProvider(['is_active' => false]);
-        $account = $this->account($provider);
-
-        $this->postJson(self::BASE."/sms-accounts/{$account->id}/test")->assertStatus(422);
-
-        $this->assertSame('passed', $account->refresh()->test_status, 'Test status must not change when the provider is inactive');
-    }
-
-    public function test_account_connection_test_success(): void
-    {
-        Http::fake([
-            'api.twilio.com/*' => Http::response(['balance' => '10.0', 'currency' => 'USD'], 200),
-        ]);
-
-        $this->admin($this->permissions());
-
-        $account = $this->account(
-            $this->twilioProvider(),
-            ['test_status' => 'never_tested', 'last_tested_at' => null],
-        );
-
-        $this->postJson(self::BASE."/sms-accounts/{$account->id}/test")->assertOk();
-
-        $account->refresh();
-        $this->assertSame('passed', $account->test_status);
-        $this->assertNull($account->test_error);
-    }
-
-    public function test_account_draft_test_never_persists(): void
+    public function test_provider_test_draft_success(): void
     {
         Http::fake([
             'api.twilio.com/*' => Http::response(['balance' => '42.5', 'currency' => 'USD'], 200),
@@ -483,19 +386,18 @@ class SmsModuleTest extends TestCase
 
         $this->admin($this->permissions());
 
-        $before = SmsAccount::count();
+        $provider = $this->twilioProvider();
 
-        $response = $this->postJson(self::BASE.'/sms-accounts/test-draft', [
-            'provider_id' => $this->twilioProvider()->id,
+        $response = $this->postJson(self::BASE.'/sms-providers/test-draft', [
+            'key' => 'twilio',
             'configuration' => $this->credentials('twilio'),
         ]);
 
         $response->assertOk();
         $this->assertTrue($response->json('data.success'));
-        $this->assertSame($before, SmsAccount::count(), 'Draft test must not persist anything');
     }
 
-    public function test_balance_endpoint_is_capability_gated(): void
+    public function test_provider_test_draft_merges_stored_secrets_on_edit(): void
     {
         Http::fake([
             'api.twilio.com/*' => Http::response(['balance' => '42.5', 'currency' => 'USD'], 200),
@@ -503,170 +405,105 @@ class SmsModuleTest extends TestCase
 
         $this->admin($this->permissions());
 
-        // Twilio supports balance.
-        $twilioAccount = $this->account($this->twilioProvider());
-        $this->getJson(self::BASE."/sms-accounts/{$twilioAccount->id}/balance")->assertOk();
+        $provider = $this->twilioConfiguredProvider();
 
-        // SMS Misr does not expose a balance API.
-        $misrAccount = $this->account($this->smsMisrProvider(), ['is_default' => false]);
-        $this->getJson(self::BASE."/sms-accounts/{$misrAccount->id}/balance")->assertStatus(422);
-    }
-
-    /* ------------------------------------------------------------------ *
-     | Send test SMS (country-driven)
-     * ------------------------------------------------------------------ */
-
-    public function test_send_test_sms_sends_a_country_normalized_number(): void
-    {
-        Http::fake([
-            'api.twilio.com/*' => Http::response(['sid' => 'SM123', 'num_segments' => '1'], 201),
-        ]);
-
-        $this->admin($this->permissions());
-
-        $account = $this->account($this->twilioProvider(), ['test_status' => 'passed']);
-
-        $response = $this->postJson(self::BASE.'/sms-accounts/send-test', [
-            'account_id' => $account->id,
-            'country_id' => $this->egypt->id,
-            'to' => '01012345678',
-            'message' => 'Hello from Dorr',
+        $response = $this->postJson(self::BASE.'/sms-providers/test-draft', [
+            'key' => 'twilio',
+            'configuration' => ['from' => '+201009999999'],
+            'provider_id' => $provider->id,
         ]);
 
         $response->assertOk();
         $this->assertTrue($response->json('data.success'));
-        $this->assertSame('+201012345678', $response->json('data.to'), 'The national number must be normalized to E.164');
-
-        // Twilio is called as a form-encoded request, so `To` arrives
-        // percent-encoded (+ => %2B). Compare the parsed parameter rather than
-        // the raw body, otherwise the assertion passes on a real failure.
-        $twilioRequest = collect(Http::recorded())
-            ->map(fn (array $pair) => $pair[0])
-            ->first(fn ($request) => str_contains($request->url(), 'api.twilio.com'));
-
-        $this->assertNotNull($twilioRequest, 'A request to api.twilio.com must have been sent');
-        $this->assertSame('+201012345678', $twilioRequest['To'] ?? null, 'The national number must be sent to Twilio in E.164');
     }
 
-    public function test_send_test_sms_requires_a_country(): void
+    public function test_provider_test_draft_requires_permission(): void
     {
-        Http::fake([
-            'api.twilio.com/*' => Http::response(['sid' => 'SM123'], 201),
+        $this->admin([]);
+
+        $response = $this->postJson(self::BASE.'/sms-providers/test-draft', [
+            'key' => 'twilio',
+            'configuration' => $this->credentials('twilio'),
         ]);
 
-        $this->admin($this->permissions());
-
-        $account = $this->account($this->twilioProvider(), ['test_status' => 'passed']);
-
-        $this->postJson(self::BASE.'/sms-accounts/send-test', [
-            'account_id' => $account->id,
-            'to' => '01012345678',
-        ])->assertStatus(422);
-    }
-
-    public function test_send_test_sms_rejects_a_number_from_another_country(): void
-    {
-        Http::fake([
-            'api.twilio.com/*' => Http::response(['sid' => 'SM123'], 201),
-        ]);
-
-        $this->admin($this->permissions());
-
-        $account = $this->account($this->twilioProvider(), ['test_status' => 'passed']);
-
-        $response = $this->postJson(self::BASE.'/sms-accounts/send-test', [
-            'account_id' => $account->id,
-            'country_id' => $this->egypt->id,
-            'to' => '0501234567', // Saudi number
-        ]);
-
-        $response->assertStatus(422);
-        Http::assertNothingSent();
-    }
-
-    public function test_send_test_sms_blocked_without_usable_account(): void
-    {
-        Http::fake([
-            'api.twilio.com/*' => Http::response(['sid' => 'SM123'], 201),
-        ]);
-
-        $this->admin($this->permissions());
-
-        // Account never passed its test -> not usable.
-        $untested = $this->account($this->twilioProvider(), ['test_status' => 'never_tested']);
-
-        $this->postJson(self::BASE.'/sms-accounts/send-test', [
-            'account_id' => $untested->id,
-            'country_id' => $this->egypt->id,
-            'to' => '01012345678',
-        ])->assertStatus(422);
-
-        // Provider inactive -> also not usable.
-        $inactive = $this->account(
-            $this->provider('sms_misr', 'Misr Inactive', ['is_active' => false]),
-            ['name' => 'Acc 2', 'is_default' => false],
-        );
-
-        $this->postJson(self::BASE.'/sms-accounts/send-test', [
-            'account_id' => $inactive->id,
-            'country_id' => $this->egypt->id,
-            'to' => '01012345678',
-        ])->assertStatus(422);
-
-        Http::assertNothingSent();
+        $response->assertStatus(403);
     }
 
     /* ------------------------------------------------------------------ *
-     | Availability + dropdown
+     | Provider country mapping
+     * ------------------------------------------------------------------ */
+
+    public function test_provider_country_mapping_query(): void
+    {
+        $this->admin($this->permissions());
+
+        $twilio = $this->twilioConfiguredProvider(['priority' => 1]);
+        $twilio->countries()->attach($this->egypt->id, ['is_active' => true]);
+        $twilio->countries()->attach($this->saudi->id, ['is_active' => true]);
+
+        $misr = $this->smsMisrConfiguredProvider(['priority' => 2]);
+        $misr->countries()->attach($this->egypt->id, ['is_active' => true]);
+
+        $available = app(\Modules\Sms\Services\Sms\SmsProviderService::class)
+            ->activeProvidersForCountry($this->egypt);
+
+        $keys = $available->pluck('key')->all();
+        $this->assertContains('twilio', $keys);
+        $this->assertContains('sms_misr', $keys);
+        $this->assertSame('twilio', $keys[0], 'Twilio has lower priority');
+
+        // Saudi only has Twilio.
+        $saudiProviders = app(\Modules\Sms\Services\Sms\SmsProviderService::class)
+            ->activeProvidersForCountry($this->saudi);
+        $this->assertCount(1, $saudiProviders);
+        $this->assertSame('twilio', $saudiProviders->first()->key);
+    }
+
+    public function test_provider_country_mapping_filters_by_active(): void
+    {
+        $twilio = $this->twilioConfiguredProvider();
+        $twilio->countries()->attach($this->egypt->id, ['is_active' => true]);
+
+        // Inactive country mapping should not count.
+        $twilio->countries()->updateExistingPivot($this->egypt->id, ['is_active' => false]);
+
+        $available = app(\Modules\Sms\Services\Sms\SmsProviderService::class)
+            ->activeProvidersForCountry($this->egypt);
+        $this->assertCount(0, $available);
+    }
+
+    /* ------------------------------------------------------------------ *
+     | Availability (provider-based now)
      * ------------------------------------------------------------------ */
 
     public function test_availability_gating(): void
     {
         $service = SmsAvailabilityService::instance();
 
-        $this->assertFalse($service->isAvailable(), 'No accounts -> unavailable');
+        $this->assertFalse($service->isAvailable(), 'No providers -> unavailable');
 
-        $provider = $this->twilioProvider();
-        $this->account($provider, ['is_active' => true, 'test_status' => 'passed']);
-        $this->assertTrue($service->isAvailable(), 'Active provider + active tested account -> available');
+        $provider = $this->twilioConfiguredProvider();
+        $this->assertTrue($service->isAvailable(), 'Active provider + passed test + config -> available');
 
         $provider->update(['is_active' => false]);
         $this->assertFalse($service->isAvailable(), 'Inactive provider -> unavailable');
 
-        $provider->update(['is_active' => true]);
-        SmsAccount::query()->update(['is_active' => false]);
-        $this->assertFalse($service->isAvailable(), 'Inactive account -> unavailable');
-
-        SmsAccount::query()->update(['is_active' => true, 'test_status' => 'failed']);
+        $provider->update(['is_active' => true, 'test_status' => 'never_tested']);
         $this->assertFalse($service->isAvailable(), 'Failed connection test -> unavailable');
     }
 
-    public function test_dropdown_only_returns_active_accounts_of_active_providers(): void
+    public function test_dropdown_only_returns_active_providers(): void
     {
         $this->admin($this->permissions());
 
-        $twilio = $this->twilioProvider();
-        $good = $this->account($twilio, ['name' => 'Good Account']);
+        $this->twilioConfiguredProvider();
+        $this->provider('sms_misr', 'Misr Inactive', ['is_active' => false]);
 
-        // Provider inactive -> account excluded.
-        $this->account(
-            $this->provider('sms_misr', 'Misr Inactive', ['is_active' => false]),
-            ['name' => 'Bad Account', 'is_default' => false],
-        );
-
-        // Account inactive on an active provider -> also excluded.
-        $this->account(
-            $twilio,
-            ['name' => 'Inactive Acc', 'is_active' => false, 'is_default' => false],
-        );
-
-        $response = $this->getJson(self::BASE.'/sms-accounts/dropdown');
+        $response = $this->getJson(self::BASE.'/sms-providers/dropdown');
         $response->assertOk();
 
         $items = collect($response->json('data'));
-
-        $this->assertTrue($items->contains('id', $good->id));
-        $this->assertCount(1, $items, 'Only usable accounts are returned');
-        $this->assertTrue($items->first()['supports_balance']);
+        $this->assertCount(1, $items);
+        $this->assertSame('twilio', $items->first()['key']);
     }
 }

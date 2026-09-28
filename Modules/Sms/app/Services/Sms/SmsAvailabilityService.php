@@ -2,19 +2,14 @@
 
 namespace Modules\Sms\Services\Sms;
 
-use Modules\Sms\Models\SmsAccount;
+use Illuminate\Support\Facades\Log;
+use Modules\Sms\Models\SmsProvider;
 
 /**
- * SmsAvailabilityService — the single source of truth that decides whether SMS
- * sending may be shown/used anywhere in the CRM.
+ * SmsAvailabilityService — decides whether SMS sending may be shown/used
+ * anywhere in the CRM.
  *
- * SMS is "available" only when ALL of the following hold:
- *   1. At least one SMS Provider exists and is active.
- *   2. That provider has at least one account that is active.
- *   3. That account's connection test passed.
- *
- * The usable account therefore requires: provider.is_active = true AND
- * account.is_active = true AND account.test_status = 'passed'.
+ * SMS is "available" only when an active, configured, tested provider exists.
  *
  * isAvailable() performs NO permission checks — callers combine it with
  * authorization (e.g. "sms send" permission).
@@ -31,41 +26,46 @@ class SmsAvailabilityService
      */
     public function isAvailable(): bool
     {
-        return $this->availableAccount() !== null;
+        return $this->availableProvider() !== null;
     }
 
     /**
-     * True when an active, tested account backed by an active provider exists.
+     * True when an active, configured, tested provider backed by an active
+     * provider exists.
      */
-    public function hasActiveAccount(): bool
+    public function hasActiveProvider(): bool
     {
-        return $this->availableAccount() !== null;
+        return $this->availableProvider() !== null;
     }
 
     /**
-     * The active, tested account whose provider is also active — or null.
-     * Prefers the default account, then the newest.
+     * The active, tested provider whose configuration and test passed —
+     * or null. Prefers lower priority, then newest.
+     *
+     * @return SmsProvider|null
      */
-    public function availableAccount(): ?SmsAccount
+    public function availableProvider(): ?SmsProvider
     {
-        return SmsAccount::query()
+        return SmsProvider::query()
             ->where('is_active', true)
+            ->where('is_available', true)
             ->where('test_status', 'passed')
-            ->whereHas('provider', fn ($q) => $q->where('is_active', true))
-            ->orderBy('is_default', 'desc')
+            ->whereNotNull('configuration')
+            ->orderBy('priority', 'asc')
             ->latest('id')
             ->first();
     }
 
     /**
-     * True when the given account is usable: account active + test passed +
-     * its provider active.
+     * True when the given provider is ready: active + available + test
+     * passed + configuration present.
      */
-    public function accountReady(SmsAccount $account): bool
+    public function providerReady(SmsProvider $provider): bool
     {
-        return $account->is_active
-            && $account->test_status === 'passed'
-            && $account->provider?->is_active === true;
+        return $provider->is_active
+            && $provider->is_available
+            && $provider->test_status === 'passed'
+            && ! empty($provider->configuration_plaintext);
     }
 
     /**

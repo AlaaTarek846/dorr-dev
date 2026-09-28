@@ -36,7 +36,7 @@
     <string name="otp_verify">Verify</string>
     <string name="otp_resend">Resend code</string>
     <string name="otp_resend_in">Resend in %1$d seconds</string>
-    <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 123456</string>
+    <string name="otp_dev_hint">Dev build: the real SMS send isn\'t wired up yet — use 1234</string>
     <string name="otp_error_generic">The verification code is incorrect or expired. Try again.</string>
 
     <string name="home_greeting">Hello, %1$s</string>
@@ -146,7 +146,7 @@
     <string name="profile_otp_hint">Enter the code sent to %1$s. The change is saved after verification.</string>
     <string name="profile_otp_timer">Resend in %1$d seconds</string>
     <string name="profile_otp_resend">Resend code</string>
-    <string name="profile_otp_dev_hint">Demo: code is 123456</string>
+    <string name="profile_otp_dev_hint">Demo: code is 1234</string>
     <string name="profile_otp_confirm">Confirm</string>
     <string name="toast_wrong_code">Incorrect code</string>
     <string name="toast_code_sent">Code sent</string>
@@ -168,6 +168,25 @@
     <string name="account_wallet_pin_sub">Manage the wallet PIN</string>
     <string name="account_language_sub">App UI language</string>
     <string name="account_dark_mode_sub">Dark theme for the app</string>
+    <string name="appearance_title">Appearance</string>
+    <string name="appearance_sub">Colors and night mode</string>
+    <string name="appearance_mode">Mode</string>
+    <string name="appearance_mode_system">System</string>
+    <string name="appearance_mode_light">Light</string>
+    <string name="appearance_mode_dark">Dark</string>
+    <string name="appearance_choose">Choose a color</string>
+    <string name="appearance_primary">Primary color</string>
+    <string name="appearance_secondary">Secondary color</string>
+    <string name="appearance_background">Background color</string>
+    <string name="appearance_text">Text color</string>
+    <string name="appearance_both_modes">These colors are used in light and dark.</string>
+    <string name="appearance_using_defaults">Default colors are on.</string>
+    <string name="appearance_custom">Custom colors are on.</string>
+    <string name="appearance_save">Save colors</string>
+    <string name="appearance_reset">Reset colors</string>
+    <string name="appearance_saved">Saved</string>
+    <string name="appearance_hex_invalid">Enter a color like #E50914</string>
+    <string name="appearance_failed">Could not save. Try again.</string>
     <string name="account_faqs_sub">Quick answers</string>
     <string name="account_contact_us_sub">Phone, WhatsApp and email</string>
     <string name="account_about_sub">Version and information</string>

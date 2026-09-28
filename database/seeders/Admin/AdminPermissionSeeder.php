@@ -97,6 +97,24 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                 ],
             ],
+            'mobile_app_fonts' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'mobile_app_color_defaults' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
             'service_categories' => [
                 'module_name' => 'general_services',
                 'actions' => [
@@ -155,7 +173,22 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                 ],
             ],
+            'chat-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
             'withdrawal-requests' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'approve',
+                    'reject',
+                ],
+            ],
+            'pin-recovery-requests' => [
                 'module_name' => 'general_services',
                 'actions' => [
                     'view',
@@ -199,16 +232,21 @@ class AdminPermissionSeeder extends Seeder
                     'test',
                 ],
             ],
-            'sms-accounts' => [
+            'whatsapp' => [
                 'module_name' => 'general_services',
                 'actions' => [
                     'view',
                     'create',
                     'update',
-                    'delete',
-                    'change-status',
-                    'multiple-delete',
                     'test',
+                ],
+            ],
+            'otp-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                    'send',
                 ],
             ],
         ];

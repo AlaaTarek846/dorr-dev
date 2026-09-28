@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,8 +55,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.CompositionLocalProvider
 import com.dorr.app.R
-import com.dorr.app.network.ApiClient
-import com.dorr.app.network.CreatePinRequest
 import com.dorr.app.network.apiFailure
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
@@ -71,6 +70,14 @@ sealed interface PadResult {
 
     /** Clear silently (moving to the next step). */
     data object Reset : PadResult
+
+    /**
+     * A temporary server-side lock (too many wrong PINs) — the pad itself disappears behind a live
+     * countdown down to [untilEpochMillis] and refuses all input until it ends, so a person can't keep
+     * sending doomed attempts (and, per docs/wallet-tasks.md §10.6, can't accidentally turn a temporary
+     * lock into a permanent freeze by trying again before it is actually over).
+     */
+    data class Locked(val untilEpochMillis: Long) : PadResult
 }
 
 /**
@@ -92,10 +99,27 @@ fun WaPinPad(
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var bad by remember { mutableStateOf(false) }
+    var lockedUntilMillis by remember { mutableStateOf<Long?>(null) }
+    var remainingSeconds by remember { mutableStateOf(0L) }
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
     val night = dark || walletNight()
+
+    // Ticks the countdown while locked; clears itself when time is up — never fires a request on its own.
+    LaunchedEffect(lockedUntilMillis) {
+        val until = lockedUntilMillis ?: return@LaunchedEffect
+        while (true) {
+            val left = (until - System.currentTimeMillis()) / 1000L
+            if (left <= 0) {
+                remainingSeconds = 0
+                lockedUntilMillis = null
+                break
+            }
+            remainingSeconds = left
+            delay(1000)
+        }
+    }
 
     fun complete(pin: String) {
         scope.launch {
@@ -105,7 +129,9 @@ fun WaPinPad(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                PadResult.Error(e.apiFailure().message ?: "")
+                val failure = e.apiFailure()
+                val until = failure.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                if (failure.errorCode == "wallet_pin_locked" && until != null) PadResult.Locked(until) else PadResult.Error(failure.message ?: "")
             }
             busy = false
             when (result) {
@@ -118,6 +144,11 @@ fun WaPinPad(
                     shake.animateTo(0f, tween(60))
                     bad = false
                 }
+                is PadResult.Locked -> {
+                    value = ""
+                    error = ""
+                    lockedUntilMillis = result.untilEpochMillis
+                }
                 PadResult.Reset -> value = ""
                 PadResult.Ok -> Unit
             }
@@ -125,10 +156,15 @@ fun WaPinPad(
     }
 
     fun press(key: String) {
-        if (busy) return
+        if (busy || lockedUntilMillis != null) return
         error = ""
         if (key == "del") value = value.dropLast(1) else if (value.length < 4) value += key
         if (value.length == 4) complete(value)
+    }
+
+    if (lockedUntilMillis != null) {
+        WaPinLockedCountdown(modifier, icon, remainingSeconds)
+        return
     }
 
     Column(
@@ -209,6 +245,39 @@ fun WaPinPad(
     }
 }
 
+/**
+ * Replaces the pad entirely while a temporary lock is in effect — a live mm:ss countdown, no digits,
+ * nothing to press. Goes away on its own once the countdown reaches zero (see the `LaunchedEffect` in
+ * [WaPinPad]); this composable never talks to the network.
+ */
+@Composable
+private fun WaPinLockedCountdown(modifier: Modifier, icon: ImageVector, remainingSeconds: Long) {
+    val minutes = remainingSeconds / 60
+    val seconds = remainingSeconds % 60
+    Column(
+        modifier.fillMaxWidth().fillMaxHeight(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Spacer(Modifier.weight(0.3f))
+        WaIconWell(icon, Tone.Amber, size = 58.dp, iconSize = 28.dp)
+        Spacer(Modifier.height(14.dp))
+        Text(stringResource(R.string.wa_pin_locked_title), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Wa.Ink, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.wa_pin_locked_sub), color = Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 24.dp))
+        Spacer(Modifier.height(18.dp))
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Text(
+                "%02d:%02d".format(minutes, seconds),
+                fontWeight = FontWeight.ExtraBold,
+                fontSize = 40.sp,
+                color = Wa.Red,
+                letterSpacing = 2.sp,
+            )
+        }
+        Spacer(Modifier.weight(0.5f))
+    }
+}
+
 @Composable
 private fun PadKey(key: String, modifier: Modifier = Modifier, dark: Boolean = false, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
@@ -234,50 +303,13 @@ private fun PadKey(key: String, modifier: Modifier = Modifier, dark: Boolean = f
 }
 
 /**
- * One PIN prompt for every protected action, as the pad inside a bottom sheet. Creation is lazy:
- * with no PIN yet the enter + confirm steps replace the verify step right here. [onSubmit] runs
- * the action and says how to react (done / retry with a message / close with a message).
+ * One PIN prompt for every protected action, as the pad inside a bottom sheet. [onSubmit] runs the
+ * action and says how to react (done / retry with a message / close with a message). A PIN is always
+ * created on its own page first (recovery method + PIN), never here.
  */
 @Composable
 fun WaPinSheetContent(sheet: WaSheet.Pin, host: WalletHost) {
-    val enterTitle = stringResource(R.string.wa_pin_enter_title)
-    val createTitle = stringResource(R.string.wa_pin_create_title_sheet)
-    val createSub = stringResource(R.string.wa_pin_create_sub_sheet)
-    val confirmTitle = stringResource(R.string.wa_pin_confirm_title)
-    val confirmSub = stringResource(R.string.wa_pin_confirm_sub)
-    val mismatch = stringResource(R.string.wa_pin_mismatch)
-    val networkError = stringResource(R.string.wa_error_network)
-
-    var step by remember { mutableStateOf(if (sheet.hasPin) "enter" else "create") }
-    var first by remember { mutableStateOf("") }
-
-    val (title, sub) = when (step) {
-        "enter" -> enterTitle to sheet.subtitle
-        "create" -> createTitle to createSub
-        else -> confirmTitle to confirmSub
-    }
-
-    WaPinPad(title = title, sub = sub, onComplete = { pin ->
-        if (step == "create") {
-            first = pin
-            step = "confirm"
-            return@WaPinPad PadResult.Reset
-        }
-        if (step == "confirm") {
-            if (pin != first) {
-                step = "create"
-                return@WaPinPad PadResult.Error(mismatch)
-            }
-            try {
-                ApiClient.wallet.createPin(walletAuth(), CreatePinRequest(pin, pin))
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                step = "create"
-                return@WaPinPad PadResult.Error(e.apiFailure().message ?: networkError)
-            }
-            step = "enter"
-        }
+    WaPinPad(title = stringResource(R.string.wa_pin_enter_title), sub = sheet.subtitle, onComplete = { pin ->
         when (val outcome = sheet.onSubmit(pin)) {
             is PinOutcome.Retry -> PadResult.Error(outcome.message)
             is PinOutcome.Close -> {

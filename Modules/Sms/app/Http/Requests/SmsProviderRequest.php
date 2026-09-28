@@ -20,15 +20,16 @@ class SmsProviderRequest extends FormRequest
     {
         $provider = $this->route('sms_provider');
 
+        $isCreate = $this->isMethod('POST');
+
+        $keys = SmsAdapterRegistry::instance()->keys();
+
         return [
             'name' => ['required', 'string', 'max:150'],
-            'key' => [
-                'required',
-                'string',
-                'max:80',
-                Rule::in(app(SmsAdapterRegistry::class)->keys()),
-                Rule::unique('sms_providers', 'key')->ignore($provider),
-            ],
+            'key' => $isCreate
+                ? ['required', 'string', 'max:80', Rule::in($keys), Rule::unique('sms_providers', 'key')->ignore($provider)]
+                : ['sometimes', 'string', 'max:80', Rule::in($keys), Rule::unique('sms_providers', 'key')->ignore($provider)],
+            'priority' => ['nullable', 'integer', 'min:1'],
             'is_active' => ['nullable', 'boolean'],
             'is_available' => ['nullable', 'boolean'],
             'configuration' => ['nullable', 'array'],

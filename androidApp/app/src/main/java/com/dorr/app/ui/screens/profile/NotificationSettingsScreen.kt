@@ -51,7 +51,9 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.LocalThemeState
+import com.dorr.app.ui.theme.appearanceColor
 
 private data class NotifToggle(val title: Int, val desc: Int, val icon: ImageVector, val startsOn: Boolean)
 
@@ -119,7 +121,7 @@ private fun RedToggle(on: Boolean, dark: Boolean, onClick: () -> Unit) {
             modifier = Modifier
                 .size(width = 42.dp, height = 24.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (on) AppColors.waRed else if (dark) Color(0xFF3A3F48) else Color(0xFFE5E7EB))
+                .background(if (on) settingsAccent() else if (dark) Color(0xFF3A3F48) else Color(0xFFE5E7EB))
                 .clickable(onClick = onClick),
         ) {
             Box(
@@ -139,13 +141,17 @@ private fun RedToggle(on: Boolean, dark: Boolean, onClick: () -> Unit) {
 internal fun settingsNight(): Boolean = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
 
 @Composable
-internal fun settingsInk(): Color = if (settingsNight()) AccountDark.ink else AppColors.textPrimary
+internal fun settingsInk(): Color = if (settingsNight()) AccountDark.ink else appearanceColor("textPrimary", AppColors.textPrimary, night = false)
 
 @Composable
-internal fun settingsMut(): Color = if (settingsNight()) AccountDark.mut else AppColors.textMuted
+internal fun settingsMut(): Color = if (settingsNight()) AccountDark.mut else appearanceColor("textMuted", AppColors.textMuted, night = false)
 
 @Composable
-internal fun settingsAccent(): Color = if (settingsNight()) AccountDark.accent else AppColors.waRed
+internal fun settingsAccent(): Color = if (settingsNight()) {
+    AccountDark.accent
+} else {
+    appearanceColor("primary", AppColors.waRed, night = false)
+}
 
 @Composable
 internal fun Modifier.settingsSurface(shape: RoundedCornerShape, elevation: androidx.compose.ui.unit.Dp = 6.dp): Modifier {
@@ -155,7 +161,7 @@ internal fun Modifier.settingsSurface(shape: RoundedCornerShape, elevation: andr
     } else {
         this.shadow(elevation, shape, ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
             .clip(shape)
-            .background(Color.White)
+            .background(appearanceColor("surface", Color.White, night = false))
     }
 }
 
@@ -205,7 +211,7 @@ internal fun PinkIcon(icon: ImageVector, box: androidx.compose.ui.unit.Dp = 34.d
         modifier = Modifier
             .size(box)
             .clip(RoundedCornerShape(10.dp))
-            .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC)),
+            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
@@ -215,34 +221,27 @@ internal fun PinkIcon(icon: ImageVector, box: androidx.compose.ui.unit.Dp = 34.d
 @Composable
 internal fun PinkBackdrop(modifier: Modifier = Modifier) {
     val dark = settingsNight()
+    val base = if (dark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
+    val glow = if (dark) AccountDark.accent else settingsAccent()
     Canvas(modifier) {
-        if (dark) {
-            drawRect(AccountDark.bg)
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
-                    center = Offset(size.width * 0.5f, size.height * -0.08f),
-                    radius = size.width * 0.85f,
-                ),
-                radius = size.width * 0.85f,
+        drawRect(base)
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
                 center = Offset(size.width * 0.5f, size.height * -0.08f),
-            )
-            return@Canvas
-        }
-        drawRect(Color.White)
-        fun glow(center: Offset, radius: Float, color: Color) {
-            drawCircle(
-                brush = Brush.radialGradient(
-                    colors = listOf(color, color.copy(alpha = 0.55f), Color.Transparent),
-                    center = center,
-                    radius = radius,
-                ),
-                radius = radius,
-                center = center,
-            )
-        }
-        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFEFA8B4))
-        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFF3C4CC))
-        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF0B8C2))
+                radius = size.width * 0.85f,
+            ),
+            radius = size.width * 0.85f,
+            center = Offset(size.width * 0.5f, size.height * -0.08f),
+        )
+        drawCircle(
+            brush = Brush.radialGradient(
+                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
+                center = Offset(size.width * 1.05f, size.height * 0.02f),
+                radius = size.width * 0.55f,
+            ),
+            radius = size.width * 0.55f,
+            center = Offset(size.width * 1.05f, size.height * 0.02f),
+        )
     }
 }
