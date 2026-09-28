@@ -16,6 +16,9 @@ class ChatMessage extends Model implements HasMedia
 
     public const ATTACHMENTS = 'attachments';
 
+    /** A video's poster frame. */
+    public const THUMBNAIL = 'thumbnail';
+
     protected $fillable = [
         'uuid',
         'conversation_id',

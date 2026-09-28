@@ -16,6 +16,7 @@ class ChatPrivacySetting extends Model
         'who_can_message',
         'who_can_add_to_groups',
         'who_can_call',
+        'story_audience',
         'block_screenshots',
         'notification_preview',
         'qr_token',

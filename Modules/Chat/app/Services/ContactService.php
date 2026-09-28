@@ -176,6 +176,30 @@ class ContactService
     }
 
     /**
+     * The country to read *my* address book in: the one my own phone number belongs to (its dial
+     * code) — far more reliable than the request country, which falls back to IP / the default
+     * country when the profile has no country yet (that turned every "010…" into a Saudi number).
+     */
+    public function countryFor(Model $me): ?Country
+    {
+        $phone = (string) ($me->phone ?? '');
+
+        if (str_starts_with($phone, '+')) {
+            $digits = substr($phone, 1);
+            $match = Country::query()->where('status', true)->whereNotNull('dial_code')->get(['id', 'code', 'dial_code', 'phone_length', 'phone_starts_with'])
+                ->filter(fn (Country $c) => ($dial = ltrim((string) $c->dial_code, '+')) !== '' && str_starts_with($digits, $dial))
+                ->sortByDesc(fn (Country $c) => strlen(ltrim((string) $c->dial_code, '+')))
+                ->first();
+
+            if ($match !== null) {
+                return $match;
+            }
+        }
+
+        return currentCountry();
+    }
+
+    /**
      * @param  list<string>  $phones  E.164
      * @return array<string, User>
      */

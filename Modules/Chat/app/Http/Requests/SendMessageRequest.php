@@ -35,6 +35,8 @@ class SendMessageRequest extends FormRequest
             'files' => ['nullable', 'array', 'max:30'],
             'files.*' => ['file', 'max:'.$maxKb, 'mimes:jpeg,jpg,png,webp,gif,heic,heif,mp4,mov,3gp,mkv,webm,mp3,m4a,aac,ogg,oga,opus,wav,amr,flac,pdf,doc,docx,xls,xlsx,ppt,pptx,txt,csv,zip,rar,7z'],
 
+            // A frame of the video, made on the phone (the server has no video decoder).
+            'thumbnail' => ['nullable', 'image', 'max:2048'],
             'duration_ms' => ['nullable', 'integer', 'min:0', 'max:36000000'],
             'waveform' => ['nullable', 'array', 'max:200'],
             'waveform.*' => ['integer', 'min:0', 'max:100'],

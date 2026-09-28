@@ -64,7 +64,12 @@ class ChatPushNotifier
     {
         $body = $this->inEveryLanguage($video ? 'chat.push.incoming_video_call' : 'chat.push.incoming_voice_call');
 
-        $this->send($recipients, ['en' => $callerName], $body, $data + ['type' => 'chat_call']);
+        // The app turns this into a full-screen ringing call (it needs the caller's name itself),
+        // so it must arrive now or never: top priority, and dropped after the ring timeout.
+        $this->send($recipients, ['en' => $callerName], $body, $data + ['type' => 'chat_call', 'caller_name' => $callerName], [
+            'priority' => 10,
+            'ttl' => (int) config('chat.call_ring_timeout_seconds', 45),
+        ]);
     }
 
     /**
@@ -84,13 +89,16 @@ class ChatPushNotifier
      * @param  array<string, string>  $contents
      * @param  array<string, mixed>  $data
      */
-    private function send(Collection $recipients, array $headings, array $contents, array $data): void
+    /**
+     * @param  array<string, mixed>  $options  extra OneSignal fields (priority, ttl…)
+     */
+    private function send(Collection $recipients, array $headings, array $contents, array $data, array $options = []): void
     {
         if ($recipients->isEmpty()) {
             return;
         }
 
-        DB::afterCommit(function () use ($recipients, $headings, $contents, $data) {
+        DB::afterCommit(function () use ($recipients, $headings, $contents, $data, $options) {
             try {
                 $playerIds = NotificationDevice::query()
                     ->where(function ($q) use ($recipients) {
@@ -106,7 +114,7 @@ class ChatPushNotifier
 
                 // OneSignal accepts up to 2000 devices per request.
                 foreach (array_chunk($playerIds, 2000) as $chunk) {
-                    defer(fn () => sendPushNotification(message: $contents, playerIds: $chunk, title: $headings, data: $data));
+                    defer(fn () => sendPushNotification(message: $contents, playerIds: $chunk, title: $headings, data: $data, options: $options));
                 }
             } catch (Throwable $e) {
                 Log::error('[ChatPushNotifier] '.$e->getMessage());

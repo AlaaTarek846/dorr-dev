@@ -194,6 +194,14 @@ class MessageService
             foreach ($copyFrom?->getMedia(ChatMessage::ATTACHMENTS) ?? [] as $media) {
                 $media->copy($message, ChatMessage::ATTACHMENTS);
             }
+            foreach ($copyFrom?->getMedia(ChatMessage::THUMBNAIL) ?? [] as $media) {
+                $media->copy($message, ChatMessage::THUMBNAIL);
+            }
+
+            // The video's poster frame (sent by the app, only meaningful for a video).
+            if (($thumbnail = $data['thumbnail_file'] ?? null) instanceof UploadedFile && $type === MessageType::Video) {
+                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.jpg')->toMediaCollection(ChatMessage::THUMBNAIL);
+            }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
 
@@ -708,6 +716,8 @@ class MessageService
             MessageType::Video => isset($data['duration_ms']) ? ['duration_ms' => (int) $data['duration_ms']] : null,
             MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id']),
             MessageType::WalletQr => $this->walletShare->walletQr($me, $data['country_code'] ?? null),
+            // Built by StoryService::reply() from the real story — never from the client.
+            MessageType::StoryReply => $data['story_meta'] ?? throw new ChatException('story_not_found', 404),
             default => null,
         };
     }

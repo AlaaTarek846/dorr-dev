@@ -6,6 +6,7 @@ use Illuminate\Console\Command;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatPinnedMessage;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Services\StoryService;
 
 /**
  * Makes "gone" really gone on the server:
@@ -27,6 +28,7 @@ class PurgeChatMessages extends Command
             ->chunkById(200, function ($messages) use (&$expired) {
                 foreach ($messages as $message) {
                     $message->clearMediaCollection(ChatMessage::ATTACHMENTS);
+                    $message->clearMediaCollection(ChatMessage::THUMBNAIL);
                     $message->delete();
                     $expired++;
                 }
@@ -39,6 +41,7 @@ class PurgeChatMessages extends Command
             ->chunkById(200, function ($messages) use (&$wiped) {
                 foreach ($messages as $message) {
                     $message->clearMediaCollection(ChatMessage::ATTACHMENTS);
+                    $message->clearMediaCollection(ChatMessage::THUMBNAIL);
                     $message->forceFill(['body' => null, 'meta' => null])->save();
                     $wiped++;
                 }
@@ -46,7 +49,9 @@ class PurgeChatMessages extends Command
 
         $pins = ChatPinnedMessage::query()->whereNotNull('expires_at')->where('expires_at', '<=', now())->delete();
 
-        $this->info("{$expired} disappeared, {$wiped} wiped, {$pins} pins expired.");
+        $stories = app(StoryService::class)->purgeExpired();
+
+        $this->info("{$expired} disappeared, {$wiped} wiped, {$pins} pins expired, {$stories} stories expired.");
 
         return self::SUCCESS;
     }

@@ -145,6 +145,11 @@ fun WalletPinSettings() {
                                     throw e
                                 } catch (e: Exception) {
                                     val failure = e.apiFailure()
+                                    val lockedUntil = failure.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                                    if (failure.errorCode == "wallet_pin_locked" && lockedUntil != null) {
+                                        step = "current"
+                                        return@WaPinPad PadResult.Locked(lockedUntil)
+                                    }
                                     return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
                                 }
                                 if (activity == null) {
@@ -170,6 +175,10 @@ fun WalletPinSettings() {
                                     // A wrong current PIN sends the person back to the start; anything else retries.
                                     step = "current"
                                     val failure = e.apiFailure()
+                                    val lockedUntil = failure.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                                    if (failure.errorCode == "wallet_pin_locked" && lockedUntil != null) {
+                                        return@WaPinPad PadResult.Locked(lockedUntil)
+                                    }
                                     return@WaPinPad PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
                                 }
                                 saved = true

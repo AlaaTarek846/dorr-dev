@@ -188,7 +188,8 @@ fun MessageRow(
         Row(
             Modifier
                 .fillMaxWidth()
-                .offset { androidx.compose.ui.unit.IntOffset((drag.value * sign).roundToInt(), 0) }
+                // `offset` already mirrors in Arabic, so the drag distance goes in as-is (the sign was applied twice).
+                .offset { androidx.compose.ui.unit.IntOffset(drag.value.roundToInt(), 0) }
                 .padding(horizontal = 10.dp),
             horizontalArrangement = if (mine) Arrangement.End else Arrangement.Start,
             verticalAlignment = Alignment.Bottom,
@@ -278,7 +279,7 @@ private fun ReplyQuote(reply: com.dorr.app.network.ReplyPreviewDto, mine: Boolea
             .padding(start = 6.dp, end = 6.dp, top = 6.dp)
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
-            .background(if (mine) Color.White.copy(alpha = 0.16f) else Color(0xFFF4F4F6))
+            .background(if (mine) Color.White.copy(alpha = 0.16f) else Ch.SurfaceMuted)
             .clickable(onClick = onClick)
             .height(IntrinsicSize.Min),
     ) {
@@ -328,7 +329,41 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         "wallet_transfer" -> TransferReceiptCard(dto.meta, m, mine)
         "wallet_qr" -> WalletQrCard(dto.meta, m, mine, actions)
         "call" -> CallLine(dto.meta, m, mine)
+        "story_reply" -> Column {
+            StoryQuote(dto.meta, mine)
+            TextBody(m, mine)
+        }
         else -> TextBody(m, mine)
+    }
+}
+
+/** The story a reply answers: "Status" + a small copy of it (its gradient and text, or its photo). */
+@Composable
+private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
+    val context = LocalContext.current
+    val style = meta?.getAsJsonObject("style")
+    val text = meta?.str("text")
+    val thumb = meta?.str("thumbnail")
+    Row(
+        Modifier.padding(start = 6.dp, end = 6.dp, top = 6.dp).fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp)).background(if (mine) Color.White.copy(alpha = 0.16f) else Ch.SurfaceMuted).height(IntrinsicSize.Min),
+    ) {
+        Box(Modifier.width(4.dp).fillMaxHeight().background(if (mine) Color.White else Ch.Red))
+        Column(Modifier.weight(1f).padding(horizontal = 9.dp, vertical = 7.dp)) {
+            Text(stringResource(R.string.st_status_label), color = if (mine) Color.White else Ch.Red, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold)
+            val (icon, label) = previewOf(meta?.str("story_type") ?: "text", false)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) Icon(icon, null, tint = if (mine) Color.White.copy(alpha = 0.8f) else Ch.Soft, modifier = Modifier.size(14.dp).padding(end = 2.dp))
+                Text(text?.takeIf { it.isNotBlank() } ?: label, color = if (mine) Color.White.copy(alpha = 0.85f) else Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        Box(Modifier.width(44.dp).height(62.dp).background(StoryLook.brush(style?.str("background"))), contentAlignment = Alignment.Center) {
+            if (thumb != null) {
+                AsyncImage(ApiClient.mediaUrl(thumb), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+            } else if (text != null) {
+                Text(text.take(12), color = Color.White, fontSize = 7.sp, fontWeight = FontWeight.Bold, maxLines = 3, modifier = Modifier.padding(3.dp))
+            }
+        }
     }
 }
 
@@ -341,8 +376,18 @@ private fun TextBody(m: UiMessage, mine: Boolean) {
     val onlyEmoji = body.length <= 8 && body.isNotEmpty() && body.all { !it.isLetterOrDigit() && !it.isWhitespace() }
     val context = LocalContext.current
     val linkColor = if (mine) Color.White else Color(0xFF2563EB)
-    val annotated = remember(body, mine) {
+    val mentionNames = dto.mentions.mapNotNull { it.name }.filter { it.isNotBlank() }
+    val mentionColor = if (mine) Color.White else Ch.Red
+    val annotated = remember(body, mine, mentionNames) {
         buildAnnotatedString {
+            // "@Sara" of a real mention: bold, in the brand colour (white on my own red bubble).
+            mentionNames.forEach { name ->
+                var from = body.indexOf("@$name")
+                while (from >= 0) {
+                    addStyle(SpanStyle(color = mentionColor, fontWeight = FontWeight.ExtraBold), from, from + name.length + 1)
+                    from = body.indexOf("@$name", from + 1)
+                }
+            }
             val regex = Regex("(https?://\\S+|www\\.\\S+)")
             var last = 0
             regex.findAll(body).forEach { match ->
@@ -412,16 +457,28 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
                         row.forEach { i ->
                             val ratio = if (count == 1) aspectOf(remote.getOrNull(0)) else 1f
                             Box(
-                                Modifier.weight(1f).aspectRatio(ratio).background(Color(0xFFE5E7EB))
+                                Modifier.weight(1f).aspectRatio(ratio).background(Ch.SurfaceMuted)
                                     .clickable(enabled = remote.isNotEmpty()) { actions.onOpenMedia(dto, i) },
                             ) {
-                                val model: Any? = remote.getOrNull(i)?.let { ApiClient.mediaUrl(it.url) } ?: local.getOrNull(i)?.file
-                                if (!isVideo || local.isEmpty()) {
+                                // Photos: the photo. Videos: their poster (the server's copy, or the one made on this phone).
+                                val model: Any? = if (isVideo) remote.getOrNull(i)?.thumbnail?.let { ApiClient.mediaUrl(it) } ?: m.localThumb
+                                else remote.getOrNull(i)?.let { ApiClient.mediaUrl(it.url) } ?: local.getOrNull(i)?.file
+                                if (model != null) {
                                     AsyncImage(model, null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                                 }
                                 if (isVideo) {
-                                    Box(Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                                    if (m.local != "pending") {
+                                        Box(Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+                                    }
+                                    // Length in the corner, like every messenger.
+                                    val length = dto.meta?.get("duration_ms")?.let { runCatching { it.asLong }.getOrNull() }
+                                    if (length != null && length > 0) {
+                                        Text(
+                                            durationText(length), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                                            modifier = Modifier.align(Alignment.BottomStart).padding(8.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
                                     }
                                 }
                                 if (i == 3 && count > 4) {
@@ -429,7 +486,7 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
                                         Text("+${count - 4}", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
                                     }
                                 }
-                                if (m.local == "pending") UploadRing(Modifier.align(Alignment.Center))
+                                if (m.local == "pending") UploadRing(Modifier.align(Alignment.Center), m.progress)
                             }
                         }
                     }
@@ -452,13 +509,19 @@ private fun aspectOf(a: AttachmentDto?): Float {
 
 /** A spinning arc while a file uploads. */
 @Composable
-private fun UploadRing(modifier: Modifier) {
+private fun UploadRing(modifier: Modifier, progress: Float? = null) {
     val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "upload")
     val angle by t.animateFloat(0f, 360f, androidx.compose.animation.core.infiniteRepeatable(tween(900, easing = androidx.compose.animation.core.LinearEasing)), label = "angle")
-    Box(modifier.size(46.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
+    // Real progress glides between the 2% steps it's reported in.
+    val shown by animateFloatAsState(progress ?: 0f, tween(250), label = "uploadProgress")
+    Box(modifier.size(46.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
         Canvas(Modifier.size(34.dp)) {
-            drawArc(Color.White, angle, 100f, useCenter = false, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round))
+            val stroke = androidx.compose.ui.graphics.drawscope.Stroke(width = 3.dp.toPx(), cap = androidx.compose.ui.graphics.StrokeCap.Round)
+            drawArc(Color.White.copy(alpha = 0.25f), 0f, 360f, useCenter = false, style = stroke)
+            if (progress == null) drawArc(Color.White, angle, 100f, useCenter = false, style = stroke)
+            else drawArc(Color.White, -90f, 360f * shown, useCenter = false, style = stroke)
         }
+        if (progress != null) Text("${(shown * 100).toInt()}", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
@@ -488,7 +551,7 @@ private fun VoiceNote(m: UiMessage, mine: Boolean) {
                 .clickable(enabled = url != null && m.local == null) { url?.let { VoicePlayer.toggle(dto.id, it) } },
             contentAlignment = Alignment.Center,
         ) {
-            if (m.local == "pending") UploadRing(Modifier.size(42.dp))
+            if (m.local == "pending") UploadRing(Modifier.size(42.dp), m.progress)
             else Icon(if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, null, tint = if (mine) Ch.Red else Color.White, modifier = Modifier.size(26.dp))
         }
         Spacer(Modifier.width(8.dp))
@@ -533,13 +596,13 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
     val ext = name.substringAfterLast('.', "").uppercase().take(4)
     Column(Modifier.width(260.dp).padding(6.dp)) {
         Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (mine) Color.White.copy(alpha = 0.16f) else Color(0xFFF4F4F6))
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (mine) Color.White.copy(alpha = 0.16f) else Ch.SurfaceMuted)
                 .clickable(enabled = file != null) { file?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.mediaUrl(it.url)))) } } }
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(if (mine) Color.White else Ch.Red), contentAlignment = Alignment.Center) {
-                if (m.local == "pending") UploadRing(Modifier.size(42.dp))
+                if (m.local == "pending") UploadRing(Modifier.size(42.dp), m.progress)
                 else Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Rounded.Description, null, tint = if (mine) Ch.Red else Color.White, modifier = Modifier.size(20.dp))
                     if (ext.isNotEmpty()) Text(ext, color = if (mine) Ch.Red else Color.White, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold)
@@ -632,7 +695,7 @@ private fun TransferReceiptCard(meta: JsonObject?, m: UiMessage, mine: Boolean) 
         Modifier.width(262.dp).clip(RoundedCornerShape(20.dp)).background(Ch.HeaderBrush).padding(16.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(34.dp).scale(check.value).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(34.dp).scale(check.value).clip(CircleShape).background(Ch.Surface), contentAlignment = Alignment.Center) {
                 Icon(if (reversed) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
             }
             Spacer(Modifier.width(10.dp))
@@ -663,7 +726,7 @@ private fun WalletQrCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions
     val payload = meta?.str("qr_payload").orEmpty()
     val bitmap = remember(payload) { runCatching { qrImage(payload) }.getOrNull() }
     Column(
-        Modifier.width(250.dp).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Color.White),
+        Modifier.width(250.dp).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.fillMaxWidth().background(Ch.HeaderBrush).padding(12.dp)) {
@@ -747,7 +810,7 @@ private fun Reactions(dto: MessageDto, mine: Boolean) {
                 .padding(horizontal = 10.dp)
                 .shadow(4.dp, RoundedCornerShape(14.dp))
                 .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
+                .background(Ch.Surface)
                 .border(1.5.dp, if (dto.reactions.mine != null) Ch.Red.copy(alpha = 0.35f) else Color.White, RoundedCornerShape(14.dp))
                 .padding(horizontal = 7.dp, vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -764,7 +827,7 @@ private fun Reactions(dto: MessageDto, mine: Boolean) {
 fun TypingBubble(label: String?) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).chPopIn(true), verticalAlignment = Alignment.CenterVertically) {
         Row(
-            Modifier.shadow(2.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp)).background(Color.White).padding(horizontal = 16.dp, vertical = 13.dp),
+            Modifier.shadow(2.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(topStart = 6.dp, topEnd = 20.dp, bottomEnd = 20.dp, bottomStart = 20.dp)).background(Ch.Surface).padding(horizontal = 16.dp, vertical = 13.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TypingDots(color = Ch.Red.copy(alpha = 0.8f), dot = 7.dp)

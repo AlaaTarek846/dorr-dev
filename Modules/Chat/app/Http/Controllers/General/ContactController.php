@@ -32,7 +32,7 @@ class ContactController extends Controller
     public function sync(ContactSyncRequest $request)
     {
         $me = $request->user();
-        $registered = $this->contacts->sync($me, $request->validated('contacts'), currentCountry(), $request->boolean('full'));
+        $registered = $this->contacts->sync($me, $request->validated('contacts'), $this->contacts->countryFor($me), $request->boolean('full'));
 
         return ApiResponse::success($registered->map(fn (ChatContact $c) => $this->present($me, $c))->values(), __('api.updated'));
     }
@@ -42,7 +42,7 @@ class ContactController extends Controller
         $data = $request->validate(['name' => ['required', 'string', 'max:150'], 'phone' => ['required', 'string', 'max:40']]);
         $me = $request->user();
 
-        return ApiResponse::created($this->present($me, $this->contacts->add($me, $data['name'], $data['phone'], currentCountry())), __('api.created'));
+        return ApiResponse::created($this->present($me, $this->contacts->add($me, $data['name'], $data['phone'], $this->contacts->countryFor($me))), __('api.created'));
     }
 
     public function update(Request $request, ChatContact $contact)
@@ -67,7 +67,7 @@ class ContactController extends Controller
     {
         $data = $request->validate(['phone' => ['required', 'string', 'max:40']]);
         $me = $request->user();
-        $account = $this->contacts->lookup($me, $data['phone'], currentCountry());
+        $account = $this->contacts->lookup($me, $data['phone'], $this->contacts->countryFor($me));
 
         return ApiResponse::success($this->directory->profile($me, ParticipantType::aliasFor($account), $account->getKey()), __('api.retrieved'));
     }

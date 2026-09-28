@@ -45,6 +45,7 @@ object ChatRealtime {
         "chat.receipt", "chat.reaction", "chat.typing", "chat.presence",
         "chat.conversation.updated", "chat.pins.updated",
         "chat.call.ringing", "chat.call.accepted", "chat.call.declined", "chat.call.left", "chat.call.ended",
+        "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction",
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -68,6 +69,8 @@ object ChatRealtime {
 
         scope.launch {
             val config = runCatching { ApiClient.chat.realtimeConfig("Bearer $token").data }.getOrNull()
+            // The same answer carries the push app id: start notifications and register this phone.
+            ChatPush.ensure(config?.oneSignalAppId)
             if (config == null || !config.enabled || config.key.isNullOrBlank()) {
                 Log.w(TAG, "Real-time is not configured on the server.")
                 return@launch
@@ -126,8 +129,14 @@ object ChatRealtime {
         _connected.value = false
     }
 
+    /** The app is on screen (not just alive in the background) — decides in-app vs notification ringing. */
+    @Volatile
+    var inForeground = false
+        private set
+
     /** App came to the foreground: say "online" now and every minute (the server forgets after 90s). */
     fun onForeground() {
+        inForeground = true
         val token = AuthSession.token ?: return
         heartbeat?.cancel()
         heartbeat = scope.launch {
@@ -141,6 +150,7 @@ object ChatRealtime {
 
     /** App went to the background: "last seen now". */
     fun onBackground() {
+        inForeground = false
         val token = AuthSession.token ?: return
         heartbeat?.cancel()
         heartbeat = null

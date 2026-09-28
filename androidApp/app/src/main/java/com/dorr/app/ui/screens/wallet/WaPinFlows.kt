@@ -1,6 +1,8 @@
 package com.dorr.app.ui.screens.wallet
 
 import android.content.Context
+import android.Manifest
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Matrix
@@ -8,6 +10,7 @@ import android.media.ExifInterface
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.core.content.ContextCompat
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -33,6 +36,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
+import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Cake
 import androidx.compose.material.icons.rounded.Email
@@ -146,15 +150,37 @@ internal suspend fun readPhoto(context: Context, uri: Uri): PickedPhoto? = withC
 
 /** The "tap to choose a photo" card; shows the picture once one is chosen. */
 @Composable
-private fun WaPhotoPicker(photo: PickedPhoto?, onPicked: (PickedPhoto?) -> Unit, onUnreadable: () -> Unit) {
+private fun WaPhotoPicker(photo: PickedPhoto?, onPicked: (PickedPhoto?) -> Unit, onUnreadable: () -> Unit, useCamera: Boolean = false) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+    val galleryLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         if (uri != null) scope.launch {
             val picked = readPhoto(context, uri)
             if (picked == null) onUnreadable() else onPicked(picked)
         }
     }
+    // A selfie has to be taken live, not picked from the gallery — that's the whole point of asking for one.
+    val cameraLauncher = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap ->
+        if (bitmap != null) scope.launch {
+            val picked = withContext(Dispatchers.IO) { bitmapToPhoto(bitmap) }
+            if (picked == null) onUnreadable() else onPicked(picked)
+        }
+    }
+    val cameraPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) cameraLauncher.launch(null)
+    }
+    fun launchPicker() {
+        if (!useCamera) {
+            galleryLauncher.launch("image/*")
+            return
+        }
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            cameraLauncher.launch(null)
+        } else {
+            cameraPermission.launch(Manifest.permission.CAMERA)
+        }
+    }
+
     val shape = RoundedCornerShape(20.dp)
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Box(
@@ -164,23 +190,38 @@ private fun WaPhotoPicker(photo: PickedPhoto?, onPicked: (PickedPhoto?) -> Unit,
                 .clip(shape)
                 .background(Color.White)
                 .border(1.5.dp, if (photo == null) Color(0xFFF3C4CC) else Wa.Line, shape)
-                .clickable { launcher.launch("image/*") },
+                .clickable { launchPicker() },
             contentAlignment = Alignment.Center,
         ) {
             if (photo == null) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(24.dp)) {
-                    WaIconWell(Icons.Rounded.AddPhotoAlternate, Tone.Red, size = 58.dp, iconSize = 28.dp)
+                    WaIconWell(if (useCamera) Icons.Rounded.PhotoCamera else Icons.Rounded.AddPhotoAlternate, Tone.Red, size = 58.dp, iconSize = 28.dp)
                     Spacer(Modifier.height(10.dp))
-                    Text(stringResource(R.string.wa_rec_photo_pick), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Wa.Red)
+                    Text(
+                        stringResource(if (useCamera) R.string.wa_rec_photo_take else R.string.wa_rec_photo_pick),
+                        fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Wa.Red,
+                    )
                 }
             } else {
                 Image(photo.preview, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxWidth().heightIn(max = 260.dp).padding(8.dp))
             }
         }
         if (photo != null) {
-            WaButton(stringResource(R.string.wa_rec_photo_change), { launcher.launch("image/*") }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(top = 6.dp))
+            WaButton(
+                stringResource(if (useCamera) R.string.wa_rec_photo_retake else R.string.wa_rec_photo_change),
+                { launchPicker() },
+                style = WaButtonStyle.Quiet,
+                modifier = Modifier.padding(top = 6.dp),
+            )
         }
     }
+}
+
+/** JPEG-encodes a camera preview [Bitmap] the same way a gallery pick is re-encoded in [readPhoto]. */
+private fun bitmapToPhoto(bitmap: Bitmap): PickedPhoto {
+    val out = ByteArrayOutputStream()
+    bitmap.compress(Bitmap.CompressFormat.JPEG, 88, out)
+    return PickedPhoto(out.toByteArray(), bitmap.asImageBitmap())
 }
 
 // ------------------------------------------------------------------------------- shared pieces
@@ -911,7 +952,7 @@ fun WaFrozenPage(status: PinStatusDto?, onExit: () -> Unit, onLifted: () -> Unit
                 WaPhotoPicker(idPhoto, { idPhoto = it; error = null }, onUnreadable = { error = photoUnreadable })
                 Spacer(Modifier.height(18.dp))
                 Text(stringResource(R.string.wa_frozen_selfie_label), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink, modifier = Modifier.padding(bottom = 8.dp))
-                WaPhotoPicker(selfie, { selfie = it; error = null }, onUnreadable = { error = photoUnreadable })
+                WaPhotoPicker(selfie, { selfie = it; error = null }, onUnreadable = { error = photoUnreadable }, useCamera = true)
             }
         }
     }

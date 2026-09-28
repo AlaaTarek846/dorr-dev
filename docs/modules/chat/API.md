@@ -89,6 +89,22 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | POST | `presence` | `online` | Send it on foreground, then every ~60s. It expires after 90s |
 | CRUD | `folders`, `folders/{id}/conversations` (PUT `conversations[]`) | | Limited by `max_folders` |
 
+## Stories
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `stories` | | `{mine, recent, muted}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first |
+| POST | `stories` | `type` = text\|image\|video, `body`, `style[background]`, `style[font]`, `duration_ms`, `allow_replies`, `file` | Video is limited to `story_video_max_seconds`. Stories expire after `story_duration_hours` |
+| DELETE | `stories/{id}` | | Mine only |
+| POST | `stories/{id}/view` | | Idempotent. When my read receipts are off, the owner isn't told |
+| PUT | `stories/{id}/reaction` | `emoji` | |
+| POST | `stories/{id}/reply` | `body` | Becomes a `story_reply` message in our direct chat, with a snapshot of the story in `meta` |
+| GET | `stories/{id}/viewers` | | Owner only. Returns an empty list when the owner's own read receipts are off |
+| GET / PUT | `stories/privacy` | `audience` = contacts\|except\|only, `except[]`, `only[]` (user ids) | The audience is frozen per story when it's posted |
+| POST | `stories/mute` | `participant_id`, `muted` | Returns the updated feed |
+
+Realtime events: `chat.story.posted`, `chat.story.deleted`, `chat.story.viewed` and `chat.story.reaction` (the last two go to the owner).
+
 ## Calls (LiveKit)
 
 | Method | Path | Notes |

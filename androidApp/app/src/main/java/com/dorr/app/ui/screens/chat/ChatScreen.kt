@@ -15,6 +15,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.runtime.LaunchedEffect
+import com.dorr.app.ui.theme.LocalThemeState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -24,6 +27,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -65,10 +70,33 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
     }
     SideEffect { host.onExit = { currentOnExit() } }
 
+    // Dark mode: the chat's own choice (system / light / dark), "system" following the app theme.
+    val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val mode = com.dorr.app.chat.ChatStore.themeMode
+    SideEffect { Ch.dark = when (mode) { "dark" -> true; "light" -> false; else -> appDark } }
+
+    // A notification tapped for a conversation: open it on top of whatever chat page is showing.
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatPush.deepLink.collect { link ->
+            if (link is com.dorr.app.chat.ChatDeepLink.Conversation) {
+                if ((host.current as? ChRoute.Conversation)?.id != link.id) host.push(ChRoute.Conversation(link.id))
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+        }
+    }
+
     CompositionLocalProvider(LocalChat provides host) {
         Box(Modifier.fillMaxSize().background(Ch.Bg)) {
             BackHandler { host.pop() }
-            ChatPages(host)
+            androidx.compose.runtime.DisposableEffect(Unit) {
+                com.dorr.app.chat.ChatStore.screenOpen = true
+                onDispose { com.dorr.app.chat.ChatStore.screenOpen = false }
+            }
+            // A little room above the home bar: its raised centre button pokes ~8dp up and would
+            // otherwise sit on the composer / the last row.
+            Box(Modifier.fillMaxSize().padding(bottom = 12.dp)) { ChatPages(host) }
+            StoryViewerOverlay()
+            OfflineBanner()
             ChatToast(host)
         }
     }
@@ -98,6 +126,26 @@ private fun ChatPages(host: ChatHost) {
             ChRoute.Privacy -> PrivacyPage()
             ChRoute.Starred -> StarredPage()
             ChRoute.Calls -> CallsPage()
+            is ChRoute.StoryComposer -> StoryComposerPage(route.media)
+            ChRoute.StoryPrivacy -> StoryPrivacyPage()
+        }
+    }
+}
+
+/** No connection: a slim bar slides down — everything saved on the phone stays readable. */
+@Composable
+private fun OfflineBanner() {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val online by com.dorr.app.network.NetworkMonitor.getInstance(context).isOnline.collectAsState()
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        AnimatedVisibility(!online, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
+            Row(
+                Modifier.padding(top = 8.dp).shadow(10.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Ch.Ink).padding(horizontal = 16.dp, vertical = 9.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.CloudOff, null, tint = Ch.Bg, modifier = Modifier.size(16.dp))
+                Text(androidx.compose.ui.res.stringResource(com.dorr.app.R.string.ch_offline), color = Ch.Bg, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+            }
         }
     }
 }

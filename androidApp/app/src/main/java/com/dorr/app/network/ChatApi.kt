@@ -216,6 +216,60 @@ interface ChatApi {
     @POST("mobile/v1/chat/presence")
     suspend fun presence(@Header("Authorization") auth: String, @Body body: Map<String, Boolean>): ApiEnvelope<JsonElement?>
 
+    // ------------------------------------------------------------------ folders
+
+    @GET("mobile/v1/chat/folders")
+    suspend fun folders(@Header("Authorization") auth: String): ApiEnvelope<List<FolderDto>>
+
+    @POST("mobile/v1/chat/folders")
+    suspend fun createFolder(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<FolderDto>
+
+    @PATCH("mobile/v1/chat/folders/{id}")
+    suspend fun renameFolder(@Header("Authorization") auth: String, @Path("id") id: Int, @Body body: Map<String, String>): ApiEnvelope<FolderDto>
+
+    @DELETE("mobile/v1/chat/folders/{id}")
+    suspend fun deleteFolder(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<JsonElement?>
+
+    @PUT("mobile/v1/chat/folders/{id}/conversations")
+    suspend fun folderConversations(@Header("Authorization") auth: String, @Path("id") id: Int, @Body body: Map<String, List<String>>): ApiEnvelope<FolderDto>
+
+    // ------------------------------------------------------------------ stories
+
+    @GET("mobile/v1/chat/stories")
+    suspend fun stories(@Header("Authorization") auth: String): ApiEnvelope<StoryFeedDto>
+
+    @Multipart
+    @POST("mobile/v1/chat/stories")
+    suspend fun postStory(
+        @Header("Authorization") auth: String,
+        @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>,
+        @Part file: MultipartBody.Part?,
+    ): ApiEnvelope<JsonElement?>
+
+    @DELETE("mobile/v1/chat/stories/{id}")
+    suspend fun deleteStory(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    @POST("mobile/v1/chat/stories/{id}/view")
+    suspend fun viewStory(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    @PUT("mobile/v1/chat/stories/{id}/reaction")
+    suspend fun reactStory(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String?>): ApiEnvelope<JsonElement?>
+
+    @POST("mobile/v1/chat/stories/{id}/reply")
+    suspend fun replyStory(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<MessageDto>
+
+    @GET("mobile/v1/chat/stories/{id}/viewers")
+    suspend fun storyViewers(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<StoryViewerDto>>
+
+    @GET("mobile/v1/chat/stories/privacy")
+    suspend fun storyPrivacy(@Header("Authorization") auth: String): ApiEnvelope<StoryPrivacyDto>
+
+    @PUT("mobile/v1/chat/stories/privacy")
+    suspend fun updateStoryPrivacy(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<StoryPrivacyDto>
+
+    @POST("mobile/v1/chat/stories/mute")
+    suspend fun muteStories(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<StoryFeedDto>
+
     // ------------------------------------------------------------------ calls
 
     @GET("mobile/v1/chat/calls")
@@ -247,6 +301,15 @@ data class RealtimeConfigDto(
     val port: Int?,
     @SerializedName("use_tls") val useTls: Boolean,
     @SerializedName("auth_path") val authPath: String,
+    @SerializedName("onesignal_app_id") val oneSignalAppId: String? = null,
+)
+
+data class FolderDto(
+    val id: Int,
+    val name: String,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
+    @SerializedName("conversations_count") val conversationsCount: Int = 0,
+    @SerializedName("conversation_ids") val conversationIds: List<String> = emptyList(),
 )
 
 /** The chat list answer — the envelope plus the requests badge next to `data`. */
@@ -335,6 +398,8 @@ data class AttachmentDto(
     val width: Int?,
     val height: Int?,
     @SerializedName("duration_ms") val durationMs: Long?,
+    /** Videos: the poster frame. */
+    val thumbnail: String? = null,
 )
 
 data class ReplyPreviewDto(
@@ -450,6 +515,41 @@ data class CallDto(
     @SerializedName("duration_seconds") val durationSeconds: Int?,
     @SerializedName("created_at") val createdAt: String?,
 )
+
+data class StoryStyleDto(val background: String? = null, val font: String? = null, val align: String? = null)
+
+data class StoryMediaDto(val url: String, @SerializedName("mime_type") val mimeType: String?)
+
+data class StoryDto(
+    val id: String,
+    val type: String,
+    val body: String?,
+    val style: StoryStyleDto?,
+    val media: StoryMediaDto?,
+    @SerializedName("duration_ms") val durationMs: Long?,
+    @SerializedName("allow_replies") val allowReplies: Boolean,
+    @SerializedName("is_mine") val isMine: Boolean,
+    val seen: Boolean,
+    @SerializedName("my_reaction") val myReaction: String?,
+    val views: Int?,
+    val reactions: Int?,
+    @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("expires_at") val expiresAt: String?,
+)
+
+data class StoryGroupDto(
+    val owner: ProfileDto?,
+    val stories: List<StoryDto>,
+    @SerializedName("all_seen") val allSeen: Boolean,
+    @SerializedName("last_at") val lastAt: String?,
+    @SerializedName("block_screenshots") val blockScreenshots: Boolean = false,
+)
+
+data class StoryFeedDto(val mine: StoryGroupDto?, val recent: List<StoryGroupDto> = emptyList(), val muted: List<StoryGroupDto> = emptyList())
+
+data class StoryViewerDto(val viewer: ProfileDto?, @SerializedName("viewed_at") val viewedAt: String?, val reaction: String?)
+
+data class StoryPrivacyDto(val audience: String, val except: List<ProfileDto> = emptyList(), val only: List<ProfileDto> = emptyList())
 
 data class JoinDto(val url: String, val room: String, val token: String)
 

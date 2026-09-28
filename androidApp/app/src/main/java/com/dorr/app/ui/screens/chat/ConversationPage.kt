@@ -50,6 +50,8 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Search
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Warning
@@ -159,10 +161,31 @@ fun ConversationPage(route: ChRoute.Conversation) {
     val atBottom by remember { derivedStateOf { listState.firstVisibleItemIndex <= 1 } }
     LaunchedEffect(atBottom) {
         state.atBottom = atBottom
-        if (atBottom && state.unseenBelow > 0) {
+        // After a jump to an old message, reaching the bottom loads what came after it.
+        if (atBottom && state.hasMoreAfter) state.loadNewer()
+        if (atBottom && state.unseenBelow > 0 && !state.hasMoreAfter) {
             state.unseenBelow = 0
             state.markRead()
         }
+    }
+
+    // The notification for this chat stays silent while it's on screen.
+    DisposableEffect(route.id) {
+        com.dorr.app.chat.ChatPush.openConversationId = route.id
+        onDispose { if (com.dorr.app.chat.ChatPush.openConversationId == route.id) com.dorr.app.chat.ChatPush.openConversationId = null }
+    }
+
+    // Search inside this conversation.
+    var searching by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<MessageDto>?>(null) }
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.trim().length < 2) {
+            searchResults = null
+            return@LaunchedEffect
+        }
+        kotlinx.coroutines.delay(300)
+        searchResults = runCatching { ApiClient.chat.searchIn(chatAuth(), route.id, searchQuery.trim()).data }.getOrNull().orEmpty()
     }
     // Keep the newest message in view when I send / when I'm already at the bottom.
     LaunchedEffect(state.messages.size) {
@@ -177,14 +200,18 @@ fun ConversationPage(route: ChRoute.Conversation) {
     }
 
     fun jumpTo(messageId: String) {
-        val index = lines.indexOfFirst { it.key == messageId }
-        if (index >= 0) {
-            scope.launch {
-                listState.animateScrollToItem(index)
-                highlight = messageId
-                kotlinx.coroutines.delay(1400)
-                highlight = null
+        scope.launch {
+            var index = lines.indexOfFirst { it.key == messageId }
+            // Not loaded yet (an old search result / pin): load the page around it first.
+            if (index < 0 && state.loadAround(messageId)) {
+                kotlinx.coroutines.delay(60)
+                index = lines.indexOfFirst { it.key == messageId }
             }
+            if (index < 0) return@launch
+            listState.animateScrollToItem(index)
+            highlight = messageId
+            kotlinx.coroutines.delay(1400)
+            highlight = null
         }
     }
 
@@ -215,9 +242,21 @@ fun ConversationPage(route: ChRoute.Conversation) {
 
     val blurred by animateFloatAsState(if (state.focused != null) 14f else 0f, tween(260), label = "blur")
 
+    // A locked chat stays behind the phone's lock (fingerprint / face / PIN) until it's passed.
+    if (c?.isLocked == true && !ChatLock.unlocked) {
+        LockedGate(onUnlocked = {})
+        return
+    }
+
     Box(Modifier.fillMaxSize().background(Ch.Bg)) {
         Column(Modifier.fillMaxSize().imePadding().then(if (blurred > 0.5f && Build.VERSION.SDK_INT >= 31) Modifier.blur(blurred.dp) else Modifier)) {
-            ConversationHeader(c, state)
+            AnimatedContent(targetState = searching, label = "convHeader", transitionSpec = {
+                (fadeIn(tween(220)) + slideInVertically { -it / 3 }) togetherWith (fadeOut(tween(150)) + slideOutVertically { -it / 3 })
+            }) { isSearching ->
+                if (isSearching) ConversationSearchBar(searchQuery, onChange = { searchQuery = it }) { searching = false; searchQuery = "" }
+                else ConversationHeader(c, state, onSearch = { searching = true })
+            }
+            BackHandler(searching) { searching = false; searchQuery = "" }
             PinnedBanner(state) { jumpTo(it) }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -250,6 +289,14 @@ fun ConversationPage(route: ChRoute.Conversation) {
                     }
                 }
 
+                androidx.compose.animation.AnimatedVisibility(searching && searchResults != null, enter = fadeIn(), exit = fadeOut()) {
+                    SearchResults(searchQuery, searchResults.orEmpty()) { id ->
+                        searching = false
+                        searchQuery = ""
+                        jumpTo(id)
+                    }
+                }
+
                 // ↓ with the number of messages that arrived while scrolled up.
                 androidx.compose.animation.AnimatedVisibility(
                     visible = !atBottom,
@@ -259,7 +306,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 ) {
                     Box {
                         Box(
-                            Modifier.size(46.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(Color.White).clickable { scope.launch { listState.animateScrollToItem(0) } },
+                            Modifier.size(46.dp).shadow(10.dp, CircleShape).clip(CircleShape).background(Ch.Surface).clickable { scope.launch { listState.animateScrollToItem(0) } },
                             contentAlignment = Alignment.Center,
                         ) { Icon(Icons.Rounded.KeyboardArrowDown, null, tint = Ch.Red, modifier = Modifier.size(28.dp)) }
                         if (state.unseenBelow > 0) ChBadge(state.unseenBelow, modifier = Modifier.align(Alignment.TopEnd))
@@ -282,7 +329,61 @@ fun ConversationPage(route: ChRoute.Conversation) {
 // ------------------------------------------------------------------------------- header
 
 @Composable
-private fun ConversationHeader(c: ConversationDto?, state: ConversationState) {
+private fun ConversationSearchBar(query: String, onChange: (String) -> Unit, onClose: () -> Unit) {
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Ch.HeaderBrush).padding(horizontal = 10.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        GlassIcon(Icons.Rounded.Close, size = 38.dp, onClick = onClose)
+        Spacer(Modifier.width(8.dp))
+        Row(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(21.dp)).background(Ch.Surface).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Rounded.Search, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f)) {
+                if (query.isEmpty()) Text(stringResource(R.string.ch_search_in_chat), color = Ch.Soft, fontSize = 14.sp)
+                androidx.compose.foundation.text.BasicTextField(
+                    value = query, onValueChange = onChange, singleLine = true,
+                    textStyle = androidx.compose.ui.text.TextStyle(color = Ch.Ink, fontSize = 14.sp, fontFamily = com.dorr.app.ui.theme.CairoFontFamily),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Ch.Red),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                )
+            }
+        }
+    }
+}
+
+/** Search results over the conversation: sender, the text with the match in bold, the date. */
+@Composable
+private fun SearchResults(query: String, results: List<MessageDto>, onPick: (String) -> Unit) {
+    androidx.compose.foundation.lazy.LazyColumn(Modifier.fillMaxSize().background(Ch.Bg.copy(alpha = 0.97f)), contentPadding = PaddingValues(12.dp)) {
+        if (results.isEmpty()) item {
+            Text(stringResource(R.string.ch_no_results), color = Ch.Soft, modifier = Modifier.fillMaxWidth().padding(30.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+        }
+        items(results.size) { i ->
+            val m = results[i]
+            val body = m.body.orEmpty()
+            val at = body.indexOf(query.trim(), ignoreCase = true)
+            val text = androidx.compose.ui.text.buildAnnotatedString {
+                append(body)
+                if (at >= 0) addStyle(androidx.compose.ui.text.SpanStyle(color = Ch.Red, fontWeight = FontWeight.ExtraBold), at, at + query.trim().length)
+            }
+            Column(
+                Modifier.fillMaxWidth().chStagger(i).padding(vertical = 3.dp).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable { onPick(m.id) }.padding(12.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(if (m.sender?.isMe == true) stringResource(R.string.ch_you) else m.sender?.name.orEmpty(), color = Ch.colorFor(m.sender?.key), fontWeight = FontWeight.ExtraBold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text(listTime(m.createdAt), color = Ch.Soft, fontSize = 11.5.sp)
+                }
+                Text(text, color = Ch.Ink, fontSize = 14.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConversationHeader(c: ConversationDto?, state: ConversationState, onSearch: () -> Unit) {
     val host = LocalChat.current
     val peerKey = c?.peer?.key
     val presence = peerKey?.let { host.presence[it] } ?: c?.presence
@@ -326,6 +427,8 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState) {
                     }
                 }
             }
+            GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
+            Spacer(Modifier.width(6.dp))
             if (c != null && !c.isRequest && c.canSend) {
                 Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
                     GlassIcon(Icons.Rounded.Videocam, size = 38.dp) { startCall(state.id, true, c.title.orEmpty(), c.avatar, peerKey) }
@@ -356,7 +459,7 @@ private fun PinnedBanner(state: ConversationState, onJump: (String) -> Unit) {
     AnimatedVisibility(pinned.isNotEmpty(), enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
         val current = pinned.getOrNull(index % pinned.size.coerceAtLeast(1)) ?: return@AnimatedVisibility
         Row(
-            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Color.White)
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp).shadow(6.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Ch.Surface)
                 .clickable {
                     onJump(current.id)
                     index++ // tapping again cycles through the pins
@@ -403,7 +506,7 @@ private fun BottomArea(c: ConversationDto?, state: ConversationState) {
 @Composable
 private fun NoticeBar(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector?, onClick: () -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(12.dp).clip(RoundedCornerShape(18.dp)).background(Color.White).clickable(onClick = onClick).padding(16.dp),
+        Modifier.fillMaxWidth().padding(12.dp).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(16.dp),
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
     ) {
         icon?.let { Icon(it, null, tint = Ch.Red, modifier = Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)) }
@@ -417,7 +520,7 @@ private fun RequestBar(c: ConversationDto, state: ConversationState) {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
     Column(
-        Modifier.fillMaxWidth().padding(12.dp).shadow(10.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(Color.White).padding(18.dp),
+        Modifier.fillMaxWidth().padding(12.dp).shadow(10.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(Ch.Surface).padding(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(stringResource(R.string.ch_request_title, c.title.orEmpty()), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.5.sp)
@@ -427,7 +530,7 @@ private fun RequestBar(c: ConversationDto, state: ConversationState) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
                 Triple(R.string.ch_block, Color(0xFFFEF2F2), Color(0xFFDC2626)),
-                Triple(R.string.ch_reject, Color(0xFFF3F4F6), Ch.Ink),
+                Triple(R.string.ch_reject, Ch.SurfaceMuted, Ch.Ink),
             ).forEach { (label, bg, fg) ->
                 Box(
                     Modifier.clip(RoundedCornerShape(14.dp)).background(bg).clickable {
@@ -515,7 +618,7 @@ private fun MediaViewer(message: MessageDto, start: Int, onClose: () -> Unit) {
 private fun MessageInfoSheet(message: MessageDto, onDismiss: () -> Unit) {
     var info by remember { mutableStateOf<com.dorr.app.network.MessageInfoDto?>(null) }
     LaunchedEffect(message.id) { info = runCatching { ApiClient.chat.info(chatAuth(), message.id).data }.getOrNull() }
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_message_info), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))

@@ -5,7 +5,8 @@ WhatsApp-style messaging. It is a module of its own, like `Modules/Wallet`. The 
 ## Status (2026-09-29)
 - **Backend: done** for conversations, message requests, messages (every type, including wallet cards), ticks, reply, forward, edit, delete, reactions, stars, pins, search, the gallery, disappearing messages, groups and roles, invite links, contacts (sync, number lookup, QR), privacy, blocks, presence, typing, folders, calls (LiveKit), push, and the admin limits.
 - **Android: done** (`androidApp/.../ui/screens/chat`, plus `chat/` for realtime, calls and voice). Opened from the chat button in the Home header, it takes the whole screen like the wallet does.
-- **Not built yet:** Stories (§10.1), chat themes CRUD and reports (admin), the Vue user web chat, and push-notification deep links on Android (the app has no OneSignal SDK yet).
+- **Stories: done** on the backend (`StoryService`, 9 tests in `tests/Feature/ChatStoryTest.php`) and on Android (`StoriesBar`, `StoryViewer`, `StoryComposer`, `StoryPrivacyPage`).
+- **Not built yet:** chat themes CRUD and reports (admin), the Vue user web chat, and push-notification deep links on Android (the app has no OneSignal SDK yet).
 
 ## Android app
 | Path | What |

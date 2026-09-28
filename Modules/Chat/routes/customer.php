@@ -9,6 +9,7 @@ use Modules\Chat\Http\Controllers\General\GroupController;
 use Modules\Chat\Http\Controllers\General\MessageController;
 use Modules\Chat\Http\Controllers\General\PrivacyController;
 use Modules\Chat\Http\Controllers\General\RealtimeConfigController;
+use Modules\Chat\Http\Controllers\General\StoryController;
 
 /*
  * Chat endpoints shared by every kind of participant. Required from inside each audience's own
@@ -95,6 +96,18 @@ Route::prefix('chat')->group(function () {
     Route::patch('folders/{folder}', [FolderController::class, 'update']);
     Route::delete('folders/{folder}', [FolderController::class, 'destroy']);
     Route::put('folders/{folder}/conversations', [FolderController::class, 'conversations']);
+
+    // ------------------------------------------------------------ stories
+    Route::get('stories', [StoryController::class, 'index']);
+    Route::post('stories', [StoryController::class, 'store'])->middleware('throttle:30,1,chat-stories');
+    Route::get('stories/privacy', [StoryController::class, 'privacy']);
+    Route::put('stories/privacy', [StoryController::class, 'updatePrivacy']);
+    Route::post('stories/mute', [StoryController::class, 'mute']);
+    Route::delete('stories/{story}', [StoryController::class, 'destroy']);
+    Route::post('stories/{story}/view', [StoryController::class, 'view']);
+    Route::put('stories/{story}/reaction', [StoryController::class, 'react']);
+    Route::post('stories/{story}/reply', [StoryController::class, 'reply']);
+    Route::get('stories/{story}/viewers', [StoryController::class, 'viewers']);
 
     // ------------------------------------------------------------ calls (LiveKit)
     Route::get('calls', [CallController::class, 'index']);

@@ -1,5 +1,9 @@
 package com.dorr.app.ui.screens.chat
 
+import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -39,7 +43,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -59,6 +67,7 @@ import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChatBubble
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.GroupAdd
@@ -127,6 +136,7 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ConversationDto
+import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.wallet.WaSkeleton
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -148,8 +158,20 @@ fun ChatListPage() {
     var query by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<ConversationDto>?>(null) }
 
+    var addStory by remember { mutableStateOf(false) }
+    var folderFor by remember { mutableStateOf<ConversationDto?>(null) }
+    val storyMedia = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri?.let { host.push(ChRoute.StoryComposer(it.toString())) }
+    }
+
     LaunchedEffect(host.filter) {
         host.refreshList()
+    }
+    LaunchedEffect(Unit) { host.refreshStories() }
+
+    // In the requests box, "back" returns to the chats — it must not close the whole chat.
+    BackHandler(enabled = host.filter in SpecialLists || searching) {
+        if (searching) { searching = false; query = "" } else host.filter = "all"
     }
 
     // Debounced server search (names, numbers and message text).
@@ -181,15 +203,21 @@ fun ChatListPage() {
                     Modifier.fillMaxWidth().padding(start = 10.dp, end = 8.dp, top = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) { if (searching) { searching = false; query = "" } else host.pop() }
+                    GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) {
+                        when {
+                            searching -> { searching = false; query = "" }
+                            host.filter in SpecialLists -> host.filter = "all"
+                            else -> host.pop()
+                        }
+                    }
                     Spacer(Modifier.width(8.dp))
                     AnimatedContent(targetState = searching, label = "search", transitionSpec = {
                         (fadeIn(tween(220)) + expandHorizontally(tween(320))) togetherWith (fadeOut(tween(150)) + shrinkHorizontally(tween(260)))
                     }, modifier = Modifier.weight(1f)) { isSearching ->
                         if (isSearching) {
                             SearchField(query, onChange = { query = it })
-                        } else if (collapsed) {
-                            Text(stringResource(R.string.ch_title), color = Color.White, fontSize = titleSize.sp, fontWeight = FontWeight.ExtraBold)
+                        } else if (collapsed || host.filter in SpecialLists) {
+                            Text(stringResource(when (host.filter) { "requests" -> R.string.ch_requests_banner; "locked" -> R.string.ch_locked_chats; else -> R.string.ch_title }), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
                         } else {
                             Spacer(Modifier.height(1.dp))
                         }
@@ -200,7 +228,7 @@ fun ChatListPage() {
                         ListMenu()
                     }
                 }
-                if (!collapsed && !searching) {
+                if (!collapsed && !searching && host.filter !in SpecialLists) {
                     Column(Modifier.align(Alignment.BottomStart).padding(start = 22.dp, bottom = 16.dp)) {
                         Text(stringResource(R.string.ch_title), color = Color.White, fontSize = titleSize.sp, fontWeight = FontWeight.ExtraBold)
                         val unread = host.conversations.count { it.unreadCount > 0 }
@@ -213,8 +241,8 @@ fun ChatListPage() {
             }
 
             // -------------------------------------------------------------- filters
-            AnimatedVisibility(!searching, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                FilterChips(host.filter) { host.filter = it }
+            AnimatedVisibility(!searching && host.filter !in SpecialLists, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                FilterChips()
             }
 
             // -------------------------------------------------------------- list
@@ -239,19 +267,28 @@ fun ChatListPage() {
                         action = stringResource(R.string.ch_retry),
                         onAction = { scope.launch { host.refreshList() } },
                     )
-                    rows.isEmpty() && host.requestsCount == 0 -> ChEmptyState(
-                        icon = Icons.Rounded.ChatBubble,
-                        title = stringResource(R.string.ch_empty_title),
-                        text = stringResource(R.string.ch_empty_text),
-                        action = stringResource(R.string.ch_start_chat),
-                        onAction = { host.push(ChRoute.NewChat) },
-                        animated = true,
-                    )
+                    rows.isEmpty() && host.requestsCount == 0 -> Column(Modifier.fillMaxSize()) {
+                        // Stories stay reachable even with no chats yet.
+                        if (host.filter == "all" && searchResults == null) StoriesBar(onAdd = { addStory = true })
+                        Box(Modifier.weight(1f)) {
+                            ChEmptyState(
+                                icon = Icons.Rounded.ChatBubble,
+                                title = stringResource(R.string.ch_empty_title),
+                                text = stringResource(R.string.ch_empty_text),
+                                action = stringResource(R.string.ch_start_chat),
+                                onAction = { host.push(ChRoute.NewChat) },
+                                animated = true,
+                            )
+                        }
+                    }
                     else -> LazyColumn(
                         state = listState,
                         contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
                         modifier = Modifier.fillMaxSize(),
                     ) {
+                        if (host.filter == "all" && searchResults == null) {
+                            item(key = "stories") { StoriesBar(onAdd = { addStory = true }) }
+                        }
                         if (host.requestsCount > 0 && searchResults == null && host.filter == "all") {
                             item(key = "requests") {
                                 RequestsBanner(host.requestsCount, Modifier.animateItem()) { host.filter = "requests" }
@@ -259,7 +296,7 @@ fun ChatListPage() {
                         }
                         itemsIndexed(rows, key = { _, c -> c.id }) { index, conversation ->
                             SwipeRow(conversation, Modifier.animateItem(fadeInSpec = tween(260), placementSpec = spring(dampingRatio = 0.8f, stiffness = 380f))) {
-                                ConversationRow(conversation, index) {
+                                ConversationRow(conversation, index, onLongClick = { folderFor = conversation }) {
                                     host.push(ChRoute.Conversation(conversation.id, conversation))
                                 }
                             }
@@ -269,8 +306,16 @@ fun ChatListPage() {
             }
         }
 
-        SpeedDial(Modifier.align(Alignment.BottomEnd).padding(end = 20.dp, bottom = 24.dp))
+        SpeedDial(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 24.dp))
     }
+
+    folderFor?.let { FolderPickerSheet(it) { folderFor = null } }
+
+    if (addStory) StoryAddSheet(
+        onDismiss = { addStory = false },
+        onText = { host.push(ChRoute.StoryComposer()) },
+        onMedia = { storyMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+    )
 }
 
 // ------------------------------------------------------------------------------- header parts
@@ -308,7 +353,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
     Row(
-        Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(21.dp)).background(Color.White).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(21.dp)).background(Ch.Surface).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Rounded.Search, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
@@ -332,14 +377,22 @@ private fun SearchField(value: String, onChange: (String) -> Unit) {
 @Composable
 private fun ListMenu() {
     val host = LocalChat.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     var open by remember { mutableStateOf(false) }
+    var themeSheet by remember { mutableStateOf(false) }
+    if (themeSheet) ThemeSheet { themeSheet = false }
     Box {
         GlassIcon(Icons.Rounded.MoreVert) { open = true }
-        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(18.dp), containerColor = Color.White) {
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(18.dp), containerColor = Ch.Surface) {
             MenuItem(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr)) { open = false; host.push(ChRoute.MyQr) }
             MenuItem(Icons.Rounded.Star, stringResource(R.string.ch_starred_title)) { open = false; host.push(ChRoute.Starred) }
             MenuItem(Icons.Rounded.Call, stringResource(R.string.ch_calls_title)) { open = false; host.push(ChRoute.Calls) }
             MenuItem(Icons.Rounded.Shield, stringResource(R.string.ch_privacy_title)) { open = false; host.push(ChRoute.Privacy) }
+            MenuItem(Icons.Rounded.Lock, stringResource(R.string.ch_locked_chats)) {
+                open = false
+                ChatLock.unlock(context) { host.filter = "locked" }
+            }
+            MenuItem(Icons.Rounded.DarkMode, stringResource(R.string.ch_theme)) { open = false; themeSheet = true }
         }
     }
 }
@@ -355,55 +408,95 @@ internal fun MenuItem(icon: ImageVector, text: String, tint: Color = Ch.Ink, onC
 
 // ------------------------------------------------------------------------------- filters
 
+/** Lists with their own title and a back arrow (not chips). */
+private val SpecialLists = setOf("requests", "locked")
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FilterChips(selected: String, onSelect: (String) -> Unit) {
+private fun FilterChips() {
+    val host = LocalChat.current
+    var creating by remember { mutableStateOf(false) }
+    var managing by remember { mutableStateOf<com.dorr.app.network.FolderDto?>(null) }
+    var renaming by remember { mutableStateOf<com.dorr.app.network.FolderDto?>(null) }
+    LaunchedEffect(Unit) { host.refreshFolders() }
+
     val options = listOf(
         "all" to stringResource(R.string.ch_filter_all),
         "unread" to stringResource(R.string.ch_filter_unread),
         "groups" to stringResource(R.string.ch_filter_groups),
         "archived" to stringResource(R.string.ch_filter_archived),
-    )
-    val density = LocalDensity.current
-    val bounds = remember { mutableStateMapOf<String, Pair<Float, Float>>() }
-    val target = bounds[selected] ?: bounds[options.first().first]
-    val x by animateFloatAsState(target?.first ?: 0f, spring(dampingRatio = 0.72f, stiffness = 420f), label = "pillX")
-    val w by animateFloatAsState(target?.second ?: 0f, spring(dampingRatio = 0.72f, stiffness = 420f), label = "pillW")
+    ) + host.folders.map { "folder:${it.id}" to it.name }
 
-    Box(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
-        if (w > 0f) {
+    // Each chip owns its look: red gradient + white text when selected, white + grey text otherwise,
+    // cross-fading with a small spring "pop" — no measured sliding pill that can drift out of place.
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        options.forEach { (key, label) ->
+            val active = key == host.filter
+            val fill by animateFloatAsState(if (active) 1f else 0f, tween(260), label = "chipFill")
+            val pop by animateFloatAsState(if (active) 1f else 0.96f, spring(dampingRatio = 0.45f, stiffness = 500f), label = "chipPop")
+            val textColor by animateColorAsState(if (active) Color.White else Ch.Mut, tween(260), label = "chipText")
+            val folder = host.folders.firstOrNull { "folder:${it.id}" == key }
             Box(
                 Modifier
-                    .offset(x = with(density) { x.toDp() })
-                    .width(with(density) { w.toDp() })
-                    .height(36.dp)
-                    .shadow(8.dp, RoundedCornerShape(18.dp), spotColor = Ch.Red.copy(alpha = 0.35f))
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Brush.horizontalGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812)))),
-            )
+                    .scale(pop)
+                    .height(38.dp)
+                    .shadow(if (active) 8.dp else 1.dp, RoundedCornerShape(19.dp), spotColor = if (active) Ch.Red.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.08f))
+                    .clip(RoundedCornerShape(19.dp))
+                    .background(Ch.Surface)
+                    .background(Brush.horizontalGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812))), alpha = fill)
+                    .combinedClickable(onClick = { host.filter = key }, onLongClick = { if (folder != null) managing = folder })
+                    .padding(horizontal = 18.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(label, color = textColor, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+            }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            options.forEach { (key, label) ->
-                val active = key == selected
-                val color by animateColorAsState(if (active) Color.White else Ch.Mut, tween(260), label = "chip")
-                Box(
-                    Modifier
-                        .height(36.dp)
-                        .clip(RoundedCornerShape(18.dp))
-                        .background(if (bounds.isEmpty() && active) Ch.Red else if (active) Color.Transparent else Color.White)
-                        .clickable { onSelect(key) }
-                        .onGloballyPositioned { bounds[key] = it.positionInParent().x to it.size.width.toFloat() }
-                        .padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(label, color = color, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+        // "+" → a new folder.
+        Box(
+            Modifier.size(38.dp).shadow(1.dp, CircleShape).clip(CircleShape).background(Ch.Surface).clickable { creating = true },
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(20.dp)) }
+    }
+
+    if (creating) TextInputSheet(stringResource(R.string.ch_new_folder), action = stringResource(R.string.ch_save), onDismiss = { creating = false }) { name ->
+        host.scope.launch {
+            runCatching { ApiClient.chat.createFolder(chatAuth(), mapOf("name" to name)).data }
+                .onSuccess { f -> f?.let { host.folders.add(it); host.filter = "folder:${it.id}" } }
+                .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+        }
+    }
+    managing?.let { f ->
+        ChoiceSheet(
+            title = f.name,
+            options = listOf(
+                stringResource(R.string.ch_rename_folder) to { renaming = f },
+                stringResource(R.string.ch_delete_folder) to {
+                    host.scope.launch {
+                        runCatching { ApiClient.chat.deleteFolder(chatAuth(), f.id) }
+                        host.folders.removeAll { it.id == f.id }
+                        if (host.filter == "folder:${f.id}") host.filter = "all"
+                    }
+                    Unit
+                },
+            ),
+            onDismiss = { managing = null },
+        )
+    }
+    renaming?.let { f ->
+        TextInputSheet(stringResource(R.string.ch_rename_folder), initial = f.name, action = stringResource(R.string.ch_save), onDismiss = { renaming = null }) { name ->
+            host.scope.launch {
+                runCatching { ApiClient.chat.renameFolder(chatAuth(), f.id, mapOf("name" to name)).data }.getOrNull()?.let { updated ->
+                    val index = host.folders.indexOfFirst { it.id == updated.id }
+                    if (index >= 0) host.folders[index] = updated.copy(conversationIds = f.conversationIds)
                 }
             }
         }
     }
 }
-
-private fun androidx.compose.ui.layout.LayoutCoordinates.positionInParent(): Offset =
-    parentLayoutCoordinates?.localPositionOf(this, Offset.Zero) ?: Offset.Zero
 
 // ------------------------------------------------------------------------------- rows
 
@@ -414,7 +507,7 @@ private fun RequestsBanner(count: Int, modifier: Modifier, onClick: () -> Unit) 
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(20.dp))
-            .background(Brush.horizontalGradient(listOf(Color(0xFFFFF1F2), Color(0xFFFFE4E6))))
+            .background(Ch.TintBrush)
             .clickable(onClick = onClick)
             .padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -465,6 +558,8 @@ private fun SwipeRow(conversation: ConversationDto, modifier: Modifier, content:
         modifier = modifier,
         backgroundContent = {
             val direction = state.dismissDirection
+            // Only while actually swiping — otherwise nothing is drawn behind the row.
+            if (direction == SwipeToDismissBoxValue.Settled) return@SwipeToDismissBox
             val pin = direction == SwipeToDismissBoxValue.StartToEnd
             val bg by animateColorAsState(if (pin) Color(0xFFF59E0B) else Color(0xFF6B7280), label = "swipeBg")
             val iconScale by animateFloatAsState(if (state.progress > 0.25f && state.progress < 1f) 1.15f else 0.8f, spring(dampingRatio = 0.4f), label = "swipeIcon")
@@ -485,8 +580,10 @@ private fun SwipeRow(conversation: ConversationDto, modifier: Modifier, content:
 }
 
 @Composable
-private fun ConversationRow(c: ConversationDto, index: Int, onClick: () -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
     val host = LocalChat.current
+    val haptic = LocalHapticFeedback.current
     val peerKey = c.peer?.key
     val online = peerKey != null && (host.presence[peerKey]?.online ?: false)
     val activity = host.activity(c.id)
@@ -498,8 +595,9 @@ private fun ConversationRow(c: ConversationDto, index: Int, onClick: () -> Unit)
             .chStagger(index)
             .padding(horizontal = 14.dp, vertical = 3.dp)
             .clip(RoundedCornerShape(22.dp))
-            .background(if (unread) Color.White else Color.White.copy(alpha = 0.72f))
-            .clickable(onClick = onClick)
+            // Opaque on purpose: the swipe actions live behind the row.
+            .background(Ch.Surface)
+            .combinedClickable(onClick = onClick, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() })
             .padding(horizontal = 12.dp, vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -702,11 +800,11 @@ private fun SpeedDial(modifier: Modifier) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         stringResource(label), color = Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.shadow(6.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(horizontal = 12.dp, vertical = 7.dp),
+                        modifier = Modifier.shadow(6.dp, RoundedCornerShape(12.dp)).clip(RoundedCornerShape(12.dp)).background(Ch.Surface).padding(horizontal = 12.dp, vertical = 7.dp),
                     )
                     Spacer(Modifier.width(10.dp))
                     Box(
-                        Modifier.size(46.dp).shadow(10.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.4f)).clip(CircleShape).background(Color.White)
+                        Modifier.size(46.dp).shadow(10.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.4f)).clip(CircleShape).background(Ch.Surface)
                             .clickable { open = false; host.push(route) },
                         contentAlignment = Alignment.Center,
                     ) { Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(22.dp)) }

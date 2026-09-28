@@ -221,6 +221,12 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                                 attempt++
                                 return PadResult.Reset
                             }
+                            // A temporary lock: show the countdown, refuse any more attempts until it
+                            // ends on its own — never keep asking the server during the wait.
+                            val lockedUntil = failure.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                            if (failure.errorCode == "wallet_pin_locked" && lockedUntil != null) {
+                                return PadResult.Locked(lockedUntil)
+                            }
                             return PadResult.Error(if (failure.httpStatus == null) networkError else failure.message ?: networkError)
                         }
                         when {

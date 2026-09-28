@@ -84,6 +84,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -151,13 +152,23 @@ fun Composer(state: ConversationState) {
         if (!granted) host.showToast(micDenied)
     }
 
+    // @mentions: participant id → the name inserted for them.
+    val mentioned = remember(state.id) { mutableStateMapOf<Int, String>() }
+    val isGroup = state.conversation?.isGroup == true
+    // The word being typed right now, when it starts with "@" (null otherwise).
+    val mentionQuery = if (isGroup) Regex("(?:^|\\s)@([^\\s@]{0,30})$").find(text)?.groupValues?.get(1) else null
+    LaunchedEffect(mentionQuery != null) { if (mentionQuery != null) state.loadMembers() }
+
     fun send() {
         val body = text.trim()
         if (body.isEmpty()) return
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         val editing = state.editing
-        if (editing != null) state.edit(editing, body) else state.send(Outgoing("text", body))
+        val mentions = mentioned.filter { (_, name) -> body.contains("@$name") }.keys.toList()
+        if (editing != null) state.edit(editing, body)
+        else state.send(Outgoing("text", body, extra = if (mentions.isNotEmpty()) mapOf("mentions" to mentions) else emptyMap()))
         text = ""
+        mentioned.clear()
     }
 
     fun finishVoice() {
@@ -168,6 +179,34 @@ fun Composer(state: ConversationState) {
     }
 
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        // --------------------------------------------------------------- @mention suggestions
+        val suggestions = if (mentionQuery == null) emptyList() else state.members
+            .filter { it.profile?.isMe != true && (mentionQuery.isEmpty() || it.profile?.name.orEmpty().contains(mentionQuery, ignoreCase = true)) }
+            .take(6)
+        AnimatedVisibility(suggestions.isNotEmpty(), enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp).shadow(10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).padding(vertical = 6.dp),
+            ) {
+                suggestions.forEachIndexed { i, member ->
+                    val name = member.profile?.name.orEmpty()
+                    Row(
+                        Modifier.fillMaxWidth().chStagger(i).clickable {
+                            // Replace "@partial" with "@Full Name ".
+                            text = text.replace(Regex("@([^\\s@]{0,30})$"), "@$name ")
+                            mentioned[member.participantId] = name
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ChAvatar(member.profile?.avatar, name, member.profile?.key, size = 34.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
+                        if (member.role != "member") Text(stringResource(if (member.role == "owner") R.string.ch_owner else R.string.ch_admin), color = Ch.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
         // --------------------------------------------------------------- reply / edit preview
         AnimatedVisibility(state.replyTo != null || state.editing != null, enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
             val target = state.editing ?: state.replyTo
@@ -189,7 +228,7 @@ fun Composer(state: ConversationState) {
                     } else {
                         Row(
                             Modifier.fillMaxWidth().heightIn(min = 50.dp).shadow(6.dp, RoundedCornerShape(25.dp), spotColor = Color.Black.copy(alpha = 0.15f))
-                                .clip(RoundedCornerShape(25.dp)).background(Color.White).padding(horizontal = 6.dp),
+                                .clip(RoundedCornerShape(25.dp)).background(Ch.Surface).padding(horizontal = 6.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             val rotation by animateFloatAsState(if (attachOpen) 45f else 0f, spring(dampingRatio = 0.45f), label = "attach")
@@ -232,7 +271,7 @@ fun Composer(state: ConversationState) {
                 androidx.compose.animation.AnimatedVisibility(recorder.recording && !locked, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut(), modifier = Modifier.offset(y = (-70).dp)) {
                     val lift = (-dragY / lockAt).coerceIn(0f, 1f)
                     Column(
-                        Modifier.offset(y = (-lift * 24).dp).shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Color.White).padding(horizontal = 8.dp, vertical = 10.dp),
+                        Modifier.offset(y = (-lift * 24).dp).shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).padding(horizontal = 8.dp, vertical = 10.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
                         Icon(Icons.Rounded.Lock, null, tint = if (lift > 0.9f) Ch.Red else Ch.Mut, modifier = Modifier.size(20.dp))
@@ -328,7 +367,7 @@ fun Composer(state: ConversationState) {
 private fun ContextBar(target: MessageDto, isEdit: Boolean, onClose: () -> Unit) {
     val accent = if (isEdit) Ch.Red else Ch.colorFor(target.sender?.key)
     Row(
-        Modifier.fillMaxWidth().padding(bottom = 6.dp).shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color.White).height(IntrinsicSize.Min),
+        Modifier.fillMaxWidth().padding(bottom = 6.dp).shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).height(IntrinsicSize.Min),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.width(5.dp).fillMaxHeight().background(accent))
@@ -357,7 +396,7 @@ private fun RecordingBar(recorder: VoiceRecorder, dragX: Float, locked: Boolean,
     val density = LocalDensity.current
 
     Row(
-        Modifier.fillMaxWidth().height(50.dp).shadow(6.dp, RoundedCornerShape(25.dp)).clip(RoundedCornerShape(25.dp)).background(Color.White).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().height(50.dp).shadow(6.dp, RoundedCornerShape(25.dp)).clip(RoundedCornerShape(25.dp)).background(Ch.Surface).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (locked) {
@@ -408,11 +447,22 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
         onDismiss()
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        val files = uris.mapNotNull { copyToCache(context, it, "media") }
-        // Photos travel together as one album; each video is its own message.
-        val (videos, images) = files.partition { it.mime.startsWith("video/") }
-        if (images.isNotEmpty()) state.send(Outgoing("image", files = images))
-        videos.forEach { state.send(Outgoing("video", files = listOf(it))) }
+        // Copy + shrink off the main thread (on the chat's scope — this sheet is already closing).
+        host.scope.launch {
+            val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                uris.mapNotNull { copyToCache(context, it, "media") }.map { compressImage(context, it) }
+            }
+            // Photos travel together as one album; each video is its own message.
+            val (videos, images) = files.partition { it.mime.startsWith("video/") }
+            if (images.isNotEmpty()) state.send(Outgoing("image", files = images))
+            videos.forEach { video ->
+                // Poster + length now, so the bubble shows a picture and a duration at once.
+                val (poster, info) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.dorr.app.chat.VideoTools.poster(context, video.file) to com.dorr.app.chat.VideoTools.info(context, video.file)
+                }
+                state.send(Outgoing("video", files = listOf(video), extra = info?.durationMs?.let { mapOf("duration_ms" to it) } ?: emptyMap(), thumbnail = poster))
+            }
+        }
     }
     val document = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         onDismiss()
@@ -456,7 +506,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         },
     )
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
             items.chunked(3).forEachIndexed { row, chunk ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -495,7 +545,7 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
         list = runCatching { ApiClient.wallet.transactions(chatAuth(), page = 1, perPage = 30, direction = "debit").data }.getOrNull()
             .orEmpty().filter { it.type == "transfer_out" }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_pick_transfer), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))
@@ -506,7 +556,7 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
                 else -> LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(items, key = { it.uuid }) { tx ->
                         Row(
-                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFFFAF7F6)).clickable { onPick(tx) }.padding(12.dp),
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).clickable { onPick(tx) }.padding(12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {

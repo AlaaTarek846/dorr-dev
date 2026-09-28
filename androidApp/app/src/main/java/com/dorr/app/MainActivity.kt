@@ -70,7 +70,8 @@ class MainActivity : FragmentActivity() {
                                 DorrNavGraph()
 
                                 AnimatedVisibility(
-                                    visible = !isOnline,
+                                    // The chat reads its saved messages offline (and shows its own banner).
+                                    visible = !isOnline && !com.dorr.app.chat.ChatStore.screenOpen,
                                     enter = fadeIn(animationSpec = tween(300)),
                                     exit = fadeOut(animationSpec = tween(300)),
                                 ) {

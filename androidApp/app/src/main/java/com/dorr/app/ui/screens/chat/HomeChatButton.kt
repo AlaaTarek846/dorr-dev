@@ -72,7 +72,7 @@ fun HomeChatButton(onClick: () -> Unit) {
             exit = scaleOut() + fadeOut(),
             modifier = Modifier.align(Alignment.TopEnd).offset(x = 6.dp, y = (-6).dp),
         ) {
-            ChBadge(unread, modifier = Modifier.size(18.dp))
+            ChBadge(unread)
         }
     }
 }

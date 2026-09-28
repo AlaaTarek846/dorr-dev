@@ -48,6 +48,24 @@ object CallController {
 
     var phase by mutableStateOf<CallPhase?>(null)
         private set
+
+    /**
+     * Every phase change goes through here, so the sounds follow the call: the ringtone while it
+     * rings in the open app, the ring-back tone while I'm calling, silence otherwise — and the
+     * ringing notification disappears as soon as the call is answered, declined or over.
+     */
+    private fun updatePhase(next: CallPhase?) {
+        phase = next
+        val ctx = appContext ?: return
+        when (next) {
+            CallPhase.Incoming -> if (ChatRealtime.inForeground) Ringer.startIncoming(ctx)
+            CallPhase.Outgoing -> Ringer.startRingback()
+            else -> {
+                Ringer.stop()
+                CallNotifications.cancel(ctx)
+            }
+        }
+    }
     var call by mutableStateOf<CallDto?>(null)
         private set
     /** Who the call is with (the other person, or the group). */
@@ -95,13 +113,13 @@ object CallController {
         speakerOn = video
         micOn = true
         error = null
-        phase = CallPhase.Outgoing
+        updatePhase(CallPhase.Outgoing)
         scope.launch {
             try {
                 val session = ApiClient.chat.startCall(auth(), conversationId, mapOf("type" to if (video) "video" else "audio")).data ?: error("no session")
                 call = session.call
                 // A group call already running: we joined it straight away.
-                if (session.call.status == "ongoing") phase = CallPhase.Connecting
+                if (session.call.status == "ongoing") updatePhase(CallPhase.Connecting)
                 session.join?.let { connect(it) }
             } catch (e: Exception) {
                 error = e.apiFailure().message
@@ -110,9 +128,52 @@ object CallController {
         }
     }
 
+    /**
+     * Opened from a call notification (the app was closed, so the real-time "ringing" was missed):
+     * if the call still rings, show the incoming screen for it.
+     */
+    /** The call is over on the other side (caller hung up / ring timed out) — close the ringing page. */
+    fun onRemoteEnded(callId: String) {
+        if (call?.id == callId && phase != null && phase != CallPhase.Ended) scope.launch { end(localOnly = true) }
+    }
+
+    /** From the ringing notification: load it and, for "Answer", pick up straight away (when the mic is allowed). */
+    fun loadIncoming(callId: String, autoAnswer: Boolean) {
+        loadIncoming(callId)
+        if (!autoAnswer) return
+        scope.launch {
+            // Wait for the call to load, then answer.
+            repeat(50) {
+                if (phase == CallPhase.Incoming && call?.id == callId) {
+                    val ctx = appContext ?: return@launch
+                    if (androidx.core.content.ContextCompat.checkSelfPermission(ctx, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) accept()
+                    return@launch
+                }
+                delay(100)
+            }
+        }
+    }
+
+    fun loadIncoming(callId: String) {
+        if (phase != null && phase != CallPhase.Ended) return
+        scope.launch {
+            val dto = runCatching { ApiClient.chat.call(auth(), callId).data }.getOrNull() ?: return@launch
+            if (dto.status != "ringing" || dto.isOutgoing) return@launch
+            call = dto
+            isVideo = dto.type == "video"
+            cameraOn = isVideo
+            speakerOn = isVideo
+            micOn = true
+            title = if (dto.conversationType == "group") dto.groupName.orEmpty() else dto.initiator?.name.orEmpty()
+            avatar = dto.initiator?.avatar
+            peerKey = dto.initiator?.key
+            updatePhase(CallPhase.Incoming)
+        }
+    }
+
     fun accept() {
         val current = call ?: return
-        phase = CallPhase.Connecting
+        updatePhase(CallPhase.Connecting)
         scope.launch {
             try {
                 val session = ApiClient.chat.acceptCall(auth(), current.id).data ?: error("no session")
@@ -183,7 +244,7 @@ object CallController {
             applySpeaker()
             // The caller is in the room already but still "Calling…" until someone answers.
             if (phase != CallPhase.Outgoing) {
-                phase = CallPhase.Active
+                updatePhase(CallPhase.Active)
                 connectedAt = System.currentTimeMillis()
             }
             refreshVideos()
@@ -221,7 +282,7 @@ object CallController {
     }
 
     private fun end(localOnly: Boolean) {
-        phase = CallPhase.Ended
+        updatePhase(CallPhase.Ended)
         roomJob?.cancel()
         runCatching { room?.disconnect() }
         runCatching { room?.release() }
@@ -231,7 +292,7 @@ object CallController {
         scope.launch {
             delay(1400) // show "call ended" for a moment
             if (phase == CallPhase.Ended) {
-                phase = null
+                updatePhase(null)
                 call = null
             }
         }
@@ -254,10 +315,10 @@ object CallController {
                 title = if (dto.conversationType == "group") dto.groupName.orEmpty() else caller?.name ?: dto.initiator?.name.orEmpty()
                 avatar = caller?.avatar
                 peerKey = caller?.key
-                phase = CallPhase.Incoming
+                updatePhase(CallPhase.Incoming)
             }
             "chat.call.accepted" -> if (call?.id == data.get("call_id")?.asString && (phase == CallPhase.Outgoing || phase == CallPhase.Connecting)) {
-                phase = CallPhase.Active
+                updatePhase(CallPhase.Active)
                 if (connectedAt == null) connectedAt = System.currentTimeMillis()
             }
             "chat.call.ended", "chat.call.declined" -> {

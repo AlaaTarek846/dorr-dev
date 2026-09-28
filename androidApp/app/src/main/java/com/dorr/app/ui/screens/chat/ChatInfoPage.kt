@@ -38,6 +38,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
@@ -97,6 +98,7 @@ fun ChatInfoPage(id: String) {
     val listState = rememberLazyListState()
     val linkCopied = stringResource(R.string.ch_link_copied)
     val startCall = rememberCallStarter()
+    var editing by remember { mutableStateOf(false) }
 
     suspend fun reload() {
         c = runCatching { ApiClient.chat.conversation(chatAuth(), id).data }.getOrNull() ?: c
@@ -126,7 +128,14 @@ fun ChatInfoPage(id: String) {
                             ChAvatar(conversation?.avatar, conversation?.title, conversation?.peer?.key ?: id, size = 112.dp, isGroup = conversation?.isGroup == true, ring = true)
                         }
                         Spacer(Modifier.height(12.dp))
-                        Text(conversation?.title.orEmpty(), color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(conversation?.title.orEmpty(), color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+                            val g = conversation?.group
+                            if (g != null && conversation.isMember && (conversation.isAdmin || !g.onlyAdminsEditInfo)) {
+                                Spacer(Modifier.width(8.dp))
+                                GlassIcon(Icons.Rounded.Edit, size = 34.dp) { editing = true }
+                            }
+                        }
                         Text(
                             if (conversation?.isGroup == true) stringResource(R.string.ch_members, conversation.group?.membersCount ?: 0) else conversation?.peer?.phone.orEmpty(),
                             color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp,
@@ -168,8 +177,8 @@ fun ChatInfoPage(id: String) {
                                 items.flatMap { m -> m.attachments.map { m to it } }.take(12).chunked(3).forEach { row ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         row.forEach { (m, a) ->
-                                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Color(0xFFE5E7EB))) {
-                                                AsyncImage(ApiClient.mediaUrl(a.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted)) {
+                                                AsyncImage(ApiClient.mediaUrl(if (m.type == "video") a.thumbnail ?: a.url else a.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                                                 if (m.type == "video") Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(30.dp))
                                             }
                                         }
@@ -225,7 +234,7 @@ fun ChatInfoPage(id: String) {
                 }
                 itemsIndexed(members, key = { _, m -> m.participantId }) { i, m ->
                     Row(
-                        Modifier.fillMaxWidth().chStagger(i).padding(horizontal = 14.dp, vertical = 2.dp).clip(RoundedCornerShape(18.dp)).background(Color.White)
+                        Modifier.fillMaxWidth().chStagger(i).padding(horizontal = 14.dp, vertical = 2.dp).clip(RoundedCornerShape(18.dp)).background(Ch.Surface)
                             .clickable(enabled = conversation.isAdmin && m.profile?.isMe != true && m.role != "owner") { memberSheet = m }
                             .padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
@@ -264,6 +273,12 @@ fun ChatInfoPage(id: String) {
     }
 
     // ------------------------------------------------------------ sheets
+    if (editing) c?.let { current ->
+        GroupEditSheet(current, onDismiss = { editing = false }) { saved ->
+            c = saved
+            host.upsert(saved)
+        }
+    }
     when (sheet) {
         "mute" -> ChoiceSheet(stringResource(R.string.ch_mute_notifications), listOf(
             stringResource(R.string.ch_mute_8h) to { update(mapOf("mute" to "8h")); Unit },
@@ -347,7 +362,7 @@ private fun QuickAction(icon: ImageVector, label: String, index: Int, onClick: (
 
 @Composable
 internal fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.08f)).clip(RoundedCornerShape(22.dp)).background(Color.White)) { content() }
+    Column(modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color.Black.copy(alpha = 0.08f)).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)) { content() }
 }
 
 @Composable

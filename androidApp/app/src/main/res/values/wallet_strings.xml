@@ -239,4 +239,8 @@
     <string name="wa_biometric_unlock_failed">Fingerprint unlock failed. Enter your PIN instead.</string>
     <string name="wa_device_trust_title">New device</string>
     <string name="wa_device_trust_sub">We sent a 4-digit code to the phone on your account. Enter it to trust this device.</string>
+    <string name="wa_pin_locked_title">Wallet temporarily locked</string>
+    <string name="wa_pin_locked_sub">Too many wrong attempts. You can try again once the countdown ends.</string>
+    <string name="wa_rec_photo_take">Take a photo</string>
+    <string name="wa_rec_photo_retake">Retake photo</string>
 </resources>

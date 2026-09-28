@@ -44,6 +44,10 @@ return [
         'call_busy' => 'توجد مكالمة جارية بالفعل في هذه المحادثة.',
         'call_not_active' => 'انتهت هذه المكالمة.',
         'call_too_many_participants' => 'المكالمات الجماعية تدعم حتى :max أشخاص.',
+        'stories_disabled' => 'الحالات متوقفة.',
+        'story_not_found' => 'هذه الحالة لم تعد متاحة.',
+        'story_replies_off' => 'الردود متوقفة على هذه الحالة.',
+        'story_video_too_long' => 'مدة فيديو الحالة حتى :seconds ثانية.',
     ],
 
     'preview' => [

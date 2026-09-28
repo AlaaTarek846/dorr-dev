@@ -39,7 +39,7 @@ class MessageController extends Controller
     public function store(SendMessageRequest $request, ChatConversation $conversation)
     {
         $me = $request->user();
-        $message = $this->messages->send($me, $conversation, $request->validated(), $request->file('files', []));
+        $message = $this->messages->send($me, $conversation, $request->validated() + ['thumbnail_file' => $request->file('thumbnail')], $request->file('files', []));
 
         return ApiResponse::created($this->messages->presentOne($me, $message), __('api.created'));
     }

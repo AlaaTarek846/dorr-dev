@@ -106,7 +106,7 @@ fun PrivacyPage() {
                     item { Text(stringResource(R.string.ch_no_blocked), color = Ch.Soft, modifier = Modifier.padding(start = 8.dp)) }
                 }
                 itemsIndexed(blocked, key = { _, b -> b.profile?.key ?: b.blockedAt.orEmpty() }) { i, b ->
-                    Row(Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         ChAvatar(b.profile?.avatar, b.profile?.name, b.profile?.key, size = 44.dp)
                         Spacer(Modifier.width(12.dp))
                         Text(b.profile?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -188,7 +188,7 @@ fun CallsPage() {
                     val other = if (call.conversationType == "group") null else call.participants.firstOrNull { it.profile?.isMe != true }?.profile
                     val title = call.groupName ?: other?.name.orEmpty()
                     val missed = call.status in setOf("missed", "cancelled", "declined")
-                    Row(Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                         ChAvatar(other?.avatar, title, other?.key ?: call.conversationId, size = 48.dp, isGroup = call.conversationType == "group")
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {

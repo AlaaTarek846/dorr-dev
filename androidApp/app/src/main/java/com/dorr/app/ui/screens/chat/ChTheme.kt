@@ -42,6 +42,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -81,25 +82,39 @@ import kotlin.math.absoluteValue
  * things that just arrive). Every chat screen reads its colours, shapes and motion from here.
  */
 object Ch {
+    /**
+     * Dark mode for the chat — set by ChatScreen from the app's theme (the user's choice, or the
+     * system's). It's snapshot state, so every screen reading a colour below redraws on its own
+     * when it flips; nothing else in the chat hard-codes light colours.
+     */
+    var dark by androidx.compose.runtime.mutableStateOf(false)
+
     val Red = Wa.Red
     val RedDeep = Color(0xFFC40812)
-    val Ink = Wa.Ink
-    val Mut = Wa.Mut
-    val Soft = Wa.Soft
-    val Line = Wa.Line
-    val Bg = Color(0xFFF7F4F2)
-    val Surface = Color.White
+    val Ink get() = if (dark) Color(0xFFF3F4F6) else Wa.Ink
+    val Mut get() = if (dark) Color(0xFF9CA3AF) else Wa.Mut
+    val Soft get() = if (dark) Color(0xFF6B7280) else Wa.Soft
+    val Line get() = if (dark) Color(0xFF273244) else Wa.Line
+    val Bg get() = if (dark) Color(0xFF0B1220) else Color(0xFFF7F4F2)
+    /** Cards, rows, sheets, the incoming bubble. */
+    val Surface get() = if (dark) Color(0xFF172033) else Color.White
+    /** Quiet wells inside a surface: quotes, file cards, chips, image placeholders. */
+    val SurfaceMuted get() = if (dark) Color(0xFF223047) else Color(0xFFF4F4F6)
+    /** Soft brand tint for banners (requests, sync). */
+    val TintBrush get() = if (dark) Brush.horizontalGradient(listOf(Color(0xFF3A1016), Color(0xFF2A0D12)))
+    else Brush.horizontalGradient(listOf(Color(0xFFFFF1F2), Color(0xFFFFE4E6)))
     val Online = Color(0xFF22C55E)
     val ReadTick = Color(0xFF38BDF8)
     val Mention = Color(0xFFF59E0B)
 
     val OutBubble = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFD80A16), Color(0xFFB30710)), start = Offset(0f, 0f), end = Offset(600f, 400f))
-    val InBubble = Color.White
+    val InBubble get() = Surface
     val OutText = Color.White
-    val InText = Ink
+    val InText get() = Ink
 
     val HeaderBrush = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812), Color(0xFF7A0410)), start = Offset(0f, 0f), end = Offset(1100f, 500f))
-    val Wallpaper = Brush.verticalGradient(listOf(Color(0xFFFBF1EF), Color(0xFFF6EEEB), Color(0xFFF3ECEA)))
+    val Wallpaper get() = if (dark) Brush.verticalGradient(listOf(Color(0xFF0E1626), Color(0xFF0B1220), Color(0xFF080E1A)))
+    else Brush.verticalGradient(listOf(Color(0xFFFBF1EF), Color(0xFFF6EEEB), Color(0xFFF3ECEA)))
 
     val BubbleRadius = 20.dp
     val TailRadius = 6.dp

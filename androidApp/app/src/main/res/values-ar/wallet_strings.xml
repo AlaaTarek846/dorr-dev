@@ -239,4 +239,8 @@
     <string name="wa_biometric_unlock_failed">فشل الفتح بالبصمة. أدخل رقمك السري بدلاً منه.</string>
     <string name="wa_device_trust_title">جهاز جديد</string>
     <string name="wa_device_trust_sub">أرسلنا رمزاً من 4 أرقام إلى رقم جوالك المسجَّل. أدخله لتوثيق هذا الجهاز.</string>
+    <string name="wa_pin_locked_title">المحفظة مقفلة مؤقتاً</string>
+    <string name="wa_pin_locked_sub">محاولات خاطئة كثيرة. تقدر تحاول تاني بعد ما العداد يخلص.</string>
+    <string name="wa_rec_photo_take">التقط صورة</string>
+    <string name="wa_rec_photo_retake">أعد التقاط الصورة</string>
 </resources>

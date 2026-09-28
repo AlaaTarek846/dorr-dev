@@ -6,9 +6,11 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
+use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
@@ -288,6 +290,26 @@ class ChatTest extends TestCase
         $this->assertCount(1, $gallery->json('data.messages'));
     }
 
+    public function test_a_video_carries_its_poster_frame(): void
+    {
+        $conversation = $this->openDirect($this->alice, $this->bob);
+        $this->as($this->alice);
+
+        $response = $this->post("/api/mobile/v1/chat/conversations/{$conversation['id']}/messages", [
+            'type' => 'video',
+            'duration_ms' => 12000,
+            'files' => [UploadedFile::fake()->create('clip.mp4', 800, 'video/mp4')],
+            'thumbnail' => UploadedFile::fake()->image('poster.jpg', 320, 180),
+        ], $this->headers() + ['Accept' => 'application/json'])->assertCreated();
+
+        $this->assertNotNull($response->json('data.attachments.0.thumbnail'));
+        $this->assertSame(12000, $response->json('data.meta.duration_ms'));
+
+        // Replying to it shows the poster in the quote.
+        $reply = $this->sendText($this->bob, $conversation['id'], 'Nice', ['reply_to' => $response->json('data.id')])->assertCreated();
+        $this->assertNotNull($reply->json('data.reply_to.thumbnail'));
+    }
+
     public function test_disappearing_messages_vanish_and_are_purged(): void
     {
         $this->saveContact($this->bob, $this->alice);
@@ -395,6 +417,21 @@ class ChatTest extends TestCase
         $this->assertEqualsCanonicalizing(['Bobby', 'Carol C'], collect($response->json('data'))->pluck('name')->all());
         $this->assertSame(3, ChatContact::query()->where('owner_id', $this->alice->id)->count());
         $this->assertSame('+966500000002', ChatContact::query()->where('name', 'Bobby')->value('phone'));
+    }
+
+    public function test_sync_reads_numbers_in_the_country_of_my_own_phone(): void
+    {
+        // Saudi is the default country, but this user's own number is Egyptian and their
+        // profile has no country yet: "010…" must still become +2010…, not +96610….
+        $egp = Currency::create(['code' => 'EGP', 'symbol' => 'EGP', 'decimal_places' => 2]);
+        $flag = Flag::create(['code' => 'eg']);
+        Country::create(['code' => 'EG', 'dial_code' => '+20', 'phone_length' => 10, 'is_default' => false, 'flag_id' => $flag->id, 'currency_id' => $egp->id, 'status' => true]);
+        $omar = User::create(['name' => 'Omar', 'phone' => '+201000000001', 'status' => 'active', 'phone_verified_at' => now()]);
+        $mona = User::create(['name' => 'Mona', 'phone' => '+201000000002', 'status' => 'active', 'phone_verified_at' => now()]);
+
+        $this->as($omar);
+        $this->postJson('/api/mobile/v1/chat/contacts/sync', ['contacts' => [['name' => 'Mona', 'phone' => '0100 000 0002']]])
+            ->assertOk()->assertJsonPath('data.0.profile.id', $mona->id);
     }
 
     public function test_lookup_by_number_and_by_qr(): void
@@ -511,6 +548,31 @@ class ChatTest extends TestCase
         $this->assertSame('call', $last['type']);
         $this->assertSame('ended', $last['meta']['status']);
         $this->assertGreaterThanOrEqual(180, $last['meta']['duration_seconds']);
+    }
+
+    public function test_the_call_push_is_urgent_and_short_lived(): void
+    {
+        config([
+            'chat.livekit.url' => 'wss://x', 'chat.livekit.api_key' => 'k', 'chat.livekit.api_secret' => 's',
+            'services.onesignal.app_id' => 'app', 'services.onesignal.rest_api_key' => 'rest',
+        ]);
+        Http::fake(['api.onesignal.com/*' => Http::response(['id' => 'n1'])]);
+        NotificationDevice::query()->create(['owner_type' => User::class, 'owner_id' => $this->bob->id, 'player_id' => 'bob-phone', 'platform' => 'android']);
+        $this->saveContact($this->bob, $this->alice);
+        $conversation = $this->openDirect($this->alice, $this->bob);
+
+        $this->as($this->alice);
+        $this->postJson("/api/mobile/v1/chat/conversations/{$conversation['id']}/calls", ['type' => 'video'], $this->headers())->assertCreated();
+
+        // The app turns this push into a full-screen ringing call: it must be urgent, expire with
+        // the ring, and carry what the ringing page shows.
+        Http::assertSent(fn ($request) => $request['include_player_ids'] === ['bob-phone']
+            && $request['priority'] === 10
+            && $request['ttl'] === 45
+            && $request['data']['type'] === 'chat_call'
+            && $request['data']['event'] === 'chat.call.ringing'
+            && $request['data']['caller_name'] === 'Alice'
+            && $request['data']['call_type'] === 'video');
     }
 
     public function test_an_unanswered_call_becomes_missed(): void

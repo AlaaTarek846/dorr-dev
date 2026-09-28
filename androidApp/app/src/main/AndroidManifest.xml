@@ -11,6 +11,12 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- Push (Android 13+) and unlocking locked chats with a fingerprint / face / PIN. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Incoming calls: the ringing page over the lock screen, waking the display. -->
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
@@ -38,6 +44,26 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <!-- Incoming call ringing page (opened by the call notification's full-screen intent). -->
+        <activity
+            android:name=".chat.IncomingCallActivity"
+            android:exported="false"
+            android:launchMode="singleTop"
+            android:excludeFromRecents="true"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:taskAffinity="com.dorr.app.call"
+            android:theme="@style/Theme.Dorr" />
+
+        <!-- "Decline" button on the call notification. -->
+        <receiver
+            android:name=".chat.CallActionReceiver"
+            android:exported="false" />
+
+        <!-- Every push passes through here first: calls become a ringing call, not a banner. -->
+        <meta-data
+            android:name="com.onesignal.NotificationServiceExtension"
+            android:value="com.dorr.app.chat.ChatNotificationExtension" />
     </application>
 
 </manifest>

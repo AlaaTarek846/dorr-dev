@@ -120,7 +120,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                         .graphicsLayer { val p = appear.value; scaleX = 0.6f + 0.4f * p; scaleY = 0.6f + 0.4f * p; alpha = p.coerceIn(0f, 1f) }
                         .shadow(16.dp, RoundedCornerShape(30.dp))
                         .clip(RoundedCornerShape(30.dp))
-                        .background(Color.White)
+                        .background(Ch.Surface)
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -131,7 +131,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                             close()
                         }
                     }
-                    Box(Modifier.size(38.dp).clip(CircleShape).background(Color(0xFFF3F4F6)).clickable { allEmoji = true }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(38.dp).clip(CircleShape).background(Ch.SurfaceMuted).clickable { allEmoji = true }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Add, null, tint = Ch.Mut, modifier = Modifier.size(22.dp))
                     }
                 }
@@ -154,7 +154,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                     .graphicsLayer { val p = appear.value; translationY = (1f - p) * 40.dp.toPx(); alpha = p.coerceIn(0f, 1f) }
                     .shadow(16.dp, RoundedCornerShape(22.dp))
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White),
+                    .background(Ch.Surface),
             ) {
                 ActionRow(Icons.AutoMirrored.Rounded.Reply, stringResource(R.string.ch_reply)) { state.replyTo = dto; close() }
                 if (!dto.body.isNullOrBlank()) ActionRow(Icons.Rounded.ContentCopy, stringResource(R.string.ch_copy)) {
@@ -240,7 +240,7 @@ private fun ActionRow(icon: ImageVector, text: String, danger: Boolean = false, 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             subtitle?.let { Text(it, color = Ch.Mut, fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -248,7 +248,7 @@ internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>,
             options.forEachIndexed { i, (label, action) ->
                 Box(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(i).clip(RoundedCornerShape(16.dp))
-                        .background(if (danger && i == 0) Color(0xFFFEF2F2) else Color(0xFFF7F7F8))
+                        .background(if (danger && i == 0) Color(0xFFFEF2F2) else Ch.SurfaceMuted)
                         .clickable { action(); onDismiss() }
                         .padding(horizontal = 16.dp, vertical = 15.dp),
                 ) {
@@ -265,7 +265,7 @@ internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>,
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EmojiSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         LazyVerticalGrid(GridCells.Fixed(8), Modifier.fillMaxWidth().heightIn(max = 360.dp).padding(horizontal = 12.dp).padding(bottom = 24.dp)) {
             items(MoreReactions) { emoji ->
                 Box(Modifier.size(44.dp).clip(CircleShape).clickable { onPick(emoji) }, contentAlignment = Alignment.Center) { Text(emoji, fontSize = 26.sp) }
@@ -280,7 +280,7 @@ private fun EmojiSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
 private fun ForwardSheet(exclude: String, onDismiss: () -> Unit, onSend: (List<String>) -> Unit) {
     val host = LocalChat.current
     val selected = remember { mutableStateListOf<String>() }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.ch_forward_to), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))

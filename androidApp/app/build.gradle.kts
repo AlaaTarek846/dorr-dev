@@ -73,6 +73,12 @@ dependencies {
     implementation("com.pusher:pusher-java-client:2.4.4")
     // Chat calls (voice / video) — LiveKit Cloud now, self-hosted LiveKit later (same SDK).
     implementation("io.livekit:livekit-android:2.5.0")
+    // Phone notifications (chat messages, calls, wallet…) — the server already sends through OneSignal.
+    implementation("com.onesignal:OneSignal:5.1.6")
+    // Chat videos are re-encoded on the phone before upload (720p H.264) — Google's own transcoder.
+    implementation("androidx.media3:media3-transformer:1.4.1")
+    implementation("androidx.media3:media3-effect:1.4.1")
+    implementation("androidx.media3:media3-common:1.4.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

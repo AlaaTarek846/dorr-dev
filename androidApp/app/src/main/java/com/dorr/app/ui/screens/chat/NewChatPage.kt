@@ -52,6 +52,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Chat
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Sms
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
@@ -160,24 +165,41 @@ fun NewChatPage() {
     val notOnDorr = stringResource(R.string.ch_not_on_dorr)
     val invalidQr = stringResource(R.string.ch_error_network)
 
+    // What's in the phone's own address book — shown even if the server can't be reached.
+    var deviceBook by remember { mutableStateOf<List<ContactEntry>>(emptyList()) }
+    var inviting by remember { mutableStateOf<ContactEntry?>(null) }
+    val me = com.dorr.app.network.AuthSession.user
+    var permissionDenied by remember { mutableStateOf(false) }
+    val syncFailed = stringResource(R.string.ch_sync_failed)
+
     suspend fun loadContacts() {
-        contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull() ?: contacts.orEmpty()
+        // All my saved numbers (registered or not): the ones on Dorr to chat, the rest to invite.
+        contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 0).data }.getOrNull() ?: contacts.orEmpty()
     }
 
     fun sync() = scope.launch {
         syncing = true
         val book = withContext(Dispatchers.IO) { readAddressBook(context) }
+        deviceBook = book
         var registered = 0
-        book.chunked(1500).forEach { chunk ->
-            val result = runCatching { ApiClient.chat.syncContacts(chatAuth(), ContactSyncRequest(chunk, full = book.size <= 1500)).data }.getOrNull()
-            if (result != null) registered = result.size
+        var failed = false
+        book.chunked(1500).forEachIndexed { i, chunk ->
+            try {
+                ApiClient.chat.syncContacts(chatAuth(), ContactSyncRequest(chunk, full = book.size <= 1500)).data?.let { registered = it.size }
+            } catch (e: Exception) {
+                failed = true
+                if (i == 0) host.showToast(e.apiFailure().message ?: syncFailed)
+            }
         }
-        synced = registered
+        synced = if (failed && registered == 0) null else registered
         loadContacts()
         syncing = false
     }
 
-    val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted -> if (granted) sync() }
+    val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        permissionDenied = !granted
+        if (granted) sync()
+    }
     val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         val text = result.contents ?: return@rememberLauncherForActivityResult
         scope.launch {
@@ -189,19 +211,25 @@ fun NewChatPage() {
 
     LaunchedEffect(Unit) {
         loadContacts()
-        // First visit with permission already granted: refresh quietly.
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED && contacts.isNullOrEmpty()) sync()
+        // Every visit: sync the address book (new friends on Dorr show up), or ask for access once.
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) sync()
+        else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
     }
 
     val digits = query.filter { it.isDigit() || it == '+' }
     val looksLikeNumber = digits.length >= 8 && digits.length >= query.trim().length - 2
-    val filtered = contacts.orEmpty().filter { query.isBlank() || it.name.contains(query, true) || it.phone.contains(digits.ifEmpty { "~" }) }
+    fun matches(name: String, phone: String) = query.isBlank() || name.contains(query, true) || phone.filter { it.isDigit() }.contains(digits.filter { it.isDigit() }.ifEmpty { "~" })
+    val all = contacts.orEmpty()
+    val onDorr = all.filter { it.isRegistered && matches(it.name, it.phone) }
+    // Not on Dorr yet: from the server when it answered, else straight from the phone.
+    val toInvite: List<ContactEntry> = if (all.isNotEmpty()) all.filter { !it.isRegistered }.map { ContactEntry(it.name, it.phone) } else deviceBook
+    val invitees = toInvite.filter { matches(it.name, it.phone) }
 
     ChPage(stringResource(R.string.ch_new_chat), onBack = { host.pop() }) {
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
             item {
                 Row(
-                    Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(horizontal = 14.dp, vertical = 12.dp),
+                    Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(horizontal = 14.dp, vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Icon(Icons.Rounded.Search, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
@@ -236,21 +264,81 @@ fun NewChatPage() {
                     ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 2, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
                 }
             }
-            item { SyncCard(syncing, synced) {
+            item { SyncCard(syncing, synced, permissionDenied) {
                 if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) sync()
-                else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                else if (permissionDenied) {
+                    // Refused before (maybe "don't ask again"): the app settings are the way back.
+                    context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)))
+                } else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
             } }
-            item {
-                Text(stringResource(R.string.ch_contacts_on_dorr), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp, top = 8.dp))
-            }
-            val list = contacts
-            if (list == null) {
-                items(5) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(64.dp), RoundedCornerShape(18.dp)) }
-            } else if (filtered.isEmpty()) {
-                item { Text(stringResource(R.string.ch_no_contacts), color = Ch.Soft, modifier = Modifier.fillMaxWidth().padding(24.dp), textAlign = TextAlign.Center) }
-            } else {
-                itemsIndexed(filtered, key = { _, c -> c.id }) { i, contact ->
+            item { SectionTitle(stringResource(R.string.ch_contacts_on_dorr), onDorr.size) }
+            when {
+                contacts == null && syncing -> items(5) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(64.dp), RoundedCornerShape(18.dp)) }
+                onDorr.isEmpty() -> item { Text(stringResource(R.string.ch_no_contacts), color = Ch.Soft, modifier = Modifier.fillMaxWidth().padding(20.dp), textAlign = TextAlign.Center) }
+                else -> itemsIndexed(onDorr, key = { _, c -> "dorr-" + c.id }) { i, contact ->
                     ContactRow(contact, i) { contact.profile?.let { host.openChatWith(it) } }
+                }
+            }
+            if (invitees.isNotEmpty()) {
+                item { SectionTitle(stringResource(R.string.ch_invite_section), invitees.size) }
+                itemsIndexed(invitees.take(300), key = { i, c -> "invite-$i-" + c.phone }) { i, entry ->
+                    InviteRow(entry, i) { inviting = entry }
+                }
+            }
+        }
+    }
+
+    inviting?.let { entry -> InviteSheet(entry, contactCountry = me?.phone) { inviting = null } }
+}
+
+/**
+ * Invite someone who isn't on Dorr: WhatsApp (straight into a chat with *that* number, message
+ * already typed), Telegram, SMS, or "More" — the phone's own share sheet (Instagram, Messenger,
+ * Snapchat, e-mail…).
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+private fun InviteSheet(entry: ContactEntry, contactCountry: String?, onDismiss: () -> Unit) {
+    val context = LocalContext.current
+    val text = stringResource(R.string.ch_invite_text)
+    val digits = entry.phone.filter { it.isDigit() || it == '+' }
+    // wa.me wants the full international number without "+" or a trunk 0.
+    val international = remember(digits, contactCountry) { internationalDigits(digits, contactCountry) }
+
+    fun open(intent: android.content.Intent): Boolean = runCatching { context.startActivity(intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)); true }.getOrDefault(false)
+    fun share(pkg: String?): Boolean = open(
+        android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text).apply { pkg?.let { setPackage(it) } },
+    )
+    fun chooser() = open(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), null))
+
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                ChAvatar(null, entry.name, entry.phone, size = 46.dp)
+                Spacer(Modifier.width(12.dp))
+                Column {
+                    Text(stringResource(R.string.ch_invite_title, entry.name.ifBlank { entry.phone }), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text(text, color = Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                }
+            }
+            Spacer(Modifier.height(20.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                ShareTarget("WhatsApp", Color(0xFF25D366), Icons.Rounded.Chat, 0) {
+                    onDismiss()
+                    val direct = android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://wa.me/$international?text=" + Uri.encode(text)))
+                    if (!open(direct.setPackage("com.whatsapp")) && !open(direct.setPackage("com.whatsapp.w4b")) && !open(direct.setPackage(null))) chooser()
+                }
+                ShareTarget("Telegram", Color(0xFF229ED9), Icons.AutoMirrored.Rounded.Send, 1) {
+                    onDismiss()
+                    if (!share("org.telegram.messenger") && !open(android.content.Intent(android.content.Intent.ACTION_VIEW, Uri.parse("https://t.me/share/url?url=" + Uri.encode(text))))) chooser()
+                }
+                ShareTarget("SMS", Color(0xFF6366F1), Icons.Rounded.Sms, 2) {
+                    onDismiss()
+                    if (!open(android.content.Intent(android.content.Intent.ACTION_SENDTO, Uri.parse("smsto:$digits")).putExtra("sms_body", text))) chooser()
+                }
+                ShareTarget(stringResource(R.string.ch_share_more), Color(0xFFDB2777), Icons.Rounded.Share, 3) {
+                    onDismiss()
+                    chooser()
                 }
             }
         }
@@ -258,9 +346,40 @@ fun NewChatPage() {
 }
 
 @Composable
+private fun ShareTarget(label: String, color: Color, icon: ImageVector, index: Int, onClick: () -> Unit) {
+    val pop = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(60L + index * 55L)
+        pop.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.45f, stiffness = 420f))
+    }
+    Column(
+        Modifier.width(76.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value.coerceIn(0f, 1f) },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(
+            Modifier.size(58.dp).shadow(12.dp, CircleShape, spotColor = color.copy(alpha = 0.55f)).clip(CircleShape).background(color).clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(26.dp)) }
+        Spacer(Modifier.height(8.dp))
+        Text(label, color = Ch.Ink, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/** "0100 000 0002" + my own "+20…" → "201000000002" (what wa.me expects). */
+private fun internationalDigits(phone: String, myPhone: String?): String {
+    if (phone.startsWith("+")) return phone.drop(1)
+    if (phone.startsWith("00")) return phone.drop(2)
+    // Borrow my own country code: first 1–3 digits of my number that aren't part of a local 0-number.
+    val mine = myPhone?.takeIf { it.startsWith("+") }?.drop(1).orEmpty()
+    val national = phone.removePrefix("0")
+    val code = listOf(3, 2, 1).map { mine.take(it) }.firstOrNull { it.isNotEmpty() && mine.length - it.length in 8..11 } ?: ""
+    return code + national
+}
+
+@Composable
 private fun ShortcutTile(icon: ImageVector, label: String, index: Int, modifier: Modifier, onClick: () -> Unit) {
     Column(
-        modifier.chStagger(index).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Color.White).clickable(onClick = onClick).padding(vertical = 14.dp),
+        modifier.chStagger(index).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(vertical = 14.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
@@ -270,11 +389,41 @@ private fun ShortcutTile(icon: ImageVector, label: String, index: Int, modifier:
 }
 
 @Composable
-private fun SyncCard(syncing: Boolean, synced: Int?, onSync: () -> Unit) {
+private fun SectionTitle(title: String, count: Int) {
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 8.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(title, color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+        if (count > 0) Text(count.toString(), color = Ch.Soft, fontSize = 12.sp)
+    }
+}
+
+/** Someone in my phone who isn't on Dorr yet: their initials and an "Invite" pill (opens SMS). */
+@Composable
+private fun InviteRow(entry: ContactEntry, index: Int, onInvite: () -> Unit) {
+    Row(
+        Modifier.fillMaxWidth().chStagger(index).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ChAvatar(null, entry.name, entry.phone, size = 42.dp)
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(entry.name.ifBlank { entry.phone }, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
+                Text(entry.phone, color = Ch.Mut, fontSize = 12.sp)
+            }
+        }
+        Text(
+            stringResource(R.string.ch_invite), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 12.5.sp,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red.copy(alpha = 0.08f)).clickable(onClick = onInvite).padding(horizontal = 14.dp, vertical = 7.dp),
+        )
+    }
+}
+
+@Composable
+private fun SyncCard(syncing: Boolean, synced: Int?, denied: Boolean = false, onSync: () -> Unit) {
     val spin = rememberInfiniteTransition(label = "sync")
     val angle by spin.animateFloat(0f, 360f, infiniteRepeatable(tween(1000, easing = LinearEasing)), label = "angle")
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Brush.horizontalGradient(listOf(Color(0xFFFFF1F2), Color(0xFFFFE4E6)))).clickable(enabled = !syncing, onClick = onSync).padding(14.dp),
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Ch.TintBrush).clickable(enabled = !syncing, onClick = onSync).padding(14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(46.dp).clip(CircleShape).background(Ch.Red), contentAlignment = Alignment.Center) {
@@ -285,7 +434,14 @@ private fun SyncCard(syncing: Boolean, synced: Int?, onSync: () -> Unit) {
             AnimatedContent(targetState = Triple(syncing, synced, 0), label = "syncText", transitionSpec = { fadeIn() togetherWith fadeOut() }) { (busy, count, _) ->
                 Column {
                     Text(stringResource(if (busy) R.string.ch_syncing else R.string.ch_sync_contacts), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp)
-                    Text(if (count != null && !busy) stringResource(R.string.ch_synced, count) else stringResource(R.string.ch_contacts_permission), color = Ch.Mut, fontSize = 12.sp)
+                    Text(
+                        when {
+                            denied && !busy -> stringResource(R.string.ch_contacts_denied)
+                            count != null && !busy -> stringResource(R.string.ch_synced, count)
+                            else -> stringResource(R.string.ch_contacts_permission)
+                        },
+                        color = if (denied && !busy) Color(0xFFDC2626) else Ch.Mut, fontSize = 12.sp,
+                    )
                 }
             }
         }
@@ -297,7 +453,7 @@ private fun SyncCard(syncing: Boolean, synced: Int?, onSync: () -> Unit) {
 private fun ContactRow(contact: ContactDto, index: Int, trailing: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
     val host = LocalChat.current
     Row(
-        Modifier.fillMaxWidth().chStagger(index).clip(RoundedCornerShape(18.dp)).background(Color.White).clickable(onClick = onClick).padding(12.dp),
+        Modifier.fillMaxWidth().chStagger(index).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).clickable(onClick = onClick).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ChAvatar(contact.profile?.avatar, contact.name, contact.profile?.key ?: contact.phone, size = 46.dp, online = host.presence[contact.profile?.key]?.online == true)
@@ -454,7 +610,7 @@ fun NewGroupPage(addTo: String?) {
 
 @Composable
 private fun GroupField(value: String, hint: String, onChange: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Color.White).padding(16.dp)) {
+    Box(Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(16.dp)) {
         if (value.isEmpty()) Text(hint, color = Ch.Soft, fontSize = 15.sp)
         BasicTextField(value, onChange, textStyle = TextStyle(color = Ch.Ink, fontSize = 15.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
     }
@@ -479,7 +635,7 @@ fun MyQrPage() {
                 // A slowly turning brand ring behind the card.
                 Box(Modifier.size(300.dp).rotate(angle).clip(RoundedCornerShape(44.dp)).background(Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red))))
                 Column(
-                    Modifier.size(290.dp).clip(RoundedCornerShape(40.dp)).background(Color.White).padding(18.dp),
+                    Modifier.size(290.dp).clip(RoundedCornerShape(40.dp)).background(Ch.Surface).padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                 ) {
                     val bmp = remember(qr?.payload) { qr?.payload?.let { runCatching { qrImage(it) }.getOrNull() } }
@@ -497,7 +653,7 @@ fun MyQrPage() {
             Text(stringResource(R.string.ch_my_qr_sub), color = Ch.Mut, fontSize = 14.sp, textAlign = TextAlign.Center)
             Spacer(Modifier.height(20.dp))
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Color.White).clickable {
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Ch.Surface).clickable {
                     scope.launch {
                         qr = runCatching { ApiClient.chat.resetQr(chatAuth()).data }.getOrNull() ?: qr
                         host.showToast(resetDone)

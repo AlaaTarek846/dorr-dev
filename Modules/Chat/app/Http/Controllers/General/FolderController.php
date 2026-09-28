@@ -55,6 +55,8 @@ class FolderController extends Controller
             'name' => $folder->name,
             'sort_order' => $folder->sort_order,
             'conversations_count' => (int) ($folder->conversations_count ?? 0),
+            // So the app can tick "in this folder" without another request.
+            'conversation_ids' => $folder->conversations()->pluck('uuid')->values()->all(),
         ];
     }
 }

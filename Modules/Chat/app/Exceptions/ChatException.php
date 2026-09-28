@@ -203,4 +203,24 @@ class ChatException extends RuntimeException implements ApiRenderable
     {
         return new self('call_too_many_participants', 422, ['max' => $max]);
     }
+
+    public static function storiesDisabled(): self
+    {
+        return new self('stories_disabled', 403);
+    }
+
+    public static function storyNotFound(): self
+    {
+        return new self('story_not_found', 404);
+    }
+
+    public static function storyRepliesOff(): self
+    {
+        return new self('story_replies_off', 403);
+    }
+
+    public static function storyVideoTooLong(int $seconds): self
+    {
+        return new self('story_video_too_long', 422, ['seconds' => $seconds]);
+    }
 }

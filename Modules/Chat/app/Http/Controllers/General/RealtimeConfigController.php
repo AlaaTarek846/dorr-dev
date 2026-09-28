@@ -31,6 +31,9 @@ class RealtimeConfigController extends Controller
             'use_tls' => (bool) ($options['useTLS'] ?? true),
             // Relative to the API's own host (the app already knows it).
             'auth_path' => '/broadcasting/auth',
+            // Push: the OneSignal app id is public (it's in every app build of OneSignal users);
+            // served here so it can change without an app release. The REST key never leaves the server.
+            'onesignal_app_id' => config('services.onesignal.app_id') ?: null,
         ], __('api.retrieved'));
     }
 }

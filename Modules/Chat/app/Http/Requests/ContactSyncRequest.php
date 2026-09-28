@@ -22,8 +22,10 @@ class ContactSyncRequest extends FormRequest
     {
         return [
             'contacts' => ['present', 'array', 'max:2000'],
-            'contacts.*.name' => ['nullable', 'string', 'max:150'],
-            'contacts.*.phone' => ['required', 'string', 'max:40'],
+            // Loose on purpose: one odd address-book entry must not reject the whole batch —
+            // names are trimmed to 150 and unusable numbers are skipped by ContactService.
+            'contacts.*.name' => ['nullable', 'string', 'max:500'],
+            'contacts.*.phone' => ['required', 'string', 'max:64'],
             'full' => ['sometimes', 'boolean'],
         ];
     }

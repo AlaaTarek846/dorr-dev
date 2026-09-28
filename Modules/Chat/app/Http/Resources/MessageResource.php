@@ -5,6 +5,7 @@ namespace Modules\Chat\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
+use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Support\MessageViewContext;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -66,7 +67,10 @@ class MessageResource extends JsonResource
             $m->load('media');
         }
 
+        $poster = $m->getFirstMedia(ChatMessage::THUMBNAIL)?->getUrl();
+
         return $m->getMedia(ChatMessage::ATTACHMENTS)->sortBy('order_column')->values()->map(fn (Media $media) => [
+            'thumbnail' => $m->type === MessageType::Video ? $poster : null,
             'id' => $media->uuid,
             'url' => $media->getUrl(),
             'name' => $media->file_name,
@@ -113,7 +117,11 @@ class MessageResource extends JsonResource
 
         $media = $m->getFirstMedia(ChatMessage::ATTACHMENTS);
 
-        return $media !== null && str_starts_with((string) $media->mime_type, 'image/') ? $media->getUrl() : null;
+        if ($media !== null && str_starts_with((string) $media->mime_type, 'image/')) {
+            return $media->getUrl();
+        }
+
+        return $m->getFirstMedia(ChatMessage::THUMBNAIL)?->getUrl();
     }
 
     /**

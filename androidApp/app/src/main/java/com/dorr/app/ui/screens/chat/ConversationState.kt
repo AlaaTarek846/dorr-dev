@@ -43,6 +43,10 @@ data class UiMessage(
     val localFiles: List<LocalFile> = emptyList(),
     /** Plays the arrival animation once. */
     val fresh: Boolean = false,
+    /** Upload progress 0..1 while a file message is going up (null = unknown / not uploading). */
+    val progress: Float? = null,
+    /** A video's poster made on this phone — shown until the server's copy arrives. */
+    val localThumb: File? = null,
 ) {
     val id: String get() = dto.id
     val isMine: Boolean get() = dto.isMine ?: (dto.sender?.key == myKey())
@@ -57,6 +61,8 @@ data class Outgoing(
     val body: String? = null,
     val files: List<LocalFile> = emptyList(),
     val extra: Map<String, Any?> = emptyMap(),
+    /** Video only: its poster frame. */
+    val thumbnail: File? = null,
 )
 
 /**
@@ -83,6 +89,14 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     var unseenBelow by mutableStateOf(0)
     var atBottom = true
 
+    /** After jumping to an old message (search, pin), newer ones are loaded as you scroll down. */
+    var hasMoreAfter by mutableStateOf(false)
+    private var loadingNewer = false
+
+    /** Group members, for @mention suggestions (loaded on first "@"). */
+    var members by mutableStateOf<List<com.dorr.app.network.MemberDto>>(emptyList())
+        private set
+
     private val gson = Gson()
     private var typingJob: Job? = null
     private var lastTypingSent = 0L
@@ -93,15 +107,26 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     }
 
     suspend fun load() {
+        // Offline first: what this phone saved last time shows at once — and without internet.
+        if (messages.isEmpty()) {
+            com.dorr.app.chat.ChatStore.messages(id)?.takeIf { it.isNotEmpty() }?.let { cached ->
+                messages.addAll(cached.map { UiMessage(it) })
+            }
+        }
         loading = messages.isEmpty()
         try {
             val fresh = ApiClient.chat.conversation(chatAuth(), id).data
             if (fresh != null) conversation = fresh
             val page = ApiClient.chat.messages(chatAuth(), id).data
             if (page != null) {
+                // Keep bubbles still on their way up; replace the rest with the server's truth.
+                val unsent = messages.filter { it.local != null }
                 messages.clear()
                 messages.addAll(page.messages.map { UiMessage(it) })
+                messages.addAll(unsent)
                 hasMoreBefore = page.hasMoreBefore
+                hasMoreAfter = false
+                persist()
             }
             failed = false
             refreshPinned()
@@ -112,6 +137,37 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             failed = messages.isEmpty()
         }
         loading = false
+    }
+
+    /** Open the page around one message (a search result / pinned message not loaded yet). */
+    suspend fun loadAround(messageId: String): Boolean {
+        val page = runCatching { ApiClient.chat.messages(chatAuth(), id, around = messageId).data }.getOrNull() ?: return false
+        messages.clear()
+        messages.addAll(page.messages.map { UiMessage(it) })
+        hasMoreBefore = page.hasMoreBefore
+        hasMoreAfter = page.hasMoreAfter
+        return true
+    }
+
+    suspend fun loadNewer() {
+        if (loadingNewer || !hasMoreAfter) return
+        val last = messages.lastOrNull { it.local == null } ?: return
+        loadingNewer = true
+        runCatching { ApiClient.chat.messages(chatAuth(), id, after = last.id).data }.getOrNull()?.let { page ->
+            messages.addAll(page.messages.map { UiMessage(it) })
+            hasMoreAfter = page.hasMoreAfter
+        }
+        loadingNewer = false
+    }
+
+    suspend fun loadMembers() {
+        if (members.isNotEmpty() || conversation?.isGroup != true) return
+        members = runCatching { ApiClient.chat.members(chatAuth(), id).data }.getOrNull().orEmpty()
+    }
+
+    /** Save the latest messages for offline reading (debounced by ChatStore). */
+    private fun persist() {
+        if (!hasMoreAfter) com.dorr.app.chat.ChatStore.saveMessages(id, messages.filter { it.local == null }.map { it.dto })
     }
 
     suspend fun loadOlder() {
@@ -152,7 +208,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         )
         val replyId = replyTo?.id
         replyTo = null
-        messages.add(UiMessage(optimistic, local = "pending", localFiles = out.files, fresh = true))
+        messages.add(UiMessage(optimistic, local = "pending", localFiles = out.files, fresh = true, localThumb = out.thumbnail))
         sendTyping(stop = true)
         upload(uuid, out, replyId)
     }
@@ -163,7 +219,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         messages[index] = message.copy(local = "pending")
         val dto = message.dto
         val extra: Map<String, Any?> = dto.meta?.let { gson.fromJson(it, Map::class.java) as Map<String, Any?> } ?: emptyMap()
-        upload(dto.id, Outgoing(dto.type, dto.body, message.localFiles, extra), dto.replyTo?.id)
+        upload(dto.id, Outgoing(dto.type, dto.body, message.localFiles, extra, message.localThumb), dto.replyTo?.id)
     }
 
     private fun upload(uuid: String, out: Outgoing, replyId: String?) {
@@ -185,8 +241,27 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                     out.extra.forEach { (k, v) ->
                         if (v is List<*>) v.forEachIndexed { i, item -> field("$k[$i]", item) } else field(k, v)
                     }
-                    val parts = out.files.map { f ->
-                        MultipartBody.Part.createFormData("files[]", f.name, f.file.asRequestBody(f.mime.toMediaTypeOrNull()))
+                    // Videos are shrunk first (the ring spins meanwhile), then uploaded.
+                    val files = if (out.type == "video") out.files.map { com.dorr.app.chat.VideoTools.compress(context, it) } else out.files
+                    // Progress across all the files together, reported in 2% steps.
+                    val total = files.sumOf { it.file.length() }.coerceAtLeast(1)
+                    var sentBytes = 0L
+                    var lastShown = -1
+                    val poster = out.thumbnail?.takeIf { it.exists() }?.let {
+                        MultipartBody.Part.createFormData("thumbnail", "poster.jpg", it.asRequestBody("image/jpeg".toMediaTypeOrNull()))
+                    }
+                    val parts = listOfNotNull(poster) + files.map { f ->
+                        MultipartBody.Part.createFormData("files[]", f.name, ProgressBody(f.file, f.mime) { delta ->
+                            sentBytes += delta
+                            val percent = (sentBytes * 100 / total).toInt()
+                            if (percent - lastShown >= 2) {
+                                lastShown = percent
+                                scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                                    val index = messages.indexOfFirst { it.id == uuid }
+                                    if (index >= 0 && messages[index].local == "pending") messages[index] = messages[index].copy(progress = percent / 100f)
+                                }
+                            }
+                        })
                     }
                     ApiClient.chat.sendWithFiles(chatAuth(), id, fields, parts)
                 }
@@ -317,8 +392,12 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 if (messages.any { it.id == dto.id }) {
                     // Our own optimistic bubble: keep the server's version (with its files).
                     if (mine) replaceMessage(dto.id, UiMessage(fixed))
+                } else if (hasMoreAfter) {
+                    // Reading an older stretch (after a search jump): don't glue it on out of order.
+                    if (!mine) unseenBelow++
                 } else {
                     messages.add(UiMessage(fixed, fresh = true))
+                    persist()
                     if (!mine) {
                         if (atBottom) markRead() else unseenBelow++
                     }
@@ -370,7 +449,58 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     fun replaceMessage(id: String, message: UiMessage) {
         val index = messages.indexOfFirst { it.id == id }
         if (index >= 0) messages[index] = message.copy(fresh = false) else messages.add(message)
+        persist()
     }
+}
+
+/** A file upload body that reports how many bytes went out. */
+private class ProgressBody(private val file: File, private val mime: String, private val onBytes: (Long) -> Unit) : RequestBody() {
+    override fun contentType() = mime.toMediaTypeOrNull()
+
+    override fun contentLength() = file.length()
+
+    override fun writeTo(sink: okio.BufferedSink) {
+        file.inputStream().use { input ->
+            val buffer = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buffer)
+                if (read < 0) break
+                sink.write(buffer, 0, read)
+                onBytes(read.toLong())
+            }
+        }
+    }
+}
+
+/**
+ * Photos are shrunk before upload (longest side 1600px, JPEG 82%, right way up) — a 6 MB camera
+ * shot becomes ~300 KB and sends in a blink. GIFs and anything that fails keep the original.
+ */
+internal fun compressImage(context: Context, file: LocalFile): LocalFile {
+    if (!file.mime.startsWith("image/") || file.mime == "image/gif") return file
+    return runCatching {
+        val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        android.graphics.BitmapFactory.decodeFile(file.file.absolutePath, bounds)
+        val longest = maxOf(bounds.outWidth, bounds.outHeight)
+        if (longest <= 0) return file
+        var sample = 1
+        while (longest / (sample * 2) >= 1600) sample *= 2
+        val decoded = android.graphics.BitmapFactory.decodeFile(file.file.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return file
+        val scale = (1600f / maxOf(decoded.width, decoded.height)).coerceAtMost(1f)
+        var bitmap = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(decoded, (decoded.width * scale).toInt(), (decoded.height * scale).toInt(), true) else decoded
+        val rotation = when (android.media.ExifInterface(file.file.absolutePath).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL)) {
+            android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
+            android.media.ExifInterface.ORIENTATION_ROTATE_180 -> 180f
+            android.media.ExifInterface.ORIENTATION_ROTATE_270 -> 270f
+            else -> 0f
+        }
+        if (rotation != 0f) {
+            bitmap = android.graphics.Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, android.graphics.Matrix().apply { postRotate(rotation) }, true)
+        }
+        val out = File(context.cacheDir.resolve("chat-out").apply { mkdirs() }, UUID.randomUUID().toString() + ".jpg")
+        out.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, it) }
+        if (out.length() in 1 until file.file.length()) LocalFile(out, "image/jpeg", file.name.substringBeforeLast('.') + ".jpg") else file
+    }.getOrDefault(file)
 }
 
 // ------------------------------------------------------------------------------- files

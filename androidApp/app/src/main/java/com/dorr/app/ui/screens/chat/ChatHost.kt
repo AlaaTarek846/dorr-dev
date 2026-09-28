@@ -34,7 +34,13 @@ sealed interface ChRoute {
     data object Privacy : ChRoute
     data object Starred : ChRoute
     data object Calls : ChRoute
+    /** Write a text story, or caption a picked photo / video (`media`). */
+    data class StoryComposer(val media: String? = null) : ChRoute
+    data object StoryPrivacy : ChRoute
 }
+
+/** The full-screen story viewer: which people's stories it pages through, and where it starts. */
+data class StoryViewerSession(val groups: kotlin.collections.List<com.dorr.app.network.StoryGroupDto>, val start: Int)
 
 /** What someone is doing right now in a conversation. */
 data class Activity(val participant: String, val state: String)
@@ -62,6 +68,20 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     /** participant key → online / last seen (from `chat.presence`). */
     val presence = mutableStateMapOf<String, PresenceDto>()
+
+    /** The stories bar (null until loaded; stays null when stories are off). */
+    var stories by mutableStateOf<com.dorr.app.network.StoryFeedDto?>(null)
+    var storyViewer by mutableStateOf<StoryViewerSession?>(null)
+    /** A story being uploaded — the "my status" ring spins meanwhile. */
+    var storyUploading by mutableStateOf(false)
+
+    suspend fun refreshStories() {
+        runCatching { ApiClient.chat.stories(chatAuth()).data }.getOrNull()?.let { stories = it }
+    }
+
+    fun openStories(groups: kotlin.collections.List<com.dorr.app.network.StoryGroupDto>, start: Int) {
+        if (groups.isNotEmpty()) storyViewer = StoryViewerSession(groups, start.coerceIn(0, groups.lastIndex))
+    }
 
     var toast by mutableStateOf<String?>(null)
     private var toastJob: Job? = null
@@ -99,13 +119,39 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     // ------------------------------------------------------------------ list
 
+    /** My folders (the extra chips after All / Unread / Groups / Archived). */
+    val folders = mutableStateListOf<com.dorr.app.network.FolderDto>()
+
+    suspend fun refreshFolders() {
+        runCatching { ApiClient.chat.folders(chatAuth()).data }.getOrNull()?.let {
+            folders.clear()
+            folders.addAll(it)
+        }
+    }
+
     suspend fun refreshList() {
+        // Offline first: the last list saved on the phone shows instantly (and without internet).
+        if (!listLoaded && filter == "all") {
+            com.dorr.app.chat.ChatStore.conversations()?.takeIf { it.isNotEmpty() }?.let {
+                conversations.clear()
+                conversations.addAll(it)
+                listLoaded = true
+            }
+        }
         try {
-            val page = ApiClient.chat.conversations(chatAuth(), filter = filter.takeIf { it != "all" }, perPage = 50)
+            // "folder:12" is one of my folders; everything else is a server filter.
+            val folderId = filter.removePrefix("folder:").takeIf { filter.startsWith("folder:") }?.toIntOrNull()
+            val page = ApiClient.chat.conversations(
+                chatAuth(),
+                filter = filter.takeIf { it != "all" && folderId == null },
+                folder = folderId,
+                perPage = 50,
+            )
             conversations.clear()
             conversations.addAll(page.data.orEmpty())
             requestsCount = page.requestsCount
             listFailed = false
+            if (filter == "all") com.dorr.app.chat.ChatStore.saveConversations(conversations.toList())
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
@@ -118,16 +164,19 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     fun upsert(conversation: ConversationDto) {
         val index = conversations.indexOfFirst { it.id == conversation.id }
         if (index >= 0) conversations.removeAt(index)
-        val belongsHere = when (filter) {
-            "archived" -> conversation.isArchived
-            "requests" -> conversation.isRequest
-            "groups" -> conversation.isGroup && !conversation.isArchived
-            "unread" -> (conversation.unreadCount > 0 || conversation.markedUnread) && !conversation.isArchived
+        val belongsHere = when {
+            filter == "archived" -> conversation.isArchived
+            filter == "requests" -> conversation.isRequest
+            filter == "locked" -> conversation.isLocked
+            filter == "groups" -> conversation.isGroup && !conversation.isArchived && !conversation.isLocked
+            filter == "unread" -> (conversation.unreadCount > 0 || conversation.markedUnread) && !conversation.isArchived && !conversation.isLocked
+            filter.startsWith("folder:") -> folders.firstOrNull { "folder:${it.id}" == filter }?.conversationIds?.contains(conversation.id) == true
             else -> !conversation.isArchived && !conversation.isRequest && !conversation.isLocked
         }
         if (!belongsHere) return
         val insertAt = if (conversation.isPinned) 0 else conversations.indexOfFirst { !it.isPinned }.let { if (it < 0) conversations.size else it }
         conversations.add(insertAt, conversation)
+        if (filter == "all") com.dorr.app.chat.ChatStore.saveConversations(conversations.toList())
     }
 
     fun remove(id: String) {
@@ -197,6 +246,9 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
                 val state = data.str("state") ?: "stopped"
                 if (state == "stopped") clearActivity(id, who) else setActivity(id, Activity(who, state))
             }
+            // Someone posted / removed a story, or my story got a view / reaction: refresh the bar
+            // (the open viewer keeps its own snapshot so it never jumps under the finger).
+            "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction" -> scope.launch { refreshStories() }
             "chat.presence" -> {
                 val who = data.str("participant") ?: return
                 presence[who] = PresenceDto(online = data.get("online")?.asBoolean == true, lastSeenAt = data.str("last_seen_at"))

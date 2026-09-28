@@ -44,6 +44,10 @@ return [
         'call_busy' => 'There is already a call in this chat.',
         'call_not_active' => 'This call has ended.',
         'call_too_many_participants' => 'Group calls support up to :max people.',
+        'stories_disabled' => 'Stories are turned off.',
+        'story_not_found' => 'This story is no longer available.',
+        'story_replies_off' => 'Replies are turned off for this story.',
+        'story_video_too_long' => 'Story videos can be up to :seconds seconds.',
     ],
 
     // Short labels for chat-list previews and push notifications.
