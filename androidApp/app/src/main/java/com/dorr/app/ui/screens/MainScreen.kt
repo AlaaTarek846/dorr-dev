@@ -165,11 +165,8 @@ fun MainScreen(
         }
     }
 
-<<<<<<< HEAD
     Box(Modifier.fillMaxSize()) {
-=======
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
->>>>>>> main
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
@@ -264,14 +261,29 @@ private fun DorrBottomNavigationBar(
     val accountDark = night
     val barColor = if (accountDark) AccountDark.bg else Color.White
     val ringColor = if (accountDark) AccountDark.bg else Color.White
+    val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val accountDark = night
+    val barColor = if (accountDark) AccountDark.bg else Color.White
+    val ringColor = if (accountDark) AccountDark.bg else Color.White
 
     Box(
+        modifier = modifier.fillMaxWidth().background(barColor),
         modifier = modifier.fillMaxWidth().background(barColor),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
+                .then(
+                    if (accountDark) Modifier
+                    else Modifier.shadow(
+                        elevation = 10.dp,
+                        spotColor = BottomBarActiveRed.copy(alpha = 0.08f),
+                        ambientColor = Color.Black.copy(alpha = 0.04f),
+                    ),
+                ),
+            color = barColor,
+            tonalElevation = 0.dp,
                 .then(
                     if (accountDark) Modifier
                     else Modifier.shadow(
@@ -293,6 +305,17 @@ private fun DorrBottomNavigationBar(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
+                        .then(
+                            if (accountDark) Modifier.background(Color(0xFF2C313A))
+                            else Modifier.background(
+                                Brush.horizontalGradient(
+                                    colors = listOf(
+                                        Color(0xFFEEEEEE),
+                                        Color(0xFFFDE8EB),
+                                        Color(0xFFF9C0C8),
+                                        Color(0xFFFDE8EB),
+                                        Color(0xFFEEEEEE),
+                                    ),
                         .then(
                             if (accountDark) Modifier.background(Color(0xFF2C313A))
                             else Modifier.background(
@@ -385,6 +408,7 @@ private fun DorrBottomNavigationBar(
                         ambientColor = BottomBarActiveRed.copy(alpha = 0.18f),
                     )
                     .background(BottomBarActiveRed, CircleShape)
+                    .border(3.5.dp, ringColor, CircleShape)
                     .border(3.5.dp, ringColor, CircleShape)
                     .clip(CircleShape)
                     .clickable(

@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\User\Http\Controllers;
+namespace Modules\User\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;

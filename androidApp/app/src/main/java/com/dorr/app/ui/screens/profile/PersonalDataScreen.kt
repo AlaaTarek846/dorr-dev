@@ -54,6 +54,7 @@ import androidx.compose.material.icons.rounded.Male
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -61,6 +62,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -98,21 +100,24 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.ApiEnvelope
 import com.dorr.app.network.ApiEnvelope
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.ChannelOtpDto
 import com.dorr.app.network.ConfirmCodeBody
 import com.dorr.app.network.CountryCache
+import com.dorr.app.network.ChannelOtpDto
+import com.dorr.app.network.ConfirmCodeBody
+import com.dorr.app.network.CountryCache
 import com.dorr.app.network.CountryDto
-<<<<<<< HEAD
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.PhoneChangeCodeRequest
 import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.wallet.PIN_ERROR_CODES
 import com.dorr.app.ui.screens.wallet.PadResult
 import com.dorr.app.ui.screens.wallet.WaPinPad
-=======
 import com.dorr.app.network.EmailChangeRequest
 import com.dorr.app.network.FlagDto
 import com.dorr.app.network.PhoneChangeRequest
@@ -121,7 +126,6 @@ import com.dorr.app.network.UserCountryDto
 import com.dorr.app.network.UserDto
 import com.dorr.app.network.resolveForPhone
 import com.dorr.app.network.serverMessage
->>>>>>> main
 import com.dorr.app.ui.theme.AppColors
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -129,6 +133,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -150,8 +157,17 @@ private fun loadGender(context: Context): String {
     val userId = AuthSession.user?.id ?: return ""
     return profilePrefs(context, userId).getString(PD_GENDER, "").orEmpty()
 }
+private fun profilePrefs(context: Context, userId: Int) =
+    context.getSharedPreferences("dorr_profile_$userId", Context.MODE_PRIVATE)
+
+private fun loadGender(context: Context): String {
+    val userId = AuthSession.user?.id ?: return ""
+    return profilePrefs(context, userId).getString(PD_GENDER, "").orEmpty()
+}
 
 private fun saveGender(context: Context, gender: String) {
+    val userId = AuthSession.user?.id ?: return
+    profilePrefs(context, userId).edit().putString(PD_GENDER, gender).apply()
     val userId = AuthSession.user?.id ?: return
     profilePrefs(context, userId).edit().putString(PD_GENDER, gender).apply()
 }
@@ -178,12 +194,37 @@ private fun loadPhoto(context: Context, userId: Int): String? {
             ?.takeIf { it == file.absolutePath }
     }.getOrNull()
 }
+/**
+ * The cached photo file is namespaced per account. An earlier build stored every
+ * account in one shared `profile_photo.jpg`, so logging into a second account
+ * left the first account's preference pointing at the second account's image.
+ */
+private fun photoFile(context: Context, userId: Int) =
+    File(context.filesDir, "profile_photo_$userId.jpg")
 
+private fun loadPhoto(context: Context, userId: Int): String? {
+    // Drop the shared file left behind by the old build so it can never be
+    // served again, and free the space it holds.
+    runCatching { File(context.filesDir, "profile_photo.jpg").delete() }
+
+    val file = photoFile(context, userId)
+    if (!file.exists()) return null
+
+    return runCatching {
+        profilePrefs(context, userId)
+            .getString(PD_PHOTO, null)
+            ?.takeIf { it == file.absolutePath }
+    }.getOrNull()
+}
+
+private fun saveProfilePhoto(context: Context, uri: Uri, userId: Int): String? = runCatching {
+    val dest = photoFile(context, userId)
 private fun saveProfilePhoto(context: Context, uri: Uri, userId: Int): String? = runCatching {
     val dest = photoFile(context, userId)
     context.contentResolver.openInputStream(uri)?.use { input ->
         dest.outputStream().use { output -> input.copyTo(output) }
     } ?: return null
+    profilePrefs(context, userId)
     profilePrefs(context, userId)
         .edit()
         .putString(PD_PHOTO, dest.absolutePath)
@@ -205,6 +246,8 @@ private fun formatDial(value: String): String {
     val digits = value.trim().removePrefix("+")
     return if (digits.isEmpty()) "" else "+$digits"
 }
+
+private fun pdAuthHeader(): String = "Bearer ${AuthSession.token.orEmpty()}"
 
 private fun pdAuthHeader(): String = "Bearer ${AuthSession.token.orEmpty()}"
 
@@ -237,11 +280,13 @@ fun PersonalDataScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
             PdSub.PHONE -> EditPhoneScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
             PdSub.EMAIL -> EditEmailScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
             PdSub.NONE -> PdHub(onBack = onBack, onOpen = { sub = it })
+            PdSub.NONE -> PdHub(onBack = onBack, onOpen = { sub = it })
         }
     }
 }
 
 @Composable
+private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
 private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -285,10 +330,55 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
         }
     }
 
+    val genericError = stringResource(R.string.wallet_error_generic)
+    val avatarSaved = stringResource(R.string.toast_profile_updated)
+    var uploadingAvatar by remember { mutableStateOf(false) }
+    // Keyed on the session so a logout/login switch re-reads AuthSession.user
+    // instead of keeping the previous account captured in remember().
+    val sessionVersion by AuthSession.sessionVersion.collectAsState()
+    val user = remember(sessionVersion) { AuthSession.user }
+    val emailVerified = user?.emailVerifiedAt != null
+    var photoPath by remember(sessionVersion, user?.id) {
+        mutableStateOf(user?.id?.let { loadPhoto(context, it) })
+    }
+
+    fun uploadAvatar(file: File) {
+        scope.launch {
+            uploadingAvatar = true
+            runCatching {
+                val body = file.asRequestBody("image/*".toMediaType())
+                ApiClient.profile.updateAvatar(
+                    pdAuthHeader(),
+                    MultipartBody.Part.createFormData("avatar", file.name, body),
+                )
+            }.onSuccess { envelope ->
+                envelope.data?.let { AuthSession.user = it }
+                Toast.makeText(
+                    context,
+                    envelope.message.ifBlank { avatarSaved },
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }.onFailure {
+                Toast.makeText(
+                    context,
+                    it.serverMessage() ?: genericError,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            uploadingAvatar = false
+        }
+    }
+
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val userId = user?.id ?: return@rememberLauncherForActivityResult
+        val userId = user?.id ?: return@rememberLauncherForActivityResult
         scope.launch {
+            val saved = withContext(Dispatchers.IO) { saveProfilePhoto(context, uri, userId) }
+            if (saved != null) {
+                photoPath = saved
+                uploadAvatar(File(saved))
+            }
             val saved = withContext(Dispatchers.IO) { saveProfilePhoto(context, uri, userId) }
             if (saved != null) {
                 photoPath = saved
@@ -331,7 +421,9 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914)))
+                                .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914)))
                                 .clip(CircleShape)
+                                .background(if (settingsNight()) AccountDark.card else Color.White),
                                 .background(if (settingsNight()) AccountDark.card else Color.White),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -351,14 +443,48 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             val avatarModel = (if (serverAvatarFailed) null else serverAvatar)
                                 ?: photoPath?.let(::File)
                             if (avatarModel != null) {
+                            // Server avatar first (rewritten to a host the device
+                            // can reach), then the locally cached photo, then
+                            // the placeholder icon. If the server image fails
+                            // to load, fall back to the local photo instead of
+                            // a blank circle.
+                            //
+                            // The server stores the avatar under a fixed name
+                            // (…/{userId}/avatar.jpg), so a re-upload keeps the
+                            // same URL. updated_at is appended as a cache key so
+                            // Coil doesn't keep serving the previous image.
+                            val serverAvatar = ApiClient.mediaUrl(user?.avatar)
+                                ?.plus("?v=" + (user?.updatedAt ?: "0"))
+                            var serverAvatarFailed by remember(serverAvatar) { mutableStateOf(false) }
+                            val avatarModel = (if (serverAvatarFailed) null else serverAvatar)
+                                ?: photoPath?.let(::File)
+                            if (avatarModel != null) {
                                 AsyncImage(
+                                    model = avatarModel,
                                     model = avatarModel,
                                     contentDescription = stringResource(R.string.pd_change_photo),
                                     contentScale = ContentScale.Crop,
                                     onError = { serverAvatarFailed = true },
+                                    onError = { serverAvatarFailed = true },
                                     modifier = Modifier.fillMaxSize(),
                                 )
                             } else {
+                                Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = settingsAccent(), modifier = Modifier.size(44.dp))
+                            }
+                            if (uploadingAvatar) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .clip(CircleShape)
+                                        .background(Color.Black.copy(alpha = 0.35f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(28.dp),
+                                    )
+                                }
                                 Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = settingsAccent(), modifier = Modifier.size(44.dp))
                             }
                             if (uploadingAvatar) {
@@ -439,6 +565,7 @@ private fun PdFieldRow(
         modifier = Modifier
             .fillMaxWidth()
             .settingsSurface(RoundedCornerShape(14.dp))
+            .settingsSurface(RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -448,12 +575,15 @@ private fun PdFieldRow(
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
                 .background(if (settingsNight()) AccountDark.well else Pink),
+                .background(if (settingsNight()) AccountDark.well else Pink),
             contentAlignment = Alignment.Center,
         ) {
+            Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
             Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
         }
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
+            Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = settingsMut())
             Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = settingsMut())
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val valueText: @Composable () -> Unit = {
@@ -461,6 +591,7 @@ private fun PdFieldRow(
                         value,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
+                        color = settingsInk(),
                         color = settingsInk(),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -489,6 +620,7 @@ private fun PdFieldRow(
                     note,
                     fontSize = 11.sp,
                     color = settingsMut(),
+                    color = settingsMut(),
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -496,6 +628,7 @@ private fun PdFieldRow(
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
+            tint = if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4),
             tint = if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4),
             modifier = Modifier
                 .size(16.dp)
@@ -508,7 +641,17 @@ private fun PdFieldRow(
 private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val scope = rememberCoroutineScope()
     var name by remember { mutableStateOf(AuthSession.user?.name.orEmpty()) }
+    // Server value first, locally picked gender as fallback; the API requires
+    // one of male/female, so an empty choice blocks the save below.
+    var gender by remember {
+        mutableStateOf(
+            AuthSession.user?.gender?.takeIf { it == "male" || it == "female" }
+                ?: loadGender(context),
+        )
+    }
+    var saving by remember { mutableStateOf(false) }
     // Server value first, locally picked gender as fallback; the API requires
     // one of male/female, so an empty choice blocks the save below.
     var gender by remember {
@@ -520,7 +663,9 @@ private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     var saving by remember { mutableStateOf(false) }
     val enterName = stringResource(R.string.toast_enter_name)
     val pickGender = stringResource(R.string.toast_pick_gender)
+    val pickGender = stringResource(R.string.toast_pick_gender)
     val updated = stringResource(R.string.toast_profile_updated)
+    val genericError = stringResource(R.string.wallet_error_generic)
     val genericError = stringResource(R.string.wallet_error_generic)
 
     PdScreen(title = stringResource(R.string.edit_name_title), onBack = onBack) {
@@ -539,6 +684,7 @@ private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                     color = settingsInk(),
+                    color = settingsInk(),
                 )
                 Spacer(Modifier.height(8.dp))
                 GenderOption(stringResource(R.string.gender_male), Icons.Rounded.Male, gender == "male") { gender = "male" }
@@ -548,8 +694,36 @@ private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
             PdSaveButton(label = stringResource(R.string.common_save), enabled = !saving) {
                 val cleanName = name.trim()
                 if (cleanName.length < 2) {
+            PdSaveButton(label = stringResource(R.string.common_save), enabled = !saving) {
+                val cleanName = name.trim()
+                if (cleanName.length < 2) {
                     Toast.makeText(context, enterName, Toast.LENGTH_SHORT).show()
                     return@PdSaveButton
+                }
+                if (gender != "male" && gender != "female") {
+                    Toast.makeText(context, pickGender, Toast.LENGTH_SHORT).show()
+                    return@PdSaveButton
+                }
+                scope.launch {
+                    saving = true
+                    runCatching {
+                        ApiClient.profile.updateIdentity(
+                            pdAuthHeader(),
+                            UpdateIdentityBody(name = cleanName, gender = gender),
+                        )
+                    }.onSuccess { envelope ->
+                        envelope.data?.let { AuthSession.user = it }
+                        if (gender == "male" || gender == "female") saveGender(context, gender)
+                        onSaved(envelope.message.ifBlank { updated })
+                        onBack()
+                    }.onFailure {
+                        Toast.makeText(
+                            context,
+                            it.serverMessage() ?: genericError,
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }
+                    saving = false
                 }
                 if (gender != "male" && gender != "female") {
                     Toast.makeText(context, pickGender, Toast.LENGTH_SHORT).show()
@@ -588,11 +762,13 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
             .background(if (selected) (if (settingsNight()) AccountDark.well else Pink) else if (settingsNight()) AccountDark.bg else FieldFill)
+            .background(if (selected) (if (settingsNight()) AccountDark.well else Pink) else if (settingsNight()) AccountDark.bg else FieldFill)
             .border(1.5.dp, if (selected) AppColors.waRed else Color.Transparent, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Icon(icon, contentDescription = null, tint = if (selected) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
         Icon(icon, contentDescription = null, tint = if (selected) settingsAccent() else settingsMut(), modifier = Modifier.size(22.dp))
         Spacer(Modifier.width(10.dp))
         Text(
@@ -600,11 +776,13 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
             fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = if (selected) settingsAccent() else settingsInk(),
+            color = if (selected) settingsAccent() else settingsInk(),
             modifier = Modifier.weight(1f),
         )
         Box(
             modifier = Modifier
                 .size(18.dp)
+                .border(2.dp, if (selected) AppColors.waRed else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
                 .border(2.dp, if (selected) AppColors.waRed else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
@@ -633,16 +811,13 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     var phone by remember { mutableStateOf("") }
     var phoneLength by remember { mutableIntStateOf(9) }
     var phoneStartsWith by remember { mutableStateOf("5") }
-<<<<<<< HEAD
     var step by remember { mutableStateOf("form") }
     var serverError by remember { mutableStateOf<String?>(null) }
     var pinError by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
     val updated = stringResource(R.string.toast_phone_updated)
     val genericError = stringResource(R.string.wa_error_generic)
     val networkError = stringResource(R.string.wa_error_network)
-=======
     var stepOtp by remember { mutableStateOf(false) }
     var requesting by remember { mutableStateOf(false) }
     // What the OTP screen shows and how long resend stays locked — both come
@@ -651,14 +826,33 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     var cooldownSeconds by remember { mutableIntStateOf(60) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val updated = stringResource(R.string.toast_phone_updated)
-    val genericError = stringResource(R.string.wallet_error_generic)
->>>>>>> main
 
     // The countries dropdown is fetched once in LoginScreen and cached —
     // AuthSession.user.country (from auth/me) is the primary source for
     // the user's country; CountryCache resolves by phone number as fallback.
+    // The countries dropdown is fetched once in LoginScreen and cached —
+    // AuthSession.user.country (from auth/me) is the primary source for
+    // the user's country; CountryCache resolves by phone number as fallback.
     LaunchedEffect(Unit) {
+        CountryCache.load(context) // ensure cache is restored from disk
+        val uc = AuthSession.user?.country
+        if (uc != null) {
+            dial = formatDial(uc.dialCode ?: "").ifBlank { dial }
+            val candidate = uc.flag?.code?.lowercase()?.takeIf { it.length == 2 }
+                ?: uc.code?.lowercase()?.take(2)
+            flag = candidate?.takeIf { it.length == 2 } ?: flag
+            phoneLength = uc.phoneLength ?: phoneLength
+            phoneStartsWith = uc.phoneStartsWith.orEmpty()
+        } else {
+            val picked = CountryCache.resolveForPhone(context, AuthSession.user?.phone)
+                ?: CountryCache.pickDefault(context)
+            if (picked != null) {
+                dial = formatDial(picked.dialCode).ifBlank { dial }
+                flag = picked.flag?.code?.lowercase()?.takeIf { it.length == 2 }
+                    ?: picked.code.lowercase().take(2) ?: flag
+                phoneLength = picked.phoneLength ?: phoneLength
+                phoneStartsWith = picked.phoneStartsWith.orEmpty()
+            }
         CountryCache.load(context) // ensure cache is restored from disk
         val uc = AuthSession.user?.country
         if (uc != null) {
@@ -692,7 +886,22 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
         else -> null
     }
 
-<<<<<<< HEAD
+    suspend fun requestCode(): ChannelOtpDto? {
+        val envelope = ApiClient.profile.requestPhoneChange(
+            pdAuthHeader(),
+            PhoneChangeRequest(dialCode = dial, phone = phone),
+        )
+        return envelope.data
+    }
+
+    suspend fun requestCode(): ChannelOtpDto? {
+        val envelope = ApiClient.profile.requestPhoneChange(
+            pdAuthHeader(),
+            PhoneChangeRequest(dialCode = dial, phone = phone),
+        )
+        return envelope.data
+    }
+
     // Starts (or retries, once a PIN is known) the change; the server decides whether a PIN is needed.
     fun start(pin: String?) {
         scope.launch {
@@ -789,7 +998,6 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
             },
             onVerified = {
                 onSaved(updated)
-=======
     suspend fun requestCode(): ChannelOtpDto? {
         val envelope = ApiClient.profile.requestPhoneChange(
             pdAuthHeader(),
@@ -810,12 +1018,10 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
             onVerified = { user, message ->
                 AuthSession.user = user
                 onSaved(message.ifBlank { updated })
->>>>>>> main
                 onBack()
             },
             onBack = { stepOtp = false },
         )
-<<<<<<< HEAD
         else -> PdScreen(title = stringResource(R.string.edit_phone_title), onBack = onBack) {
             FormColumn {
                 PdFormCard {
@@ -866,7 +1072,6 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                                     textAlign = TextAlign.Center,
                                 )
                             }
-=======
         return
     }
     PdScreen(title = stringResource(R.string.edit_phone_title), onBack = onBack) {
@@ -918,44 +1123,17 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                                 fontWeight = FontWeight.Medium,
                                 textAlign = TextAlign.Center,
                             )
->>>>>>> main
                         }
                     }
-                    Hint(stringResource(R.string.edit_phone_hint))
                 }
-<<<<<<< HEAD
-                PdSaveButton(
-                    label = stringResource(R.string.pd_send_code),
-                    enabled = isPhoneValid && !busy,
-                ) {
-                    if (isPhoneValid) {
-                        start(null)
-                    }
-=======
                 Hint(stringResource(R.string.edit_phone_hint))
             }
             PdSaveButton(
                 label = stringResource(R.string.pd_send_code),
-                enabled = isPhoneValid && !requesting,
+                enabled = isPhoneValid,
             ) {
-                if (!isPhoneValid || requesting) return@PdSaveButton
-                scope.launch {
-                    requesting = true
-                    runCatching { requestCode() }
-                        .onSuccess { dto ->
-                            maskedPhone = dto?.maskedPhone ?: "$dial $phone"
-                            cooldownSeconds = dto?.resendCooldownSeconds ?: 60
-                            stepOtp = true
-                        }
-                        .onFailure {
-                            Toast.makeText(
-                                context,
-                                it.serverMessage() ?: genericError,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    requesting = false
->>>>>>> main
+                if (isPhoneValid) {
+                    stepOtp = true
                 }
             }
         }
@@ -1021,77 +1199,22 @@ private fun EditEmailScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                     Toast.makeText(context, invalid, Toast.LENGTH_SHORT).show()
                     return@PdSaveButton
                 }
-                if (requesting) return@PdSaveButton
-                scope.launch {
-                    requesting = true
-                    runCatching { requestCode() }
-                        .onSuccess { dto ->
-                            maskedEmail = dto?.maskedEmail ?: value
-                            cooldownSeconds = dto?.resendCooldownSeconds ?: 60
-                            stepOtp = true
-                        }
-                        .onFailure {
-                            Toast.makeText(
-                                context,
-                                it.serverMessage() ?: genericError,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    requesting = false
-                }
+                stepOtp = true
             }
         }
     }
 }
 
-/**
-<<<<<<< HEAD
- * [onVerify]/[onResend] are the real API calls when given (return an error message, or null on
- * success) — used by the phone-change flow. Left null (the default), this keeps the original
- * local-only mock (checks for the fixed demo code "1234") that every other profile field still uses.
-=======
- * The shared OTP step for phone and email changes. Both go through the same
- * shape — `onVerify(code)` confirms, `onResend()` requests a fresh code and
- * reports the new cooldown — so the screen owns no gateway knowledge at all.
- * Failures surface the server's own message; the raw value never leaves here.
->>>>>>> main
- */
 @Composable
-private fun PdOtpStep(
-    title: String,
-    target: String,
-<<<<<<< HEAD
-    onBack: () -> Unit,
-    onVerified: () -> Unit,
-    onVerify: (suspend (String) -> String?)? = null,
-    onResend: (suspend () -> String?)? = null,
-) {
+private fun PdOtpStep(title: String, target: String, onBack: () -> Unit, onVerified: () -> Unit) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var digits by remember { mutableStateOf(List(4) { "" }) }
-    var countdown by remember { mutableIntStateOf(60) }
-=======
-    initialCooldown: Int,
-    onVerify: suspend (String) -> ApiEnvelope<UserDto>,
-    onResend: suspend () -> ChannelOtpDto?,
-    onVerified: (UserDto, String) -> Unit,
-    onBack: () -> Unit,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var digits by remember { mutableStateOf(List(6) { "" }) }
-    var countdown by remember { mutableIntStateOf(initialCooldown.coerceAtLeast(0)) }
->>>>>>> main
+    var countdown by remember { mutableIntStateOf(60) }
     var hasError by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val wrongCode = stringResource(R.string.toast_wrong_code)
     val codeSent = stringResource(R.string.toast_code_sent)
-<<<<<<< HEAD
-    val focusers = remember { List(4) { FocusRequester() } }
-=======
-    val genericError = stringResource(R.string.wallet_error_generic)
     val focusers = remember { List(6) { FocusRequester() } }
->>>>>>> main
 
     LaunchedEffect(countdown) {
         if (countdown > 0) {
@@ -1101,82 +1224,12 @@ private fun PdOtpStep(
     }
 
     fun verify(code: String) {
-<<<<<<< HEAD
-        if (code.length != 4 || busy) return
-
-        if (onVerify == null) {
-            if (code == "1234") {
-                onVerified()
-            } else {
-                hasError = true
-                Toast.makeText(context, wrongCode, Toast.LENGTH_SHORT).show()
-            }
-            return
-        }
-
-        scope.launch {
-            busy = true
-            val error = onVerify(code)
-            busy = false
-            if (error == null) {
-                onVerified()
-            } else {
-                hasError = true
-                digits = List(4) { "" }
-                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                focusers[0].requestFocus()
-            }
-=======
-        if (code.length != 6 || busy) return
-        scope.launch {
-            busy = true
-            runCatching { onVerify(code) }
-                .onSuccess { envelope ->
-                    val user = envelope.data
-                    if (user != null) {
-                        onVerified(user, envelope.message)
-                    } else {
-                        hasError = true
-                        Toast.makeText(
-                            context,
-                            envelope.message.ifBlank { wrongCode },
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    }
-                }
-                .onFailure {
-                    hasError = true
-                    Toast.makeText(
-                        context,
-                        it.serverMessage() ?: wrongCode,
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
-            busy = false
-        }
-    }
-
-    fun resend() {
-        if (busy) return
-        scope.launch {
-            busy = true
-            runCatching { onResend() }
-                .onSuccess { dto ->
-                    digits = List(6) { "" }
-                    hasError = false
-                    countdown = dto?.resendCooldownSeconds ?: 60
-                    Toast.makeText(context, codeSent, Toast.LENGTH_SHORT).show()
-                    focusers[0].requestFocus()
-                }
-                .onFailure {
-                    Toast.makeText(
-                        context,
-                        it.serverMessage() ?: genericError,
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }
-            busy = false
->>>>>>> main
+        if (code.length != 6) return
+        if (code == "123456") {
+            onVerified()
+        } else {
+            hasError = true
+            Toast.makeText(context, wrongCode, Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1233,35 +1286,28 @@ private fun PdOtpStep(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-<<<<<<< HEAD
                             .clickable {
-                                digits = List(4) { "" }
+                                digits = List(6) { "" }
                                 hasError = false
                                 countdown = 60
+                                Toast.makeText(context, codeSent, Toast.LENGTH_SHORT).show()
                                 focusers[0].requestFocus()
-                                if (onResend == null) {
-                                    Toast.makeText(context, codeSent, Toast.LENGTH_SHORT).show()
-                                } else {
-                                    scope.launch {
-                                        val error = onResend()
-                                        Toast.makeText(context, error ?: codeSent, Toast.LENGTH_SHORT).show()
-                                    }
-                                }
                             },
-=======
-                            .clickable { resend() },
->>>>>>> main
                     )
                 }
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.profile_otp_dev_hint),
+                    fontSize = 12.sp,
+                    color = AppColors.textMuted,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             val code = digits.joinToString("")
             PdSaveButton(
                 label = stringResource(R.string.profile_otp_confirm),
-<<<<<<< HEAD
-                enabled = code.length == 4,
-=======
-                enabled = code.length == 6 && !busy,
->>>>>>> main
+                enabled = code.length == 6,
             ) { verify(code) }
         }
     }

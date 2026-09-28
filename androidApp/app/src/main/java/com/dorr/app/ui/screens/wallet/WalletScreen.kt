@@ -24,9 +24,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 <<<<<<< HEAD
+<<<<<<< HEAD
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
+=======
+>>>>>>> main
 =======
 >>>>>>> main
 import androidx.compose.material3.Icon
@@ -162,6 +165,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val enterSub = stringResource(R.string.wa_gate_enter_sub)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     var status by remember { mutableStateOf<PinStatusDto?>(null) }
     var failed by remember { mutableStateOf<String?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
@@ -183,6 +187,12 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     var step by remember { mutableStateOf("enter") }
     var first by remember { mutableStateOf("") }
 
+=======
+    var hasPin by remember { mutableStateOf<Boolean?>(null) }
+    var step by remember { mutableStateOf("enter") }
+    var first by remember { mutableStateOf("") }
+
+>>>>>>> main
     val reconnectTick = collectReconnectTick()
     LaunchedEffect(reconnectTick) {
         hasPin = null
@@ -215,6 +225,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
         else -> WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
             when {
 <<<<<<< HEAD
+<<<<<<< HEAD
                 failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaEmpty(
                         icon = Icons.Rounded.Warning, tone = Tone.Gray,
@@ -224,6 +235,8 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                 }
                 current == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
 =======
+=======
+>>>>>>> main
                 hasPin == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
 >>>>>>> main
                     WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
