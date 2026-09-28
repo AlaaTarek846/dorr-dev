@@ -180,6 +180,18 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                 ],
             ],
+            'chat-themes' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-report-types' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-reports' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
             'withdrawal-requests' => [
                 'module_name' => 'general_services',
                 'actions' => [

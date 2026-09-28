@@ -24,6 +24,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -143,6 +144,9 @@ private fun CallScreen() {
     var tick by remember { mutableLongStateOf(0L) }
     val remote = CallController.videos.firstOrNull { !it.isLocal }
     val local = CallController.videos.firstOrNull { it.isLocal }
+    // A group call (or anyone who joined a 1:1 later) shows everyone as a grid instead of one face.
+    val grouped = phase == CallPhase.Active &&
+        (CallController.call?.conversationType == "group" || CallController.members.count { !it.isLocal } > 1)
 
     BackHandler(enabled = true) { /* a call is ended with the red button, not by accident */ }
 
@@ -151,8 +155,8 @@ private fun CallScreen() {
         try { kotlinx.coroutines.awaitCancellation() } finally { job.cancel() }
     }
     // In a video call, controls hide themselves; a tap brings them back.
-    LaunchedEffect(controlsVisible, phase, remote != null) {
-        if (controlsVisible && phase == CallPhase.Active && remote != null) {
+    LaunchedEffect(controlsVisible, phase, remote != null, grouped) {
+        if (controlsVisible && phase == CallPhase.Active && remote != null && !grouped) {
             delay(4000)
             controlsVisible = false
         }
@@ -171,15 +175,25 @@ private fun CallScreen() {
         Modifier.fillMaxSize().background(Color.Black)
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { controlsVisible = !controlsVisible },
     ) {
-        // ------------------------------------------------------------ backdrop
-        if (remote != null && phase == CallPhase.Active) {
+        // ------------------------------------------------------------ group: everyone in a grid
+        if (grouped) {
+            AnimatedBackdrop()
+            GroupGrid(Modifier.fillMaxSize().padding(top = 96.dp, bottom = 124.dp).navigationBarsPadding())
+            Column(Modifier.fillMaxWidth().padding(top = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(CallController.title, color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
+                Text(
+                    stringResource(R.string.ch_call_people, CallController.members.size) + "  ·  " + durationText(tick * 1000),
+                    color = Color.White.copy(alpha = 0.75f), fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+                )
+            }
+        } else if (remote != null && phase == CallPhase.Active) {
             key(remote.track) { VideoSurface(remote, Modifier.fillMaxSize()) }
         } else {
             AnimatedBackdrop()
         }
 
         // ------------------------------------------------------------ who + state
-        AnimatedVisibility(remote == null || phase != CallPhase.Active || controlsVisible, enter = fadeIn(), exit = fadeOut()) {
+        if (!grouped) AnimatedVisibility(remote == null || phase != CallPhase.Active || controlsVisible, enter = fadeIn(), exit = fadeOut()) {
             Column(Modifier.fillMaxWidth().padding(top = 70.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 if (remote == null || phase != CallPhase.Active) {
                     Sonar(ringing = phase == CallPhase.Incoming || phase == CallPhase.Outgoing) {
@@ -205,17 +219,78 @@ private fun CallScreen() {
         }
 
         // ------------------------------------------------------------ my camera (drag it anywhere, it snaps to a corner)
-        if (local != null && phase == CallPhase.Active) LocalPreview(local)
+        if (local != null && phase == CallPhase.Active && !grouped) LocalPreview(local)
 
         // ------------------------------------------------------------ controls
         Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 36.dp)) {
             if (phase == CallPhase.Incoming) {
                 IncomingControls(onDecline = { CallController.decline() }, onAccept = { accept() })
             } else {
-                AnimatedVisibility(controlsVisible || remote == null, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
+                AnimatedVisibility(controlsVisible || remote == null || grouped, enter = slideInVertically { it } + fadeIn(), exit = slideOutVertically { it } + fadeOut()) {
                     ActiveControls(video)
                 }
             }
+        }
+    }
+}
+
+/**
+ * Everyone in the call: 2 people stacked, up to 6 in two columns filling the screen, more than
+ * that scroll. A tile shows the camera when it's on, else the person's photo on a soft gradient;
+ * whoever is talking gets a glowing ring, and a muted mic shows a small badge.
+ */
+@Composable
+private fun GroupGrid(modifier: Modifier) {
+    val people = CallController.members
+    BoxWithConstraints(modifier.padding(horizontal = 10.dp)) {
+        val columns = if (people.size <= 2) 1 else 2
+        val rows = ((people.size + columns - 1) / columns).coerceAtLeast(1)
+        val gap = 10.dp
+        val tileHeight = if (people.size <= 6) (maxHeight - gap * (rows - 1)) / rows else 220.dp
+        androidx.compose.foundation.lazy.grid.LazyVerticalGrid(
+            columns = androidx.compose.foundation.lazy.grid.GridCells.Fixed(columns),
+            verticalArrangement = Arrangement.spacedBy(gap),
+            horizontalArrangement = Arrangement.spacedBy(gap),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            items(people.size, key = { people[it].key }) { i ->
+                MemberTile(people[i], Modifier.animateItem(fadeInSpec = tween(300), placementSpec = spring(dampingRatio = 0.8f, stiffness = 300f)).fillMaxWidth().height(tileHeight))
+            }
+        }
+    }
+}
+
+@Composable
+private fun MemberTile(member: com.dorr.app.chat.CallMember, modifier: Modifier) {
+    val glow by androidx.compose.animation.core.animateDpAsState(if (member.speaking) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "speaking")
+    val shape = RoundedCornerShape(22.dp)
+    Box(
+        modifier
+            .shadow(if (member.speaking) 18.dp else 6.dp, shape, spotColor = Color(0xFF22C55E))
+            .clip(shape)
+            .background(Brush.linearGradient(listOf(Color(0xFF2A0A0D), Color(0xFF14080A))))
+            .then(if (glow > 0.dp) Modifier.border(glow, Color(0xFF22C55E), shape) else Modifier),
+    ) {
+        val v = member.video
+        if (v != null) {
+            key(v.track) { VideoSurface(v, Modifier.fillMaxSize()) }
+        } else {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Sonar(ringing = member.speaking) { ChAvatar(member.avatar, member.name, member.key, size = 84.dp) }
+            }
+        }
+        Row(
+            Modifier.align(Alignment.BottomStart).padding(10.dp).clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (!member.micOn) {
+                Icon(Icons.Rounded.MicOff, null, tint = Color(0xFFF87171), modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(4.dp))
+            }
+            Text(
+                if (member.isLocal) stringResource(R.string.ch_you) else member.name.orEmpty(),
+                color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            )
         }
     }
 }

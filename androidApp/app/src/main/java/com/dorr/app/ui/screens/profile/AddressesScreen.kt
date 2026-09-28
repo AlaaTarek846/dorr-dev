@@ -364,40 +364,6 @@ fun AddressesScreen(onBack: () -> Unit) {
                                     )
                                 }
                             }
-                            AddressListState.Error -> {
-                                Column(
-                                    modifier = Modifier
-                                        .fillMaxSize()
-                                        .clip(RoundedCornerShape(22.dp))
-                                        .background(AppColors.danger.copy(alpha = 0.06f))
-                                        .padding(20.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally,
-                                    verticalArrangement = Arrangement.Center,
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.CloudOff,
-                                        contentDescription = null,
-                                        tint = AppColors.textMuted,
-                                        modifier = Modifier.size(42.dp),
-                                    )
-                                    Spacer(Modifier.height(10.dp))
-                                    Text(
-                                        loadError.orEmpty(),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = AppColors.textPrimary,
-                                        textAlign = TextAlign.Center,
-                                    )
-                                    Spacer(Modifier.height(6.dp))
-                                    TextButton(onClick = { reloadKey++ }) {
-                                        Text(
-                                            stringResource(R.string.services_retry),
-                                            color = settingsAccent(),
-                                            fontWeight = FontWeight.Bold,
-                                        )
-                                    }
-                                }
-                            }
-
                             AddressListState.Empty -> {
                                 Box(
                                     modifier = Modifier.fillMaxSize(),

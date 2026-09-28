@@ -1007,15 +1007,30 @@
             "request": "PIN recovery request",
             "document": "Document",
             "reason_column": "Type",
-            "reason": {"recovery_document":"PIN recovery","security_freeze":"Security freeze"},
-            "original": {"recovery_document":"Photo uploaded at setup","security_freeze":"ID photo submitted now"},
-            "new": {"recovery_document":"Photo submitted now","security_freeze":"Selfie submitted now"},
+            "reason": {
+                "recovery_document": "PIN recovery",
+                "security_freeze": "Security freeze"
+            },
+            "original": {
+                "recovery_document": "Photo uploaded at setup",
+                "security_freeze": "ID photo submitted now"
+            },
+            "new": {
+                "recovery_document": "Photo submitted now",
+                "security_freeze": "Selfie submitted now"
+            },
             "no_image": "No image",
-            "compare_hint": {"recovery_document":"Compare the two photos. Approve only if they show the same document belonging to the same person.","security_freeze":"The wallet was permanently frozen after wrong PIN attempts. Compare the ID photo and the selfie — approve only if they clearly show the same person."},
+            "compare_hint": {
+                "recovery_document": "Compare the two photos. Approve only if they show the same document belonging to the same person.",
+                "security_freeze": "The wallet was permanently frozen after wrong PIN attempts. Compare the ID photo and the selfie — approve only if they clearly show the same person."
+            },
             "approve_hint": "Approving resets the wallet PIN to 0000 and notifies the user, who should change it from the wallet.",
             "approved": "Approved. The PIN was reset to 0000.",
             "rejected": "Request rejected.",
-            "method": { "id_photo": "ID photo", "passport_photo": "Passport photo" }
+            "method": {
+                "id_photo": "ID photo",
+                "passport_photo": "Passport photo"
+            }
         },
         "ledger": {
             "title": "Financial ledger",
@@ -1136,5 +1151,100 @@
     },
     "global": {
         "home": "Home"
+    },
+    "chat": {
+        "common": {
+            "name": "Name",
+            "sort_order": "Order",
+            "deleted": "Deleted."
+        },
+        "settings": {
+            "title": "Chat settings",
+            "intro": "Limits that apply to every chat on the platform. Changes take effect immediately.",
+            "saved": "Chat settings saved.",
+            "section_messages": "Messages & files",
+            "section_groups": "Groups & folders",
+            "section_stories": "Stories",
+            "section_calls": "Calls",
+            "max_file_size_mb": "Max file size",
+            "edit_window_minutes": "Edit window",
+            "delete_for_everyone_window_minutes": "Delete-for-everyone window",
+            "deleted_message_retention_days": "Keep deleted messages for",
+            "max_pinned_messages": "Pinned messages per chat",
+            "max_forward_targets": "Forward to at most",
+            "max_group_members": "Max group members",
+            "max_folders": "Folders per person",
+            "story_duration_hours": "Story lifetime",
+            "story_video_max_seconds": "Max story video length",
+            "max_call_participants": "Max people in a call",
+            "stories_enabled": "Enabled",
+            "calls_enabled": "Enabled",
+            "hint_edit_window_minutes": "0 = editing is off.",
+            "hint_delete_for_everyone_window_minutes": "0 = no time limit.",
+            "hint_deleted_message_retention_days": "Then they are purged from the server. 0 = purge right away.",
+            "unit_mb": "MB",
+            "unit_minutes": "min",
+            "unit_days": "days",
+            "unit_hours": "hours",
+            "unit_seconds": "sec",
+            "unit_members": "people"
+        },
+        "themes": {
+            "title": "Chat themes",
+            "intro": "People pick one of these for each chat (wallpaper + bubble colours). The default is used where nobody picked one.",
+            "search": "Search themes...",
+            "add": "Add theme",
+            "edit": "Edit theme",
+            "default": "Default",
+            "sender_color": "My bubble",
+            "receiver_color": "Their bubble",
+            "background_color": "Background",
+            "wallpaper": "Wallpaper image",
+            "remove_wallpaper": "Remove wallpaper",
+            "is_dark": "Dark wallpaper",
+            "preview": "Preview",
+            "sample_in": "Hey! How are you? 👋",
+            "sample_out": "All good, thanks 😊",
+            "saved": "Theme saved.",
+            "confirm_delete": "Delete the theme \"{name}\"? Chats using it go back to the default."
+        },
+        "report_types": {
+            "title": "Report reasons",
+            "search": "Search reasons...",
+            "add": "Add reason",
+            "edit": "Edit reason",
+            "reports_count": "Reports",
+            "saved": "Reason saved.",
+            "confirm_delete": "Delete \"{name}\"? Past reports keep their record without a reason."
+        },
+        "reports": {
+            "title": "Chat reports",
+            "report": "Report",
+            "all_types": "All reasons",
+            "reason": "Reason",
+            "reporter": "Reported by",
+            "reported": "Reported",
+            "conversation": "Chat",
+            "whole_group": "The whole group",
+            "type_direct": "Direct chat",
+            "type_group": "Group",
+            "messages_count": "{count} messages",
+            "status_pending": "Pending",
+            "status_reviewing": "Reviewing",
+            "status_resolved": "Resolved",
+            "status_dismissed": "Dismissed",
+            "admin_note": "Admin note",
+            "reviewed_by": "Reviewed by",
+            "evidence": "Last messages (copied when reported)",
+            "no_messages": "No messages were attached.",
+            "deleted_message": "Deleted message",
+            "system_message": "System message",
+            "attachment_image": "Image",
+            "attachment_video": "Video",
+            "attachment_audio": "Audio",
+            "attachment_voice": "Voice note",
+            "attachment_file": "File",
+            "saved": "Report updated."
+        }
     }
 }

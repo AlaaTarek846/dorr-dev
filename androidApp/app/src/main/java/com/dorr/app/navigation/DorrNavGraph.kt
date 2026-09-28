@@ -95,14 +95,11 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
 
     fun logout() {
         val token = AuthSession.token
-<<<<<<< HEAD
         // Another person may sign in on this phone: drop the chat's cache, live connection and push id.
         com.dorr.app.chat.ChatRealtime.stop()
         com.dorr.app.chat.ChatPush.signedOut()
         com.dorr.app.chat.ChatStore.clear()
-=======
         appearance.clear()
->>>>>>> origin/main
         AuthSession.clear()
         targetRouteAfterLogin = null
         lastMainTab = 0
