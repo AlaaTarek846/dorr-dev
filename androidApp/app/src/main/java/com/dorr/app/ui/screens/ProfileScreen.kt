@@ -35,6 +35,7 @@ import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.LanguageDto
+import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.PinkIcon
 import com.dorr.app.ui.screens.wallet.formatMinor
@@ -82,6 +83,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -94,9 +96,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.UserDto
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.AddressesScreen
 import com.dorr.app.ui.screens.profile.ContactUsSheet
@@ -192,6 +196,51 @@ internal object AccountDark {
     val mut = Color(0xFF9AA1AC)
     val accent = Color(0xFFFF4D57)
     val chevron = Color(0xFF8B93A0)
+}
+
+/**
+ * Profile picture from the cached session user, falling back to the placeholder
+ * icon when the account has no avatar (or the image can't be reached).
+ *
+ * Fills the space it is given and relies on the caller's circle clip, so the
+ * avatar is always cropped to a circle.
+ */
+@Composable
+private fun AccountAvatar(user: UserDto?, dark: Boolean, size: Dp) {
+    // The server keeps a fixed file name per account (…/{userId}/avatar.jpg), so
+    // re-uploading returns the same URL — updated_at busts the Coil cache.
+    val avatarUrl = remember(user?.avatar, user?.updatedAt) {
+        ApiClient.mediaUrl(user?.avatar)?.let { url -> "$url?v=${user?.updatedAt ?: "0"}" }
+    }
+    var failed by remember(avatarUrl) { mutableStateOf(false) }
+
+    if (avatarUrl != null && !failed) {
+        AsyncImage(
+            model = avatarUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            onError = { failed = true },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            Icon(
+                Icons.Rounded.Person,
+                contentDescription = null,
+                tint = if (dark) AccountDark.accent else AppColors.waRed,
+                modifier = Modifier.size(size / 2),
+            )
+            // TEMP DIAG
+            Text(
+                text = if (user?.avatar == null) "AVATAR_NULL" else "LOAD_FAIL",
+                fontSize = 6.sp,
+                color = Color.Red,
+            )
+        }
+    }
 }
 
 private fun Modifier.accountBackdrop(dark: Boolean): Modifier = drawBehind {
@@ -305,7 +354,10 @@ private fun ProfileMenuScreen(
             }
         }
         item {
-            val user = AuthSession.user
+            // Keyed on the session: AuthSession.user is a plain var, so without
+            // this the row would keep rendering the previous account's avatar.
+            val sessionVersion by AuthSession.sessionVersion.collectAsState()
+            val user = remember(sessionVersion) { AuthSession.user }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -322,7 +374,7 @@ private fun ProfileMenuScreen(
                         .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.Person, contentDescription = null, tint = if (dark) AccountDark.accent else AppColors.waRed, modifier = Modifier.size(28.dp))
+                    AccountAvatar(user = user, dark = dark, size = 56.dp)
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {
@@ -568,7 +620,8 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     var balanceText by remember { mutableStateOf("0.00") }
     var currencyText by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         runCatching { ApiClient.wallet.balance("Bearer ${AuthSession.token.orEmpty()}").data }.onSuccess { dto ->
             dto?.let {
                 balanceText = formatMinor(it.totalMinor, null)
@@ -973,7 +1026,8 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
     val appLanguage = LocalAppLanguage.current
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         languages = runCatching { ApiClient.languages.list().data.orEmpty() }.getOrDefault(emptyList())
         loading = false
     }

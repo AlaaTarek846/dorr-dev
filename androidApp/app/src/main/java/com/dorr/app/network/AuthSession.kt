@@ -3,6 +3,9 @@ package com.dorr.app.network
 import android.content.Context
 import android.content.SharedPreferences
 import com.google.gson.Gson
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 
 /**
  * Holds the authenticated session (mobile OTP flow). Persisted to
@@ -18,16 +21,28 @@ object AuthSession {
     private var prefs: SharedPreferences? = null
     private val gson = Gson()
 
+    private val _sessionVersion = MutableStateFlow(0L)
+
+    /**
+     * Bumped on every token/user write so Compose screens can key their state
+     * on the active account. `user` itself is a plain var, so a screen that
+     * captured it with remember() would otherwise keep showing the previous
+     * account after a logout/login switch.
+     */
+    val sessionVersion: StateFlow<Long> = _sessionVersion.asStateFlow()
+
     var token: String? = null
         set(value) {
             field = value
             persist()
+            _sessionVersion.value++
         }
 
     var user: UserDto? = null
         set(value) {
             field = value
             persist()
+            _sessionVersion.value++
         }
 
     /**

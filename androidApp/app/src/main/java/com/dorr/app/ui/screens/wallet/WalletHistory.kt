@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.WalletTransactionDto
-import com.dorr.app.network.apiFailure
+import com.dorr.app.network.collectReconnectTick
 import java.time.LocalDate
 
 private enum class HistoryFilter(val label: Int, val icon: ImageVector, val direction: String?, val bucket: String?) {
@@ -61,23 +61,27 @@ fun WalletHistory() {
     var page by remember { mutableIntStateOf(1) }
     var hasMore by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val networkError = stringResource(R.string.wa_error_network)
 
     LaunchedEffect(Unit) { if (host.balance == null) host.refreshBalance() }
 
+    // A reconnect restarts from the first page so fresh rows replace the
+    // stale list instead of appending onto it.
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) { page = 1 }
+
     // A filter change or "show more" re-runs this; page 1 replaces the list, later pages append.
-    LaunchedEffect(filter, page) {
+    // No error card here on purpose: offline is covered by the app-wide
+    // screen and a reconnect reloads, so a failed load keeps the skeleton
+    // (loading stays true) until the next attempt succeeds.
+    LaunchedEffect(filter, page, reconnectTick) {
         loading = true
-        error = null
         runCatching { ApiClient.wallet.transactions(walletAuth(), page = page, perPage = 15, direction = filter.direction, bucket = filter.bucket) }
             .onSuccess { envelope ->
                 val fresh = envelope.data.orEmpty()
                 rows = if (page == 1) fresh else rows + fresh
                 hasMore = envelope.pagination?.hasMorePages == true
+                loading = false
             }
-            .onFailure { error = it.apiFailure().message ?: networkError }
-        loading = false
     }
 
     WaPage(title = stringResource(R.string.wa_history_title), onBack = { host.pop() }) {
@@ -94,7 +98,6 @@ fun WalletHistory() {
         }
 
         when {
-            error != null -> WaError(error)
             loading && rows.isEmpty() -> WaCard(Modifier.fillMaxWidth().padding(horizontal = 0.dp)) {
                 Column(Modifier.padding(horizontal = 14.dp)) { repeat(5) { WaTxSkeleton() } }
             }

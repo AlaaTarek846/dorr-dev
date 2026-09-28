@@ -113,6 +113,13 @@ fun MainScreen(
 
     LaunchedEffect(Unit) {
         val token = AuthSession.token
+        // The profile is cached in SharedPreferences and restored at startup
+        // (AuthSession.attach). A cached user can be missing fields that were
+        // filled in later on the server (e.g. the avatar added from another
+        // device, or country set after the first login), and every profile
+        // screen reads the cache without its own network call. So refresh
+        // auth/me once here — a single cheap call in the shell at launch, not
+        // in any screen — and let AuthSession push the fresh data out.
         if (!token.isNullOrBlank()) {
             runCatching {
                 ApiClient.mobileAuth.me("Bearer $token").data

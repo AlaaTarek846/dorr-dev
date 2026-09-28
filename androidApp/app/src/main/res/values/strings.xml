@@ -161,6 +161,7 @@
     <string name="addr_toast_saved">Address saved</string>
     <string name="addr_toast_updated">Address updated</string>
     <string name="addr_toast_deleted">Address deleted</string>
+    <string name="addr_toast_cannot_delete_default">The default address cannot be deleted. Set another address as default first.</string>
     <string name="addr_toast_default">Default address updated</string>
     <string name="account_personal_data_sub">Name, phone and email</string>
     <string name="account_notifications_sub">Manage alerts</string>

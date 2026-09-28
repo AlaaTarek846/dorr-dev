@@ -81,6 +81,7 @@ import com.dorr.app.network.TopupPaymentDto
 import com.dorr.app.network.TopupQuoteDto
 import com.dorr.app.network.TopupRequest
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -114,7 +115,6 @@ fun WalletTopup(initialMethods: List<PaymentMethodDto>? = null, initialAmount: S
     val pinSubtitle = stringResource(R.string.wa_pin_topup_sub)
 
     var methods by remember { mutableStateOf(initialMethods) }
-    var methodsFailed by remember { mutableStateOf(false) }
     var methodId by remember { mutableStateOf(initialMethods?.firstOrNull { !it.comingSoon }?.id) }
     var amountText by remember { mutableStateOf(initialAmount) }
     var quote by remember { mutableStateOf(initialQuote) }
@@ -134,15 +134,18 @@ fun WalletTopup(initialMethods: List<PaymentMethodDto>? = null, initialAmount: S
 
     val amountMinor = parseAmountToMinor(amountText)
 
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         if (host.balance == null) host.refreshBalance()
         if (initialMethods != null) return@LaunchedEffect
+        // No error card on failure: offline is covered by the app-wide
+        // screen and a reconnect reloads, so methods stay null (skeleton)
+        // until an attempt succeeds.
         runCatching { ApiClient.wallet.paymentMethods(walletAuth()).data.orEmpty() }
             .onSuccess { list ->
                 methods = list
                 methodId = list.firstOrNull { !it.comingSoon }?.id
             }
-            .onFailure { methodsFailed = true }
     }
 
     // Live quote, debounced so typing "100" doesn't fire three requests.
@@ -269,8 +272,7 @@ fun WalletTopup(initialMethods: List<PaymentMethodDto>? = null, initialAmount: S
         WaSectionTitle(stringResource(R.string.wa_pay_method), Modifier.waRise(1))
         Column(Modifier.waRise(2)) {
             when {
-                methods == null && !methodsFailed -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(70.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
-                methodsFailed -> WaError(networkError)
+                methods == null -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(70.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
                 methods.orEmpty().isEmpty() -> WaCard(Modifier.fillMaxWidth()) {
                     WaEmpty(Icons.Rounded.CreditCard, Tone.Gray, stringResource(R.string.wa_no_methods), stringResource(R.string.wa_no_methods_text))
                 }

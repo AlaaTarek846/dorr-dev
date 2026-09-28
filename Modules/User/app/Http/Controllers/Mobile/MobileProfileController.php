@@ -78,7 +78,7 @@ class MobileProfileController extends Controller
         Cache::forget(self::PENDING_PHONE_CACHE_KEY.$user->getKey());
 
         return ApiResponse::success(
-            new UserResource($user->fresh()),
+            new UserResource($this->freshUser($user)),
             __('api.phone_verified'),
         );
     }
@@ -94,7 +94,7 @@ class MobileProfileController extends Controller
         $user->update($request->validated());
 
         return ApiResponse::success(
-            new UserResource($user->fresh()),
+            new UserResource($this->freshUser($user)),
             __('api.updated'),
         );
     }
@@ -110,7 +110,7 @@ class MobileProfileController extends Controller
         $user->setSingleMedia('avatar', $request->file('avatar'));
 
         return ApiResponse::success(
-            new UserResource($user->fresh()),
+            new UserResource($this->freshUser($user)),
             __('api.updated'),
         );
     }
@@ -166,9 +166,20 @@ class MobileProfileController extends Controller
         Cache::forget(self::PENDING_EMAIL_CACHE_KEY.$user->getKey());
 
         return ApiResponse::success(
-            new UserResource($user->fresh()),
+            new UserResource($this->freshUser($user)),
             __('api.email_verified'),
         );
+    }
+
+    /**
+     * UserResource only serialises `country` when the relation is loaded, and the
+     * app replaces its cached session user with every profile response — so a
+     * plain fresh() would silently drop the country (dial code + flag) from the
+     * payload and the client would fall back to the wrong default country.
+     */
+    private function freshUser(User $user): User
+    {
+        return $user->fresh()->load(['country.flag']);
     }
 
     /**
