@@ -61,6 +61,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.NotificationDto
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
@@ -128,8 +129,10 @@ fun NotificationsScreen(onBack: () -> Unit) {
     val hasUnread = notifications.any { it.unread }
     val night = settingsNight()
 
-    // The real feed. Reloaded on entry; every row arrives in the language the app is using.
-    LaunchedEffect(Unit) {
+    // The real feed. Reloaded on entry and on reconnect; every row arrives in
+    // the language the app is using.
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         runCatching { ApiClient.notifications.list("Bearer ${AuthSession.token.orEmpty()}").data.orEmpty() }
             .onSuccess { rows ->
                 notifications.clear()

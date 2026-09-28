@@ -9,6 +9,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.wallet.formatMinor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -106,7 +107,8 @@ fun HomeScreen(
 @Composable
 private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit) {
     var hasUnread by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         hasUnread = runCatching {
             ApiClient.notifications.unreadCount("Bearer ${AuthSession.token.orEmpty()}").data?.count ?: 0
         }.getOrDefault(0) > 0
@@ -190,7 +192,8 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
 private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifier) {
     var balanceText by remember { mutableStateOf("0.00") }
     var currencyText by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         runCatching { ApiClient.wallet.balance("Bearer ${AuthSession.token.orEmpty()}").data }.onSuccess { dto ->
             dto?.let {
                 balanceText = formatMinor(it.totalMinor, null)

@@ -57,6 +57,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -70,9 +71,17 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
+import com.dorr.app.network.CountryCache
+import com.dorr.app.network.CountryDto
+import com.dorr.app.network.FlagDto
 import com.dorr.app.network.TransferLookupRequest
 import com.dorr.app.network.TransferRecipientDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.flagIso
+import com.dorr.app.network.formattedDial
+import com.dorr.app.network.resolveForPhone
+import com.dorr.app.network.UserCountryDto
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -133,10 +142,23 @@ internal fun isValidWalletNumber(digits: String): Boolean {
 @Composable
 fun WalletTransfer() {
     val host = LocalWallet.current
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val balance = host.balance
     val networkError = stringResource(R.string.wa_error_network)
-    val country = countryName(balance?.countryCode)
+    val uc = AuthSession.user?.country
+    val resolved = uc?.let { userCountry ->
+        CountryDto(
+            id = 0, code = userCountry.code ?: "", name = "",
+            dialCode = userCountry.dialCode ?: "",
+            phoneLength = userCountry.phoneLength,
+            phoneStartsWith = userCountry.phoneStartsWith,
+            isDefault = false,
+            flag = userCountry.flag?.let { FlagDto(id = 0, code = it.code ?: "") },
+        )
+    } ?: CountryCache.resolveForPhone(context, AuthSession.user?.phone)
+        ?: CountryCache.pickDefault(context)
+    val country = countryName(resolved?.code)
 
     var mode by remember { mutableStateOf(TransferMode.PHONE) }
     var phoneRaw by remember { mutableStateOf("") }
@@ -144,10 +166,10 @@ fun WalletTransfer() {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    val dialCode = balance?.dialCode?.takeIf { it.isNotBlank() } ?: "+966"
-    val countryCode = balance?.countryCode?.lowercase() ?: "sa"
-    val phoneLength = balance?.phoneLength ?: 9
-    val phoneStartsWith = balance?.phoneStartsWith.orEmpty().ifBlank { "5" }
+    val dialCode = resolved?.formattedDial()?.takeIf { it.isNotBlank() } ?: "+966"
+    val countryCode = resolved?.flagIso() ?: "sa"
+    val phoneLength = resolved?.phoneLength ?: 9
+    val phoneStartsWith = resolved?.phoneStartsWith.orEmpty().ifBlank { "5" }
 
     val isPhoneValid = phoneRaw.length == phoneLength && (phoneStartsWith.isEmpty() || phoneRaw.startsWith(phoneStartsWith))
     val phoneError: String? = when {

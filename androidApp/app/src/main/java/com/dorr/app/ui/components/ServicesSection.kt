@@ -94,6 +94,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ServiceChildDto
 import com.dorr.app.network.ServiceDto
+import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
@@ -174,8 +175,9 @@ internal class ServicesLoader(val state: ServicesState, val reload: () -> Unit)
 internal fun rememberServicesLoader(): ServicesLoader {
     var reloadKey by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<ServicesState>(ServicesState.Loading) }
+    val reconnectTick = collectReconnectTick()
 
-    LaunchedEffect(reloadKey) {
+    LaunchedEffect(reloadKey, reconnectTick) {
         state = ServicesState.Loading
         state = runCatching { ApiClient.services.list().data.orEmpty() }
             .fold({ ServicesState.Loaded(it) }, { ServicesState.Error })

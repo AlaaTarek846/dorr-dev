@@ -161,6 +161,7 @@
     <string name="addr_toast_saved">تم حفظ العنوان</string>
     <string name="addr_toast_updated">تم تحديث العنوان</string>
     <string name="addr_toast_deleted">تم حذف العنوان</string>
+    <string name="addr_toast_cannot_delete_default">لا يمكن حذف العنوان الافتراضي. عيّن عنوانًا آخر كافتراضي أولًا.</string>
     <string name="addr_toast_default">تم تحديث العنوان الافتراضي</string>
     <string name="account_personal_data_sub">الاسم والهاتف والبريد</string>
     <string name="account_notifications_sub">التحكم في التنبيهات</string>

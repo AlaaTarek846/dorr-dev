@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -98,6 +99,7 @@ import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CountryDto
+import com.dorr.app.network.CountryCache
 import com.dorr.app.network.LanguageDto
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.serverMessage
@@ -140,6 +142,11 @@ fun LoginScreen(
 
     val scope = rememberCoroutineScope()
 
+    // The single place in the app that calls the countries dropdown: the
+    // result is cached for every other screen (e.g. editing the phone in
+    // the profile), so this endpoint is never hit outside the login flow.
+    val context = LocalContext.current
+
     fun applyCountry(country: CountryDto) {
         selectedCountryId = country.id
         flagCode = country.flag?.code ?: country.code
@@ -153,6 +160,7 @@ fun LoginScreen(
     LaunchedEffect(Unit) {
         val listed = runCatching { ApiClient.countries.list().data.orEmpty() }.getOrDefault(emptyList())
         countries = listed
+        if (listed.isNotEmpty()) CountryCache.save(context, listed)
         val chosen = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
         chosen?.let(::applyCountry)
     }
