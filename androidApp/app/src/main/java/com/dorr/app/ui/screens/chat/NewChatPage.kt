@@ -63,10 +63,12 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
@@ -162,6 +164,8 @@ fun NewChatPage() {
     var syncing by remember { mutableStateOf(false) }
     var synced by remember { mutableStateOf<Int?>(null) }
     var lookupError by remember { mutableStateOf<String?>(null) }
+    // The "add by number" sheet; the text is what was typed in the search box, if anything.
+    var byPhone by remember { mutableStateOf<String?>(null) }
     val notOnDorr = stringResource(R.string.ch_not_on_dorr)
     val invalidQr = stringResource(R.string.ch_error_network)
 
@@ -241,13 +245,7 @@ fun NewChatPage() {
                     AnimatedVisibility(looksLikeNumber, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
                         Text(
                             stringResource(R.string.ch_find), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red).clickable {
-                                scope.launch {
-                                    runCatching { ApiClient.chat.lookup(chatAuth(), mapOf("phone" to digits)).data }
-                                        .onSuccess { p -> p?.let { host.openChatWith(it) } }
-                                        .onFailure { lookupError = if (it.apiFailure().httpStatus == 404) notOnDorr else it.apiFailure().message ?: notOnDorr }
-                                }
-                            }.padding(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red).clickable { byPhone = query }.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
                     }
                 }
@@ -258,10 +256,11 @@ fun NewChatPage() {
             item {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     ShortcutTile(Icons.Rounded.GroupAdd, stringResource(R.string.ch_new_group), 0, Modifier.weight(1f)) { host.replace(ChRoute.NewGroup()) }
-                    ShortcutTile(Icons.Rounded.QrCodeScanner, stringResource(R.string.ch_scan_qr), 1, Modifier.weight(1f)) {
+                    ShortcutTile(Icons.Rounded.Dialpad, stringResource(R.string.ch_by_number), 1, Modifier.weight(1f)) { byPhone = "" }
+                    ShortcutTile(Icons.Rounded.QrCodeScanner, stringResource(R.string.ch_scan_qr), 2, Modifier.weight(1f)) {
                         scanner.launch(ScanOptions().setPrompt(context.getString(R.string.ch_scan_prompt)).setBeepEnabled(false).setOrientationLocked(false))
                     }
-                    ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 2, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
+                    ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 3, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
                 }
             }
             item { SyncCard(syncing, synced, permissionDenied) {
@@ -289,6 +288,7 @@ fun NewChatPage() {
     }
 
     inviting?.let { entry -> InviteSheet(entry, contactCountry = me?.phone) { inviting = null } }
+    byPhone?.let { typed -> AddByPhoneSheet(typed, onDismiss = { byPhone = null }) }
 }
 
 /**
@@ -298,7 +298,7 @@ fun NewChatPage() {
  */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-private fun InviteSheet(entry: ContactEntry, contactCountry: String?, onDismiss: () -> Unit) {
+internal fun InviteSheet(entry: ContactEntry, contactCountry: String?, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val text = stringResource(R.string.ch_invite_text)
     val digits = entry.phone.filter { it.isDigit() || it == '+' }
@@ -494,8 +494,11 @@ fun NewGroupPage(addTo: String?) {
     val host = LocalChat.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var contacts by remember { mutableStateOf<List<ContactDto>>(emptyList()) }
+    // null = still loading (skeletons), [] = none on Dorr (the empty state).
+    var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
     val selected = remember { mutableStateListOf<ContactDto>() }
+    var query by remember { mutableStateOf("") }
+    var byPhone by remember { mutableStateOf(false) }
     var step by remember { mutableStateOf(0) }
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -503,6 +506,14 @@ fun NewGroupPage(addTo: String?) {
     var busy by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
+    // People found by number join the list as if they were contacts (negative ids never clash).
+    fun addFound(profile: ProfileDto) {
+        val entry = ContactDto(-profile.id, profile.name ?: profile.phone.orEmpty(), profile.phone.orEmpty(), false, "lookup", true, profile)
+        if (contacts.orEmpty().none { it.profile?.id == profile.id }) contacts = listOf(entry) + contacts.orEmpty()
+        val existing = contacts.orEmpty().first { it.profile?.id == profile.id }
+        if (selected.none { it.id == existing.id }) selected.add(existing)
+    }
+    val shown = contacts.orEmpty().filter { query.isBlank() || it.name.contains(query, true) || it.phone.filter(Char::isDigit).contains(query.filter(Char::isDigit).ifEmpty { "~" }) }
     val photo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { avatar = it }
 
     fun toggle(c: ContactDto) {
@@ -564,9 +575,44 @@ fun NewGroupPage(addTo: String?) {
                                 }
                             }
                         }
-                        Text(stringResource(R.string.ch_selected, selected.size), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 22.dp, top = 8.dp, bottom = 4.dp))
-                        LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            itemsIndexed(contacts, key = { _, c -> c.id }) { i, c ->
+                        // Search + "add by number": always there, even with an empty address book.
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Row(
+                                Modifier.weight(1f).shadow(3.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Rounded.Search, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Box(Modifier.weight(1f)) {
+                                    if (query.isEmpty()) Text(stringResource(R.string.ch_search_contacts), color = Ch.Soft, fontSize = 14.sp)
+                                    BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = Ch.Ink, fontSize = 14.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
+                                }
+                            }
+                            Box(
+                                Modifier.size(46.dp).shadow(8.dp, RoundedCornerShape(16.dp), spotColor = Ch.Red.copy(alpha = 0.4f)).clip(RoundedCornerShape(16.dp)).background(Ch.HeaderBrush).clickable { byPhone = true },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Rounded.Dialpad, null, tint = Color.White, modifier = Modifier.size(22.dp)) }
+                        }
+                        if (contacts?.isNotEmpty() == true) {
+                            Text(stringResource(R.string.ch_selected, selected.size), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 22.dp, top = 4.dp, bottom = 4.dp))
+                        }
+                        when {
+                            contacts == null -> Column(Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                repeat(6) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(66.dp), RoundedCornerShape(18.dp)) }
+                            }
+                            contacts!!.isEmpty() -> NoContactsForGroup(onByNumber = { byPhone = true }, onInvite = {
+                                runCatching {
+                                    context.startActivity(
+                                        android.content.Intent.createChooser(
+                                            android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, context.getString(R.string.ch_invite_text)),
+                                            null,
+                                        ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                                    )
+                                }
+                            })
+                            shown.isEmpty() -> Text(stringResource(R.string.ch_no_results), color = Ch.Soft, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(30.dp))
+                            else -> LazyColumn(contentPadding = PaddingValues(start = 14.dp, end = 14.dp, bottom = 110.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            itemsIndexed(shown, key = { _, c -> c.id }) { i, c ->
                                 val on = selected.any { it.id == c.id }
                                 ContactRow(c, i, trailing = {
                                     AnimatedContent(on, label = "pick", transitionSpec = { scaleIn(spring(dampingRatio = 0.4f)) togetherWith scaleOut() }) { checked ->
@@ -574,6 +620,7 @@ fun NewGroupPage(addTo: String?) {
                                     }
                                 }) { toggle(c) }
                             }
+                        }
                         }
                     }
                     AnimatedVisibility(selected.isNotEmpty(), enter = scaleIn(spring(dampingRatio = 0.5f)) + fadeIn(), exit = scaleOut() + fadeOut(), modifier = Modifier.align(Alignment.BottomEnd).padding(22.dp)) {
@@ -605,6 +652,42 @@ fun NewGroupPage(addTo: String?) {
                 }
             }
         }
+    }
+
+    if (byPhone) AddByPhoneSheet(onDismiss = { byPhone = false }, onPicked = { addFound(it) })
+}
+
+/**
+ * Nobody from the address book is on Dorr yet: a friendly card instead of a blank page — floating
+ * chat bubbles around a group icon, and the two ways forward: add someone by number, or invite.
+ */
+@Composable
+private fun NoContactsForGroup(onByNumber: () -> Unit, onInvite: () -> Unit) {
+    val t = androidx.compose.animation.core.rememberInfiniteTransition(label = "emptyGroup")
+    val float by t.animateFloat(0f, 1f, androidx.compose.animation.core.infiniteRepeatable(tween(2600, easing = androidx.compose.animation.core.FastOutSlowInEasing), androidx.compose.animation.core.RepeatMode.Reverse), label = "float")
+    Column(Modifier.fillMaxSize().padding(horizontal = 28.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Box(Modifier.size(190.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(170.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.06f)))
+            Box(Modifier.size(128.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.09f)))
+            Box(
+                Modifier.size(88.dp).graphicsLayer { translationY = -8.dp.toPx() * float }.shadow(20.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.5f)).clip(CircleShape).background(Ch.HeaderBrush),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.Groups, null, tint = Color.White, modifier = Modifier.size(44.dp)) }
+            Text("💬", fontSize = 26.sp, modifier = Modifier.align(Alignment.TopStart).padding(start = 14.dp, top = 22.dp).graphicsLayer { translationY = 10.dp.toPx() * float; rotationZ = -12f })
+            Text("👋", fontSize = 24.sp, modifier = Modifier.align(Alignment.TopEnd).padding(end = 10.dp, top = 34.dp).graphicsLayer { translationY = -12.dp.toPx() * float })
+            Text("🎉", fontSize = 22.sp, modifier = Modifier.align(Alignment.BottomStart).padding(start = 26.dp, bottom = 18.dp).graphicsLayer { translationX = 8.dp.toPx() * float })
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(stringResource(R.string.ch_group_empty_title), color = Ch.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(6.dp))
+        Text(stringResource(R.string.ch_group_empty_sub), color = Ch.Mut, fontSize = 13.5.sp, textAlign = TextAlign.Center)
+        Spacer(Modifier.height(22.dp))
+        ChPrimaryButton(stringResource(R.string.ch_add_by_phone), icon = Icons.Rounded.Dialpad, modifier = Modifier.fillMaxWidth(), onClick = onByNumber)
+        Spacer(Modifier.height(10.dp))
+        Box(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).border(1.5.dp, Ch.Red.copy(alpha = 0.35f), RoundedCornerShape(18.dp)).clickable(onClick = onInvite).padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) { Text(stringResource(R.string.ch_invite_friends), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp) }
     }
 }
 

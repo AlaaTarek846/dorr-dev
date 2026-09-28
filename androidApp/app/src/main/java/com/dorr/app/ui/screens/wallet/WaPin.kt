@@ -94,12 +94,14 @@ fun WaPinPad(
     icon: ImageVector = Icons.Rounded.Lock,
     tone: Tone = Tone.Red,
     dark: Boolean = false,
+    /** A lock already known when the pad opens (from the PIN status) — start on the countdown. */
+    lockedUntil: Long? = null,
 ) {
     var value by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf("") }
     var bad by remember { mutableStateOf(false) }
-    var lockedUntilMillis by remember { mutableStateOf<Long?>(null) }
+    var lockedUntilMillis by remember(lockedUntil) { mutableStateOf(lockedUntil?.takeIf { it > System.currentTimeMillis() }) }
     var remainingSeconds by remember { mutableStateOf(0L) }
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -322,5 +324,5 @@ fun WaPinSheetContent(sheet: WaSheet.Pin, host: WalletHost) {
                 PadResult.Ok
             }
         }
-    })
+    }, lockedUntil = sheet.lockedUntil)
 }

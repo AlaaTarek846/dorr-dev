@@ -109,6 +109,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
@@ -184,12 +185,37 @@ fun ChatListPage() {
         searchResults = runCatching { ApiClient.chat.conversations(chatAuth(), search = query, perPage = 30).data.orEmpty() }.getOrNull()
     }
 
-    val collapsed by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 60 } }
-    val headerHeight by animateDpAsState(if (collapsed || searching) 74.dp else 128.dp, spring(stiffness = 400f), label = "header")
-    val titleSize by animateFloatAsState(if (collapsed || searching) 20f else 30f, spring(stiffness = 400f), label = "title")
+    // The header follows the finger: it takes the first 54dp of an upward scroll to shrink, and
+    // grows back only once the list is back at its top. No threshold, so it can't flip-flop on a
+    // short list (shrinking made the list fit → the offset snapped back → it grew again…).
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val collapseRange = with(density) { 54.dp.toPx() }
+    var collapsePx by remember { androidx.compose.runtime.mutableFloatStateOf(0f) }
+    val headerScroll = remember(listState, collapseRange) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPreScroll(available: androidx.compose.ui.geometry.Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): androidx.compose.ui.geometry.Offset {
+                val dy = available.y
+                if (dy < 0f && collapsePx < collapseRange) {
+                    val used = minOf(-dy, collapseRange - collapsePx)
+                    collapsePx += used
+                    return androidx.compose.ui.geometry.Offset(0f, -used)
+                }
+                if (dy > 0f && collapsePx > 0f && !listState.canScrollBackward) {
+                    val used = minOf(dy, collapsePx)
+                    collapsePx -= used
+                    return androidx.compose.ui.geometry.Offset(0f, used)
+                }
+                return androidx.compose.ui.geometry.Offset.Zero
+            }
+        }
+    }
+    val fraction = if (searching) 1f else (collapsePx / collapseRange).coerceIn(0f, 1f)
+    val collapsed = fraction > 0.6f
+    val headerHeight = 128.dp - 54.dp * fraction
+    val titleSize = 30f - 10f * fraction
 
     Box(Modifier.fillMaxSize().background(Ch.Bg)) {
-        Column(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().nestedScroll(headerScroll)) {
             // -------------------------------------------------------------- hero header
             Box(
                 Modifier
@@ -229,7 +255,7 @@ fun ChatListPage() {
                     }
                 }
                 if (!collapsed && !searching && host.filter !in SpecialLists) {
-                    Column(Modifier.align(Alignment.BottomStart).padding(start = 22.dp, bottom = 16.dp)) {
+                    Column(Modifier.align(Alignment.BottomStart).padding(start = 22.dp, bottom = 16.dp).graphicsLayer { alpha = (1f - fraction / 0.6f).coerceIn(0f, 1f) }) {
                         Text(stringResource(R.string.ch_title), color = Color.White, fontSize = titleSize.sp, fontWeight = FontWeight.ExtraBold)
                         val unread = host.conversations.count { it.unreadCount > 0 }
                         AnimatedVisibility(unread > 0) {

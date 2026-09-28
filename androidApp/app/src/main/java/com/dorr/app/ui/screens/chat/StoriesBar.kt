@@ -31,6 +31,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.PhotoCamera
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -199,9 +200,17 @@ private fun MyStatus(mine: StoryGroupDto?, uploading: Boolean, index: Int, onAdd
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            StoryRing(count, seenCount = count, size = 68.dp, uploading = uploading) {
-                ChAvatar(null, me?.name, myKey(), size = 58.dp)
+            // My stories show like anyone's: a coloured arc per story, and my latest one inside
+            // the circle (not my initials), so posting two statuses is visible at a glance.
+            StoryRing(count, seenCount = 0, size = 68.dp, uploading = uploading) {
+                val latest = mine?.stories?.lastOrNull()
+                if (latest != null) StoryThumb(latest, size = 58.dp)
+                else ChAvatar(null, me?.name, myKey(), size = 58.dp)
             }
+            if (count > 1) Text(
+                "$count", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.align(Alignment.TopEnd).clip(CircleShape).background(Ch.Ink.copy(alpha = 0.75f)).padding(horizontal = 6.dp, vertical = 1.dp),
+            )
             Box(
                 Modifier.align(Alignment.BottomEnd).scale(plus.value).size(24.dp).clip(CircleShape).background(Ch.HeaderBrush).border(2.dp, Color.White, CircleShape)
                     .clickable(onClick = onAdd),
@@ -210,7 +219,11 @@ private fun MyStatus(mine: StoryGroupDto?, uploading: Boolean, index: Int, onAdd
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            stringResource(if (uploading) R.string.st_uploading else R.string.st_my_status),
+            when {
+                uploading -> stringResource(R.string.st_uploading)
+                count > 0 -> timeAgo(mine?.stories?.lastOrNull()?.createdAt).ifEmpty { stringResource(R.string.st_my_status) }
+                else -> stringResource(R.string.st_my_status)
+            },
             color = Ch.Ink, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
@@ -229,6 +242,34 @@ private fun PersonStory(group: StoryGroupDto, index: Int, onClick: () -> Unit) {
             owner?.name.orEmpty(), color = if (group.allSeen) Ch.Mut else Ch.Ink, fontSize = 11.5.sp,
             fontWeight = if (group.allSeen) FontWeight.Normal else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
+    }
+}
+
+/**
+ * A story in miniature for a ring: the photo (or the video's poster), or a text status as its
+ * gradient with the first words.
+ */
+@Composable
+internal fun StoryThumb(story: com.dorr.app.network.StoryDto, size: Dp) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    Box(Modifier.size(size).clip(CircleShape).background(StoryLook.brush(story.style?.background)), contentAlignment = Alignment.Center) {
+        val media = story.media
+        if (media != null && media.mimeType?.startsWith("video/") == true) {
+            Box(Modifier.fillMaxSize().background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(size * 0.45f))
+            }
+        } else if (media != null) {
+            coil.compose.AsyncImage(
+                model = coil.request.ImageRequest.Builder(context).data(com.dorr.app.network.ApiClient.mediaUrl(media.url)).crossfade(true).build(),
+                contentDescription = null, imageLoader = chatImages(context),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop, modifier = Modifier.fillMaxSize(),
+            )
+        } else {
+            Text(
+                story.body.orEmpty().take(18), color = Color.White, fontSize = 8.sp, fontWeight = FontWeight.Bold, maxLines = 3,
+                textAlign = TextAlign.Center, lineHeight = 9.sp, modifier = Modifier.padding(6.dp),
+            )
+        }
     }
 }
 

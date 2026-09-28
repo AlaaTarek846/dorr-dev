@@ -296,4 +296,22 @@
     <string name="ch_report_evidence_note">آخر 30 رسالة في المحادثة بيتبعتوا مع البلاغ، ومحدش هيعرف إنك بلّغت.</string>
     <string name="ch_report_sent">البلاغ اتبعت، شكراً ليك</string>
     <string name="ch_call_people">%d أشخاص</string>
+    <string name="ch_by_number">بالرقم</string>
+    <string name="ch_add_by_phone">محادثة برقم الموبايل</string>
+    <string name="ch_add_by_phone_sub">اكتب الرقم كامل وبعدين اتحقق منه</string>
+    <string name="ch_phone_any_format">بكود الدولة أو من غيره — الاتنين شغالين</string>
+    <string name="ch_phone_digits_left">فاضل %1$d أرقام</string>
+    <string name="ch_phone_too_long">الرقم طويل — الأرقام هنا %1$d رقم</string>
+    <string name="ch_phone_wrong_start">الأرقام هنا بتبدأ بـ %1$s</string>
+    <string name="ch_check_number">تحقق من الرقم</string>
+    <string name="ch_save_contact">حفظ جهة الاتصال</string>
+    <string name="ch_contact_saved">اتحفظ في جهات اتصالك</string>
+    <string name="ch_message">مراسلة</string>
+    <string name="ch_number_not_on_dorr">%1$s لسه مش على دُر</string>
+    <string name="ch_search_country">دوّر على دولة أو كود</string>
+    <string name="ch_search_contacts">دوّر بالاسم أو الرقم</string>
+    <string name="ch_group_empty_title">لسه مفيش حد من جهات اتصالك على دُر</string>
+    <string name="ch_group_empty_sub">ضيف الناس للجروب برقم موبايلهم، أو ادعي صحابك يدخلوا دُر.</string>
+    <string name="ch_invite_friends">ادعي صحابك</string>
+    <string name="ch_add_to_group">ضيفه للجروب</string>
 </resources>
