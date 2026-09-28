@@ -1012,17 +1012,6 @@
             "request": "PIN recovery request",
             "document": "Document",
             "reason_column": "Type",
-<<<<<<< HEAD
-            "reason": {"recovery_document":"PIN recovery","security_freeze":"Security freeze"},
-            "original": {"recovery_document":"Photo uploaded at setup","security_freeze":"ID photo submitted now"},
-            "new": {"recovery_document":"Photo submitted now","security_freeze":"Selfie submitted now"},
-            "no_image": "No image",
-            "compare_hint": {"recovery_document":"Compare the two photos. Approve only if they show the same document belonging to the same person.","security_freeze":"The wallet was permanently frozen after wrong PIN attempts. Compare the ID photo and the selfie — approve only if they clearly show the same person."},
-            "approve_hint": "Approving resets the wallet PIN to 0000 and notifies the user, who should change it from the wallet.",
-            "approved": "Approved. The PIN was reset to 0000.",
-            "rejected": "Request rejected.",
-            "method": { "id_photo": "ID photo", "passport_photo": "Passport photo" }
-=======
             "reason": {
                 "recovery_document": "PIN recovery",
                 "security_freeze": "Security freeze"
@@ -1047,7 +1036,6 @@
                 "id_photo": "ID photo",
                 "passport_photo": "Passport photo"
             }
->>>>>>> main
         },
         "ledger": {
             "title": "Financial ledger",

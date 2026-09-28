@@ -283,8 +283,6 @@
     <string name="st_just_now">Just now</string>
     <string name="st_minutes_ago">%d min ago</string>
     <string name="st_hours_ago">%d h ago</string>
-<<<<<<< HEAD
-=======
     <string name="ch_chat_theme">Chat theme</string>
     <string name="ch_chat_theme_sub">Wallpaper and bubble colours — only you see it.</string>
     <string name="ch_theme_dorr">Dorr</string>
@@ -300,5 +298,4 @@
     <string name="ch_report_evidence_note">The last 30 messages of this chat are sent with the report. Nobody is told you reported.</string>
     <string name="ch_report_sent">Report sent — thank you</string>
     <string name="ch_call_people">%d people</string>
->>>>>>> main
 </resources>
