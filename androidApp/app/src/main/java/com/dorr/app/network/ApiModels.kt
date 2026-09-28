@@ -110,6 +110,27 @@ data class UserDto(
     val email: String?,
     val phone: String?,
     @SerializedName("phone_verified_at") val phoneVerifiedAt: String?,
+    /** `male` / `female`, from Modules\User UserResource. Null when never set. */
+    val gender: String? = null,
+    /** Absolute media URL of the avatar, null when none. */
+    val avatar: String? = null,
+    @SerializedName("email_verified_at") val emailVerifiedAt: String? = null,
+    /** Bumps on every profile write; used to bust the image cache for the avatar. */
+    @SerializedName("updated_at") val updatedAt: String? = null,
+    /** Country data from auth/me — the primary source for country code, flag, and phone validation. */
+    val country: UserCountryDto? = null,
+)
+
+data class UserCountryDto(
+    val code: String?,
+    @SerializedName("dial_code") val dialCode: String?,
+    @SerializedName("phone_starts_with") val phoneStartsWith: String?,
+    @SerializedName("phone_length") val phoneLength: Int?,
+    val flag: UserFlagDto?,
+)
+
+data class UserFlagDto(
+    val code: String?,
 )
 
 data class ServiceDto(

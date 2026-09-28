@@ -2,7 +2,9 @@ package com.dorr.app.ui.screens.profile
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -47,7 +49,9 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.theme.LocalThemeState
 
 private data class NotifToggle(val title: Int, val desc: Int, val icon: ImageVector, val startsOn: Boolean)
 
@@ -61,6 +65,8 @@ private val toggles = listOf(
 @Composable
 fun NotificationSettingsScreen(onBack: () -> Unit) {
     val states = remember { mutableStateListOf(*toggles.map { it.startsOn }.toTypedArray()) }
+    val dark = settingsNight()
+    val cardShape = RoundedCornerShape(18.dp)
 
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.fillMaxSize())
@@ -71,9 +77,7 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 14.dp)
                     .padding(top = 6.dp, bottom = 16.dp)
-                    .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White)
+                    .settingsSurface(cardShape, 8.dp)
                     .padding(horizontal = 8.dp, vertical = 4.dp),
             ) {
                 toggles.forEachIndexed { index, toggle ->
@@ -86,21 +90,21 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
                         PinkIcon(toggle.icon)
                         Spacer(Modifier.width(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(stringResource(toggle.title), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = AppColors.textPrimary)
+                            Text(stringResource(toggle.title), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
                             Text(
                                 stringResource(toggle.desc),
                                 fontSize = 11.sp,
-                                color = AppColors.textMuted,
+                                color = settingsMut(),
                                 lineHeight = 15.sp,
                                 modifier = Modifier.padding(top = 2.dp),
                             )
                         }
-                        RedToggle(states[index]) {
+                        RedToggle(states[index], dark) {
                             states[index] = !states[index]
                         }
                     }
                     if (index != toggles.lastIndex) {
-                        Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFF6E4E8)))
+                        Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
                     }
                 }
             }
@@ -109,13 +113,13 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun RedToggle(on: Boolean, onClick: () -> Unit) {
+private fun RedToggle(on: Boolean, dark: Boolean, onClick: () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box(
             modifier = Modifier
                 .size(width = 42.dp, height = 24.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (on) AppColors.waRed else Color(0xFFE5E7EB))
+                .background(if (on) AppColors.waRed else if (dark) Color(0xFF3A3F48) else Color(0xFFE5E7EB))
                 .clickable(onClick = onClick),
         ) {
             Box(
@@ -132,7 +136,32 @@ private fun RedToggle(on: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
+internal fun settingsNight(): Boolean = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+
+@Composable
+internal fun settingsInk(): Color = if (settingsNight()) AccountDark.ink else AppColors.textPrimary
+
+@Composable
+internal fun settingsMut(): Color = if (settingsNight()) AccountDark.mut else AppColors.textMuted
+
+@Composable
+internal fun settingsAccent(): Color = if (settingsNight()) AccountDark.accent else AppColors.waRed
+
+@Composable
+internal fun Modifier.settingsSurface(shape: RoundedCornerShape, elevation: androidx.compose.ui.unit.Dp = 6.dp): Modifier {
+    val dark = settingsNight()
+    return if (dark) {
+        this.clip(shape).background(AccountDark.card).border(1.dp, AccountDark.line, shape)
+    } else {
+        this.shadow(elevation, shape, ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
+            .clip(shape)
+            .background(Color.White)
+    }
+}
+
+@Composable
 internal fun SubHeader(title: String, onBack: () -> Unit) {
+    val dark = settingsNight()
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -142,7 +171,7 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
     ) {
         Text(
             title,
-            color = AppColors.waRed,
+            color = settingsAccent(),
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.weight(1f),
@@ -150,16 +179,20 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914))
+                .then(
+                    if (dark) Modifier
+                    else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                )
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(if (dark) AccountDark.card else Color.White)
+                .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.common_back),
-                tint = AppColors.waRed,
+                tint = settingsAccent(),
                 modifier = Modifier.size(16.dp).graphicsLayer { scaleX = -1f },
             )
         }
@@ -172,16 +205,30 @@ internal fun PinkIcon(icon: ImageVector, box: androidx.compose.ui.unit.Dp = 34.d
         modifier = Modifier
             .size(box)
             .clip(RoundedCornerShape(10.dp))
-            .background(Color(0xFFFDE8EC)),
+            .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC)),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = AppColors.waRed, modifier = Modifier.size(18.dp))
+        Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
     }
 }
 
 @Composable
 internal fun PinkBackdrop(modifier: Modifier = Modifier) {
+    val dark = settingsNight()
     Canvas(modifier) {
+        if (dark) {
+            drawRect(AccountDark.bg)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
+                    center = Offset(size.width * 0.5f, size.height * -0.08f),
+                    radius = size.width * 0.85f,
+                ),
+                radius = size.width * 0.85f,
+                center = Offset(size.width * 0.5f, size.height * -0.08f),
+            )
+            return@Canvas
+        }
         drawRect(Color.White)
         fun glow(center: Offset, radius: Float, color: Color) {
             drawCircle(

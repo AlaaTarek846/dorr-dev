@@ -23,15 +23,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,6 +47,7 @@ import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CreatePinRequest
 import com.dorr.app.network.apiFailure
+import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
@@ -127,7 +125,7 @@ private fun WaToastHost(host: WalletHost) {
             exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
         ) {
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Ink).padding(horizontal = 18.dp, vertical = 11.dp),
+                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF111928)).padding(horizontal = 18.dp, vertical = 11.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -154,36 +152,28 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val mismatch = stringResource(R.string.wa_pin_mismatch)
 
     var hasPin by remember { mutableStateOf<Boolean?>(null) }
-    var failed by remember { mutableStateOf<String?>(null) }
-    var attempt by remember { mutableIntStateOf(0) }
     var step by remember { mutableStateOf("enter") }
     var first by remember { mutableStateOf("") }
 
-    LaunchedEffect(attempt) {
-        failed = null
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
         hasPin = null
         try {
             val status = ApiClient.wallet.pinStatus(walletAuth()).data
             hasPin = status?.hasPin
-            if (status == null) failed = networkError
             step = if (status?.hasPin == true) "enter" else "create"
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            failed = e.apiFailure().message ?: networkError
+            // No error card on purpose: offline is covered by the app-wide
+            // screen and a reconnect reloads, so hasPin stays null (skeleton)
+            // until an attempt succeeds.
         }
     }
 
     WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
         Box(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
             when {
-                failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    WaEmpty(
-                        icon = Icons.Rounded.Warning, tone = Tone.Gray,
-                        title = stringResource(R.string.wa_load_failed), text = failed.orEmpty(),
-                        action = { WaButton(stringResource(R.string.wa_retry), onClick = { attempt++ }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Refresh, modifier = Modifier.padding(horizontal = 60.dp)) },
-                    )
-                }
                 hasPin == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaSkeleton(Modifier.fillMaxWidth().padding(24.dp).size(300.dp), RoundedCornerShape(24.dp))
                 }

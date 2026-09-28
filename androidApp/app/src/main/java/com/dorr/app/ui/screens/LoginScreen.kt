@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
@@ -98,12 +99,14 @@ import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CountryDto
+import com.dorr.app.network.CountryCache
 import com.dorr.app.network.LanguageDto
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
 import kotlinx.coroutines.delay
@@ -138,6 +141,11 @@ fun LoginScreen(
 
     val scope = rememberCoroutineScope()
 
+    // The single place in the app that calls the countries dropdown: the
+    // result is cached for every other screen (e.g. editing the phone in
+    // the profile), so this endpoint is never hit outside the login flow.
+    val context = LocalContext.current
+
     fun applyCountry(country: CountryDto) {
         selectedCountryId = country.id
         flagCode = country.flag?.code ?: country.code
@@ -151,6 +159,7 @@ fun LoginScreen(
     LaunchedEffect(Unit) {
         val listed = runCatching { ApiClient.countries.list().data.orEmpty() }.getOrDefault(emptyList())
         countries = listed
+        if (listed.isNotEmpty()) CountryCache.save(context, listed)
         val chosen = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
         chosen?.let(::applyCountry)
     }
@@ -334,7 +343,21 @@ private fun SessionExpiredBanner(
 
 @Composable
 private fun LoginBackdrop(modifier: Modifier = Modifier) {
+    val night = settingsNight()
     Canvas(modifier) {
+        if (night) {
+            drawRect(AccountDark.bg)
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
+                    center = Offset(size.width * 0.5f, size.height * -0.08f),
+                    radius = size.width * 0.85f,
+                ),
+                radius = size.width * 0.85f,
+                center = Offset(size.width * 0.5f, size.height * -0.08f),
+            )
+            return@Canvas
+        }
         drawRect(Color.White)
 
         fun glow(center: Offset, radius: Float, color: Color) {
@@ -380,6 +403,9 @@ private fun LoginContent(
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
+    val night = settingsNight()
+    val accent = if (night) AccountDark.accent else Color(0xFFE50914)
+    val mut = if (night) AccountDark.mut else Color(0xFF6B7280)
 
     Column(
         modifier = modifier
@@ -407,7 +433,7 @@ private fun LoginContent(
         ) {
             Text(
                 text = stringResource(R.string.login_title),
-                color = Color(0xFFE50914),
+                color = accent,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 30.sp,
                 lineHeight = 38.sp,
@@ -420,7 +446,7 @@ private fun LoginContent(
                 text = stringResource(R.string.login_subtitle),
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
-                color = Color(0xFF6B7280),
+                color = mut,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.widthIn(max = 260.dp),
             )
@@ -429,14 +455,18 @@ private fun LoginContent(
                 modifier = Modifier
                     .padding(top = 26.dp, bottom = 28.dp)
                     .size(104.dp)
-                    .shadow(
-                        elevation = 10.dp,
-                        shape = RoundedCornerShape(22.dp),
-                        ambientColor = Color(0x14111928),
-                        spotColor = Color(0x14111928),
+                    .then(
+                        if (night) Modifier
+                        else Modifier.shadow(
+                            elevation = 10.dp,
+                            shape = RoundedCornerShape(22.dp),
+                            ambientColor = Color(0x14111928),
+                            spotColor = Color(0x14111928),
+                        ),
                     )
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Color.White)
+                    .background(if (night) AccountDark.card else Color.White)
+                    .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(22.dp)) else Modifier)
                     .padding(8.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -472,7 +502,7 @@ private fun LoginContent(
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(Color(0xFFFEE2E2).copy(alpha = 0.85f))
+                            .background(if (night) AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
                             .padding(horizontal = 12.dp, vertical = 7.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.Center,
@@ -509,13 +539,13 @@ private fun LoginContent(
                     colors = CheckboxDefaults.colors(
                         checkedColor = Color(0xFFE50914),
                         checkmarkColor = Color.White,
-                        uncheckedColor = Color(0xFFD1D5DB),
+                        uncheckedColor = if (night) AccountDark.line else Color(0xFFD1D5DB),
                     ),
                 )
                 Spacer(Modifier.width(6.dp))
                 val terms = buildAnnotatedString {
                     val link = SpanStyle(
-                        color = Color(0xFFE50914),
+                        color = accent,
                         textDecoration = TextDecoration.Underline,
                         fontWeight = FontWeight.SemiBold,
                     )
@@ -533,7 +563,7 @@ private fun LoginContent(
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 13.sp,
                         lineHeight = 18.sp,
-                        color = Color(0xFF6B7280),
+                        color = mut,
                     ),
                     modifier = Modifier.weight(1f),
                     onClick = { offset ->
@@ -606,8 +636,8 @@ private fun LoginContent(
                             .fillMaxWidth()
                             .padding(top = 16.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .background(Color(0xFFFDE8EC))
-                            .border(1.dp, Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
+                            .background(if (night) AccountDark.well else Color(0xFFFDE8EC))
+                            .border(1.dp, if (night) AccountDark.accent else Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -620,7 +650,7 @@ private fun LoginContent(
                         Spacer(Modifier.width(10.dp))
                         Text(
                             text = message,
-                            color = Color(0xFF991B1B),
+                            color = if (night) AccountDark.accent else Color(0xFF991B1B),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.weight(1f),
@@ -650,6 +680,7 @@ private fun PhoneField(
 ) {
     var countryQuery by remember { mutableStateOf("") }
     var isFocused by remember { mutableStateOf(false) }
+    val night = settingsNight()
 
     LaunchedEffect(menuExpanded) {
         if (!menuExpanded) countryQuery = ""
@@ -663,7 +694,7 @@ private fun PhoneField(
             || country.dialCode.contains(query, ignoreCase = true)
     }
 
-    val borderColor = if (isFocused) Color(0xFFE50914) else Color(0xFFE5E7EB)
+    val borderColor = if (isFocused) Color(0xFFE50914) else if (night) AccountDark.line else Color(0xFFE5E7EB)
     val borderWidth = if (isFocused) 1.5.dp else 1.dp
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -672,8 +703,8 @@ private fun PhoneField(
                 .fillMaxWidth()
                 .height(44.dp),
             shape = RoundedCornerShape(999.dp),
-            color = Color.White,
-            shadowElevation = 3.dp,
+            color = if (night) AccountDark.card else Color.White,
+            shadowElevation = if (night) 0.dp else 3.dp,
             border = if (isFocused) androidx.compose.foundation.BorderStroke(borderWidth, borderColor) else null,
         ) {
             Row(
@@ -685,7 +716,7 @@ private fun PhoneField(
                 Icon(
                     Icons.Rounded.Phone,
                     contentDescription = null,
-                    tint = Color(0xFF9CA3AF),
+                    tint = if (night) AccountDark.mut else Color(0xFF9CA3AF),
                     modifier = Modifier.size(18.dp),
                 )
                 PhoneSep()
@@ -705,7 +736,7 @@ private fun PhoneField(
                             style = TextStyle(
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = AppColors.textPrimary,
+                                color = if (night) AccountDark.ink else AppColors.textPrimary,
                             ),
                         )
                         if (countries.isNotEmpty()) {
@@ -713,7 +744,7 @@ private fun PhoneField(
                             Icon(
                                 Icons.Rounded.KeyboardArrowDown,
                                 contentDescription = stringResource(R.string.login_country_code),
-                                tint = AppColors.textSecondary,
+                                tint = if (night) AccountDark.mut else AppColors.textSecondary,
                                 modifier = Modifier.size(18.dp),
                             )
                         }
@@ -722,7 +753,7 @@ private fun PhoneField(
                     DropdownMenu(
                         expanded = menuExpanded && countries.isNotEmpty(),
                         onDismissRequest = { onMenuExpandedChange(false) },
-                        containerColor = Color.White,
+                        containerColor = if (night) AccountDark.card else Color.White,
                         shape = RoundedCornerShape(16.dp),
                         shadowElevation = 10.dp,
                         modifier = Modifier
@@ -734,14 +765,14 @@ private fun PhoneField(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(8.dp)
-                                .background(Color(0xFFF3F4F6), RoundedCornerShape(10.dp))
+                                .background(if (night) AccountDark.well else Color(0xFFF3F4F6), RoundedCornerShape(10.dp))
                                 .padding(horizontal = 10.dp, vertical = 8.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
                                 Icons.Rounded.Search,
                                 contentDescription = null,
-                                tint = AppColors.textMuted,
+                                tint = if (night) AccountDark.mut else AppColors.textMuted,
                                 modifier = Modifier.size(18.dp),
                             )
                             Spacer(Modifier.width(8.dp))
@@ -751,13 +782,13 @@ private fun PhoneField(
                                 singleLine = true,
                                 textStyle = TextStyle(
                                     fontSize = 14.sp,
-                                    color = AppColors.textPrimary,
+                                    color = if (night) AccountDark.ink else AppColors.textPrimary,
                                 ),
                                 decorationBox = { inner ->
                                     if (countryQuery.isEmpty()) {
                                         Text(
                                             text = stringResource(R.string.login_country_search),
-                                            color = AppColors.textMuted,
+                                            color = if (night) AccountDark.mut else AppColors.textMuted,
                                             fontSize = 14.sp,
                                         )
                                     }
@@ -782,21 +813,21 @@ private fun PhoneField(
                                             modifier = Modifier.weight(1f),
                                             maxLines = 1,
                                             overflow = TextOverflow.Ellipsis,
-                                            color = if (selected) Color(0xFFE50914) else AppColors.textPrimary,
+                                            color = if (selected) (if (night) AccountDark.accent else Color(0xFFE50914)) else if (night) AccountDark.ink else AppColors.textPrimary,
                                             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
                                             fontSize = 14.sp,
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(
                                             text = formatDialCode(country.dialCode),
-                                            color = if (selected) Color(0xFFE50914) else AppColors.textSecondary,
+                                            color = if (selected) (if (night) AccountDark.accent else Color(0xFFE50914)) else if (night) AccountDark.mut else AppColors.textSecondary,
                                             fontWeight = FontWeight.SemiBold,
                                             fontSize = 13.sp,
                                         )
                                     }
                                 },
                                 onClick = { onCountrySelected(country) },
-                                modifier = if (selected) Modifier.background(Color(0xFFFDE8EC)) else Modifier,
+                                modifier = if (selected) Modifier.background(if (night) AccountDark.well else Color(0xFFFDE8EC)) else Modifier,
                             )
                         }
                     }
@@ -819,7 +850,7 @@ private fun PhoneField(
                     textStyle = TextStyle(
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium,
-                        color = AppColors.textPrimary,
+                        color = if (night) AccountDark.ink else AppColors.textPrimary,
                         textDirection = TextDirection.Ltr,
                     ),
                     keyboardOptions = KeyboardOptions(
@@ -843,7 +874,7 @@ private fun PhoneField(
                             if (phone.isEmpty()) {
                                 Text(
                                     text = placeholder,
-                                    color = AppColors.textMuted,
+                                    color = if (night) AccountDark.mut else AppColors.textMuted,
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
                                 )
@@ -862,7 +893,7 @@ private fun PhoneField(
                         Icon(
                             Icons.Rounded.Close,
                             contentDescription = "Clear",
-                            tint = Color(0xFF9CA3AF),
+                            tint = if (night) AccountDark.mut else Color(0xFF9CA3AF),
                             modifier = Modifier.size(16.dp),
                         )
                     }
@@ -904,11 +935,12 @@ internal fun LanguagePicker() {
             ?: listed.firstOrNull()
     }
 
+    val night = settingsNight()
     Box {
         Surface(
             shape = RoundedCornerShape(999.dp),
-            color = Color.White,
-            shadowElevation = 6.dp,
+            color = if (night) AccountDark.card else Color.White,
+            shadowElevation = if (night) 0.dp else 6.dp,
             modifier = Modifier.clickable { if (languages.isNotEmpty()) expanded = true },
         ) {
             Row(
@@ -921,7 +953,7 @@ internal fun LanguagePicker() {
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = selected?.name ?: stringResource(R.string.language_arabic),
-                    color = Color(0xFF374151),
+                    color = if (night) AccountDark.ink else Color(0xFF374151),
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp,
                 )
@@ -940,7 +972,7 @@ internal fun LanguagePicker() {
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
-            containerColor = Color.White,
+            containerColor = if (night) AccountDark.card else Color.White,
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 8.dp,
         ) {
@@ -953,7 +985,7 @@ internal fun LanguagePicker() {
                             Spacer(Modifier.width(8.dp))
                             Text(
                                 language.name,
-                                color = if (isSelected) Color(0xFFE50914) else Color(0xFF374151),
+                                color = if (isSelected) (if (night) AccountDark.accent else Color(0xFFE50914)) else if (night) AccountDark.ink else Color(0xFF374151),
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 13.sp,
                             )
@@ -974,7 +1006,7 @@ internal fun LanguagePicker() {
                         appLanguage.set(language.code.lowercase())
                         expanded = false
                     },
-                    modifier = if (isSelected) Modifier.background(Color(0xFFFDE8EC)) else Modifier,
+                    modifier = if (isSelected) Modifier.background(if (night) AccountDark.well else Color(0xFFFDE8EC)) else Modifier,
                 )
             }
         }
@@ -988,7 +1020,7 @@ private fun PhoneSep() {
             .padding(horizontal = 8.dp)
             .width(1.dp)
             .height(18.dp)
-            .background(Color(0xFFE5E7EB)),
+            .background(if (settingsNight()) AccountDark.line else Color(0xFFE5E7EB)),
     )
 }
 

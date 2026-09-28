@@ -83,13 +83,13 @@ fun WaSheetHost(host: WalletHost) {
                     .fillMaxWidth()
                     .let { if (isPinSheet) it.height(520.dp) else it.heightIn(max = 620.dp).verticalScroll(scrollState) }
                     .clip(RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp))
-                    .background(Color.White)
+                    .background(Wa.Surface)
                     .clickable(interactionSource = MutableInteractionSource(), indication = null) {}
                     .navigationBarsPadding()
                     .padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 26.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Box(Modifier.width(42.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(Color(0xFFE5E7EB)))
+                Box(Modifier.width(42.dp).height(5.dp).clip(RoundedCornerShape(3.dp)).background(if (walletNight()) Wa.Line else Color(0xFFE5E7EB)))
                 Spacer(Modifier.height(16.dp))
                 when (val sheet = lastSheet) {
                     WaSheet.Explain -> ExplainSheet(host)

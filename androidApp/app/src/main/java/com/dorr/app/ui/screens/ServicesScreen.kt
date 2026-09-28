@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -59,6 +60,9 @@ import com.dorr.app.ui.components.ServicesState
 import com.dorr.app.ui.components.palette
 import com.dorr.app.ui.components.rememberServicesLoader
 import com.dorr.app.ui.components.serviceIcon
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 /** Every service the dashboard exposes to the app, searchable, one clean row each. */
@@ -70,33 +74,15 @@ fun ServicesScreen(onBack: () -> Unit) {
     var opened by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
     val context = LocalContext.current
     val comingSoon = stringResource(R.string.services_coming_soon)
+    val night = settingsNight()
 
-    Scaffold(
-        topBar = {
-            Column {
-                TopAppBar(
-                    title = {
-                        Text(
-                            stringResource(R.string.services_title),
-                            fontSize = 17.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = AppColors.textPrimary,
-                        )
-                    },
-                    navigationIcon = {
-                        IconButton(onClick = onBack) {
-                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
-                )
-                HorizontalDivider(color = AppColors.border)
-            }
-        },
-    ) { padding ->
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.matchParentSize())
+        Column(Modifier.fillMaxSize()) {
+        SubHeader(stringResource(R.string.services_title), onBack)
         when (val state = loader.state) {
-            ServicesState.Loading -> Column(Modifier.padding(padding).padding(16.dp)) { ServicesSkeleton() }
-            ServicesState.Error -> Box(Modifier.padding(padding).padding(16.dp)) { ServicesError(onRetry = loader.reload) }
+            ServicesState.Loading -> Column(Modifier.padding(16.dp)) { ServicesSkeleton() }
+            ServicesState.Error -> Box(Modifier.padding(16.dp)) { ServicesError(onRetry = loader.reload) }
             is ServicesState.Loaded -> {
                 val services = state.services
                 val filtered = services.filter { it.name.contains(query.trim(), ignoreCase = true) }
@@ -104,7 +90,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(padding),
+                        .weight(1f),
                     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -117,8 +103,13 @@ fun ServicesScreen(onBack: () -> Unit) {
                             leadingIcon = { Icon(Icons.Rounded.Search, contentDescription = null, tint = AppColors.textMuted) },
                             shape = RoundedCornerShape(16.dp),
                             colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = AppColors.border,
-                                focusedBorderColor = AppColors.primary,
+                                unfocusedBorderColor = if (night) AccountDark.line else AppColors.border,
+                                focusedBorderColor = if (night) AccountDark.accent else AppColors.waRed,
+                                unfocusedContainerColor = if (night) AccountDark.card else Color.White,
+                                focusedContainerColor = if (night) AccountDark.card else Color.White,
+                                unfocusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
+                                focusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
+                                cursorColor = if (night) AccountDark.accent else AppColors.waRed,
                             ),
                             modifier = Modifier.fillMaxWidth(),
                         )
@@ -127,7 +118,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                         Text(
                             stringResource(R.string.services_count, filtered.size),
                             style = MaterialTheme.typography.bodySmall,
-                            color = AppColors.textSecondary,
+                            color = if (night) AccountDark.mut else AppColors.textSecondary,
                             modifier = Modifier.padding(start = 4.dp, top = 2.dp),
                         )
                     }
@@ -136,7 +127,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                             Text(
                                 stringResource(R.string.services_no_results),
                                 style = MaterialTheme.typography.bodyMedium,
-                                color = AppColors.textSecondary,
+                                color = if (night) AccountDark.mut else AppColors.textSecondary,
                                 textAlign = TextAlign.Center,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -158,6 +149,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                 }
             }
         }
+        }
     }
 
     opened?.let { (service, color) ->
@@ -172,9 +164,13 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (settingsNight()) Modifier
+                else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+            )
             .clip(RoundedCornerShape(18.dp))
-            .background(color.copy(alpha = 0.06f))
-            .border(1.dp, color.copy(alpha = 0.16f), RoundedCornerShape(18.dp))
+            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -182,17 +178,22 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
         ServiceAvatar(service.image, serviceIcon(service.moduleName), color, size = 52)
         Spacer(Modifier.width(14.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(service.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                service.name,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+            )
             if (childCount > 0) {
                 Spacer(Modifier.height(2.dp))
                 Text(
                     stringResource(R.string.services_sub_count, childCount),
                     style = MaterialTheme.typography.bodySmall,
-                    color = color,
+                    color = if (settingsNight()) AccountDark.mut else AppColors.textMuted,
                     fontWeight = FontWeight.SemiBold,
                 )
             }
         }
-        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = AppColors.textMuted, modifier = Modifier.size(22.dp))
+        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (settingsNight()) AccountDark.chevron else AppColors.otpGlowDeep, modifier = Modifier.size(22.dp))
     }
 }

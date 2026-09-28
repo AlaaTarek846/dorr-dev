@@ -1,6 +1,6 @@
 <?php
 
-namespace Modules\User\Http\Controllers;
+namespace Modules\User\Http\Controllers\Mobile;
 
 use App\Enums\UserStatus;
 use App\Enums\VerificationType;
@@ -80,7 +80,7 @@ class MobileAuthController extends Controller
         $token = $user->createToken(self::TOKEN_NAME)->plainTextToken;
 
         return ApiResponse::success([
-            'user' => new UserResource($user->fresh()),
+            'user' => new UserResource($user->fresh()->load(['country.flag'])),
             'token' => $token,
             'token_type' => 'Bearer',
         ], __('api.phone_verified'));

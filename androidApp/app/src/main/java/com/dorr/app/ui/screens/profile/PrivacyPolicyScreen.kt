@@ -1,6 +1,5 @@
 package com.dorr.app.ui.screens.profile
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,9 +17,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -40,9 +36,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     .padding(horizontal = 14.dp)
                     .padding(top = 6.dp, bottom = 16.dp)
                     .fillMaxWidth()
-                    .shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White)
+                    .settingsSurface(RoundedCornerShape(18.dp), 8.dp)
                     .padding(16.dp),
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -50,7 +44,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     Spacer(Modifier.width(10.dp))
                     Text(
                         stringResource(R.string.privacy_head),
-                        color = AppColors.waRed,
+                        color = settingsAccent(),
                         fontSize = 18.sp,
                         fontWeight = FontWeight.ExtraBold,
                     )
@@ -59,7 +53,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     stringResource(R.string.privacy_body),
                     fontSize = 13.sp,
                     lineHeight = 24.sp,
-                    color = AppColors.textSecondary,
+                    color = if (settingsNight()) settingsMut() else AppColors.textSecondary,
                     modifier = Modifier.padding(top = 12.dp),
                 )
             }
