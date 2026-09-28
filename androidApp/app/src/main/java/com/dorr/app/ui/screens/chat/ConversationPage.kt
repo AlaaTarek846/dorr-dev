@@ -132,6 +132,11 @@ fun ConversationPage(route: ChRoute.Conversation) {
         onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
     }
 
+    // The chat's theme (admin-made, picked in chat info) colours the bubbles — Ch reads it — while open.
+    val chatTheme = c?.theme?.applied
+    androidx.compose.runtime.SideEffect { Ch.bubbleTheme = chatTheme }
+    DisposableEffect(Unit) { onDispose { Ch.bubbleTheme = null } }
+
     // Newest at index 0 (reverseLayout): the list is anchored to the bottom like every messenger.
     val lines by remember {
         derivedStateOf {
@@ -260,7 +265,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
             PinnedBanner(state) { jumpTo(it) }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                ChWallpaper()
+                ThemedWallpaper(chatTheme)
                 when {
                     state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red, strokeWidth = 3.dp) }
                     state.failed -> ChEmptyState(Icons.Rounded.Warning, stringResource(R.string.ch_load_failed), stringResource(R.string.ch_error_network), stringResource(R.string.ch_retry), onAction = { scope.launch { state.load() } })

@@ -105,23 +105,19 @@ import com.dorr.app.network.ChannelOtpDto
 import com.dorr.app.network.ConfirmCodeBody
 import com.dorr.app.network.CountryCache
 import com.dorr.app.network.CountryDto
-<<<<<<< HEAD
-import com.dorr.app.network.OtpRequest
-import com.dorr.app.network.PhoneChangeCodeRequest
-import com.dorr.app.network.apiFailure
-import com.dorr.app.ui.screens.wallet.PIN_ERROR_CODES
-import com.dorr.app.ui.screens.wallet.PadResult
-import com.dorr.app.ui.screens.wallet.WaPinPad
-=======
 import com.dorr.app.network.EmailChangeRequest
 import com.dorr.app.network.FlagDto
-import com.dorr.app.network.PhoneChangeRequest
+import com.dorr.app.network.OtpRequest
+import com.dorr.app.network.PhoneChangeCodeRequest
 import com.dorr.app.network.UpdateIdentityBody
 import com.dorr.app.network.UserCountryDto
 import com.dorr.app.network.UserDto
+import com.dorr.app.network.apiFailure
 import com.dorr.app.network.resolveForPhone
 import com.dorr.app.network.serverMessage
->>>>>>> origin/main
+import com.dorr.app.ui.screens.wallet.PIN_ERROR_CODES
+import com.dorr.app.ui.screens.wallet.PadResult
+import com.dorr.app.ui.screens.wallet.WaPinPad
 import com.dorr.app.ui.theme.AppColors
 import java.io.File
 import kotlinx.coroutines.CancellationException
@@ -137,6 +133,8 @@ private enum class PdSub { NONE, NAME, PHONE, EMAIL }
 
 private const val PD_GENDER = "gender"
 private const val PD_PHOTO = "photo"
+// Matches the server's auth_flow.otp_length (phone and e-mail change codes alike).
+private const val PD_OTP_LENGTH = 4
 private val Pink = Color(0xFFFDE8EC)
 private val FieldFill = Color(0xFFFBF7F8)
 private val FieldBorder = Color(0xFFF3D5DB)
@@ -633,27 +631,16 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     var phone by remember { mutableStateOf("") }
     var phoneLength by remember { mutableIntStateOf(9) }
     var phoneStartsWith by remember { mutableStateOf("5") }
-<<<<<<< HEAD
     var step by remember { mutableStateOf("form") }
     var serverError by remember { mutableStateOf<String?>(null) }
-    var pinError by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // The PIN that let the change start — resending the code has to pass it again.
+    var confirmedPin by remember { mutableStateOf<String?>(null) }
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val updated = stringResource(R.string.toast_phone_updated)
     val genericError = stringResource(R.string.wa_error_generic)
     val networkError = stringResource(R.string.wa_error_network)
-=======
-    var stepOtp by remember { mutableStateOf(false) }
-    var requesting by remember { mutableStateOf(false) }
-    // What the OTP screen shows and how long resend stays locked — both come
-    // from the request response, not from local guesses.
-    var maskedPhone by remember { mutableStateOf<String?>(null) }
-    var cooldownSeconds by remember { mutableIntStateOf(60) }
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val updated = stringResource(R.string.toast_phone_updated)
-    val genericError = stringResource(R.string.wallet_error_generic)
->>>>>>> origin/main
 
     // The countries dropdown is fetched once in LoginScreen and cached —
     // AuthSession.user.country (from auth/me) is the primary source for
@@ -692,33 +679,23 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
         else -> null
     }
 
-<<<<<<< HEAD
-    // Starts (or retries, once a PIN is known) the change; the server decides whether a PIN is needed.
-    fun start(pin: String?) {
+    // The server decides whether a PIN is needed (only once the wallet has one).
+    fun start() {
         scope.launch {
             busy = true
             serverError = null
             try {
-                ApiClient.mobileAuth.startPhoneChange(
-                    "Bearer ${AuthSession.token.orEmpty()}",
-                    OtpRequest(dial, phone),
-                    pin,
-                )
+                ApiClient.mobileAuth.startPhoneChange(pdAuthHeader(), OtpRequest(dial, phone), null)
                 step = "otp"
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val failure = e.apiFailure()
-                when (failure.errorCode) {
-                    "wallet_pin_not_set", "wallet_pin_required" -> step = "pin"
-                    "wallet_pin_invalid" -> {
-                        step = "pin"
-                        pinError = failure.message
-                    }
-                    else -> {
-                        step = "form"
-                        serverError = if (failure.httpStatus == null) networkError else failure.message ?: genericError
-                    }
+                if (failure.errorCode == "wallet_pin_required") {
+                    step = "pin"
+                } else {
+                    step = "form"
+                    serverError = if (failure.httpStatus == null) networkError else failure.message ?: genericError
                 }
             } finally {
                 busy = false
@@ -727,95 +704,55 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     }
 
     when (step) {
-        "pin" -> Box(Modifier.fillMaxSize()) {
+        "pin" -> PdScreen(title = stringResource(R.string.edit_phone_title), onBack = { step = "form" }) {
             WaPinPad(
                 title = stringResource(R.string.wa_pin_enter_title),
                 sub = stringResource(R.string.edit_phone_title),
+                dark = settingsNight(),
+                modifier = Modifier.fillMaxSize(),
                 onComplete = { pin ->
-                    pinError = null
-                    var result: PadResult = PadResult.Ok
                     try {
-                        ApiClient.mobileAuth.startPhoneChange(
-                            "Bearer ${AuthSession.token.orEmpty()}",
-                            OtpRequest(dial, phone),
-                            pin,
-                        )
+                        ApiClient.mobileAuth.startPhoneChange(pdAuthHeader(), OtpRequest(dial, phone), pin)
+                        confirmedPin = pin
                         step = "otp"
+                        PadResult.Ok
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
                         val failure = e.apiFailure()
-                        result = if (failure.errorCode in PIN_ERROR_CODES) {
-                            PadResult.Error(failure.message ?: genericError)
-                        } else {
-                            step = "form"
-                            serverError = if (failure.httpStatus == null) networkError else failure.message ?: genericError
-                            PadResult.Ok
+                        val lockedUntil = failure.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() }
+                        when {
+                            failure.errorCode == "wallet_pin_locked" && lockedUntil != null -> PadResult.Locked(lockedUntil)
+                            failure.errorCode in PIN_ERROR_CODES -> PadResult.Error(failure.message ?: genericError)
+                            else -> {
+                                step = "form"
+                                serverError = if (failure.httpStatus == null) networkError else failure.message ?: genericError
+                                PadResult.Ok
+                            }
                         }
                     }
-                    result
                 },
             )
         }
         "otp" -> PdOtpStep(
             title = stringResource(R.string.edit_phone_title),
             target = "$dial $phone",
-            onBack = { step = "form" },
+            initialCooldown = 60,
             onVerify = { code ->
-                try {
-                    val result = ApiClient.mobileAuth.confirmPhoneChange(
-                        "Bearer ${AuthSession.token.orEmpty()}",
-                        PhoneChangeCodeRequest(code),
-                    ).data
-                    val newPhone = result?.phone ?: "$dial$phone"
-                    AuthSession.user = AuthSession.user?.copy(phone = newPhone)
-                    null
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    val failure = e.apiFailure()
-                    if (failure.httpStatus == null) networkError else failure.message ?: genericError
-                }
+                ApiClient.mobileAuth.confirmPhoneChange(pdAuthHeader(), PhoneChangeCodeRequest(code))
+                ApiClient.mobileAuth.me(pdAuthHeader())
             },
             onResend = {
-                try {
-                    ApiClient.mobileAuth.startPhoneChange("Bearer ${AuthSession.token.orEmpty()}", OtpRequest(dial, phone), null)
-                    null
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    e.apiFailure().message ?: genericError
-                }
+                ApiClient.mobileAuth.startPhoneChange(pdAuthHeader(), OtpRequest(dial, phone), confirmedPin)
+                null
             },
-            onVerified = {
-                onSaved(updated)
-=======
-    suspend fun requestCode(): ChannelOtpDto? {
-        val envelope = ApiClient.profile.requestPhoneChange(
-            pdAuthHeader(),
-            PhoneChangeRequest(dialCode = dial, phone = phone),
-        )
-        return envelope.data
-    }
-
-    if (stepOtp) {
-        PdOtpStep(
-            title = stringResource(R.string.edit_phone_title),
-            target = maskedPhone ?: "$dial $phone",
-            initialCooldown = cooldownSeconds,
-            onVerify = { code ->
-                ApiClient.profile.confirmPhoneChange(pdAuthHeader(), ConfirmCodeBody(code))
-            },
-            onResend = { requestCode() },
-            onVerified = { user, message ->
+            onVerified = { user, _ ->
                 AuthSession.user = user
-                onSaved(message.ifBlank { updated })
->>>>>>> origin/main
+                onSaved(updated)
                 onBack()
             },
-            onBack = { stepOtp = false },
+            onBack = { step = "form" },
         )
-<<<<<<< HEAD
         else -> PdScreen(title = stringResource(R.string.edit_phone_title), onBack = onBack) {
             FormColumn {
                 PdFormCard {
@@ -823,7 +760,7 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                         stringResource(R.string.edit_phone_label),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.textPrimary,
+                        color = settingsInk(),
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                     ProfilePhoneField(
@@ -866,96 +803,15 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                                     textAlign = TextAlign.Center,
                                 )
                             }
-=======
-        return
-    }
-    PdScreen(title = stringResource(R.string.edit_phone_title), onBack = onBack) {
-        FormColumn {
-            PdFormCard {
-                Text(
-                    stringResource(R.string.edit_phone_label),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = settingsInk(),
-                    modifier = Modifier.padding(bottom = 8.dp),
-                )
-                ProfilePhoneField(
-                    flag = flag,
-                    dial = dial,
-                    phone = phone,
-                    phoneLength = phoneLength,
-                    phoneStartsWith = phoneStartsWith,
-                    isError = phoneError != null,
-                    onPhone = { phone = it.filter(Char::isDigit).take(phoneLength) },
-                )
-                AnimatedVisibility(
-                    visible = phoneError != null,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically(),
-                ) {
-                    phoneError?.let { message ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(Color(0xFFFEE2E2).copy(alpha = 0.85f))
-                                .padding(horizontal = 12.dp, vertical = 7.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            Icon(
-                                Icons.Rounded.ErrorOutline,
-                                contentDescription = null,
-                                tint = AppColors.danger,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = message,
-                                color = AppColors.danger,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                                textAlign = TextAlign.Center,
-                            )
->>>>>>> origin/main
                         }
                     }
                     Hint(stringResource(R.string.edit_phone_hint))
                 }
-<<<<<<< HEAD
                 PdSaveButton(
                     label = stringResource(R.string.pd_send_code),
                     enabled = isPhoneValid && !busy,
                 ) {
-                    if (isPhoneValid) {
-                        start(null)
-                    }
-=======
-                Hint(stringResource(R.string.edit_phone_hint))
-            }
-            PdSaveButton(
-                label = stringResource(R.string.pd_send_code),
-                enabled = isPhoneValid && !requesting,
-            ) {
-                if (!isPhoneValid || requesting) return@PdSaveButton
-                scope.launch {
-                    requesting = true
-                    runCatching { requestCode() }
-                        .onSuccess { dto ->
-                            maskedPhone = dto?.maskedPhone ?: "$dial $phone"
-                            cooldownSeconds = dto?.resendCooldownSeconds ?: 60
-                            stepOtp = true
-                        }
-                        .onFailure {
-                            Toast.makeText(
-                                context,
-                                it.serverMessage() ?: genericError,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    requesting = false
->>>>>>> origin/main
+                    if (isPhoneValid && !busy) start()
                 }
             }
         }
@@ -1045,32 +901,15 @@ private fun EditEmailScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
 }
 
 /**
-<<<<<<< HEAD
- * [onVerify]/[onResend] are the real API calls when given (return an error message, or null on
- * success) — used by the phone-change flow. Left null (the default), this keeps the original
- * local-only mock (checks for the fixed demo code "1234") that every other profile field still uses.
-=======
  * The shared OTP step for phone and email changes. Both go through the same
  * shape — `onVerify(code)` confirms, `onResend()` requests a fresh code and
  * reports the new cooldown — so the screen owns no gateway knowledge at all.
  * Failures surface the server's own message; the raw value never leaves here.
->>>>>>> origin/main
  */
 @Composable
 private fun PdOtpStep(
     title: String,
     target: String,
-<<<<<<< HEAD
-    onBack: () -> Unit,
-    onVerified: () -> Unit,
-    onVerify: (suspend (String) -> String?)? = null,
-    onResend: (suspend () -> String?)? = null,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var digits by remember { mutableStateOf(List(4) { "" }) }
-    var countdown by remember { mutableIntStateOf(60) }
-=======
     initialCooldown: Int,
     onVerify: suspend (String) -> ApiEnvelope<UserDto>,
     onResend: suspend () -> ChannelOtpDto?,
@@ -1079,19 +918,14 @@ private fun PdOtpStep(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var digits by remember { mutableStateOf(List(6) { "" }) }
+    var digits by remember { mutableStateOf(List(PD_OTP_LENGTH) { "" }) }
     var countdown by remember { mutableIntStateOf(initialCooldown.coerceAtLeast(0)) }
->>>>>>> origin/main
     var hasError by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val wrongCode = stringResource(R.string.toast_wrong_code)
     val codeSent = stringResource(R.string.toast_code_sent)
-<<<<<<< HEAD
-    val focusers = remember { List(4) { FocusRequester() } }
-=======
     val genericError = stringResource(R.string.wallet_error_generic)
-    val focusers = remember { List(6) { FocusRequester() } }
->>>>>>> origin/main
+    val focusers = remember { List(PD_OTP_LENGTH) { FocusRequester() } }
 
     LaunchedEffect(countdown) {
         if (countdown > 0) {
@@ -1101,33 +935,7 @@ private fun PdOtpStep(
     }
 
     fun verify(code: String) {
-<<<<<<< HEAD
-        if (code.length != 4 || busy) return
-
-        if (onVerify == null) {
-            if (code == "1234") {
-                onVerified()
-            } else {
-                hasError = true
-                Toast.makeText(context, wrongCode, Toast.LENGTH_SHORT).show()
-            }
-            return
-        }
-
-        scope.launch {
-            busy = true
-            val error = onVerify(code)
-            busy = false
-            if (error == null) {
-                onVerified()
-            } else {
-                hasError = true
-                digits = List(4) { "" }
-                Toast.makeText(context, error, Toast.LENGTH_SHORT).show()
-                focusers[0].requestFocus()
-            }
-=======
-        if (code.length != 6 || busy) return
+        if (code.length != PD_OTP_LENGTH || busy) return
         scope.launch {
             busy = true
             runCatching { onVerify(code) }
@@ -1145,7 +953,10 @@ private fun PdOtpStep(
                     }
                 }
                 .onFailure {
+                    if (it is CancellationException) throw it
                     hasError = true
+                    digits = List(PD_OTP_LENGTH) { "" }
+                    focusers[0].requestFocus()
                     Toast.makeText(
                         context,
                         it.serverMessage() ?: wrongCode,
@@ -1162,7 +973,7 @@ private fun PdOtpStep(
             busy = true
             runCatching { onResend() }
                 .onSuccess { dto ->
-                    digits = List(6) { "" }
+                    digits = List(PD_OTP_LENGTH) { "" }
                     hasError = false
                     countdown = dto?.resendCooldownSeconds ?: 60
                     Toast.makeText(context, codeSent, Toast.LENGTH_SHORT).show()
@@ -1176,7 +987,6 @@ private fun PdOtpStep(
                     ).show()
                 }
             busy = false
->>>>>>> origin/main
         }
     }
 
@@ -1208,7 +1018,7 @@ private fun PdOtpStep(
                                     if (d.isNotEmpty()) {
                                         if (index < digits.lastIndex) focusers[index + 1].requestFocus()
                                         val code = digits.toMutableList().also { it[index] = d }.joinToString("")
-                                        if (code.length == 4) verify(code)
+                                        if (code.length == PD_OTP_LENGTH) verify(code)
                                     }
                                 },
                             )
@@ -1233,35 +1043,14 @@ private fun PdOtpStep(
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
-<<<<<<< HEAD
-                            .clickable {
-                                digits = List(4) { "" }
-                                hasError = false
-                                countdown = 60
-                                focusers[0].requestFocus()
-                                if (onResend == null) {
-                                    Toast.makeText(context, codeSent, Toast.LENGTH_SHORT).show()
-                                } else {
-                                    scope.launch {
-                                        val error = onResend()
-                                        Toast.makeText(context, error ?: codeSent, Toast.LENGTH_SHORT).show()
-                                    }
-                                }
-                            },
-=======
                             .clickable { resend() },
->>>>>>> origin/main
                     )
                 }
             }
             val code = digits.joinToString("")
             PdSaveButton(
                 label = stringResource(R.string.profile_otp_confirm),
-<<<<<<< HEAD
-                enabled = code.length == 4,
-=======
-                enabled = code.length == 6 && !busy,
->>>>>>> origin/main
+                enabled = code.length == PD_OTP_LENGTH && !busy,
             ) { verify(code) }
         }
     }

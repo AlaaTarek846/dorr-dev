@@ -1,7 +1,11 @@
 <?php
 
 return [
+    'report_sent' => 'شكراً، البلاغ اتبعت وهنراجعه.',
+
     'errors' => [
+        'report_type_invalid' => 'سبب البلاغ ده مبقاش متاح.',
+        'theme_invalid' => 'الثيم ده مش متاح.',
         'not_participant' => 'أنت لست ضمن هذه المحادثة.',
         'participant_disabled' => 'المراسلة مع هذا الحساب غير متاحة حالياً.',
         'blocked' => 'لا يمكنك مراسلة هذا الشخص.',

@@ -154,6 +154,19 @@
                             </li>
                         </template>
 
+                        <template v-if="showChatAdminSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.chat') }}</span>
+                            </li>
+
+                            <li v-for="item in chatAdminItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
                         <template v-if="showStaffSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.staff') }}</span>
@@ -276,6 +289,16 @@ const walletItems = [
 ];
 
 const showWalletSection = computed(() => walletItems.some((item) => can(item.permission)));
+
+/** Chat screens (Modules/Chat), same rule as the wallet: each entry needs its `.view` permission. */
+const chatAdminItems = [
+    { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
+    { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
+    { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
+    { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
+];
+
+const showChatAdminSection = computed(() => chatAdminItems.some((item) => can(item.permission)));
 
 const showStaffSection = computed(
     () => can('admins.view') || can('roles.view'),

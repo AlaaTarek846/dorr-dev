@@ -89,12 +89,19 @@ object Ch {
      */
     var dark by androidx.compose.runtime.mutableStateOf(false)
 
-    val Red = Wa.Red
+    /**
+     * The app's accent colour — the one the user picks in the appearance settings (the wallet reads
+     * it too: [Wa.Red]). ChatScreen copies it in here, so plain getters (and Canvas drawing code,
+     * which can't call @Composable getters) all see the chosen colour.
+     */
+    var accent by androidx.compose.runtime.mutableStateOf(Color(0xFFE50914))
+
+    val Red get() = accent
     val RedDeep = Color(0xFFC40812)
-    val Ink get() = if (dark) Color(0xFFF3F4F6) else Wa.Ink
-    val Mut get() = if (dark) Color(0xFF9CA3AF) else Wa.Mut
-    val Soft get() = if (dark) Color(0xFF6B7280) else Wa.Soft
-    val Line get() = if (dark) Color(0xFF273244) else Wa.Line
+    val Ink get() = if (dark) Color(0xFFF3F4F6) else Color(0xFF111928)
+    val Mut get() = if (dark) Color(0xFF9CA3AF) else Color(0xFF6B7280)
+    val Soft get() = if (dark) Color(0xFF6B7280) else Color(0xFF9CA3AF)
+    val Line get() = if (dark) Color(0xFF273244) else Color(0xFFEEF0F3)
     val Bg get() = if (dark) Color(0xFF0B1220) else Color(0xFFF7F4F2)
     /** Cards, rows, sheets, the incoming bubble. */
     val Surface get() = if (dark) Color(0xFF172033) else Color.White
@@ -107,10 +114,21 @@ object Ch {
     val ReadTick = Color(0xFF38BDF8)
     val Mention = Color(0xFFF59E0B)
 
-    val OutBubble = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFD80A16), Color(0xFFB30710)), start = Offset(0f, 0f), end = Offset(600f, 400f))
-    val InBubble get() = Surface
-    val OutText = Color.White
-    val InText get() = Ink
+    /**
+     * The theme of the conversation on screen (admin-made, picked per chat) — set by
+     * ConversationPage, cleared when it leaves. null = Dorr's own look below.
+     */
+    var bubbleTheme by androidx.compose.runtime.mutableStateOf<com.dorr.app.network.ChatThemeDto?>(null)
+
+    private val BrandOut = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFD80A16), Color(0xFFB30710)), start = Offset(0f, 0f), end = Offset(600f, 400f))
+    private val themeOut get() = bubbleTheme?.let { hexColor(it.senderColor) }
+    private val themeIn get() = bubbleTheme?.let { hexColor(it.receiverColor) }
+
+    val OutBubble: Brush get() = themeOut?.let { Brush.linearGradient(listOf(it, it.shade(0.88f)), start = Offset(0f, 0f), end = Offset(600f, 400f)) } ?: BrandOut
+    val InBubble get() = themeIn ?: Surface
+    /** Text on my bubble: white on the brand red / dark colours, near-black on light ones. */
+    val OutText get() = themeOut?.let { if (it.isLight()) Color(0xFF111928) else Color.White } ?: Color.White
+    val InText get() = themeIn?.let { if (it.isLight()) Color(0xFF111928) else Color(0xFFF3F4F6) } ?: Ink
 
     val HeaderBrush = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812), Color(0xFF7A0410)), start = Offset(0f, 0f), end = Offset(1100f, 500f))
     val Wallpaper get() = if (dark) Brush.verticalGradient(listOf(Color(0xFF0E1626), Color(0xFF0B1220), Color(0xFF080E1A)))
@@ -141,6 +159,21 @@ object Ch {
 
     val springy = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
 }
+
+/** "#RRGGBB" / "#RRGGBBAA" (as the admin screen saves them) → Color. */
+internal fun hexColor(hex: String?): Color? {
+    val h = hex?.removePrefix("#") ?: return null
+    val v = h.toLongOrNull(16) ?: return null
+    return when (h.length) {
+        6 -> Color(0xFF000000 or v)
+        8 -> Color(((v and 0xFF) shl 24) or (v shr 8))
+        else -> null
+    }
+}
+
+internal fun Color.isLight(): Boolean = (0.299f * red + 0.587f * green + 0.114f * blue) > 0.6f
+
+internal fun Color.shade(f: Float): Color = Color(red * f, green * f, blue * f, alpha)
 
 internal fun chatAuth(): String = "Bearer ${AuthSession.token.orEmpty()}"
 
@@ -275,8 +308,9 @@ fun ChBadge(count: Int, muted: Boolean = false, modifier: Modifier = Modifier) {
  */
 @Composable
 fun ChTicks(status: String?, onBubble: Boolean, modifier: Modifier = Modifier, size: Dp = 16.dp) {
-    val base = if (onBubble) Color.White.copy(alpha = 0.78f) else Ch.Soft
-    val readColor = if (onBubble) Color(0xFFBAE6FD) else Ch.ReadTick
+    val onLight = onBubble && Ch.OutText != Color.White
+    val base = if (onBubble) Ch.OutText.copy(alpha = if (onLight) 0.5f else 0.78f) else Ch.Soft
+    val readColor = if (onLight) Color(0xFF0EA5E9) else if (onBubble) Color(0xFFBAE6FD) else Ch.ReadTick
     val tint by animateColorAsState(if (status == "read") readColor else base, tween(450), label = "tick")
     AnimatedContent(targetState = status, transitionSpec = {
         (scaleIn(spring(dampingRatio = 0.4f), initialScale = 0.3f) + fadeIn(tween(160))) togetherWith fadeOut(tween(120))
@@ -346,8 +380,8 @@ fun Modifier.chStagger(index: Int, enabled: Boolean = true): Modifier = composed
  * drawn on a Canvas — no image assets, crisp at every density.
  */
 @Composable
-fun ChWallpaper(modifier: Modifier = Modifier, tint: Color = Ch.Red) {
-    Canvas(modifier.fillMaxSize().background(Ch.Wallpaper)) {
+fun ChWallpaper(modifier: Modifier = Modifier, tint: Color = Ch.Red, wash: Boolean = true) {
+    Canvas(modifier.fillMaxSize().then(if (wash) Modifier.background(Ch.Wallpaper) else Modifier)) {
         val step = 92.dp.toPx()
         val stroke = Stroke(width = 1.4.dp.toPx())
         val c = tint.copy(alpha = 0.07f)

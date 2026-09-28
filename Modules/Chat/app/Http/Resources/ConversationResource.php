@@ -9,6 +9,7 @@ use Illuminate\Support\Str;
 use Modules\Chat\Enums\ConversationStatus;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Services\ChatThemeService;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 
@@ -77,7 +78,12 @@ class ConversationResource extends JsonResource
             'is_muted' => $me->isMuted(),
             'muted_until' => $me->muted_until?->toIso8601String(),
             'disappearing_seconds' => $conversation->disappearing_seconds,
-            'theme' => ['theme_id' => $me->theme_id, 'custom' => $me->custom_theme],
+            // My pick (theme_id / custom) and what to draw: the pick if still active, else the admin's default.
+            'theme' => [
+                'theme_id' => $me->theme_id,
+                'custom' => $me->custom_theme,
+                'applied' => app(ChatThemeService::class)->resolve($me->theme_id)?->present(),
+            ],
             'created_at' => $conversation->created_at?->toIso8601String(),
         ] + $this->extra;
     }

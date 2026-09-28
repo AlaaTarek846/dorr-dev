@@ -48,6 +48,15 @@ interface ChatApi {
     @PATCH("mobile/v1/chat/conversations/{id}/settings")
     suspend fun updateSettings(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<ConversationDto>
 
+    @GET("mobile/v1/chat/themes")
+    suspend fun themes(@Header("Authorization") auth: String): ApiEnvelope<List<ChatThemeDto>>
+
+    @GET("mobile/v1/chat/report-types")
+    suspend fun reportTypes(@Header("Authorization") auth: String): ApiEnvelope<List<ReportTypeDto>>
+
+    @POST("mobile/v1/chat/conversations/{id}/report")
+    suspend fun report(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<JsonElement?>
+
     @POST("mobile/v1/chat/conversations/{id}/clear")
     suspend fun clear(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
 
@@ -379,6 +388,7 @@ data class ConversationDto(
     @SerializedName("is_locked") val isLocked: Boolean,
     @SerializedName("is_muted") val isMuted: Boolean,
     @SerializedName("disappearing_seconds") val disappearingSeconds: Int?,
+    val theme: ConversationThemeDto? = null,
     // Only on the single-chat screen:
     val presence: PresenceDto? = null,
     @SerializedName("i_blocked") val iBlocked: Boolean? = null,
@@ -388,6 +398,26 @@ data class ConversationDto(
     val isGroup: Boolean get() = type == "group"
     val isAdmin: Boolean get() = myRole == "admin" || myRole == "owner"
 }
+
+/** A look the admin made: wallpaper (image or colour) + the two bubble colours. */
+data class ChatThemeDto(
+    val id: Int,
+    val name: String?,
+    val wallpaper: String?,
+    @SerializedName("background_color") val backgroundColor: String?,
+    @SerializedName("sender_color") val senderColor: String,
+    @SerializedName("receiver_color") val receiverColor: String,
+    @SerializedName("is_dark") val isDark: Boolean,
+    @SerializedName("is_default") val isDefault: Boolean,
+)
+
+/** My pick for a chat, and what to draw (the pick, or the admin's default; null = Dorr's own look). */
+data class ConversationThemeDto(
+    @SerializedName("theme_id") val themeId: Int?,
+    val applied: ChatThemeDto?,
+)
+
+data class ReportTypeDto(val id: Int, val name: String?)
 
 data class AttachmentDto(
     val id: String,
