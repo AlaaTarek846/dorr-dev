@@ -425,7 +425,7 @@ internal fun WaTxRow(tx: WalletTransactionDto, host: WalletHost, withDay: Boolea
                     Text(
                         stringResource(R.string.wa_services_only_badge),
                         color = Wa.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFDE8EC)).padding(horizontal = 7.dp, vertical = 2.dp),
+                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f)).padding(horizontal = 7.dp, vertical = 2.dp),
                     )
                 }
             }

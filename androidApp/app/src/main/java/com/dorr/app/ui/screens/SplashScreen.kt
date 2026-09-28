@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DorrLogo
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
@@ -64,15 +65,17 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
 
     val night = settingsNight()
+    val nightBg = AccountDark.bg
+    val glow = if (night) AccountDark.accent else settingsAccent()
     Box(
         modifier = Modifier
             .fillMaxSize()
             .drawBehind {
                 if (night) {
-                    drawRect(AccountDark.bg)
+                    drawRect(nightBg)
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
+                            colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
                             center = Offset(size.width * 0.5f, size.height * -0.08f),
                             radius = size.width * 0.85f,
                         ),
@@ -85,21 +88,21 @@ fun SplashScreen(onFinished: () -> Unit) {
                 drawRect(Color.White)
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                        colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
                         center = Offset(size.width * -0.08f, size.height * -0.12f),
                         radius = size.width * 1.3f,
                     ),
                 )
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
+                        colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
                         center = Offset(size.width * 0.5f, size.height * -0.18f),
                         radius = size.width * 1.1f,
                     ),
                 )
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
+                        colors = listOf(glow.copy(alpha = 0.12f), Color.Transparent),
                         center = Offset(size.width * 1.12f, size.height * -0.08f),
                         radius = size.width * 0.9f,
                     ),
@@ -133,14 +136,14 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.app_name),
-                color = if (night) AccountDark.accent else AppColors.waRed,
+                color = if (night) AccountDark.accent else settingsAccent(),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
             Spacer(Modifier.height(12.dp))
             CircularProgressIndicator(
-                color = if (night) AccountDark.accent else AppColors.waRed,
-                trackColor = (if (night) AccountDark.accent else AppColors.waRed).copy(alpha = 0.18f),
+                color = if (night) AccountDark.accent else settingsAccent(),
+                trackColor = (if (night) AccountDark.accent else settingsAccent()).copy(alpha = 0.18f),
                 strokeWidth = 2.dp,
                 modifier = Modifier.size(28.dp),
             )

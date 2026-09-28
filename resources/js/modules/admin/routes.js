@@ -80,6 +80,18 @@ export default [
                 meta: { middleware: [auth], permission: 'platform_settings.view' },
             },
             {
+                path: 'mobile-app-fonts',
+                name: 'admin.mobile-app-fonts.index',
+                component: page('mobile-app-font/index'),
+                meta: { middleware: [auth], permission: 'mobile_app_fonts.view' },
+            },
+            {
+                path: 'mobile-app-colors',
+                name: 'admin.mobile-app-colors',
+                component: page('mobile-app-colors/index'),
+                meta: { middleware: [auth], permission: 'mobile_app_color_defaults.view' },
+            },
+            {
                 path: 'ai-settings',
                 name: 'admin.ai-settings',
                 component: page('ai-settings/index'),

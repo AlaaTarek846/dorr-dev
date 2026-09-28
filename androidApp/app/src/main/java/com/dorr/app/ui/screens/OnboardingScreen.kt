@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DotIndicator
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.launch
@@ -77,6 +78,9 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     val cardShape = RoundedCornerShape(28.dp)
     val buttonShape = RoundedCornerShape(999.dp)
     val night = settingsNight()
+    val nightBg = AccountDark.bg
+    val nightGlow = AccountDark.accent
+    val brand = settingsAccent()
 
     BackHandler(enabled = pagerState.currentPage > 0) {
         scope.launch {
@@ -92,10 +96,10 @@ fun OnboardingScreen(onFinished: () -> Unit) {
             .fillMaxSize()
             .drawBehind {
                 if (night) {
-                    drawRect(AccountDark.bg)
+                    drawRect(nightBg)
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(Color(0x59E50914), Color(0x1AE50914), Color.Transparent),
+                            colors = listOf(nightGlow.copy(alpha = 0.35f), nightGlow.copy(alpha = 0.10f), Color.Transparent),
                             center = Offset(size.width * 0.5f, size.height * -0.08f),
                             radius = size.width * 0.85f,
                         ),
@@ -104,10 +108,10 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                     )
                     return@drawBehind
                 }
-                drawRect(Color(0xFFFDE8EC))
+                drawRect(Color.White)
                 drawRect(
                     Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                        colors = listOf(brand.copy(alpha = 0.28f), brand.copy(alpha = 0.08f), Color.Transparent),
                         center = Offset(size.width * -0.08f, size.height * -0.12f),
                         radius = size.width * 1.3f,
                     ),
@@ -239,7 +243,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                         }
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.waRed,
+                        containerColor = settingsAccent(),
                         contentColor = Color.White,
                     ),
                     shape = buttonShape,
@@ -275,6 +279,7 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 
 private val titleHighlights = listOf("محفظتك", "محفظة", "wallet", "Wallet")
 
+@Composable
 private fun highlightedTitle(text: String) = buildAnnotatedString {
     val match = titleHighlights
         .mapNotNull { word -> text.indexOf(word).takeIf { it >= 0 }?.let { it to word } }
@@ -285,7 +290,7 @@ private fun highlightedTitle(text: String) = buildAnnotatedString {
     }
     val (start, word) = match
     append(text.substring(0, start))
-    withStyle(SpanStyle(color = AppColors.waRed)) {
+    withStyle(SpanStyle(color = settingsAccent())) {
         append(text.substring(start, start + word.length))
     }
     append(text.substring(start + word.length))

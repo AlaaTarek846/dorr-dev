@@ -8,6 +8,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -67,6 +68,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import com.dorr.app.R
 import com.dorr.app.ui.theme.LocalThemeState
+import com.dorr.app.ui.theme.appearanceColor
 
 /**
  * The wallet's look, ported 1:1 from the web preview (public/app/css/wallet.css) so the app and
@@ -74,26 +76,35 @@ import com.dorr.app.ui.theme.LocalThemeState
  * entrances, glass chips. Everything wallet-specific reads its colours and shapes from here.
  */
 object Wa {
-    val Red = Color(0xFFE50914)
+    val Red: Color @Composable get() = com.dorr.app.ui.screens.profile.settingsAccent()
     val RedDark = Color(0xFFB30710)
     val RedBright = Color(0xFFF2202C)
-    val Ink: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.ink else Color(0xFF111928)
-    val Mut: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.mut else Color(0xFF6B7280)
-    val Soft: Color @Composable get() = if (walletNight()) Color(0xFF8B93A0) else Color(0xFF9CA3AF)
-    val Line: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.line else Color(0xFFEEF0F3)
-    val Bg: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.bg else Color(0xFFF9FAFB)
+    val Ink: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.ink else appearanceColor("textPrimary", Color(0xFF111928), night = false)
+    val Mut: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.mut else appearanceColor("textSecondary", Color(0xFF6B7280), night = false)
+    val Soft: Color @Composable get() = if (walletNight()) Color(0xFF8B93A0) else appearanceColor("textMuted", Color(0xFF9CA3AF), night = false)
+    val Line: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.line else appearanceColor("border", Color(0xFFEEF0F3), night = false)
+    val Bg: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.bg else appearanceColor("background", Color(0xFFF9FAFB), night = false)
     val Green = Color(0xFF16A34A)
     val Danger = Color(0xFFDC2626)
     val Field: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.card else Color(0xFFF5F6F8)
     val Key = Color(0xFFF4F5F7)
-    val Surface: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.card else Color.White
+    val Surface: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.card else appearanceColor("surface", Color.White, night = false)
 
-    val ButtonBrush = Brush.linearGradient(listOf(RedBright, Color(0xFFC40812)))
-    val HeroBrush = Brush.linearGradient(
-        0f to RedBright, 0.46f to Color(0xFFC40812), 1f to Color(0xFF7A0410),
-        start = Offset(0f, 0f), end = Offset(900f, 700f),
-    )
-    val PageWash = Brush.verticalGradient(listOf(Color(0xFFFBD5DB), Color(0x00FBD5DB)), endY = 620f)
+    val ButtonBrush: Brush
+        @Composable get() {
+            val color = Red
+            val deep = Color(color.red * 0.72f, color.green * 0.72f, color.blue * 0.72f)
+            return Brush.linearGradient(listOf(color, deep))
+        }
+    val HeroBrush: Brush
+        @Composable get() {
+            val color = Red
+            val mid = Color(color.red * 0.78f, color.green * 0.78f, color.blue * 0.78f)
+            val deep = Color(color.red * 0.45f, color.green * 0.45f, color.blue * 0.45f)
+            return Brush.linearGradient(listOf(color, mid, deep))
+        }
+    val PageWash: Brush
+        @Composable get() = Brush.verticalGradient(listOf(Red.copy(alpha = 0.22f), Color.Transparent), endY = 620f)
 
     val CardShape = RoundedCornerShape(22.dp)
     val ButtonShape = RoundedCornerShape(18.dp)
@@ -176,10 +187,13 @@ fun WaCard(modifier: Modifier = Modifier, padding: Dp = 0.dp, content: @Composab
 @Composable
 fun WaIconWell(icon: ImageVector, tone: Tone, size: Dp = 44.dp, iconSize: Dp = 22.dp, modifier: Modifier = Modifier) {
     val night = walletNight() && tone == Tone.Red
+    val brand = Wa.Red
+    val well = if (night) com.dorr.app.ui.screens.AccountDark.well else if (tone == Tone.Red) brand.copy(alpha = 0.14f) else tone.bg
+    val glyph = if (night) com.dorr.app.ui.screens.AccountDark.accent else if (tone == Tone.Red) brand else tone.fg
     Box(
-        modifier.size(size).clip(RoundedCornerShape(size * 0.34f)).background(if (night) com.dorr.app.ui.screens.AccountDark.well else tone.bg),
+        modifier.size(size).clip(RoundedCornerShape(size * 0.34f)).background(well),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = if (night) com.dorr.app.ui.screens.AccountDark.accent else tone.fg, modifier = Modifier.size(iconSize)) }
+    ) { Icon(icon, null, tint = glyph, modifier = Modifier.size(iconSize)) }
 }
 
 @Composable
@@ -240,7 +254,7 @@ fun WaButton(
     }
     val contentColor = when (style) {
         WaButtonStyle.Primary -> Color.White
-        WaButtonStyle.Ghost -> if (walletNight()) com.dorr.app.ui.screens.AccountDark.accent else Wa.Red
+        WaButtonStyle.Ghost -> Wa.Red
         WaButtonStyle.Quiet -> Wa.Mut
     }
 
@@ -366,19 +380,25 @@ fun WaPage(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val night = dark || walletNight()
+    val pageGlow = Wa.Red
     Box(modifier.fillMaxSize().background(if (night) com.dorr.app.ui.screens.AccountDark.bg else Wa.Bg)) {
-        if (!night) Box(Modifier.fillMaxWidth().height(320.dp).background(Wa.PageWash))
-        else Box(
-            Modifier.fillMaxWidth().height(280.dp).background(
-                Brush.verticalGradient(listOf(Color(0x59E50914), Color.Transparent)),
-            ),
-        )
+        Canvas(Modifier.fillMaxSize()) {
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(pageGlow.copy(alpha = 0.35f), pageGlow.copy(alpha = 0.10f), Color.Transparent),
+                    center = Offset(size.width * 0.5f, size.height * -0.08f),
+                    radius = size.width * 0.85f,
+                ),
+                radius = size.width * 0.85f,
+                center = Offset(size.width * 0.5f, size.height * -0.08f),
+            )
+        }
         Column(Modifier.fillMaxSize()) {
             Row(
                 Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, color = if (night) com.dorr.app.ui.screens.AccountDark.accent else Wa.Red, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(title, color = Wa.Red, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     actions()
                     Box(
@@ -396,7 +416,7 @@ fun WaPage(
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowBack,
                             contentDescription = stringResource(R.string.common_back),
-                            tint = if (night) com.dorr.app.ui.screens.AccountDark.accent else Wa.Red,
+                            tint = Wa.Red,
                             modifier = Modifier.size(16.dp).graphicsLayer { scaleX = -1f },
                         )
                     }

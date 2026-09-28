@@ -260,7 +260,7 @@ private fun PdHub(onBack: () -> Unit, refreshKey: Int, onOpen: (PdSub) -> Unit) 
                                 .size(28.dp)
                                 .shadow(4.dp, CircleShape, ambientColor = Color(0x40E50914), spotColor = Color(0x40E50914))
                                 .clip(CircleShape)
-                                .background(AppColors.waRed),
+                                .background(settingsAccent()),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
@@ -324,7 +324,7 @@ private fun PdFieldRow(
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (settingsNight()) AccountDark.well else Pink),
+                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(icon, contentDescription = null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
@@ -431,8 +431,8 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(14.dp))
-            .background(if (selected) (if (settingsNight()) AccountDark.well else Pink) else if (settingsNight()) AccountDark.bg else FieldFill)
-            .border(1.5.dp, if (selected) AppColors.waRed else Color.Transparent, RoundedCornerShape(14.dp))
+            .background(if (selected) (if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)) else if (settingsNight()) AccountDark.bg else FieldFill)
+            .border(1.5.dp, if (selected) settingsAccent() else Color.Transparent, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -449,7 +449,7 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
         Box(
             modifier = Modifier
                 .size(18.dp)
-                .border(2.dp, if (selected) AppColors.waRed else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
+                .border(2.dp, if (selected) settingsAccent() else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
@@ -457,7 +457,7 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
                     Modifier
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(AppColors.waRed),
+                        .background(settingsAccent()),
                 )
             }
         }
@@ -699,7 +699,7 @@ private fun PdOtpStep(title: String, target: String, onBack: () -> Unit, onVerif
                         stringResource(R.string.profile_otp_resend),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
-                        color = AppColors.waRed,
+                        color = settingsAccent(),
                         textAlign = TextAlign.Center,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -741,7 +741,7 @@ private fun OtpDigit(
     var focused by remember { mutableStateOf(false) }
     val border = when {
         hasError -> AppColors.danger
-        focused -> AppColors.waRed
+        focused -> settingsAccent()
         else -> Color(0xFFF3C4CC)
     }
     Box(
@@ -764,7 +764,7 @@ private fun OtpDigit(
                 textAlign = TextAlign.Center,
             ),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            cursorBrush = SolidColor(AppColors.waRed),
+            cursorBrush = SolidColor(settingsAccent()),
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
@@ -786,7 +786,7 @@ private fun ProfilePhoneField(
     var focused by remember { mutableStateOf(false) }
     val borderColor = when {
         isError -> AppColors.danger
-        focused -> AppColors.waRed
+        focused -> settingsAccent()
         else -> FieldBorder
     }
     val placeholder = if (phoneStartsWith.isNotEmpty()) {
@@ -823,7 +823,7 @@ private fun ProfilePhoneField(
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, color = settingsInk(), letterSpacing = 0.5.sp),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                cursorBrush = SolidColor(AppColors.waRed),
+                cursorBrush = SolidColor(settingsAccent()),
                 modifier = Modifier
                     .weight(1f)
                     .onFocusChanged { focused = it.isFocused },
@@ -915,7 +915,7 @@ private fun IconField(
                 .height(44.dp)
                 .clip(RoundedCornerShape(999.dp))
                 .background(if (settingsNight()) AccountDark.bg else if (focused) Color.White else FieldFill)
-                .border(1.dp, if (focused) AppColors.waRed else if (settingsNight()) AccountDark.line else FieldBorder, RoundedCornerShape(999.dp))
+                .border(1.dp, if (focused) settingsAccent() else if (settingsNight()) AccountDark.line else FieldBorder, RoundedCornerShape(999.dp))
                 .padding(horizontal = 14.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -927,7 +927,7 @@ private fun IconField(
                 singleLine = true,
                 textStyle = TextStyle(fontSize = 15.sp, color = settingsInk()),
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                cursorBrush = SolidColor(AppColors.waRed),
+                cursorBrush = SolidColor(settingsAccent()),
                 modifier = Modifier
                     .weight(1f)
                     .onFocusChanged { focused = it.isFocused },
@@ -976,7 +976,7 @@ private fun PdSaveButton(label: String, enabled: Boolean = true, onClick: () -> 
                 .alpha(if (enabled) 1f else 0.5f)
                 .shadow(8.dp, shape, ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
                 .clip(shape)
-                .background(AppColors.waRed)
+                .background(settingsAccent())
                 .clickable(enabled = enabled, onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
@@ -1007,7 +1007,7 @@ private fun PdHeader(title: String, onBack: () -> Unit) {
     ) {
         Text(
             title,
-            color = AppColors.waRed,
+            color = settingsAccent(),
             fontSize = 22.sp,
             fontWeight = FontWeight.ExtraBold,
             modifier = Modifier.weight(1f),
@@ -1025,7 +1025,7 @@ private fun PdHeader(title: String, onBack: () -> Unit) {
             Icon(
                 Icons.AutoMirrored.Rounded.ArrowBack,
                 contentDescription = stringResource(R.string.common_back),
-                tint = AppColors.waRed,
+                tint = settingsAccent(),
                 modifier = Modifier
                     .size(16.dp)
                     .graphicsLayer { scaleX = -1f },

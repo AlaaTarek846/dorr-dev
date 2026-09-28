@@ -66,6 +66,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
@@ -149,7 +150,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                 },
                 modifier = Modifier.align(Alignment.End).padding(end = 8.dp),
             ) {
-                Text(stringResource(R.string.notifications_mark_all_read), color = if (night) AccountDark.accent else AppColors.waRed, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.notifications_mark_all_read), color = if (night) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.Bold)
             }
         }
         if (loaded && notifications.isEmpty()) {
@@ -214,7 +215,7 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(8.dp)
-                    .background(if (item.unread) (if (night) AccountDark.accent else AppColors.waRed) else Color.Transparent, CircleShape),
+                    .background(if (item.unread) (if (night) AccountDark.accent else settingsAccent()) else Color.Transparent, CircleShape),
             )
             Spacer(Modifier.height(4.dp))
             Box(

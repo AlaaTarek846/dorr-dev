@@ -185,7 +185,7 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
         Box(
             Modifier.fillMaxWidth().height(84.dp).background(
                 if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
-                else Brush.linearGradient(listOf(Color(0xFFFDE8EC), Color(0xFFFFF5F6))),
+                else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
             ),
         )
         Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {

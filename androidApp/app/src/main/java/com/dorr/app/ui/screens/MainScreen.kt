@@ -69,6 +69,8 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.screens.wallet.WalletScreen
 
 private data class Tab(
@@ -84,7 +86,6 @@ private val tabs = listOf(
     Tab(R.string.tab_account, Icons.Outlined.Person, Icons.Filled.Person),
 )
 
-private val BottomBarActiveRed = Color(0xFFE60012)
 private val BottomBarInactiveGray = Color(0xFF8E9BAE)
 
 /**
@@ -111,13 +112,19 @@ fun MainScreen(
         currentOnStateChanged(currentTab, walletOpen)
     }
 
+    val appearance = LocalAppearance.current
     LaunchedEffect(Unit) {
         val token = AuthSession.token
         if (!token.isNullOrBlank()) {
             runCatching {
                 ApiClient.mobileAuth.me("Bearer $token").data
             }.onSuccess { me ->
-                if (me != null) AuthSession.user = me
+                if (me != null && AuthSession.token == token) AuthSession.user = me
+            }
+            runCatching {
+                ApiClient.appearance.show("Bearer $token").data
+            }.onSuccess { dto ->
+                if (dto != null && AuthSession.token == token) appearance.apply(dto)
             }
         }
     }
@@ -204,7 +211,7 @@ private fun DorrBottomNavigationBar(
                     if (accountDark) Modifier
                     else Modifier.shadow(
                         elevation = 10.dp,
-                        spotColor = BottomBarActiveRed.copy(alpha = 0.08f),
+                        spotColor = settingsAccent().copy(alpha = 0.08f),
                         ambientColor = Color.Black.copy(alpha = 0.04f),
                     ),
                 ),
@@ -292,9 +299,9 @@ private fun DorrBottomNavigationBar(
                     .background(
                         brush = Brush.radialGradient(
                             colors = listOf(
-                                BottomBarActiveRed.copy(alpha = 0.36f),
-                                BottomBarActiveRed.copy(alpha = 0.15f),
-                                BottomBarActiveRed.copy(alpha = 0.03f),
+                                settingsAccent().copy(alpha = 0.36f),
+                                settingsAccent().copy(alpha = 0.15f),
+                                settingsAccent().copy(alpha = 0.03f),
                                 Color.Transparent,
                             ),
                         ),
@@ -309,10 +316,10 @@ private fun DorrBottomNavigationBar(
                     .shadow(
                         elevation = 8.dp,
                         shape = CircleShape,
-                        spotColor = BottomBarActiveRed.copy(alpha = 0.40f),
-                        ambientColor = BottomBarActiveRed.copy(alpha = 0.18f),
+                        spotColor = settingsAccent().copy(alpha = 0.40f),
+                        ambientColor = settingsAccent().copy(alpha = 0.18f),
                     )
-                    .background(BottomBarActiveRed, CircleShape)
+                    .background(settingsAccent(), CircleShape)
                     .border(3.5.dp, ringColor, CircleShape)
                     .clip(CircleShape)
                     .clickable(
@@ -357,7 +364,7 @@ private fun TabItem(
             Icon(
                 imageVector = if (selected) tab.activeIcon else tab.icon,
                 contentDescription = stringResource(tab.label),
-                tint = if (selected) BottomBarActiveRed else BottomBarInactiveGray,
+                tint = if (selected) settingsAccent() else BottomBarInactiveGray,
                 modifier = Modifier.size(23.dp),
             )
             Spacer(modifier = Modifier.height(4.dp))
@@ -366,7 +373,7 @@ private fun TabItem(
                 fontSize = 11.sp,
                 lineHeight = 13.sp,
                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
-                color = if (selected) BottomBarActiveRed else BottomBarInactiveGray,
+                color = if (selected) settingsAccent() else BottomBarInactiveGray,
                 maxLines = 1,
             )
         }
