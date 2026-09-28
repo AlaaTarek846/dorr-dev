@@ -56,6 +56,15 @@
                             </table>
                         </div>
                     </div>
+
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -68,12 +77,15 @@ import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
 
 const { t, locale } = useI18n();
 const { showError } = useToast();
 
 const logs = ref([]);
 const loading = ref(true);
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 function formatDateTime(value) {
     if (! value) return '-';
@@ -91,13 +103,25 @@ async function loadLogs() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-provider-logs');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-provider-logs', { params: paginationParams.value });
         logs.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
         loading.value = false;
     }
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadLogs();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
+    loadLogs();
 }
 
 onMounted(() => loadLogs());

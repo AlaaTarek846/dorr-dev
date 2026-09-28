@@ -88,6 +88,12 @@ export default [
                 component: page('chat/index'),
                 meta: { middleware: [userAuth] },
             },
+            {
+                path: 'ai/language-preference',
+                name: 'user.ai-language-preference',
+                component: page('ai/language-preference'),
+                meta: { middleware: [userAuth] },
+            },
         ],
     },
 ];

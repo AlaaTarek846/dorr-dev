@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Sanctum;
@@ -35,7 +36,7 @@ class AiChatRateLimitTest extends TestCase
             'name' => 'Rate Limit Test User',
             'email' => 'ratelimit-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
     }
 

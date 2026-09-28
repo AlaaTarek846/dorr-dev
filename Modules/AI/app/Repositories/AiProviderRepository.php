@@ -31,14 +31,14 @@ class AiProviderRepository extends BaseRepository
     {
         $this->ensureDefaults();
 
-        return $this->query()->orderBy('id')->get();
+        return $this->query()->with('models')->orderBy('id')->get();
     }
 
     public function findByKey(string $key): AiProvider
     {
         $this->ensureDefaults();
 
-        return $this->query()->where('key', $key)->firstOrFail();
+        return $this->query()->with('models')->where('key', $key)->firstOrFail();
     }
 
     public function updateByKey(string $key, array $data): AiProvider

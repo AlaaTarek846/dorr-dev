@@ -33,6 +33,38 @@ class AiChatBroadcastTest extends TestCase
 {
     use RefreshDatabase;
 
+    /**
+     * Real, observed gap: config/broadcasting.php deliberately defaults
+     * to the 'log'/'null' driver so installing that file alone never
+     * breaks anything (see its own docblock) - but
+     * LogBroadcaster::auth()/NullBroadcaster::auth() are literal no-ops
+     * that return nothing at all, so /broadcasting/auth answers 200 for
+     * EVERY request under those drivers, valid or not, without ever
+     * running routes/channels.php's authorization callback. phpunit.xml
+     * sets BROADCAST_CONNECTION=reverb specifically so this suite
+     * exercises the real (Pusher-protocol-compatible) enforcement path
+     * instead - but that override is silently ignored whenever
+     * bootstrap/cache/config.php exists (a stale `php artisan
+     * config:cache` run outside the test environment), which made the
+     * two "...rejects..." tests below fail while "...authorizes..."
+     * passed by pure coincidence (a no-op driver always returns 200,
+     * which happens to be what the authorized case expects too). Forcing
+     * the driver here, in code, makes this test assert the real
+     * authorization logic deterministically on every machine, cached
+     * config or not.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        config([
+            'broadcasting.default' => 'reverb',
+            'broadcasting.connections.reverb.key' => 'test-reverb-key',
+            'broadcasting.connections.reverb.secret' => 'test-reverb-secret',
+            'broadcasting.connections.reverb.app_id' => 'test-reverb-app',
+        ]);
+    }
+
     protected function makeOwner(): Admin
     {
         return Admin::query()->create([

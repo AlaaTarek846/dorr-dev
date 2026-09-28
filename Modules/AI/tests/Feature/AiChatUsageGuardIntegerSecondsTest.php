@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\AI\Models\AiPlan;
 use Modules\AI\Services\AiChatUsageGuard;
@@ -29,7 +30,7 @@ class AiChatUsageGuardIntegerSecondsTest extends TestCase
             'name' => 'Usage Guard Seconds Test User',
             'email' => 'usage-seconds-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
     }
 
@@ -37,6 +38,7 @@ class AiChatUsageGuardIntegerSecondsTest extends TestCase
     {
         AiPlan::query()->create([
             'name' => 'Trial Plan (seconds test)',
+            'code' => 'trial-seconds-test',
             'is_trial' => true,
             'is_active' => true,
             'sort_order' => 1,

@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\AI\Models\AiConversation;
@@ -34,7 +35,7 @@ class AiChatConversationIsolationTest extends TestCase
             'name' => 'Isolation Test User',
             'email' => 'iso-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
     }
 

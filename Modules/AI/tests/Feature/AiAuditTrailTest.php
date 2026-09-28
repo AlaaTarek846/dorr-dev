@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\AI\Models\AiAuditEvent;
 use Modules\AI\Models\AiConversation;
@@ -27,7 +28,7 @@ class AiAuditTrailTest extends TestCase
             'name' => 'Audit Test User',
             'email' => 'audit-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
     }
 

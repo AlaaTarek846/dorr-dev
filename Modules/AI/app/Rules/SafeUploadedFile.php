@@ -69,7 +69,22 @@ class SafeUploadedFile implements ValidationRule
             return;
         }
 
-        $head = file_get_contents($path, false, null, 0, 4096);
+        // Real, observed gap: file_get_contents() can fail to even OPEN
+        // the stream (not just fail to read it) if the file vanishes or
+        // becomes locked between the is_readable() check above and this
+        // call - a genuine TOCTOU race under concurrent requests, and
+        // also what a real-time antivirus scanner can trigger by
+        // quarantining a file the instant its content matches a known
+        // malicious signature (exactly what this rule's own test
+        // fixtures intentionally write). That failure raises a PHP
+        // warning, not just a false return, and this app's error handler
+        // escalates warnings into a real thrown exception - crashing the
+        // whole request instead of the graceful "$head === false"
+        // fallback this code already clearly intends. @-suppressed here
+        // so a vanished/locked file is treated exactly like an unreadable
+        // one: fails closed (rejected) via the finfo_file() check below,
+        // never silently treated as safe.
+        $head = @file_get_contents($path, false, null, 0, 4096);
         $head = $head === false ? '' : $head;
 
         foreach ($this->dangerousSignatures as $signature) {
@@ -87,7 +102,7 @@ class SafeUploadedFile implements ValidationRule
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $realMime = $finfo ? finfo_file($finfo, $path) : null;
+        $realMime = $finfo ? @finfo_file($finfo, $path) : null;
 
         if ($finfo) {
             finfo_close($finfo);

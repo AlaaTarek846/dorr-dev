@@ -155,7 +155,7 @@ const modalTitle = computed(() => (
 
 async function loadProviders() {
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-providers');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-providers', { params: { all: 1 } });
         providers.value = data.data ?? [];
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));

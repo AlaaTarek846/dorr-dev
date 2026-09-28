@@ -24,6 +24,17 @@ return [
         // Keeps token usage and per-request latency bounded on long chats.
         'history_limit' => (int) env('AI_CHAT_HISTORY_LIMIT', 30),
 
+        // Max original image size this will inline as base64 to a
+        // vision-capable model. Bigger than this, the image is described
+        // as a plain text note instead (still uploaded/stored either way).
+        'multimodal_max_image_bytes' => (int) env('AI_CHAT_MULTIMODAL_MAX_IMAGE_BYTES', 8 * 1024 * 1024),
+
+        // Max characters of extracted document text (PDF/DOCX/plain text)
+        // to inline into the prompt for a document_analysis turn. Longer
+        // documents are truncated with a note rather than sent in full,
+        // to keep token usage and latency bounded.
+        'multimodal_max_document_chars' => (int) env('AI_CHAT_MULTIMODAL_MAX_DOCUMENT_CHARS', 6000),
+
         'system_prompt' => env(
             'AI_CHAT_SYSTEM_PROMPT',
             'You are "DORR AI" (مساعد دور الذكي), the official AI assistant built into the DORR '
@@ -34,7 +45,12 @@ return [
             .'to how you can help instead. '
             .'Be concise, warm, and professional. Always reply in the same language the user wrote in '
             .'(Arabic or English), matching their tone. If the user attaches a file, acknowledge it by '
-            .'name and ask what they would like you to do with it if that is not already clear.',
+            .'name and ask what they would like you to do with it if that is not already clear. '
+            .'Only bring up DORR\'s services when they are actually relevant to what the user just '
+            .'asked - never tack on a generic "how else can I help you with DORR\'s services" line '
+            .'to an unrelated answer or to a refusal; it reads as a canned sales pitch and makes the '
+            .'reply feel disjointed. If a request is outside what you can do, say so plainly in one '
+            .'sentence and stop there, or offer a genuinely relevant next step only when one exists.',
         ),
 
         // Shown in the UI instead of the real provider name, so the
@@ -230,6 +246,23 @@ return [
             'has_free_tier' => true,
             'pricing_note' => 'Google AI Studio keys include a free-of-charge tier with lower rate limits; higher throughput requires enabling billing.',
         ],
+    /*
+    |--------------------------------------------------------------------------
+    | Dynamic Model Registry sync (OpenAI model management rebuild)
+    |--------------------------------------------------------------------------
+    |
+    | How often AIServiceProvider's scheduled `ai:sync-models` run fires -
+    | deliberately configurable rather than a fixed guess, since a
+    | fast-moving provider catalog may need syncing more often than a
+    | stable one. AIServiceProvider::modelSyncCronExpression() turns this
+    | into an actual cron expression (>=24 and a multiple of 24 -> once
+    | daily at 03:00; otherwise every N hours).
+    |
+    */
+    'model_sync' => [
+        'interval_hours' => (int) env('AI_MODEL_SYNC_INTERVAL_HOURS', 24),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Benchmark DORR (v2.0 requirements doc, section 19)

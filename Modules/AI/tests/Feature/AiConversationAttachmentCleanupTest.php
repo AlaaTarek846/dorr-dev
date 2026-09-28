@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Modules\AI\Models\AiConversation;
@@ -32,7 +33,7 @@ class AiConversationAttachmentCleanupTest extends TestCase
             'name' => 'Cleanup Test User',
             'email' => 'cleanup-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
     }
 

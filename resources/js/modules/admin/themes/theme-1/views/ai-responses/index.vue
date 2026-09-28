@@ -43,7 +43,7 @@
                                     <tr v-for="item in responses" v-else :key="item.id">
                                         <td>#{{ item.request_id }}</td>
                                         <td class="text-muted" style="max-width: 420px; white-space: normal;">
-                                            {{ truncate(item.response) }}
+                                            {{ truncate(item.response?.content || item.response?.message) }}
                                         </td>
                                         <td>
                                             <span class="badge" :class="finishBadgeClass(item.finish_reason)">{{ item.finish_reason }}</span>
@@ -54,6 +54,14 @@
                             </table>
                         </div>
                     </div>
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -65,6 +73,8 @@ import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 
 const { t, locale } = useI18n();
@@ -72,6 +82,8 @@ const { showError } = useToast();
 
 const responses = ref([]);
 const loading = ref(true);
+
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 function formatDateTime(value) {
     if (! value) return '-';
@@ -96,13 +108,25 @@ async function loadResponses() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-responses');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-responses', { params: paginationParams.value });
         responses.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
         loading.value = false;
     }
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadResponses();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
+    loadResponses();
 }
 
 onMounted(() => loadResponses());

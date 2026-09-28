@@ -95,6 +95,15 @@
                             </table>
                         </div>
                     </div>
+
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -126,7 +135,7 @@
                                 <tbody>
                                     <tr v-for="result in selected.results" :key="result.id">
                                         <td style="max-width: 320px; white-space: normal;">{{ result.case?.prompt }}</td>
-                                        <td>{{ result.case?.expected_behavior }}</td>
+                                        <td>{{ result.case?.expected_behavior ? t('ai_benchmark_cases.behavior_' + result.case.expected_behavior) : '-' }}</td>
                                         <td>{{ result.abstained ? t('yes') : t('no') }}</td>
                                         <td>{{ result.citation_present ? t('yes') : t('no') }}</td>
                                         <td>{{ result.correctness_score !== null ? result.correctness_score : '-' }}</td>
@@ -168,6 +177,8 @@ import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
 
 const { t, locale } = useI18n();
 
@@ -176,6 +187,7 @@ function truncate(value, max) {
     return value.length > max ? value.slice(0, max) + '\u2026' : value;
 }
 const { showSuccess, showError } = useToast();
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 const runs = ref([]);
 const loading = ref(true);
@@ -183,7 +195,7 @@ const triggering = ref(false);
 const triggerDomain = ref('');
 const selected = ref(null);
 const modalElement = ref(null);
-const minSampleSize = ref(30);
+const minSampleSize = ref(30); // fallback until loadMinSampleSize() resolves the real configured value
 let modalInstance = null;
 
 const lastRunSmallSample = computed(() => {
@@ -215,12 +227,32 @@ async function loadRuns() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-benchmark-runs');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-benchmark-runs', { params: paginationParams.value });
         runs.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
         loading.value = false;
+    }
+}
+
+/**
+ * Business gap fix: this screen's small-sample warning used to hardcode
+ * "30" in the frontend, while the real threshold is configurable
+ * (config('ai.min_recommended_sample_size') / env AI_BENCHMARK_MIN_SAMPLE_SIZE)
+ * - a config change never reached this screen. Reads the live value from
+ * the new GET .../ai-benchmark-runs/config endpoint; the ref above stays
+ * as a sane fallback only if that call fails.
+ */
+async function loadMinSampleSize() {
+    try {
+        const { data } = await adminAxios.get('/api/admin/v1/ai-benchmark-runs/config');
+        if (data?.data?.min_recommended_sample_size) {
+            minSampleSize.value = data.data.min_recommended_sample_size;
+        }
+    } catch (error) {
+        // Non-fatal - the hardcoded fallback above still gives a reasonable warning.
     }
 }
 
@@ -258,8 +290,20 @@ function closeModal() {
     modalInstance?.hide();
 }
 
+function onChangePage(target) {
+    page.value = target;
+    loadRuns();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
+    loadRuns();
+}
+
 onMounted(() => {
     loadRuns();
+    loadMinSampleSize();
     modalElement.value?.addEventListener('hidden.bs.modal', () => { selected.value = null; });
 });
 

@@ -56,7 +56,7 @@
                                             </button>
                                         </td>
                                         <td>
-                                            <span class="badge bg-secondary-transparent">{{ flag.target_type }}</span>
+                                            <span class="badge bg-secondary-transparent">{{ t('ai_feature_flags.target_type_' + flag.target_type) }}</span>
                                             <span class="d-block text-muted fs-11 mt-1">
                                                 {{ flag.provider?.name || flag.model_key || flag.tool_key || '-' }}
                                             </span>
@@ -90,6 +90,14 @@
                             </table>
                         </div>
                     </div>
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -112,8 +120,12 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
+
 const { t } = useI18n();
 const { showSuccess, showError } = useToast();
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 const flags = ref([]);
 const loading = ref(true);
@@ -125,8 +137,9 @@ async function loadFlags() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-feature-flags');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-feature-flags', { params: paginationParams.value });
         flags.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
@@ -175,6 +188,17 @@ async function remove(flag) {
 
 function onSaved() {
     modalShow.value = false;
+    loadFlags();
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadFlags();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
     loadFlags();
 }
 

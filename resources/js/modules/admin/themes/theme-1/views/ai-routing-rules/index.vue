@@ -90,6 +90,14 @@
                             </table>
                         </div>
                     </div>
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -112,8 +120,12 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
+
 const { t } = useI18n();
 const { showSuccess, showError } = useToast();
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 const rules = ref([]);
 const loading = ref(true);
@@ -125,8 +137,9 @@ async function loadRules() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-routing-rules');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-routing-rules', { params: paginationParams.value });
         rules.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
@@ -175,6 +188,17 @@ async function remove(rule) {
 
 function onSaved() {
     modalShow.value = false;
+    loadRules();
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadRules();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
     loadRules();
 }
 

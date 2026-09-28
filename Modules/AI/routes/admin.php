@@ -48,6 +48,7 @@ use Modules\AI\Http\Controllers\AiKnowledgeChunkController;
 use Modules\AI\Http\Controllers\AiDocumentGenerationController;
 use Modules\AI\Http\Controllers\AiProjectInstructionController;
 use Modules\AI\Http\Controllers\AiProjectContextController;
+use Modules\AI\Http\Controllers\AiProviderModelController;
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-providers')->group(function () {
     Route::get('/', [AiProviderController::class, 'index']);
@@ -60,6 +61,21 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 
     Route::post('{provider}/set-default', [AiProviderController::class, 'setDefault'])
         ->whereIn('provider', AiProviderKey::values());
+
+    Route::get('{provider}/models', [AiProviderModelController::class, 'index'])
+        ->whereIn('provider', AiProviderKey::values());
+    Route::post('{provider}/models', [AiProviderModelController::class, 'store'])
+        ->whereIn('provider', AiProviderKey::values());
+    Route::post('{provider}/models/reclassify', [AiProviderModelController::class, 'reclassify'])
+        ->whereIn('provider', AiProviderKey::values());
+    Route::post('{provider}/models/sync', [AiProviderModelController::class, 'sync'])
+        ->whereIn('provider', AiProviderKey::values());
+    Route::post('{provider}/models/normalize', [AiProviderModelController::class, 'normalize'])
+        ->whereIn('provider', AiProviderKey::values());
+    Route::put('{provider}/models/{model}', [AiProviderModelController::class, 'update'])
+        ->whereIn('provider', AiProviderKey::values())->whereNumber('model');
+    Route::delete('{provider}/models/{model}', [AiProviderModelController::class, 'destroy'])
+        ->whereIn('provider', AiProviderKey::values())->whereNumber('model');
 });
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-plans')->group(function () {
@@ -287,6 +303,7 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-user-language-preferences')->group(function () {
     Route::get('/', [AiUserLanguagePreferenceController::class, 'index']);
     Route::get('{preference}', [AiUserLanguagePreferenceController::class, 'show']);
+    Route::put('{preference}', [AiUserLanguagePreferenceController::class, 'update']);
 });
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-language-evaluations')->group(function () {
@@ -350,5 +367,8 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-benchmark-runs')->group(function () {
     Route::get('/', [AiBenchmarkRunController::class, 'index']);
     Route::post('/', [AiBenchmarkRunController::class, 'store']);
+    // Must be registered before the {run} route below, or "config" would
+    // be swallowed as a $run id and 404 on model binding.
+    Route::get('config', [AiBenchmarkRunController::class, 'config']);
     Route::get('{run}', [AiBenchmarkRunController::class, 'show']);
 });

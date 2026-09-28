@@ -133,7 +133,9 @@ class AiFeatureFlagCrudTest extends TestCase
 
         $response = $this->deleteJson("/api/admin/v1/ai-feature-flags/{$flag->id}");
 
-        $response->assertStatus(200);
+        // BaseService::delete() (shared across every module's CRUD) returns
+        // 204 No Content, not 200 - see app/Services/BaseService.php.
+        $response->assertStatus(204);
         $this->assertDatabaseMissing('ai_feature_flags', ['id' => $flag->id]);
     }
 

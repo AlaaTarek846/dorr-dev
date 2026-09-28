@@ -98,6 +98,11 @@ class AiPromptInjectionResistanceTest extends TestCase
         $message = $this->callEvidenceSystemMessage([]);
 
         $this->assertStringContainsString('DATA to use as possible evidence', $message);
-        $this->assertStringNotContainsString('[1]', $message);
+        // The preamble itself legitimately mentions "[1]" as a format
+        // example ("Cite an excerpt by its number... e.g. [1]") even with
+        // no citations - what must never appear is an actual excerpt
+        // line, which evidenceSystemMessage() always joins onto the
+        // preamble with a blank line first.
+        $this->assertStringNotContainsString("\n\n[1]", $message);
     }
 }

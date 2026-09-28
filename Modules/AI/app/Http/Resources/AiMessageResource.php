@@ -18,6 +18,7 @@ class AiMessageResource extends JsonResource
             'content' => $this->content,
             'is_error' => (bool) $this->is_error,
             'model' => $this->model,
+            'provider_key' => $this->provider_key,
             'attachments' => AiConversationAttachmentResource::collection($this->whenLoaded('attachments')),
             'generated_file' => $this->when(
                 isset($this->generated_file),

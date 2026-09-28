@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\AI\Models\AiAuditEvent;
@@ -50,7 +51,7 @@ class AiAuditEventAdminScreenTest extends TestCase
             'name' => 'Audit Subject User',
             'email' => 'audit-subject-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
 
         app(AiAuditTrail::class)->record(

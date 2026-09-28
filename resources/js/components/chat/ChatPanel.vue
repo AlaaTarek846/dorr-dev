@@ -91,6 +91,11 @@
                             <i class="ri-error-warning-line fs-14"></i>
                             <span>{{ message.verification_warnings[0] }}</span>
                         </div>
+
+                        <div v-if="message.role !== 'user' && message.model" class="chat-bubble__answered-by fs-10 text-muted mt-2">
+                            <i class="ri-cpu-line align-middle me-1"></i>
+                            {{ t('ai_chat.answered_by', { provider: providerLabel(message.provider_key), model: message.model }) }}
+                        </div>
                     </div>
                 </div>
 
@@ -242,6 +247,21 @@ function clearAttachment() {
 // Very small, safe subset of markdown so replies with headings/lists/bold
 // text (something models produce constantly) render nicely instead of as
 // raw asterisks/hashes - never trusts the string as HTML beyond this.
+// Small, human-readable label for whichever provider actually answered -
+// the routing engine already picks the right model per message (capability
+// matching, fallback chains, etc.), this just makes that pick visible in
+// the UI instead of being invisible backend-only behaviour.
+const PROVIDER_LABELS = {
+    openai: 'OpenAI',
+    anthropic: 'Anthropic',
+    google: 'Google',
+    groq: 'Groq',
+};
+
+function providerLabel(providerKey) {
+    return PROVIDER_LABELS[providerKey] || providerKey || '';
+}
+
 function formatContent(content) {
     if (! content) return '';
 

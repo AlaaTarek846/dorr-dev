@@ -405,6 +405,16 @@ async function sendMessage({ message, attachment }) {
         return;
     }
 
+    const isImage = attachment ? attachment.type?.startsWith('image/') : false;
+
+    // A pending attachment used to render with url: null, which the
+    // browser shows as a broken-image icon until the real server
+    // response replaces it a moment later. Building a local object URL
+    // from the file the user just picked gives an immediate, correct
+    // preview instead - it points at the same bytes that are about to be
+    // uploaded, it just hasn't got a server URL yet.
+    const previewUrl = isImage ? URL.createObjectURL(attachment) : null;
+
     // Show the user's own message immediately; the assistant's reply (or
     // error bubble) is appended once the request comes back.
     activeMessages.value.push({
@@ -412,13 +422,22 @@ async function sendMessage({ message, attachment }) {
         role: 'user',
         content: message,
         is_error: false,
-        attachments: attachment ? [{ id: 'pending', file_name: attachment.name, is_image: attachment.type?.startsWith('image/'), url: null }] : [],
+        attachments: attachment ? [{ id: 'pending', file_name: attachment.name, is_image: isImage, url: previewUrl }] : [],
     });
 
-    if (attachment) {
-        await sendMessageWithAttachment(message, attachment);
-    } else {
-        await sendMessageStreamed(message);
+    try {
+        if (attachment) {
+            await sendMessageWithAttachment(message, attachment);
+        } else {
+            await sendMessageStreamed(message);
+        }
+    } finally {
+        // Safe to free even after activeMessages.value has already been
+        // replaced with the server's own data - it just releases the
+        // in-browser blob, it does not touch anything still on screen.
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
     }
 }
 

@@ -71,13 +71,23 @@ class AiMessageVerificationSnapshotPersistenceTest extends TestCase
         // on a later page load.
         $reloaded = AiMessage::query()->findOrFail($message->id);
 
-        $this->assertSame($generatedFile, $reloaded->generated_file);
+        // assertEquals, not assertSame, for this one field specifically:
+        // MySQL's native JSON column type does not guarantee object
+        // member order on round trip (its binary JSON representation
+        // reorders keys internally, e.g. by key length, for efficient
+        // lookup) - the VALUES are still exactly correct, only the key
+        // order can legitimately differ, which assertSame's strict
+        // === array comparison treats as a mismatch even though nothing
+        // is actually wrong. Every other assertion below stays assertSame
+        // - $warnings is a single-element list where order is moot, and
+        // confidence_score is a scalar.
+        $this->assertEquals($generatedFile, $reloaded->generated_file);
         $this->assertEquals(0.812, (float) $reloaded->confidence_score);
         $this->assertSame($warnings, $reloaded->verification_warnings);
 
         $resource = (new AiMessageResource($reloaded))->resolve();
 
-        $this->assertSame($generatedFile, $resource['generated_file']);
+        $this->assertEquals($generatedFile, $resource['generated_file']);
         $this->assertEquals(0.812, (float) $resource['confidence_score']);
         $this->assertSame($warnings, $resource['verification_warnings']);
     }

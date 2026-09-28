@@ -160,7 +160,7 @@ const modalTitle = computed(() => (
 
 async function loadPolicies() {
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-safety-policies');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-safety-policies', { params: { all: 1 } });
         policies.value = data.data ?? [];
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));

@@ -39,6 +39,54 @@ abstract class AbstractHttpConnector implements AiConnector
         return ['success' => false, 'message' => __('ai.embeddings_not_supported', ['provider' => $provider->name]), 'vector' => null];
     }
 
+    /**
+     * Default: no image editing support. Only a connector that actually
+     * implements a real image-edit call (currently OpenAiConnector)
+     * should override this - never fake an edited image here.
+     *
+     * @return array{success: bool, message: string, image: ?array{base64: string, mime: string}}
+     */
+    public function editImage(AiProvider $provider, string $modelKey, string $imageBytes, string $imageMime, string $prompt): array
+    {
+        return ['success' => false, 'message' => __('ai.image_editing_not_supported', ['provider' => $provider->name]), 'image' => null];
+    }
+
+    /**
+     * Default: no text-to-image generation support. Only a connector that
+     * actually implements a real image-generation call (currently
+     * OpenAiConnector) should override this - never fake a picture here.
+     *
+     * @return array{success: bool, message: string, image: ?array{base64: string, mime: string}}
+     */
+    public function generateImage(AiProvider $provider, string $modelKey, string $prompt): array
+    {
+        return ['success' => false, 'message' => __('ai.image_generation_not_supported', ['provider' => $provider->name]), 'image' => null];
+    }
+
+    /**
+     * Default: no speech-to-text support. Only a connector that actually
+     * implements a real transcription call (currently OpenAiConnector)
+     * should override this - never fake a transcript here.
+     *
+     * @return array{success: bool, message: string, text: ?string}
+     */
+    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime): array
+    {
+        return ['success' => false, 'message' => __('ai.speech_to_text_not_supported', ['provider' => $provider->name]), 'text' => null];
+    }
+
+    /**
+     * Default: no text-to-speech support. Only a connector that actually
+     * implements a real TTS call (currently OpenAiConnector) should
+     * override this - never fake audio here.
+     *
+     * @return array{success: bool, message: string, audio: ?array{base64: string, mime: string}}
+     */
+    public function synthesizeSpeech(AiProvider $provider, string $modelKey, string $text): array
+    {
+        return ['success' => false, 'message' => __('ai.text_to_speech_not_supported', ['provider' => $provider->name]), 'audio' => null];
+    }
+
     protected function baseUrl(AiProvider $provider): string
     {
         $baseUrl = $provider->base_url ?: config("ai.providers.{$this->providerKey()}.base_url") ?: $this->defaultBaseUrl();

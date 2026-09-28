@@ -31,8 +31,8 @@
                             <div class="col-md-6">
                                 <label for="language-direction" class="form-label">{{ t('ai_languages.direction') }}</label>
                                 <select id="language-direction" v-model="form.direction" class="form-select">
-                                    <option value="ltr">LTR</option>
-                                    <option value="rtl">RTL</option>
+                                    <option value="ltr">{{ t('ai_languages.direction_ltr') }}</option>
+                                    <option value="rtl">{{ t('ai_languages.direction_rtl') }}</option>
                                 </select>
                             </div>
 

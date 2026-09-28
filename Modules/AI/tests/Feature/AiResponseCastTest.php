@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\AI\Models\AiRequest;
 use Modules\AI\Models\AiResponse;
@@ -32,7 +33,7 @@ class AiResponseCastTest extends TestCase
             'name' => 'Response Cast Test User',
             'email' => 'response-cast-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
 
         return AiRequest::query()->create([

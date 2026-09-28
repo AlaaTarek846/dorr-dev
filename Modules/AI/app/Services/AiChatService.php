@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use Modules\AI\Enums\AiModelCapability;
 use Modules\AI\Events\AiMessageBroadcast;
 use Modules\AI\Http\Resources\AiConversationAttachmentResource;
 use Modules\AI\Http\Resources\AiConversationResource;
@@ -32,6 +33,8 @@ use Modules\AI\Models\AiRequestCitation;
 use Modules\AI\Models\AiVerification;
 use Modules\AI\Repositories\AiConversationRepository;
 use Modules\AI\Repositories\AiProviderRepository;
+use Modules\AI\Services\DocumentGeneration\AiDocumentContentParser;
+use Modules\AI\Services\DocumentGeneration\AiDocumentRenderer;
 
 class AiChatService
 {
@@ -49,6 +52,20 @@ class AiChatService
         'as a file', 'download', 'export', 'generate a document', 'generate a report', 'send it as a file',
     ];
 
+    /**
+     * Once wantsFileOutput() fires, this decides WHICH format the user
+     * actually asked for (Arabic + English keywords per format) - a
+     * generic "give me a file/report" with no format named defaults to
+     * PDF, the most universally shareable choice.
+     *
+     * @var array<string, list<string>>
+     */
+    protected array $fileFormatKeywords = [
+        'xlsx' => ['اكسيل', 'إكسل', 'إكسيل', 'excel', 'xlsx', 'spreadsheet', 'جدول بيانات', 'جدول اكسيل'],
+        'docx' => ['وورد', 'word', 'docx', 'مستند وورد', 'ملف وورد'],
+        'pdf' => ['pdf', 'بي دي اف', 'بى دى اف', 'بي دى اف'],
+    ];
+
     public function __construct(
         protected AiConversationRepository $conversations,
         protected AiProviderRepository $providers,
@@ -63,6 +80,9 @@ class AiChatService
         protected AiDomainPipelineService $domainPipeline,
         protected AiCircuitBreaker $circuitBreaker,
         protected AiAuditTrail $auditTrail,
+        protected AiDocumentTextExtractor $documentExtractor,
+        protected AiDocumentRenderer $documentRenderer,
+        protected AiModelResolver $modelResolver,
     ) {}
 
     public function listConversations(Authenticatable $owner): JsonResponse
@@ -331,6 +351,12 @@ class AiChatService
             }
         }
 
+        // Ownership must be settled before the usage guard runs - otherwise
+        // a request into someone else's conversation id gets a billing-state
+        // response (402/403) instead of the 404 an IDOR probe must always
+        // see, regardless of the requester's own quota.
+        $conversation = $this->conversations->findForOwner($owner, $conversationId);
+
         $usage = $this->usageGuard->evaluate($owner);
 
         if (! $usage['allowed']) {
@@ -342,17 +368,57 @@ class AiChatService
             );
         }
 
-        $routing = $this->routingEngine->resolve($owner, $content, $usage['plan']?->id, $this->providers);
+        // Root-cause design (see resolveCandidateFor()'s docblock for why
+        // this is deliberately independent of the main routing engine): a
+        // voice message is transcribed to plain text BEFORE routing ever
+        // runs, so the rest of this method - capability resolution,
+        // safety, domain triage, the ai_requests audit row, the stored
+        // user message - all see the real transcript exactly like a
+        // typed message, with zero special-casing anywhere else.
+        $voiceMessageUntranscribed = false;
+
+        if ($attachment && str_starts_with((string) $attachment->getClientMimeType(), 'audio/')) {
+            $transcript = $this->transcribeIncomingAudio($attachment);
+
+            if ($transcript !== null) {
+                $content = trim($content) !== '' ? $content."\n\n".$transcript : $transcript;
+            } else {
+                $voiceMessageUntranscribed = true;
+            }
+        }
+
+        $routing = $this->routingEngine->resolve($owner, $content, $usage['plan']?->id, $this->providers, $attachment?->getClientMimeType());
         $candidates = $routing['candidates'];
 
         if ($candidates === []) {
             return ApiResponse::error(__('ai.no_active_provider'), 422);
         }
 
+        // Real, observed gap: "image_generation" exists as a capability
+        // tag and AiRequiredCapabilityResolver already recognizes phrases
+        // like "edit this image" / "عدل الصورة" - but no connector in this
+        // codebase actually calls an image generation/editing API
+        // (AiGateway::chat() always calls the text chat/completions
+        // endpoint). Left alone, the text model happily writes a reply
+        // that *sounds* like it is about to deliver an edited file ("هعمل
+        // لك تغيير اللون...") and then never can, which reads as broken or
+        // dishonest rather than as a plain capability limit. Detected here
+        // (required but no candidate actually matched it) and turned into
+        // an explicit system instruction below instead.
+        $imageActionUnavailable = in_array(AiModelCapability::ImageGeneration->value, $routing['required_capabilities'], true)
+            && ! ($candidates[0]['capability_matched'] ?? false);
+
         /** @var AiProvider $provider */
         $provider = $candidates[0]['provider'];
 
-        $conversation = $this->conversations->findForOwner($owner, $conversationId);
+        // Same "resolve independently of the main routing candidate"
+        // reasoning as transcribeIncomingAudio() above: text-to-speech is
+        // its own separate call on its own dedicated model, never the
+        // model drafting the actual reply, so it must never influence
+        // $routing['required_capabilities'] / $candidates[0].
+        $voiceReplyRequested = $this->wantsVoiceReply($content);
+        $ttsCandidate = $voiceReplyRequested ? $this->resolveTextToSpeechCandidate() : null;
+        $voiceReplyUnavailable = $voiceReplyRequested && $ttsCandidate === null;
 
         $safety = $this->safetyGuard->evaluate($content);
         $outgoingContent = $safety['sanitized'] ?? $content;
@@ -402,9 +468,30 @@ class AiChatService
         ]);
 
         $attachmentResource = null;
+        $imagePayload = null;
+        $documentText = null;
+
+        // True only when the user attached an actual image AND the model
+        // never actually receives its pixels (buildImagePayload() returned
+        // null - no vision-capable candidate matched, or the file was too
+        // large to inline). Without an explicit warning, the model still
+        // gets a plain "[an image was attached]" text note and nothing
+        // stops it from confidently hallucinating a description of
+        // content it never saw - this flag drives an honest system
+        // message instead (see imageUnviewableSystemMessage()).
+        $imageUnviewable = false;
 
         if ($attachment) {
             $attachmentResource = $this->storeAttachment($conversation, $userMessage, $attachment);
+            $imagePayload = $this->buildImagePayload($attachment, $routing);
+
+            if ($imagePayload === null) {
+                $documentText = $this->buildDocumentText($attachment, $routing);
+
+                if ($documentText === null && str_starts_with((string) $attachment->getClientMimeType(), 'image/')) {
+                    $imageUnviewable = true;
+                }
+            }
         }
 
         if (blank($conversation->title)) {
@@ -434,7 +521,7 @@ class AiChatService
             return ApiResponse::success([
                 'user_message' => new AiMessageResource($userMessage->fresh('attachments')),
                 'assistant_message' => new AiMessageResource($assistantMessage),
-                'conversation' => new AiConversationResource($conversation->refresh()),
+                'conversation' => new AiConversationResource($conversation->refresh()->load('messages.attachments')),
                 'usage' => $this->usageSummary($usage),
                 'trace_id' => $aiRequest->correlation_id,
                 'status' => $aiRequest->status,
@@ -474,7 +561,7 @@ class AiChatService
             return ApiResponse::success([
                 'user_message' => new AiMessageResource($userMessage->fresh('attachments')),
                 'assistant_message' => new AiMessageResource($assistantMessage),
-                'conversation' => new AiConversationResource($conversation->refresh()),
+                'conversation' => new AiConversationResource($conversation->refresh()->load('messages.attachments')),
                 'usage' => $this->usageSummary($usage),
                 'trace_id' => $aiRequest->correlation_id,
                 'status' => $aiRequest->status,
@@ -482,6 +569,43 @@ class AiChatService
                 'sources' => [],
                 'warnings' => [],
             ], __('api.created'));
+        }
+
+        // A real, connected image-generation/editing model exists for this
+        // request (routing already matched one) - try it for real before
+        // falling back to the "I can't do that" honesty path below.
+        // Edit is tried first (only succeeds when a real source image can
+        // be resolved - see resolveSourceImageBytes()/
+        // looksLikeEditOfExistingImage()); when there is no source AND the
+        // message does not read as a reference to an existing picture,
+        // this is a genuine "create something brand new" request, so real
+        // text-to-image generation is tried instead. Both can still come
+        // back null (no source to edit / provider has no real generation
+        // support), in which case $imageActionUnavailable is upgraded to
+        // true so the normal text reply stays honest about it.
+        if (
+            in_array(AiModelCapability::ImageGeneration->value, $routing['required_capabilities'], true)
+            && ($candidates[0]['capability_matched'] ?? false)
+        ) {
+            $imageEditResponse = $this->tryHandleImageEdit(
+                $owner, $conversation, $userMessage, $aiRequest, $outgoingContent, $attachment, $candidates[0], $usage,
+            );
+
+            if ($imageEditResponse !== null) {
+                return $imageEditResponse;
+            }
+
+            if (! $this->looksLikeEditOfExistingImage($outgoingContent)) {
+                $imageGenerationResponse = $this->tryHandleImageGeneration(
+                    $owner, $conversation, $userMessage, $aiRequest, $outgoingContent, $candidates[0], $usage,
+                );
+
+                if ($imageGenerationResponse !== null) {
+                    return $imageGenerationResponse;
+                }
+            }
+
+            $imageActionUnavailable = in_array(AiModelCapability::ImageGeneration->value, $routing['required_capabilities'], true);
         }
 
         $domainGuidance = $this->domainPipeline->systemGuidance($domainPolicy, $outgoingContent);
@@ -492,7 +616,16 @@ class AiChatService
             $this->storeCitations($aiRequest, $citations);
         }
 
-        $history = $this->buildHistory($conversation, $owner, $userMessage, $outgoingContent, $attachmentResource, $citations, $domainGuidance);
+        // Computed up front (not just at the generateDownloadableFile() call
+        // site below) so the model can be told, in its own system prompt,
+        // that a real file will be attached automatically after its reply -
+        // otherwise it tends to either narrate a fake "here is your file"
+        // link (e.g. an invented sandbox:/... path) or claim it can't
+        // produce files at all, both dishonest given the platform is about
+        // to hand the user a real one.
+        $fileOutputRequested = $this->wantsFileOutput($content);
+
+        $history = $this->buildHistory($conversation, $owner, $userMessage, $outgoingContent, $attachmentResource, $citations, $domainGuidance, $imagePayload, $documentText, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable);
 
         [$result, $usedProvider, $usedModel, $verification] = $this->generateVerifiedReply($candidates, $routing['fallback_enabled'], $history, $aiRequest, $outgoingContent);
 
@@ -594,8 +727,8 @@ class AiChatService
 
         $generatedFile = null;
 
-        if ($result['success'] && $verification['status'] !== AiVerification::STATUS_ABSTAINED && $this->wantsFileOutput($content)) {
-            $generatedFile = $this->generateDownloadableFile($owner, $conversation, $content, $replyContent);
+        if ($result['success'] && $verification['status'] !== AiVerification::STATUS_ABSTAINED && $fileOutputRequested) {
+            $generatedFile = $this->generateDownloadableFile($owner, $conversation, $content, $replyContent, $usedProvider, $usedModel, $aiRequest);
         }
 
         // generated_file/confidence_score/verification_warnings are a
@@ -615,6 +748,10 @@ class AiChatService
             'verification_warnings' => ! empty($verification['warnings']) ? $verification['warnings'] : null,
         ]);
 
+        if ($result['success'] && $verification['status'] !== AiVerification::STATUS_ABSTAINED && $voiceReplyRequested && $ttsCandidate !== null) {
+            $this->generateVoiceReplyAttachment($owner, $conversation, $assistantMessage, (string) $replyContent, $ttsCandidate, $aiRequest);
+        }
+
         if ($usage['session']) {
             $this->usageGuard->recordConsumption($usage['session']);
         }
@@ -623,8 +760,8 @@ class AiChatService
 
         return ApiResponse::success([
             'user_message' => new AiMessageResource($userMessage->fresh('attachments')),
-            'assistant_message' => new AiMessageResource($assistantMessage),
-            'conversation' => new AiConversationResource($conversation->refresh()),
+            'assistant_message' => new AiMessageResource($assistantMessage->fresh('attachments')),
+            'conversation' => new AiConversationResource($conversation->refresh()->load('messages.attachments')),
             'usage' => $this->usageSummary($usage),
             'trace_id' => $aiRequest->correlation_id,
             'status' => $aiRequest->status,
@@ -753,7 +890,7 @@ class AiChatService
         return ApiResponse::success([
             'user_message' => $userMessage ? new AiMessageResource($userMessage->fresh('attachments')) : null,
             'assistant_message' => new AiMessageResource($assistantMessage),
-            'conversation' => $conversation ? new AiConversationResource($conversation) : null,
+            'conversation' => $conversation ? new AiConversationResource($conversation->load('messages.attachments')) : null,
             'usage' => $this->usageSummary($usage),
             'trace_id' => $existing->correlation_id,
             'status' => $existing->status,
@@ -1108,6 +1245,13 @@ class AiChatService
         ?AiConversationAttachmentResource $attachmentResource,
         array $citations = [],
         ?string $domainGuidance = null,
+        ?array $imagePayload = null,
+        ?string $documentText = null,
+        bool $imageActionUnavailable = false,
+        bool $fileOutputRequested = false,
+        bool $imageUnviewable = false,
+        bool $voiceMessageUntranscribed = false,
+        bool $voiceReplyUnavailable = false,
     ): array {
         $limit = (int) config('ai.chat.history_limit', 30);
 
@@ -1125,14 +1269,34 @@ class AiChatService
             ->limit($limit)
             ->get()
             ->reverse()
-            ->map(function (AiMessage $message) use ($userMessage, $outgoingContent, $attachmentResource) {
+            ->map(function (AiMessage $message) use ($userMessage, $outgoingContent, $attachmentResource, $imagePayload, $documentText) {
                 // The message just created for this turn is sent through its
                 // safety-sanitized form (if any) plus an attachment note,
                 // rather than what is stored verbatim in the database.
                 if ($message->is($userMessage)) {
+                    if ($imagePayload !== null) {
+                        // AiGateway::formatMultimodalContent() turns this
+                        // marker into whichever shape the model that ends
+                        // up actually answering expects (or degrades it
+                        // back to a text note if that model isn't tagged
+                        // "vision") - built once here since the same
+                        // $history is reused across every fallback attempt.
+                        return ['role' => $message->role, 'content' => [
+                            'text' => $outgoingContent,
+                            'image' => $imagePayload + ['file_name' => $attachmentResource?->resolve()['file_name'] ?? null],
+                        ]];
+                    }
+
                     $content = $outgoingContent;
 
-                    if ($attachmentResource) {
+                    if ($documentText !== null) {
+                        // Unlike the image path, extracted document text is
+                        // plain text - every provider already understands
+                        // it as-is, no per-provider formatting needed.
+                        $content .= "\n\n[".__('ai.document_attached_note', [
+                            'name' => $attachmentResource?->resolve()['file_name'] ?? '',
+                        ])."]\n\n".$documentText;
+                    } elseif ($attachmentResource) {
                         $data = $attachmentResource->resolve();
                         $content .= "\n\n[".__('ai.attachment_note', [
                             'name' => $data['file_name'],
@@ -1148,7 +1312,7 @@ class AiChatService
             ->values()
             ->all();
 
-        foreach (array_reverse($this->systemMessages($owner, $conversation, $citations, $domainGuidance)) as $systemMessage) {
+        foreach (array_reverse($this->systemMessages($owner, $conversation, $citations, $domainGuidance, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable)) as $systemMessage) {
             array_unshift($messages, $systemMessage);
         }
 
@@ -1163,7 +1327,7 @@ class AiChatService
      *
      * @return list<array{role: string, content: string}>
      */
-    protected function systemMessages(Authenticatable $owner, AiConversation $conversation, array $citations = [], ?string $domainGuidance = null): array
+    protected function systemMessages(Authenticatable $owner, AiConversation $conversation, array $citations = [], ?string $domainGuidance = null, bool $imageActionUnavailable = false, bool $fileOutputRequested = false, bool $imageUnviewable = false, bool $voiceMessageUntranscribed = false, bool $voiceReplyUnavailable = false): array
     {
         $messages = [];
         $prompt = config('ai.chat.system_prompt');
@@ -1200,7 +1364,140 @@ class AiChatService
             $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $domainGuidance];
         }
 
+        if ($imageActionUnavailable) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->imageActionUnavailableSystemMessage()];
+        }
+
+        if ($fileOutputRequested) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->fileOutputHandledSystemMessage()];
+        }
+
+        if ($imageUnviewable) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->imageUnviewableSystemMessage()];
+        }
+
+        if ($voiceMessageUntranscribed) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->voiceMessageUntranscribedSystemMessage()];
+        }
+
+        if ($voiceReplyUnavailable) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->voiceReplyUnavailableSystemMessage()];
+        }
+
         return $messages;
+    }
+
+    /**
+     * This platform cannot yet actually generate or edit an image file -
+     * there is no image generation/editing connector wired up, only a
+     * text chat model. Without this, the model tends to write a reply
+     * that sounds like an edited file is on its way, which the user then
+     * never receives - worse than just saying plainly what is and is not
+     * possible right now.
+     */
+    protected function imageActionUnavailableSystemMessage(): string
+    {
+        return 'The user is asking to generate a new image or edit/modify an existing '
+            .'image (change its color, convert its format, redraw it, etc.). This '
+            .'platform does NOT currently have that capability wired up - you can only '
+            .'read/understand an attached image and reply in text, you cannot produce or '
+            .'return an actual image file. Do not say you will make, prepare, generate, '
+            .'attach or send an edited/new image - you cannot, and promising it would be '
+            .'dishonest and leave the user waiting for a file that will never arrive. '
+            .'Instead, be direct and professional about this limit in one short sentence, '
+            .'then genuinely help within what you can actually do: describe precisely what '
+            .'the result should look like (exact color codes, sizing, format), or give '
+            .'clear step-by-step instructions for a tool the user already has (their phone '
+            .'editor, Canva, Photoshop) so they can produce it themselves.';
+    }
+
+    /**
+     * Mirrors imageActionUnavailableSystemMessage() but for the opposite
+     * problem: here the platform CAN actually produce a real file (a
+     * separate step after this reply structures the answer and renders
+     * it with dompdf/PhpWord/PhpSpreadsheet), but without this notice the
+     * model doesn't know that and tends to either (a) invent its own fake
+     * "here is your file" markdown link (e.g. a made-up sandbox:/... path
+     * that goes nowhere), or (b) claim it has no way to produce files at
+     * all - both dishonest, and (a) is actively confusing once the real
+     * download link is attached right below the reply.
+     */
+    protected function fileOutputHandledSystemMessage(): string
+    {
+        return 'The user is asking for this answer as a downloadable file (PDF, Word, or '
+            .'Excel). You do NOT create the file yourself and must NOT write any file link, '
+            .'download link, or path in your reply (never invent one, e.g. no "sandbox:/..." '
+            .'or similar placeholder link) - the platform generates a real file from your '
+            .'answer automatically and attaches a working download link below your message '
+            .'after you reply. Do not say you cannot produce files, and do not describe '
+            .'preparing or attaching one yourself. Simply answer the user\'s actual question '
+            .'normally, in plain text, as you would in any other reply; at most, one short '
+            .'closing sentence letting them know the file is on its way is fine.';
+    }
+
+    /**
+     * Third leg of the same honesty pattern as
+     * imageActionUnavailableSystemMessage()/fileOutputHandledSystemMessage():
+     * the user attached an image (asking to see/explain/describe it), but
+     * no vision-capable model actually matched for this request (or the
+     * file was too large to inline), so the model never actually receives
+     * the image's pixels - only a plain "[an image was attached]" text
+     * note. Left alone, a model asked "what's in this picture?" will
+     * often confidently invent a plausible-sounding description instead
+     * of admitting it never saw it - a much worse failure than the
+     * image/file-generation refusals, since a hallucinated description
+     * reads as correct until the user notices it is wrong.
+     */
+    protected function imageUnviewableSystemMessage(): string
+    {
+        return 'The user attached an image and is asking about its visual content (what is '
+            .'in it, describing it, reading text in it, etc.), but NO vision-capable model is '
+            .'available for this request right now - you have NOT actually seen this image, '
+            .'only that a file with this name was attached. Do NOT guess, assume, or invent '
+            .'any description of what the image might contain - that would be a fabricated '
+            .'answer presented as fact. Instead, say plainly and briefly that you cannot view '
+            .'image content right now, and ask the user to describe what they need in text if '
+            .'you can help with that instead.';
+    }
+
+    /**
+     * Fourth leg of the same honesty pattern as
+     * imageUnviewableSystemMessage() above, for the audio equivalent: a
+     * voice message attachment could NOT be transcribed (no
+     * speech-to-text-capable model configured, or the transcription call
+     * itself failed) - the model never actually received any text from
+     * it. Without this, a model asked to react to "the voice message"
+     * would have nothing to go on but the bare filename and would be
+     * tempted to fabricate a plausible-sounding response anyway.
+     */
+    protected function voiceMessageUntranscribedSystemMessage(): string
+    {
+        return 'The user sent a voice/audio message, but it could NOT be transcribed - no '
+            .'speech-to-text-capable model is available for this request right now, or the '
+            .'transcription itself failed. You do NOT know what was said in this recording. Do '
+            .'NOT guess, assume, or invent any content for it - that would be a fabricated '
+            .'answer presented as fact. Instead, say plainly and briefly that you could not '
+            .'process the voice message right now, and ask the user to type their message '
+            .'instead or to try sending the recording again.';
+    }
+
+    /**
+     * Mirrors imageActionUnavailableSystemMessage(): the user explicitly
+     * asked for a spoken/voice reply, but no text-to-speech-capable model
+     * is configured, so no audio will actually be attached after this
+     * reply. Without this notice the model has no way to know that, and
+     * would either falsely claim to have sent voice audio or claim the
+     * platform can never do voice replies at all (untrue - it is simply
+     * not configured right now).
+     */
+    protected function voiceReplyUnavailableSystemMessage(): string
+    {
+        return 'The user explicitly asked for a spoken/voice audio reply, but no '
+            .'text-to-speech-capable model is currently configured on this platform, so NO '
+            .'audio file will be attached after this reply. Answer the user\'s actual question '
+            .'normally, in plain text, and add one short, honest closing note that a voice '
+            .'reply is not available right now - do not claim to have sent, attached, or '
+            .'prepared any audio.';
     }
 
     /**
@@ -1310,6 +1607,91 @@ class AiChatService
         return count($lines) > 1 ? implode("\n", $lines) : '';
     }
 
+    /**
+     * Reads the raw uploaded image into a base64 payload ready for
+     * AiGateway::formatMultimodalContent() - but only when it is actually
+     * worth doing: the attachment is an image, routing found a candidate
+     * whose registered model is genuinely tagged "vision" for this
+     * message (not just any provider), and the file is small enough to
+     * inline without blowing up the request. Anything else returns null,
+     * so the old plain-text attachment note is what gets sent instead -
+     * the model still knows a file was attached, it just can't see it.
+     *
+     * @param  array{candidates: list<array{provider: AiProvider, model_key: ?string, capability_matched?: bool}>, required_capabilities: list<string>}  $routing
+     * @return array{mime: string, base64: string}|null
+     */
+    protected function buildImagePayload(UploadedFile $attachment, array $routing): ?array
+    {
+        $mime = (string) $attachment->getClientMimeType();
+
+        if (! str_starts_with($mime, 'image/')) {
+            return null;
+        }
+
+        if (! in_array('vision', $routing['required_capabilities'] ?? [], true)) {
+            return null;
+        }
+
+        if (! ($routing['candidates'][0]['capability_matched'] ?? false)) {
+            return null;
+        }
+
+        $maxBytes = (int) config('ai.chat.multimodal_max_image_bytes', 8 * 1024 * 1024);
+
+        if ($attachment->getSize() > $maxBytes) {
+            return null;
+        }
+
+        $bytes = file_get_contents($attachment->getRealPath());
+
+        if ($bytes === false) {
+            return null;
+        }
+
+        return ['mime' => $mime, 'base64' => base64_encode($bytes)];
+    }
+
+    /**
+     * Extracts real text from a non-image attachment (PDF/DOCX/plain
+     * text) via AiDocumentTextExtractor when routing actually determined
+     * this turn needs "document_analysis" and found a candidate for it -
+     * same gating pattern as buildImagePayload(). Unlike the image path,
+     * extraction success does not require the winning model to be
+     * specifically tagged for it (any model can read plain text once
+     * extracted), so this only checks that the capability was requested
+     * at all, not that a match was found - a best-effort answer from
+     * whichever model ends up responding is still better than a bare
+     * filename note.
+     *
+     * @param  array{candidates: list<array{provider: AiProvider, model_key: ?string, capability_matched?: bool}>, required_capabilities: list<string>}  $routing
+     */
+    protected function buildDocumentText(UploadedFile $attachment, array $routing): ?string
+    {
+        if (! in_array('document_analysis', $routing['required_capabilities'] ?? [], true)) {
+            return null;
+        }
+
+        $mime = (string) $attachment->getClientMimeType();
+
+        if (! AiDocumentTextExtractor::supports($mime)) {
+            return null;
+        }
+
+        $text = $this->documentExtractor->extract($attachment->getRealPath(), $mime);
+
+        if ($text === null) {
+            return null;
+        }
+
+        $maxChars = (int) config('ai.chat.multimodal_max_document_chars', 6000);
+
+        if (mb_strlen($text) > $maxChars) {
+            $text = mb_substr($text, 0, $maxChars)."\n\n[".__('ai.document_truncated_note').']';
+        }
+
+        return $text;
+    }
+
     protected function storeAttachment(AiConversation $conversation, AiMessage $message, UploadedFile $file): AiConversationAttachmentResource
     {
         $path = $file->store('ai-chat/'.$conversation->owner_type.'/'.$conversation->owner_id, 'public');
@@ -1353,6 +1735,273 @@ class AiChatService
         );
     }
 
+    /**
+     * Real image editing (as opposed to just talking about it - see
+     * imageActionUnavailableSystemMessage()): when routing already found
+     * a genuinely registered "image_generation" model for this request,
+     * this resolves an actual source image (the one just attached, or
+     * failing that the most recent image in this conversation - so a
+     * bare follow-up like "لا غير انت لون الصورة" after an earlier upload
+     * still works), calls the provider's real image-edit API through
+     * AiGateway::editImage(), and - on success - attaches the returned
+     * image to the assistant's own reply using the exact same
+     * ai_conversation_attachments mechanism a user's upload uses, so the
+     * existing chat UI renders it with zero frontend changes.
+     *
+     * Returns null (never a response) when this cannot actually be done
+     * here - no source image found - so the caller falls through to the
+     * honest "I can't do that" text path instead of silently doing
+     * nothing.
+     *
+     * @param  array{provider: AiProvider, model_key: ?string}  $candidate
+     */
+    protected function tryHandleImageEdit(
+        Authenticatable $owner,
+        AiConversation $conversation,
+        AiMessage $userMessage,
+        AiRequest $aiRequest,
+        string $content,
+        ?UploadedFile $attachment,
+        array $candidate,
+        array $usage,
+    ): ?JsonResponse {
+        [$imageBytes, $imageMime] = $this->resolveSourceImageBytes($conversation, $attachment, $content);
+
+        if ($imageBytes === null) {
+            return null;
+        }
+
+        /** @var AiProvider $provider */
+        $provider = $candidate['provider'];
+        $callProvider = tap(clone $provider, fn (AiProvider $p) => $p->model = $candidate['model_key']);
+
+        $result = $this->gateway->editImage($callProvider, $imageBytes, $imageMime, $content, $aiRequest);
+
+        return $this->finalizeImageActionResponse(
+            $owner, $conversation, $userMessage, $aiRequest, $callProvider, $candidate, $usage, $result,
+            'ai.image_edit_success', 'ai.image_edit_failed',
+        );
+    }
+
+    /**
+     * Real text-to-image generation (the "create something brand new"
+     * leg, as opposed to tryHandleImageEdit() above): called only when no
+     * source image could be resolved AND the message does not read as a
+     * reference to an existing picture (see the caller in sendMessage()),
+     * so this never fires for a genuine edit request that simply failed
+     * to find its source image. Calls the provider's real text-to-image
+     * API through AiGateway::generateImage() and, on success, attaches
+     * the returned image exactly like tryHandleImageEdit() does.
+     *
+     * @param  array{provider: AiProvider, model_key: ?string}  $candidate
+     */
+    protected function tryHandleImageGeneration(
+        Authenticatable $owner,
+        AiConversation $conversation,
+        AiMessage $userMessage,
+        AiRequest $aiRequest,
+        string $content,
+        array $candidate,
+        array $usage,
+    ): ?JsonResponse {
+        /** @var AiProvider $provider */
+        $provider = $candidate['provider'];
+        $callProvider = tap(clone $provider, fn (AiProvider $p) => $p->model = $candidate['model_key']);
+
+        $result = $this->gateway->generateImage($callProvider, $content, $aiRequest);
+
+        return $this->finalizeImageActionResponse(
+            $owner, $conversation, $userMessage, $aiRequest, $callProvider, $candidate, $usage, $result,
+            'ai.image_generation_success', 'ai.image_generation_failed',
+        );
+    }
+
+    /**
+     * Shared tail end of both tryHandleImageEdit() and
+     * tryHandleImageGeneration(): records the ai_request outcome, creates
+     * the assistant's chat message (NEVER showing $result['message'] -
+     * the raw vendor/gateway error text, e.g. "No available capacity was
+     * found for the model" - only the friendly translated success/failure
+     * key; the raw text is preserved for admins via
+     * $aiRequest->error_message), stores the returned image as a real
+     * attachment on success, and returns the same response envelope every
+     * other sendMessage() path uses.
+     *
+     * @param  array{provider: AiProvider, model_key: ?string}  $candidate
+     * @param  array{success: bool, message: string, image: ?array{base64: string, mime: string}}  $result
+     */
+    protected function finalizeImageActionResponse(
+        Authenticatable $owner,
+        AiConversation $conversation,
+        AiMessage $userMessage,
+        AiRequest $aiRequest,
+        AiProvider $callProvider,
+        array $candidate,
+        array $usage,
+        array $result,
+        string $successMessageKey,
+        string $failureMessageKey,
+    ): JsonResponse {
+        $conversation->provider_key = $callProvider->key;
+        $conversation->save();
+
+        $aiRequest->provider_id = $callProvider->id;
+        $aiRequest->model_key = $candidate['model_key'];
+        $aiRequest->status = $result['success'] ? AiRequest::STATUS_COMPLETED : AiRequest::STATUS_FAILED;
+        $aiRequest->error_message = $result['success'] ? null : Str::limit((string) $result['message'], 500);
+        $aiRequest->save();
+
+        $assistantMessage = $this->createSequencedMessage($conversation, [
+            'role' => AiMessage::ROLE_ASSISTANT,
+            'content' => $result['success'] ? __($successMessageKey) : __($failureMessageKey),
+            'provider_key' => $callProvider->key,
+            'model' => $candidate['model_key'],
+            'request_id' => $aiRequest->id,
+            'is_error' => ! $result['success'],
+        ]);
+
+        if ($result['success'] && $result['image'] !== null) {
+            $this->storeGeneratedImageAttachment($conversation, $assistantMessage, $owner, $result['image']);
+        }
+
+        if ($usage['session']) {
+            $this->usageGuard->recordConsumption($usage['session']);
+        }
+
+        $this->broadcastAssistantMessage($conversation, $assistantMessage);
+
+        return ApiResponse::success([
+            'user_message' => new AiMessageResource($userMessage->fresh('attachments')),
+            'assistant_message' => new AiMessageResource($assistantMessage->fresh('attachments')),
+            'conversation' => new AiConversationResource($conversation->refresh()->load('messages.attachments')),
+            'usage' => $this->usageSummary($usage),
+            'trace_id' => $aiRequest->correlation_id,
+            'status' => $aiRequest->status,
+            'confidence' => null,
+            'sources' => [],
+            'warnings' => [],
+        ], $result['success'] ? __('api.created') : __($failureMessageKey));
+    }
+
+    /**
+     * @return array{0: ?string, 1: ?string} raw image bytes + mime type,
+     *                                        or [null, null] when no
+     *                                        source image can be found
+     */
+    protected function resolveSourceImageBytes(AiConversation $conversation, ?UploadedFile $attachment, string $content = ''): array
+    {
+        if ($attachment && str_starts_with((string) $attachment->getClientMimeType(), 'image/')) {
+            $bytes = file_get_contents($attachment->getRealPath());
+
+            return $bytes === false ? [null, null] : [$bytes, $attachment->getClientMimeType()];
+        }
+
+        // Root-cause fix: without an attachment, only fall back to "the
+        // most recent image anywhere in this conversation" when the
+        // message actually reads as a follow-up edit of an existing
+        // picture (e.g. "خليها لون احمر" right after an upload). A
+        // message asking to CREATE a brand new, unrelated image ("اصنع
+        // صوره فيها طفل صغير") must never silently latch onto some old,
+        // unrelated image as an implicit edit target - that produced
+        // nonsensical provider calls (editing an unrelated photo into an
+        // unrelated new subject) and confusing failures. When this check
+        // fails, the caller correctly falls through to the honest "I
+        // can't generate images" reply instead.
+        if (! $this->looksLikeEditOfExistingImage($content)) {
+            return [null, null];
+        }
+
+        $latest = AiConversationAttachment::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('mime_type', 'like', 'image/%')
+            ->latest('id')
+            ->first();
+
+        if (! $latest || ! $latest->file_path || ! Storage::disk('public')->exists($latest->file_path)) {
+            return [null, null];
+        }
+
+        return [Storage::disk('public')->get($latest->file_path), $latest->mime_type];
+    }
+
+    /**
+     * Deliberately narrow (mirrors
+     * AiRequiredCapabilityResolver::mentionsChangingTheImage()): requires
+     * BOTH a change/edit verb AND a mention of "the picture" somewhere in
+     * the message, or an explicit demonstrative reference to an existing
+     * image ("الصورة دي", "this image", "the picture"). A bare "make me a
+     * picture of X" / "اعمل صورة لـ X" never matches this - it is a
+     * request for something new, not a reference to something that
+     * already exists, so it must not implicitly resolve to an old image.
+     */
+    protected function looksLikeEditOfExistingImage(string $content): bool
+    {
+        $lower = mb_strtolower($content);
+
+        $mentionsPicture = Str::contains($lower, ['صور', 'image', 'picture', 'photo']);
+
+        if (! $mentionsPicture) {
+            return false;
+        }
+
+        $editVerbs = ['غير', 'غيّر', 'بدل', 'بدّل', 'خلي', 'خلّي', 'عدل', 'حول', 'حوّل', 'change', 'recolor', 'colorize', 'edit'];
+        $existingImageReferences = ['الصوره دي', 'الصورة دي', 'الصوره ده', 'الصورة ده', 'دي الصوره', 'دي الصورة', 'this image', 'this picture', 'the image', 'the picture'];
+
+        foreach ($editVerbs as $verb) {
+            if ($this->containsWordStartingWith($lower, $verb)) {
+                return true;
+            }
+        }
+
+        foreach ($existingImageReferences as $reference) {
+            if (Str::contains($lower, mb_strtolower($reference))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Real, observed gap: plain Str::contains($lower, 'غير') also matches
+     * a message like "اصنع صوره فيها طفل صغير" - "صغير" (small) happens to
+     * END with the exact same three letters as "غير" (change), so a raw
+     * substring check misread "make a picture of a small child" as an
+     * edit request and incorrectly reused an old unrelated image as the
+     * edit source. This still matches a verb followed by an attached
+     * pronoun suffix ("خليها" = "خلي" + "ها") - only checked is that the
+     * verb is NOT itself glued onto the END of some other, unrelated
+     * word (nothing but a non-letter, or the start of the string,
+     * immediately precedes it).
+     */
+    protected function containsWordStartingWith(string $haystack, string $needle): bool
+    {
+        $pattern = '/(?<![\p{L}\p{M}])'.preg_quote(mb_strtolower($needle), '/').'/u';
+
+        return (bool) preg_match($pattern, $haystack);
+    }
+
+    /**
+     * @param  array{base64: string, mime: string}  $image
+     */
+    protected function storeGeneratedImageAttachment(AiConversation $conversation, AiMessage $assistantMessage, Authenticatable $owner, array $image): void
+    {
+        $extension = $image['mime'] === 'image/png' ? 'png' : 'jpg';
+        $fileName = 'dorr-ai-edited-'.now()->format('Ymd-His').'-'.Str::random(6).'.'.$extension;
+        $path = 'ai-chat/'.$owner->getMorphClass().'/'.$owner->getAuthIdentifier().'/generated/'.$fileName;
+
+        Storage::disk('public')->put($path, base64_decode($image['base64']));
+
+        AiConversationAttachment::query()->create([
+            'conversation_id' => $conversation->id,
+            'message_id' => $assistantMessage->id,
+            'file_name' => $fileName,
+            'file_path' => $path,
+            'mime_type' => $image['mime'],
+            'file_size' => Storage::disk('public')->size($path),
+        ]);
+    }
+
     protected function wantsFileOutput(string $content): bool
     {
         $lower = mb_strtolower($content);
@@ -1363,31 +2012,173 @@ class AiChatService
             }
         }
 
+        // Naming a format directly ("ابعتهولي PDF", "send it as excel")
+        // is itself a file request, even without a generic word like
+        // "ملف"/"file" alongside it.
+        foreach ($this->fileFormatKeywords as $keywords) {
+            foreach ($keywords as $keyword) {
+                if (Str::contains($lower, mb_strtolower($keyword))) {
+                    return true;
+                }
+            }
+        }
+
         return false;
+    }
+
+    /**
+     * Keyword-based format pick from the user's own request text. A
+     * generic "give me a file/report" with no format keyword defaults
+     * to PDF - the most universally openable/shareable of the three.
+     */
+    protected function detectRequestedFileFormat(string $content): string
+    {
+        $lower = mb_strtolower($content);
+
+        foreach ($this->fileFormatKeywords as $format => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (Str::contains($lower, mb_strtolower($keyword))) {
+                    return $format;
+                }
+            }
+        }
+
+        return 'pdf';
+    }
+
+    /**
+     * Asks the SAME provider/model that just answered to restructure its
+     * OWN reply into a strict, parseable markup subset
+     * (AiDocumentContentParser::parse()) - headings ("#"/"##"/"###"),
+     * plain paragraphs, "- " bullets and "|"-pipe tables only. This is
+     * deliberately a restructuring instruction, not a research one: the
+     * model must not invent new facts, only reshape the answer it
+     * already gave into a clean document form, in the same language.
+     * Returns null on any failure so the caller can fall back to the
+     * raw reply text untouched.
+     */
+    protected function structureContentForDocument(
+        AiProvider $provider,
+        string $model,
+        string $replyContent,
+        ?AiRequest $context,
+    ): ?string {
+        try {
+            $callProvider = tap(clone $provider, fn (AiProvider $p) => $p->model = $model);
+
+            $instruction = <<<'PROMPT'
+Reformat ONLY the text below into a clean document structure. Do not add, remove, or verify any facts - just restructure the same content for a document file.
+
+Use ONLY these markers, nothing else:
+- "# " for the main title (one line, first line only)
+- "## " for a section heading
+- "### " for a sub-heading
+- "- " for a bullet list item
+- Plain lines for normal paragraphs
+- Pipe tables when the content is naturally tabular, e.g.:
+  | Column A | Column B |
+  | --- | --- |
+  | value | value |
+
+Keep the exact same language as the original text. Return nothing except the restructured content itself - no commentary, no explanation, no code fences.
+
+Text to restructure:
+PROMPT;
+
+            $messages = [
+                ['role' => 'user', 'content' => $instruction."\n\n".$replyContent],
+            ];
+
+            $result = $this->gateway->chat($callProvider, $messages, $context);
+
+            $structured = trim((string) ($result['content'] ?? $result['message'] ?? ''));
+
+            if (! $result['success'] || $structured === '') {
+                return null;
+            }
+
+            return $structured;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
     }
 
     /**
      * @return array{name: string, url: string}
      */
-    protected function generateDownloadableFile(Authenticatable $owner, AiConversation $conversation, string $prompt, string $replyContent): array
-    {
-        $fileName = 'dorr-ai-'.now()->format('Ymd-His').'-'.Str::random(6).'.md';
-        $path = 'ai-chat/'.$owner->getMorphClass().'/'.$owner->getAuthIdentifier().'/generated/'.$fileName;
+    protected function generateDownloadableFile(
+        Authenticatable $owner,
+        AiConversation $conversation,
+        string $prompt,
+        string $replyContent,
+        ?AiProvider $usedProvider = null,
+        ?string $usedModel = null,
+        ?AiRequest $aiRequest = null,
+    ): array {
+        $format = $this->detectRequestedFileFormat($prompt);
 
-        Storage::disk('public')->put($path, $replyContent);
-
-        AiDocumentGeneration::query()->create([
+        $generation = AiDocumentGeneration::query()->create([
             'owner_type' => $owner->getMorphClass(),
             'owner_id' => $owner->getAuthIdentifier(),
             'conversation_id' => $conversation->id,
             'prompt' => Str::limit($prompt, 2000),
-            'output_format' => 'md',
-            'output_file_name' => $fileName,
-            'output_file_path' => $path,
-            'status' => 'completed',
+            'output_format' => $format,
+            'status' => AiDocumentGeneration::STATUS_GENERATING,
         ]);
 
-        return ['name' => $fileName, 'url' => Storage::disk('public')->url($path)];
+        try {
+            $structuredContent = ($usedProvider && $usedModel)
+                ? $this->structureContentForDocument($usedProvider, $usedModel, $replyContent, $aiRequest)
+                : null;
+
+            $contentToParse = $structuredContent ?? $replyContent;
+
+            $blocks = AiDocumentContentParser::parse($contentToParse);
+
+            if (empty($blocks)) {
+                throw new \RuntimeException('No renderable content blocks were parsed from the reply.');
+            }
+
+            $title = AiDocumentContentParser::extractTitle($blocks) ?: Str::limit($prompt, 80);
+
+            $rendered = $this->documentRenderer->render($format, $title, $blocks);
+
+            $fileName = 'dorr-ai-'.now()->format('Ymd-His').'-'.Str::random(6).'.'.$rendered['extension'];
+            $path = 'ai-chat/'.$owner->getMorphClass().'/'.$owner->getAuthIdentifier().'/generated/'.$fileName;
+
+            Storage::disk('public')->put($path, $rendered['bytes']);
+
+            $generation->update([
+                'output_format' => $rendered['extension'],
+                'output_file_name' => $fileName,
+                'output_file_path' => $path,
+                'status' => AiDocumentGeneration::STATUS_COMPLETED,
+            ]);
+
+            return ['name' => $fileName, 'url' => Storage::disk('public')->url($path)];
+        } catch (\Throwable $e) {
+            report($e);
+
+            // Never leave the user without SOME downloadable file: fall
+            // back to the original raw-text dump behaviour, and mark the
+            // log row as failed/md so the admin log stays honest about
+            // what actually happened.
+            $fileName = 'dorr-ai-'.now()->format('Ymd-His').'-'.Str::random(6).'.md';
+            $path = 'ai-chat/'.$owner->getMorphClass().'/'.$owner->getAuthIdentifier().'/generated/'.$fileName;
+
+            Storage::disk('public')->put($path, $replyContent);
+
+            $generation->update([
+                'output_format' => 'md',
+                'output_file_name' => $fileName,
+                'output_file_path' => $path,
+                'status' => AiDocumentGeneration::STATUS_FAILED,
+            ]);
+
+            return ['name' => $fileName, 'url' => Storage::disk('public')->url($path)];
+        }
     }
 
     protected function usageDenialMessage(?string $reason): string
@@ -1399,6 +2190,185 @@ class AiChatService
             AiChatUsageGuard::REASON_LIMIT_REACHED => __('ai.usage_limit_reached'),
             default => __('ai.usage_unavailable'),
         };
+    }
+
+
+    /**
+     * The words a message needs to actually be asking for a spoken/voice
+     * reply, not just a text answer - mirrors wantsFileOutput()'s
+     * keyword-trigger pattern exactly.
+     *
+     * @var list<string>
+     */
+    protected array $voiceReplyKeywords = [
+        'رد صوتي', 'رد بالصوت', 'قولها بصوت', 'قولهالي بصوت', 'قوللي بصوت', 'ابعتلي صوت',
+        'ابعتها صوت', 'رساله صوتيه', 'رسالة صوتية', 'اسمعني الرد', 'اقرأها بصوت', 'اقرأه بصوت',
+        'voice reply', 'voice message', 'reply with voice', 'reply in voice', 'read it out loud',
+        'read this out loud', 'say it out loud', 'speak the answer', 'audio reply', 'voice note',
+    ];
+
+    protected function wantsVoiceReply(string $content): bool
+    {
+        $lower = mb_strtolower($content);
+
+        foreach ($this->voiceReplyKeywords as $keyword) {
+            if (Str::contains($lower, mb_strtolower($keyword))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Turns an attached voice message into plain text using a dedicated
+     * speech-to-text-capable model, resolved entirely independently of
+     * the main per-turn routing candidate (see resolveCandidateFor()'s
+     * docblock for why). Returns null on ANY failure - no provider
+     * configured, unreadable file, a thrown exception, or an empty/failed
+     * transcription result - so the caller degrades to the honest
+     * "I could not understand your voice message" system message
+     * (voiceMessageUntranscribedSystemMessage()) instead of ever
+     * guessing at what an unheard recording might have said.
+     */
+    protected function transcribeIncomingAudio(UploadedFile $attachment): ?string
+    {
+        $candidate = $this->resolveSpeechToTextCandidate();
+
+        if ($candidate === null) {
+            return null;
+        }
+
+        $bytes = file_get_contents($attachment->getRealPath());
+
+        if ($bytes === false) {
+            return null;
+        }
+
+        $callProvider = tap(clone $candidate['provider'], fn (AiProvider $p) => $p->model = $candidate['model_key']);
+
+        try {
+            $result = $this->gateway->transcribeAudio($callProvider, $bytes, (string) $attachment->getClientMimeType());
+        } catch (\Throwable $e) {
+            report($e);
+
+            return null;
+        }
+
+        if (! $result['success'] || ! is_string($result['text'] ?? null) || trim($result['text']) === '') {
+            return null;
+        }
+
+        return trim($result['text']);
+    }
+
+    /**
+     * Synthesizes the assistant's own final reply text into a spoken
+     * audio file and attaches it to the assistant message, using a
+     * dedicated text-to-speech-capable model resolved independently of
+     * the main routing candidate. Deliberately silent (no thrown
+     * exception, no error message shown to the user) on any failure here
+     * - $voiceReplyUnavailable already gave the model a chance to be
+     * honest about this UP FRONT when no candidate exists at all; a
+     * failure of the actual API call at this late stage (after the text
+     * reply has already been sent) is a soft degrade to "text-only reply"
+     * rather than a reason to fail or alter the turn that already
+     * succeeded.
+     *
+     * @param  array{provider: AiProvider, model_key: string}  $candidate
+     */
+    protected function generateVoiceReplyAttachment(
+        Authenticatable $owner,
+        AiConversation $conversation,
+        AiMessage $assistantMessage,
+        string $replyContent,
+        array $candidate,
+        AiRequest $aiRequest,
+    ): void {
+        if (trim($replyContent) === '') {
+            return;
+        }
+
+        $callProvider = tap(clone $candidate['provider'], fn (AiProvider $p) => $p->model = $candidate['model_key']);
+
+        try {
+            $result = $this->gateway->synthesizeSpeech($callProvider, $replyContent, $aiRequest);
+        } catch (\Throwable $e) {
+            report($e);
+
+            return;
+        }
+
+        if (! $result['success'] || ($result['audio'] ?? null) === null) {
+            return;
+        }
+
+        $this->storeGeneratedAudioAttachment($conversation, $assistantMessage, $owner, $result['audio']);
+    }
+
+    /**
+     * @param  array{base64: string, mime: string}  $audio
+     */
+    protected function storeGeneratedAudioAttachment(AiConversation $conversation, AiMessage $assistantMessage, Authenticatable $owner, array $audio): void
+    {
+        $extension = $audio['mime'] === 'audio/mpeg' ? 'mp3' : 'audio';
+        $fileName = 'dorr-ai-voice-reply-'.now()->format('Ymd-His').'-'.Str::random(6).'.'.$extension;
+        $path = 'ai-chat/'.$owner->getMorphClass().'/'.$owner->getAuthIdentifier().'/generated/'.$fileName;
+
+        Storage::disk('public')->put($path, base64_decode($audio['base64']));
+
+        AiConversationAttachment::query()->create([
+            'conversation_id' => $conversation->id,
+            'message_id' => $assistantMessage->id,
+            'file_name' => $fileName,
+            'file_path' => $path,
+            'mime_type' => $audio['mime'],
+            'file_size' => Storage::disk('public')->size($path),
+        ]);
+    }
+
+    protected function resolveSpeechToTextCandidate(): ?array
+    {
+        return $this->resolveCandidateFor(AiModelCapability::SpeechToText->value);
+    }
+
+    protected function resolveTextToSpeechCandidate(): ?array
+    {
+        return $this->resolveCandidateFor(AiModelCapability::TextToSpeech->value);
+    }
+
+    /**
+     * Finds the first registered model tagged with the given single
+     * capability across ALL usable providers (is_enabled + a real API
+     * key - AiProvider::isUsableForChat()), in provider id order.
+     *
+     * Deliberately independent of AiRoutingEngine's per-turn candidate
+     * selection: speech-to-text and text-to-speech are each their own
+     * separate provider API call on their own dedicated model
+     * (whisper-1/gpt-transcribe, tts-1/gpt-4o-mini-tts), never the same
+     * model that drafts the actual chat reply. Folding either into
+     * $routing['required_capabilities'] would force AiRoutingEngine to
+     * pick a transcription- or speech-only model (never tagged "chat")
+     * as the candidate meant to answer the user's actual question with -
+     * exactly the same "not a chat model" trap already root-caused once
+     * for AiProvider::defaultRegisteredModel(), and the same impossible-
+     * capability-conjunction trap already root-caused once for
+     * AiRequiredCapabilityResolver's vision/image_generation handling.
+     *
+     * @return array{provider: AiProvider, model_key: string}|null
+     */
+    protected function resolveCandidateFor(string $capability): ?array
+    {
+        // Delegates to AiModelResolver (Dynamic Model Registry, section
+        // 18) - this used to be its own hand-written provider scan,
+        // duplicating the exact same loop AiRoutingEngine's own
+        // "external match" fallback already had; see that class's
+        // docblock for why it is now the one shared implementation.
+        $match = $this->modelResolver->resolve($this->providers, [$capability]);
+
+        return $match !== null
+            ? ['provider' => $match['provider'], 'model_key' => $match['model']->model_key]
+            : null;
     }
 
     /**

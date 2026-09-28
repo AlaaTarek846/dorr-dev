@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Enums\UserStatus;
 use App\Support\Api\ApiResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\AI\Services\AiChatService;
@@ -36,14 +37,24 @@ class AiChatStreamMessageTest extends TestCase
             'name' => 'Stream Test User',
             'email' => 'stream-'.uniqid().'@example.test',
             'password' => bcrypt('test-password-not-real'),
-            'status' => true,
+            'status' => UserStatus::Active,
         ]);
     }
 
     protected function captureStreamedOutput(\Symfony\Component\HttpFoundation\StreamedResponse $response): string
     {
+        // AiChatService::emitSseEvent() deliberately calls ob_flush() after
+        // every event - correct for a real request (it pushes each SSE
+        // event to the client as soon as it is ready), but with only one
+        // buffer open that flush empties straight out to real output
+        // instead of into what ob_get_clean() below reads back, so the
+        // capture comes back empty. A second, inner buffer gives
+        // ob_flush() somewhere of ours to land in: it flushes level 2 down
+        // into level 1, and only level 1 is ever read back here.
+        ob_start();
         ob_start();
         $response->sendContent();
+        ob_end_flush();
 
         return ob_get_clean();
     }
@@ -104,12 +115,11 @@ class AiChatStreamMessageTest extends TestCase
     {
         $owner = $this->makeUser();
 
-        $this->partialMock(AiChatService::class, function ($mock) {
-            $mock->shouldReceive('sendMessage')->once()->andReturn(
-                ApiResponse::success(['assistant_message' => ['content' => 'x']], 'OK')
-            );
-        });
-
+        // The headers below are set synchronously when response()->stream()
+        // is constructed - streamMessage()'s callback (the only place that
+        // calls sendMessage()) only runs on sendContent(), which this test
+        // never invokes, so sendMessage() must not be mocked with a call
+        // count expectation here - it is never going to be called.
         $response = app(AiChatService::class)->streamMessage($owner, 1, 'hello');
 
         $this->assertSame('text/event-stream', $response->headers->get('Content-Type'));

@@ -66,6 +66,14 @@
                             </table>
                         </div>
                     </div>
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -107,6 +115,8 @@ import { onMounted, onUnmounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 
 const { t, locale } = useI18n();
@@ -117,6 +127,8 @@ const loading = ref(true);
 const selected = ref(null);
 const modalElement = ref(null);
 let modalInstance = null;
+
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 function formatDateTime(value) {
     if (! value) return '-';
@@ -137,8 +149,9 @@ async function loadExecutions() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-code-executions');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-code-executions', { params: paginationParams.value });
         executions.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
@@ -156,6 +169,17 @@ function openDetails(execution) {
 
 function closeModal() {
     modalInstance?.hide();
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadExecutions();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
+    loadExecutions();
 }
 
 onMounted(() => {

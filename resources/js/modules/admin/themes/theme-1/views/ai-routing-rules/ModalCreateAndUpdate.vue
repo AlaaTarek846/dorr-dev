@@ -62,6 +62,34 @@
                             </div>
 
                             <div class="col-md-6">
+                                <label for="rule-max-latency" class="form-label">{{ t('ai_routing_rules.max_latency_ms') }}</label>
+                                <input
+                                    id="rule-max-latency"
+                                    v-model.number="form.max_latency_ms"
+                                    type="number"
+                                    min="0"
+                                    class="form-control"
+                                    :placeholder="t('ai_routing_rules.max_latency_ms_placeholder')"
+                                >
+                                <div class="form-text">{{ t('ai_routing_rules.max_latency_ms_hint') }}</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="rule-min-quality" class="form-label">{{ t('ai_routing_rules.min_quality') }}</label>
+                                <input
+                                    id="rule-min-quality"
+                                    v-model.number="form.min_quality"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    class="form-control"
+                                    :placeholder="t('ai_routing_rules.min_quality_placeholder')"
+                                >
+                                <div class="form-text">{{ t('ai_routing_rules.min_quality_hint') }}</div>
+                            </div>
+
+                            <div class="col-md-6">
                                 <label class="form-label d-block mb-2">{{ t('ai_routing_rules.is_active') }}</label>
                                 <div
                                     class="toggle toggle-success mb-0"
@@ -126,6 +154,16 @@ const form = reactive({
     provider_id: null,
     model_key: '',
     priority: 0,
+    // Business gap fix: selection_config (ai_routing_rules.selection_config,
+    // documented in its own migration comment as holding keys like
+    // max_latency_ms/min_quality) has always been accepted and stored by
+    // the backend, but this form never exposed it - the admin had no way
+    // to set fine-grained routing preferences from the UI at all. Exposed
+    // here as the two documented keys and assembled into selection_config
+    // right before sending, so the payload shape the backend already
+    // expects doesn't change.
+    max_latency_ms: null,
+    min_quality: null,
     is_active: true,
 });
 
@@ -179,6 +217,8 @@ function resetForm() {
     form.provider_id = null;
     form.model_key = '';
     form.priority = 0;
+    form.max_latency_ms = null;
+    form.min_quality = null;
     form.is_active = true;
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
@@ -190,6 +230,8 @@ function fillForm(record) {
     form.provider_id = record?.provider_id ?? null;
     form.model_key = record?.model_key ?? '';
     form.priority = record?.priority ?? 0;
+    form.max_latency_ms = record?.selection_config?.max_latency_ms ?? null;
+    form.min_quality = record?.selection_config?.min_quality ?? null;
     form.is_active = Boolean(record?.is_active ?? true);
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
@@ -224,11 +266,20 @@ async function submit() {
     try {
         let response;
 
+        const { max_latency_ms, min_quality, ...rest } = form;
+        const selection_config = (max_latency_ms !== null && max_latency_ms !== '') || (min_quality !== null && min_quality !== '')
+            ? {
+                ...(max_latency_ms !== null && max_latency_ms !== '' ? { max_latency_ms } : {}),
+                ...(min_quality !== null && min_quality !== '' ? { min_quality } : {}),
+            }
+            : null;
+        const payload = { ...rest, selection_config };
+
         if (isEdit.value && props.record?.id) {
-            response = await adminAxios.put(`/api/admin/v1/ai-routing-rules/${props.record.id}`, { ...form });
+            response = await adminAxios.put(`/api/admin/v1/ai-routing-rules/${props.record.id}`, payload);
             showSuccess(extractApiMessage(response, t('toast.updated')));
         } else {
-            response = await adminAxios.post('/api/admin/v1/ai-routing-rules', { ...form });
+            response = await adminAxios.post('/api/admin/v1/ai-routing-rules', payload);
             showSuccess(extractApiMessage(response, t('toast.created')));
         }
 

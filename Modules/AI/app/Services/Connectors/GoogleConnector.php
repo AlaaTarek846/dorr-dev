@@ -66,7 +66,11 @@ class GoogleConnector extends AbstractHttpConnector
                 ->where('role', '!=', 'system')
                 ->map(fn (array $message) => [
                     'role' => $message['role'] === 'assistant' ? 'model' : 'user',
-                    'parts' => [['text' => $message['content']]],
+                    // AiGateway::formatMultimodalContent() already builds a
+                    // Gemini-shaped parts array (text + inline_data) for a
+                    // vision turn - only plain string content needs
+                    // wrapping into a single text part here.
+                    'parts' => is_array($message['content']) ? $message['content'] : [['text' => $message['content']]],
                 ])
                 ->values()
                 ->all();

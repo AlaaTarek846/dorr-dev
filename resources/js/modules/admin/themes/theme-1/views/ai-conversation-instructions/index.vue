@@ -90,6 +90,14 @@
                             </table>
                         </div>
                     </div>
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -109,6 +117,8 @@ import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
@@ -120,6 +130,8 @@ const loading = ref(true);
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
+
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 function sourceBadgeClass(source) {
     return {
@@ -133,8 +145,9 @@ async function loadInstructions() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-conversation-instructions');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-conversation-instructions', { params: paginationParams.value });
         instructions.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
@@ -183,6 +196,17 @@ async function remove(instruction) {
 
 function onSaved() {
     modalShow.value = false;
+    loadInstructions();
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadInstructions();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
     loadInstructions();
 }
 

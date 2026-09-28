@@ -88,6 +88,15 @@
                             </table>
                         </div>
                     </div>
+
+                    <AdminPaginationFooter
+                        :pagination="pagination"
+                        :current-page="page"
+                        :per-page="perPage"
+                        :loading="loading"
+                        @change-page="onChangePage"
+                        @change-per-page="onChangePerPage"
+                    />
                 </div>
             </div>
         </div>
@@ -108,6 +117,8 @@ import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
+import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t } = useI18n();
@@ -118,13 +129,15 @@ const loading = ref(true);
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
+const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 async function loadLanguages() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-languages');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-languages', { params: paginationParams.value });
         languages.value = data.data ?? [];
+        applyPagination(data);
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     } finally {
@@ -173,6 +186,17 @@ async function remove(language) {
 
 function onSaved() {
     modalShow.value = false;
+    loadLanguages();
+}
+
+function onChangePage(target) {
+    page.value = target;
+    loadLanguages();
+}
+
+function onChangePerPage(value) {
+    perPage.value = value;
+    page.value = 1;
     loadLanguages();
 }
 

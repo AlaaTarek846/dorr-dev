@@ -32,9 +32,9 @@
                                     {{ t('ai_feature_flags.target') }} <span class="text-danger">*</span>
                                 </label>
                                 <select id="flag-target-type" v-model="form.target_type" class="form-select">
-                                    <option value="provider">provider</option>
-                                    <option value="model">model</option>
-                                    <option value="tool">tool</option>
+                                    <option value="provider">{{ t('ai_feature_flags.target_type_provider') }}</option>
+                                    <option value="model">{{ t('ai_feature_flags.target_type_model') }}</option>
+                                    <option value="tool">{{ t('ai_feature_flags.target_type_tool') }}</option>
                                 </select>
                             </div>
 

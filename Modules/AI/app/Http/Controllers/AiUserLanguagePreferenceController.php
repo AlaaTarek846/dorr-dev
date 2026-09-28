@@ -3,6 +3,7 @@
 namespace Modules\AI\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use Modules\AI\Http\Requests\AiUserLanguagePreferenceUpdateRequest;
 use Modules\AI\Services\AiUserLanguagePreferenceService;
 
 class AiUserLanguagePreferenceController extends Controller
@@ -17,5 +18,10 @@ class AiUserLanguagePreferenceController extends Controller
     public function show(int $preference)
     {
         return $this->service->find($preference);
+    }
+
+    public function update(AiUserLanguagePreferenceUpdateRequest $request, int $preference)
+    {
+        return $this->service->updateRecord($preference, $request->validated());
     }
 }

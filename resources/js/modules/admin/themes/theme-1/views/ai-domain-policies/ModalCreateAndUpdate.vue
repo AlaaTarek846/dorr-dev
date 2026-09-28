@@ -17,12 +17,12 @@
                                     {{ t('ai_domain_policies.domain') }} <span class="text-danger">*</span>
                                 </label>
                                 <select id="policy-domain-key" v-model="form.domain_key" class="form-select" :disabled="isEdit">
-                                    <option value="legal">legal</option>
-                                    <option value="health">health</option>
-                                    <option value="education">education</option>
-                                    <option value="code">code</option>
-                                    <option value="marketing">marketing</option>
-                                    <option value="general_info">general_info</option>
+                                    <option value="legal">{{ t('ai_domain_policies.domain_key_legal') }}</option>
+                                    <option value="health">{{ t('ai_domain_policies.domain_key_health') }}</option>
+                                    <option value="education">{{ t('ai_domain_policies.domain_key_education') }}</option>
+                                    <option value="code">{{ t('ai_domain_policies.domain_key_code') }}</option>
+                                    <option value="marketing">{{ t('ai_domain_policies.domain_key_marketing') }}</option>
+                                    <option value="general_info">{{ t('ai_domain_policies.domain_key_general_info') }}</option>
                                 </select>
                             </div>
 
