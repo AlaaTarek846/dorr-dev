@@ -39,6 +39,10 @@ class MessageService
         private readonly ChatBroadcaster $broadcaster,
         private readonly ChatPushNotifier $push,
         private readonly WalletShareService $walletShare,
+        private readonly MoneyRequestService $money,
+        private readonly LinkPreviewService $linkPreviews,
+        private readonly GiphyService $giphy,
+        private readonly StickerService $stickers,
     ) {}
 
     // ---------------------------------------------------------------- reading
@@ -103,6 +107,15 @@ class MessageService
     }
 
     /**
+     * Re-send a message to the conversation after something outside the message body changed it
+     * (its link card, for instance), so open conversations pick the change up.
+     */
+    public function broadcastUpdate(ChatMessage $message): void
+    {
+        $this->broadcast($message->conversation, $message, 'chat.message.updated');
+    }
+
+    /**
      * What this participant may see: not before they joined / cleared the chat, not what they
      * deleted for themselves, and no disappeared messages.
      */
@@ -144,7 +157,7 @@ class MessageService
         $this->assertCanSend($me, $participant, $conversation);
 
         $type = MessageType::from($data['type'] ?? MessageType::Text->value);
-        $meta = $this->buildMeta($me, $type, $data);
+        $meta = $this->buildMeta($me, $conversation, $participant, $type, $data);
         $body = isset($data['body']) ? trim((string) $data['body']) : null;
         $body = $body === '' ? null : $body;
 
@@ -204,6 +217,12 @@ class MessageService
             }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
+
+            // Fetch the card of the message's first link and cache it on the message, so reading a
+            // page of history never fetches anything. After the transaction: it does HTTP.
+            if ($message->has_link) {
+                $this->linkPreviews->attachTo($message->id);
+            }
 
             $senderName = app(ParticipantDirectory::class)->profile($me, $participant->participant_type, $participant->participant_id)['account_name'] ?? '';
             $others = $conversation->activeParticipants()->where('id', '!=', $participant->id)->get();
@@ -378,7 +397,13 @@ class MessageService
                 throw ChatException::messageDeleted();
             }
 
-            if (in_array($source->type, [MessageType::WalletTransfer, MessageType::Call, MessageType::System, MessageType::StoryReply], true)) {
+            // A view-once file can only be seen by the person it was sent to, and a call is bound to
+            // the conversation it happened in — neither may travel somewhere else. Money belongs to
+            // the people in the conversation too: a request or a split is not a receipt to share.
+            if (in_array($source->type, [
+                MessageType::WalletTransfer, MessageType::Call, MessageType::System, MessageType::StoryReply,
+                MessageType::MoneyRequest, MessageType::BillSplit,
+            ], true) || $source->view_once) {
                 throw new ChatException('not_forwardable', 422);
             }
         }
@@ -690,21 +715,34 @@ class MessageService
     /**
      * @return array<string, mixed>|null
      */
-    private function buildMeta(Model $me, MessageType $type, array $data): ?array
+    private function buildMeta(Model $me, ChatConversation $conversation, ChatParticipant $mine, MessageType $type, array $data): ?array
     {
         // A forwarded copy keeps the original's structured data as it was.
         if (array_key_exists('meta_raw', $data)) {
             return $data['meta_raw'];
         }
 
-        return match ($type) {
+        $meta = match ($type) {
             MessageType::Location => [
                 'latitude' => (float) $data['latitude'],
                 'longitude' => (float) $data['longitude'],
                 'name' => $data['location_name'] ?? null,
                 'address' => $data['address'] ?? null,
-                'live_until' => null,
+                // Set when the sender asked for a live location: it stays open until this, and the
+                // app keeps posting moves (MessageExtrasService::moveLive).
+                'live_until' => isset($data['live_seconds'])
+                    ? now()->addSeconds((int) $data['live_seconds'])->toIso8601String()
+                    : null,
             ],
+            MessageType::Poll => MessageExtrasService::pollMeta(
+                (array) $data['poll_options'],
+                (bool) ($data['poll_multiple'] ?? false),
+            ),
+            MessageType::MoneyRequest => $this->money->requestMeta($me, $conversation, $data),
+            MessageType::BillSplit => $this->money->splitMeta($me, $conversation, $mine, $data),
+            // A GIF / sticker is named by an id only; the address of the file is the server's answer.
+            MessageType::Gif => $this->giphy->find((string) $data['giphy_id'], 'gif'),
+            MessageType::Sticker => $this->stickers->meta((int) $data['sticker_id']),
             MessageType::Contact => [
                 'name' => (string) $data['contact_name'],
                 'phones' => array_values((array) $data['contact_phones']),
@@ -720,6 +758,14 @@ class MessageService
             MessageType::StoryReply => $data['story_meta'] ?? throw new ChatException('story_not_found', 404),
             default => null,
         };
+
+        // View-once is a flag on any media message, so it is merged in rather than replacing
+        // whatever the type above built (a video's duration, a voice note's waveform).
+        if (! empty($data['view_once'])) {
+            $meta = array_merge((array) $meta, ['view_once' => true]);
+        }
+
+        return $meta === [] ? null : $meta;
     }
 
     /**

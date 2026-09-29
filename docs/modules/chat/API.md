@@ -47,6 +47,16 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | GET | `messages/search`, `conversations/{c}/messages/search` | `q` | |
 | GET | `conversations/{c}/gallery` | `kind` = media\|documents\|audio\|links\|locations, `before` | |
 
+**Live location** — a `location` message the sender keeps moving until it runs out or is stopped. Durations are 900 (15 min), 3600 (1 h) or 28800 (8 s); the server writes `live_until` (ISO 8601) and `stopped` into the message `meta`.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `live-locations` | | My live locations still running — `message_id`, `conversation_id`, `live_until` each. The app resumes sending positions after a restart |
+| PUT | `messages/{m}/live-location` | `latitude`, `longitude`, `accuracy` (nullable) | A new position for my live location. Throttled to 120 per minute (`chat-live-location`) |
+| POST | `messages/{m}/live-location/stop` | | Ends it and returns the updated message. Throttled to 30 per minute (`chat-live-stop`) |
+
+Moving or stopping a location that is not mine, not a `location` message, or already over answers `422` (`chat_live_location_ended`).
+
 **Fields each message type needs:**
 
 | `type` | Required fields |
@@ -54,12 +64,34 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | `text` | `body` |
 | `image` / `video` / `audio` / `document` | `files[]`. `body` becomes the caption. Video can add `duration_ms` |
 | `voice` | `files[]`, `duration_ms`, `waveform[]` (0–100, up to 200 bars) |
-| `location` | `latitude`, `longitude`, `location_name`, `address` |
+| `location` | `latitude`, `longitude`, `location_name`, `address`, `live_seconds` (900\|3600\|28800 for a live one) |
 | `contact` | `contact_name`, `contact_phones[]` |
+| `poll` | `body` (the question), `poll_options[]`, `poll_multiple` (optional) |
+| `gif` | `giphy_id`. The server resolves it; a `url` from the client is ignored |
+| `sticker` | `sticker_id` from a pack the admin published |
+| `money_request` | `amount_minor`, in a **direct** chat only |
+| `bill_split` | `amount_minor`, `split_mode` = equal\|custom, with `split_participants[]` or `split_shares[{participant_id, amount_minor}]` |
 | `wallet_transfer` | `wallet_transaction_id`. This must be **my own** `transfer_out`, and the server builds the card |
 | `wallet_qr` | `country_code` (optional, defaults to the request's country). The server builds the card from **my own** wallet |
 
-**Message shape:** `id`, `conversation_id`, `type`, `body`, `meta`, `attachments[]`, `sender` (profile), `is_mine`, `status` (sent\|delivered\|read, my messages only), `reply_to`, `is_forwarded`, `forwarded_many_times`, `mentions[]`, `is_edited`, `is_deleted`, `expires_at`, `reactions {summary, mine, total}`, `is_starred`, `system {event, actor, targets, text}`, `created_at`.
+`image` / `video` / `voice` can add `view_once` (the file is handed out once per recipient by `messages/{m}/open`, then deleted by `chat:purge`).
+
+**Message shape:** `id`, `conversation_id`, `type`, `body`, `meta`, `attachments[]`, `sender` (profile), `is_mine`, `status` (sent\|delivered\|read, my messages only), `reply_to`, `is_forwarded`, `forwarded_many_times`, `mentions[]`, `is_edited`, `is_deleted`, `expires_at`, `reactions {summary, mine, total}`, `is_starred`, `system {event, actor, targets, text}`, `created_at`, plus what the extra types need: `poll`, `payment`, `view_once`, `view_once_opened`, `live_location`, `link_preview`.
+
+## Polls, view once, links, money
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| PUT | `messages/{m}/vote` | `options[]` (option ids; empty takes the vote back) | A single-choice poll refuses more than one |
+| GET | `messages/{m}/votes` | | Who voted for each option |
+| POST | `messages/{m}/open` | | The view-once files, once. `403` for the sender, `410` when already opened |
+| GET | `link-preview` | `url` (query) | The card for a link being typed, or an empty object when there is none |
+| POST | `messages/{m}/pay` | | The PIN travels in `X-Wallet-Pin`. One transfer per payer, however often it is retried |
+| POST | `messages/{m}/decline-request`, `messages/{m}/cancel-request` | | "Not paying this" / "never mind" |
+
+`payment` is `kind: request` (`amount_minor`, `can_pay`, `can_cancel`) or `kind: split` (`total_minor`, `mode`, `shares[] {profile, amount_minor, status}`, `paid_minor`, `my_share`, `status` open\|settled). Money and view-once messages can never be forwarded (`422`).
+
+**Message shape:** `id`, `conversation_id`, `type`, `body`, `meta`, `attachments[]`, `sender` (profile), `is_mine`, `status` (sent\|delivered\|read, my messages only), `reply_to`, `is_forwarded`, `forwarded_many_times`, `mentions[]`, `is_edited`, `is_deleted`, `expires_at`, `reactions {summary, mine, total}`, `is_starred`, `system {event, actor, targets, text}`, `created_at`, plus what the extra types need: `poll`, `payment`, `view_once`, `view_once_opened`, `live_location`, `link_preview`.
 
 ## Groups
 
@@ -67,13 +99,20 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 |---|---|---|---|
 | POST | `groups` | `name`, `description`, `avatar`, `members[]` (user ids), `disappearing_seconds` | Returns `not_added` for people whose privacy said no |
 | POST | `groups/{c}` | `name`, `description`, `avatar`, `remove_avatar` | Admins only when `only_admins_edit_info` is on |
-| PATCH | `groups/{c}/settings` | `only_admins_send`, `only_admins_edit_info`, `only_admins_add_members` | Admins only |
+| PATCH | `groups/{c}/settings` | `only_admins_send`, `only_admins_edit_info`, `only_admins_add_members`, `approve_joins` | Admins only |
 | GET / POST | `groups/{c}/members` | `members[]` | Limited by `max_group_members` |
 | DELETE | `groups/{c}/members/{participant}` | | Admins only. The owner can't be removed |
 | PATCH | `groups/{c}/members/{participant}/role` | `role` = admin\|member | |
 | POST | `groups/{c}/leave` | | When the owner leaves, the oldest admin (or oldest member) takes over |
 | GET / POST | `groups/{c}/invite`, `groups/{c}/invite/reset` | | Returns `dorr://chat/join/{token}` |
-| GET / POST | `invites/{token}`, `invites/{token}/join` | | Someone who joins doesn't see earlier history |
+| GET / POST | `invites/{token}`, `invites/{token}/join`, `invites/{token}/join/cancel` | | Someone who joins doesn't see earlier history. The preview carries `approve_joins` and `request_status` |
+
+**Joining by link with `approve_joins` on** leaves a request instead of a membership: `invites/{token}/join` answers `202` with `status: pending`, the conversation reports `group.pending_join_requests` to admins, and the queue is answered with:
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `groups/{c}/join-requests` | Admins only — `id`, `profile`, `requested_at` each |
+| POST | `groups/{c}/join-requests/{request}/approve`, `.../reject` | Answers with the queue that is left; answering a closed request is `404` |
 
 ## Contacts, privacy, blocks, presence, folders
 

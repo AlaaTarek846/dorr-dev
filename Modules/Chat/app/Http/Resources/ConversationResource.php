@@ -7,6 +7,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\ConversationStatus;
+use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Services\ChatThemeService;
@@ -59,10 +61,14 @@ class ConversationResource extends JsonResource
                 'name' => $group->name,
                 'description' => $group->description,
                 'avatar' => $group->avatarUrl(),
+                'handle' => $group->handle,
                 'members_count' => $active->count(),
                 'only_admins_send' => $group->only_admins_send,
                 'only_admins_edit_info' => $group->only_admins_edit_info,
                 'only_admins_add_members' => $group->only_admins_add_members,
+                'approve_joins' => (bool) $group->approve_joins,
+                // How many people are waiting for an admin to answer; only admins see the count.
+                'pending_join_requests' => $me->isAdmin() ? $this->pendingJoinRequests($conversation) : 0,
             ],
             'my_role' => $me->role->value,
             'is_member' => $me->isActive(),
@@ -93,6 +99,17 @@ class ConversationResource extends JsonResource
         $c = $me->conversation;
 
         return $c->created_by_type === $me->participant_type && (int) $c->created_by_id === (int) $me->participant_id;
+    }
+
+    /**
+     * People still waiting for an admin to answer their request to join.
+     */
+    private function pendingJoinRequests(ChatConversation $conversation): int
+    {
+        return ChatGroupJoinRequest::query()
+            ->where('conversation_id', $conversation->id)
+            ->pending()
+            ->count();
     }
 
     private function canSend(ChatParticipant $me, $group): bool

@@ -7,6 +7,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Services\MessageExtrasService;
+use Modules\Chat\Services\MoneyRequestService;
 use Modules\Chat\Support\MessageViewContext;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -50,8 +52,15 @@ class MessageResource extends JsonResource
             'is_edited' => $m->edited_at !== null,
             'is_deleted' => $m->isDeletedForEveryone(),
             'expires_at' => $m->expires_at?->toIso8601String(),
+            'link_preview' => $gone ? null : $this->linkPreview($m),
             'reactions' => $this->reactions($m),
             'is_starred' => isset($ctx->starred[$m->id]),
+            'poll' => $gone ? null : $this->poll($m),
+            'payment' => $gone ? null : $this->payment($m),
+            'view_once' => ! $gone && (bool) $m->view_once,
+            'view_once_opened' => isset($ctx->opened[$m->id]),
+            // Its files, once the recipient opens it.
+            'live_location' => $gone ? null : $this->liveLocation($m),
             'system' => $m->sender_type === null ? $this->system($m) : null,
             'created_at' => $m->created_at?->toIso8601String(),
             'edited_at' => $m->edited_at?->toIso8601String(),
@@ -63,6 +72,12 @@ class MessageResource extends JsonResource
      */
     private function attachments(ChatMessage $m): array
     {
+        // A view-once file is only handed out by MessageExtrasService::open(), once, to the
+        // recipient who opens it — never listed here.
+        if ($m->view_once) {
+            return [];
+        }
+
         if (! $m->relationLoaded('media')) {
             $m->load('media');
         }
@@ -122,6 +137,93 @@ class MessageResource extends JsonResource
         }
 
         return $m->getFirstMedia(ChatMessage::THUMBNAIL)?->getUrl();
+    }
+
+    /**
+     * The poll as this viewer sees it: the options saved on the message, each with how many people
+     * ticked it, and which ones I ticked. Null for anything that is not a poll.
+     *
+     * @return array{question: string|null, multiple: bool, options: list<array{id: int, text: string, votes: int}>, voters: int, my_votes: list<int>}|null
+     */
+    private function poll(ChatMessage $m): ?array
+    {
+        if ($m->type !== MessageType::Poll) {
+            return null;
+        }
+
+        $meta = (array) $m->meta;
+        $summary = MessageExtrasService::pollSummary($m->id);
+
+        return [
+            'question' => $m->body,
+            'multiple' => (bool) ($meta['multiple'] ?? false),
+            'options' => array_values(array_map(
+                fn (array $option) => [
+                    'id' => (int) $option['id'],
+                    'text' => (string) $option['text'],
+                    'votes' => (int) ($summary['counts'][(int) $option['id']] ?? 0),
+                ],
+                (array) ($meta['options'] ?? []),
+            )),
+            'voters' => $summary['voters'],
+            'my_votes' => $this->context->myVotes[$m->id] ?? [],
+        ];
+    }
+
+    /**
+     * A money request or a split bill, priced in the viewer's own currency.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function payment(ChatMessage $m): ?array
+    {
+        if ($m->type !== MessageType::MoneyRequest && $m->type !== MessageType::BillSplit) {
+            return null;
+        }
+
+        return MoneyRequestService::present($m, $this->context->me, fn (string $type, int $id) => $this->context->profile($type, $id));
+    }
+
+    /**
+     * The position of a live location, while it is still running. Null for a location that was
+     * never live, has run out, or was stopped.
+     *
+     * @return array{latitude: float, longitude: float, accuracy: float|null, live_until: string, updated_at: string|null}|null
+     */
+    private function liveLocation(ChatMessage $m): ?array
+    {
+        if ($m->type !== MessageType::Location) {
+            return null;
+        }
+
+        $until = data_get($m->meta, 'live_until');
+        if ($until === null) {
+            return null;
+        }
+
+        // A live location keeps its last position once it is stopped or runs out, so the app can
+        // still draw where it was; `active` is what tells it to stop posting moves.
+        return [
+            'active' => ! data_get($m->meta, 'stopped') && now()->lt($until),
+            'latitude' => (float) data_get($m->meta, 'latitude'),
+            'longitude' => (float) data_get($m->meta, 'longitude'),
+            'accuracy' => data_get($m->meta, 'accuracy') !== null ? (float) data_get($m->meta, 'accuracy') : null,
+            'live_until' => (string) $until,
+            'updated_at' => data_get($m->meta, 'updated_at'),
+        ];
+    }
+
+    /**
+     * The card for this message's first link, cached into its meta when the message was sent or
+     * edited (LinkPreviewService::attachTo), so reading a page never fetches anything.
+     *
+     * @return array<string, mixed>|null
+     */
+    private function linkPreview(ChatMessage $m): ?array
+    {
+        $card = data_get($m->meta, 'link_preview');
+
+        return is_array($card) ? $card : null;
     }
 
     /**

@@ -3,6 +3,12 @@
 return [
     'report_sent' => "Thanks — your report was sent. We'll review it.",
 
+    'money_paid' => 'Paid.',
+    'channel_followed' => 'Following.',
+    'join_request_sent' => 'Your request to join was sent to the admins.',
+    'join_request_approved' => 'The request was approved.',
+    'join_request_rejected' => 'The request was rejected.',
+
     'errors' => [
         'report_type_invalid' => 'This report reason is no longer available.',
         'theme_invalid' => 'This theme is not available.',
@@ -20,6 +26,7 @@ return [
         'owner_only' => 'The group owner can\'t be changed or removed.',
         'group_only' => 'This is only available in groups.',
         'group_full' => 'A group can have up to :max members.',
+    'join_request_missing' => 'That join request is no longer waiting.',
         'leave_group_first' => 'Leave the group before deleting it.',
         'empty_message' => 'The message is empty.',
         'attachment_required' => 'Attach a file to send this type of message.',

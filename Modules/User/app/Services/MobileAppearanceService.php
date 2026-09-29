@@ -91,6 +91,7 @@ class MobileAppearanceService
             'custom_dark_tokens' => $appearance?->custom_dark_tokens ?? null,
             'dark_mode' => $appearance?->dark_mode ?? 'system',
             'mobile_app_font_id' => $appearance?->mobile_app_font_id,
+            'available_fonts' => $this->availableFonts($font),
             'customizable_token_keys' => MobileColorTokens::userCustomizableKeys(),
             'default' => [
                 'light_tokens' => $baseLight,
@@ -119,5 +120,23 @@ class MobileAppearanceService
         }
 
         return $this->fonts->defaultFont()?->load(['translations', 'translation', 'media']);
+    }
+
+    /**
+     * Every font the app may offer, in the order the picker shows them. The font in use comes
+     * first so it is highlighted even when the viewer has scrolled away from the default.
+     *
+     * @return list<array<string, mixed>>
+     */
+    protected function availableFonts(?MobileAppFont $inUse): array
+    {
+        $fonts = MobileAppFont::query()
+            ->where('status', true)
+            ->with(['translations', 'translation', 'media'])
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
+
+        return $fonts->map(fn (MobileAppFont $font) => (new MobileAppFontResource($font))->resolve())->all();
     }
 }

@@ -13,6 +13,16 @@ enum MessageType: string
     case Document = 'document';
     case Location = 'location';
     case Contact = 'contact';
+    // A question with numbered options; meta holds them and multiple (MessageExtrasService::pollMeta).
+    case Poll = 'poll';
+    // Asking someone for money; meta holds the amount in the asker's currency.
+    case MoneyRequest = 'money_request';
+    // A bill being split; meta holds the shares.
+    case BillSplit = 'bill_split';
+    // A GIF from the Giphy library, sent by its id; the URL is resolved server-side.
+    case Gif = 'gif';
+    // A sticker from one of Dorr's own packs, sent by its id.
+    case Sticker = 'sticker';
     // Built by the server from the sender's own wallet (docs/chat-plan.md §10.0.1) — never from client data.
     case WalletTransfer = 'wallet_transfer';
     case WalletQr = 'wallet_qr';
@@ -38,6 +48,7 @@ enum MessageType: string
         return array_map(fn (self $t) => $t->value, [
             self::Text, self::Image, self::Video, self::Audio, self::Voice, self::Document,
             self::Location, self::Contact, self::WalletTransfer, self::WalletQr,
+            self::Poll, self::MoneyRequest, self::BillSplit, self::Gif, self::Sticker,
         ]);
     }
 }

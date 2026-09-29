@@ -8,6 +8,7 @@ use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatPollVote;
 
 /**
  * Everything MessageResource needs to render messages for *one* viewer, loaded once per page:
@@ -24,6 +25,12 @@ class MessageViewContext
 
     /** @var array<int, true> */
     public array $starred = [];
+
+    /** @var array<int, true> view-once messages somebody has already opened, by message row id */
+    public array $opened = [];
+
+    /** @var array<int, list<int>> the option ids I ticked, by message row id */
+    public array $myVotes = [];
 
     /** @var array<int, string> participant row id => account key */
     public array $participantKeys = [];
@@ -55,9 +62,33 @@ class MessageViewContext
         $ids = $messages->pluck('id')->merge($messages->pluck('reply_to_id'))->filter()->unique()->all();
 
         if ($ids !== []) {
-            $context->starred = ChatMessageUserState::query()
-                ->where('participant_id', $me->id)->whereIn('message_id', $ids)->whereNotNull('starred_at')
-                ->pluck('message_id')->flip()->map(fn () => true)->all();
+            $states = ChatMessageUserState::query()
+                ->where('participant_id', $me->id)->whereIn('message_id', $ids)
+                ->get(['message_id', 'starred_at', 'opened_at']);
+
+            foreach ($states as $state) {
+                if ($state->starred_at !== null) {
+                    $context->starred[$state->message_id] = true;
+                }
+            }
+
+            // A view-once file is opened by the recipient, so "opened" is a fact about the message,
+            // not about the viewer: the sender sees it too (only a starred tick is the viewer's own).
+            foreach (ChatMessageUserState::query()
+                ->whereIn('message_id', $ids)->whereNotNull('opened_at')
+                ->distinct()
+                ->pluck('message_id') as $openedId) {
+                $context->opened[$openedId] = true;
+            }
+
+            foreach (ChatPollVote::query()
+                ->whereIn('message_id', $ids)
+                ->where('participant_id', $me->id)
+                ->orderBy('option_id')
+                ->get(['message_id', 'option_id'])
+                ->groupBy('message_id') as $messageId => $votes) {
+                $context->myVotes[$messageId] = $votes->pluck('option_id')->map(fn ($n) => (int) $n)->all();
+            }
         }
 
         $keys = $participants->map(fn (ChatParticipant $p) => [$p->participant_type, $p->participant_id])->all();

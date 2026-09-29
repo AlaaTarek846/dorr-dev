@@ -2,15 +2,19 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Chat\Http\Controllers\General\CallController;
+use Modules\Chat\Http\Controllers\General\ChannelController;
 use Modules\Chat\Http\Controllers\General\ContactController;
 use Modules\Chat\Http\Controllers\General\ConversationController;
+use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\FolderController;
 use Modules\Chat\Http\Controllers\General\GroupController;
 use Modules\Chat\Http\Controllers\General\MessageController;
+use Modules\Chat\Http\Controllers\General\MessageExtrasController;
 use Modules\Chat\Http\Controllers\General\PrivacyController;
 use Modules\Chat\Http\Controllers\General\RealtimeConfigController;
 use Modules\Chat\Http\Controllers\General\StoryController;
 use Modules\Chat\Http\Controllers\General\ThemeReportController;
+use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
 /*
  * Chat endpoints shared by every kind of participant. Required from inside each audience's own
@@ -57,6 +61,37 @@ Route::prefix('chat')->group(function () {
     Route::delete('messages/{message}/pin', [MessageController::class, 'unpin']);
     Route::get('messages/{message}/info', [MessageController::class, 'info']);
 
+    // ------------------------------------------------------------ live location
+    // A live location is a `location` message the sender keeps moving until it runs out or is stopped.
+    Route::get('live-locations', [MessageExtrasController::class, 'myLive']);
+    Route::put('messages/{message}/live-location', [MessageExtrasController::class, 'moveLive'])->middleware('throttle:120,1,chat-live-location');
+    Route::post('messages/{message}/live-location/stop', [MessageExtrasController::class, 'stopLive'])->middleware('throttle:30,1,chat-live-stop');
+
+    // ------------------------------------------------------------ polls, links, money requests
+    Route::put('messages/{message}/vote', [MessageExtrasController::class, 'vote']);
+    Route::get('messages/{message}/votes', [MessageExtrasController::class, 'votes']);
+    Route::post('messages/{message}/open', [MessageExtrasController::class, 'open']);
+    Route::get('link-preview', [MessageExtrasController::class, 'linkPreview'])->middleware('throttle:60,1,chat-link-preview');
+    // The wallet PIN is checked by RequiresWalletPin from the `X-Wallet-Pin` header.
+    Route::post('messages/{message}/pay', [MessageExtrasController::class, 'pay'])->middleware(RequiresWalletPin::class);
+Route::post('messages/{message}/decline-request', [MessageExtrasController::class, 'declineRequest']);
+Route::post('messages/{message}/cancel-request', [MessageExtrasController::class, 'cancelRequest']);
+
+    // ------------------------------------------------------------ channels
+    // A channel is a broadcast conversation: anyone can follow a public one and read it, only
+    // admins post. `show` takes a uuid or an @handle, so it's a plain string, not a binding.
+    Route::get('channels/discover', [ChannelController::class, 'discover'])->middleware('throttle:30,1,chat-channel-discover');
+    Route::get('channels/{channel}', [ChannelController::class, 'show']);
+    Route::post('channels', [ChannelController::class, 'store'])->middleware('throttle:10,1,chat-channel-create'); // POST: multipart avatar
+    Route::post('channels/{channel}/follow', [ChannelController::class, 'follow'])->middleware('throttle:60,1,chat-channel-follow');
+    Route::post('channels/{conversation}/unfollow', [ChannelController::class, 'unfollow'])->middleware('throttle:60,1,chat-channel-follow');
+    Route::put('channels/{conversation}/handle', [ChannelController::class, 'handle']);
+
+    // ------------------------------------------------------------ expressions
+    // The composer's sticker / GIF panel: Dorr's own packs, and the Giphy library.
+    Route::get('stickers', [ExpressionController::class, 'stickers']);
+    Route::get('gifs', [ExpressionController::class, 'library'])->middleware('throttle:60,1,chat-giphy');
+
     // ------------------------------------------------------------ groups
     Route::post('groups', [GroupController::class, 'store']);
     Route::post('groups/{conversation}', [GroupController::class, 'update']); // POST: multipart avatar
@@ -70,6 +105,12 @@ Route::prefix('chat')->group(function () {
     Route::post('groups/{conversation}/invite/reset', [GroupController::class, 'resetInvite']);
     Route::get('invites/{token}', [GroupController::class, 'previewInvite']);
     Route::post('invites/{token}/join', [GroupController::class, 'join']);
+    Route::post('invites/{token}/join/cancel', [GroupController::class, 'cancelJoin']);
+
+    // Join requests, for groups that turn on approve_joins.
+    Route::get('groups/{conversation}/join-requests', [GroupController::class, 'joinRequests']);
+    Route::post('groups/{conversation}/join-requests/{requestId}/approve', [GroupController::class, 'approveJoin']);
+    Route::post('groups/{conversation}/join-requests/{requestId}/reject', [GroupController::class, 'rejectJoin']);
 
     // ------------------------------------------------------------ contacts
     Route::get('contacts', [ContactController::class, 'index']);

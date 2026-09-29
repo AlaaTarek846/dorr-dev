@@ -175,6 +175,10 @@
     <string name="appearance_mode_light">Light</string>
     <string name="appearance_mode_dark">Dark</string>
     <string name="appearance_choose">Choose a color</string>
+    <string name="appearance_font_choose">Choose a font</string>
+    <string name="appearance_font_search">Search fonts</string>
+    <string name="appearance_font_empty">No fonts found</string>
+    <string name="appearance_font_default">App default</string>
     <string name="appearance_primary">Primary color</string>
     <string name="appearance_secondary">Secondary color</string>
     <string name="appearance_background">Background color</string>

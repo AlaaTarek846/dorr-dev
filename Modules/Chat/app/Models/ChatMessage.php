@@ -52,6 +52,14 @@ class ChatMessage extends Model implements HasMedia
         ];
     }
 
+    /**
+     * Whether this media may be opened once by each recipient, then the files are purged.
+     */
+    public function getViewOnceAttribute(): bool
+    {
+        return (bool) data_get($this->meta, 'view_once');
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $message) {

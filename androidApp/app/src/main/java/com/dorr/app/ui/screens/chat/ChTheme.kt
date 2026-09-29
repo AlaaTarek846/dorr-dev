@@ -113,6 +113,14 @@ object Ch {
     val Online = Color(0xFF22C55E)
     val ReadTick = Color(0xFF38BDF8)
     val Mention = Color(0xFFF59E0B)
+    /** A field that failed validation. Fixed red, so an error still reads wrong if the accent is blue. */
+    val Danger get() = Color(0xFFEF4444)
+    /** Something that worked / is still going (a live location running). */
+    val Success get() = Color(0xFF22C55E)
+    /** Border of an input resting (unfocused). A shade stronger than [Line]. */
+    val FieldLine get() = if (dark) Color(0xFF33415A) else Color(0xFFD9DEE6)
+    /** Fill of an input resting; a focused field on a light surface goes to [Surface]. */
+    val FieldFill get() = if (dark) Color(0xFF1C283C) else Color(0xFFF1F2F5)
 
     /**
      * The theme of the conversation on screen (admin-made, picked per chat) — set by

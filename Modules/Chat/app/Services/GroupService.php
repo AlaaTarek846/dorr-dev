@@ -12,6 +12,7 @@ use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Support\ParticipantDirectory;
@@ -120,7 +121,7 @@ class GroupService
         $group = $conversation->group;
 
         DB::transaction(function () use ($me, $conversation, $group, $data) {
-            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members']));
+            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins']));
             $before = $group->only_admins_send;
             $group->update($data);
 
@@ -273,10 +274,42 @@ class GroupService
             'avatar' => $group->avatarUrl(),
             'members_count' => $conversation->activeParticipants()->count(),
             'is_member' => $conversation->activeParticipants()->of($me)->exists(),
+            'approve_joins' => (bool) $group->approve_joins,
+            'request_status' => $this->myJoinRequestStatus($me, $group),
         ];
     }
 
-    public function join(Model $me, string $token): ChatParticipant
+    /**
+     * Where my own join request for this group stands: pending, approved, rejected — or null when
+     * I never asked (or the group lets people in straight away).
+     */
+    private function myJoinRequestStatus(Model $me, ChatGroup $group): ?string
+    {
+        if (! $group->approve_joins) {
+            return null;
+        }
+
+        $key = ParticipantType::key($me);
+        [$type, $id] = explode(':', $key, 2) + [null, null];
+
+        $request = ChatGroupJoinRequest::query()
+            ->where('conversation_id', $group->conversation_id)
+            ->where('requester_type', $type)
+            ->where('requester_id', $id)
+            ->latest('id')
+            ->first();
+
+        // An approved request means I am already in — leave that to is_member.
+        $status = $request?->status;
+
+        return $status === ChatGroupJoinRequest::APPROVED ? null : $status;
+    }
+
+    /**
+     * Join by invite link. When the group asks admins first, this leaves a pending request instead
+     * of adding the member, and returns null so the caller can tell the two apart.
+     */
+    public function join(Model $me, string $token): ?ChatParticipant
     {
         $group = $this->groupByInvite($token);
         $conversation = $group->conversation;
@@ -286,6 +319,137 @@ class GroupService
             return $existing;
         }
 
+        if ($group->approve_joins) {
+            $this->requestJoin($me, $group);
+
+            return null;
+        }
+
+        return $this->addFromLink($me, $conversation);
+    }
+
+    /**
+     * Take back a request I sent.
+     */
+    public function cancelJoin(Model $me, string $token): void
+    {
+        $group = $this->groupByInvite($token);
+        $key = ParticipantType::key($me);
+
+        $request = ChatGroupJoinRequest::query()
+            ->where('conversation_id', $group->conversation_id)
+            ->where('requester_type', explode(':', $key, 2)[0])
+            ->where('requester_id', explode(':', $key, 2)[1])
+            ->where('status', 'pending')
+            ->latest('id')
+            ->first();
+
+        $request?->update(['status' => 'cancelled', 'decided_at' => now()]);
+    }
+
+    /**
+     * The requests waiting on this group's admins, newest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function joinRequests(Model $me, ChatConversation $conversation): array
+    {
+        $this->assertAdmin($me, $conversation);
+
+        $rows = ChatGroupJoinRequest::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('status', 'pending')
+            ->orderBy('id')
+            ->get();
+
+        $directory = app(ParticipantDirectory::class);
+        $directory->prime($me, $rows->map(fn (ChatGroupJoinRequest $r) => explode(':', $r->requesterKey(), 2)));
+
+        return $rows->map(fn (ChatGroupJoinRequest $r) => [
+            'id' => $r->id,
+            'profile' => $directory->profile($me, $r->requester_type, $r->requester_id),
+            'requested_at' => $r->created_at?->toIso8601String(),
+        ])->values()->all();
+    }
+
+    /**
+     * Approving adds the person to the group; rejecting just closes the request. Both leave the
+     * remaining queue, which is what the screen redraws from the response.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function decideJoin(Model $me, ChatConversation $conversation, int $request, bool $approve): array
+    {
+        $this->assertAdmin($me, $conversation);
+
+        $row = ChatGroupJoinRequest::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('id', $request)
+            ->where('status', 'pending')
+            ->first();
+
+        if ($row === null) {
+            throw new ChatException('join_request_missing', 404);
+        }
+
+        $decider = $this->conversations->participantOf($me, $conversation);
+
+        if (! $approve) {
+            $row->update(['status' => 'rejected', 'decided_by_participant_id' => $decider->id, 'decided_at' => now()]);
+
+            return $this->joinRequests($me, $conversation);
+        }
+
+        $max = ChatSetting::current()->max_group_members;
+        if ($conversation->activeParticipants()->count() >= $max) {
+            throw ChatException::groupFull($max);
+        }
+
+        DB::transaction(function () use ($row, $conversation, $decider) {
+            $account = $this->resolveRequester($row);
+
+            $this->conversations->addParticipant($conversation, $account, ParticipantRole::Member, (int) $conversation->last_message_id ?: null);
+            $this->messages->system($conversation, $account, 'member_joined_via_link');
+            $this->changed($conversation);
+
+            $row->update(['status' => 'approved', 'decided_by_participant_id' => $decider->id, 'decided_at' => now()]);
+        });
+
+        return $this->joinRequests($me, $conversation);
+    }
+
+    // ---------------------------------------------------------------- helpers
+
+    /**
+     * Record a pending request, or refresh the one already waiting. The id of an earlier request is
+     * kept so the person can cancel it.
+     */
+    private function requestJoin(Model $me, ChatGroup $group): void
+    {
+        $key = ParticipantType::key($me);
+        [$type, $id] = explode(':', $key, 2) + [null, null];
+
+        ChatGroupJoinRequest::query()->updateOrCreate(
+            [
+                'conversation_id' => $group->conversation_id,
+                'requester_type' => $type,
+                'requester_id' => $id,
+                'status' => 'pending',
+            ],
+            [],
+        );
+    }
+
+    /**
+     * The account behind a finished request, resolved now that it is being approved.
+     */
+    private function resolveRequester(ChatGroupJoinRequest $row): Model
+    {
+        return $row->requester() ?? throw new ChatException('join_request_missing', 404);
+    }
+
+    private function addFromLink(Model $me, ChatConversation $conversation): ChatParticipant
+    {
         $max = ChatSetting::current()->max_group_members;
         if ($conversation->activeParticipants()->count() >= $max) {
             throw ChatException::groupFull($max);

@@ -9,6 +9,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Live location routes for the mobile chat app — `GET live-locations`, `PUT messages/{m}/live-location`, `POST messages/{m}/live-location/stop`, registered in `Modules/Chat/routes/customer.php` (the `MessageExtrasController` methods existed but nothing routed to them)
+- Chat message extras wired end to end: `poll` / `money_request` / `bill_split` / `gif` / `sticker` types, `MessageResource` `poll` / `payment` / `view_once` / `view_once_opened` / `live_location` / `link_preview` fields, link cards cached on send, view-once files purged by `chat:purge` once everyone opened them
+- Group join approval: `approve_joins` setting, `202` pending invites, `groups/{c}/join-requests` queue for admins, and `group.pending_join_requests` on the conversation
+- Admin sticker pack routes at `/api/admin/v1/chat-sticker-packs*` (`chat-stickers.*` permissions) plus the Giphy / sticker picker endpoints for the app
+- `TransferRecipientResolver::tokenFor()` — a transfer token for someone already known, so a chat money request or split is a normal wallet transfer
+- `ch_live_*` Android strings (en/ar) for the live location card, share sheet and foreground notification
 - FAQ catalog (`faqs` / `faq_translations`) and Privacy Policy catalog (`privacy_policies` / `privacy_policy_translations`) in the shared `General/` namespace — optional `service_id` → `service_categories.id`, `status`, `sort_order`, soft deletes, multilingual fields
 - Admin CRUD/trash/status/bulk APIs at `/api/admin/v1/faqs*` (`faqs.*` permissions) and `/api/admin/v1/privacy-policies*` (`privacy-policy.*` permissions)
 - Admin SPA pages for both catalogs: list views, create/edit modals, Pinia stores, composables, routes, sidebar entries, and `ar` / `en` locale keys

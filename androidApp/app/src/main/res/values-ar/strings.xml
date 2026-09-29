@@ -175,6 +175,10 @@
     <string name="appearance_mode_light">فاتح</string>
     <string name="appearance_mode_dark">داكن</string>
     <string name="appearance_choose">اختار لون</string>
+    <string name="appearance_font_choose">اختر خطًا</string>
+    <string name="appearance_font_search">ابحث عن خطوط</string>
+    <string name="appearance_font_empty">لا توجد خطوط</string>
+    <string name="appearance_font_default">الخط الافتراضي للتطبيق</string>
     <string name="appearance_primary">اللون الأساسي</string>
     <string name="appearance_secondary">اللون الثانوي</string>
     <string name="appearance_background">لون الخلفية</string>
