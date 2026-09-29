@@ -3,6 +3,7 @@
 namespace Modules\Sms\Services\Sms;
 
 use Modules\Sms\Contracts\Sms\SmsProviderInterface;
+use Modules\Sms\Services\Sms\Adapters\FourJawalySmsAdapter;
 use Modules\Sms\Services\Sms\Adapters\SmsMisrSmsAdapter;
 use Modules\Sms\Services\Sms\Adapters\TwilioSmsAdapter;
 
@@ -21,6 +22,7 @@ class SmsAdapterRegistry
     protected array $registry = [
         'twilio' => ['key' => 'twilio', 'label' => 'Twilio', 'adapter' => TwilioSmsAdapter::class],
         'sms_misr' => ['key' => 'sms_misr', 'label' => 'SMS Misr', 'adapter' => SmsMisrSmsAdapter::class],
+        'four_jawaly' => ['key' => 'four_jawaly', 'label' => '4Jawaly', 'adapter' => FourJawalySmsAdapter::class],
     ];
 
     public static function instance(): self

@@ -74,6 +74,71 @@
                             </div>
                         </div>
 
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <label for="sms-provider-priority" class="form-label">
+                                    {{ t('sms.providers.priority') }}
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-sort-asc"></i>
+                                    </span>
+                                    <input
+                                        id="sms-provider-priority"
+                                        v-model.number="form.priority"
+                                        type="number"
+                                        min="1"
+                                        class="form-control"
+                                        :placeholder="t('sms.providers.priority_placeholder')"
+                                    >
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="sms-provider-countries" class="form-label">
+                                    {{ t('sms.providers.countries') }}
+                                </label>
+                                <Select
+                                    id="sms-provider-countries"
+                                    v-model="form.country_id"
+                                    :options="countries"
+                                    option-label="name"
+                                    option-value="id"
+                                    filter
+                                    filter-fields="['name', 'code', 'dial_code']"
+                                    :placeholder="t('sms.providers.countries_placeholder')"
+                                    :loading="loadingCountries"
+                                    :disabled="loadingCountries"
+                                    append-to="self"
+                                    class="w-100 countries-select"
+                                >
+                                    <template #value="{ value, placeholder }">
+                                        <div v-if="countryById(value)" class="d-flex align-items-center gap-2">
+                                            <FlagImage
+                                                :code="resolveCountryFlagCode(countryById(value))"
+                                                :size="40"
+                                                :width="20"
+                                                :height="15"
+                                            />
+                                            <span class="text-truncate">{{ countryById(value)?.name || countryById(value)?.code }}</span>
+                                        </div>
+                                        <span v-else>{{ placeholder }}</span>
+                                    </template>
+                                    <template #option="{ option }">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <FlagImage
+                                                :code="resolveCountryFlagCode(option)"
+                                                :size="40"
+                                                :width="24"
+                                                :height="18"
+                                            />
+                                            <span class="flex-1 text-truncate">{{ option.name || option.code }}</span>
+                                            <span class="text-muted fs-12">{{ option.dial_code }}</span>
+                                        </div>
+                                    </template>
+                                </Select>
+                            </div>
+                        </div>
+
                         <div v-if="configFields.length" class="mb-3">
                             <hr class="my-3">
                             <div class="row g-3">
@@ -204,10 +269,11 @@ import Select from 'primevue/select';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import FlagImage from '../../../../../../components/ui/FlagImage.vue';
 import FormFieldFeedback from '../../../../../../components/ui/FormFieldFeedback.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
-import { setupCatalogModalWatcher } from '../../../../../../utils/catalog';
+import { resolveCountryFlagCode, setupCatalogModalWatcher } from '../../../../../../utils/catalog';
 
 const props = defineProps({
     show: {
@@ -240,6 +306,8 @@ const testing = ref(false);
 const serverErrors = reactive({});
 const types = ref([]);
 const loadingTypes = ref(false);
+const countries = ref([]);
+const loadingCountries = ref(false);
 const configFields = ref([]);
 let modalInstance = null;
 let v$;
@@ -249,6 +317,8 @@ const isEdit = computed(() => props.type === 'edit');
 const form = reactive({
     name: '',
     key: '',
+    priority: 1,
+    country_id: null,
     configuration: {},
     is_active: true,
     is_available: true,
@@ -291,6 +361,27 @@ async function loadTypes() {
     } finally {
         loadingTypes.value = false;
     }
+}
+
+async function loadCountries() {
+    if (countries.value.length) {
+        return;
+    }
+
+    loadingCountries.value = true;
+
+    try {
+        const { data } = await adminAxios.get('/api/admin/v1/countries/dropdown');
+        countries.value = data?.data ?? [];
+    } catch {
+        countries.value = [];
+    } finally {
+        loadingCountries.value = false;
+    }
+}
+
+function countryById(id) {
+    return countries.value.find((country) => Number(country.id) === Number(id)) ?? null;
 }
 
 const selectedType = computed(() => types.value.find((type) => type.value === form.key) ?? null);
@@ -491,6 +582,8 @@ function resetValidation() {
 function resetForm() {
     form.name = '';
     form.key = '';
+    form.priority = 1;
+    form.country_id = null;
     clearConfigurationObject();
     form.is_active = true;
     form.is_available = true;
@@ -501,6 +594,8 @@ function resetForm() {
 function fillForm(record) {
     form.name = record?.name ?? '';
     form.key = record?.key ?? '';
+    form.priority = record?.priority ?? 1;
+    form.country_id = Array.isArray(record?.countries) ? (record.countries[0] ?? null) : null;
     form.is_active = Boolean(record?.is_active ?? true);
     form.is_available = Boolean(record?.is_available ?? true);
 
@@ -539,6 +634,8 @@ function buildPayload() {
     return {
         name: form.name.trim(),
         key: form.key,
+        priority: form.priority,
+        countries: form.country_id ? [form.country_id] : [],
         configuration: buildConfiguration(),
         is_active: form.is_active,
         is_available: form.is_available,
@@ -610,7 +707,9 @@ setupCatalogModalWatcher({
     openModal,
     closeModal,
     resourceUri: props.resourceUri,
-    onOpen: loadTypes,
+    onOpen: async () => {
+        await Promise.all([loadTypes(), loadCountries()]);
+    },
 });
 
 onMounted(() => {
@@ -624,6 +723,12 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.countries-select :deep(.p-select-label) {
+    display: flex;
+    align-items: center;
+    overflow: visible;
+}
+
 .catalog-modal-header {
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--default-border, #dee2e6);

@@ -10,8 +10,8 @@ return [
         'activated' => 'SMS provider activated successfully.',
         'deactivated' => 'SMS provider deactivated successfully.',
         'ready' => 'Provider is ready.',
-        'not_ready' => 'Provider is not ready. Check that the provider is active and its adapter is registered.',
-        'in_use' => 'This SMS provider still has accounts bound to it and cannot be deleted.',
+        'not_ready' => 'Provider is not ready. Check that the provider is active, configured, and its test passed.',
+        'in_use' => 'This SMS provider is in use and cannot be deleted.',
         'unsupported' => 'Unsupported SMS provider: :key',
 
         'connection_successful' => 'Connection successful.',
@@ -22,6 +22,16 @@ return [
         'key_required' => 'Provider is required.',
         'unknown_provider' => 'Unknown SMS provider.',
         'already_registered' => 'This SMS provider is already registered.',
+
+        'body_required' => 'The message body cannot be empty.',
+        'country_required' => 'A country must be selected to format the phone number.',
+        'country_not_found' => 'The selected country does not exist.',
+        'invalid_recipient' => 'The phone number ":phone" is not valid.',
+        'country_missing_dial_code' => 'The selected country has no international dialing code configured.',
+        'country_mismatch' => 'The number :phone does not belong to the selected country. Either pick the matching country or enter a national number.',
+        'invalid_recipient_length' => 'The phone number ":phone" is not valid for the selected country. It should be :length digits and start with :starts_with.',
+
+        'account_unavailable' => 'This provider is not ready. It must be active, configured, and its test must have passed.',
 
         'test_errors' => [
             'required_credentials' => ':provider credentials are required',
@@ -44,57 +54,43 @@ return [
         ],
     ],
 
-    'accounts' => [
-        'created' => 'SMS account created successfully.',
-        'fetched' => 'SMS account retrieved successfully.',
-        'updated' => 'SMS account updated successfully.',
-        'deleted' => 'SMS account deleted successfully.',
-        'default_set' => 'Default SMS account set successfully.',
-        'activated' => 'SMS account activated successfully.',
-        'deactivated' => 'SMS account deactivated successfully.',
-
-        'name_required' => 'Name is required.',
-        'provider_required' => 'Provider is required.',
-        'provider_not_found' => 'The selected provider does not exist.',
-        'invalid_sender_type' => 'Invalid sender type.',
-        'missing_configuration' => 'Missing required configuration: :fields',
-
-        'provider_inactive' => 'The provider of this account is inactive. Activate the provider first.',
-        'not_configured' => 'This account has no configuration. Configure its credentials first.',
-        'none_active' => 'No active SMS account exists. Create and activate one first.',
-        'account_unavailable' => 'This SMS account is not ready. It must be active, its test must have passed, and its provider must be active.',
-        'unsupported_provider' => 'Unsupported SMS provider: :key',
-
+    'whatsapp' => [
+        'title' => 'WhatsApp',
+        'fetched' => 'WhatsApp configuration retrieved.',
+        'updated' => 'WhatsApp configuration updated.',
+        'saved' => 'WhatsApp configuration saved.',
+        'not_configured' => 'WhatsApp is not configured yet.',
         'connection_successful' => 'Connection successful.',
         'connection_failed' => 'Connection failed.',
-        'balance_not_supported' => 'This provider does not expose a balance API.',
-        'balance_retrieved' => 'Balance retrieved.',
-        'balance_failed' => 'Balance lookup failed.',
-
-        'test_number_required' => 'Test phone number is required.',
-        'test_sent' => 'Test SMS sent.',
-        'test_failed' => 'Test SMS could not be sent.',
-        'default_test_message' => 'Test SMS',
-        'live_test_sent' => 'No sandbox environment is configured: a LIVE test SMS was sent.',
-
-        'body_required' => 'The message body cannot be empty.',
-
-        'country_required' => 'A country must be selected to format the phone number.',
-        'country_not_found' => 'The selected country does not exist.',
-        'country_mismatch' => 'The number :phone does not belong to the selected country. Either pick the matching country or enter a national number.',
-        'country_missing_dial_code' => 'The selected country has no international dialing code configured.',
-        'invalid_recipient' => 'The phone number ":phone" is not valid.',
-        'invalid_recipient_length' => 'The phone number ":phone" is not valid for the selected country. It should be :length digits and start with :starts_with.',
-
-        'test_status' => [
-            'never_tested' => 'Never Tested',
-            'passed' => 'Passed',
-            'failed' => 'Failed',
-        ],
-
-        'sender_type' => [
-            'number' => 'Phone Number',
-            'alphanumeric' => 'Alphanumeric Sender ID',
-        ],
+        'no_approved_template' => 'No approved OTP template. WhatsApp OTP is unavailable.',
+        'send_failed' => 'WhatsApp OTP could not be sent.',
+        'template_synced' => 'Template synchronized.',
+        'template_status_synced' => 'Template status refreshed from Meta.',
+        'template_submitted' => 'Template submitted to Meta for review.',
+        'template_name_required' => 'Template name is required.',
+        'template_language_required' => 'Template language is required.',
+        'templates_fetched' => 'Templates retrieved.',
+        'template_fetched' => 'Template retrieved.',
+        'template_created' => 'Template created.',
+        'template_updated' => 'Template updated.',
+        'template_deleted' => 'Template deleted.',
+        'templates_synced' => 'All templates synchronized.',
+        'templates_imported' => ':count template(s) imported from Meta.',
+        'sync_failed' => 'Synchronization failed.',
+        'template_otp_variable_required' => 'The template body must contain the {{1}} OTP variable.',
+        'auth_otp_variable_required' => 'An AUTHENTICATION template must contain the {{1}} OTP variable.',
+        'auth_single_variable_required' => 'An AUTHENTICATION template may only contain the single {{1}} OTP variable.',
+        'account_not_ready' => 'The WhatsApp account must be active, configured, and its connection test must have passed.',
     ],
+
+    'otp' => [
+        'title' => 'OTP Settings',
+        'fetched' => 'OTP settings retrieved.',
+        'updated' => 'OTP settings updated.',
+        'saved' => 'OTP settings saved.',
+        'sent' => 'OTP sent successfully.',
+        'disabled' => 'OTP delivery is disabled.',
+        'no_channel_available' => 'No delivery channel available for this country.',
+    ],
+
 ];

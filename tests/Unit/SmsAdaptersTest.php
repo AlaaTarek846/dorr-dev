@@ -3,8 +3,10 @@
 namespace Tests\Unit;
 
 use App\Models\Country;
+use Illuminate\Support\Facades\Http;
 use Modules\Sms\Contracts\Sms\SmsProviderInterface;
 use Modules\Sms\Exceptions\SmsException;
+use Modules\Sms\Services\Sms\Adapters\FourJawalySmsAdapter;
 use Modules\Sms\Services\Sms\Adapters\SmsMisrSmsAdapter;
 use Modules\Sms\Services\Sms\Adapters\TwilioSmsAdapter;
 use Modules\Sms\Services\Sms\PhoneNumberNormalizer;
@@ -30,6 +32,7 @@ class SmsAdaptersTest extends TestCase
         return [
             'twilio' => ['twilio', TwilioSmsAdapter::class],
             'sms_misr' => ['sms_misr', SmsMisrSmsAdapter::class],
+            'four_jawaly' => ['four_jawaly', FourJawalySmsAdapter::class],
         ];
     }
 
@@ -239,10 +242,100 @@ class SmsAdaptersTest extends TestCase
         $this->assertSame('Twilio', $service->label('twilio'));
     }
 
+    public function test_four_jawaly_sends_with_basic_auth_and_bare_international_number(): void
+    {
+        Http::fake([
+            'api-sms.4jawaly.com/api/v1/account/area/sms/send' => Http::response([
+                'job_id' => 'job-123',
+                'messages' => [['err_text' => null]],
+            ], 200),
+        ]);
+
+        $result = (new FourJawalySmsAdapter)->send([
+            'api_key' => 'key-123',
+            'api_secret' => 'secret-456',
+            'sender' => 'Dorr',
+        ], [
+            'to' => '+966501234567',
+            'message' => 'Hello',
+            'from' => null,
+        ]);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame('job-123', $result['provider_message_id']);
+
+        Http::assertSent(function ($request) {
+            $body = json_decode($request->body(), true);
+
+            return $request->url() === 'https://api-sms.4jawaly.com/api/v1/account/area/sms/send'
+                && $request->hasHeader('Authorization', 'Basic '.base64_encode('key-123:secret-456'))
+                && $body['messages'][0]['numbers'] === ['966501234567']
+                && $body['messages'][0]['sender'] === 'Dorr'
+                && $body['messages'][0]['text'] === 'Hello';
+        });
+    }
+
+    public function test_four_jawaly_send_reports_per_message_errors(): void
+    {
+        Http::fake([
+            'api-sms.4jawaly.com/api/v1/account/area/sms/send' => Http::response([
+                'job_id' => 'job-999',
+                'messages' => [['err_text' => 'Invalid sender name']],
+            ], 200),
+        ]);
+
+        $result = (new FourJawalySmsAdapter)->send([
+            'api_key' => 'k',
+            'api_secret' => 's',
+            'sender' => 'Dorr',
+        ], [
+            'to' => '966501234567',
+            'message' => 'Hello',
+        ]);
+
+        $this->assertFalse($result['success']);
+        $this->assertStringContainsString('Invalid sender name', $result['message']);
+    }
+
+    public function test_four_jawaly_balance_sums_current_points(): void
+    {
+        Http::fake([
+            'api-sms.4jawaly.com/api/v1/account/area/me/packages*' => Http::response([
+                'collection' => [
+                    ['id' => 1, 'current_points' => 120],
+                    ['id' => 2, 'current_points' => 30.5],
+                ],
+            ], 200),
+        ]);
+
+        $result = (new FourJawalySmsAdapter)->getBalance(['api_key' => 'k', 'api_secret' => 's']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(150.5, $result['balance']);
+        $this->assertSame('points', $result['currency']);
+    }
+
+    public function test_four_jawaly_reads_senders_from_both_shapes(): void
+    {
+        Http::fake([
+            'api-sms.4jawaly.com/api/v1/account/area/senders*' => Http::response([
+                'items' => [
+                    ['sender_name' => 'Dorr', 'is_default' => true],
+                    ['sender_name' => 'Support'],
+                    ['sender_name' => 'Dorr'],
+                ],
+            ], 200),
+        ]);
+
+        $result = (new FourJawalySmsAdapter)->getSenderIds(['api_key' => 'k', 'api_secret' => 's']);
+
+        $this->assertTrue($result['success']);
+        $this->assertSame(['Dorr', 'Support'], $result['senders']);
+    }
+
     /* ------------------------------------------------------------------ *
      | Country-driven E.164 normalization
      * ------------------------------------------------------------------ */
-
     public function test_normalizer_converts_national_numbers_using_the_selected_country(): void
     {
         $normalizer = app(PhoneNumberNormalizer::class);

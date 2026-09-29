@@ -45,7 +45,7 @@ abstract class BaseSmsAdapter implements SmsProviderInterface
     /**
      * Remove likely secret tokens from an error string as a final safety net.
      */
-    protected function stripSensitive(string $message): string
+    public static function stripSensitive(string $message): string
     {
         return preg_replace('/(token|apikey|api_key|password|secret|auth)\W+[A-Za-z0-9_\-\.=]{6,}/i', '$1 ****', $message) ?: $message;
     }

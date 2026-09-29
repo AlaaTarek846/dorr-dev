@@ -36,7 +36,7 @@ still only ever reads account credentials.
 **`SmsAdapterRegistry` is the only place provider keys are known.** Controllers
 never hard-code a provider name. Adding a provider means writing an adapter and
 registering it in the registry — no controller, model, or resource changes.
-Supported keys: `twilio`, `sms_misr`.
+Supported keys: `twilio`, `sms_misr`, `four_jawaly`.
 
 **Encryption happens once, in the model.** `SmsAccount` casts
 `configuration` as `encrypted:array`. `SmsAdapterRegistry::prepareConfiguration()`

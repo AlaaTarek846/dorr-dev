@@ -5,23 +5,24 @@ namespace Modules\Sms\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
-use Illuminate\Routing\Controllers\Middleware;
-use Illuminate\Validation\Rule;
 use Modules\Sms\Exceptions\SmsException;
 use Modules\Sms\Http\Resources\WhatsAppResource;
+use Modules\Sms\Http\Resources\WhatsAppTemplateResource;
 use Modules\Sms\Models\WhatsApp;
-use Modules\Sms\Models\WhatsAppTemplate;
+use Modules\Sms\Models\WhatsAppCountry;
+use Modules\Sms\Services\Otp\WhatsAppTemplateService;
 use Modules\Sms\Services\Sms\Adapters\MetaWhatsAppAdapter;
 
 /**
  * WhatsApp configuration and template management endpoints.
+ *
+ * Dorr keeps ONE WhatsApp configuration, so store() upserts that single row.
  */
 class WhatsAppController extends Controller implements HasMiddleware
 {
-    public function __construct() {}
-
     public static function middleware(): array
     {
         return AdminPermissionMiddleware::fromActionMethodMap('whatsapp', [
@@ -32,137 +33,179 @@ class WhatsAppController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function index(): \Illuminate\Http\JsonResponse
+    public function index(): JsonResponse
     {
-        $whatsapp = WhatsApp::query()->first();
-
         return ApiResponse::success(
-            new WhatsAppResource($whatsapp),
+            new WhatsAppResource($this->first()),
             __('sms.whatsapp.fetched'),
         );
     }
 
-    public function show(): \Illuminate\Http\JsonResponse
+    public function show(): JsonResponse
     {
-        $whatsapp = WhatsApp::query()->first();
-
         return ApiResponse::success(
-            new WhatsAppResource($whatsapp),
+            new WhatsAppResource($this->first()),
             __('sms.whatsapp.fetched'),
         );
     }
 
-    public function store(Request $request): \Illuminate\Http\JsonResponse
+    public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['required', 'string', 'max:150'],
-            'access_token' => ['required', 'string'],
-            'phone_number_id' => ['required', 'string'],
-            'business_account_id' => ['required', 'string'],
-            'api_version' => ['nullable', 'string'],
-            'is_active' => ['boolean'],
-        ]);
+        // Only one WhatsApp instance exists, so this endpoint is an upsert:
+        // credentials stay optional once the row has been created.
+        $exists = $this->first() !== null;
+        $validated = $request->validate($this->rules(required: ! $exists));
 
-        // Only one WhatsApp instance is allowed.
-        $whatsapp = WhatsApp::query()->first();
+        $whatsapp = $this->first();
 
         if ($whatsapp) {
-            $whatsapp->update($validated);
+            $whatsapp->update($this->credentials($validated));
+            $whatsapp = $whatsapp->refresh();
         } else {
-            $whatsapp = WhatsApp::create($validated);
+            $whatsapp = WhatsApp::create($this->credentials($validated));
         }
 
-        return ApiResponse::success(new WhatsAppResource($whatsapp), __('sms.whatsapp.updated'));
+        $this->syncCountries($whatsapp, $validated['countries'] ?? null);
+
+        return ApiResponse::success(new WhatsAppResource($whatsapp->refresh()), __('sms.whatsapp.updated'));
     }
 
-    public function update(Request $request): \Illuminate\Http\JsonResponse
+    public function update(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => ['sometimes', 'string', 'max:150'],
-            'access_token' => ['sometimes', 'string'],
-            'phone_number_id' => ['sometimes', 'string'],
-            'business_account_id' => ['sometimes', 'string'],
-            'api_version' => ['sometimes', 'string'],
-            'is_active' => ['boolean'],
-        ]);
+        $validated = $request->validate($this->rules(required: false));
 
-        $whatsapp = WhatsApp::query()->first();
+        $whatsapp = $this->first();
 
         if (! $whatsapp) {
             throw new SmsException(__('sms.whatsapp.not_configured'), 422, 'whatsapp_not_configured');
         }
 
-        $whatsapp->update($validated);
+        $whatsapp->update($this->credentials($validated));
+        $this->syncCountries($whatsapp, $validated['countries'] ?? null);
 
-        return ApiResponse::success(new WhatsAppResource($whatsapp), __('sms.whatsapp.updated'));
+        return ApiResponse::success(new WhatsAppResource($whatsapp->refresh()), __('sms.whatsapp.updated'));
     }
 
-    public function testConnection(): \Illuminate\Http\JsonResponse
+    public function testConnection(): JsonResponse
     {
-        $whatsapp = WhatsApp::query()->first();
+        $whatsapp = $this->first();
 
         if (! $whatsapp) {
             throw new SmsException(__('sms.whatsapp.not_configured'), 422, 'whatsapp_not_configured');
         }
 
-        $adapter = new MetaWhatsAppAdapter($whatsapp->configuration_plaintext);
-        $result = $adapter->testConnection();
+        $result = (new MetaWhatsAppAdapter($whatsapp->configuration_plaintext))->testConnection();
 
         $whatsapp->update([
             'last_tested_at' => now(),
             'test_status' => $result['success'] ? 'passed' : 'failed',
             'test_error' => $result['success'] ? null : ($result['message'] ?? null),
+            'is_available' => $result['success'],
         ]);
 
-        return ApiResponse::success($result, $result['success'] ? __('sms.whatsapp.connection_successful') : __('sms.whatsapp.connection_failed'));
+        return ApiResponse::success(
+            ['result' => $result, 'whatsapp' => new WhatsAppResource($whatsapp->refresh())],
+            $result['success'] ? __('sms.whatsapp.connection_successful') : __('sms.whatsapp.connection_failed'),
+        );
     }
 
-    public function syncTemplate(Request $request): \Illuminate\Http\JsonResponse
+    /**
+     * Find-or-create a template from a name + language pair and refresh its
+     * status from Meta. Used to adopt a template that was created directly in
+     * the Meta dashboard.
+     */
+    public function syncTemplate(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'template_name' => ['required', 'string', 'max:120'],
-            'language' => ['required', 'string', 'max:10'],
+            'language_id' => ['required', 'integer', 'exists:languages,id'],
         ]);
 
-        $whatsapp = WhatsApp::query()->first();
+        $whatsapp = $this->first();
 
         if (! $whatsapp) {
             throw new SmsException(__('sms.whatsapp.not_configured'), 422, 'whatsapp_not_configured');
         }
 
-        $adapter = new MetaWhatsAppAdapter($whatsapp->configuration_plaintext);
-        $result = $adapter->validateTemplate($validated['template_name']);
+        $template = $whatsapp->templates()->firstOrNew([
+            'template_name' => $validated['template_name'],
+            'language_id' => $validated['language_id'],
+        ]);
 
-        // Find or create the template.
-        $template = $whatsapp->templates()->where('template_name', $validated['template_name'])
-            ->where('language', $validated['language'])
-            ->first();
-
-        if (! $template) {
-            $template = WhatsAppTemplate::create([
-                'whatsapp_id' => $whatsapp->id,
-                'template_name' => $validated['template_name'],
-                'language' => $validated['language'],
-                'meta_status' => 'unknown',
-                'is_active' => false,
-            ]);
+        if (! $template->exists) {
+            $template->fill(['meta_status' => 'unknown', 'is_active' => false])->save();
         }
 
-        // Meta approval status: use Meta result if available, otherwise keep 'pending' locally.
-        if ($result['success']) {
-            $template->update([
-                'meta_status' => 'approved',
-                'last_synced_at' => now(),
-                'is_active' => true,
-            ]);
-        } else {
-            $template->update([
-                'meta_status' => 'pending',
-                'last_synced_at' => now(),
-                'test_error' => $result['message'] ?? null,
-            ]);
+        $service = app(WhatsAppTemplateService::class);
+        $result = $service->syncWithMeta($template->id);
+
+        return ApiResponse::success(
+            ['result' => $result, 'template' => new WhatsAppTemplateResource($template->refresh())],
+            $result['success'] ? __('sms.whatsapp.template_synced') : __('sms.whatsapp.sync_failed'),
+        );
+    }
+
+    /* --------------------------------------------------------------------- *
+     | Internals
+     * --------------------------------------------------------------------- */
+
+    protected function first(): ?WhatsApp
+    {
+        return WhatsApp::query()->first();
+    }
+
+    /**
+     * @return array<string, array<int, mixed>>
+     */
+    protected function rules(bool $required): array
+    {
+        $presence = $required ? 'required' : 'sometimes';
+
+        return [
+            'name' => [$presence, 'string', 'max:150'],
+            'access_token' => [$presence, 'string', 'max:2000'],
+            'phone_number_id' => [$presence, 'string', 'max:100'],
+            'phone_number' => ['nullable', 'string', 'max:20', 'regex:/^\+?[0-9]{6,20}$/'],
+            'phone_country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'business_account_id' => [$presence, 'string', 'max:100'],
+            'api_version' => ['nullable', 'string', 'max:20', 'regex:/^v\d+\.\d+$/'],
+            'is_active' => ['boolean'],
+            'countries' => ['nullable', 'array'],
+            'countries.*' => ['integer', 'exists:countries,id'],
+        ];
+    }
+
+    /**
+     * Keep only the model attributes — `countries` is a relation.
+     *
+     * @return array<string, mixed>
+     */
+    protected function credentials(array $validated): array
+    {
+        return array_intersect_key($validated, array_flip([
+            'name', 'access_token', 'phone_number_id', 'phone_number',
+            'phone_country_id', 'business_account_id', 'api_version', 'is_active',
+        ]));
+    }
+
+    /**
+     * @param  array<int, int>|null  $countryIds  null leaves the relation untouched
+     */
+    protected function syncCountries(WhatsApp $whatsapp, ?array $countryIds): void
+    {
+        if ($countryIds === null) {
+            return;
         }
 
-        return ApiResponse::success(['template' => new WhatsAppTemplateResource($template)], __('sms.whatsapp.template_synced'));
+        $countryIds = array_values(array_unique(array_map('intval', $countryIds)));
+
+        $whatsapp->countries()->whereNotIn('country_id', $countryIds ?: [0])->delete();
+
+        foreach ($countryIds as $countryId) {
+            WhatsAppCountry::firstOrCreate(
+                ['whatsapp_id' => $whatsapp->id, 'country_id' => $countryId],
+                ['is_active' => true],
+            );
+        }
     }
 }

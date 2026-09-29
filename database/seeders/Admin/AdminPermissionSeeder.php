@@ -250,6 +250,7 @@ class AdminPermissionSeeder extends Seeder
                     'view',
                     'create',
                     'update',
+                    'delete',
                     'test',
                 ],
             ],

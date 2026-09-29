@@ -11,6 +11,7 @@ use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\Sms\Models\SmsProvider;
 use Modules\Sms\Services\Sms\SmsAvailabilityService;
+use Modules\Sms\Services\Sms\SmsProviderService;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -113,6 +114,11 @@ class SmsModuleTest extends TestCase
                 'password' => 'misr-pass-secret',
                 'sender' => 'DORR',
             ],
+            'four_jawaly' => [
+                'api_key' => 'jawaly-api-key',
+                'api_secret' => 'jawaly-api-secret',
+                'sender' => 'DORR',
+            ],
         ][$key] ?? [];
     }
 
@@ -200,7 +206,7 @@ class SmsModuleTest extends TestCase
         $response->assertOk();
 
         $types = collect($response->json('data'));
-        $this->assertCount(2, $types, 'Both registered adapters must be exposed');
+        $this->assertCount(3, $types, 'Every registered adapter must be exposed');
 
         $twilio = $types->firstWhere('value', 'twilio');
         $this->assertNotNull($twilio);
@@ -209,6 +215,10 @@ class SmsModuleTest extends TestCase
         $misr = $types->firstWhere('value', 'sms_misr');
         $this->assertNotNull($misr);
         $this->assertNotEmpty($misr['fields'], 'Each adapter must expose its configuration schema');
+
+        $jawaly = $types->firstWhere('value', 'four_jawaly');
+        $this->assertNotNull($jawaly);
+        $this->assertNotEmpty($jawaly['fields'], 'Each adapter must expose its configuration schema');
     }
 
     /* ------------------------------------------------------------------ *
@@ -444,7 +454,7 @@ class SmsModuleTest extends TestCase
         $misr = $this->smsMisrConfiguredProvider(['priority' => 2]);
         $misr->countries()->attach($this->egypt->id, ['is_active' => true]);
 
-        $available = app(\Modules\Sms\Services\Sms\SmsProviderService::class)
+        $available = app(SmsProviderService::class)
             ->activeProvidersForCountry($this->egypt);
 
         $keys = $available->pluck('key')->all();
@@ -453,7 +463,7 @@ class SmsModuleTest extends TestCase
         $this->assertSame('twilio', $keys[0], 'Twilio has lower priority');
 
         // Saudi only has Twilio.
-        $saudiProviders = app(\Modules\Sms\Services\Sms\SmsProviderService::class)
+        $saudiProviders = app(SmsProviderService::class)
             ->activeProvidersForCountry($this->saudi);
         $this->assertCount(1, $saudiProviders);
         $this->assertSame('twilio', $saudiProviders->first()->key);
@@ -467,7 +477,7 @@ class SmsModuleTest extends TestCase
         // Inactive country mapping should not count.
         $twilio->countries()->updateExistingPivot($this->egypt->id, ['is_active' => false]);
 
-        $available = app(\Modules\Sms\Services\Sms\SmsProviderService::class)
+        $available = app(SmsProviderService::class)
             ->activeProvidersForCountry($this->egypt);
         $this->assertCount(0, $available);
     }

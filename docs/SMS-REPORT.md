@@ -118,7 +118,7 @@ Route → Controller → Service → Repository/Model
 **ملاحظة:** لا `SubstituteBindings` — الـ controllers تستقبل id خام والـ service يحلها بـ `findOrFail()`.
 
 ### 4.2 الـ خدمات — `Modules/Sms/App/Services/Sms/`
-- **`SmsAdapterRegistry`** — سجل المزوّدين الوحيد (المفاتيح: `twilio`, `sms_misr`). يوفّر: `keys()`, `registry()`, `adapter()`, `label()`, `configurationSchema()`, `capabilities()`, `prepareConfiguration()` (تطبيع + حفظ الأسرار عند التعديل)، `validateConfiguration()`، `testConnection()`, `getBalance()`, `getSenderIds()`.
+- **`SmsAdapterRegistry`** — سجل المزوّدين الوحيد (المفاتيح: `twilio`, `sms_misr`, `four_jawaly`). يوفّر: `keys()`, `registry()`, `adapter()`, `label()`, `configurationSchema()`, `capabilities()`, `prepareConfiguration()` (تطبيع + حفظ الأسرار عند التعديل)، `validateConfiguration()`، `testConnection()`, `getBalance()`, `getSenderIds()`.
 - **`SmsProviderService`** — إدارة المزوّدين: create/update مع `prepareConfiguration` و`assertConfigurationComplete`، readiness، `dropdown()`, `types()`، و**`testDraft(key, config, providerId?)`** يدمج الأسرار المخزّنة عند التعديل ثم اتصال حي بالـ adapter.
 - **`SmsAccountService`** — إدارة الحسابات: إنشاء/تعديل مع تحقق schema المزوّد المختار + حفظ الأسرار، `clearOtherDefaults()` (حساب افتراضي واحد)، `testConnection()` يحدّث `test_status`، `testDraft()`, `balance()` (غير متاح لـ SMS Misr)، `sendTest()` مع تحذير عند غياب sandbox.
 - **`SmsService`** — بوابة الإرسال: `send()` + `sendTestMessage()` — يتحقق `assertUsable` (حساب فعّال + اختبار ناجح + مزوّد فعّال)، يطبّع الرقم حسب الدولة، يقدّر الأجزاء، يدعم `test_only`.
@@ -130,6 +130,7 @@ Route → Controller → Service → Repository/Model
 - **`BaseSmsAdapter`** — قاعدة: `stripSensitive()` (تنظيف الأسرار من رسائل الخطأ)، `isTestModeEnabled()`, `normalizeHttpError()`.
 - **`TwilioSmsAdapter`** — schema: `account_sid` (secret), `auth_token` (secret), `from`, `test_mode` bool, `test_phone_number`. Capabilities: send_sms, send_bulk, balance, test_mode, delivery_reports, sender_ids. API: `Balance.json` + `Messages.json` (Basic Auth).
 - **`SmsMisrSmsAdapter`** — schema: `username` (secret), `password` (secret), `sender`, `environment` (select live/test). Capabilities: send_sms, send_bulk, test_mode, sender_approval (**لا balance**). API: `https://smsmisr.com/api/SMS/` مع خريطة أكواد `1901-1912`.
+- **`FourJawalySmsAdapter`** (مضاف لاحقًا) — schema: `api_key` (secret), `api_secret` (secret), `sender`. Capabilities: send_sms, send_bulk, balance, sender_ids, sender_approval (**لا test_mode**). API: `https://api-sms.4jawaly.com/api/v1` مع Basic Auth مبني من `api_key:api_secret`، والاختبار يقرأ `/account/area/senders` (قراءة فقط) بدون إرسال رسالة مدفوعة.
 - **(حُذفت):** Vonage, Infobip, Bird/MessageBird, SMS Smart Egypt, MoceanAPI — أُزيلت من الـ registry وملفاتها محذوفة (بناءً على طلب المستخدم: Twilio + SMS Misr فقط).
 
 ### 4.4 Requests
@@ -242,7 +243,7 @@ Route → Controller → Service → Repository/Model
 - `Modules/Sms/routes/admin.php`
 - `Modules/Sms/app/Http/Controllers/SmsProviderController.php` · `SmsAccountController.php`
 - `Modules/Sms/app/Services/Sms/SmsAdapterRegistry.php` · `SmsProviderService.php` · `SmsAccountService.php` · `SmsService.php` · `SmsAvailabilityService.php` · `SmsMessageHelper.php` · `PhoneNumberNormalizer.php`
-- `Modules/Sms/app/Services/Sms/Adapters/TwilioSmsAdapter.php` · `SmsMisrSmsAdapter.php` · `BaseSmsAdapter.php`
+- `Modules/Sms/app/Services/Sms/Adapters/TwilioSmsAdapter.php` · `SmsMisrSmsAdapter.php` · `FourJawalySmsAdapter.php` · `BaseSmsAdapter.php`
 - `Modules/Sms/app/Models/SmsProvider.php` · `SmsAccount.php`
 - `Modules/Sms/app/Http/Requests/SmsProviderRequest.php` · `SmsAccountRequest.php` · `SmsSendTestRequest.php`
 - `Modules/Sms/app/Http/Resources/SmsProviderResource.php` · `SmsAccountResource.php`

@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Sms\Http\Controllers\OtpController;
 use Modules\Sms\Http\Controllers\SmsProviderController;
 use Modules\Sms\Http\Controllers\WhatsAppController;
+use Modules\Sms\Http\Controllers\WhatsAppTemplateController;
 
 Route::middleware('auth:admin_api')->group(function () {
     /* ------------------------------------------------------------------ *
@@ -28,6 +29,20 @@ Route::middleware('auth:admin_api')->group(function () {
     Route::patch('whatsapp', [WhatsAppController::class, 'update']);
     Route::post('whatsapp/test-connection', [WhatsAppController::class, 'testConnection']);
     Route::post('whatsapp/sync-template', [WhatsAppController::class, 'syncTemplate']);
+
+    /* ------------------------------------------------------------------ *
+     | WhatsApp Templates
+     * ------------------------------------------------------------------ */
+    Route::get('whatsapp/templates', [WhatsAppTemplateController::class, 'index']);
+    Route::post('whatsapp/templates', [WhatsAppTemplateController::class, 'store']);
+    Route::post('whatsapp/templates/import', [WhatsAppTemplateController::class, 'importFromMeta']);
+    Route::get('whatsapp/templates/{template}', [WhatsAppTemplateController::class, 'show']);
+    Route::put('whatsapp/templates/{template}', [WhatsAppTemplateController::class, 'update']);
+    Route::patch('whatsapp/templates/{template}', [WhatsAppTemplateController::class, 'update']);
+    Route::delete('whatsapp/templates/{template}', [WhatsAppTemplateController::class, 'destroy']);
+    Route::post('whatsapp/templates/{template}/submit', [WhatsAppTemplateController::class, 'submit']);
+    Route::post('whatsapp/templates/{template}/sync', [WhatsAppTemplateController::class, 'sync']);
+    Route::post('whatsapp/templates/sync', [WhatsAppTemplateController::class, 'syncAll']);
 
     /* ------------------------------------------------------------------ *
      | OTP

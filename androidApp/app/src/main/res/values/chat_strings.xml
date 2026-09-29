@@ -298,4 +298,22 @@
     <string name="ch_report_evidence_note">The last 30 messages of this chat are sent with the report. Nobody is told you reported.</string>
     <string name="ch_report_sent">Report sent — thank you</string>
     <string name="ch_call_people">%d people</string>
+    <string name="ch_by_number">By number</string>
+    <string name="ch_add_by_phone">Chat by phone number</string>
+    <string name="ch_add_by_phone_sub">Type the whole number, then check it</string>
+    <string name="ch_phone_any_format">With or without the country code — both work</string>
+    <string name="ch_phone_digits_left">%1$d more digits</string>
+    <string name="ch_phone_too_long">Too long — numbers here have %1$d digits</string>
+    <string name="ch_phone_wrong_start">Numbers here start with %1$s</string>
+    <string name="ch_check_number">Check number</string>
+    <string name="ch_save_contact">Save contact</string>
+    <string name="ch_contact_saved">Saved to your contacts</string>
+    <string name="ch_message">Message</string>
+    <string name="ch_number_not_on_dorr">%1$s isn\'t on Dorr yet</string>
+    <string name="ch_search_country">Search country or code</string>
+    <string name="ch_search_contacts">Search name or number</string>
+    <string name="ch_group_empty_title">None of your contacts are on Dorr yet</string>
+    <string name="ch_group_empty_sub">Add people to the group by their phone number, or invite your friends to join Dorr.</string>
+    <string name="ch_invite_friends">Invite friends</string>
+    <string name="ch_add_to_group">Add to group</string>
 </resources>

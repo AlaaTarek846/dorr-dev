@@ -42,10 +42,10 @@ class OtpController extends Controller implements HasMiddleware
             'enabled' => ['boolean'],
             'preferred_channel' => ['required', Rule::in(['whatsapp', 'sms'])],
             'fallback_channel' => ['required', Rule::in(['sms', 'whatsapp'])],
-            'otp_length' => ['integer', 'min' => 4, 'max' => 10],
-            'expiration_minutes' => ['integer', 'min' => 1],
-            'resend_cooldown_seconds' => ['integer', 'min' => 10],
-            'max_attempts' => ['integer', 'min' => 1],
+            'otp_length' => ['integer', 'min:4', 'max:10'],
+            'expiration_minutes' => ['integer', 'min:1'],
+            'resend_cooldown_seconds' => ['integer', 'min:10'],
+            'max_attempts' => ['integer', 'min:1'],
         ]);
 
         $setting = $this->settings->update($validated);

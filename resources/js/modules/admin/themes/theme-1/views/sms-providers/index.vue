@@ -110,7 +110,7 @@
                                         </th>
                                         <th scope="col">{{ t('sms.providers.name') }}</th>
                                         <th scope="col">{{ t('sms.providers.available') }}</th>
-                                        <th scope="col">{{ t('sms.providers.accounts_count') }}</th>
+                                        <th scope="col">{{ t('sms.providers.priority') }}</th>
                                         <th scope="col">{{ t('sms.providers.test_status') }}</th>
                                         <th scope="col">{{ t('sms.providers.status') }}</th>
                                         <th scope="col">{{ t('sms.providers.created_at') }}</th>
@@ -174,7 +174,7 @@
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-primary-transparent">{{ provider.accounts_count ?? 0 }}</span>
+                                            <span class="badge bg-primary-transparent">{{ provider.priority ?? 1 }}</span>
                                         </td>
                                         <td>
                                             <TestStatusBadge :test-status="provider.test_status" :test-error="provider.test_error" />

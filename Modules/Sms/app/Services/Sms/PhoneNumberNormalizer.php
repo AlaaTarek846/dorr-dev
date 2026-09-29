@@ -46,13 +46,13 @@ class PhoneNumberNormalizer
         $digits = preg_replace('/\D+/', '', $to) ?? '';
 
         if ($digits === '') {
-            throw new SmsException(__('sms.accounts.invalid_recipient', ['phone' => $to]));
+            throw new SmsException(__('sms.providers.invalid_recipient', ['phone' => $to]));
         }
 
         $dialCode = ltrim((string) $country->dial_code, '+');
 
         if ($dialCode === '') {
-            throw new SmsException(__('sms.accounts.country_missing_dial_code'));
+            throw new SmsException(__('sms.providers.country_missing_dial_code'));
         }
 
         return $wasInternational
@@ -66,7 +66,7 @@ class PhoneNumberNormalizer
     protected function fromInternational(string $digits, string $dialCode, Country $country, string $original): string
     {
         if (! str_starts_with($digits, $dialCode)) {
-            throw new SmsException(__('sms.accounts.country_mismatch', ['phone' => $original]));
+            throw new SmsException(__('sms.providers.country_mismatch', ['phone' => $original]));
         }
 
         $nsn = substr($digits, strlen($dialCode));
@@ -125,7 +125,7 @@ class PhoneNumberNormalizer
 
     protected function lengthException(string $original, Country $country): SmsException
     {
-        return new SmsException(__('sms.accounts.invalid_recipient_length', [
+        return new SmsException(__('sms.providers.invalid_recipient_length', [
             'phone' => $original,
             'length' => (int) $country->phone_length,
             'starts_with' => (string) $country->phone_starts_with,

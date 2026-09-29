@@ -299,7 +299,6 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAccountBackdrop
             ),
         )
     }
-    }
 }
 
 @Composable
@@ -390,11 +389,7 @@ private fun ProfileMenuScreen(
                         .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
-<<<<<<< HEAD
-                    Icon(Icons.Rounded.Person, contentDescription = null, tint = if (dark) AccountDark.accent else settingsAccent(), modifier = Modifier.size(28.dp))
-=======
                     AccountAvatar(user = user, dark = dark, size = 56.dp)
->>>>>>> main
                 }
                 Spacer(Modifier.width(10.dp))
                 Column(modifier = Modifier.weight(1f)) {

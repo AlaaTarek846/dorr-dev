@@ -97,9 +97,14 @@
                                         {{ t('sidebar.sms_items.providers') }}
                                     </router-link>
                                 </li>
-                                <li v-if="can('sms-accounts.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.accounts.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.accounts') }}
+                                <li v-if="can('whatsapp.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.whatsapp') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('otp-settings.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.otp') }}
                                     </router-link>
                                 </li>
                             </ul>
@@ -323,7 +328,7 @@ onMounted(() => {
 });
 
 const showSmsSection = computed(
-    () => can('sms-providers.view') || can('sms-accounts.view'),
+    () => can('sms-providers.view') || can('whatsapp.view') || can('otp-settings.view'),
 );
 
 /** Providers nav has no permission gate yet; section shows if it or service categories are visible. */

@@ -35,6 +35,8 @@ sealed interface WaSheet {
         val subtitle: String,
         val onSubmit: suspend (String) -> PinOutcome,
         val onClose: (String) -> Unit,
+        /** A temporary PIN lock already running when the sheet opens (epoch ms) — shows the countdown. */
+        val lockedUntil: Long? = null,
     ) : WaSheet
 }
 

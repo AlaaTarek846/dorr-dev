@@ -64,10 +64,9 @@ class WhatsAppOtpProvider
         $config = $whatsapp->configuration_plaintext;
         $adapter = new MetaWhatsAppAdapter($config);
 
-        return $adapter->sendOtp($to, $template->template_name, [
-            'otp' => $otp,
-            'expiration' => (string) $expiresIn,
-        ]);
+        // Positional values in {{n}} order — an AUTHENTICATION body only has
+        // {{1}} (the one-time code), so the expiration is never a parameter.
+        return $adapter->sendOtp($to, $template->template_name, $template->metaLanguageCode(), [$otp]);
     }
 
     /**
@@ -93,13 +92,14 @@ class WhatsAppOtpProvider
     }
 
     /**
-     * The approved (Meta-approved) template, or null.
+     * The approved (Meta-approved) AUTHENTICATION template, or null.
      */
     protected function approvedTemplate(WhatsApp $whatsapp): ?WhatsAppTemplate
     {
         return $whatsapp->templates()
             ->where('is_active', true)
             ->where('meta_status', 'approved')
+            ->where('category', 'AUTHENTICATION')
             ->first();
     }
 }

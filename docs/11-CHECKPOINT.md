@@ -29,7 +29,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - `RedirectIfAuthenticated`: JSON 403 for authenticated guests on `api/provider/*`
 - `SocialAuthService::authenticate(..., $allowRegistration)` — explicit registration flag for OAuth
 - SMS module via `Modules/Sms/routes/admin.php`: `/api/admin/v1/sms-providers*` and `/api/admin/v1/sms-accounts*` (CRUD, status, single default, connection test, draft test, send test, balance)
-- SMS provider registry with 2 adapters (twilio, sms_misr); `SmsProvider` holds identity/status plus an optional encrypted per-provider `configuration` (seeds the account form, supports `test-draft`), while `SmsAccount` is the single source of truth for sending credentials (`encrypted:array` cast)
+- SMS provider registry with 3 adapters (twilio, sms_misr, four_jawaly); `SmsProvider` holds identity/status plus an optional encrypted per-provider `configuration` (seeds the account form, supports `test-draft`), while `SmsAccount` is the single source of truth for sending credentials (`encrypted:array` cast)
 - `SmsException implements ApiRenderable` — service-layer business errors become standard API error envelopes without controller try/catch
 - Country-driven E.164 normalisation (`PhoneNumberNormalizer`) using `Country::dial_code` / `phone_starts_with` / `phone_length`; no `libphonenumber` in the project
 - See [docs/modules/sms/README.md](./modules/sms/README.md)

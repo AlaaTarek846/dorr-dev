@@ -248,6 +248,8 @@ data class PinStatusDto(
     /** Permanently locked (a wrong attempt right after a temporary lock) — only a selfie + ID, reviewed
      *  by a person, lifts it. Nothing else works while this is true, self-service recovery included. */
     @SerializedName("is_frozen") val isFrozen: Boolean = false,
+    /** A temporary lock still running (ISO-8601) — the pad opens on its countdown, not the keys. */
+    @SerializedName("locked_until") val lockedUntil: String? = null,
     /** The recovery method on file; null until one is chosen. */
     val recovery: RecoveryInfoDto? = null,
     /** The latest recovery/freeze request, if any. */
