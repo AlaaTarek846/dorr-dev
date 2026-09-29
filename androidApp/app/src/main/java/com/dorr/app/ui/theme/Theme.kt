@@ -5,39 +5,46 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontFamily
 
-private val LightColors = lightColorScheme(
-    primary = AppColors.primary,
-    secondary = AppColors.secondary,
-    error = AppColors.danger,
-    background = AppColors.background,
-    surface = AppColors.surface,
-    onPrimary = AppColors.surface,
-    onBackground = AppColors.textPrimary,
-    onSurface = AppColors.textPrimary,
-    outline = AppColors.border,
-)
-
-private val DarkColors = darkColorScheme(
-    primary = AppColors.primaryLight,
-    secondary = AppColors.secondary,
-    error = AppColors.danger,
-    background = AppColors.darkBackground,
-    surface = AppColors.darkSurface,
-    onPrimary = AppColors.surface,
-    onBackground = AppColors.darkTextPrimary,
-    onSurface = AppColors.darkTextPrimary,
-    outline = AppColors.darkBorder,
-)
+val LocalDorrFontFamily = androidx.compose.runtime.compositionLocalOf { CairoFontFamily }
 
 @Composable
 fun DorrTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    fontFamily: FontFamily = LocalDorrFontFamily.current,
     content: @Composable () -> Unit,
 ) {
+    val scheme = if (darkTheme) {
+        darkColorScheme(
+            primary = appearanceColor("primary", AppColors.primaryLight, night = true),
+            secondary = appearanceColor("secondary", AppColors.secondary, night = true),
+            error = appearanceColor("danger", AppColors.danger, night = true),
+            background = appearanceColor("background", AppColors.darkBackground, night = true),
+            surface = appearanceColor("surface", AppColors.darkSurface, night = true),
+            onPrimary = appearanceColor("surface", AppColors.surface, night = true),
+            onBackground = appearanceColor("textPrimary", AppColors.darkTextPrimary, night = true),
+            onSurface = appearanceColor("textPrimary", AppColors.darkTextPrimary, night = true),
+            outline = appearanceColor("border", AppColors.darkBorder, night = true),
+        )
+    } else {
+        lightColorScheme(
+            primary = appearanceColor("primary", AppColors.primary, night = false),
+            secondary = appearanceColor("secondary", AppColors.secondary, night = false),
+            error = appearanceColor("danger", AppColors.danger, night = false),
+            background = appearanceColor("background", AppColors.background, night = false),
+            surface = appearanceColor("surface", AppColors.surface, night = false),
+            onPrimary = appearanceColor("surface", AppColors.surface, night = false),
+            onBackground = appearanceColor("textPrimary", AppColors.textPrimary, night = false),
+            onSurface = appearanceColor("textPrimary", AppColors.textPrimary, night = false),
+            outline = appearanceColor("border", AppColors.border, night = false),
+        )
+    }
+    val typography = remember(fontFamily) { dorrTypography(fontFamily) }
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = DorrTypography,
+        colorScheme = scheme,
+        typography = typography,
         content = content,
     )
 }

@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 
@@ -42,10 +43,15 @@ import kotlinx.coroutines.delay
  * wire it to a real banners endpoint later, same shape as [DotIndicator].
  * Gradients are a 1:1 port of the preview's .banner-slide backgrounds.
  */
-private fun bannerGradient(page: Int): List<Color> = when (page % 3) {
-    1 -> listOf(Color(0xFFC40812), AppColors.waRed)
-    2 -> listOf(Color(0xFF111928), Color(0xFF374151))
-    else -> listOf(AppColors.waRed, Color(0xFFFF4D55))
+@Composable
+private fun bannerGradient(page: Int): List<Color> {
+    val brand = settingsAccent()
+    val deep = Color(brand.red * 0.72f, brand.green * 0.72f, brand.blue * 0.72f)
+    return when (page % 3) {
+        1 -> listOf(deep, brand)
+        2 -> listOf(Color(0xFF111928), Color(0xFF374151))
+        else -> listOf(brand, Color(brand.red + (1f - brand.red) * 0.35f, brand.green + (1f - brand.green) * 0.35f, brand.blue + (1f - brand.blue) * 0.35f))
+    }
 }
 
 @Composable
@@ -67,7 +73,7 @@ fun HeroBannerSlider(slides: List<String>, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 4.dp)
-                    .shadow(8.dp, RoundedCornerShape(14.dp), spotColor = AppColors.waRed.copy(alpha = 0.12f))
+                    .shadow(8.dp, RoundedCornerShape(14.dp), spotColor = settingsAccent().copy(alpha = 0.12f))
                     .clip(RoundedCornerShape(14.dp))
                     .background(Brush.linearGradient(bannerGradient(page))),
             ) {

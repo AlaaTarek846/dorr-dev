@@ -5,6 +5,8 @@ use App\Http\Controllers\General\CurrencyController;
 use App\Http\Controllers\General\DashboardThemeController;
 use App\Http\Controllers\General\FlagController;
 use App\Http\Controllers\General\LanguageController;
+use App\Http\Controllers\General\MobileAppColorDefaultController;
+use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
 use App\Http\Controllers\General\ServiceCategoryController;
 use Illuminate\Support\Facades\Route;
@@ -22,6 +24,16 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('auth:admin_api')->group(function () {
     Route::get('platform-settings', [PlatformSettingController::class, 'show']);
     Route::post('platform-settings', [PlatformSettingController::class, 'update']);
+
+    Route::get('mobile-app-color-defaults', [MobileAppColorDefaultController::class, 'show']);
+    Route::put('mobile-app-color-defaults', [MobileAppColorDefaultController::class, 'update']);
+
+    Route::get('mobile-app-fonts/dropdown', [MobileAppFontController::class, 'dropdown']);
+    Route::post('mobile-app-fonts/delete-multiple', [MobileAppFontController::class, 'deleteMultiple']);
+    Route::post('mobile-app-fonts/{mobile_app_font}/restore', [MobileAppFontController::class, 'restore']);
+    Route::delete('mobile-app-fonts/{mobile_app_font}/force', [MobileAppFontController::class, 'forceDestroy']);
+    Route::patch('mobile-app-fonts/{mobile_app_font}/status', [MobileAppFontController::class, 'changeStatus']);
+    Route::apiResource('mobile-app-fonts', MobileAppFontController::class);
 
     Route::get('service-categories/tree', [ServiceCategoryController::class, 'tree']);
     Route::get('service-categories/tree-options', [ServiceCategoryController::class, 'treeOptions']);

@@ -116,6 +116,23 @@ class PaymentMethodTest extends TestCase
         $this->assertEqualsCanonicalizing(['sa_method', 'global_method'], $codes);
     }
 
+    /**
+     * Point 16 of the wallet policy: a country with no active payment method gets a plain empty list
+     * from the real endpoint (not a 500, not another country's methods) — the app shows "not available
+     * in your country yet" from exactly this response, no separate "is the wallet enabled here" flag needed.
+     */
+    public function test_a_country_with_no_payment_method_gets_an_empty_list_not_an_error(): void
+    {
+        $this->method('sa_only')->countryLinks()->create(['country_id' => $this->saudi->id]);
+
+        $provider = Provider::create(['name' => 'P', 'email' => 'empty@example.com', 'country_id' => $this->egypt->id, 'status' => 'active']);
+        Sanctum::actingAs($provider, [], 'provider_api');
+
+        $this->getJson('/api/provider/v1/wallet/payment-methods', ['X-Country' => 'EG'])
+            ->assertOk()
+            ->assertJsonPath('data', []);
+    }
+
     // ------------------------------------------------------------ credentials
 
     public function test_credentials_are_encrypted_at_rest(): void

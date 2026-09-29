@@ -79,7 +79,9 @@ class UserRequest extends FormRequest
                 'max:50',
                 Rule::unique('users', 'email')->ignore($userId),
             ],
-            'phone' => ['nullable', 'string', 'max:50'],
+            // The admin panel is a trusted operator, unlike the self-service profile form — it may set
+            // the phone directly, but never a number already taken by another account.
+            'phone' => ['nullable', 'string', 'max:50', Rule::unique('users', 'phone')->ignore($userId)],
             'gender' => ['required', new Enum(Gender::class)],
             'country_id' => ['nullable', 'integer', 'exists:countries,id'],
             'status' => ['nullable', new Enum(UserStatus::class)],

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <aside class="app-sidebar sticky" id="sidebar">
         <div class="main-sidebar-header">
             <PlatformLogo href="/admin/dashboard" />
@@ -72,6 +72,44 @@
                             </li>
                         </ul>
                     </li>
+
+                    <template v-if="smsSectionReady && showSmsSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.sms') }}</span>
+                        </li>
+
+                        <li class="slide has-sub">
+                            <a
+                                href="javascript:void(0);"
+                                class="side-menu__item"
+                                @click.prevent="toggleSubMenu"
+                            >
+                                <i class="ri-message-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
+                                </li>
+                                <li v-if="can('sms-providers.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.providers') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('whatsapp.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.whatsapp') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('otp-settings.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.otp') }}
+                                    </router-link>
+                                </li>
+                            </ul>
+                        </li>
+                    </template>
 
                     <template v-if="showSystemUsersSection">
                         <li class="slide__category">
@@ -154,6 +192,19 @@
                             </li>
                         </template>
 
+                        <template v-if="showChatAdminSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.chat') }}</span>
+                            </li>
+
+                            <li v-for="item in chatAdminItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
                         <template v-if="showStaffSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.staff') }}</span>
@@ -192,6 +243,20 @@
                                     <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
                                 </router-link>
                             </li>
+
+                            <li v-if="can('mobile_app_fonts.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-fonts.index' }" class="side-menu__item">
+                                    <i class="ri-font-size-2 side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_fonts.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('mobile_app_color_defaults.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-colors' }" class="side-menu__item">
+                                    <i class="ri-smartphone-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_color_defaults.title') }}</span>
+                                </router-link>
+                            </li>
                         </template>
                     </template>
                 </ul>
@@ -207,7 +272,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import PlatformLogo from '../PlatformLogo.vue';
@@ -239,6 +304,33 @@ const showSystemUsersSection = computed(
     () => isSystemUsersVisible.value && can('users.view'),
 );
 
+/**
+ * The theme's sidebar script (defaultmenu.min.js) binds its own click toggle to every
+ * top-level `.slide.has-sub` that exists when it runs — which is after Vue mounts
+ * (useDashboard loads it dynamically). Chat/AI dropdowns escape that double-binding
+ * because they only render later. The SMS section must wait for the theme scripts to
+ * finish loading, otherwise both toggles fire on every click and cancel each other out.
+ */
+const smsSectionReady = ref(false);
+
+onMounted(() => {
+    const reveal = () => {
+        smsSectionReady.value = true;
+    };
+
+    if (document.documentElement.dataset.dashboardThemeReady !== undefined) {
+        reveal();
+
+        return;
+    }
+
+    window.addEventListener('dashboard-theme-scripts-ready', reveal, { once: true });
+});
+
+const showSmsSection = computed(
+    () => can('sms-providers.view') || can('whatsapp.view') || can('otp-settings.view'),
+);
+
 /** Providers nav has no permission gate yet; section shows if it or service categories are visible. */
 const showServicesSection = computed(() => can('service_categories.view') || true);
 
@@ -254,6 +346,7 @@ const walletItems = [
     { route: 'admin.wallet.wallets', permission: 'wallets.view', icon: 'ri-wallet-3-line', label: 'wallet.wallets.title' },
     { route: 'admin.wallet.online-transactions', permission: 'online-transactions.view', icon: 'ri-bank-card-line', label: 'wallet.online.title' },
     { route: 'admin.wallet.withdrawals', permission: 'withdrawal-requests.view', icon: 'ri-hand-coin-line', label: 'wallet.withdrawals.title' },
+    { route: 'admin.wallet.pin-recovery', permission: 'pin-recovery-requests.view', icon: 'ri-lock-unlock-line', label: 'wallet.pinrec.title' },
     { route: 'admin.wallet.financial-entries', permission: 'financial-entries.view', icon: 'ri-file-list-3-line', label: 'wallet.ledger.title' },
     { route: 'admin.wallet.payment-methods', permission: 'payment-methods.view', icon: 'ri-secure-payment-line', label: 'wallet.methods.title' },
     { route: 'admin.wallet.fee-rules', permission: 'wallet-fee-rules.view', icon: 'ri-percent-line', label: 'wallet.rules.title' },
@@ -262,12 +355,25 @@ const walletItems = [
 
 const showWalletSection = computed(() => walletItems.some((item) => can(item.permission)));
 
+/** Chat screens (Modules/Chat), same rule as the wallet: each entry needs its `.view` permission. */
+const chatAdminItems = [
+    { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
+    { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
+    { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
+    { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
+];
+
+const showChatAdminSection = computed(() => chatAdminItems.some((item) => can(item.permission)));
+
 const showStaffSection = computed(
     () => can('admins.view') || can('roles.view'),
 );
 
 const showSettingsSection = computed(
-    () => can('dashboard_themes.view') || can('platform_settings.view'),
+    () => can('dashboard_themes.view')
+        || can('platform_settings.view')
+        || can('mobile_app_fonts.view')
+        || can('mobile_app_color_defaults.view'),
 );
 
 const isGeneralVisible = computed(() => {
@@ -285,6 +391,7 @@ watch(
 );
 
 function toggleSubMenu(event) {
+    event.stopImmediatePropagation();
     const toggle = event.currentTarget;
     const submenu = toggle.nextElementSibling;
 

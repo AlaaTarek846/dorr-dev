@@ -16,7 +16,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 ## Completed Work
 
 ### Backend
-- Laravel 12 monolith with 4 modules (Admin, User, AI, Provider)
+- Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
 - Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, PlatformSetting)
 - Sanctum auth with `admin_api`, `user_api`, and `provider_api` guards
 - Standard API response envelope
@@ -28,6 +28,11 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Provider OAuth web routes + shared Google/Apple callback via `social_auth_panel` session
 - `RedirectIfAuthenticated`: JSON 403 for authenticated guests on `api/provider/*`
 - `SocialAuthService::authenticate(..., $allowRegistration)` — explicit registration flag for OAuth
+- SMS module via `Modules/Sms/routes/admin.php`: `/api/admin/v1/sms-providers*` and `/api/admin/v1/sms-accounts*` (CRUD, status, single default, connection test, draft test, send test, balance)
+- SMS provider registry with 3 adapters (twilio, sms_misr, four_jawaly); `SmsProvider` holds identity/status plus an optional encrypted per-provider `configuration` (seeds the account form, supports `test-draft`), while `SmsAccount` is the single source of truth for sending credentials (`encrypted:array` cast)
+- `SmsException implements ApiRenderable` — service-layer business errors become standard API error envelopes without controller try/catch
+- Country-driven E.164 normalisation (`PhoneNumberNormalizer`) using `Country::dial_code` / `phone_starts_with` / `phone_length`; no `libphonenumber` in the project
+- See [docs/modules/sms/README.md](./modules/sms/README.md)
 
 ### Frontend
 - Admin SPA: full catalog CRUD, users, providers, AI settings, platform settings
@@ -49,6 +54,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Provider profile services dropdown + sidebar links from `services[]` / `category.module_name`
 - **Mobile phone auth (Android):** `/api/mobile/v1/*` guard `user_api`; combined login/register by phone only; fixed demo OTP `123456` via `App\Traits\SendsPhoneOtp` (writes `verification_codes`); phone validated against `countries.phone_starts_with` / `phone_length`; `EnsurePhoneVerified` middleware blocks routes until `phone_verified_at` set; Android `LoginScreen`/`OtpScreen` wired to real APIs (`MobileAuthApi`)
 - **Android first launch:** Splash (login logo) then a 3-step onboarding, only while `dorr_onboarding` / `onboarding_completed` is false. Skip and finish both set the flag. After that, Splash goes to Home when a session exists, otherwise Login. Logout does not reset the flag.
+- **Android appearance (colors only):** after login, `GET/PUT mobile/v1/appearance`. Settings → Appearance: `dark_mode` (`system`/`light`/`dark`), primary + secondary hex (same value in light and dark custom tokens), reset via `uses_default_colors: true`. Cached in `dorr_appearance`. No snapshot → splash/login/OTP keep the built-in palette. Font is not sent.
 - `service_categories`: `module_name`, `is_login_dashboard`, `is_auto_assign` — migration + seeder + admin CRUD done
 - Catalog trash UI (soft delete / restore / force delete) on General catalog pages — frontend in progress
 - Dashboard theme infrastructure: Blade `dashboard/shell`, `DashboardThemeResolver`, Vue `themes/theme-1` shells + themed views paths
@@ -61,6 +67,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - `config/services.php` — `onesignal` config block added
   - `.env.example` — Pusher + OneSignal env vars added
   - **NEEDS-DECISION**: `onesignal_player_id` field not yet on User/Provider models; add it when push notifications are implemented per audience
+- **Chat module (`Modules/Chat`, 2026-09-29):** the backend is built and tested (23 tests in `tests/Feature/ChatTest.php`). It covers direct chats with message requests, groups and roles, every message type including the wallet transfer receipt and wallet QR cards, ticks, reply, forward, edit, delete, reactions, stars, pins, disappearing messages, contacts (sync, number lookup, QR), privacy and blocks, presence and typing, folders, LiveKit calls, OneSignal push, and admin `chat-settings`. See [chat-plan.md](chat-plan.md) and [modules/chat](modules/chat/README.md). **Android chat is built** (`ui/screens/chat`: list, conversation, info, new chat and group, QR, privacy, starred, calls, all animated) and compiles against `pusher-java-client` 2.4.4 and `livekit-android` 2.5.0 (JitPack repo added for LiveKit). **Not built yet:** Stories, admin themes and reports, the Vue web chat, and push deep links on Android.
 - **UNKNOWN:** No other active work tracked in repo
 
 ---

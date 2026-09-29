@@ -157,9 +157,10 @@ fun WaPulse(icon: ImageVector, modifier: Modifier = Modifier) {
                 infiniteRepeatable(tween(2200, delayMillis = 0, easing = LinearEasing), RepeatMode.Restart, initialStartOffset = androidx.compose.animation.core.StartOffset(index * 700)),
                 label = "ring$index",
             )
+            val ring = Wa.Red
             Canvas(Modifier.fillMaxSize()) {
                 val s = 0.75f + 0.75f * t
-                drawCircle(Wa.Red.copy(alpha = 0.5f * (1f - t)), radius = size.minDimension / 2 * s, style = Stroke(2.dp.toPx()))
+                drawCircle(ring.copy(alpha = 0.5f * (1f - t)), radius = size.minDimension / 2 * s, style = Stroke(2.dp.toPx()))
             }
         }
         Box(

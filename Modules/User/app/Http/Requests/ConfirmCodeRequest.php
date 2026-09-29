@@ -17,7 +17,8 @@ class ConfirmCodeRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'code' => ['required', 'string', 'size:6'],
+            // Same length VerificationCodeService generates.
+            'code' => ['required', 'string', 'size:'.max(4, (int) config('auth_flow.otp_length', 4))],
         ];
     }
 }

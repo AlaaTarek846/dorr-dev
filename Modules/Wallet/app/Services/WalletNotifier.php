@@ -4,8 +4,11 @@ namespace Modules\Wallet\Services;
 
 use App\Services\Notifications\NotificationCenter;
 use Illuminate\Database\Eloquent\Model;
+use Modules\Wallet\Enums\PinRecoveryReason;
+use Modules\Wallet\Enums\RecoveryMethod;
 use Modules\Wallet\Enums\WalletDirection;
 use Modules\Wallet\Models\PaymentTransaction;
+use Modules\Wallet\Models\PinRecoveryRequest;
 use Modules\Wallet\Models\Wallet;
 use Modules\Wallet\Models\WithdrawalRequest;
 use Modules\Wallet\Support\MaskedName;
@@ -112,6 +115,80 @@ class WalletNotifier
     public function pinLocked(Model $owner, int $minutes): void
     {
         $this->center->send($owner, 'wallet.pin.locked', 'wallet_pin_locked_title', 'wallet_pin_locked_body', ['minutes' => $minutes], ['type' => 'wallet_pin']);
+    }
+
+    /** Permanently frozen — a wrong attempt right after a temporary lock. Only a selfie + ID, reviewed by
+     *  a person, lifts it (see WalletRecoveryService::requestSecurityUnfreeze()). */
+    public function pinFrozen(Model $owner): void
+    {
+        $this->center->send($owner, 'wallet.pin.frozen', 'wallet_pin_frozen_title', 'wallet_pin_frozen_body', [], ['type' => 'wallet_pin']);
+    }
+
+    // ---------------------------------------------------------------- PIN recovery
+
+    /** A way back into the wallet was chosen — worth knowing if it wasn't you. */
+    public function recoveryConfigured(Model $owner, RecoveryMethod $method): void
+    {
+        $this->center->send($owner, 'wallet.pin.recovery_set', 'wallet_recovery_set_title', 'wallet_recovery_set_'.$method->value.'_body', [], ['type' => 'wallet_pin']);
+    }
+
+    /** The PIN was replaced through recovery (password / birth date / e-mail) — a security alert. */
+    public function pinRecovered(Model $owner): void
+    {
+        $this->center->send($owner, 'wallet.pin.recovered', 'wallet_pin_recovered_title', 'wallet_pin_recovered_body', [], ['type' => 'wallet_pin']);
+    }
+
+    /** A document request was filed: the owner gets an acknowledgement, reviewers get something to act on. */
+    public function pinRecoveryRequested(PinRecoveryRequest $request): void
+    {
+        $owner = $request->owner();
+        $frozen = $request->reason === PinRecoveryReason::SecurityFreeze;
+
+        $this->center->send(
+            $owner,
+            'wallet.pin.recovery_requested',
+            $frozen ? 'wallet_security_requested_title' : 'wallet_recovery_requested_title',
+            $frozen ? 'wallet_security_requested_body' : 'wallet_recovery_requested_body',
+            [],
+            ['type' => 'wallet_pin', 'recovery_request_id' => $request->id],
+        );
+
+        $this->center->send(
+            $this->center->adminsWith('pin-recovery-requests.approve'),
+            'wallet.pin.recovery_review',
+            $frozen ? 'wallet_security_review_title' : 'wallet_recovery_review_title',
+            $frozen ? 'wallet_security_review_body' : 'wallet_recovery_review_body',
+            ['name' => (string) ($owner?->name ?: ($owner?->phone ?? '#'.$owner?->getKey()))],
+            ['type' => 'wallet_pin_recovery', 'recovery_request_id' => $request->id],
+            push: false,
+        );
+    }
+
+    /** Approved: tells the owner what their PIN is now (by design — it is the temporary 0000). */
+    public function pinRecoveryApproved(PinRecoveryRequest $request): void
+    {
+        $frozen = $request->reason === PinRecoveryReason::SecurityFreeze;
+
+        $this->center->send(
+            $request->owner(),
+            'wallet.pin.recovery_approved',
+            $frozen ? 'wallet_security_approved_title' : 'wallet_recovery_approved_title',
+            $frozen ? 'wallet_security_approved_body' : 'wallet_recovery_approved_body',
+            ['pin' => WalletRecoveryService::RESET_PIN],
+            ['type' => 'wallet_pin', 'recovery_request_id' => $request->id],
+        );
+    }
+
+    public function pinRecoveryRejected(PinRecoveryRequest $request, string $reason): void
+    {
+        $this->center->send(
+            $request->owner(),
+            'wallet.pin.recovery_rejected',
+            'wallet_recovery_rejected_title',
+            'wallet_recovery_rejected_body',
+            ['reason' => $reason],
+            ['type' => 'wallet_pin', 'recovery_request_id' => $request->id],
+        );
     }
 
     // ---------------------------------------------------------------- withdrawals

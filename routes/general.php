@@ -21,5 +21,6 @@ Route::middleware('locale')
         Route::get('countries/detect', [GeneralController::class, 'countriesDetect']);
         Route::get('languages/dropdown', [GeneralController::class, 'languagesDropdown']);
         Route::get('platform-settings/branding', [GeneralController::class, 'platformBranding']);
+        Route::get('mobile-appearance-defaults', [GeneralController::class, 'mobileAppearanceDefaults']);
         Route::get('services', [GeneralController::class, 'services']);
     });

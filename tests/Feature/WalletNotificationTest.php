@@ -137,6 +137,7 @@ class WalletNotificationTest extends TestCase
         $carol = $this->makeUser('Carol', '+966500000003');
         Sanctum::actingAs($carol, [], 'user_api');
 
+        $this->postJson('/api/mobile/v1/wallet/pin/recovery', ['method' => 'birth_date', 'birth_date' => '1990-05-17'], ['X-Country' => 'SA'])->assertOk();
         $this->postJson('/api/mobile/v1/wallet/pin', ['pin' => '4321', 'pin_confirmation' => '4321'], ['X-Country' => 'SA'])->assertCreated();
         $this->putJson('/api/mobile/v1/wallet/pin', ['current_pin' => '4321', 'pin' => '8765', 'pin_confirmation' => '8765'], ['X-Country' => 'SA', 'X-Wallet-Pin' => '4321'])->assertOk();
 
@@ -156,6 +157,7 @@ class WalletNotificationTest extends TestCase
         $carol = $this->makeUser('Carol', '+966500000003');
         Sanctum::actingAs($carol, [], 'user_api');
 
+        $this->postJson('/api/mobile/v1/wallet/pin/recovery', ['method' => 'password', 'password' => 'secret123', 'password_confirmation' => 'secret123'], ['X-Country' => 'SA'])->assertOk();
         $this->postJson('/api/mobile/v1/wallet/pin', ['pin' => '4321', 'pin_confirmation' => '4321'], ['X-Country' => 'SA'])->assertCreated();
 
         $this->assertStringNotContainsString('4321', json_encode($carol->notifications()->get()->toArray()));

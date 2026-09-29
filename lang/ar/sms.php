@@ -1,0 +1,96 @@
+<?php
+
+return [
+
+    'providers' => [
+        'created' => 'تم إنشاء مزود SMS بنجاح.',
+        'fetched' => 'تم جلب مزود SMS بنجاح.',
+        'updated' => 'تم تحديث مزود SMS بنجاح.',
+        'deleted' => 'تم حذف مزود SMS بنجاح.',
+        'activated' => 'تم تفعيل مزود SMS بنجاح.',
+        'deactivated' => 'تم تعطيل مزود SMS بنجاح.',
+        'ready' => 'المزود جاهز.',
+        'not_ready' => 'المزود غير جاهز. تأكد من تفعيله وإعداده واجتياز الاختبار.',
+        'in_use' => 'هذا المزود قيد الاستخدام ولا يمكن حذفه.',
+        'unsupported' => 'مزود SMS غير مدعوم: :key',
+
+        'connection_successful' => 'تم الاتصال بنجاح.',
+        'connection_failed' => 'فشل الاتصال.',
+        'missing_configuration' => 'الإعدادات المطلوبة مفقودة: :fields',
+
+        'name_required' => 'الاسم مطلوب.',
+        'key_required' => 'المزود مطلوب.',
+        'unknown_provider' => 'مزود SMS غير معروف.',
+        'already_registered' => 'هذا المزود مسجل مسبقاً.',
+
+        'body_required' => 'نص الرسالة لا يمكن أن يكون فارغاً.',
+        'country_required' => 'يجب اختيار دولة لتنسيق رقم الهاتف.',
+        'country_not_found' => 'الدولة المحددة غير موجودة.',
+        'invalid_recipient' => 'رقم الهاتف ":phone" غير صالح.',
+        'country_missing_dial_code' => 'الدولة المحددة ليس لديها رمز دولي مُعدّ.',
+        'country_mismatch' => 'الرقم :phone لا ينتمي للدولة المحددة. اختر الدولة المطابقة أو أدخل رقم محلي.',
+        'invalid_recipient_length' => 'رقم الهاتف ":phone" غير صالح للدولة المحددة. يجب أن يكون :length رقماً ويبدأ بـ :starts_with.',
+
+        'account_unavailable' => 'هذا المزود غير جاهز. يجب أن يكون مفعلاً ومعداً وأن يجتاز الاختبار.',
+
+        'test_errors' => [
+            'required_credentials' => 'بيانات اعتماد :provider مطلوبة',
+            'sms_misr' => [
+                'sent' => 'SMS Misr: تم إرسال الرسالة بنجاح',
+                'insufficient_balance' => 'رصيد غير كافٍ',
+                'invalid_credentials' => 'اسم مستخدم أو كلمة مرور غير صحيحة',
+                'sender_not_approved' => 'المرسل غير معتمد',
+                'invalid_sender' => 'مرسل غير صالح',
+                'invalid_mobile' => 'رقم هاتف غير صالح',
+                'message_too_long' => 'الرسالة طويلة جداً أو فارغة',
+                'invalid_language' => 'معامل اللغة غير صالح',
+                'invalid_environment' => 'قيمة البيئة يجب أن تكون 1 أو 2',
+                'invalid_request' => 'معاملات الطلب غير صالحة',
+                'server_updating' => 'المزود قيد التحديث مؤقتاً، حاول مجدداً',
+                'invalid_delay' => 'صيغة تاريخ التأخير غير صالحة',
+                'invalid_message' => 'محتوى الرسالة غير صالح',
+                'generic' => 'أعاد المزود الرمز :code',
+            ],
+        ],
+    ],
+
+    'whatsapp' => [
+        'title' => 'واتساب',
+        'fetched' => 'تم جلب إعدادات واتساب.',
+        'updated' => 'تم تحديث إعدادات واتساب.',
+        'saved' => 'تم حفظ إعدادات واتساب.',
+        'not_configured' => 'واتساب غير معدّ بعد.',
+        'connection_successful' => 'تم الاتصال بنجاح.',
+        'connection_failed' => 'فشل الاتصال.',
+        'no_approved_template' => 'لا يوجد قالب OTP معتمد. OTP عبر واتساب غير متاح.',
+        'send_failed' => 'تعذر إرسال OTP عبر واتساب.',
+        'template_synced' => 'تمت مزامنة القالب.',
+        'template_status_synced' => 'تم تحديث حالة القالب من ميتا.',
+        'template_submitted' => 'تم إرسال القالب إلى ميتا للمراجعة.',
+        'template_name_required' => 'اسم القالب مطلوب.',
+        'template_language_required' => 'لغة القالب مطلوبة.',
+        'templates_fetched' => 'تم جلب القوالب.',
+        'template_fetched' => 'تم جلب القالب.',
+        'template_created' => 'تم إنشاء القالب.',
+        'template_updated' => 'تم تحديث القالب.',
+        'template_deleted' => 'تم حذف القالب.',
+        'templates_synced' => 'تمت مزامنة جميع القوالب.',
+        'templates_imported' => 'تم استيراد :count قالب من ميتا.',
+        'sync_failed' => 'فشلت المزامنة.',
+        'template_otp_variable_required' => 'يجب أن يحتوي نص القالب على متغير OTP ‏{{1}}.',
+        'auth_otp_variable_required' => 'يجب أن يحتوي قالب AUTHENTICATION على متغير OTP ‏{{1}}.',
+        'auth_single_variable_required' => 'قالب AUTHENTICATION لا يقبل سوى المتغير {{1}} الخاص برمز التحقق.',
+        'account_not_ready' => 'يجب أن يكون حساب واتساب مُفعّلاً ومُعدّاً وأن يكون اختبار الاتصال قد نجح.',
+    ],
+
+    'otp' => [
+        'title' => 'إعدادات OTP',
+        'fetched' => 'تم استرجاع إعدادات OTP.',
+        'updated' => 'تم تحديث إعدادات OTP.',
+        'saved' => 'تم حفظ إعدادات OTP.',
+        'sent' => 'تم إرسال OTP بنجاح.',
+        'disabled' => 'إرسال OTP معطّل.',
+        'no_channel_available' => 'لا توجد قناة إرسال متاحة لهذه الدولة.',
+    ],
+
+];

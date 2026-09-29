@@ -22,7 +22,7 @@ class VerificationCodeService
             ->whereNull('verified_at')
             ->delete();
 
-        $code = $this->generateCode();
+        $code = $this->codeFor($type);
 
         $verificationCode = $authenticatable->verificationCodes()->create([
             'type' => $type->value,
@@ -31,7 +31,7 @@ class VerificationCodeService
             'attempts' => 0,
         ]);
 
-        if ($type === VerificationType::Email) {
+        if ($type === VerificationType::Email || $type === VerificationType::WalletRecovery) {
             Mail::to($destination)->send(new VerificationCodeMail($code, $authenticatable));
         }
 
@@ -94,9 +94,23 @@ class VerificationCodeService
         return $visible.str_repeat('*', max(1, mb_strlen($local) - mb_strlen($visible))).'@'.$domain;
     }
 
+    /**
+     * Random by default; a fixed value in development when `auth_flow.email_otp_fixed` is set.
+     */
+    private function codeFor(VerificationType $type): string
+    {
+        $fixed = config('auth_flow.email_otp_fixed');
+
+        if ($type !== VerificationType::Phone && is_string($fixed) && $fixed !== '') {
+            return $fixed;
+        }
+
+        return $this->generateCode();
+    }
+
     private function generateCode(): string
     {
-        $length = max(4, (int) config('auth_flow.otp_length', 6));
+        $length = max(4, (int) config('auth_flow.otp_length', 4));
         $max = (10 ** $length) - 1;
 
         return str_pad((string) random_int(0, $max), $length, '0', STR_PAD_LEFT);

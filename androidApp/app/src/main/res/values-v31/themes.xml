@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ draws its own launch screen (an icon on a colour) before the app starts. Give it
+         the Dorr mark on white instead of the default, so the launch is Dorr-branded and matches the
+         Compose splash that follows. -->
+    <style name="Theme.Dorr.Splash" parent="Theme.Dorr">
+        <item name="android:windowBackground">@drawable/splash_background</item>
+        <item name="android:windowSplashScreenBackground">#FFFFFF</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground_inset</item>
+    </style>
+</resources>

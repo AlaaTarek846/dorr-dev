@@ -358,7 +358,7 @@ fun AddressesScreen(onBack: () -> Unit) {
                                     contentAlignment = Alignment.Center,
                                 ) {
                                     CircularProgressIndicator(
-                                        color = AppColors.waRed,
+                                        color = settingsAccent(),
                                         strokeWidth = 2.5.dp,
                                         modifier = Modifier.size(32.dp),
                                     )
@@ -423,14 +423,14 @@ fun AddressesScreen(onBack: () -> Unit) {
                         Button(
                             onClick = { adding = true },
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = AppColors.waRed,
+                                containerColor = settingsAccent(),
                                 contentColor = Color.White,
                             ),
                             shape = RoundedCornerShape(18.dp),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(54.dp)
-                                .shadow(12.dp, RoundedCornerShape(18.dp), spotColor = AppColors.waRed.copy(alpha = 0.38f)),
+                                .shadow(12.dp, RoundedCornerShape(18.dp), spotColor = settingsAccent().copy(alpha = 0.38f)),
                         ) {
                             Text(
                                 stringResource(R.string.addr_add),
@@ -498,7 +498,7 @@ private fun DeleteAddressDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(if (night) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(28.dp)) else Modifier)
                 .padding(horizontal = 22.dp, vertical = 26.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -616,7 +616,7 @@ private fun AddressesTopHeader(
                 .size(42.dp)
                 .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = Color(0x20000000)))
                 .clip(CircleShape)
-                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
@@ -645,7 +645,7 @@ private fun CustomSearchPill(
             .fillMaxWidth()
             .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, RoundedCornerShape(50), spotColor = Color(0x12000000)))
             .clip(RoundedCornerShape(50))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(50)) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
@@ -674,10 +674,10 @@ private fun CustomSearchPill(
                     singleLine = true,
                     textStyle = TextStyle(
                         fontSize = 14.sp,
-                        color = if (settingsNight()) AccountDark.ink else Color(0xFF1E293B),
+                        color = settingsInk(),
                         fontWeight = FontWeight.Medium,
                     ),
-                    cursorBrush = SolidColor(AppColors.waRed),
+                    cursorBrush = SolidColor(settingsAccent()),
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
@@ -767,7 +767,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC)),
+                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -796,14 +796,14 @@ private fun AddressCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC))
+                            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
                             stringResource(R.string.addr_default),
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
-                            color = AppColors.waRed,
+                            color = settingsAccent(),
                         )
                     }
                 }
@@ -825,7 +825,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC))
+                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
                 .clickable(onClick = onEdit),
             contentAlignment = Alignment.Center,
         ) {
@@ -845,7 +845,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFFECDD3), RoundedCornerShape(12.dp))
                 .alpha(if (item.isDefault) 0.35f else 1f)
                 .clickable(onClick = onDelete),
@@ -990,7 +990,7 @@ private fun AddressEditor(
                         Icon(
                             Icons.Rounded.Article,
                             contentDescription = null,
-                            tint = AppColors.waRed,
+                            tint = settingsAccent(),
                             modifier = Modifier.size(22.dp),
                         )
                         Spacer(Modifier.width(10.dp))
@@ -1120,7 +1120,7 @@ private fun AddressEditor(
                         onCheckedChange = { isDefault = it },
                         colors = SwitchDefaults.colors(
                             checkedThumbColor = Color.White,
-                            checkedTrackColor = AppColors.waRed,
+                            checkedTrackColor = settingsAccent(),
                             uncheckedThumbColor = Color.White,
                             uncheckedTrackColor = if (night) Color(0xFF3A3F48) else Color(0xFFE2E8F0),
                             uncheckedBorderColor = Color.Transparent,
@@ -1149,15 +1149,15 @@ private fun AddressEditor(
                 },
                 enabled = canSave,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.waRed,
-                    disabledContainerColor = AppColors.waRed.copy(alpha = 0.5f),
+                    containerColor = settingsAccent(),
+                    disabledContainerColor = settingsAccent().copy(alpha = 0.5f),
                     contentColor = Color.White,
                 ),
                 shape = RoundedCornerShape(18.dp),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
-                    .shadow(12.dp, RoundedCornerShape(18.dp), spotColor = AppColors.waRed.copy(alpha = 0.38f)),
+                    .shadow(12.dp, RoundedCornerShape(18.dp), spotColor = settingsAccent().copy(alpha = 0.38f)),
             ) {
                 if (saving) {
                     CircularProgressIndicator(modifier = Modifier.size(22.dp), strokeWidth = 2.dp, color = Color.White)
@@ -1187,17 +1187,17 @@ private fun EditorKindChip(
     modifier: Modifier = Modifier,
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (selected) AppColors.waRed else if (settingsNight()) AccountDark.card else Color.White,
+        targetValue = if (selected) settingsAccent() else settingsCard(),
         label = "chip_bg",
     )
     val contentColor by animateColorAsState(
-        targetValue = if (selected) Color.White else AppColors.waRed,
+        targetValue = if (selected) Color.White else settingsAccent(),
         label = "chip_content",
     )
 
     Row(
         modifier = modifier
-            .shadow(if (selected) 6.dp else 3.dp, RoundedCornerShape(50), spotColor = if (selected) AppColors.waRed.copy(alpha = 0.3f) else Color(0x0E000000))
+            .shadow(if (selected) 6.dp else 3.dp, RoundedCornerShape(50), spotColor = if (selected) settingsAccent().copy(alpha = 0.3f) else Color(0x0E000000))
             .clip(RoundedCornerShape(50))
             .background(bgColor)
             .clickable(onClick = onClick)
@@ -1263,7 +1263,7 @@ private fun EditorFieldSection(
                 Icon(
                     icon,
                     contentDescription = null,
-                    tint = AppColors.waRed,
+                    tint = settingsAccent(),
                     modifier = Modifier.size(20.dp),
                 )
                 Spacer(Modifier.width(12.dp))
@@ -1281,10 +1281,10 @@ private fun EditorFieldSection(
                         singleLine = true,
                         textStyle = TextStyle(
                             fontSize = 14.sp,
-                            color = if (settingsNight()) AccountDark.ink else Color(0xFF0F172A),
+                            color = settingsInk(),
                             fontWeight = FontWeight.Medium,
                         ),
-                        cursorBrush = SolidColor(AppColors.waRed),
+                        cursorBrush = SolidColor(settingsAccent()),
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }
@@ -1343,7 +1343,7 @@ private fun MapPreviewCard() {
                 Icon(
                     Icons.Rounded.LocationOn,
                     contentDescription = null,
-                    tint = AppColors.waRed,
+                    tint = settingsAccent(),
                     modifier = Modifier.size(16.dp),
                 )
                 Spacer(Modifier.width(4.dp))
@@ -1492,8 +1492,8 @@ private fun EmptyAddressView(
                     .background(
                         Brush.radialGradient(
                             colors = listOf(
-                                AppColors.waRed.copy(alpha = 0.20f),
-                                AppColors.waRed.copy(alpha = 0.04f),
+                                settingsAccent().copy(alpha = 0.20f),
+                                settingsAccent().copy(alpha = 0.04f),
                                 Color.Transparent,
                             ),
                         ),
@@ -1505,20 +1505,20 @@ private fun EmptyAddressView(
                 modifier = Modifier
                     .size(88.dp)
                     .clip(CircleShape)
-                    .background(AppColors.waRed.copy(alpha = 0.09f))
-                    .border(1.5.dp, AppColors.waRed.copy(alpha = 0.18f), CircleShape),
+                    .background(settingsAccent().copy(alpha = 0.09f))
+                    .border(1.5.dp, settingsAccent().copy(alpha = 0.18f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 // Inner icon container with rich gradient
                 Box(
                     modifier = Modifier
                         .size(58.dp)
-                        .shadow(10.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.38f))
+                        .shadow(10.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.38f))
                         .clip(CircleShape)
                         .background(
                             Brush.linearGradient(
                                 colors = listOf(
-                                    AppColors.waRed,
+                                    settingsAccent(),
                                     Color(0xFFBA0912),
                                 ),
                             ),
@@ -1565,7 +1565,7 @@ private fun EmptyAddressView(
                 onClick = onClearSearch,
                 shape = RoundedCornerShape(50),
                 colors = ButtonDefaults.textButtonColors(
-                    contentColor = AppColors.waRed,
+                    contentColor = settingsAccent(),
                 ),
             ) {
                 Icon(Icons.Rounded.Close, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -1580,8 +1580,8 @@ private fun EmptyAddressView(
             Button(
                 onClick = onAddClick,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AppColors.waRed.copy(alpha = 0.10f),
-                    contentColor = AppColors.waRed,
+                    containerColor = settingsAccent().copy(alpha = 0.10f),
+                    contentColor = settingsAccent(),
                 ),
                 shape = RoundedCornerShape(50),
                 contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
@@ -1604,18 +1604,18 @@ private fun ShowMoreButton(loading: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
-            .border(1.5.dp, if (settingsNight()) AccountDark.line else AppColors.waRed.copy(alpha = 0.35f), RoundedCornerShape(50))
+            .background(settingsCard())
+            .border(1.5.dp, if (settingsNight()) AccountDark.line else settingsAccent().copy(alpha = 0.35f), RoundedCornerShape(50))
             .clickable(enabled = !loading, onClick = onClick)
             .padding(vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
         if (loading) {
-            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = AppColors.waRed)
+            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp, color = settingsAccent())
         } else {
             Text(
                 stringResource(R.string.wallet_history_more),
-                color = AppColors.waRed,
+                color = settingsAccent(),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
             )

@@ -55,6 +55,10 @@ class WalletSettingController extends Controller implements HasMiddleware
             'transfer_max_per_day_minor' => ['nullable', 'integer', 'min:0'],
             'transfer_max_per_month_minor' => ['nullable', 'integer', 'min:0'],
             'transfers_enabled' => ['nullable', 'boolean'],
+            // DORR's optional cut of a user-to-user transfer. 0 by default; the rate that actually
+            // applied is snapshotted onto the transaction itself, so changing this never rewrites history.
+            'transfer_fee_percent' => ['nullable', 'numeric', 'min:0', 'max:100'],
+            'transfer_fee_payer' => ['nullable', Rule::in(['sender', 'recipient'])],
             // Signed debt limits: 0 = no debt allowed, -10000 = up to 100.00 of debt. Never positive.
             'min_allowed_balance_provider_minor' => ['nullable', 'integer', 'max:0'],
             'min_allowed_balance_user_minor' => ['nullable', 'integer', 'max:0'],
@@ -83,7 +87,8 @@ class WalletSettingController extends Controller implements HasMiddleware
         return ['country_code' => $setting->country?->code] + $setting->only([
             'country_id', 'min_topup_minor', 'max_topup_minor', 'min_withdrawal_minor', 'max_withdrawal_minor',
             'transfer_max_per_transaction_minor', 'transfer_max_per_day_minor', 'transfer_max_per_month_minor',
-            'transfers_enabled', 'min_allowed_balance_provider_minor', 'min_allowed_balance_user_minor', 'status',
+            'transfers_enabled', 'transfer_fee_percent', 'transfer_fee_payer',
+            'min_allowed_balance_provider_minor', 'min_allowed_balance_user_minor', 'status',
         ]);
     }
 }

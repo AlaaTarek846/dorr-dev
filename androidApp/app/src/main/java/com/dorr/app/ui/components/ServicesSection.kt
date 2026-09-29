@@ -96,6 +96,9 @@ import com.dorr.app.network.ServiceChildDto
 import com.dorr.app.network.ServiceDto
 import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
+import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
@@ -229,21 +232,21 @@ private fun SectionHeader(total: Int, onViewAll: () -> Unit) {
             modifier = Modifier
                 .width(4.dp)
                 .height(20.dp)
-                .background(if (settingsNight()) AccountDark.accent else AppColors.waRed, RoundedCornerShape(2.dp)),
+                .background(if (settingsNight()) AccountDark.accent else settingsAccent(), RoundedCornerShape(2.dp)),
         )
         Spacer(Modifier.width(8.dp))
         Text(
             stringResource(R.string.services_title),
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold,
-            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+            color = settingsInk(),
             modifier = Modifier.weight(1f),
         )
         if (total > COLLAPSED_COUNT) {
             TextButton(onClick = onViewAll) {
                 Text(
                     stringResource(R.string.services_view_all, total),
-                    color = if (settingsNight()) AccountDark.accent else AppColors.waRed,
+                    color = if (settingsNight()) AccountDark.accent else settingsAccent(),
                     fontWeight = FontWeight.SemiBold,
                 )
             }
@@ -296,7 +299,7 @@ private fun ServiceTile(
                 else Modifier.shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
             )
             .clip(RoundedCornerShape(20.dp))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, RoundedCornerShape(20.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 14.dp),
@@ -310,8 +313,8 @@ private fun ServiceTile(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
                         .size(20.dp)
-                        .background(if (settingsNight()) AccountDark.accent else AppColors.waRed, CircleShape)
-                        .border(1.5.dp, if (settingsNight()) AccountDark.card else Color.White, CircleShape),
+                        .background(if (settingsNight()) AccountDark.accent else settingsAccent(), CircleShape)
+                        .border(1.5.dp, settingsCard(), CircleShape),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text("$childCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
@@ -327,7 +330,7 @@ private fun ServiceTile(
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
-            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+            color = settingsInk(),
         )
     }
 }
@@ -343,11 +346,11 @@ internal fun ServiceAvatar(image: String?, icon: ImageVector, color: Color, size
         modifier = Modifier
             .size(size.dp)
             .clip(shape)
-            .background(if (settingsNight()) AccountDark.well else Color(0xFFFDE8EC)),
+            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
         contentAlignment = Alignment.Center,
     ) {
         if (image.isNullOrBlank()) {
-            Icon(icon, contentDescription = null, tint = if (settingsNight()) AccountDark.accent else AppColors.waRed, modifier = Modifier.size((size * 0.5f).dp))
+            Icon(icon, contentDescription = null, tint = if (settingsNight()) AccountDark.accent else settingsAccent(), modifier = Modifier.size((size * 0.5f).dp))
         } else {
             AsyncImage(
                 model = ApiClient.mediaUrl(image),
@@ -402,10 +405,10 @@ internal fun ServicesError(onRetry: () -> Unit) {
         Text(
             stringResource(R.string.services_error),
             style = MaterialTheme.typography.bodyMedium,
-            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+            color = settingsInk(),
         )
         TextButton(onClick = onRetry) {
-            Text(stringResource(R.string.services_retry), color = if (settingsNight()) AccountDark.accent else AppColors.waRed, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.services_retry), color = if (settingsNight()) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.SemiBold)
         }
     }
 }
@@ -431,7 +434,7 @@ internal fun ServiceChildrenSheet(service: ServiceDto, color: Color, onDismiss: 
                         service.name,
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (night) AccountDark.ink else Color.Unspecified,
+                        color = settingsInk(),
                     )
                     Text(
                         stringResource(R.string.services_sub_count, children.size),
@@ -462,7 +465,7 @@ private fun ChildRow(child: ServiceChildDto, color: Color, onClick: () -> Unit) 
         Text(
             child.name,
             style = MaterialTheme.typography.bodyLarge,
-            color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+            color = settingsInk(),
             modifier = Modifier.weight(1f),
         )
         Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = if (settingsNight()) AccountDark.chevron else AppColors.textMuted)
