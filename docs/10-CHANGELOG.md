@@ -9,6 +9,11 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- FAQ catalog (`faqs` / `faq_translations`) and Privacy Policy catalog (`privacy_policies` / `privacy_policy_translations`) in the shared `General/` namespace — optional `service_id` → `service_categories.id`, `status`, `sort_order`, soft deletes, multilingual fields
+- Admin CRUD/trash/status/bulk APIs at `/api/admin/v1/faqs*` (`faqs.*` permissions) and `/api/admin/v1/privacy-policies*` (`privacy-policy.*` permissions)
+- Admin SPA pages for both catalogs: list views, create/edit modals, Pinia stores, composables, routes, sidebar entries, and `ar` / `en` locale keys
+- `ResolvesTranslatableFields` concern plus generalized translation sync/response/formatting and `translationSearchColumns()` in `SearchFilterTrait`, enabling catalogs with more than one translatable field
+- Feature tests: `FaqManagementTest`, `PrivacyPolicyManagementTest`, `CatalogTranslationsTest`
 - `Modules/Sms`: 4Jawaly (4jawaly.com) SMS provider adapter — key `four_jawaly`, HTTP Basic auth, send/senders/packages endpoints
 - `Modules/Chat`: WhatsApp-style chat backend (conversations, groups, messages, wallet cards, contacts, privacy, presence, LiveKit calls, push, admin `chat-settings`). API in `docs/modules/chat/API.md`.
 - Professional documentation system under `docs/`

@@ -32,7 +32,7 @@ Routes: `routes/general.php` (loaded from `routes/api.php`).
 
 ### Authenticated — Catalog Standard Pattern
 
-Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
+Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`, `faqs`, `privacy-policies`
 
 | Method | Endpoint |
 |--------|----------|

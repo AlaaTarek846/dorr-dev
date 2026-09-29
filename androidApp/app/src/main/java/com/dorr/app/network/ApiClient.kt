@@ -20,7 +20,7 @@ import java.net.UnknownHostException
  * Laravel builds absolute media URLs with, so those get rewritten to the LAN host.
  */
 
-private const val BASE_HOST = "192.168.1.3"
+private const val BASE_HOST = "192.168.1.4"
 //private const val BASE_HOST = "unafraid-occupy-geography.ngrok-free.dev"
 private const val BASE_URL = "http://$BASE_HOST/api/"
 // NOTE: BASE_HOST must be this PC's current Wi-Fi IP (check `ipconfig`) AND be

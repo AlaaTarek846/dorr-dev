@@ -22,6 +22,14 @@ Tables managed by General module logic:
 - `service_categories`: parent_id, module_name (unique, nullable), is_login_dashboard, is_auto_assign, requires_provider, status, sort_order
 - `service_category_translations`: service_category_id, locale, name
 
+## faqs / faq_translations
+- `faqs`: service_id (nullable FK → service_categories.id, nullOnDelete), status, sort_order
+- `faq_translations`: faq_id, locale, question, answer (unique faq_id + locale)
+
+## privacy_policies / privacy_policy_translations
+- `privacy_policies`: service_id (nullable FK → service_categories.id, nullOnDelete), status, sort_order
+- `privacy_policy_translations`: privacy_policy_id, locale, content (unique privacy_policy_id + locale)
+
 ## platform_settings
 - `app_name` + media via Spatie (not column-based files)
 

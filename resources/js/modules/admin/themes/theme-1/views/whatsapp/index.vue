@@ -16,31 +16,24 @@
             </div>
         </div>
 
-        <div class="row">
-            <div class="col-xl-12">
-                <form @submit.prevent="save">
+        <form @submit.prevent="save">
+            <fieldset :disabled="!canUpdate">
+            <div class="row g-4">
+                <div class="col-xl-12">
                 <div class="card custom-card">
-                    <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
-                        <h6 class="card-title fw-semibold mb-0">{{ t('sms.whatsapp.connection') }}</h6>
-                        <div class="d-flex flex-wrap align-items-center gap-2">
-                            <button
-                                v-if="canTest"
-                                type="button"
-                                class="btn btn-outline-primary btn-sm btn-wave"
-                                :disabled="testing"
-                                @click="testConnection"
-                            >
-                                <span v-if="testing" class="spinner-border spinner-border-sm me-1"></span>
-                                {{ t('sms.whatsapp.test_connection') }}
-                            </button>
-                            <button
-                                type="submit"
-                                class="btn btn-primary btn-sm btn-wave"
-                                :disabled="saving"
-                            >
-                                {{ t('save_changes') }}
-                            </button>
-                        </div>
+                    <div class="card-header d-sm-flex align-items-center justify-content-between gap-2">
+                        <div class="card-title mb-0">{{ t('sms.whatsapp.connection') }}</div>
+                        <button
+                            v-if="canTest"
+                            type="button"
+                            class="btn btn-sm btn-light"
+                            :disabled="testing"
+                            @click="testConnection"
+                        >
+                            <span v-if="testing" class="spinner-border spinner-border-sm me-1"></span>
+                            <i v-else class="ri-wifi-line me-1"></i>
+                            {{ t('sms.whatsapp.test_connection') }}
+                        </button>
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
@@ -49,16 +42,21 @@
                                     {{ t('sms.whatsapp.name') }}
                                     <span class="text-danger">*</span>
                                 </label>
-                                <input
-                                    id="whatsapp-name"
-                                    v-model="form.name"
-                                    type="text"
-                                    maxlength="150"
-                                    class="form-control"
-                                    :class="nameUi.inputClass"
-                                    :placeholder="t('sms.whatsapp.name_placeholder')"
-                                    @blur="v$.name.$touch()"
-                                >
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-file-text-line"></i>
+                                    </span>
+                                    <input
+                                        id="whatsapp-name"
+                                        v-model="form.name"
+                                        type="text"
+                                        maxlength="150"
+                                        class="form-control"
+                                        :class="nameUi.inputClass"
+                                        :placeholder="t('sms.whatsapp.name_placeholder')"
+                                        @blur="v$.name.$touch()"
+                                    >
+                                </div>
                                 <div v-if="nameUi.message" class="invalid-feedback d-block">
                                     {{ nameUi.message }}
                                 </div>
@@ -68,18 +66,30 @@
                                     {{ t('sms.whatsapp.access_token') }}
                                     <span v-if="! hasAccessToken" class="text-danger">*</span>
                                 </label>
-                                <input
-                                    id="whatsapp-access-token"
-                                    v-model="form.access_token"
-                                    type="password"
-                                    class="form-control"
-                                    :class="accessTokenUi.inputClass"
-                                    autocomplete="off"
-                                    :placeholder="hasAccessToken
-                                        ? t('sms.whatsapp.access_token_stored')
-                                        : t('sms.whatsapp.access_token_placeholder')"
-                                    @blur="v$.access_token.$touch()"
-                                >
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-lock-line"></i>
+                                    </span>
+                                    <input
+                                        id="whatsapp-access-token"
+                                        v-model="form.access_token"
+                                        :type="showAccessToken ? 'text' : 'password'"
+                                        class="form-control"
+                                        :class="accessTokenUi.inputClass"
+                                        autocomplete="off"
+                                        :placeholder="hasAccessToken
+                                            ? t('sms.whatsapp.access_token_stored')
+                                            : t('sms.whatsapp.access_token_placeholder')"
+                                        @blur="v$.access_token.$touch()"
+                                    >
+                                    <button
+                                        type="button"
+                                        class="btn btn-light"
+                                        @click="showAccessToken = ! showAccessToken"
+                                    >
+                                        <i :class="showAccessToken ? 'ri-eye-line' : 'ri-eye-off-line'"></i>
+                                    </button>
+                                </div>
                                 <div
                                     v-if="accessTokenUi.message"
                                     class="invalid-feedback d-block"
@@ -112,17 +122,22 @@
                                     {{ t('sms.whatsapp.phone_number_id') }}
                                     <span v-if="! isConfigured" class="text-danger">*</span>
                                 </label>
-                                <input
-                                    id="whatsapp-phone-number-id"
-                                    v-model="form.phone_number_id"
-                                    type="text"
-                                    maxlength="100"
-                                    class="form-control"
-                                    :class="phoneNumberIdUi.inputClass"
-                                    autocomplete="off"
-                                    :placeholder="t('sms.whatsapp.phone_number_id_placeholder')"
-                                    @blur="v$.phone_number_id.$touch()"
-                                >
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-phone-line"></i>
+                                    </span>
+                                    <input
+                                        id="whatsapp-phone-number-id"
+                                        v-model="form.phone_number_id"
+                                        type="text"
+                                        maxlength="100"
+                                        class="form-control"
+                                        :class="phoneNumberIdUi.inputClass"
+                                        autocomplete="off"
+                                        :placeholder="t('sms.whatsapp.phone_number_id_placeholder')"
+                                        @blur="v$.phone_number_id.$touch()"
+                                    >
+                                </div>
                                 <div v-if="phoneNumberIdUi.message" class="invalid-feedback d-block">
                                     {{ phoneNumberIdUi.message }}
                                 </div>
@@ -132,33 +147,43 @@
                                     {{ t('sms.whatsapp.business_account_id') }}
                                     <span v-if="! isConfigured" class="text-danger">*</span>
                                 </label>
-                                <input
-                                    id="whatsapp-business-account-id"
-                                    v-model="form.business_account_id"
-                                    type="text"
-                                    maxlength="100"
-                                    class="form-control"
-                                    :class="businessAccountIdUi.inputClass"
-                                    autocomplete="off"
-                                    :placeholder="t('sms.whatsapp.business_account_id_placeholder')"
-                                    @blur="v$.business_account_id.$touch()"
-                                >
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-briefcase-line"></i>
+                                    </span>
+                                    <input
+                                        id="whatsapp-business-account-id"
+                                        v-model="form.business_account_id"
+                                        type="text"
+                                        maxlength="100"
+                                        class="form-control"
+                                        :class="businessAccountIdUi.inputClass"
+                                        autocomplete="off"
+                                        :placeholder="t('sms.whatsapp.business_account_id_placeholder')"
+                                        @blur="v$.business_account_id.$touch()"
+                                    >
+                                </div>
                                 <div v-if="businessAccountIdUi.message" class="invalid-feedback d-block">
                                     {{ businessAccountIdUi.message }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <label for="whatsapp-api-version" class="form-label">{{ t('sms.whatsapp.api_version') }}</label>
-                                <input
-                                    id="whatsapp-api-version"
-                                    v-model="form.api_version"
-                                    type="text"
-                                    maxlength="20"
-                                    class="form-control"
-                                    :class="apiVersionUi.inputClass"
-                                    :placeholder="t('sms.whatsapp.api_version_placeholder')"
-                                    @blur="v$.api_version.$touch()"
-                                >
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-code-line"></i>
+                                    </span>
+                                    <input
+                                        id="whatsapp-api-version"
+                                        v-model="form.api_version"
+                                        type="text"
+                                        maxlength="20"
+                                        class="form-control"
+                                        :class="apiVersionUi.inputClass"
+                                        :placeholder="t('sms.whatsapp.api_version_placeholder')"
+                                        @blur="v$.api_version.$touch()"
+                                    >
+                                </div>
                                 <div v-if="apiVersionUi.message" class="invalid-feedback d-block">
                                     {{ apiVersionUi.message }}
                                 </div>
@@ -170,6 +195,7 @@
                                     :class="{ on: form.is_active }"
                                     role="button"
                                     tabindex="0"
+                                    :aria-pressed="form.is_active"
                                     @click="form.is_active = !form.is_active"
                                     @keydown.enter.space.prevent="form.is_active = !form.is_active"
                                 >
@@ -180,7 +206,7 @@
 
                         <hr class="my-4">
 
-                        <h6 class="fw-semibold mb-3">{{ t('sms.whatsapp.countries') }}</h6>
+                        <label class="form-label d-block mb-2">{{ t('sms.whatsapp.countries') }}</label>
                         <MultiSelect
                             v-model="form.countries"
                             :options="countries"
@@ -228,59 +254,98 @@
                         </MultiSelect>
                     </div>
                 </div>
-                </form>
+                </div>
+            </div>
+            </fieldset>
 
+            <div v-if="canUpdate" class="d-flex justify-content-end mt-4">
+                <button type="submit" class="btn btn-primary" :disabled="saving">
+                    {{ saving ? t('saving') : t('save_changes') }}
+                </button>
+            </div>
+        </form>
+
+        <div class="row g-4 mt-0">
+            <div class="col-xl-12">
                 <div class="card custom-card">
-                    <div class="card-body">
-                        <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
-                            <h6 class="fw-semibold mb-0">{{ t('sms.whatsapp.otp_template') }}</h6>
-                            <div class="d-flex flex-wrap align-items-center gap-2">
-                                <button
-                                    v-if="canTest"
-                                    type="button"
-                                    class="btn btn-outline-secondary btn-sm btn-wave"
-                                    :disabled="importing"
-                                    @click="importTemplates"
+                    <div class="card-header d-sm-flex align-items-center justify-content-between gap-2">
+                        <div class="card-title mb-0">{{ t('sms.whatsapp.templates') }}</div>
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                            <button
+                                v-if="canTest"
+                                type="button"
+                                class="btn btn-sm btn-light"
+                                :disabled="importing"
+                                @click="importTemplates"
+                            >
+                                <span v-if="importing" class="spinner-border spinner-border-sm me-1"></span>
+                                <i v-else class="ri-download-2-line me-1"></i>
+                                {{ t('sms.whatsapp.import_from_meta') }}
+                            </button>
+                            <button
+                                v-if="canCreate"
+                                type="button"
+                                class="btn btn-sm btn-primary"
+                                @click="openCreateTemplate"
+                            >
+                                <i class="ri-add-line me-1 align-middle"></i>
+                                {{ t('sms.whatsapp.add_template') }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div v-if="loadingTemplates" class="p-3">
+                            <div class="d-flex flex-column gap-3">
+                                <div
+                                    v-for="row in 4"
+                                    :key="row"
+                                    class="placeholder-glow"
                                 >
-                                    <span v-if="importing" class="spinner-border spinner-border-sm me-1"></span>
-                                    {{ t('sms.whatsapp.import_from_meta') }}
-                                </button>
-                                <button
-                                    v-if="canCreate"
-                                    type="button"
-                                    class="btn btn-primary btn-sm btn-wave"
-                                    @click="openCreateTemplate"
-                                >
-                                    <i class="ri-add-line me-1 align-middle"></i>
-                                    {{ t('sms.whatsapp.add_template') }}
-                                </button>
+                                    <span class="placeholder col-12 rounded-1 d-block"></span>
+                                </div>
                             </div>
                         </div>
 
-                        <div v-if="!templates.length" class="text-center py-4">
-                            <p class="text-muted mb-0">{{ t('sms.whatsapp.no_templates') }}</p>
+                        <div v-else-if="! templates.length" class="text-center py-5">
+                            <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
+                                <i class="ri-message-3-line fs-2 text-primary"></i>
+                            </span>
+                            <p class="fw-semibold mb-1">{{ t('sms.whatsapp.templates_empty_title') }}</p>
+                            <p class="text-muted mb-3">{{ t('sms.whatsapp.templates_empty') }}</p>
+                            <button
+                                v-if="canCreate"
+                                type="button"
+                                class="btn btn-primary btn-sm btn-wave"
+                                @click="openCreateTemplate"
+                            >
+                                <i class="ri-add-line me-1 align-middle"></i>
+                                {{ t('sms.whatsapp.add_template') }}
+                            </button>
                         </div>
 
                         <div v-else class="table-responsive">
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
                                     <tr>
-                                        <th>{{ t('sms.whatsapp.col_template') }}</th>
-                                        <th>{{ t('sms.whatsapp.col_language') }}</th>
-                                        <th>{{ t('sms.whatsapp.col_category') }}</th>
-                                        <th>{{ t('sms.whatsapp.col_status') }}</th>
-                                        <th>{{ t('sms.whatsapp.col_active') }}</th>
-                                        <th>{{ t('sms.whatsapp.col_last_sync') }}</th>
-                                        <th class="text-end">{{ t('sms.whatsapp.actions') }}</th>
+                                        <th scope="col">{{ t('sms.whatsapp.col_template') }}</th>
+                                        <th scope="col">{{ t('sms.whatsapp.col_language') }}</th>
+                                        <th scope="col">{{ t('sms.whatsapp.col_category') }}</th>
+                                        <th scope="col">{{ t('sms.whatsapp.col_status') }}</th>
+                                        <th scope="col">{{ t('sms.whatsapp.col_active') }}</th>
+                                        <th scope="col">{{ t('sms.whatsapp.col_last_sync') }}</th>
+                                        <th scope="col" class="text-end pe-4">{{ t('sms.whatsapp.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <tr v-for="tpl in templates" :key="tpl.id">
-                                        <td class="fw-semibold">
-                                            {{ tpl.template_name }}
+                                    <tr v-for="tpl in templates" :key="tpl.id" class="crm-contact">
+                                        <td>
+                                            <div class="fw-semibold text-default">
+                                                {{ tpl.template_name }}
+                                                <span class="d-block text-muted fs-11">#{{ tpl.id }}</span>
+                                            </div>
                                             <div
                                                 v-if="tpl.last_sync_error"
-                                                class="text-danger fs-12 fw-normal"
+                                                class="text-danger fs-12"
                                                 :title="tpl.last_sync_error"
                                             >
                                                 {{ tpl.last_sync_error }}
@@ -309,11 +374,11 @@
                                         <td class="text-muted fs-12">
                                             {{ tpl.last_synced_at ?? '—' }}
                                         </td>
-                                        <td class="text-end">
-                                            <div class="d-flex align-items-center justify-content-end gap-1">
+                                        <td class="text-end pe-4">
+                                            <div class="btn-list justify-content-end">
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-primary"
+                                                    class="btn btn-sm btn-success-light btn-icon"
                                                     :title="t('sms.whatsapp.submit_to_meta')"
                                                     :disabled="submittingId === tpl.id"
                                                     @click="submitTemplate(tpl.id)"
@@ -326,16 +391,21 @@
                                                 </button>
                                                 <button
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-info"
+                                                    class="btn btn-sm btn-info-light btn-icon"
                                                     :title="t('sms.whatsapp.sync')"
                                                     :disabled="syncingId === tpl.id"
                                                     @click="syncTemplate(tpl.id)"
                                                 >
-                                                    <i class="ri-refresh-line"></i>
+                                                    <span
+                                                        v-if="syncingId === tpl.id"
+                                                        class="spinner-border spinner-border-sm"
+                                                    ></span>
+                                                    <i v-else class="ri-refresh-line"></i>
                                                 </button>
                                                 <button
+                                                    v-if="canUpdate"
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-primary"
+                                                    class="btn btn-sm btn-info-light btn-icon"
                                                     :title="t('sms.whatsapp.edit')"
                                                     @click="openEditTemplate(tpl)"
                                                 >
@@ -344,7 +414,7 @@
                                                 <button
                                                     v-if="canDelete"
                                                     type="button"
-                                                    class="btn btn-sm btn-outline-danger"
+                                                    class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('sms.whatsapp.delete')"
                                                     @click="deleteTemplate(tpl.id)"
                                                 >
@@ -411,15 +481,20 @@
                                     {{ t('sms.whatsapp.template_name') }}
                                     <span class="text-danger">*</span>
                                 </label>
-                                <input
-                                    v-model="templateForm.template_name"
-                                    type="text"
-                                    maxlength="120"
-                                    class="form-control"
-                                    :class="templateNameUi.inputClass"
-                                    :placeholder="t('sms.whatsapp.template_name_placeholder')"
-                                    @blur="templateV$.template_name.$touch()"
-                                >
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light">
+                                        <i class="ri-file-text-line"></i>
+                                    </span>
+                                    <input
+                                        v-model="templateForm.template_name"
+                                        type="text"
+                                        maxlength="120"
+                                        class="form-control"
+                                        :class="templateNameUi.inputClass"
+                                        :placeholder="t('sms.whatsapp.template_name_placeholder')"
+                                        @blur="templateV$.template_name.$touch()"
+                                    >
+                                </div>
                                 <div v-if="templateNameUi.message" class="invalid-feedback d-block">
                                     {{ templateNameUi.message }}
                                 </div>
@@ -461,15 +536,20 @@
                                     {{ t('sms.whatsapp.body') }}
                                     <span class="text-danger">*</span>
                                 </label>
-                                <textarea
-                                    v-model="templateForm.body"
-                                    class="form-control"
-                                    :class="bodyUi.inputClass"
-                                    rows="3"
-                                    maxlength="1024"
-                                    :placeholder="t('sms.whatsapp.body_placeholder')"
-                                    @blur="templateV$.body.$touch()"
-                                ></textarea>
+                                <div class="input-group">
+                                    <span class="input-group-text bg-light align-self-start">
+                                        <i class="ri-message-3-line"></i>
+                                    </span>
+                                    <textarea
+                                        v-model="templateForm.body"
+                                        class="form-control"
+                                        :class="bodyUi.inputClass"
+                                        rows="3"
+                                        maxlength="1024"
+                                        :placeholder="t('sms.whatsapp.body_placeholder')"
+                                        @blur="templateV$.body.$touch()"
+                                    ></textarea>
+                                </div>
                                 <div v-if="bodyUi.message" class="invalid-feedback d-block">
                                     {{ bodyUi.message }}
                                 </div>
@@ -525,6 +605,7 @@ import MultiSelect from 'primevue/multiselect';
 import adminAxios from '../../../../../../api/adminAxios';
 import FlagImage from '../../../../../../components/ui/FlagImage.vue';
 import PhoneCountryInput from '../../../../../../components/catalog/PhoneCountryInput.vue';
+import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../composables/usePermission';
 import useValidation from '../../../../../../composables/useValidation';
@@ -533,6 +614,7 @@ import { combinePhoneNumber, resolveCountryFlagCode, splitPhoneNumber } from '..
 const { t } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
 const { can } = usePermission();
+const { canUpdate } = useCatalogPermissions('whatsapp');
 const { requiredField, maxString, fieldFeedback, applyApiErrors, firstError } = useValidation();
 
 const canTest = computed(() => can('whatsapp.test'));
@@ -544,6 +626,7 @@ const testing = ref(false);
 const importing = ref(false);
 const syncing = ref(false);
 const loadingCountries = ref(false);
+const showAccessToken = ref(false);
 const countries = ref([]);
 const whatsapp = ref(null);
 const serverErrors = reactive({});
@@ -1096,6 +1179,10 @@ async function loadWhatsapp() {
 }
 
 async function save() {
+    if (! canUpdate.value) {
+        return;
+    }
+
     v$.value.$touch();
 
     if (v$.value.$invalid) {
