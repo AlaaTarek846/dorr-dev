@@ -19,9 +19,11 @@ import java.net.UnknownHostException
  * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
  * Laravel builds absolute media URLs with, so those get rewritten to the LAN host.
  */
-private const val BASE_HOST = "192.168.1.4"
-//private const val BASE_HOST = "unafraid-occupy-geography.ngrok-free.dev"
-private const val BASE_URL = "http://$BASE_HOST/api/"
+// private const val LAN_HOST = "192.168.1.5"
+// private const val EMULATOR_HOST = "10.0.2.2"
+private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
+private const val BASE_HOST = NGROK_HOST
+private const val BASE_URL = "https://$BASE_HOST/api/"
 private const val LOCAL_MEDIA_HOST = "dorr.test"
 
 object ApiClient {
@@ -81,6 +83,9 @@ object ApiClient {
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val addresses: AddressApi by lazy { retrofit.create(AddressApi::class.java) }
     val appearance: AppearanceApi by lazy { retrofit.create(AppearanceApi::class.java) }
+    val mobileAppearanceDefaults: MobileAppearanceDefaultsApi by lazy {
+        retrofit.create(MobileAppearanceDefaultsApi::class.java)
+    }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
 
     /**

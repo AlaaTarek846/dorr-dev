@@ -41,6 +41,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
@@ -50,8 +52,6 @@ import androidx.compose.material.icons.rounded.Phone
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -106,6 +106,8 @@ import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
@@ -201,7 +203,7 @@ fun LoginScreen(
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Fullscreen edge-to-edge background canvas
-        LoginBackdrop(Modifier.fillMaxSize())
+        PinkBackdrop(Modifier.fillMaxSize())
 
         // Safe area content with system insets
         LoginContent(
@@ -343,34 +345,6 @@ private fun SessionExpiredBanner(
 }
 
 @Composable
-private fun LoginBackdrop(modifier: Modifier = Modifier) {
-    val night = settingsNight()
-    val base = if (night) AccountDark.bg else Color.White
-    val glow = if (night) AccountDark.accent else settingsAccent()
-    Canvas(modifier) {
-        drawRect(base)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.08f),
-                radius = size.width * 0.85f,
-            ),
-            radius = size.width * 0.85f,
-            center = Offset(size.width * 0.5f, size.height * -0.08f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(size.width * 1.05f, size.height * 0.02f),
-                radius = size.width * 0.55f,
-            ),
-            radius = size.width * 0.55f,
-            center = Offset(size.width * 1.05f, size.height * 0.02f),
-        )
-    }
-}
-
-@Composable
 private fun LoginContent(
     phone: String,
     acceptedTerms: Boolean,
@@ -397,7 +371,11 @@ private fun LoginContent(
     val scrollState = rememberScrollState()
     val night = settingsNight()
     val accent = if (night) AccountDark.accent else settingsAccent()
-    val mut = if (night) AccountDark.mut else Color(0xFF6B7280)
+    val mut = if (night) {
+        AccountDark.mut
+    } else {
+        com.dorr.app.ui.theme.appearanceColor("authTextMuted", Color(0xFF6B7280), night = false)
+    }
 
     Column(
         modifier = modifier
@@ -443,27 +421,11 @@ private fun LoginContent(
                 modifier = Modifier.widthIn(max = 260.dp),
             )
 
-            Box(
-                modifier = Modifier
-                    .padding(top = 26.dp, bottom = 28.dp)
-                    .size(104.dp)
-                    .then(
-                        if (night) Modifier
-                        else Modifier.shadow(
-                            elevation = 10.dp,
-                            shape = RoundedCornerShape(22.dp),
-                            ambientColor = Color(0x14111928),
-                            spotColor = Color(0x14111928),
-                        ),
-                    )
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(if (night) AccountDark.card else Color.White)
-                    .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(22.dp)) else Modifier)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                DorrLogo(width = 88.dp)
-            }
+            DorrLogo(
+                width = 156.dp,
+                onDark = night,
+                modifier = Modifier.padding(top = 22.dp, bottom = 26.dp),
+            )
 
             // Phone Input Field (56.dp height, perfectly centered, no text cutoff)
             PhoneField(
@@ -489,29 +451,33 @@ private fun LoginContent(
                 exit = fadeOut() + shrinkVertically(),
             ) {
                 phoneError?.let { message ->
+                    val errorInk = if (night) Color(0xFFFFB4B4) else AppColors.danger
+                    val errorBg = AppColors.danger.copy(alpha = if (night) 0.16f else 0.12f)
+                    val errorBorder = AppColors.danger.copy(alpha = if (night) 0.38f else 0.28f)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (night) AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
-                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                            .background(errorBg)
+                            .border(1.dp, errorBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.Start,
                     ) {
                         Icon(
                             Icons.Rounded.ErrorOutline,
                             contentDescription = null,
-                            tint = AppColors.danger,
+                            tint = errorInk,
                             modifier = Modifier.size(16.dp),
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = message,
-                            color = AppColors.danger,
+                            color = errorInk,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -522,19 +488,23 @@ private fun LoginContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp, horizontal = 2.dp),
-                verticalAlignment = Alignment.Top,
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(
-                    checked = acceptedTerms,
-                    onCheckedChange = onAcceptedTermsChange,
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = settingsAccent(),
-                        checkmarkColor = Color.White,
-                        uncheckedColor = if (night) AccountDark.line else Color(0xFFD1D5DB),
-                    ),
-                )
-                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable { onAcceptedTermsChange(!acceptedTerms) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (acceptedTerms) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
+                        contentDescription = null,
+                        tint = if (acceptedTerms) accent else if (night) AccountDark.line else Color(0xFFD1D5DB),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
                 val terms = buildAnnotatedString {
                     val link = SpanStyle(
                         color = accent,
@@ -554,7 +524,7 @@ private fun LoginContent(
                     text = terms,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 13.sp,
-                        lineHeight = 18.sp,
+                        lineHeight = 20.sp,
                         color = mut,
                     ),
                     modifier = Modifier.weight(1f),
@@ -569,18 +539,20 @@ private fun LoginContent(
             Spacer(Modifier.height(16.dp))
 
             val buttonShape = RoundedCornerShape(999.dp)
+            val disabledOutline = accent.copy(alpha = if (night) 0.55f else 0.35f)
+            val disabledLabel = if (night) accent.copy(alpha = 0.92f) else accent.copy(alpha = 0.55f)
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = settingsAccent(),
-                    disabledContainerColor = if (isLoading) settingsAccent() else Color.Transparent,
+                    containerColor = accent,
+                    disabledContainerColor = if (isLoading) accent else Color.Transparent,
                     contentColor = Color.White,
-                    disabledContentColor = if (isLoading) Color.White else Color(0x80E50914),
+                    disabledContentColor = if (isLoading) Color.White else disabledLabel,
                 ),
                 shape = buttonShape,
                 border = if (!canSubmit && !isLoading) {
-                    androidx.compose.foundation.BorderStroke(1.dp, Color(0x33E50914))
+                    androidx.compose.foundation.BorderStroke(1.dp, disabledOutline)
                 } else {
                     null
                 },
@@ -592,8 +564,8 @@ private fun LoginContent(
                             Modifier.shadow(
                                 elevation = 8.dp,
                                 shape = buttonShape,
-                                ambientColor = Color(0x66E50914),
-                                spotColor = Color(0x66E50914),
+                                ambientColor = accent.copy(alpha = 0.4f),
+                                spotColor = accent.copy(alpha = 0.4f),
                             )
                         } else {
                             Modifier
@@ -611,7 +583,6 @@ private fun LoginContent(
                         text = stringResource(R.string.login_cta),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isFormValid) Color.White else Color(0x80E50914),
                     )
                 }
             }
@@ -942,7 +913,12 @@ internal fun LanguagePicker() {
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FlagImage(languageFlagCode(selected))
+                Icon(
+                    Icons.Rounded.Language,
+                    contentDescription = null,
+                    tint = caret,
+                    modifier = Modifier.size(20.dp),
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = selected?.name ?: stringResource(R.string.language_arabic),

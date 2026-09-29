@@ -2,7 +2,7 @@
 
 namespace App\Services\Concerns;
 
-use App\Repositories\TranslatableRepository;
+use App\Repositories\BaseRepository;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 
@@ -10,7 +10,7 @@ trait ManagesCatalog
 {
     public function changeStatus(int|string $id, bool $status, ?string $message = null): JsonResponse
     {
-        /** @var TranslatableRepository $repository */
+        /** @var BaseRepository $repository */
         $repository = $this->repository;
         $model = $repository->changeStatus($id, $status);
 
@@ -22,7 +22,7 @@ trait ManagesCatalog
 
     public function dropdown(?string $message = null): JsonResponse
     {
-        /** @var TranslatableRepository $repository */
+        /** @var BaseRepository $repository */
         $repository = $this->repository;
 
         return ApiResponse::success(

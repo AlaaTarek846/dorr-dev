@@ -18,6 +18,8 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.dorr.app.R
+import com.dorr.app.ui.screens.profile.settingsBackground
+import com.dorr.app.ui.screens.profile.settingsInk
 
 /** Shared "sub-screen with a back arrow" shell for everything pushed from Profile. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +38,7 @@ fun SettingsScaffold(
                             title,
                             fontSize = 17.sp,
                             fontWeight = FontWeight.SemiBold,
-                            color = AppColors.textPrimary,
+                            color = settingsInk(),
                         )
                     },
                     navigationIcon = {
@@ -44,7 +46,7 @@ fun SettingsScaffold(
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White),
+                    colors = TopAppBarDefaults.topAppBarColors(containerColor = settingsBackground()),
                 )
                 HorizontalDivider(color = AppColors.border)
             }

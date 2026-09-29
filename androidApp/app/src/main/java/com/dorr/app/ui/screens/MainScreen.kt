@@ -61,6 +61,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -71,6 +72,7 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.LocalAppearance
+import com.dorr.app.ui.theme.appearanceColor
 import com.dorr.app.ui.screens.wallet.WalletScreen
 
 private data class Tab(
@@ -204,51 +206,29 @@ private fun DorrBottomNavigationBar(
     val fabSize = 54.dp
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val accountDark = night
-    val barColor = if (accountDark) AccountDark.bg else Color.White
-    val ringColor = if (accountDark) AccountDark.bg else Color.White
+    val barColor = if (accountDark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
+    val ringColor = barColor
 
     Box(
         modifier = modifier.fillMaxWidth().background(barColor),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (accountDark) Modifier
-                    else Modifier.shadow(
-                        elevation = 10.dp,
-                        spotColor = settingsAccent().copy(alpha = 0.08f),
-                        ambientColor = Color.Black.copy(alpha = 0.04f),
-                    ),
-                ),
+            modifier = Modifier.fillMaxWidth(),
             color = barColor,
             tonalElevation = 0.dp,
         ) {
+            val divider = if (barColor.luminance() > 0.6f) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.10f)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
-                // Subtle hairline top line with gentle pink gradient towards center
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
-                        .then(
-                            if (accountDark) Modifier.background(Color(0xFF2C313A))
-                            else Modifier.background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFFEEEEEE),
-                                        Color(0xFFFDE8EB),
-                                        Color(0xFFF9C0C8),
-                                        Color(0xFFFDE8EB),
-                                        Color(0xFFEEEEEE),
-                                    ),
-                                ),
-                            ),
-                        ),
+                        .background(divider),
                 )
 
                 // 4 Tab items evenly distributed around the center FAB space

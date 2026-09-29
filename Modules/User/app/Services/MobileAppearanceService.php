@@ -85,6 +85,13 @@ class MobileAppearanceService
 
         $font = $this->resolveFont($appearance?->mobile_app_font_id);
 
+        $availableFonts = MobileAppFont::query()
+            ->where('status', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->with(['media'])
+            ->get();
+
         return [
             'uses_default_colors' => $usesDefault,
             'custom_light_tokens' => $appearance?->custom_light_tokens ?? null,
@@ -101,6 +108,7 @@ class MobileAppearanceService
                 'dark_tokens' => $resolvedDark,
             ],
             'font' => $font !== null ? (new MobileAppFontResource($font))->resolve() : null,
+            'available_fonts' => MobileAppFontResource::collection($availableFonts)->resolve(),
         ];
     }
 
@@ -110,7 +118,7 @@ class MobileAppearanceService
             $chosen = MobileAppFont::query()
                 ->where('id', $fontId)
                 ->where('status', true)
-                ->with(['translations', 'translation', 'media'])
+                ->with(['media'])
                 ->first();
 
             if ($chosen !== null) {
@@ -118,6 +126,6 @@ class MobileAppearanceService
             }
         }
 
-        return $this->fonts->defaultFont()?->load(['translations', 'translation', 'media']);
+        return $this->fonts->defaultFont()?->load(['media']);
     }
 }
