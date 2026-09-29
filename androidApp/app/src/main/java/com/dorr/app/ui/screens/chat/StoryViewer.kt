@@ -299,7 +299,7 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
                         Icon(Icons.Rounded.MoreVert, null, tint = Color.White, modifier = Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }.padding(8.dp))
                         DropdownMenu(menu, onDismissRequest = { menu = false }, containerColor = Color.White, shape = RoundedCornerShape(16.dp)) {
                             if (story.isMine) {
-                                MenuItem(Icons.Rounded.Delete, stringResource(R.string.st_delete), tint = Color(0xFFDC2626)) {
+                                MenuItem(Icons.Rounded.Delete, stringResource(R.string.st_delete), tint = Ch.Danger) {
                                     menu = false
                                     scope.launch {
                                         runCatching { ApiClient.chat.deleteStory(chatAuth(), story.id) }

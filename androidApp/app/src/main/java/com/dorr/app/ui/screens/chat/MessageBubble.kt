@@ -55,6 +55,7 @@ import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -112,6 +113,16 @@ class BubbleActions(
     val onOpenMedia: (MessageDto, Int) -> Unit,
     val onPayQr: (String) -> Unit,
     val onMessageContact: (String) -> Unit,
+    val onVote: (UiMessage, Int) -> Unit = { _, _ -> },
+    val onShowVotes: (MessageDto) -> Unit = {},
+    val onOpenViewOnce: (UiMessage) -> Unit = {},
+    val onStopLive: (UiMessage) -> Unit = {},
+    /** A Dorr group invite link (dorr://chat/join/…) was tapped. */
+    val onJoinGroup: (String) -> Unit = {},
+    /** Money request / bill split: pay (PIN), decline, or — the requester — call it off. */
+    val onPay: (UiMessage) -> Unit = {},
+    val onDeclineRequest: (UiMessage) -> Unit = {},
+    val onCancelRequest: (UiMessage) -> Unit = {},
 )
 
 /**
@@ -214,7 +225,10 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
     val shape = if (mine) RoundedCornerShape(topStart = big, topEnd = if (firstInRun) small else big, bottomEnd = big, bottomStart = big)
     else RoundedCornerShape(topStart = if (firstInRun) small else big, topEnd = big, bottomEnd = big, bottomStart = big)
 
-    val isCard = dto.type in setOf("wallet_transfer", "wallet_qr") && !dto.isDeleted
+    // Cards that bring their own background (wallet cards, the green money request).
+    // A sticker floats on the wallpaper: no bubble, no shadow.
+    val bare = dto.type == "sticker" && !dto.isDeleted
+    val isCard = (dto.type in setOf("wallet_transfer", "wallet_qr", "money_request") || bare) && !dto.isDeleted
     val media = dto.type in setOf("image", "video") && !dto.isDeleted
     val haptic = LocalHapticFeedback.current
 
@@ -223,7 +237,7 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
             Modifier
                 .widthIn(max = 300.dp)
                 .chPopIn(m.fresh, fromEnd = mine)
-                .shadow(if (mine) 6.dp else 2.dp, shape, spotColor = if (mine) Ch.Red.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.12f), ambientColor = Color.Transparent)
+                .shadow(if (bare) 0.dp else if (mine) 6.dp else 2.dp, shape, spotColor = if (mine) Ch.Red.copy(alpha = 0.35f) else Color.Black.copy(alpha = 0.12f), ambientColor = Color.Transparent)
                 .clip(shape)
                 .then(if (mine && !isCard) Modifier.background(Ch.OutBubble) else Modifier.background(if (isCard) Color.Transparent else Ch.InBubble))
                 .combinedClickable(
@@ -260,7 +274,7 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
     }
 }
 
-private val FailedRed = Color(0xFFDC2626)
+private val FailedRed get() = Ch.Danger
 
 @Composable
 private fun ForwardedLabel(many: Boolean, mine: Boolean) {
@@ -320,20 +334,39 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         }
         return
     }
+    if (dto.viewOnce) {
+        ViewOnceCard(m, mine, onOpen = { actions.onOpenViewOnce(m) }) { Footer(m, mine, overlay = false) }
+        return
+    }
     when (dto.type) {
         "image", "video" -> MediaGrid(m, mine, actions)
         "voice", "audio" -> VoiceNote(m, mine)
         "document" -> DocumentCard(m, mine)
-        "location" -> LocationCard(dto.meta, m, mine)
+        "sticker" -> StickerBubble(m, mine) { Footer(m, mine, overlay = true) }
+        "gif" -> GifBubble(m, mine) { Footer(m, mine, overlay = true) }
+        "money_request" -> MoneyRequestCard(m, mine, onPay = { actions.onPay(m) }, onDecline = { actions.onDeclineRequest(m) }, onCancel = { actions.onCancelRequest(m) }) {
+            Footer(m, mine, overlay = true)
+        }
+        "bill_split" -> BillSplitCard(m, mine, onPay = { actions.onPay(m) }, onDecline = { actions.onDeclineRequest(m) }, onCancel = { actions.onCancelRequest(m) }) {
+            Footer(m, mine, overlay = false)
+        }
+        "poll" -> PollCard(m, mine, onVote = { actions.onVote(m, it) }, onShowVotes = { actions.onShowVotes(dto) }) { Footer(m, mine, overlay = false) }
+        "location" -> if (dto.liveLocation != null) {
+            LiveLocationCard(dto.meta, dto.liveLocation, mine, onStop = { actions.onStopLive(m) }) { Footer(m, mine, overlay = true) }
+        } else LocationCard(dto.meta, m, mine)
         "contact" -> ContactCard(dto.meta, m, mine, actions)
         "wallet_transfer" -> TransferReceiptCard(dto.meta, m, mine)
         "wallet_qr" -> WalletQrCard(dto.meta, m, mine, actions)
         "call" -> CallLine(dto.meta, m, mine)
         "story_reply" -> Column {
             StoryQuote(dto.meta, mine)
-            TextBody(m, mine)
+            TextBody(m, mine, actions)
         }
-        else -> TextBody(m, mine)
+        else -> Column {
+            // The link's card above the text, like WhatsApp (arrives a moment after sending).
+            dto.linkPreview?.let { LinkPreviewCard(it, mine) }
+            TextBody(m, mine, actions)
+        }
     }
 }
 
@@ -369,7 +402,7 @@ private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
 
 /** Text with the time tucked into the last line (WhatsApp-style) and links underlined. */
 @Composable
-private fun TextBody(m: UiMessage, mine: Boolean) {
+private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null) {
     val dto = m.dto
     val color = if (mine) Ch.OutText else Ch.InText
     val body = dto.body.orEmpty()
@@ -388,7 +421,7 @@ private fun TextBody(m: UiMessage, mine: Boolean) {
                     from = body.indexOf("@$name", from + 1)
                 }
             }
-            val regex = Regex("(https?://\\S+|www\\.\\S+)")
+            val regex = Regex("(https?://\\S+|www\\.\\S+|dorr://chat/join/\\S+)")
             var last = 0
             regex.findAll(body).forEach { match ->
                 append(body.substring(last, match.range.first))
@@ -407,6 +440,11 @@ private fun TextBody(m: UiMessage, mine: Boolean) {
             modifier = Modifier.padding(end = 62.dp, bottom = 2.dp),
             onClick = { offset ->
                 annotated.getStringAnnotations("url", offset, offset).firstOrNull()?.let { a ->
+                    // A Dorr group invite opens the join sheet right here, not a browser.
+                    if (a.item.startsWith("dorr://chat/join/")) {
+                        actions?.onJoinGroup?.invoke(a.item.removePrefix("dorr://chat/join/").trimEnd('.', ',', ')'))
+                        return@let
+                    }
                     val url = if (a.item.startsWith("http")) a.item else "https://${a.item}"
                     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                 }
@@ -414,6 +452,13 @@ private fun TextBody(m: UiMessage, mine: Boolean) {
         )
         Footer(m, mine, overlay = false, modifier = Modifier.align(Alignment.BottomEnd))
     }
+}
+
+/** 950 · 1.2K · 3.4M */
+internal fun compactCount(n: Int): String = when {
+    n >= 1_000_000 -> String.format(java.util.Locale.US, "%.1fM", n / 1_000_000f).replace(".0M", "M")
+    n >= 1_000 -> String.format(java.util.Locale.US, "%.1fK", n / 1_000f).replace(".0K", "K")
+    else -> n.toString()
 }
 
 /** Time · edited · star · ticks — at the bottom corner of every bubble. */
@@ -432,6 +477,11 @@ private fun Footer(m: UiMessage, mine: Boolean, overlay: Boolean, modifier: Modi
     ) {
         if (dto.expiresAt != null) Icon(Icons.Rounded.Timer, null, tint = color, modifier = Modifier.size(11.dp))
         if (dto.isStarred) Icon(Icons.Rounded.Star, null, tint = color, modifier = Modifier.size(11.dp))
+        // Channel posts: 👁 1.2K — how many followers saw it.
+        dto.views?.let { views ->
+            Icon(Icons.Rounded.Visibility, null, tint = color, modifier = Modifier.size(12.dp))
+            Text(compactCount(views), color = color, fontSize = 10.5.sp, fontWeight = FontWeight.SemiBold)
+        }
         if (dto.isEdited) Text(stringResource(R.string.ch_edited), color = color, fontSize = 10.5.sp, fontStyle = FontStyle.Italic)
         Text(clockTime(dto.createdAt), color = color, fontSize = 10.5.sp)
         if (mine) ChTicks(m.status, onBubble = mine || overlay, size = 15.dp)
@@ -774,7 +824,7 @@ private fun CallLine(meta: JsonObject?, m: UiMessage, mine: Boolean) {
         Box(Modifier.size(38.dp).clip(CircleShape).background(if (mine) Ch.OutText.copy(alpha = 0.2f) else if (missed) Color(0xFFFEE2E2) else Color(0xFFDCFCE7)), contentAlignment = Alignment.Center) {
             Icon(
                 if (missed) Icons.Rounded.CallMissed else if (video) Icons.Rounded.Videocam else Icons.Rounded.Call, null,
-                tint = if (mine) Ch.OutText else if (missed) Color(0xFFDC2626) else Color(0xFF16A34A), modifier = Modifier.size(20.dp),
+                tint = if (mine) Ch.OutText else if (missed) Ch.Danger else Ch.Success, modifier = Modifier.size(20.dp),
             )
         }
         Spacer(Modifier.width(10.dp))

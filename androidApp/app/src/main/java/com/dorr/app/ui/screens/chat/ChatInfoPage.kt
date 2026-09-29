@@ -33,13 +33,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.Block
+import com.dorr.app.network.apiFailure
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
@@ -104,7 +107,10 @@ fun ChatInfoPage(id: String) {
 
     suspend fun reload() {
         c = runCatching { ApiClient.chat.conversation(chatAuth(), id).data }.getOrNull() ?: c
-        if (c?.isGroup == true) members = runCatching { ApiClient.chat.members(chatAuth(), id).data }.getOrNull().orEmpty()
+        // A channel's followers are listed to its admins only.
+        if (c?.isGroup == true && (c?.isChannel != true || c?.isAdmin == true)) {
+            members = runCatching { ApiClient.chat.members(chatAuth(), id).data }.getOrNull().orEmpty()
+        }
     }
     LaunchedEffect(id) { reload() }
     LaunchedEffect(tab) {
@@ -139,14 +145,18 @@ fun ChatInfoPage(id: String) {
                             }
                         }
                         Text(
-                            if (conversation?.isGroup == true) stringResource(R.string.ch_members, conversation.group?.membersCount ?: 0) else conversation?.peer?.phone.orEmpty(),
+                            when {
+                                conversation?.isChannel == true -> listOfNotNull(conversation.group?.handle?.let { "@$it" }, stringResource(R.string.ch_followers, conversation.group?.membersCount ?: 0)).joinToString("  ·  ")
+                                conversation?.isGroup == true -> stringResource(R.string.ch_members, conversation.group?.membersCount ?: 0)
+                                else -> conversation?.peer?.phone.orEmpty()
+                            },
                             color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp,
                         )
                         conversation?.group?.description?.takeIf { it.isNotBlank() }?.let {
                             Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 13.5.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 6.dp))
                         }
                         Spacer(Modifier.height(16.dp))
-                        if (conversation != null && conversation.canSend) {
+                        if (conversation != null && conversation.canSend && !conversation.isChannel) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 QuickAction(Icons.Rounded.Call, stringResource(R.string.ch_call_voice), 0) { startCall(id, false, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
                                 QuickAction(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video), 1) { startCall(id, true, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
@@ -227,13 +237,30 @@ fun ChatInfoPage(id: String) {
                             }
                         }
                         val g = conversation.group!!
-                        GroupToggle(stringResource(R.string.ch_only_admins_send), g.onlyAdminsSend) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_send" to it)).data }.getOrNull()?.let { c = it } } }
+                        if (conversation.isChannel) {
+                            // A channel: public (in Discover) or link-only, and its @handle.
+                            GroupToggle(stringResource(R.string.ch_channel_public), g.isPublic) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("is_public" to it)).data }.getOrNull()?.let { c = it } } }
+                            SettingRow(Icons.Rounded.AlternateEmail, stringResource(R.string.ch_channel_handle), value = g.handle?.let { "@$it" }) { sheet = "handle" }
+                        } else {
+                            GroupToggle(stringResource(R.string.ch_only_admins_send), g.onlyAdminsSend) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_send" to it)).data }.getOrNull()?.let { c = it } } }
+                            GroupToggle(stringResource(R.string.ch_only_admins_add), g.onlyAdminsAddMembers) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_add_members" to it)).data }.getOrNull()?.let { c = it } } }
+                        }
                         GroupToggle(stringResource(R.string.ch_only_admins_edit), g.onlyAdminsEditInfo) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_edit_info" to it)).data }.getOrNull()?.let { c = it } } }
-                        GroupToggle(stringResource(R.string.ch_only_admins_add), g.onlyAdminsAddMembers) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_add_members" to it)).data }.getOrNull()?.let { c = it } } }
+                        GroupToggle(stringResource(R.string.ch_approve_joins), g.approveJoins) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("approve_joins" to it)).data }.getOrNull()?.let { c = it } } }
+                        // Who's waiting, with a badge that pops when someone new asks.
+                        androidx.compose.animation.AnimatedVisibility(g.approveJoins || g.pendingJoinRequests > 0) {
+                            SettingRow(
+                                Icons.Rounded.HourglassTop, stringResource(R.string.ch_join_requests),
+                                value = if (g.pendingJoinRequests > 0) g.pendingJoinRequests.toString() else null,
+                            ) { sheet = "joins" }
+                        }
                     }
                 }
-                item {
-                    Text(stringResource(R.string.ch_members, members.size), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 26.dp, top = 12.dp, bottom = 4.dp))
+                if (members.isNotEmpty()) item {
+                    Text(
+                        stringResource(if (conversation.isChannel) R.string.ch_followers else R.string.ch_members, members.size),
+                        color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 26.dp, top = 12.dp, bottom = 4.dp),
+                    )
                 }
                 itemsIndexed(members, key = { _, m -> m.participantId }) { i, m ->
                     Row(
@@ -263,7 +290,10 @@ fun ChatInfoPage(id: String) {
                     }
                     SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
                     SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true) { sheet = "clear" }
-                    if (conversation.isGroup && conversation.isMember) SettingRow(Icons.AutoMirrored.Rounded.ExitToApp, stringResource(R.string.ch_leave_group), danger = true) { sheet = "leave" }
+                    if (conversation.isGroup && conversation.isMember) SettingRow(
+                        Icons.AutoMirrored.Rounded.ExitToApp,
+                        stringResource(if (conversation.isChannel) R.string.ch_unfollow else R.string.ch_leave_group), danger = true,
+                    ) { sheet = "leave" }
                     else SettingRow(Icons.Rounded.Delete, stringResource(R.string.ch_delete_chat), danger = true) { sheet = "delete" }
                 }
             }
@@ -293,6 +323,19 @@ fun ChatInfoPage(id: String) {
         "report" -> c?.let { current ->
             ReportSheet(current, onDismiss = { sheet = null }) { changed -> if (changed) scope.launch { reload() } }
         }
+        "joins" -> JoinRequestsSheet(id, onDismiss = { sheet = null }) { scope.launch { reload() } }
+        "handle" -> TextInputSheet(
+            stringResource(R.string.ch_channel_handle), initial = c?.group?.handle.orEmpty(), action = stringResource(R.string.ch_save),
+            onDismiss = { sheet = null },
+        ) { value ->
+            host.scope.launch {
+                try {
+                    ApiClient.chat.channelHandle(chatAuth(), id, mapOf("handle" to value.ifBlank { null })).data?.let { c = it }
+                } catch (e: Exception) {
+                    e.apiFailure().message?.let { host.showToast(it) }
+                }
+            }
+        }
         "mute" -> ChoiceSheet(stringResource(R.string.ch_mute_notifications), listOf(
             stringResource(R.string.ch_mute_8h) to { update(mapOf("mute" to "8h")); Unit },
             stringResource(R.string.ch_mute_1w) to { update(mapOf("mute" to "1w")); Unit },
@@ -313,10 +356,13 @@ fun ChatInfoPage(id: String) {
             scope.launch { runCatching { ApiClient.chat.deleteConversation(chatAuth(), id) }; host.remove(id); host.pop(); host.pop() }
             Unit
         }), danger = true, subtitle = stringResource(R.string.ch_confirm_delete_chat), onDismiss = { sheet = null })
-        "leave" -> ChoiceSheet(stringResource(R.string.ch_leave_group), listOf(stringResource(R.string.ch_leave_group) to {
-            scope.launch { runCatching { ApiClient.chat.leave(chatAuth(), id) }; reload() }
-            Unit
-        }), danger = true, subtitle = stringResource(R.string.ch_confirm_leave), onDismiss = { sheet = null })
+        "leave" -> {
+            val label = stringResource(if (c?.isChannel == true) R.string.ch_unfollow else R.string.ch_leave_group)
+            ChoiceSheet(label, listOf(label to {
+                scope.launch { runCatching { ApiClient.chat.leave(chatAuth(), id) }; reload() }
+                Unit
+            }), danger = true, subtitle = if (c?.isChannel == true) null else stringResource(R.string.ch_confirm_leave), onDismiss = { sheet = null })
+        }
         "block" -> {
             val peer = conversation?.peer
             val blocking = conversation?.iBlocked != true
@@ -381,11 +427,11 @@ internal fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit
 @Composable
 internal fun SettingRow(icon: ImageVector, title: String, value: String? = null, danger: Boolean = false, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(if (danger) Color(0xFFFEF2F2) else Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = if (danger) Color(0xFFDC2626) else Ch.Red, modifier = Modifier.size(19.dp))
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(if (danger) Ch.Danger.copy(alpha = 0.1f) else Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = if (danger) Ch.Danger else Ch.Red, modifier = Modifier.size(19.dp))
         }
         Spacer(Modifier.width(12.dp))
-        Text(title, color = if (danger) Color(0xFFDC2626) else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
+        Text(title, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
         value?.let { Text(it, color = Ch.Mut, fontSize = 13.sp) }
     }
 }

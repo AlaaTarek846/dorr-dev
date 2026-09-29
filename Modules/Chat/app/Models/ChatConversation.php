@@ -49,9 +49,33 @@ class ChatConversation extends Model
         return 'uuid';
     }
 
+    /**
+     * Group-like: many people, a chat_groups row, roles. True for channels too — they are groups
+     * where only admins post and followers don't see each other ({@see isChannel()}).
+     */
     public function isGroup(): bool
     {
-        return $this->type === ConversationType::Group;
+        return $this->type === ConversationType::Group || $this->type === ConversationType::Channel;
+    }
+
+    public function isChannel(): bool
+    {
+        return $this->type === ConversationType::Channel;
+    }
+
+    /**
+     * The people a message page needs to know (ticks, names, mentions). A channel can have
+     * thousands of followers who never appear on screen: only its admins (and me) are loaded.
+     */
+    public function loadViewParticipants(?ChatParticipant $me = null): static
+    {
+        $query = $this->participants();
+
+        if ($this->isChannel()) {
+            $query->where(fn ($q) => $q->where('role', '!=', 'member')->when($me, fn ($q) => $q->orWhere('id', $me->id)));
+        }
+
+        return $this->setRelation('participants', $query->get());
     }
 
     public function group(): HasOne

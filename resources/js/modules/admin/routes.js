@@ -195,6 +195,12 @@ export default [
                 meta: { middleware: [auth], permission: 'chat-report-types.view' },
             },
             {
+                path: 'chat/stickers',
+                name: 'admin.chat.stickers',
+                component: page('chat/stickers/index'),
+                meta: { middleware: [auth], permission: 'chat-stickers.view' },
+            },
+            {
                 path: 'chat/reports',
                 name: 'admin.chat.reports',
                 component: page('chat/reports/index'),

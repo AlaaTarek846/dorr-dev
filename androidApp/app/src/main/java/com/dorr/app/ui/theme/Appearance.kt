@@ -30,6 +30,8 @@ class AppearanceState {
 
     fun apply(dto: AppearanceDto) {
         snapshot = dto
+       // AppearanceStore.save(dto)
+       // AppFont.apply(dto.font)
         AppearanceStore.saveUser(dto)
     }
 
@@ -46,6 +48,8 @@ class AppearanceState {
     /** Clears logged-in overrides only; platform defaults stay for Login / OTP. */
     fun clear() {
         snapshot = null
+       // AppearanceStore.clear()
+        //AppFont.reset()
         AppearanceStore.clearUser()
     }
 }

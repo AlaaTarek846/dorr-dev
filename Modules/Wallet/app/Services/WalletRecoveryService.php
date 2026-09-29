@@ -101,6 +101,8 @@ class WalletRecoveryService
             // permanently locked (a wrong attempt right after a temporary lock) — only a selfie + ID,
             // reviewed by a person, lifts it; every other action, self-service recovery included, is refused
             'is_frozen' => $this->pins->isFrozen($owner),
+            // a temporary lock still running (ISO-8601), else null
+            'locked_until' => $this->pins->lockedUntil($owner)?->toISOString(),
             'recovery' => $record === null ? null : [
                 'method' => $record->method->value,
                 'ready' => $record->isReady(),

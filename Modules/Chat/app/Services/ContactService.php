@@ -105,6 +105,13 @@ class ContactService
     public function add(Model $me, string $name, string $phone, ?Country $country, string $source = 'manual'): ChatContact
     {
         $e164 = PhoneNumber::toE164($phone, $country) ?? throw new ChatException('invalid_phone', 422);
+
+        // A whole, valid number for its country — the same rule as lookup().
+        $target = PhoneNumber::countryOf($e164);
+        if ($target === null || ! PhoneNumber::fits($e164, $target)) {
+            throw new ChatException('invalid_phone', 422, [], ['phone_length' => $target?->phone_length, 'dial_code' => $target?->dial_code]);
+        }
+
         $account = $this->registeredByPhone([$e164])[$e164] ?? null;
 
         return ChatContact::query()->updateOrCreate(
@@ -133,6 +140,13 @@ class ContactService
     public function lookup(Model $me, string $phone, ?Country $country): User
     {
         $e164 = PhoneNumber::toE164($phone, $country) ?? throw new ChatException('invalid_phone', 422);
+
+        // Only a whole number is looked up: no guessing from a partial one (and no scanning).
+        $target = PhoneNumber::countryOf($e164);
+        if ($target === null || ! PhoneNumber::fits($e164, $target)) {
+            throw new ChatException('invalid_phone', 422, [], ['phone_length' => $target?->phone_length, 'dial_code' => $target?->dial_code]);
+        }
+
         $account = $this->registeredByPhone([$e164])[$e164] ?? null;
 
         if ($account === null || ParticipantType::key($account) === ParticipantType::key($me)) {

@@ -17,6 +17,9 @@
     <!-- Incoming calls: the ringing page over the lock screen, waking the display. -->
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Chat live location: keeps sending the position (with a visible notification) until it ends. -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
@@ -59,6 +62,12 @@
         <receiver
             android:name=".chat.CallActionReceiver"
             android:exported="false" />
+
+        <!-- Live location sharing in the chat (15 min / 1 h / 8 h). -->
+        <service
+            android:name=".chat.LiveLocationService"
+            android:exported="false"
+            android:foregroundServiceType="location" />
 
         <!-- Every push passes through here first: calls become a ringing call, not a banner. -->
         <meta-data

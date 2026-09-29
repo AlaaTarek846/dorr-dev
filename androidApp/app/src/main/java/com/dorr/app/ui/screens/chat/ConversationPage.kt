@@ -118,6 +118,11 @@ fun ConversationPage(route: ChRoute.Conversation) {
     var viewer by remember { mutableStateOf<Pair<MessageDto, Int>?>(null) }
     var highlight by remember { mutableStateOf<String?>(null) }
     var infoFor by remember { mutableStateOf<MessageDto?>(null) }
+    var votesFor by remember { mutableStateOf<MessageDto?>(null) }
+    // The money request / split being paid (PIN sheet open).
+    var payFor by remember { mutableStateOf<MessageDto?>(null) }
+    // A view-once file, opened this one time (closing the viewer is final).
+    var viewOnceFiles by remember { mutableStateOf<List<com.dorr.app.network.AttachmentDto>?>(null) }
     val c = state.conversation ?: route.preview
 
     BackHandler(state.focused != null || viewer != null) {
@@ -242,6 +247,14 @@ fun ConversationPage(route: ChRoute.Conversation) {
                     }.onFailure { host.showToast(context.getString(R.string.ch_not_on_dorr)) }
                 }
             },
+            onVote = { m, option -> state.vote(m, option) },
+            onShowVotes = { votesFor = it },
+            onOpenViewOnce = { m -> scope.launch { state.openViewOnce(m)?.takeIf { it.isNotEmpty() }?.let { viewOnceFiles = it } } },
+            onStopLive = { state.stopLive(it) },
+            onJoinGroup = { host.joinToken = it },
+            onPay = { payFor = it.dto },
+            onDeclineRequest = { state.declineRequest(it) },
+            onCancelRequest = { state.cancelRequest(it) },
         )
     }
 
@@ -285,7 +298,8 @@ fun ConversationPage(route: ChRoute.Conversation) {
                             when (line) {
                                 is Line.Day -> Box(Modifier.fillMaxWidth().padding(vertical = 10.dp).animateItem(), contentAlignment = Alignment.Center) { ChChip(dayLabel(line.day)) }
                                 is Line.Msg -> Box(Modifier.animateItem(fadeInSpec = null, placementSpec = spring(dampingRatio = 0.85f, stiffness = 500f))) {
-                                    MessageRow(line.m, line.first, line.last, c?.isGroup == true, actions, highlighted = highlight == line.m.id)
+                                    // A channel's posts come from the channel, not from a person: no names / avatars.
+                                    MessageRow(line.m, line.first, line.last, c?.isGroup == true && c.isChannel != true, actions, highlighted = highlight == line.m.id)
                                 }
                             }
                         }
@@ -332,6 +346,15 @@ fun ConversationPage(route: ChRoute.Conversation) {
             viewer?.let { (m, i) -> MediaViewer(m, i) { viewer = null } }
         }
         infoFor?.let { m -> MessageInfoSheet(m) { infoFor = null } }
+        votesFor?.let { m -> PollVotesSheet(m) { votesFor = null } }
+        payFor?.let { m -> ChatPaySheet(m, onDismiss = { payFor = null }) { paid -> state.paymentUpdated(paid) } }
+        androidx.compose.animation.AnimatedVisibility(
+            viewOnceFiles != null,
+            enter = androidx.compose.animation.fadeIn() + androidx.compose.animation.scaleIn(initialScale = 0.92f),
+            exit = androidx.compose.animation.fadeOut(),
+        ) {
+            viewOnceFiles?.let { files -> ViewOnceViewer(files) { viewOnceFiles = null } }
+        }
     }
 }
 
@@ -347,19 +370,12 @@ private fun ConversationSearchBar(query: String, onChange: (String) -> Unit, onC
     ) {
         GlassIcon(Icons.Rounded.Close, size = 38.dp, onClick = onClose)
         Spacer(Modifier.width(8.dp))
-        Row(Modifier.weight(1f).height(42.dp).clip(RoundedCornerShape(21.dp)).background(Ch.Surface).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Rounded.Search, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text(stringResource(R.string.ch_search_in_chat), color = Ch.Soft, fontSize = 14.sp)
-                androidx.compose.foundation.text.BasicTextField(
-                    value = query, onValueChange = onChange, singleLine = true,
-                    textStyle = androidx.compose.ui.text.TextStyle(color = Ch.Ink, fontSize = 14.sp, fontFamily = com.dorr.app.ui.theme.CairoFontFamily),
-                    cursorBrush = androidx.compose.ui.graphics.SolidColor(Ch.Red),
-                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                )
-            }
-        }
+        ChField(
+            query, onChange, stringResource(R.string.ch_search_in_chat),
+            modifier = Modifier.weight(1f),
+            icon = Icons.Rounded.Search, clearable = true,
+            fieldModifier = Modifier.focusRequester(focus),
+        )
     }
 }
 
@@ -418,6 +434,7 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                     Text(c?.title.orEmpty(), color = Color.White, fontSize = 16.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val subtitle = when {
                         activity != null -> stringResource(if (activity.state == "recording") R.string.ch_recording else R.string.ch_typing)
+                        c?.isChannel == true -> stringResource(R.string.ch_followers, c.group?.membersCount ?: 0)
                         c?.isGroup == true -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
                         presence?.online == true -> stringResource(R.string.ch_online)
                         presence?.lastSeenAt != null -> lastSeenText(presence.lastSeenAt)
@@ -505,7 +522,11 @@ private fun BottomArea(c: ConversationDto?, state: ConversationState) {
                 state.conversation = runCatching { ApiClient.chat.conversation(chatAuth(), c.id).data }.getOrNull() ?: c
             }
         }
+        // A channel I don't (or no longer) follow: one big "Follow".
+        c.isChannel && !c.isMember -> ChannelFollowBar(c) { state.conversation = it }
         !c.isMember -> NoticeBar(stringResource(R.string.ch_not_member), null) {}
+        // A follower: mute and share instead of a composer.
+        c.isChannel && !c.canSend -> ChannelFollowerBar(c) { state.conversation = it }
         c.blockedMe == true || c.status == "rejected" -> NoticeBar(stringResource(R.string.ch_cant_send), null) {}
         !c.canSend -> NoticeBar(stringResource(R.string.ch_only_admins), null) {}
         else -> Composer(state)
@@ -538,7 +559,7 @@ private fun RequestBar(c: ConversationDto, state: ConversationState) {
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf(
-                Triple(R.string.ch_block, Color(0xFFFEF2F2), Color(0xFFDC2626)),
+                Triple(R.string.ch_block, Ch.Danger.copy(alpha = 0.1f), Ch.Danger),
                 Triple(R.string.ch_reject, Ch.SurfaceMuted, Ch.Ink),
             ).forEach { (label, bg, fg) ->
                 Box(

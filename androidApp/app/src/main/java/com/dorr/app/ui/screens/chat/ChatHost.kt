@@ -28,6 +28,8 @@ sealed interface ChRoute {
     data class Conversation(val id: String, val preview: ConversationDto? = null) : ChRoute
     data class Info(val id: String) : ChRoute
     data object NewChat : ChRoute
+    /** Find and follow public channels. */
+    data object Channels : ChRoute
     /** A new group — or, with `addTo`, more members for an existing one. */
     data class NewGroup(val addTo: String? = null) : ChRoute
     data object MyQr : ChRoute
@@ -44,6 +46,9 @@ data class StoryViewerSession(val groups: kotlin.collections.List<com.dorr.app.n
 
 /** What someone is doing right now in a conversation. */
 data class Activity(val participant: String, val state: String)
+
+/** The answer to my request to join a group. */
+data class JoinDecision(val conversationId: String, val groupName: String, val approved: Boolean)
 
 /**
  * State shared by every chat page for one visit: the page stack, the chat list (kept live from
@@ -168,7 +173,8 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
             filter == "archived" -> conversation.isArchived
             filter == "requests" -> conversation.isRequest
             filter == "locked" -> conversation.isLocked
-            filter == "groups" -> conversation.isGroup && !conversation.isArchived && !conversation.isLocked
+            filter == "groups" -> conversation.isGroup && !conversation.isChannel && !conversation.isArchived && !conversation.isLocked
+            filter == "channels" -> conversation.isChannel && !conversation.isArchived && !conversation.isLocked
             filter == "unread" -> (conversation.unreadCount > 0 || conversation.markedUnread) && !conversation.isArchived && !conversation.isLocked
             filter.startsWith("folder:") -> folders.firstOrNull { "folder:${it.id}" == filter }?.conversationIds?.contains(conversation.id) == true
             else -> !conversation.isArchived && !conversation.isRequest && !conversation.isLocked
@@ -253,8 +259,29 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
                 val who = data.str("participant") ?: return
                 presence[who] = PresenceDto(online = data.get("online")?.asBoolean == true, lastSeenAt = data.str("last_seen_at"))
             }
+            // Admins: the "asking to join" badge changed.
+            "chat.group.join_requests" -> conversationId?.let { id -> scope.launch { reload(id) } }
+            // My request was answered: welcome in (the chat appears) or a polite no.
+            "chat.group.join_decided" -> {
+                val id = conversationId ?: return
+                val name = data.str("group_name").orEmpty()
+                if (data.str("status") == "approved") {
+                    scope.launch { reload(id) }
+                    joinDecided = JoinDecision(id, name, approved = true)
+                } else {
+                    joinDecided = JoinDecision(id, name, approved = false)
+                }
+            }
         }
     }
+
+    // ------------------------------------------------------------------ joining groups by link
+
+    /** An invite link was tapped (dorr://chat/join/TOKEN): the join sheet shows over the chat. */
+    var joinToken by mutableStateOf<String?>(null)
+
+    /** The admins answered my request — a small celebratory (or gentle) card. */
+    var joinDecided by mutableStateOf<JoinDecision?>(null)
 
     private fun setActivity(conversationId: String, activity: Activity) {
         val list = activity(conversationId).filterNot { it.participant == activity.participant } + activity

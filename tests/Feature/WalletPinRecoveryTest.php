@@ -546,8 +546,13 @@ class WalletPinRecoveryTest extends TestCase
         $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '1234']))
             ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_locked');
 
+        // Reopening the wallet during the lock: the status already carries its end, so the app
+        // shows the countdown instead of the keypad.
+        $this->assertNotNull($this->getJson(self::BASE, $this->headers())->assertOk()->json('data.locked_until'));
+
         // Fast-forward past the 15 minutes (nothing auto-unlocks; this only ends the wait).
         WalletPin::query()->update(['locked_until' => now()->subMinute()]);
+        $this->getJson(self::BASE, $this->headers())->assertOk()->assertJsonPath('data.locked_until', null);
 
         // #3: the grace attempt after the lock is wrong too → permanent freeze, not another temporary lock.
         $this->postJson(self::BASE.'/verify', [], $this->headers($wrongPin))

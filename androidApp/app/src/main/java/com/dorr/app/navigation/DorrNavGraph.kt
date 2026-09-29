@@ -58,6 +58,7 @@ internal fun routeAfterOnboarding(authenticated: Boolean): String =
 fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     // Held here (not as a nav argument) so the phone number never has to
     // round-trip through URL encoding on its way to the OTP screen.
+    val context = androidx.compose.ui.platform.LocalContext.current
     var pendingDialCode by remember { mutableStateOf("") }
     var pendingPhone by remember { mutableStateOf("") }
     var sessionExpiredNotice by remember { mutableStateOf(false) }
@@ -99,6 +100,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         com.dorr.app.chat.ChatRealtime.stop()
         com.dorr.app.chat.ChatPush.signedOut()
         com.dorr.app.chat.ChatStore.clear()
+        com.dorr.app.chat.LiveLocationSharing.stopAll(context)
         appearance.clear()
         AuthSession.clear()
         targetRouteAfterLogin = null

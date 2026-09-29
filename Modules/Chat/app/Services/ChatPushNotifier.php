@@ -140,9 +140,15 @@ class ChatPushNotifier
             return ['en' => Str::limit((string) $message->body, 180)];
         }
 
-        $texts = $this->inEveryLanguage('chat.preview.'.$message->type->value);
+        // A view-once photo never shows its caption in a notification; a live location says it's live.
+        $key = match (true) {
+            $message->view_once => 'view_once',
+            $message->type === MessageType::Location && data_get($message->meta, 'live_until') !== null => 'live_location',
+            default => $message->type->value,
+        };
+        $texts = $this->inEveryLanguage('chat.preview.'.$key);
 
-        if ($message->body) {
+        if ($message->body && ! $message->view_once) {
             foreach ($texts as $locale => $label) {
                 $texts[$locale] = $label.' · '.Str::limit((string) $message->body, 140);
             }
