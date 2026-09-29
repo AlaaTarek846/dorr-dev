@@ -142,8 +142,9 @@ private fun TextStoryEditor() {
         Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             PostOptions(allowReplies, onToggleReplies = { allowReplies = !allowReplies })
             Spacer(Modifier.weight(1f))
+            val networkError = stringResource(R.string.ch_error_network)
             PostButton(enabled = text.isNotBlank()) {
-                host.postStory(mapOf("type" to "text", "body" to text.trim(), "style[background]" to backgrounds[bg], "style[font]" to fontName, "allow_replies" to if (allowReplies) "1" else "0"), null)
+                host.postStory(mapOf("type" to "text", "body" to text.trim(), "style[background]" to backgrounds[bg], "style[font]" to fontName, "allow_replies" to if (allowReplies) "1" else "0"), null, networkError)
             }
         }
     }
@@ -197,6 +198,7 @@ private fun MediaStoryEditor(uri: Uri) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 PostOptions(allowReplies, onToggleReplies = { allowReplies = !allowReplies })
                 Spacer(Modifier.weight(1f))
+                val networkError = stringResource(R.string.ch_error_network)
                 PostButton(enabled = !tooLong) {
                     val file = copyToCache(context, uri, if (isVideo) "story.mp4" else "story.jpg") ?: return@PostButton
                     host.postStory(
@@ -207,6 +209,7 @@ private fun MediaStoryEditor(uri: Uri) {
                             put("allow_replies", if (allowReplies) "1" else "0")
                         },
                         file,
+                        networkError,
                     )
                 }
             }
@@ -262,7 +265,7 @@ private fun PostButton(enabled: Boolean, onClick: () -> Unit) {
 /**
  * Upload in the background: the page closes at once and "My status" spins until it's posted.
  */
-internal fun ChatHost.postStory(fields: Map<String, String>, file: LocalFile?) {
+internal fun ChatHost.postStory(fields: Map<String, String>, file: LocalFile?, networkError: String) {
     pop()
     storyUploading = true
     scope.launch {
@@ -271,8 +274,13 @@ internal fun ChatHost.postStory(fields: Map<String, String>, file: LocalFile?) {
             val filePart = file?.let { MultipartBody.Part.createFormData("file", it.name, it.file.asRequestBody(it.mime.toMediaTypeOrNull())) }
             ApiClient.chat.postStory(chatAuth(), parts, filePart)
             refreshStories()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            storyUploading = false
+            throw e
         } catch (e: Exception) {
-            e.apiFailure().message?.let { showToast(it) }
+            android.util.Log.w("DorrChat", "story upload failed", e)
+            // No HTTP answer at all (offline, tunnel down, timeout): say so instead of staying silent.
+            showToast(e.apiFailure().message ?: networkError)
         }
         storyUploading = false
     }

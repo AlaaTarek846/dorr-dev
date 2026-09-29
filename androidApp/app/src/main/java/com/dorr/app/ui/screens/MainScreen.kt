@@ -126,6 +126,10 @@ fun MainScreen(
 
     // Chat real-time for the whole signed-in session, plus "online" while the app is in front.
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    // Live locations I was sharing before the app was closed carry on (the app is in front now,
+    // so Android lets the location service start).
+    val liveContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.app.chat.LiveLocationSharing.resume(liveContext) }
     androidx.compose.runtime.DisposableEffect(lifecycle) {
         com.dorr.app.chat.ChatRealtime.start()
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->

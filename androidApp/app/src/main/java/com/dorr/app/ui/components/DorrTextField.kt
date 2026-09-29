@@ -33,18 +33,34 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.ui.theme.AppColors
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.Icon
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.theme.CairoFontFamily
+import com.dorr.app.ui.theme.appearanceColor
 
 /**
- * The app's text field — the look of the design (soft pink hairline, red when focused, rounded),
- * built on [BasicTextField] instead of Material's OutlinedTextField.
+ * The app's text field, in the system's own design (the profile page's fields): a rounded pill
+ * with a soft fill, a hairline that turns the **app colour** when focused, an icon in the app
+ * colour, and colours / font from the **appearance settings** in light and dark mode.
  *
- * Why not OutlinedTextField: it has a hard minimum height of 56dp with its own internal padding, so
- * as soon as a screen gives it less room (a 48dp row, a narrow digit box) the lower half of the typed
- * text is cut off. Here the field is exactly as tall as its content plus padding, so text is never
- * clipped, whatever the language or font size.
+ * Built on [BasicTextField] instead of Material's OutlinedTextField: that one has a hard minimum
+ * height of 56dp with its own padding, so text gets cut in tighter rows. Here the field is exactly
+ * as tall as its content plus padding.
  *
- * [label] is drawn as a small caption above the field (the design's `profile-field-label`) rather than
- * Material's floating label, which is another source of squashed layouts.
+ * [icon] draws the leading icon; [password] hides the text and adds an eye to show it. [label] is a
+ * small caption above the field (never a floating label, which squashes layouts).
  */
 @Composable
 fun DorrTextField(
@@ -53,34 +69,47 @@ fun DorrTextField(
     modifier: Modifier = Modifier,
     label: String? = null,
     placeholder: String? = null,
+    icon: ImageVector? = null,
+    password: Boolean = false,
     leadingIcon: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     singleLine: Boolean = true,
     minLines: Int = 1,
     error: Boolean = false,
     enabled: Boolean = true,
-    minHeight: Dp = 48.dp,
-    shape: Shape = RoundedCornerShape(12.dp),
-    containerColor: Color = Color.White,
+    minHeight: Dp = 46.dp,
+    shape: Shape? = null,
+    containerColor: Color? = null,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     textStyle: TextStyle = MaterialTheme.typography.bodyLarge,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val borderColor = when {
-        error -> AppColors.danger
-        focused -> AppColors.waRed
-        else -> Color(0xFFF3D5DB)
+    var revealed by remember { mutableStateOf(false) }
+    val night = settingsNight()
+    val accent = settingsAccent()
+    val ink = settingsInk()
+    val danger = appearanceColor("danger", AppColors.danger)
+    val fieldShape = shape ?: if (singleLine) RoundedCornerShape(999.dp) else RoundedCornerShape(20.dp)
+    val fill = containerColor ?: when {
+        night -> AccountDark.bg
+        focused -> appearanceColor("surface", Color.White, night = false)
+        else -> FieldFill
     }
+    val borderColor by animateColorAsState(
+        when {
+            error -> danger
+            focused -> accent
+            night -> AccountDark.line
+            else -> FieldBorder
+        },
+        tween(200), label = "fieldBorder",
+    )
+    val iconTint by animateColorAsState(if (error) danger else if (focused) accent else accent.copy(alpha = 0.8f), tween(200), label = "fieldIcon")
 
     Column(modifier) {
         if (label != null) {
-            Text(
-                label,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = AppColors.textPrimary,
-                modifier = Modifier.padding(bottom = 8.dp),
-            )
+            Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = ink, modifier = Modifier.padding(bottom = 8.dp))
         }
         BasicTextField(
             value = value,
@@ -89,36 +118,51 @@ fun DorrTextField(
             singleLine = singleLine,
             minLines = minLines,
             keyboardOptions = keyboardOptions,
-            visualTransformation = visualTransformation,
-            textStyle = textStyle.copy(color = AppColors.textPrimary),
-            cursorBrush = SolidColor(AppColors.waRed),
-            modifier = Modifier
-                .fillMaxWidth()
-                .onFocusChanged { focused = it.isFocused },
+            visualTransformation = if (password && !revealed) PasswordVisualTransformation() else visualTransformation,
+            textStyle = textStyle.copy(color = ink, fontFamily = CairoFontFamily),
+            cursorBrush = SolidColor(accent),
+            modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
             decorationBox = { inner ->
                 Row(
                     Modifier
                         .fillMaxWidth()
                         .heightIn(min = minHeight)
-                        .clip(shape)
-                        .background(containerColor)
-                        .border(if (focused || error) 1.5.dp else 1.dp, borderColor, shape)
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
+                        .clip(fieldShape)
+                        .background(fill)
+                        .border(if (focused || error) 1.5.dp else 1.dp, borderColor, fieldShape)
+                        .padding(horizontal = 14.dp, vertical = if (singleLine) 8.dp else 12.dp),
+                    verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    if (icon != null) Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
                     leadingIcon?.invoke()
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
                         if (value.isEmpty() && placeholder != null) {
-                            Text(placeholder, style = textStyle, color = AppColors.textMuted)
+                            Text(placeholder, style = textStyle.copy(fontFamily = CairoFontFamily), color = if (night) AccountDark.mut else Color(0xFFB4BAC4))
                         }
                         inner()
                     }
+                    if (password) {
+                        Box(
+                            Modifier.size(30.dp).clip(RoundedCornerShape(999.dp)).clickable { revealed = !revealed },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                if (revealed) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, contentDescription = null,
+                                tint = if (night) AccountDark.mut else AppColors.textMuted, modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                    trailing?.invoke()
                 }
             },
         )
     }
 }
+
+/** The light-mode field fill / hairline of the system design (the profile page's fields). */
+private val FieldFill = Color(0xFFFBF7F8)
+private val FieldBorder = Color(0xFFF3D5DB)
 
 /**
  * One box of a verification code: a single centred digit. Fixed 44×52dp like the design, but built on

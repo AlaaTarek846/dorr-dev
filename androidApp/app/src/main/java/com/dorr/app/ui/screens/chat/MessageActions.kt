@@ -231,8 +231,8 @@ private fun ActionRow(icon: ImageVector, text: String, danger: Boolean = false, 
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text, color = if (danger) Color(0xFFDC2626) else Ch.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-        Icon(icon, null, tint = if (danger) Color(0xFFDC2626) else Ch.Mut, modifier = Modifier.size(20.dp))
+        Text(text, color = if (danger) Ch.Danger else Ch.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+        Icon(icon, null, tint = if (danger) Ch.Danger else Ch.Mut, modifier = Modifier.size(20.dp))
     }
 }
 
@@ -248,11 +248,11 @@ internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>,
             options.forEachIndexed { i, (label, action) ->
                 Box(
                     Modifier.fillMaxWidth().padding(vertical = 4.dp).chStagger(i).clip(RoundedCornerShape(16.dp))
-                        .background(if (danger && i == 0) Color(0xFFFEF2F2) else Ch.SurfaceMuted)
+                        .background(if (danger && i == 0) Ch.Danger.copy(alpha = 0.1f) else Ch.SurfaceMuted)
                         .clickable { action(); onDismiss() }
                         .padding(horizontal = 16.dp, vertical = 15.dp),
                 ) {
-                    Text(label, color = if (danger) Color(0xFFDC2626) else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text(label, color = if (danger) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 }
             }
             Box(Modifier.fillMaxWidth().padding(top = 6.dp).clip(RoundedCornerShape(16.dp)).clickable(onClick = onDismiss).padding(15.dp), contentAlignment = Alignment.Center) {

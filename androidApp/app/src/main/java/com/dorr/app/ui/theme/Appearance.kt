@@ -18,11 +18,13 @@ class AppearanceState {
     fun apply(dto: AppearanceDto) {
         snapshot = dto
         AppearanceStore.save(dto)
+        AppFont.apply(dto.font)
     }
 
     fun clear() {
         snapshot = null
         AppearanceStore.clear()
+        AppFont.reset()
     }
 }
 

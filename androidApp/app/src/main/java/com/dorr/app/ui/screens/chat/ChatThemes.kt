@@ -41,6 +41,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
+import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.RadioButtonChecked
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
@@ -248,8 +249,8 @@ fun ReportSheet(conversation: ConversationDto, onDismiss: () -> Unit, onReported
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 640.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFDC2626).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Rounded.Flag, null, tint = Color(0xFFDC2626), modifier = Modifier.size(22.dp))
+                Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.Danger.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Flag, null, tint = Ch.Danger, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column {
@@ -282,10 +283,7 @@ fun ReportSheet(conversation: ConversationDto, onDismiss: () -> Unit, onReported
             AnimatedVisibility(picked != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                 Column {
                     Spacer(Modifier.height(8.dp))
-                    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).padding(14.dp)) {
-                        if (details.isEmpty()) Text(stringResource(R.string.ch_report_details_hint), color = Ch.Soft, fontSize = 14.sp)
-                        BasicTextField(details, { details = it.take(1000) }, textStyle = TextStyle(color = Ch.Ink, fontSize = 14.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth().heightIn(min = 60.dp))
-                    }
+                    ChField(details, { details = it.take(1000) }, stringResource(R.string.ch_report_details_hint), icon = Icons.Rounded.EditNote, singleLine = false, minLines = 3)
                     if (canBlock || canLeave) {
                         Row(
                             Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).clickable { alsoBlock = !alsoBlock }.padding(vertical = 8.dp, horizontal = 4.dp),

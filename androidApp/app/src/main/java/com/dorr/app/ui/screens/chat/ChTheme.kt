@@ -96,20 +96,34 @@ object Ch {
      */
     var accent by androidx.compose.runtime.mutableStateOf(Color(0xFFE50914))
 
+    /**
+     * The neutral colours of the **appearance settings** (text, muted text, lines, background,
+     * surfaces, danger) for the chat's current mode — set by ChatScreen from the same tokens the
+     * rest of the app reads. Until it's set (or for a token the settings don't have) the chat's
+     * own values below are used.
+     */
+    var palette by androidx.compose.runtime.mutableStateOf<ChPalette?>(null)
+
     val Red get() = accent
-    val RedDeep = Color(0xFFC40812)
-    val Ink get() = if (dark) Color(0xFFF3F4F6) else Color(0xFF111928)
-    val Mut get() = if (dark) Color(0xFF9CA3AF) else Color(0xFF6B7280)
-    val Soft get() = if (dark) Color(0xFF6B7280) else Color(0xFF9CA3AF)
-    val Line get() = if (dark) Color(0xFF273244) else Color(0xFFEEF0F3)
-    val Bg get() = if (dark) Color(0xFF0B1220) else Color(0xFFF7F4F2)
+    val RedDeep get() = accent.shade(0.8f)
+    val Ink get() = palette?.ink ?: if (dark) Color(0xFFF3F4F6) else Color(0xFF111928)
+    val Mut get() = palette?.mut ?: if (dark) Color(0xFF9CA3AF) else Color(0xFF6B7280)
+    val Soft get() = palette?.soft ?: if (dark) Color(0xFF6B7280) else Color(0xFF9CA3AF)
+    val Line get() = palette?.line ?: if (dark) Color(0xFF273244) else Color(0xFFEEF0F3)
+    val Bg get() = palette?.bg ?: if (dark) Color(0xFF0B1220) else Color(0xFFF7F4F2)
     /** Cards, rows, sheets, the incoming bubble. */
-    val Surface get() = if (dark) Color(0xFF172033) else Color.White
+    val Surface get() = palette?.surface ?: if (dark) Color(0xFF172033) else Color.White
     /** Quiet wells inside a surface: quotes, file cards, chips, image placeholders. */
-    val SurfaceMuted get() = if (dark) Color(0xFF223047) else Color(0xFFF4F4F6)
-    /** Soft brand tint for banners (requests, sync). */
-    val TintBrush get() = if (dark) Brush.horizontalGradient(listOf(Color(0xFF3A1016), Color(0xFF2A0D12)))
-    else Brush.horizontalGradient(listOf(Color(0xFFFFF1F2), Color(0xFFFFE4E6)))
+    val SurfaceMuted get() = palette?.let { androidx.compose.ui.graphics.lerp(it.surface, it.ink, if (dark) 0.08f else 0.045f) }
+        ?: if (dark) Color(0xFF223047) else Color(0xFFF4F4F6)
+    val Danger get() = palette?.danger ?: Color(0xFFDC2626)
+    val Success get() = palette?.success ?: Color(0xFF16A34A)
+    /** The system's field look (the profile page's fields): fill and hairline. */
+    val FieldFill get() = if (dark) Bg else Color(0xFFFBF7F8)
+    val FieldLine get() = if (dark) Line else Color(0xFFF3D5DB)
+    /** Soft brand tint for banners (requests, sync) — in the app colour. */
+    val TintBrush get() = if (dark) Brush.horizontalGradient(listOf(accent.copy(alpha = 0.22f), accent.copy(alpha = 0.12f)))
+    else Brush.horizontalGradient(listOf(accent.copy(alpha = 0.07f), accent.copy(alpha = 0.12f)))
     val Online = Color(0xFF22C55E)
     val ReadTick = Color(0xFF38BDF8)
     val Mention = Color(0xFFF59E0B)
@@ -120,7 +134,8 @@ object Ch {
      */
     var bubbleTheme by androidx.compose.runtime.mutableStateOf<com.dorr.app.network.ChatThemeDto?>(null)
 
-    private val BrandOut = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFD80A16), Color(0xFFB30710)), start = Offset(0f, 0f), end = Offset(600f, 400f))
+    /** My bubble: the app colour as a gradient (whatever colour the settings choose). */
+    private val BrandOut get() = Brush.linearGradient(listOf(accent, accent.shade(0.88f), accent.shade(0.74f)), start = Offset(0f, 0f), end = Offset(600f, 400f))
     private val themeOut get() = bubbleTheme?.let { hexColor(it.senderColor) }
     private val themeIn get() = bubbleTheme?.let { hexColor(it.receiverColor) }
 
@@ -130,9 +145,11 @@ object Ch {
     val OutText get() = themeOut?.let { if (it.isLight()) Color(0xFF111928) else Color.White } ?: Color.White
     val InText get() = themeIn?.let { if (it.isLight()) Color(0xFF111928) else Color(0xFFF3F4F6) } ?: Ink
 
-    val HeaderBrush = Brush.linearGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812), Color(0xFF7A0410)), start = Offset(0f, 0f), end = Offset(1100f, 500f))
-    val Wallpaper get() = if (dark) Brush.verticalGradient(listOf(Color(0xFF0E1626), Color(0xFF0B1220), Color(0xFF080E1A)))
-    else Brush.verticalGradient(listOf(Color(0xFFFBF1EF), Color(0xFFF6EEEB), Color(0xFFF3ECEA)))
+    /** Headers: the app colour deepening to dark — same recipe as the wallet's hero. */
+    val HeaderBrush get() = Brush.linearGradient(listOf(accent, accent.shade(0.78f), accent.shade(0.45f)), start = Offset(0f, 0f), end = Offset(1100f, 500f))
+    /** The conversation background: the settings' background, warmed by a hint of the app colour. */
+    val Wallpaper get() = if (dark) Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(Bg, accent, 0.04f), Bg, Bg.shade(0.9f)))
+    else Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(Bg, accent, 0.05f), androidx.compose.ui.graphics.lerp(Bg, accent, 0.03f), Bg))
 
     val BubbleRadius = 20.dp
     val TailRadius = 6.dp
@@ -159,6 +176,31 @@ object Ch {
 
     val springy = spring<Float>(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMediumLow)
 }
+
+/** The appearance-settings colours the chat uses, for one mode. */
+data class ChPalette(
+    val ink: Color,
+    val mut: Color,
+    val soft: Color,
+    val line: Color,
+    val bg: Color,
+    val surface: Color,
+    val danger: Color,
+    val success: Color,
+)
+
+/** Read the chat's palette from the appearance settings (same tokens as the wallet / profile). */
+@Composable
+internal fun chatPaletteFromSettings(dark: Boolean): ChPalette = ChPalette(
+    ink = com.dorr.app.ui.theme.appearanceColor("textPrimary", if (dark) Color(0xFFF3F4F6) else Color(0xFF111928), night = dark),
+    mut = com.dorr.app.ui.theme.appearanceColor("textSecondary", if (dark) Color(0xFF9CA3AF) else Color(0xFF6B7280), night = dark),
+    soft = com.dorr.app.ui.theme.appearanceColor("textMuted", if (dark) Color(0xFF6B7280) else Color(0xFF9CA3AF), night = dark),
+    line = com.dorr.app.ui.theme.appearanceColor("border", if (dark) Color(0xFF273244) else Color(0xFFEEF0F3), night = dark),
+    bg = com.dorr.app.ui.theme.appearanceColor("background", if (dark) Color(0xFF0B1220) else Color(0xFFF7F4F2), night = dark),
+    surface = com.dorr.app.ui.theme.appearanceColor("surface", if (dark) Color(0xFF172033) else Color.White, night = dark),
+    danger = com.dorr.app.ui.theme.appearanceColor("danger", Color(0xFFDC2626), night = dark),
+    success = com.dorr.app.ui.theme.appearanceColor("success", Color(0xFF16A34A), night = dark),
+)
 
 /** "#RRGGBB" / "#RRGGBBAA" (as the admin screen saves them) → Color. */
 internal fun hexColor(hex: String?): Color? {
@@ -188,6 +230,10 @@ internal fun chatImages(context: Context): ImageLoader =
     chatImageLoader ?: ImageLoader.Builder(context.applicationContext)
         .okHttpClient(ApiClient.okHttpClient)
         .crossfade(220)
+        // GIFs and animated stickers move (animated WebP too on Android 9+).
+        .components {
+            if (android.os.Build.VERSION.SDK_INT >= 28) add(coil.decode.ImageDecoderDecoder.Factory()) else add(coil.decode.GifDecoder.Factory())
+        }
         .build()
         .also { chatImageLoader = it }
 

@@ -37,7 +37,8 @@ fun DorrTheme(
     }
     MaterialTheme(
         colorScheme = scheme,
-        typography = DorrTypography,
+        // Rebuilt when the font chosen in the appearance settings arrives (AppFont.family is state).
+        typography = dorrTypography(AppFont.family),
         content = content,
     )
 }
