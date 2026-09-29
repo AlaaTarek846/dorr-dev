@@ -260,7 +260,6 @@ private fun AccountAvatar(user: UserDto?, dark: Boolean, size: Dp) {
 
 @Composable
 private fun Modifier.accountBackdrop(dark: Boolean): Modifier {
-<<<<<<< HEAD
     val loaded = LocalAppearance.current.snapshot != null
     val base = if (dark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
     val glow = if (dark) AccountDark.accent else appearanceColor("primary", settingsAccent(), night = false)
@@ -305,53 +304,6 @@ private fun Modifier.accountBackdrop(dark: Boolean): Modifier {
                 ),
             )
         }
-=======
-    val glow = if (dark) AccountDark.accent else settingsAccent()
-    val nightBg = AccountDark.bg
-    return drawBehind { drawAccountBackdrop(dark, glow, nightBg) }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAccountBackdrop(dark: Boolean, glow: Color, nightBg: Color) {
-    if (dark) {
-        drawRect(nightBg)
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.08f),
-                radius = size.width * 0.85f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(size.width * 1.05f, size.height * 0.02f),
-                radius = size.width * 0.55f,
-            ),
-        )
-    } else {
-        drawRect(Color.White)
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
-                center = Offset(size.width * -0.08f, size.height * -0.12f),
-                radius = size.width * 1.3f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.18f),
-                radius = size.width * 1.1f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AppColors.otpGlowMist, Color.Transparent),
-                center = Offset(size.width * 1.12f, size.height * -0.08f),
-                radius = size.width * 0.9f,
-            ),
-        )
->>>>>>> main
     }
 }
 

@@ -163,8 +163,17 @@ fun LoginScreen(
         val listed = runCatching { ApiClient.countries.list().data.orEmpty() }.getOrDefault(emptyList())
         countries = listed
         if (listed.isNotEmpty()) CountryCache.save(context, listed)
-        val chosen = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
-        chosen?.let(::applyCountry)
+        val default = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
+        default?.let(::applyCountry)
+        // The country the phone is in: the server's guess by IP; when that only gives the
+        // default, the mobile network's / SIM's country. Either one only if it's in the list.
+        val byIp = runCatching { ApiClient.countries.detect().data }.getOrNull()
+            ?.let { found -> listed.firstOrNull { it.id == found.id } }
+        val byNetwork = deviceCountryIso(context)
+            ?.let { iso -> listed.firstOrNull { it.code.equals(iso, ignoreCase = true) } }
+        val chosen = byIp?.takeIf { !it.isDefault } ?: byNetwork ?: byIp
+        // Don't override a country the user already picked by hand meanwhile.
+        if (chosen != null && selectedCountryId == default?.id && phone.isEmpty()) applyCountry(chosen)
     }
 
     val isPhoneValid = phone.length == phoneLength && (phoneStartsWith.isEmpty() || phone.startsWith(phoneStartsWith))
@@ -1021,3 +1030,9 @@ private fun formatDialCode(value: String): String {
     val digits = value.trim().removePrefix("+")
     return if (digits.isEmpty()) "" else "+$digits"
 }
+
+/** The country of the mobile network the phone is on (else its SIM's), as ISO alpha-2; null on Wi-Fi-only devices. */
+private fun deviceCountryIso(context: android.content.Context): String? = runCatching {
+    val tm = context.getSystemService(android.content.Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+    listOfNotNull(tm?.networkCountryIso, tm?.simCountryIso).firstOrNull { it.length == 2 }
+}.getOrNull()

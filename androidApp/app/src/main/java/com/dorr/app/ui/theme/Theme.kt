@@ -8,7 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
 
-val LocalDorrFontFamily = androidx.compose.runtime.compositionLocalOf { CairoFontFamily }
+val LocalDorrFontFamily = androidx.compose.runtime.compositionLocalOf<FontFamily> { CairoBuiltIn }
 
 @Composable
 fun DorrTheme(
@@ -44,8 +44,6 @@ fun DorrTheme(
     val typography = remember(fontFamily) { dorrTypography(fontFamily) }
     MaterialTheme(
         colorScheme = scheme,
-        // Rebuilt when the font chosen in the appearance settings arrives (AppFont.family is state).
-       // typography = dorrTypography(AppFont.family),
         typography = typography,
         content = content,
     )
