@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DorrLogo
+import com.dorr.app.ui.components.dorrPageWash
 import androidx.compose.ui.draw.drawBehind
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
