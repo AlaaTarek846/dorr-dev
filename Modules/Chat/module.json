@@ -1,0 +1,11 @@
+{
+    "name": "Chat",
+    "alias": "chat",
+    "description": "WhatsApp-style messaging: direct and group conversations, media, receipts, contacts, privacy, stories and calls.",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Chat\\Providers\\ChatServiceProvider"
+    ],
+    "files": []
+}

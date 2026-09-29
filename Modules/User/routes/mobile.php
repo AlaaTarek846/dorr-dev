@@ -5,6 +5,7 @@ use Modules\User\Http\Controllers\Mobile\AddressController;
 use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
+use Modules\User\Http\Controllers\PhoneChangeController;
 
 Route::middleware('locale')->prefix('mobile/v1')->group(function () {
     Route::middleware('guest:user_api')->group(function () {
@@ -17,8 +18,14 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::get('auth/me', [MobileAuthController::class, 'me']);
         Route::post('auth/logout', [MobileAuthController::class, 'logout']);
 
-        Route::post('profile/phone/request', [MobileProfileController::class, 'requestPhoneChange']);
-        Route::post('profile/phone/confirm', [MobileProfileController::class, 'confirmPhoneChange']);
+        // A code goes to the *new* number; behind the wallet PIN when one already exists.
+        Route::post('phone/change', [PhoneChangeController::class, 'start'])->middleware('throttle:5,1,phone-change');
+        Route::post('phone/change/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
+
+
+        // Same guarded flow as phone/change — the profile screen's older paths must not bypass it.
+        Route::post('profile/phone/request', [PhoneChangeController::class, 'start'])->middleware('throttle:5,1,phone-change');
+        Route::post('profile/phone/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
         Route::put('profile/identity', [MobileProfileController::class, 'updateIdentity']);
         Route::post('profile/avatar', [MobileProfileController::class, 'updateAvatar']);
         Route::post('profile/email/request', [MobileProfileController::class, 'requestEmailChange']);

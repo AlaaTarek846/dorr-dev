@@ -213,3 +213,22 @@ Foreign keys defined in create migrations (e.g., `country_id`, `flag_id`, `paren
 - Module seeders: `Modules/*/database/seeders/`
 
 See seeder files for initial data conventions.
+
+---
+
+## Chat (`Modules/Chat/database/migrations`)
+
+| Table | Purpose |
+|---|---|
+| `chat_settings` | One row of admin limits (group size, file size, edit and delete windows…) |
+| `chat_conversations` | `type` direct\|group, `status` pending\|accepted\|rejected (message requests), `direct_key` unique, `last_message_id/at`, `disappearing_seconds` |
+| `chat_groups` | Name, description, avatar (media), `invite_token`, admin-only switches |
+| `chat_participants` | One person in one chat, plus that person's own settings: role, read and delivered marks, unread, pin, archive, lock, mute, cleared, deleted, theme |
+| `chat_messages` | `uuid` (idempotent), `type`, `body`, `meta` (location, contact, voice, wallet card, call, system), `reply_to_id`, forwarding, `mentions`, `edited_at`, `deleted_for_everyone_at`, `expires_at`. Files are in media collection `attachments` |
+| `chat_message_receipts` | Group only: per member `delivered_at` and `read_at` |
+| `chat_message_reactions` / `chat_message_user_states` / `chat_pinned_messages` | Reactions, per-person star or delete-for-me, and pins |
+| `chat_contacts` / `chat_blocks` / `chat_privacy_settings` | Address book (E.164 phone matched to an account), blocks, privacy, QR token, last seen |
+| `chat_folders` / `chat_folder_conversations` | Personal chat folders |
+| `chat_calls` / `chat_call_participants` | LiveKit call log and ringing state |
+
+Participant columns (`*_type`) hold an alias (`user`, `provider`) and never a class name (see `Modules\Chat\Support\ParticipantType`).

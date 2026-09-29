@@ -13,6 +13,7 @@ enum WalletTransactionType: string
     case TopupBonus = 'topup_bonus';
     case TransferOut = 'transfer_out';
     case TransferIn = 'transfer_in';
+    case TransferFee = 'transfer_fee';
     case Withdrawal = 'withdrawal';
     case Refund = 'refund';
     case Penalty = 'penalty';

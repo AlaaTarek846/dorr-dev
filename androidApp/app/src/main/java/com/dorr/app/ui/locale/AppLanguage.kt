@@ -1,6 +1,7 @@
 package com.dorr.app.ui.locale
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.os.LocaleList
 import androidx.compose.runtime.Composable
@@ -86,10 +87,21 @@ fun LocalizedApp(content: @Composable () -> Unit) {
     }
 }
 
-/** Wraps [context] in a [Context] whose resources resolve against [code]. */
+/**
+ * Wraps [context] in a [Context] whose resources resolve against [code].
+ *
+ * It must stay a [ContextWrapper] *around the Activity*: `createConfigurationContext` alone returns an unrelated
+ * context, and Compose finds the Activity's owners (activity-result registry, back-press dispatcher…) by
+ * unwrapping `LocalContext`. Without that, `rememberLauncherForActivityResult` throws on the first frame of any
+ * screen that picks a photo or opens the QR camera — the app just closes.
+ */
 private fun Context.forLocale(code: String): Context {
     val config = Configuration(resources.configuration).apply {
         setLocales(LocaleList(Locale(code)))
     }
-    return createConfigurationContext(config)
+    val localized = createConfigurationContext(config)
+    return object : ContextWrapper(this) {
+        override fun getResources() = localized.resources
+        override fun getAssets() = localized.assets
+    }
 }

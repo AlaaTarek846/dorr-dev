@@ -46,6 +46,11 @@ class FinancialCategorySeeder extends Seeder
                 'name' => ['en' => 'Top-up Fee', 'ar' => 'رسوم الشحن'],
             ],
             [
+                'slug' => 'transfer_fee',
+                'type' => FinancialEntryType::Income,
+                'name' => ['en' => 'Transfer Fee', 'ar' => 'رسوم التحويل'],
+            ],
+            [
                 'slug' => 'promo_bonus_cost',
                 'type' => FinancialEntryType::Expense,
                 'name' => ['en' => 'Promotional Bonus Cost', 'ar' => 'تكلفة هدايا الشحن الترويجية'],

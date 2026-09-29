@@ -84,6 +84,7 @@ class MobileProfileTest extends TestCase
             ->assertJsonValidationErrors('gender');
     }
 
+    /** The profile paths are aliases of the guarded phone/change flow (see PhoneChangeTest). */
     public function test_request_phone_change_sends_otp_without_touching_current_number(): void
     {
         $user = $this->verifiedUser();
@@ -93,14 +94,12 @@ class MobileProfileTest extends TestCase
             'phone' => self::NEW_PHONE,
         ], $this->bearerHeaders($user))
             ->assertOk()
-            ->assertJsonStructure(['data' => ['masked_phone', 'resend_cooldown_seconds']]);
+            ->assertJsonPath('data.sent', true);
 
         $this->assertSame('+966'.self::PHONE, $user->fresh()->phone);
-        $this->assertDatabaseHas('verification_codes', [
-            'authenticatable_type' => User::class,
-            'authenticatable_id' => $user->id,
-            'type' => VerificationType::Phone->value,
-            'code' => '123456',
+        $this->assertDatabaseHas('user_phone_changes', [
+            'user_id' => $user->id,
+            'new_phone' => '+966'.self::NEW_PHONE,
         ]);
     }
 
@@ -112,8 +111,8 @@ class MobileProfileTest extends TestCase
             'dial_code' => self::DIAL_CODE,
             'phone' => self::PHONE,
         ], $this->bearerHeaders($user))
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('phone');
+            ->assertStatus(422)
+            ->assertJsonPath('error_code', 'phone_change_same_number');
     }
 
     public function test_confirm_phone_change_swaps_number_after_valid_code(): void
@@ -125,8 +124,10 @@ class MobileProfileTest extends TestCase
             'phone' => self::NEW_PHONE,
         ], $this->bearerHeaders($user))->assertOk();
 
+        $code = \Modules\User\Models\UserPhoneChange::query()->where('user_id', $user->id)->value('code');
+
         $this->postJson('/api/mobile/v1/profile/phone/confirm', [
-            'code' => '123456',
+            'code' => $code,
         ], $this->bearerHeaders($user))
             ->assertOk()
             ->assertJsonPath('data.phone', '+966'.self::NEW_PHONE);

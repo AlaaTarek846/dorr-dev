@@ -39,7 +39,13 @@ fun Throwable.serverMessage(): String? {
  *  `wallet_pin_invalid`) — lets the UI branch on the kind of failure without
  *  matching on localized text; null for plain validation/server errors.
  *  `message` is null for network failures (no HTTP response at all). */
-data class ApiFailure(val message: String?, val errorCode: String?, val httpStatus: Int?)
+data class ApiFailure(
+    val message: String?,
+    val errorCode: String?,
+    val httpStatus: Int?,
+    /** `data.locked_until` on a `wallet_pin_locked` (423) answer — an ISO-8601 instant. */
+    val lockedUntil: String? = null,
+)
 
 fun Throwable.apiFailure(): ApiFailure {
     if (this !is retrofit2.HttpException) return ApiFailure(null, null, null)
@@ -48,7 +54,8 @@ fun Throwable.apiFailure(): ApiFailure {
     val firstError = root?.getAsJsonObject("errors")?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
     val message = firstError ?: root?.get("message")?.takeIf { !it.isJsonNull }?.asString
     val errorCode = root?.get("error_code")?.takeIf { !it.isJsonNull }?.asString
-    return ApiFailure(message, errorCode, code())
+    val lockedUntil = root?.getAsJsonObject("data")?.get("locked_until")?.takeIf { !it.isJsonNull }?.asString
+    return ApiFailure(message, errorCode, code(), lockedUntil)
 }
 
 data class CountryDto(

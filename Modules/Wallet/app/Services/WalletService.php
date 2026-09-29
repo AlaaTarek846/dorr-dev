@@ -108,6 +108,9 @@ class WalletService
                 'reference_type' => $meta['reference_type'] ?? null,
                 'reference_id' => $meta['reference_id'] ?? null,
                 'notes' => $meta['notes'] ?? null,
+                // So the recipient's own row remembers what rate applied, even when the fee itself was
+                // taken from the sender's side (docs: transfer fee, wallet-tasks.md).
+                'fee_percent' => $meta['fee_percent'] ?? null,
             ]);
 
             return ['out' => $out, 'in' => $in];

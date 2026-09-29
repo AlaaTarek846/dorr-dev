@@ -17,6 +17,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -108,6 +109,41 @@ fun MainScreen(
 ) {
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
+    var chatOpen by rememberSaveable { mutableStateOf(false) }
+
+    // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatPush.requestPermission()
+        com.dorr.app.chat.ChatPush.deepLink.collect { link ->
+            when (link) {
+                is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.Call -> {
+                    com.dorr.app.chat.CallController.loadIncoming(link.id)
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
+                null -> Unit
+            }
+        }
+    }
+
+    // Chat real-time for the whole signed-in session, plus "online" while the app is in front.
+    val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    androidx.compose.runtime.DisposableEffect(lifecycle) {
+        com.dorr.app.chat.ChatRealtime.start()
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            when (event) {
+                androidx.lifecycle.Lifecycle.Event.ON_START -> com.dorr.app.chat.ChatRealtime.onForeground()
+                androidx.lifecycle.Lifecycle.Event.ON_STOP -> {
+                    com.dorr.app.chat.ChatRealtime.onBackground()
+                    // Leaving the app locks the locked chats again.
+                    com.dorr.app.ui.screens.chat.ChatLock.lock()
+                }
+                else -> Unit
+            }
+        }
+        lifecycle.addObserver(observer)
+        onDispose { lifecycle.removeObserver(observer) }
+    }
 
     val currentOnStateChanged by rememberUpdatedState(onStateChanged)
     LaunchedEffect(currentTab, walletOpen) {
@@ -139,15 +175,19 @@ fun MainScreen(
     }
 
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+
+    Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
             DorrBottomNavigationBar(
                 currentTab = currentTab,
-                walletOpen = walletOpen,
+                // No tab is "current" while the wallet or the chat is open over the tabs.
+                walletOpen = walletOpen || chatOpen,
                 onSelectTab = { index ->
                     currentTab = index
                     walletOpen = false
+                    chatOpen = false
                 },
                 onFabClick = {
                     // New request flow placeholder / trigger
@@ -155,7 +195,10 @@ fun MainScreen(
             )
         },
     ) { padding ->
-        Box(Modifier.padding(padding)) {
+        // consumeWindowInsets: the tab bar already covers the navigation-bar area, so pages below
+        // it (chat composer, stories reply, buttons) must not add the system bars / keyboard a
+        // second time — that is what pushed the chat button under the phone's buttons before.
+        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
             AnimatedContent(
                 targetState = currentTab,
                 label = "mainTab",
@@ -171,6 +214,7 @@ fun MainScreen(
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
                         onOpenServices = onOpenServices,
+                        onOpenChat = { chatOpen = true },
                     )
                     1 -> ServicesScreen(onBack = { currentTab = 0 })
                     3 -> ProfileScreen(onLogout = onLogout, onOpenWallet = { walletOpen = true })
@@ -190,7 +234,26 @@ fun MainScreen(
             ) {
                 WalletScreen(onExit = { walletOpen = false })
             }
+            // The chat sits above the tab bar, like the wallet — the home bar stays on every chat page.
+            AnimatedVisibility(
+                visible = chatOpen,
+                enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+                exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+            ) {
+                com.dorr.app.ui.screens.chat.ChatScreen(
+                    onExit = { chatOpen = false },
+                    openWalletQr = { payload ->
+                        com.dorr.app.ui.screens.wallet.WalletDeepLink.openQr(payload)
+                        chatOpen = false
+                        walletOpen = true
+                    },
+                )
+            }
         }
+    }
+
+    // A call can ring over anything (it's the only chat screen that takes the whole display).
+    com.dorr.app.ui.screens.chat.CallOverlay()
     }
 }
 

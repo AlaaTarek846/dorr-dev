@@ -9,6 +9,7 @@ use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\User\Models\User;
+use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Models\Wallet;
@@ -48,6 +49,8 @@ class WalletTransferTest extends TestCase
         $this->saudi = Country::create(['code' => 'SA', 'dial_code' => '+966', 'phone_length' => 9, 'is_default' => true, 'flag_id' => $flagSa->id, 'currency_id' => $sar->id, 'status' => true]);
         $this->egypt = Country::create(['code' => 'EG', 'dial_code' => '+20', 'phone_length' => 10, 'is_default' => false, 'flag_id' => $flagEg->id, 'currency_id' => $egp->id, 'status' => true]);
         Language::create(['code' => 'en', 'direction' => 'ltr', 'is_default_website' => true, 'is_default_dashboard' => true, 'stores_translation' => true, 'status' => true, 'flag_id' => $flagSa->id]);
+
+        $this->seed(FinancialCategorySeeder::class);
 
         $this->wallets = app(WalletService::class);
         $this->alice = $this->makeUser('Alice', '+966500000001');
@@ -591,5 +594,142 @@ class WalletTransferTest extends TestCase
         $this->assertSame('J*** D***', MaskedName::of('  John   Doe '));
         $this->assertSame('***', MaskedName::of(null));
         $this->assertSame('***', MaskedName::of('   '));
+    }
+
+    // ------------------------------------------------------------------ transfer fee (wallet-tasks.md)
+
+    public function test_lookup_shows_the_countrys_fee_percent_and_who_pays_it(): void
+    {
+        WalletSetting::query()->where('country_id', $this->saudi->id)->update(['transfer_fee_percent' => '2.5000', 'transfer_fee_payer' => 'sender']);
+
+        $data = $this->lookup(['mode' => 'phone', 'phone' => '500000002'])->assertOk()->json('data');
+
+        $this->assertSame('2.5000', $data['fee_percent']);
+        $this->assertSame('sender', $data['fee_payer']);
+    }
+
+    public function test_no_fee_by_default_matches_the_old_behaviour(): void
+    {
+        $this->fund($this->alice, 10000);
+        $this->send('500000002', 2500)->assertCreated();
+
+        $this->assertSame(7500, $this->walletOf($this->alice)->withdrawable_minor, 'sender pays exactly the amount, nothing more');
+        $this->assertSame(2500, $this->walletOf($this->bob)->spend_only_minor, 'recipient gets exactly the amount, nothing less');
+        $this->assertNull(WalletTransaction::query()->where('type', WalletTransactionType::TransferFee)->first(), 'no fee row when the rate is 0');
+    }
+
+    public function test_a_fee_paid_by_the_recipient_is_deducted_from_what_they_receive(): void
+    {
+        WalletSetting::query()->where('country_id', $this->saudi->id)->update(['transfer_fee_percent' => '10.0000', 'transfer_fee_payer' => 'recipient']);
+        $this->fund($this->alice, 10000);
+
+        $this->send('500000002', 2500)->assertCreated();
+
+        // The sender pays exactly what they typed...
+        $this->assertSame(7500, $this->walletOf($this->alice)->withdrawable_minor);
+        // ...and the recipient receives 10% less (spend_only is the only bucket a transfer ever lands in).
+        $this->assertSame(2250, $this->walletOf($this->bob)->spend_only_minor);
+
+        $fee = WalletTransaction::query()->where('type', WalletTransactionType::TransferFee)->sole();
+        $this->assertSame($this->walletOf($this->bob)->id, $fee->wallet_id);
+        $this->assertSame(250, $fee->amount_minor);
+        $this->assertSame('10.0000', (string) $fee->fee_percent);
+
+        $income = \Modules\Wallet\Models\FinancialEntry::query()->whereHas('category', fn ($q) => $q->where('slug', 'transfer_fee'))->sole();
+        $this->assertSame(250, $income->amount_minor);
+    }
+
+    public function test_a_fee_paid_by_the_sender_is_added_on_top(): void
+    {
+        WalletSetting::query()->where('country_id', $this->saudi->id)->update(['transfer_fee_percent' => '10.0000', 'transfer_fee_payer' => 'sender']);
+        $this->fund($this->alice, 10000);
+
+        $this->send('500000002', 2500)->assertCreated();
+
+        // The sender is charged the amount *and* the fee...
+        $this->assertSame(7250, $this->walletOf($this->alice)->withdrawable_minor);
+        // ...and the recipient receives the full amount, untouched.
+        $this->assertSame(2500, $this->walletOf($this->bob)->spend_only_minor);
+
+        $fee = WalletTransaction::query()->where('type', WalletTransactionType::TransferFee)->sole();
+        $this->assertSame($this->walletOf($this->alice)->id, $fee->wallet_id);
+        $this->assertSame(250, $fee->amount_minor);
+    }
+
+    public function test_a_sender_paid_fee_is_covered_by_the_balance_check(): void
+    {
+        WalletSetting::query()->where('country_id', $this->saudi->id)->update(['transfer_fee_percent' => '10.0000', 'transfer_fee_payer' => 'sender']);
+        // Exactly enough for the principal, nothing left for the fee.
+        $this->fund($this->alice, 2500);
+
+        $this->send('500000002', 2500)->assertStatus(422)->assertJsonPath('error_code', 'insufficient_balance');
+        $this->assertSame(2500, $this->walletOf($this->alice)->withdrawable_minor, 'a failed attempt moves nothing');
+    }
+
+    public function test_changing_the_rate_later_does_not_rewrite_old_transactions(): void
+    {
+        WalletSetting::query()->where('country_id', $this->saudi->id)->update(['transfer_fee_percent' => '5.0000', 'transfer_fee_payer' => 'recipient']);
+        $this->fund($this->alice, 10000);
+        $this->send('500000002', 2000, 'key-old-rate')->assertCreated();
+
+        WalletSetting::query()->where('country_id', $this->saudi->id)->update(['transfer_fee_percent' => '20.0000']);
+        $this->fund($this->alice, 10000);
+        $this->send('500000002', 2000, 'key-new-rate')->assertCreated();
+
+        $percents = WalletTransaction::query()->where('type', WalletTransactionType::TransferFee)->orderBy('id')->pluck('fee_percent')->map(fn ($p) => (string) $p);
+        $this->assertSame(['5.0000', '20.0000'], $percents->all());
+    }
+
+    // ------------------------------------------------------------------ beneficiaries (wallet-tasks.md §10.9)
+
+    public function test_a_successful_transfer_remembers_the_recipient(): void
+    {
+        $this->fund($this->alice, 10000);
+        $this->send('500000002', 1000)->assertCreated();
+
+        $this->getJson('/api/mobile/v1/wallet/beneficiaries', ['X-Country' => 'SA'])->assertOk()
+            ->assertJsonPath('data.0.name_masked', 'B***')
+            ->assertJsonCount(1, 'data');
+
+        // Sending to the same person again does not duplicate the row, just refreshes last_used_at.
+        $this->send('500000002', 500, 'key-second-send')->assertCreated();
+        $this->assertSame(1, \Modules\Wallet\Models\WalletBeneficiary::query()->count());
+    }
+
+    public function test_a_failed_lookup_or_transfer_never_creates_a_beneficiary(): void
+    {
+        $this->lookup(['mode' => 'phone', 'phone' => '500000000']); // nobody at that number
+        $this->fund($this->alice, 100);
+        $this->send('500000002', 10000)->assertStatus(422); // insufficient balance
+
+        $this->assertSame(0, \Modules\Wallet\Models\WalletBeneficiary::query()->count());
+    }
+
+    public function test_beneficiaries_are_scoped_per_country_and_per_sender(): void
+    {
+        $this->fund($this->alice, 10000);
+        $this->send('500000002', 1000)->assertCreated();
+
+        // Bob has never sent anyone money — an empty list, not Alice's.
+        Sanctum::actingAs($this->bob, [], 'user_api');
+        $this->getJson('/api/mobile/v1/wallet/beneficiaries', ['X-Country' => 'SA'])->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_the_lookup_warns_when_the_recipients_number_changed_recently(): void
+    {
+        $bobsOldNumber = $this->bob->phone;
+        $this->bob->update(['phone' => '+966500000777']);
+        \Modules\User\Models\UserPhoneHistory::query()->create([
+            'user_id' => $this->bob->id, 'old_phone' => $bobsOldNumber, 'new_phone' => '+966500000777',
+            'ip_address' => '127.0.0.1', 'changed_at' => now()->subDays(2),
+        ]);
+
+        $this->lookup(['mode' => 'phone', 'phone' => '500000777'])->assertOk()
+            ->assertJsonPath('data.number_recently_changed', true);
+
+        // A change from three weeks ago is old news — no warning.
+        \Modules\User\Models\UserPhoneHistory::query()->update(['changed_at' => now()->subWeeks(3)]);
+        $this->lookup(['mode' => 'phone', 'phone' => '500000777'])->assertOk()
+            ->assertJsonPath('data.number_recently_changed', false);
     }
 }

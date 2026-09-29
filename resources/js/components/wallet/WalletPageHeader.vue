@@ -10,7 +10,7 @@
                     <li class="breadcrumb-item">
                         <router-link :to="{ name: 'admin.dashboard' }">{{ t('dashboard') }}</router-link>
                     </li>
-                    <li class="breadcrumb-item">{{ t('sidebar.wallet') }}</li>
+                    <li class="breadcrumb-item">{{ section || t('sidebar.wallet') }}</li>
                     <li class="breadcrumb-item active" aria-current="page">{{ title }}</li>
                 </ol>
             </nav>
@@ -24,6 +24,8 @@ import { useI18n } from 'vue-i18n';
 defineProps({
     title: { type: String, required: true },
     total: { type: Number, default: null },
+    /** Breadcrumb section (the chat screens reuse this header). */
+    section: { type: String, default: '' },
 });
 
 const { t } = useI18n();

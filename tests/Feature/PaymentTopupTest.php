@@ -300,6 +300,10 @@ class PaymentTopupTest extends TestCase
         $other = Provider::create(['name' => 'NoPin', 'email' => 'nopin@example.com', 'country_id' => $this->saudi->id, 'status' => 'active']);
         Sanctum::actingAs($other, [], 'provider_api');
 
+        // A way to get the PIN back is chosen first (docs: PIN recovery); then the PIN itself.
+        $this->postJson('/api/provider/v1/wallet/pin', ['pin' => '4321', 'pin_confirmation' => '4321'])->assertStatus(422)->assertJsonPath('error_code', 'pin_recovery_required');
+        $this->postJson('/api/provider/v1/wallet/pin/recovery', ['method' => 'password', 'password' => 'secret123', 'password_confirmation' => 'secret123'])->assertOk();
+
         $this->postJson('/api/provider/v1/wallet/pin', ['pin' => '4321', 'pin_confirmation' => '0000'])->assertStatus(422);
         $this->postJson('/api/provider/v1/wallet/pin', ['pin' => '4321', 'pin_confirmation' => '4321'])->assertCreated();
         $this->postJson('/api/provider/v1/wallet/pin', ['pin' => '1111', 'pin_confirmation' => '1111'])->assertStatus(409);

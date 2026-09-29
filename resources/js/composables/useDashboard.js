@@ -69,6 +69,9 @@ export function useDashboard() {
             }
         }
 
+        document.documentElement.dataset.dashboardThemeReady = '';
+        window.dispatchEvent(new Event('dashboard-theme-scripts-ready'));
+
         patchThemeDirectionHandlers();
         syncBootstrapStylesheet();
         initScrollToTop();
