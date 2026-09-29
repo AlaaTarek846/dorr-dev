@@ -12,6 +12,7 @@ use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Support\ParticipantDirectory;
@@ -120,12 +121,21 @@ class GroupService
         $group = $conversation->group;
 
         DB::transaction(function () use ($me, $conversation, $group, $data) {
-            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members']));
+            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins', 'is_public']));
+            if ($conversation->isChannel()) {
+                unset($data['only_admins_send'], $data['only_admins_add_members']); // a channel is always "admins post"
+            } else {
+                unset($data['is_public']);
+            }
             $before = $group->only_admins_send;
+            $approveBefore = $group->approve_joins;
             $group->update($data);
 
             if (array_key_exists('only_admins_send', $data) && (bool) $data['only_admins_send'] !== $before) {
                 $this->messages->system($conversation, $me, $data['only_admins_send'] ? 'group_announcement_on' : 'group_announcement_off');
+            }
+            if (array_key_exists('approve_joins', $data) && (bool) $data['approve_joins'] !== $approveBefore) {
+                $this->messages->system($conversation, $me, $data['approve_joins'] ? 'group_approval_on' : 'group_approval_off');
             }
 
             $this->changed($conversation);
@@ -139,6 +149,10 @@ class GroupService
      */
     public function members(Model $me, ChatConversation $conversation): array
     {
+        // Followers of a channel don't see each other; its admins do.
+        if ($conversation->isChannel()) {
+            $this->assertAdmin($me, $conversation);
+        }
         $this->conversations->participantOf($me, $conversation);
         $directory = app(ParticipantDirectory::class);
 
@@ -165,6 +179,11 @@ class GroupService
     public function addMembers(Model $me, ChatConversation $conversation, array $accounts): array
     {
         $participant = $this->assertGroupMember($me, $conversation);
+
+        // Nobody is added to a channel: people follow it (search, link or QR).
+        if ($conversation->isChannel()) {
+            throw new ChatException('channel_follow_only', 422);
+        }
 
         if ($conversation->group->only_admins_add_members && ! $participant->isAdmin()) {
             throw ChatException::adminsOnly();
@@ -219,8 +238,12 @@ class GroupService
 
         DB::transaction(function () use ($me, $conversation, $participant) {
             $wasOwner = $participant->role === ParticipantRole::Owner;
+            $wasStaff = $participant->isAdmin();
             $participant->update(['left_at' => now(), 'role' => ParticipantRole::Member, 'pinned_at' => null]);
-            $this->messages->system($conversation, $me, 'member_left');
+            // A follower unfollowing a channel is not news; in a group everyone sees who left.
+            if (! $conversation->isChannel() || $wasStaff) {
+                $this->messages->system($conversation, $me, 'member_left');
+            }
 
             $remaining = $conversation->activeParticipants()->get();
 
@@ -273,10 +296,17 @@ class GroupService
             'avatar' => $group->avatarUrl(),
             'members_count' => $conversation->activeParticipants()->count(),
             'is_member' => $conversation->activeParticipants()->of($me)->exists(),
+            // The admins approve new members: "Join" becomes "Ask to join".
+            'approve_joins' => $group->approve_joins,
+            'request_status' => ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->by($me)->pending()->exists() ? 'pending' : null,
         ];
     }
 
-    public function join(Model $me, string $token): ChatParticipant
+    /**
+     * Join through the invite link — or, when the admins approve new members, ask to join
+     * (returns the pending request; asking twice keeps the one request).
+     */
+    public function join(Model $me, string $token): ChatParticipant|ChatGroupJoinRequest
     {
         $group = $this->groupByInvite($token);
         $conversation = $group->conversation;
@@ -286,9 +316,28 @@ class GroupService
             return $existing;
         }
 
-        $max = ChatSetting::current()->max_group_members;
-        if ($conversation->activeParticipants()->count() >= $max) {
-            throw ChatException::groupFull($max);
+        // A channel has followers, not members: no group size limit.
+        if (! $conversation->isChannel()) {
+            $this->assertRoom($conversation);
+        }
+
+        if ($group->approve_joins) {
+            $request = ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->by($me)->pending()->first()
+                ?? ChatGroupJoinRequest::query()->create([
+                    'conversation_id' => $conversation->id,
+                    'requester_type' => ParticipantType::aliasFor($me),
+                    'requester_id' => $me->getKey(),
+                ]);
+
+            if ($request->wasRecentlyCreated) {
+                $this->tellAdmins($conversation);
+            }
+
+            return $request;
+        }
+
+        if ($conversation->isChannel()) {
+            return app(ChannelService::class)->follow($me, $conversation);
         }
 
         return DB::transaction(function () use ($me, $conversation) {
@@ -298,6 +347,99 @@ class GroupService
 
             return $row;
         });
+    }
+
+    /**
+     * I changed my mind before an admin answered.
+     */
+    public function cancelJoinRequest(Model $me, string $token): void
+    {
+        $conversation = $this->groupByInvite($token)->conversation;
+
+        ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->by($me)->pending()
+            ->update(['status' => ChatGroupJoinRequest::CANCELLED, 'decided_at' => now()]);
+        $this->tellAdmins($conversation);
+    }
+
+    /**
+     * Pending requests, oldest first — admins only.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function joinRequests(Model $me, ChatConversation $conversation): array
+    {
+        $this->assertAdmin($me, $conversation);
+        $rows = ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->pending()->orderBy('id')->get();
+        $directory = app(ParticipantDirectory::class);
+        $directory->prime($me, $rows->map(fn ($r) => [$r->requester_type, $r->requester_id]));
+
+        return $rows->map(fn (ChatGroupJoinRequest $r) => [
+            'id' => $r->id,
+            'profile' => $directory->profile($me, $r->requester_type, $r->requester_id),
+            'requested_at' => $r->created_at?->toIso8601String(),
+        ])->all();
+    }
+
+    /**
+     * An admin lets someone in (or not). The requester hears about it either way.
+     */
+    public function decideJoinRequest(Model $me, ChatConversation $conversation, int $requestId, bool $approve): void
+    {
+        $admin = $this->assertAdmin($me, $conversation);
+        $request = ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->pending()->find($requestId)
+            ?? throw new ChatException('join_request_not_found', 404);
+        $requester = $request->requester() ?? throw ChatException::userNotFound();
+
+        if ($approve) {
+            $this->assertRoom($conversation);
+        }
+
+        DB::transaction(function () use ($me, $conversation, $request, $requester, $admin, $approve) {
+            $request->update([
+                'status' => $approve ? ChatGroupJoinRequest::APPROVED : ChatGroupJoinRequest::REJECTED,
+                'decided_by_participant_id' => $admin->id,
+                'decided_at' => now(),
+            ]);
+
+            if ($approve && ! $conversation->activeParticipants()->of($requester)->exists()) {
+                $this->conversations->addParticipant($conversation, $requester, ParticipantRole::Member, (int) $conversation->last_message_id ?: null);
+                $this->messages->system($conversation, $me, 'join_request_approved', [ParticipantType::key($requester)]);
+                $this->changed($conversation);
+            }
+        });
+
+        $this->broadcaster->toAccounts([[$request->requester_type, (int) $request->requester_id]], 'chat.group.join_decided', [
+            'conversation_id' => $conversation->uuid,
+            'status' => $request->status,
+            'group_name' => $conversation->group?->name,
+        ]);
+        $this->tellAdmins($conversation);
+    }
+
+    public function pendingJoinCount(ChatConversation $conversation): int
+    {
+        return ChatGroupJoinRequest::query()->where('conversation_id', $conversation->id)->pending()->count();
+    }
+
+    private function assertRoom(ChatConversation $conversation): void
+    {
+        $max = ChatSetting::current()->max_group_members;
+        if ($conversation->activeParticipants()->count() >= $max) {
+            throw ChatException::groupFull($max);
+        }
+    }
+
+    /**
+     * The admins' badge ("3 asking to join") changed.
+     */
+    private function tellAdmins(ChatConversation $conversation): void
+    {
+        $admins = $conversation->activeParticipants()->get()->filter(fn (ChatParticipant $p) => $p->isAdmin());
+
+        $this->broadcaster->toParticipants($admins, 'chat.group.join_requests', [
+            'conversation_id' => $conversation->uuid,
+            'pending' => $this->pendingJoinCount($conversation),
+        ]);
     }
 
     // ---------------------------------------------------------------- helpers

@@ -295,6 +295,7 @@ const chatAdminItems = [
     { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
+    { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
 ];
 
