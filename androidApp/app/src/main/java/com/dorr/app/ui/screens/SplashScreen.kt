@@ -3,12 +3,6 @@ package com.dorr.app.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
-<<<<<<< HEAD
-=======
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.foundation.background
->>>>>>> main
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -24,8 +18,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -33,12 +27,7 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.ui.components.DorrLogo
-<<<<<<< HEAD
 import com.dorr.app.ui.screens.profile.PinkBackdrop
-=======
-import com.dorr.app.ui.components.dorrPageWash
-import androidx.compose.ui.draw.drawBehind
->>>>>>> main
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
@@ -48,17 +37,13 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * 1:1 port of the reference app's splash: fade + scale-in (ease-out-back)
- * over a primary -> primaryDark gradient, then an auto-advance once the
- * animation settles. Real apps would resolve an auth/session check during
- * this hold instead of a fixed delay.
+ * Fade + scale-in splash, then auto-advance after defaults load animation settles.
  */
 @Composable
 fun SplashScreen(onFinished: () -> Unit) {
-    val inspecting = androidx.compose.ui.platform.LocalInspectionMode.current
+    val inspecting = LocalInspectionMode.current
     val alphaAnim = remember { Animatable(if (inspecting) 1f else 0f) }
     val scale = remember { Animatable(if (inspecting) 1f else 0.85f) }
-    // The logo rises into place from below the centre while everything fades in.
     val rise = remember { Animatable(if (inspecting) 1f else 0f) }
 
     val appearance = LocalAppearance.current
@@ -126,8 +111,6 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
 }
 
-
-// Cubic approximation of Curves.easeOutBack from the reference animation.
 private fun overshoot(x: Float): Float {
     val c1 = 1.70158f
     val c3 = c1 + 1f
