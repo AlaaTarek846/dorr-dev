@@ -115,6 +115,10 @@ class AiKnowledgeRetriever
         $query = AiKnowledgeSource::query()
             ->where('approval_status', AiKnowledgeSource::APPROVAL_APPROVED)
             ->where('is_active', true)
+            // A source queued for (re)indexing has no chunks yet, or is
+            // mid-reindex with stale ones about to be replaced - never
+            // usable as evidence until indexing actually finishes.
+            ->where('processing_status', AiKnowledgeSource::PROCESSING_READY)
             ->where(function ($q) use ($owner) {
                 // Public/internal knowledge is visible platform-wide;
                 // anything more sensitive only to its own owner - there is

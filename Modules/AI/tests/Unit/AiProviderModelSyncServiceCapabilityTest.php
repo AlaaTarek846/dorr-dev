@@ -113,4 +113,42 @@ class AiProviderModelSyncServiceCapabilityTest extends TestCase
     {
         $this->assertTrue($this->isChatCapable('gpt-4o-mini-search-preview-2025-03-11'));
     }
+
+    /**
+     * Phase 8 completion: a registered "-search-preview"/"-search-api"
+     * model is text+web-search-augmented, not vision - covered above -
+     * but until now nothing ever tagged it with the "web_search"
+     * capability it actually has either, so AiRoutingEngine could never
+     * match it for a "سعر الدولار اليوم"/"latest news" request; it would
+     * only ever be picked for a plain chat turn like any other model.
+     */
+    public function test_a_search_preview_variant_is_tagged_web_search(): void
+    {
+        $capabilities = $this->capabilitiesFor('gpt-4o-mini-search-preview-2025-03-11');
+
+        $this->assertContains('web_search', $capabilities);
+    }
+
+    /**
+     * Real, observed gap: only the older "-search-preview" naming was
+     * ever excluded from isKnownMultimodalModel()'s vision check -
+     * "gpt-5-search-api" (the newer naming) still starts with "gpt-5"
+     * like every genuinely multimodal gpt-5 model and fell straight
+     * through to being wrongly tagged vision, the exact same class of
+     * bug "-search-preview" and "-codex" were already fixed for.
+     */
+    public function test_a_search_api_variant_is_tagged_web_search(): void
+    {
+        $capabilities = $this->capabilitiesFor('gpt-5-search-api');
+
+        $this->assertContains('web_search', $capabilities);
+        $this->assertNotContains('vision', $capabilities);
+    }
+
+    public function test_an_ordinary_chat_model_is_not_tagged_web_search(): void
+    {
+        $capabilities = $this->capabilitiesFor('gpt-4o');
+
+        $this->assertNotContains('web_search', $capabilities);
+    }
 }

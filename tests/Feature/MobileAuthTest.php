@@ -68,7 +68,7 @@ class MobileAuthTest extends TestCase
             'authenticatable_type' => $user->getMorphClass(),
             'authenticatable_id' => $user->id,
             'type' => VerificationType::Phone->value,
-            'code' => '123456',
+            'code' => '1234',
         ]);
     }
 
@@ -116,12 +116,12 @@ class MobileAuthTest extends TestCase
 
         $user->verificationCodes()->create([
             'type' => VerificationType::Phone->value,
-            'code' => '123456',
+            'code' => '1234',
             'expires_at' => now()->addMinutes(10),
             'attempts' => 0,
         ]);
 
-        $response = $this->postJson('/api/mobile/v1/auth/verify', $this->payload('123456'))
+        $response = $this->postJson('/api/mobile/v1/auth/verify', $this->payload('1234'))
             ->assertOk()
             ->assertJsonStructure(['data' => ['user', 'token', 'token_type']]);
 
@@ -138,7 +138,7 @@ class MobileAuthTest extends TestCase
 
         $user->verificationCodes()->create([
             'type' => VerificationType::Phone->value,
-            'code' => '123456',
+            'code' => '1234',
             'expires_at' => now()->addMinutes(10),
             'attempts' => 0,
         ]);

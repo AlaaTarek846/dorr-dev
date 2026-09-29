@@ -325,4 +325,36 @@ return [
             'pricing_note' => 'Groq offers a generous free-of-charge API tier with rate limits - the cheapest option to experiment with.',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Internal tools / function calling (master spec section 12/48-49)
+    |--------------------------------------------------------------------------
+    |
+    | AiToolResolver's trigger map - which tool name to consider when the
+    | user's message matches these Arabic/English phrases. Same pattern as
+    | AiRequiredCapabilityResolver's keyword map: a deterministic, easy-to
+    | -extend trigger list rather than a black-box classifier. Each tool
+    | class here must implement Modules\AI\Contracts\AiToolInterface and
+    | is resolved through the container (AiToolRegistry), so a tool with
+    | its own constructor dependencies (like AiUsageStatusTool's
+    | AiChatUsageGuard) is wired automatically.
+    |
+    */
+    'tools' => [
+        'enabled' => (bool) env('AI_TOOLS_ENABLED', true),
+
+        'registry' => [
+            \Modules\AI\Services\Tools\AiUsageStatusTool::class,
+        ],
+
+        'triggers' => [
+            'usage_status' => [
+                'كام رسالة باقيلي', 'باقيلي كام', 'استخدامي', 'حد الاستخدام', 'وصلت للحد',
+                'الاشتراك بتاعي', 'الباقة بتاعتي', 'تجربتي المجانية', 'كام دقيقة باقيلي',
+                'how many messages', 'messages left', 'my usage', 'usage limit', 'my plan',
+                'my subscription', 'free trial', 'how much time left', 'am i blocked',
+            ],
+        ],
+    ],
 ];

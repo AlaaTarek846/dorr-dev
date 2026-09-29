@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI Assistant (Modules/AI). Every key exists in both languages. -->
+    <string name="ai_fab_content_description">AI Assistant</string>
+    <string name="ai_title">AI Assistant</string>
+    <string name="ai_subtitle">Ask anything, anytime</string>
+    <string name="ai_history_title">Chat history</string>
+    <string name="ai_new_chat">New chat</string>
+    <string name="ai_delete_chat">Delete chat</string>
+    <string name="ai_delete_chat_confirm">This chat and its messages will be deleted for good.</string>
+    <string name="ai_cancel">Cancel</string>
+    <string name="ai_delete">Delete</string>
+    <string name="ai_retry">Try again</string>
+    <string name="ai_empty_history">No conversations yet</string>
+    <string name="ai_empty_conversation">Ask the assistant anything to get started</string>
+    <string name="ai_unavailable">%1$s is not available right now. Please try again later.</string>
+    <string name="ai_composer_hint">Message the assistant…</string>
+    <string name="ai_attach">Attach a file</string>
+    <string name="ai_attach_photo">Photo</string>
+    <string name="ai_attach_document">Document</string>
+    <string name="ai_send">Send</string>
+    <string name="ai_attachment_caption">Attachment</string>
+    <string name="ai_send_failed">Couldn\'t send the message. Please try again.</string>
+    <string name="ai_typing">Thinking…</string>
+    <string name="ai_trial_remaining">Free trial · %1$d min left today</string>
+    <string name="ai_usage_blocked">This account can\'t use the AI Assistant right now.</string>
+    <string name="ai_usage_trial_ended">Your free trial has ended. Please upgrade to keep chatting.</string>
+    <string name="ai_usage_cooldown">You\'ve reached today\'s limit. Please try again a bit later.</string>
+    <string name="ai_usage_limit_reached">You\'ve reached your usage limit for this period.</string>
+    <string name="ai_usage_no_plan">No active plan covers the AI Assistant yet.</string>
+    <string name="ai_usage_unavailable">The AI Assistant isn\'t available right now.</string>
+    <string name="ai_record_voice">Record a voice message</string>
+    <string name="ai_recording_hint">Recording…</string>
+    <string name="ai_cancel_recording">Cancel recording</string>
+    <string name="ai_stop_recording">Stop and send</string>
+    <string name="ai_voice_message_caption">Voice message</string>
+
+    <!-- Realtime voice mode (WebRTC live call with the assistant) -->
+    <string name="ai_voice_mode">Voice mode</string>
+    <string name="ai_voice_connecting">Connecting…</string>
+    <string name="ai_voice_listening">Listening…</string>
+    <string name="ai_voice_speaking">Speaking…</string>
+    <string name="ai_voice_muted">Muted</string>
+    <string name="ai_voice_ended">Call ended</string>
+    <string name="ai_voice_error_generic">The voice call couldn\'t connect. Please try again.</string>
+    <string name="ai_voice_permission_needed">Microphone access is needed for voice mode.</string>
+    <string name="ai_voice_permission_denied">Microphone access was denied. Enable it from app settings to use voice mode.</string>
+    <string name="ai_voice_mute">Mute</string>
+    <string name="ai_voice_unmute">Unmute</string>
+    <string name="ai_voice_end_call">End call</string>
+    <string name="ai_voice_retry">Try again</string>
+</resources>

@@ -1,6 +1,7 @@
 package com.dorr.app.ui.locale
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.res.Configuration
 import android.os.LocaleList
 import androidx.compose.runtime.Composable
@@ -14,7 +15,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.unit.LayoutDirection
 import com.dorr.app.network.AppLocale
 import java.util.Locale
@@ -54,7 +54,7 @@ val LocalAppLanguage = staticCompositionLocalOf<AppLanguageState> {
 
 /**
  * Wraps the whole app content in a locale-aware [Context] and recomposes
- * every [LocalResources]/[LocalConfiguration]/[LocalLayoutDirection] reader
+ * every [LocalContext]/[LocalConfiguration]/[LocalLayoutDirection] reader
  * when the language changes — so stringResource, RTL/LTR flipping and
  * isSystemInDarkTheme all follow the persisted preference without recreating
  * the Activity (in-memory state like ThemeState and the nav graph survive).
@@ -76,7 +76,9 @@ fun LocalizedApp(content: @Composable () -> Unit) {
     }
 
     CompositionLocalProvider(
-        LocalResources provides localizedContext.resources,
+        // Compose UI 1.7 (BOM 2024.09) has no LocalResources — stringResource reads
+        // resources off LocalContext, so swap in the locale-wrapped context instead.
+        LocalContext provides localizedContext,
         LocalConfiguration provides localizedContext.resources.configuration,
         LocalLayoutDirection provides (if (code == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr),
         LocalAppLanguage provides state,
@@ -85,10 +87,21 @@ fun LocalizedApp(content: @Composable () -> Unit) {
     }
 }
 
-/** Wraps [context] in a [Context] whose resources resolve against [code]. */
+/**
+ * Wraps [context] in a [Context] whose resources resolve against [code].
+ *
+ * It must stay a [ContextWrapper] *around the Activity*: `createConfigurationContext` alone returns an unrelated
+ * context, and Compose finds the Activity's owners (activity-result registry, back-press dispatcher…) by
+ * unwrapping `LocalContext`. Without that, `rememberLauncherForActivityResult` throws on the first frame of any
+ * screen that picks a photo or opens the QR camera — the app just closes.
+ */
 private fun Context.forLocale(code: String): Context {
     val config = Configuration(resources.configuration).apply {
         setLocales(LocaleList(Locale(code)))
     }
-    return createConfigurationContext(config)
+    val localized = createConfigurationContext(config)
+    return object : ContextWrapper(this) {
+        override fun getResources() = localized.resources
+        override fun getAssets() = localized.assets
+    }
 }

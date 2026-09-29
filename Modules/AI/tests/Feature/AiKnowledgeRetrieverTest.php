@@ -51,6 +51,13 @@ class AiKnowledgeRetrieverTest extends TestCase
             'data_classification' => AiKnowledgeSource::CLASSIFICATION_PUBLIC,
             'approval_status' => AiKnowledgeSource::APPROVAL_APPROVED,
             'is_active' => true,
+            // Retrieval now also requires indexing to have actually
+            // finished (processing_status) - these tests build their
+            // chunks directly via makeChunk() rather than going through
+            // real ingestion, so they must mark the source ready
+            // themselves, same as real ingestion does once indexing
+            // completes.
+            'processing_status' => AiKnowledgeSource::PROCESSING_READY,
         ], $overrides));
     }
 

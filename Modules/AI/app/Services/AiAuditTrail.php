@@ -31,6 +31,8 @@ class AiAuditTrail
 
     public const EVENT_CIRCUIT_BREAKER_OPENED = 'circuit_breaker_opened';
 
+    public const EVENT_REALTIME_SESSION_CREATED = 'realtime_session_created';
+
     public function record(
         string $eventType,
         ?Authenticatable $owner = null,

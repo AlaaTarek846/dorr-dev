@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\AI\Http\Controllers\AiChatController;
+use Modules\AI\Http\Controllers\AiRealtimeController;
 use Modules\AI\Http\Controllers\AiUserLanguagePreferenceSelfController;
 
 Route::middleware(['locale', 'auth:user_api', 'throttle:ai-chat-general'])->prefix('user/v1/ai-chat')->group(function () {
@@ -27,6 +28,14 @@ Route::middleware(['locale', 'auth:user_api', 'throttle:ai-chat-send'])->prefix(
     // v2.0 requirements doc 18.2 (streaming): progressive delivery of
     // the already-verified answer - see AiChatService::streamMessage().
     Route::post('conversations/{conversation}/messages/stream', [AiChatController::class, 'streamMessage']);
+});
+
+// Phase 7 (realtime voice): minting a session credential triggers a real
+// provider call exactly like sending a chat message does, so it shares
+// the same dedicated ai-chat-send limiter rather than the general one.
+Route::middleware(['locale', 'auth:user_api', 'throttle:ai-chat-send'])->prefix('user/v1/ai-realtime')->group(function () {
+    Route::post('session', [AiRealtimeController::class, 'createSession']);
+    Route::post('session/{session}/end', [AiRealtimeController::class, 'endSession']);
 });
 
 // Business gap fix: self-service counterpart of the admin-only

@@ -51,6 +51,9 @@ return [
 
     'speech_to_text_not_supported' => 'The provider ":provider" does not support real speech-to-text transcription.',
     'text_to_speech_not_supported' => 'The provider ":provider" does not support real text-to-speech generation.',
+    'realtime_not_supported' => 'The provider ":provider" does not support real Realtime voice sessions.',
+    'realtime_session_failed' => 'Could not start a live voice session right now. Try again in a moment.',
+    'realtime_no_model' => 'No Realtime-capable voice model is currently registered, so a live voice session cannot be started.',
 
     // Domain pipelines (v2.0 requirements doc, sections 7-14)
     'health_triage_emergency_reply' => 'This sounds like it could be an emergency. Please contact your local emergency services or go to the nearest emergency room right away - I\'m not able to safely handle this here. If you can, also reach out to someone nearby who can help you get there.',

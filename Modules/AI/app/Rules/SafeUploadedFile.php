@@ -44,6 +44,11 @@ class SafeUploadedFile implements ValidationRule
         // .docx/.xlsx are zip containers under the hood - finfo often
         // reports the container type rather than the office-specific one.
         'application/zip',
+        // Voice messages recorded by the app (AAC in an .m4a/MP4 container) -
+        // libmagic reports this container under either name depending on
+        // version, so both are allowed rather than guessing one.
+        'audio/mp4',
+        'audio/x-m4a',
     ];
 
     /**

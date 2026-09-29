@@ -57,6 +57,31 @@ class AiRequiredCapabilityResolver
             'اكتب كود', 'دالة', 'فنكشن', 'باج', 'اكواد', 'برمج لي', 'صحح الكود',
             'write code', 'function', 'debug this', 'fix this bug', 'write a script', 'refactor this code',
         ],
+        // Master-spec section 13 examples, verbatim: phrases that ask for
+        // information that can only be current if it is actually fetched
+        // live, not phrases that merely mention the internet in passing
+        // ("ابعتلي لينك" doesn't need a search, "آخر أخبار مصر" does).
+        'web_search' => [
+            'آخر أخبار', 'اخر اخبار', 'سعر الدولار اليوم', 'سعر الدولار النهارده', 'آخر إصدار', 'اخر اصدار',
+            'ابحث على الإنترنت', 'ابحث على النت', 'دور على النت', 'إيه الجديد في', 'اخبار اليوم', 'اخبار النهارده',
+            'latest news', 'search the web', 'search online', 'current price of', "what's new in", 'whats new in',
+            'today\'s exchange rate', 'latest version of', 'search the internet',
+        ],
+        // Master spec section 47: "the system should be able to request
+        // structured output when appropriate". Prompt-level only (an
+        // explicit instruction appended to the system prompt - see
+        // AiChatService's use of AiModelCapability::StructuredOutput
+        // below), not OpenAI's strict response_format=json_schema
+        // enforcement - that would need $routing threaded all the way
+        // through AiGateway::chat()/every connector the same way
+        // $useWebSearch was, which is a materially bigger, riskier change
+        // than this resolver entry. Documented as a known limitation, not
+        // silently claimed as full support (rule 59).
+        'structured_output' => [
+            'حول البيانات دي إلى json', 'حوله ل json', 'رجعهالي json', 'بصيغة json', 'شكل json',
+            'as json', 'in json format', 'return json', 'return it as json', 'structured output',
+            'as a structured output',
+        ],
     ];
 
     /**

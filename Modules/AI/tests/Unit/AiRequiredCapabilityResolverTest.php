@@ -149,4 +149,53 @@ class AiRequiredCapabilityResolverTest extends TestCase
         $this->assertContains('coding', $required);
         $this->assertNotContains('document_analysis', $required);
     }
+
+    /**
+     * Master-spec section 13, verbatim Arabic examples: phrases that only
+     * make sense if answered with genuinely current information.
+     */
+    public function test_asking_for_todays_exchange_rate_requires_web_search(): void
+    {
+        $required = $this->resolver()->resolve('سعر الدولار اليوم كام؟', null);
+
+        $this->assertContains('web_search', $required);
+    }
+
+    public function test_asking_for_latest_news_in_english_requires_web_search(): void
+    {
+        $required = $this->resolver()->resolve('give me the latest news about OpenAI', null);
+
+        $this->assertContains('web_search', $required);
+    }
+
+    public function test_an_ordinary_question_does_not_falsely_require_web_search(): void
+    {
+        $required = $this->resolver()->resolve('إيه الفرق بين الـ interface والـ abstract class؟', null);
+
+        $this->assertNotContains('web_search', $required);
+    }
+
+    public function test_asking_to_convert_data_to_json_in_arabic_requires_structured_output(): void
+    {
+        $required = $this->resolver()->resolve('حول البيانات دي إلى json', null);
+
+        $this->assertContains('structured_output', $required);
+    }
+
+    public function test_asking_for_json_in_english_requires_structured_output(): void
+    {
+        $required = $this->resolver()->resolve('return this as json please', null);
+
+        $this->assertContains('structured_output', $required);
+    }
+
+    public function test_asking_for_a_readable_table_does_not_falsely_require_structured_output(): void
+    {
+        // A markdown table is not JSON - this must not fire the
+        // "respond with ONLY a JSON value" instruction for what is
+        // really just a normal formatting preference.
+        $required = $this->resolver()->resolve('رجعلي المقارنة في شكل جدول عادي', null);
+
+        $this->assertNotContains('structured_output', $required);
+    }
 }

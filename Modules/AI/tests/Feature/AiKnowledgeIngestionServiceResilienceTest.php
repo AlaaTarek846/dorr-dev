@@ -18,6 +18,13 @@ use Tests\TestCase;
  * session) would have aborted the whole ingestion batch instead of
  * indexing that chunk without a vector, the same graceful degradation
  * that already applies when no embedding provider is configured at all.
+ *
+ * Indexing itself now runs via runIndexing() (queued by
+ * IndexAiKnowledgeSourceJob, see AiKnowledgeIngestionServiceAsyncTest for
+ * the dispatch/status-transition side of that), so this test exercises
+ * runIndexing() directly rather than ingestText() - the resilience
+ * behaviour under test lives in indexChunks(), which runIndexing() calls
+ * the same way ingestText() used to before it started queuing the work.
  */
 class AiKnowledgeIngestionServiceResilienceTest extends TestCase
 {
@@ -49,24 +56,32 @@ class AiKnowledgeIngestionServiceResilienceTest extends TestCase
             $mock->shouldReceive('embed')->once()->andThrow(new \RuntimeException('Unsupported AI provider [openai].'));
         });
 
-        $source = app(AiKnowledgeIngestionService::class)->ingestText([
+        $source = AiKnowledgeSource::query()->create([
             'owner_type' => 'system',
             'owner_id' => null,
             'file_id' => null,
             'name' => 'Resilience test source',
-            'domain' => null,
-            'country_code' => null,
-            'publisher' => null,
-            'authority' => null,
-            'published_at' => null,
-            'effective_at' => null,
             'data_classification' => AiKnowledgeSource::CLASSIFICATION_PUBLIC,
-            'access_scope' => null,
-        ], 'This is a short piece of source content to chunk and index.');
+            'approval_status' => AiKnowledgeSource::APPROVAL_PENDING,
+            'processing_status' => AiKnowledgeSource::PROCESSING_PENDING,
+            'is_active' => true,
+            'current_version' => 1,
+        ]);
 
-        $this->assertNotNull($source->id, 'ingestText() must complete and return a persisted source, not throw.');
+        app(AiKnowledgeIngestionService::class)->runIndexing(
+            $source,
+            'This is a short piece of source content to chunk and index.',
+        );
 
-        $chunk = $source->fresh()->chunks()->first();
+        $source->refresh();
+        $this->assertSame(
+            AiKnowledgeSource::PROCESSING_READY,
+            $source->processing_status,
+            'runIndexing() must still mark the source ready when a chunk\'s embedding call failed - lexical-only indexing is still indexing.',
+        );
+        $this->assertNotNull($source->indexed_at);
+
+        $chunk = $source->chunks()->first();
         $this->assertNotNull($chunk, 'the chunk must still be indexed even though its embedding call failed.');
 
         $content = json_decode(Storage::disk('local')->get($chunk->content_ref), true);

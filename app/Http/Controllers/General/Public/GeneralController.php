@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\General\CountryService;
 use App\Services\General\LanguageService;
 use App\Services\General\PlatformSettingService;
+use App\Services\General\ServiceCategoryService;
 use Illuminate\Http\JsonResponse;
 
 /**
@@ -19,6 +20,7 @@ class GeneralController extends Controller
         protected CountryService $countryService,
         protected LanguageService $languageService,
         protected PlatformSettingService $platformSettingService,
+        protected ServiceCategoryService $serviceCategoryService,
     ) {}
 
     public function countriesDropdown(): JsonResponse
@@ -39,5 +41,10 @@ class GeneralController extends Controller
     public function platformBranding(): JsonResponse
     {
         return $this->platformSettingService->getBranding();
+    }
+
+    public function services(): JsonResponse
+    {
+        return $this->serviceCategoryService->publicList();
     }
 }

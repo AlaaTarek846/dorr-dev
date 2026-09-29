@@ -23,7 +23,7 @@ class AiChatMessageRequest extends FormRequest
                 'nullable',
                 'file',
                 'max:10240',
-                'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,txt,csv,xlsx',
+                'mimes:jpg,jpeg,png,gif,webp,pdf,doc,docx,txt,csv,xlsx,m4a',
                 // v2.0 requirements doc S15.5: mimes: above only trusts
                 // the extension/client-declared type - this checks the
                 // file's actual bytes so a renamed executable/script

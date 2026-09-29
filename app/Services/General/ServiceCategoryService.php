@@ -35,6 +35,33 @@ class ServiceCategoryService extends CatalogService
         );
     }
 
+    /**
+     * Public list for the mobile/customer home: only the fields a service
+     * tile needs, so the payload stays small and independent of admin fields.
+     */
+    public function publicList(): JsonResponse
+    {
+        /** @var ServiceCategoryRepository $repository */
+        $repository = $this->repository;
+
+        $services = $repository->publicServices()->map(fn ($category) => [
+            'id' => $category->id,
+            'name' => $category->translatedName(),
+            'module_name' => $category->module_name,
+            'image' => $category->getSingleMediaUrl('image') ?: null,
+            'requires_provider' => (bool) $category->requires_provider,
+            'has_children' => $category->children->isNotEmpty(),
+            'children' => $category->children->map(fn ($child) => [
+                'id' => $child->id,
+                'name' => $child->translatedName(),
+                'module_name' => $child->module_name,
+                'image' => $child->getSingleMediaUrl('image') ?: null,
+            ])->values(),
+        ])->values();
+
+        return ApiResponse::success($services, __('api.retrieved'));
+    }
+
     public function leafOptions(): JsonResponse
     {
         /** @var ServiceCategoryRepository $repository */

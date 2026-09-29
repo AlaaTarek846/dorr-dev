@@ -83,6 +83,8 @@ class AiChatService
         protected AiDocumentTextExtractor $documentExtractor,
         protected AiDocumentRenderer $documentRenderer,
         protected AiModelResolver $modelResolver,
+        protected AiToolResolver $toolResolver,
+        protected AiToolRegistry $toolRegistry,
     ) {}
 
     public function listConversations(Authenticatable $owner): JsonResponse
@@ -408,6 +410,24 @@ class AiChatService
         $imageActionUnavailable = in_array(AiModelCapability::ImageGeneration->value, $routing['required_capabilities'], true)
             && ! ($candidates[0]['capability_matched'] ?? false);
 
+        // Same honesty principle as $imageActionUnavailable above, applied
+        // to Phase 8's web-search capability: AiRequiredCapabilityResolver
+        // recognizes phrases like "آخر أخبار"/"latest news" and marks
+        // "web_search" required, and AiRoutingEngine already prefers a
+        // registered model tagged with that capability (if the admin has
+        // synced/tagged one, e.g. gpt-5-search-api) via the same generic
+        // hasAllCapabilities() match used for every other capability - no
+        // special-casing needed there. What IS special-cased here: only
+        // when that match actually succeeded do we tell AiGateway::chat()
+        // to include OpenAI's real web_search_options parameter below: a
+        // model that only matched on unrelated capabilities must never be
+        // told to search live, and the user must be told plainly (not
+        // silently ignored) when no search-capable model is registered at
+        // all - matching $imageActionUnavailable's precedent exactly.
+        $webSearchRequested = in_array(AiModelCapability::WebSearch->value, $routing['required_capabilities'], true);
+        $webSearchMatched = $webSearchRequested && ($candidates[0]['capability_matched'] ?? false);
+        $webSearchUnavailable = $webSearchRequested && ! $webSearchMatched;
+
         /** @var AiProvider $provider */
         $provider = $candidates[0]['provider'];
 
@@ -610,6 +630,28 @@ class AiChatService
 
         $domainGuidance = $this->domainPipeline->systemGuidance($domainPolicy, $outgoingContent);
 
+        // Master spec section 12/48-49: a deterministic first slice of
+        // the "internal tool architecture" - see AiToolResolver/
+        // AiToolInterface's docblocks for exactly what this does and
+        // does not do yet. Folded into $domainGuidance (an existing
+        // "extra system-level guidance text" slot already threaded
+        // through buildHistory()/systemMessages()) rather than adding
+        // yet another positional parameter to that already long chain.
+        $toolContext = $this->resolveToolContext($owner, $outgoingContent);
+
+        if ($toolContext !== null) {
+            $domainGuidance = $domainGuidance === null ? $toolContext : $domainGuidance."\n\n".$toolContext;
+        }
+
+        // Master spec section 47 (structured output) - prompt-level only,
+        // see AiRequiredCapabilityResolver's 'structured_output' entry
+        // docblock for why this stops short of OpenAI's strict
+        // response_format=json_schema enforcement.
+        if (in_array(AiModelCapability::StructuredOutput->value, $routing['required_capabilities'], true)) {
+            $structuredOutputNote = 'The user asked for this reply as structured data (JSON). Respond with ONLY a single valid JSON value (object or array) that represents the requested data - no prose before or after it, no markdown code fences.';
+            $domainGuidance = $domainGuidance === null ? $structuredOutputNote : $domainGuidance."\n\n".$structuredOutputNote;
+        }
+
         $citations = $this->knowledgeRetriever->retrieve($owner, $outgoingContent);
 
         if ($citations !== []) {
@@ -625,9 +667,9 @@ class AiChatService
         // to hand the user a real one.
         $fileOutputRequested = $this->wantsFileOutput($content);
 
-        $history = $this->buildHistory($conversation, $owner, $userMessage, $outgoingContent, $attachmentResource, $citations, $domainGuidance, $imagePayload, $documentText, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable);
+        $history = $this->buildHistory($conversation, $owner, $userMessage, $outgoingContent, $attachmentResource, $citations, $domainGuidance, $imagePayload, $documentText, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable, $webSearchUnavailable);
 
-        [$result, $usedProvider, $usedModel, $verification] = $this->generateVerifiedReply($candidates, $routing['fallback_enabled'], $history, $aiRequest, $outgoingContent);
+        [$result, $usedProvider, $usedModel, $verification] = $this->generateVerifiedReply($candidates, $routing['fallback_enabled'], $history, $aiRequest, $outgoingContent, $webSearchMatched);
 
         $conversation->provider_key = $usedProvider->key;
         $conversation->save();
@@ -934,7 +976,7 @@ class AiChatService
      * @param  list<array{role: string, content: string}>  $history
      * @return array{0: array{success: bool, message: string, content: ?string}, 1: AiProvider, 2: ?string}
      */
-    protected function dispatchWithFallback(array $candidates, bool $fallbackEnabled, array $history, AiRequest $aiRequest): array
+    protected function dispatchWithFallback(array $candidates, bool $fallbackEnabled, array $history, AiRequest $aiRequest, bool $webSearchEligible = false): array
     {
         $lastResult = null;
         $lastProvider = $candidates[0]['provider'];
@@ -984,7 +1026,7 @@ class AiChatService
                     // the next candidate the way every other failure
                     // does. Any other unexpected throwable is treated
                     // the same way, on the same reasoning.
-                    $result = $this->gateway->chat($callProvider, $history, $aiRequest);
+                    $result = $this->gateway->chat($callProvider, $history, $aiRequest, $webSearchEligible && ($candidate['capability_matched'] ?? false));
                 } catch (\Throwable $e) {
                     report($e);
                     $result = ['success' => false, 'message' => __('ai.provider_unavailable'), 'content' => null];
@@ -1045,9 +1087,9 @@ class AiChatService
      * @param  list<array{role: string, content: string}>  $history
      * @return array{0: array{success: bool, message: string, content: ?string}, 1: AiProvider, 2: ?string, 3: array{status: string, confidence_score: ?float, warnings: list<string>}}
      */
-    protected function generateVerifiedReply(array $candidates, bool $fallbackEnabled, array $history, AiRequest $aiRequest, string $userContent): array
+    protected function generateVerifiedReply(array $candidates, bool $fallbackEnabled, array $history, AiRequest $aiRequest, string $userContent, bool $webSearchEligible = false): array
     {
-        [$result, $usedProvider, $usedModel] = $this->dispatchWithFallback($candidates, $fallbackEnabled, $history, $aiRequest);
+        [$result, $usedProvider, $usedModel] = $this->dispatchWithFallback($candidates, $fallbackEnabled, $history, $aiRequest, $webSearchEligible);
 
         if (! $result['success'] || ! config('ai.chat.verification.enabled', true)) {
             return [$result, $usedProvider, $usedModel, $this->skippedVerificationMeta()];
@@ -1089,7 +1131,7 @@ class AiChatService
                 $this->storeVerification($aiRequest, $attempt, $verifierProvider, (string) $result['content'], $verdict, AiVerification::STATUS_NEEDS_CORRECTION);
 
                 $correctiveHistory = $this->appendCorrectiveTurn($history, (string) $result['content'], $verdict['issues']);
-                [$regenerated, $regenProvider, $regenModel] = $this->dispatchWithFallback($candidates, $fallbackEnabled, $correctiveHistory, $aiRequest);
+                [$regenerated, $regenProvider, $regenModel] = $this->dispatchWithFallback($candidates, $fallbackEnabled, $correctiveHistory, $aiRequest, $webSearchEligible);
 
                 if (! $regenerated['success']) {
                     // The correction attempt itself failed (provider/network
@@ -1252,6 +1294,7 @@ class AiChatService
         bool $imageUnviewable = false,
         bool $voiceMessageUntranscribed = false,
         bool $voiceReplyUnavailable = false,
+        bool $webSearchUnavailable = false,
     ): array {
         $limit = (int) config('ai.chat.history_limit', 30);
 
@@ -1312,7 +1355,7 @@ class AiChatService
             ->values()
             ->all();
 
-        foreach (array_reverse($this->systemMessages($owner, $conversation, $citations, $domainGuidance, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable)) as $systemMessage) {
+        foreach (array_reverse($this->systemMessages($owner, $conversation, $citations, $domainGuidance, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable, $webSearchUnavailable)) as $systemMessage) {
             array_unshift($messages, $systemMessage);
         }
 
@@ -1327,7 +1370,7 @@ class AiChatService
      *
      * @return list<array{role: string, content: string}>
      */
-    protected function systemMessages(Authenticatable $owner, AiConversation $conversation, array $citations = [], ?string $domainGuidance = null, bool $imageActionUnavailable = false, bool $fileOutputRequested = false, bool $imageUnviewable = false, bool $voiceMessageUntranscribed = false, bool $voiceReplyUnavailable = false): array
+    protected function systemMessages(Authenticatable $owner, AiConversation $conversation, array $citations = [], ?string $domainGuidance = null, bool $imageActionUnavailable = false, bool $fileOutputRequested = false, bool $imageUnviewable = false, bool $voiceMessageUntranscribed = false, bool $voiceReplyUnavailable = false, bool $webSearchUnavailable = false): array
     {
         $messages = [];
         $prompt = config('ai.chat.system_prompt');
@@ -1384,7 +1427,35 @@ class AiChatService
             $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->voiceReplyUnavailableSystemMessage()];
         }
 
+        if ($webSearchUnavailable) {
+            $messages[] = ['role' => AiMessage::ROLE_SYSTEM, 'content' => $this->webSearchUnavailableSystemMessage()];
+        }
+
         return $messages;
+    }
+
+    /**
+     * Mirrors imageActionUnavailableSystemMessage(): the user asked for
+     * something that needs a live web lookup (current prices, today's
+     * news, "what's new in ...") but no registered model actually has
+     * the "web_search" capability tagged, so AiGateway::chat() is never
+     * told to include web_search_options for this reply. Without this
+     * notice the model tends to answer confidently from its training
+     * data alone while sounding as current as a real search result,
+     * which is the same "sounds capable, silently isn't" dishonesty this
+     * platform already refuses to allow for image generation/editing.
+     */
+    protected function webSearchUnavailableSystemMessage(): string
+    {
+        return 'The user is asking for information that requires a live web search '
+            .'(current prices, today\'s news, the latest version of something, etc.). '
+            .'This platform does NOT currently have a web-search-capable model '
+            .'registered/available for this reply - you have no live internet access '
+            .'right now. Do not present an answer as if it reflects the current/live '
+            .'state of things, and do not claim to have searched the web. Instead, say '
+            .'plainly that you cannot check live results right now, then help within '
+            .'what you actually know: general background on the topic, and, if useful, '
+            .'where the user could check themselves (the relevant official site or app).';
     }
 
     /**
@@ -1665,6 +1736,41 @@ class AiChatService
      *
      * @param  array{candidates: list<array{provider: AiProvider, model_key: ?string, capability_matched?: bool}>, required_capabilities: list<string>}  $routing
      */
+    /**
+     * First tool match wins (see AiToolResolver's docblock) - authorized
+     * and executed for real against $owner's own data, then formatted as
+     * a system-guidance note the model can ground its answer in. Never
+     * throws: an unauthorized or failing tool is simply skipped, exactly
+     * like every other "can't do this" path in this class (never fake
+     * support, degrade to a plain answer instead).
+     */
+    protected function resolveToolContext(Authenticatable $owner, string $content): ?string
+    {
+        foreach ($this->toolResolver->resolve($content) as $toolName) {
+            $tool = $this->toolRegistry->find($toolName);
+
+            if ($tool === null || ! $tool->authorize($owner)) {
+                continue;
+            }
+
+            try {
+                $result = $tool->execute($owner, []);
+            } catch (\Throwable $e) {
+                report($e);
+
+                continue;
+            }
+
+            return sprintf(
+                "[Tool result: %s]\n%s\nUse this real, current data to answer the user's question about it - do not guess or make up numbers.",
+                $tool->name(),
+                json_encode($result, JSON_UNESCAPED_UNICODE),
+            );
+        }
+
+        return null;
+    }
+
     protected function buildDocumentText(UploadedFile $attachment, array $routing): ?string
     {
         if (! in_array('document_analysis', $routing['required_capabilities'] ?? [], true)) {

@@ -50,4 +50,17 @@ return [
         'private_key' => env('APPLE_PRIVATE_KEY'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | OneSignal Push Notifications
+    |--------------------------------------------------------------------------
+    | Used by the sendPushNotification() global helper.
+    | No extra Composer package required — the helper uses Laravel HTTP client.
+    */
+    'onesignal' => [
+        'app_id' => env('ONESIGNAL_APP_ID'),
+        'rest_api_key' => env('ONESIGNAL_REST_API_KEY'),
+        'timeout' => (int) env('ONESIGNAL_GUZZLE_CLIENT_TIMEOUT', 10),
+    ],
+
 ];

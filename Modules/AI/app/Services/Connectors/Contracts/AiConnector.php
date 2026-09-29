@@ -23,9 +23,17 @@ interface AiConnector
      * shape its own API expects.
      *
      * @param  list<array{role: string, content: string}>  $messages
+     * @param  bool  $useWebSearch  When true, the caller has already
+     *   confirmed (via AiRequiredCapabilityResolver + the routing
+     *   engine's capability match) that this exact request needs live
+     *   web results AND that $provider's model is actually registered
+     *   with the "web_search" capability. A connector with no real
+     *   hosted web-search integration for its provider simply ignores
+     *   this flag rather than faking search results - matching the
+     *   embed()/editImage() honesty precedent below.
      * @return array{success: bool, message: string, content: ?string}
      */
-    public function sendChat(AiProvider $provider, array $messages): array;
+    public function sendChat(AiProvider $provider, array $messages, bool $useWebSearch = false): array;
 
     /**
      * Turn a piece of text into an embedding vector for the Knowledge
@@ -82,4 +90,24 @@ interface AiConnector
      * @return array{success: bool, message: string, audio: ?array{base64: string, mime: string}}
      */
     public function synthesizeSpeech(AiProvider $provider, string $modelKey, string $text): array;
+
+    /**
+     * Master-spec section 20/21: mint a short-lived Realtime session
+     * credential the CLIENT (the Android app) then connects to OpenAI
+     * with DIRECTLY over WebRTC - this backend call never carries the
+     * live audio itself, only ever creates the ephemeral, scoped
+     * credential. That split is the entire point: the caller (see
+     * AiRealtimeService) never learns or forwards the real
+     * OPENAI_API_KEY to the client, matching section 36's explicit
+     * "never expose OPENAI_API_KEY to Android" rule, while the actual
+     * audio never has to round-trip through this Laravel process at
+     * all. Not every provider exposes a real Realtime API - a connector
+     * without real support returns success=false with an explanatory
+     * message rather than faking a session, matching the
+     * embed()/editImage()/transcribeAudio() precedent above.
+     *
+     * @param  array{voice?: string, instructions?: ?string}  $options
+     * @return array{success: bool, message: string, session: ?array{client_secret: string, expires_at: ?int, model: string}}
+     */
+    public function createRealtimeSession(AiProvider $provider, string $modelKey, array $options = []): array;
 }

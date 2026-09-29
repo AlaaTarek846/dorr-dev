@@ -1,5 +1,16 @@
 package com.dorr.app.ui.screens
 
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.collectReconnectTick
+import com.dorr.app.ui.screens.wallet.formatMinor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +22,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,6 +30,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AddCircle
 import androidx.compose.material.icons.rounded.BarChart
 import androidx.compose.material.icons.rounded.Build
@@ -41,14 +54,34 @@ import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.network.AuthSession
 import com.dorr.app.ui.components.HeroBannerSlider
+import com.dorr.app.ui.components.ServicesSection
 import com.dorr.app.ui.components.StatChip
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 @Composable
-fun HomeScreen(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit) {
+fun HomeScreen(
+    onOpenAccount: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenWallet: () -> Unit,
+    onOpenServices: () -> Unit,
+    onOpenChat: () -> Unit = {},
+    onOpenAi: () -> Unit = {},
+) {
+    Box(Modifier.fillMaxSize()) {
+    PinkBackdrop(Modifier.matchParentSize())
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item { HomeHeader(onOpenAccount = onOpenAccount, onOpenNotifications = onOpenNotifications) }
-        item { Spacer(Modifier.height(16.dp)) }
+        item {
+            HomeHeader(
+                onOpenAccount = onOpenAccount,
+                onOpenNotifications = onOpenNotifications,
+                onOpenWallet = onOpenWallet,
+                onOpenChat = onOpenChat,
+            )
+        }
+        item { Spacer(Modifier.height(14.dp)) }
         item {
             HeroBannerSlider(
                 slides = listOf(
@@ -59,82 +92,190 @@ fun HomeScreen(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit) {
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
-        item { Spacer(Modifier.height(20.dp)) }
+        item {
+            HomeWalletCard(
+                onOpenWallet = onOpenWallet,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
+        item { Spacer(Modifier.height(12.dp)) }
+        item { ServicesSection(onViewAll = onOpenServices, onOpenAi = onOpenAi, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { Spacer(Modifier.height(24.dp)) }
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }
+    }
     }
 }
 
 @Composable
-private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit) {
-    Column(
+private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenChat: () -> Unit) {
+    var hasUnread by remember { mutableStateOf(false) }
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
+        hasUnread = runCatching {
+            ApiClient.notifications.unreadCount("Bearer ${AuthSession.token.orEmpty()}").data?.count ?: 0
+        }.getOrDefault(0) > 0
+    }
+    val night = settingsNight()
+    val accent = if (night) AccountDark.accent else settingsAccent()
+    Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp))
-            .background(AppColors.headerBackground)
-            .padding(20.dp, 16.dp, 20.dp, 24.dp),
+            .padding(horizontal = 20.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
+                .clip(CircleShape)
+                .background(if (night) AccountDark.card else Color.White)
+                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
+                .clickable(onClick = onOpenAccount),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Person, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = stringResource(R.string.home_greeting, AuthSession.user?.name ?: stringResource(R.string.account_default_user)),
+            color = accent,
+            fontSize = 18.sp,
+            fontWeight = FontWeight.ExtraBold,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
+                .clip(CircleShape)
+                .background(if (night) AccountDark.card else Color.White)
+                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
+                .clickable(onClick = onOpenWallet),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.AccountBalanceWallet,
+                contentDescription = stringResource(R.string.wallet_title),
+                tint = accent,
+                modifier = Modifier.size(18.dp),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        com.dorr.app.ui.screens.chat.HomeChatButton(onClick = onOpenChat)
+        Spacer(Modifier.width(8.dp))
+        Box {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(34.dp)
+                    .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
                     .clip(CircleShape)
-                    .background(Color.White.copy(alpha = 0.2f))
-                    .clickable(onClick = onOpenAccount),
+                    .background(if (night) AccountDark.card else Color.White)
+                    .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
+                    .clickable(onClick = onOpenNotifications),
                 contentAlignment = Alignment.Center,
             ) {
-                Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.White)
+                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
             }
-            Spacer(Modifier.width(14.dp))
-            Text(
-                text = stringResource(R.string.home_greeting, AuthSession.user?.name ?: stringResource(R.string.account_default_user)),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                modifier = Modifier.weight(1f),
-                maxLines = 1,
-            )
-            Box {
-                IconButton(
-                    onClick = onOpenNotifications,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(14.dp))
-                        .background(Color.White.copy(alpha = 0.15f)),
-                ) {
-                    Icon(Icons.Rounded.Notifications, contentDescription = null, tint = Color.White)
-                }
-                // Static placeholder — wire to the real unread count once
-                // notifications come from a backend instead of sample data.
+            if (hasUnread) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(6.dp)
-                        .size(10.dp)
-                        .background(AppColors.danger, CircleShape)
-                        .border(1.5.dp, Color.White, CircleShape),
+                        .padding(5.dp)
+                        .size(8.dp)
+                        .background(settingsAccent(), CircleShape)
+                        .border(1.5.dp, if (night) AccountDark.card else Color.White, CircleShape),
                 )
             }
         }
-        Spacer(Modifier.height(18.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            StatChip(
-                icon = Icons.Rounded.Build,
-                value = "0",
-                label = stringResource(R.string.home_active_jobs),
-                modifier = Modifier.weight(1f),
+    }
+}
+
+@Composable
+private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifier) {
+    var balanceText by remember { mutableStateOf("0.00") }
+    var currencyText by remember { mutableStateOf("") }
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
+        runCatching { ApiClient.wallet.balance("Bearer ${AuthSession.token.orEmpty()}").data }.onSuccess { dto ->
+            dto?.let {
+                balanceText = formatMinor(it.totalMinor, null)
+                currencyText = it.currencySymbol ?: it.currencyCode.orEmpty()
+            }
+        }
+    }
+    val night = settingsNight()
+    val cardShape = RoundedCornerShape(20.dp)
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
+            .clip(cardShape)
+            .background(if (night) AccountDark.card else Color.White)
+            .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
+            .clickable(onClick = onOpenWallet)
+            .padding(12.dp, 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(15.dp))
+                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                Icons.Rounded.AccountBalanceWallet,
+                contentDescription = null,
+                tint = if (night) AccountDark.accent else settingsAccent(),
+                modifier = Modifier.size(22.dp),
             )
-            StatChip(
-                icon = Icons.Rounded.DirectionsCar,
-                value = "0",
-                label = stringResource(R.string.home_my_items),
-                modifier = Modifier.weight(1f),
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                stringResource(R.string.home_wallet_balance),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (night) AccountDark.mut else AppColors.textSecondary,
             )
-            StatChip(
-                icon = Icons.Rounded.AddCircle,
-                value = "+",
-                label = stringResource(R.string.home_new_request),
-                modifier = Modifier.weight(1f),
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    balanceText,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = if (night) AccountDark.ink else AppColors.textPrimary,
+                    modifier = Modifier.alignByBaseline(),
+                )
+                if (currencyText.isNotBlank()) {
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        currencyText,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (night) AccountDark.mut else AppColors.textSecondary,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .shadow(8.dp, RoundedCornerShape(50), spotColor = settingsAccent().copy(alpha = 0.25f))
+                .clip(RoundedCornerShape(50))
+                .background(settingsAccent())
+                .clickable(onClick = onOpenWallet)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                stringResource(R.string.home_wallet_topup),
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
         }
     }
@@ -146,32 +287,47 @@ private fun QuickActionsRow(modifier: Modifier = Modifier) {
         QuickActionCard(
             icon = Icons.Rounded.PhoneInTalk,
             label = stringResource(R.string.home_call),
-            color = AppColors.primary,
             modifier = Modifier.weight(1f),
         )
         QuickActionCard(
             icon = Icons.Rounded.BarChart,
             label = stringResource(R.string.home_history),
-            color = AppColors.accent,
             modifier = Modifier.weight(1f),
         )
     }
 }
 
 @Composable
-private fun QuickActionCard(icon: ImageVector, label: String, color: Color, modifier: Modifier = Modifier) {
+private fun QuickActionCard(icon: ImageVector, label: String, modifier: Modifier = Modifier) {
+    val night = settingsNight()
+    val shape = RoundedCornerShape(14.dp)
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(color.copy(alpha = 0.08f))
+            .then(if (night) Modifier else Modifier.shadow(6.dp, shape, spotColor = settingsAccent().copy(alpha = 0.07f)))
+            .clip(shape)
+            .background(if (night) AccountDark.card else Color.White)
+            .then(if (night) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
             .clickable { /* placeholder */ }
-            .padding(vertical = 12.dp, horizontal = 6.dp)
-            .height(96.dp),
+            .padding(12.dp)
+            .heightIn(min = 96.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = color)
-        Spacer(Modifier.height(6.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = if (night) AccountDark.accent else settingsAccent(), modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (night) AccountDark.ink else AppColors.textPrimary,
+        )
     }
 }

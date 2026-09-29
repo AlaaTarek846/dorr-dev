@@ -19,6 +19,7 @@ import '../../services/auth.service';
 import '../../stores/auth';
 import '../../composables/useAuth';
 import '../../composables/usePermission';
+import '../../plugins/echo';
 import '../../styles/catalog-list.css';
 
 applyDocumentDirection(

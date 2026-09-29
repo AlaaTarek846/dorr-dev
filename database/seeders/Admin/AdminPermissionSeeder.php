@@ -97,6 +97,24 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                 ],
             ],
+            'mobile_app_fonts' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'mobile_app_color_defaults' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
             'service_categories' => [
                 'module_name' => 'general_services',
                 'actions' => [
@@ -117,6 +135,91 @@ class AdminPermissionSeeder extends Seeder
                     'delete',
                     'change-status',
                     'multiple-delete',
+                ],
+            ],
+            'payment-methods' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'wallet-fee-rules' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                ],
+            ],
+            'wallets' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'manual-adjustment',
+                ],
+            ],
+            'wallet-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
+            'chat-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                ],
+            ],
+            'chat-themes' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-report-types' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-reports' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'withdrawal-requests' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'approve',
+                    'reject',
+                ],
+            ],
+            'pin-recovery-requests' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'approve',
+                    'reject',
+                ],
+            ],
+            'financial-entries' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                ],
+            ],
+            'online-transactions' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'reconcile',
+                    'refund',
                 ],
             ],
             'users' => [

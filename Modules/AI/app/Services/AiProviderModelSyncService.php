@@ -276,6 +276,32 @@ class AiProviderModelSyncService
                 continue;
             }
 
+            // Same reasoning as the speech-to-text/text-to-speech branches
+            // above: a realtime voice model cannot answer a normal
+            // chat/completions call, so it must never be silently dropped
+            // into the generic "not chat capable" branch below with an
+            // EMPTY capabilities array and is_active=false - it has a
+            // real capability (AiRealtimeService now has a genuine
+            // connector-backed way to start a session with it), so it is
+            // registered active and selectable by routing like every
+            // other real capability above it.
+            if ($this->isRealtimeVoiceModel($modelId)) {
+                $provider->models()->create($registryFields + [
+                    'model_key' => $modelId,
+                    'display_name' => $this->humanize($modelId),
+                    'capabilities' => [AiModelCapability::Realtime->value],
+                    'temperature_supported' => false,
+                    'is_default' => false,
+                    'is_active' => true,
+                    'sort_order' => $nextSortOrder++,
+                ]);
+
+                $alreadyKnown[] = $modelId;
+                $created++;
+
+                continue;
+            }
+
             if ($this->isEmbeddingModel($modelId)) {
                 $embeddingLimits = $this->knownLimits($modelId);
 
@@ -814,20 +840,26 @@ class AiProviderModelSyncService
      * isn't tagged "vision"). A naming-pattern family this confident
      * about should never be silently overridden by one AI call's guess.
      *
-     * Excludes the same two known false-positive shapes the multimodal
-     * check already had to account for: a "-codex" coding variant and a
-     * dated "-search-preview" variant both still start with a multimodal
-     * family's prefix (e.g. "gpt-5-codex", "gpt-4o-mini-search-preview-
-     * 2025-03-11") but are text-only and cannot actually accept an image.
+     * Excludes the same known false-positive shapes the multimodal check
+     * already had to account for: a "-codex" coding variant and both the
+     * older "-search-preview" and newer "-search-api" dedicated search
+     * variants all still start with a multimodal family's prefix (e.g.
+     * "gpt-5-codex", "gpt-4o-mini-search-preview-2025-03-11",
+     * "gpt-5-search-api") but are text-(+ live search-)only and cannot
+     * actually accept an image - "gpt-5-search-api" in particular was a
+     * real, observed gap here: only the "-search-preview" naming was
+     * ever excluded, so this newer naming still fell through to "starts
+     * with gpt-5" and was wrongly tagged vision.
      */
     public static function isKnownMultimodalModel(string $modelId): bool
     {
         $id = Str::lower($modelId);
 
         $isCodexVariant = str_contains($id, 'codex');
-        $isSearchPreviewVariant = str_contains($id, 'search-preview') || str_contains($id, 'search_preview');
+        $isSearchVariant = str_contains($id, 'search-preview') || str_contains($id, 'search_preview')
+            || str_contains($id, 'search-api') || str_contains($id, 'search_api');
 
-        return ! $isCodexVariant && ! $isSearchPreviewVariant && (
+        return ! $isCodexVariant && ! $isSearchVariant && (
             str_contains($id, 'vision')
             || str_contains($id, 'omni')
             || str_contains($id, 'gpt-4-turbo')
@@ -860,7 +892,46 @@ class AiProviderModelSyncService
             $capabilities[] = AiModelCapability::Coding->value;
         }
 
+        // Real, observed gap this closes: isKnownMultimodalModel() already
+        // had to special-case BOTH "-search-preview" (the older dedicated
+        // search models, e.g. gpt-4o-search-preview) and "-search-api"
+        // (the newer naming, e.g. gpt-5-search-api) as text-only false
+        // positives for vision - but nothing ever tagged them with the
+        // "web_search" capability they actually DO have, so a registered
+        // search model could never be matched by AiRoutingEngine for a
+        // "سعر الدولار اليوم"/"latest news" request; it would only ever
+        // be picked for a plain chat turn, same as any other chat model.
+        $isSearchModel = str_contains($id, 'search-preview') || str_contains($id, 'search_preview')
+            || str_contains($id, 'search-api') || str_contains($id, 'search_api');
+
+        if ($isSearchModel) {
+            $capabilities[] = AiModelCapability::WebSearch->value;
+        }
+
         return $capabilities;
+    }
+
+    /**
+     * Checked BEFORE isChatCapable()'s NON_CHAT_MARKERS gate, mirroring
+     * isSpeechToTextModel()/isTextToSpeechModel() exactly - a realtime
+     * voice model (gpt-realtime*, gpt-audio*, gpt-live*) cannot answer a
+     * normal chat/completions call at all, it only works over the
+     * dedicated Realtime session API (see AiRealtimeService), so it must
+     * never be tagged "chat" or picked as the provider's text default.
+     * Checked AFTER the transcription/TTS markers for the same reason
+     * inferCategory() checks them in this order: a model id combining
+     * both, e.g. "gpt-realtime-whisper", is Speech-to-Text by the user's
+     * own spec despite containing "realtime" too.
+     */
+    public static function isRealtimeVoiceModel(string $modelId): bool
+    {
+        if (self::isSpeechToTextModel($modelId) || self::isTextToSpeechModel($modelId)) {
+            return false;
+        }
+
+        $id = Str::lower($modelId);
+
+        return str_contains($id, 'realtime') || str_contains($id, 'audio') || str_contains($id, 'live');
     }
 
     protected function humanize(string $modelId): string

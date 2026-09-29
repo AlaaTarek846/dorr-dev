@@ -4,6 +4,7 @@ namespace Modules\User\Models;
 
 use App\Enums\Gender;
 use App\Enums\UserStatus;
+use App\Models\Concerns\HasNotificationDevices;
 use App\Models\Concerns\HasSocialAccounts;
 use App\Models\Concerns\HasVerificationCodes;
 use App\Models\Country;
@@ -13,17 +14,20 @@ use App\Traits\SendsPhoneOtp;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use Modules\Wallet\Concerns\HasWallets;
 use Spatie\MediaLibrary\HasMedia;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements HasMedia
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasMediaTrait, HasRoles, HasSocialAccounts, HasVerificationCodes, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
+    use HasApiTokens, HasFactory, HasMediaTrait, HasNotificationDevices, HasRoles, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
 
     /**
      * @var list<string>
@@ -65,6 +69,16 @@ class User extends Authenticatable implements HasMedia
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(Address::class);
+    }
+
+    public function mobileAppearance(): HasOne
+    {
+        return $this->hasOne(UserMobileAppearance::class);
     }
 
     protected static function newFactory(): UserFactory

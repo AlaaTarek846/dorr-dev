@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\AI\Http\Controllers\AiChatController;
+use Modules\AI\Http\Controllers\AiRealtimeController;
 
 // Same AiChatController as routes/user.php - AI chat is shared between the
 // User and Provider dashboards. ai_conversations.owner is polymorphic, see
@@ -29,4 +30,12 @@ Route::middleware(['locale', 'auth:provider_api', 'throttle:ai-chat-send'])->pre
     // v2.0 requirements doc 18.2 (streaming): progressive delivery of
     // the already-verified answer - see AiChatService::streamMessage().
     Route::post('conversations/{conversation}/messages/stream', [AiChatController::class, 'streamMessage']);
+});
+
+// Phase 7 (realtime voice): minting a session credential triggers a real
+// provider call exactly like sending a chat message does, so it shares
+// the same dedicated ai-chat-send limiter rather than the general one.
+Route::middleware(['locale', 'auth:provider_api', 'throttle:ai-chat-send'])->prefix('provider/v1/ai-realtime')->group(function () {
+    Route::post('session', [AiRealtimeController::class, 'createSession']);
+    Route::post('session/{session}/end', [AiRealtimeController::class, 'endSession']);
 });

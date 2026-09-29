@@ -11,9 +11,9 @@ use Modules\AI\Models\AiProvider;
  */
 trait SendsOpenAiCompatibleChat
 {
-    public function sendChat(AiProvider $provider, array $messages): array
+    public function sendChat(AiProvider $provider, array $messages, bool $useWebSearch = false): array
     {
-        return $this->attempt(function () use ($provider, $messages) {
+        return $this->attempt(function () use ($provider, $messages, $useWebSearch) {
             if (! $provider->hasApiKey()) {
                 return $this->failure(__('ai.api_key_missing'));
             }
@@ -47,6 +47,23 @@ trait SendsOpenAiCompatibleChat
             if ($provider->max_tokens) {
                 $tokensParam = $this->modelSupportsCustomTemperature($provider->model) ? 'max_tokens' : 'max_completion_tokens';
                 $payload[$tokensParam] = $provider->max_tokens;
+            }
+
+            // Real web search (verified against OpenAI's current Chat
+            // Completions documentation, not an old example): the
+            // Chat Completions endpoint only performs a live web search
+            // when a "web_search_options" object is present, and only on
+            // one of the dedicated "-search-preview"/"-search-api" model
+            // variants (the ordinary gpt-4o/gpt-5 family silently ignores
+            // or rejects it). Only OpenAI itself ever reaches this branch
+            // ($useWebSearch is only ever passed true by AiChatService
+            // after the routing engine already matched a model actually
+            // registered with the "web_search" capability, and Groq -
+            // the only other connector sharing this trait - is never
+            // asked for it), so this never becomes a silent no-op the
+            // way it would for a model that cannot really search.
+            if ($useWebSearch && $this->providerKey() === 'openai') {
+                $payload['web_search_options'] = [];
             }
 
             $headers = ['Authorization' => 'Bearer '.$provider->api_key];

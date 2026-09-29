@@ -13,7 +13,7 @@
         </div>
 
         <div ref="modalElement" class="modal fade" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog modal-dialog-centered modal-xl">
+            <div class="modal-dialog modal-dialog-centered modal-xl ai-provider-models-modal">
                 <div class="modal-content">
                     <div class="modal-header catalog-modal-header">
                         <div class="d-flex align-items-center justify-content-between w-100 gap-3">
@@ -99,7 +99,7 @@
                                                 {{ t('ai_settings.models.column_limits') }}
                                             </th>
                                             <th scope="col" style="width: 6rem;">{{ t('ai_settings.models.column_status') }}</th>
-                                            <th scope="col" style="width: 6.5rem;" class="text-end">{{ t('ai_settings.models.column_actions') }}</th>
+                                            <th scope="col" style="width: 11.5rem;" class="text-end">{{ t('ai_settings.models.column_actions') }}</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -265,7 +265,7 @@
                                                 </span>
                                             </td>
                                             <td class="text-end">
-                                                <div class="btn-list justify-content-end">
+                                                <div class="btn-list justify-content-end flex-nowrap">
                                                     <button
                                                         v-if="editingId !== model.id"
                                                         type="button"
@@ -810,8 +810,18 @@ async function removeModel(model) {
 </script>
 
 <style scoped>
+/* The registered-models table grew a lot of columns (category, limits,
+   family/snapshot/alias/last-seen metadata, ...) - the default modal-xl
+   width (1140px) was cramping every column, including the actions icons
+   at the far end, which is exactly why "activate/deactivate" was hard
+   to find: it was being pushed past the visible edge instead of hidden
+   by any CSS. */
+.ai-provider-models-modal {
+    max-width: min(96vw, 1600px);
+}
+
 .ai-provider-models-table-wrap {
-    max-height: 22rem;
+    max-height: 26rem;
     overflow-y: auto;
     border: 1px solid var(--bs-border-color, #e9edf1);
     border-radius: 0.375rem;

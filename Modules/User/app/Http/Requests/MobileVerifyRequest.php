@@ -22,7 +22,7 @@ class MobileVerifyRequest extends FormRequest
         return [
             'dial_code' => ['required', 'string', 'max:5'],
             'phone' => ['required', 'string', 'max:15'],
-            'code' => ['required', 'string', 'size:6'],
+            'code' => ['required', 'string', 'size:'.max(4, (int) config('auth_flow.otp_length', 4))],
         ];
     }
 

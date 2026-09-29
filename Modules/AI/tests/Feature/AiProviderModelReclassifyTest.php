@@ -331,4 +331,108 @@ class AiProviderModelReclassifyTest extends TestCase
             return ($request['model'] ?? null) === 'gpt-4o-mini';
         });
     }
+    /**
+     * Admin-requested fix (no new field): "Reclassify with AI" must use
+     * the provider's own plain `model` column - the one the admin already
+     * sets directly on the provider settings card - even when a
+     * DIFFERENT model is flagged is_default in the ai_provider_models
+     * registry. This is how the admin now steers the classifier call
+     * (e.g. away from a reasoning-tier model that rejects a custom
+     * temperature) without any second "classifier model" picker to keep
+     * in sync: just change the one field that was already there.
+     */
+    public function test_reclassify_uses_the_providers_plain_model_field_even_when_a_different_model_is_flagged_default(): void
+    {
+        $this->actingAsAdmin();
+
+        $repository = app(AiProviderRepository::class);
+        $provider = $repository->updateByKey('openai', [
+            'is_enabled' => true,
+            'api_key' => 'sk-test-not-real',
+            'model' => 'gpt-4.1-mini',
+        ]);
+
+        // Registered as is_default, but NOT what $provider->model points
+        // at - the classifier must still prefer the plain `model` field.
+        $provider->models()->create([
+            'model_key' => 'gpt-4o-mini',
+            'display_name' => 'GPT-4o mini',
+            'capabilities' => ['chat', 'vision'],
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        $provider->models()->create([
+            'model_key' => 'gpt-4.1-mini',
+            'display_name' => 'GPT-4.1 mini',
+            'capabilities' => ['chat'],
+            'is_default' => false,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [
+                    ['message' => ['content' => json_encode([
+                        'gpt-4o-mini' => ['chat', 'vision'],
+                        'gpt-4.1-mini' => ['chat'],
+                    ])]],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+
+        $response->assertOk();
+
+        // The decisive assertion: the classifier call went out against
+        // $provider->model, never the is_default registry row.
+        Http::assertSent(function ($request) {
+            return ($request['model'] ?? null) === 'gpt-4.1-mini';
+        });
+    }
+
+    /**
+     * A provider with no plain `model` set at all (never configured)
+     * must still fall back to the registry's default registered model,
+     * exactly as before this change - only ever a gap for a genuinely
+     * unconfigured provider, not the normal case.
+     */
+    public function test_reclassify_falls_back_to_the_registered_default_model_when_the_providers_plain_model_field_is_empty(): void
+    {
+        $this->actingAsAdmin();
+
+        $repository = app(AiProviderRepository::class);
+        $provider = $repository->updateByKey('openai', [
+            'is_enabled' => true,
+            'api_key' => 'sk-test-not-real',
+            'model' => null,
+        ]);
+
+        $provider->models()->create([
+            'model_key' => 'gpt-4o-mini',
+            'display_name' => 'GPT-4o mini',
+            'capabilities' => ['chat', 'vision'],
+            'is_default' => true,
+            'is_active' => true,
+        ]);
+
+        Http::fake([
+            'api.openai.com/v1/chat/completions' => Http::response([
+                'choices' => [
+                    ['message' => ['content' => json_encode([
+                        'gpt-4o-mini' => ['chat', 'vision'],
+                    ])]],
+                ],
+            ], 200),
+        ]);
+
+        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) {
+            return ($request['model'] ?? null) === 'gpt-4o-mini';
+        });
+    }
 }

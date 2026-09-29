@@ -2,5 +2,7 @@
     "Admin": true,
     "User": true,
     "AI": true,
-    "Provider": true
+    "Provider": true,
+    "Wallet": true,
+    "Chat": true
 }

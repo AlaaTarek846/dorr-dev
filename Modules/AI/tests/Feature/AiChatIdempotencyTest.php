@@ -207,6 +207,7 @@ class AiChatIdempotencyTest extends TestCase
             'data_classification' => AiKnowledgeSource::CLASSIFICATION_PUBLIC,
             'approval_status' => AiKnowledgeSource::APPROVAL_APPROVED,
             'is_active' => true,
+            'processing_status' => AiKnowledgeSource::PROCESSING_READY,
         ]);
 
         AiRequestCitation::query()->create([

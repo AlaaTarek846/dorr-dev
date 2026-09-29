@@ -3,6 +3,7 @@
 namespace Modules\AI\Services;
 
 use Illuminate\Support\Facades\Storage;
+use Modules\AI\Jobs\IndexAiKnowledgeSourceJob;
 use Modules\AI\Models\AiKnowledgeChunk;
 use Modules\AI\Models\AiKnowledgeSource;
 use Modules\AI\Repositories\AiProviderRepository;
@@ -43,9 +44,13 @@ class AiKnowledgeIngestionService
             'change_detected' => false,
             'is_active' => true,
             'approval_status' => AiKnowledgeSource::APPROVAL_PENDING,
+            'processing_status' => AiKnowledgeSource::PROCESSING_PENDING,
         ]);
 
-        $this->indexChunks($source, $cleaned);
+        // Chunking is cheap; the embedding calls inside indexChunks() are
+        // not (one OpenAI request per chunk) - queued so this request
+        // returns immediately instead of blocking on a long document.
+        IndexAiKnowledgeSourceJob::dispatch($source, $cleaned);
 
         return $source->fresh();
     }
@@ -70,11 +75,35 @@ class AiKnowledgeIngestionService
             'change_detected' => false,
             'fetched_at' => now(),
             'approval_status' => AiKnowledgeSource::APPROVAL_PENDING,
+            'processing_status' => AiKnowledgeSource::PROCESSING_PENDING,
+            'processing_error' => null,
         ]);
 
-        $this->indexChunks($source, $cleaned);
+        IndexAiKnowledgeSourceJob::dispatch($source, $cleaned);
 
         return $source->fresh();
+    }
+
+    /**
+     * The actual chunk -> embed -> index work, run by IndexAiKnowledgeSourceJob
+     * off the request/response cycle. Marks the source 'processing' while it
+     * runs and 'ready' (with indexed_at) once every chunk has been written -
+     * a chunk whose own embedding call fails still gets indexed lexical-only
+     * (see indexChunks()'s per-chunk try/catch), so 'ready' here means
+     * "searchable", not "every chunk has a vector". Left to throw on a real
+     * failure (DB/storage) so the job's own retry/failed() handling applies.
+     */
+    public function runIndexing(AiKnowledgeSource $source, string $cleanedContent): void
+    {
+        $source->update(['processing_status' => AiKnowledgeSource::PROCESSING_PROCESSING]);
+
+        $this->indexChunks($source, $cleanedContent);
+
+        $source->update([
+            'processing_status' => AiKnowledgeSource::PROCESSING_READY,
+            'processing_error' => null,
+            'indexed_at' => now(),
+        ]);
     }
 
     protected function indexChunks(AiKnowledgeSource $source, string $cleaned): void

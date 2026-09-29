@@ -1,0 +1,615 @@
+package com.dorr.app.ui.screens.chat
+
+import android.Manifest
+import android.annotation.SuppressLint
+import android.content.Context
+import android.content.pm.PackageManager
+import android.location.Location
+import android.location.LocationManager
+import android.os.Build
+import android.provider.ContactsContract
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.Photo
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.Stop
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import com.dorr.app.R
+import com.dorr.app.chat.VoiceRecorder
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.MessageDto
+import com.dorr.app.network.WalletTransactionDto
+import com.dorr.app.ui.screens.wallet.formatMinor
+import com.dorr.app.ui.theme.CairoFontFamily
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
+
+@Composable
+fun Composer(state: ConversationState) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val scope = rememberCoroutineScope()
+    val host = LocalChat.current
+    var text by remember(state.id) { mutableStateOf("") }
+    var attachOpen by remember { mutableStateOf(false) }
+    var transferPicker by remember { mutableStateOf(false) }
+    val recorder = remember { VoiceRecorder(context) }
+    var locked by remember { mutableStateOf(false) }
+    var dragX by remember { mutableFloatStateOf(0f) }
+    var dragY by remember { mutableFloatStateOf(0f) }
+    val micDenied = stringResource(R.string.ch_permission_mic)
+
+    // Editing puts the old text in the field.
+    LaunchedEffect(state.editing) { state.editing?.let { text = it.body.orEmpty() } }
+    DisposableEffect(Unit) { onDispose { recorder.cancel() } }
+
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (!granted) host.showToast(micDenied)
+    }
+
+    // @mentions: participant id → the name inserted for them.
+    val mentioned = remember(state.id) { mutableStateMapOf<Int, String>() }
+    val isGroup = state.conversation?.isGroup == true
+    // The word being typed right now, when it starts with "@" (null otherwise).
+    val mentionQuery = if (isGroup) Regex("(?:^|\\s)@([^\\s@]{0,30})$").find(text)?.groupValues?.get(1) else null
+    LaunchedEffect(mentionQuery != null) { if (mentionQuery != null) state.loadMembers() }
+
+    fun send() {
+        val body = text.trim()
+        if (body.isEmpty()) return
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        val editing = state.editing
+        val mentions = mentioned.filter { (_, name) -> body.contains("@$name") }.keys.toList()
+        if (editing != null) state.edit(editing, body)
+        else state.send(Outgoing("text", body, extra = if (mentions.isNotEmpty()) mapOf("mentions" to mentions) else emptyMap()))
+        text = ""
+        mentioned.clear()
+    }
+
+    fun finishVoice() {
+        val clip = recorder.finish() ?: return
+        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        state.sendTyping(stop = true)
+        state.send(Outgoing("voice", files = listOf(LocalFile(clip.file, "audio/mp4", clip.file.name)), extra = mapOf("duration_ms" to clip.durationMs, "waveform" to clip.waveform)))
+    }
+
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        // --------------------------------------------------------------- @mention suggestions
+        val suggestions = if (mentionQuery == null) emptyList() else state.members
+            .filter { it.profile?.isMe != true && (mentionQuery.isEmpty() || it.profile?.name.orEmpty().contains(mentionQuery, ignoreCase = true)) }
+            .take(6)
+        AnimatedVisibility(suggestions.isNotEmpty(), enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            Column(
+                Modifier.fillMaxWidth().padding(bottom = 6.dp).shadow(10.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).padding(vertical = 6.dp),
+            ) {
+                suggestions.forEachIndexed { i, member ->
+                    val name = member.profile?.name.orEmpty()
+                    Row(
+                        Modifier.fillMaxWidth().chStagger(i).clickable {
+                            // Replace "@partial" with "@Full Name ".
+                            text = text.replace(Regex("@([^\\s@]{0,30})$"), "@$name ")
+                            mentioned[member.participantId] = name
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        }.padding(horizontal = 14.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        ChAvatar(member.profile?.avatar, name, member.profile?.key, size = 34.dp)
+                        Spacer(Modifier.width(10.dp))
+                        Text(name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
+                        if (member.role != "member") Text(stringResource(if (member.role == "owner") R.string.ch_owner else R.string.ch_admin), color = Ch.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+        }
+
+        // --------------------------------------------------------------- reply / edit preview
+        AnimatedVisibility(state.replyTo != null || state.editing != null, enter = expandVertically(spring(dampingRatio = 0.8f)) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+            val target = state.editing ?: state.replyTo
+            if (target != null) ContextBar(target, isEdit = state.editing != null) {
+                if (state.editing != null) text = ""
+                state.replyTo = null
+                state.editing = null
+            }
+        }
+
+        Row(verticalAlignment = Alignment.Bottom) {
+            // --------------------------------------------------------------- field or recording bar
+            Box(Modifier.weight(1f)) {
+                AnimatedContent(targetState = recorder.recording, label = "composer", transitionSpec = {
+                    (fadeIn(tween(200)) + slideInHorizontally { it / 4 }) togetherWith (fadeOut(tween(150)) + slideOutHorizontally { -it / 4 })
+                }) { recording ->
+                    if (recording) {
+                        RecordingBar(recorder, dragX, locked, onCancel = { recorder.cancel(); locked = false; state.sendTyping(stop = true) })
+                    } else {
+                        Row(
+                            Modifier.fillMaxWidth().heightIn(min = 50.dp).shadow(6.dp, RoundedCornerShape(25.dp), spotColor = Color.Black.copy(alpha = 0.15f))
+                                .clip(RoundedCornerShape(25.dp)).background(Ch.Surface).padding(horizontal = 6.dp),
+                            verticalAlignment = Alignment.Bottom,
+                        ) {
+                            val rotation by animateFloatAsState(if (attachOpen) 45f else 0f, spring(dampingRatio = 0.45f), label = "attach")
+                            Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { attachOpen = true }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(26.dp).rotate(rotation))
+                            }
+                            Box(Modifier.weight(1f).padding(vertical = 14.dp, horizontal = 4.dp)) {
+                                if (text.isEmpty()) Text(stringResource(R.string.ch_message_hint), color = Ch.Soft, fontSize = 15.5.sp)
+                                BasicTextField(
+                                    value = text,
+                                    onValueChange = {
+                                        text = it
+                                        if (it.isNotBlank()) state.sendTyping() else state.sendTyping(stop = true)
+                                    },
+                                    textStyle = TextStyle(color = Ch.Ink, fontSize = 15.5.sp, fontFamily = CairoFontFamily, lineHeight = 21.sp),
+                                    cursorBrush = SolidColor(Ch.Red),
+                                    maxLines = 6,
+                                    keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Spacer(Modifier.width(8.dp))
+
+            // --------------------------------------------------------------- mic ⇄ send
+            val showSend = text.isNotBlank() || locked
+            val pulse = rememberInfiniteTransition(label = "rec")
+            val halo by pulse.animateFloat(1f, 1.35f, infiniteRepeatable(tween(700, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "halo")
+            val grow by animateFloatAsState(if (recorder.recording && !locked) 1.45f else 1f, spring(dampingRatio = 0.5f, stiffness = 400f), label = "grow")
+            val density = LocalDensity.current
+            val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+            val cancelAt = with(density) { 110.dp.toPx() }
+            val lockAt = with(density) { 80.dp.toPx() }
+
+            Box(contentAlignment = Alignment.BottomCenter) {
+                // The lock that rises above the mic while recording.
+                androidx.compose.animation.AnimatedVisibility(recorder.recording && !locked, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut(), modifier = Modifier.offset(y = (-70).dp)) {
+                    val lift = (-dragY / lockAt).coerceIn(0f, 1f)
+                    Column(
+                        Modifier.offset(y = (-lift * 24).dp).shadow(6.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface).padding(horizontal = 8.dp, vertical = 10.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        Icon(Icons.Rounded.Lock, null, tint = if (lift > 0.9f) Ch.Red else Ch.Mut, modifier = Modifier.size(20.dp))
+                        Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Ch.Soft, modifier = Modifier.size(18.dp))
+                    }
+                }
+                if (recorder.recording && !locked) {
+                    Box(Modifier.size(52.dp).scale(grow * halo).background(Ch.Red.copy(alpha = 0.18f), CircleShape))
+                }
+                Box(
+                    Modifier
+                        .size(52.dp)
+                        .scale(grow)
+                        .shadow(12.dp, CircleShape, spotColor = Ch.Red.copy(alpha = 0.5f))
+                        .clip(CircleShape)
+                        .background(Ch.HeaderBrush)
+                        .pointerInput(showSend) {
+                            if (showSend) {
+                                awaitEachGesture {
+                                    awaitFirstDown()
+                                    val up = waitForUpOrCancellation()
+                                    if (up != null) {
+                                        if (locked) { locked = false; finishVoice() } else send()
+                                    }
+                                }
+                                return@pointerInput
+                            }
+                            // Hold to record: slide towards the start to cancel, up to lock hands-free.
+                            awaitEachGesture {
+                                awaitFirstDown()
+                                if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+                                    micPermission.launch(Manifest.permission.RECORD_AUDIO)
+                                    return@awaitEachGesture
+                                }
+                                if (!recorder.start()) return@awaitEachGesture
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                state.sendTyping(state = "recording")
+                                dragX = 0f
+                                dragY = 0f
+                                var cancelled = false
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    val delta = change.positionChange()
+                                    dragX += if (rtl) delta.x else -delta.x
+                                    dragY += delta.y
+                                    change.consume()
+                                    if (dragX > cancelAt) {
+                                        cancelled = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        break
+                                    }
+                                    if (dragY < -lockAt) {
+                                        locked = true
+                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                        break
+                                    }
+                                    if (!change.pressed) break
+                                }
+                                dragX = 0f
+                                dragY = 0f
+                                when {
+                                    cancelled -> { recorder.cancel(); state.sendTyping(stop = true) }
+                                    locked -> Unit // keeps recording; the send button finishes it
+                                    else -> finishVoice()
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    AnimatedContent(targetState = showSend, label = "micSend", transitionSpec = {
+                        (scaleIn(spring(dampingRatio = 0.45f), initialScale = 0.3f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.3f) + fadeOut())
+                    }) { send ->
+                        Icon(
+                            if (send) (if (state.editing != null) Icons.Rounded.Edit else Icons.AutoMirrored.Rounded.Send) else Icons.Rounded.Mic,
+                            null, tint = Color.White, modifier = Modifier.size(24.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    if (attachOpen) AttachSheet(state, onDismiss = { attachOpen = false }, onPickTransfer = { attachOpen = false; transferPicker = true })
+    if (transferPicker) TransferPicker(onDismiss = { transferPicker = false }) { tx ->
+        transferPicker = false
+        state.send(Outgoing("wallet_transfer", extra = mapOf("wallet_transaction_id" to tx.uuid)))
+    }
+}
+
+/** Above the field: what I'm replying to, or the message I'm editing. */
+@Composable
+private fun ContextBar(target: MessageDto, isEdit: Boolean, onClose: () -> Unit) {
+    val accent = if (isEdit) Ch.Red else Ch.colorFor(target.sender?.key)
+    Row(
+        Modifier.fillMaxWidth().padding(bottom = 6.dp).shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).height(IntrinsicSize.Min),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.width(5.dp).fillMaxHeight().background(accent))
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
+            Text(
+                if (isEdit) stringResource(R.string.ch_editing) else if (target.sender?.key == myKey()) stringResource(R.string.ch_you) else target.sender?.name.orEmpty(),
+                color = accent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
+            )
+            val (_, label) = previewOf(target.type, false)
+            Text(target.body?.takeIf { it.isNotBlank() } ?: label, color = Ch.Mut, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Icon(Icons.Rounded.Close, null, tint = Ch.Soft, modifier = Modifier.padding(10.dp).size(20.dp).clickable(onClick = onClose))
+    }
+}
+
+/**
+ * While holding the mic: blinking dot + timer, a live waveform, and "‹ slide to cancel" drifting
+ * with your finger. Locked: a bin to discard.
+ */
+@Composable
+private fun RecordingBar(recorder: VoiceRecorder, dragX: Float, locked: Boolean, onCancel: () -> Unit) {
+    val blink = rememberInfiniteTransition(label = "blink")
+    val dot by blink.animateFloat(1f, 0.2f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "dot")
+    val shimmer by blink.animateFloat(0f, 1f, infiniteRepeatable(tween(1300, easing = FastOutSlowInEasing)), label = "shimmer")
+    val shake = remember { Animatable(0f) }
+    val density = LocalDensity.current
+
+    Row(
+        Modifier.fillMaxWidth().height(50.dp).shadow(6.dp, RoundedCornerShape(25.dp)).clip(RoundedCornerShape(25.dp)).background(Ch.Surface).padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (locked) {
+            Icon(Icons.Rounded.Delete, null, tint = Ch.Mut, modifier = Modifier.size(24.dp).clickable(onClick = onCancel))
+            Spacer(Modifier.width(10.dp))
+        }
+        Box(Modifier.size(10.dp).graphicsLayer { alpha = dot }.background(Ch.Red, CircleShape))
+        Spacer(Modifier.width(8.dp))
+        Text(durationText(recorder.elapsedMs), color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+        Spacer(Modifier.width(10.dp))
+        Canvas(Modifier.weight(1f).height(26.dp)) {
+            val bars = 40
+            val gap = 2.dp.toPx()
+            val w = (size.width - gap * (bars - 1)) / bars
+            val levels = recorder.levels
+            for (i in 0 until bars) {
+                val v = levels.getOrNull(levels.size - bars + i) ?: 4
+                val h = (size.height * v / 100f).coerceAtLeast(3.dp.toPx())
+                drawRoundRect(Ch.Red.copy(alpha = 0.35f + 0.65f * (i / bars.toFloat())), Offset(i * (w + gap), (size.height - h) / 2), Size(w, h), CornerRadius(w / 2))
+            }
+        }
+        if (!locked) {
+            Spacer(Modifier.width(8.dp))
+            Text(
+                "‹ " + stringResource(R.string.ch_slide_cancel),
+                color = Ch.Mut.copy(alpha = 0.5f + 0.5f * shimmer), fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.offset { androidx.compose.ui.unit.IntOffset(-(dragX * 0.6f).roundToInt() + shake.value.roundToInt(), 0) },
+            )
+        } else {
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.ch_recording_locked), color = Ch.Red, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+// ------------------------------------------------------------------------------- attachments
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickTransfer: () -> Unit) {
+    val context = LocalContext.current
+    val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val locating = stringResource(R.string.ch_sending_location)
+    val locationFailed = stringResource(R.string.ch_location_failed)
+
+    val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(10)) { uris ->
+        onDismiss()
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        // Copy + shrink off the main thread (on the chat's scope — this sheet is already closing).
+        host.scope.launch {
+            val files = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                uris.mapNotNull { copyToCache(context, it, "media") }.map { compressImage(context, it) }
+            }
+            // Photos travel together as one album; each video is its own message.
+            val (videos, images) = files.partition { it.mime.startsWith("video/") }
+            if (images.isNotEmpty()) state.send(Outgoing("image", files = images))
+            videos.forEach { video ->
+                // Poster + length now, so the bubble shows a picture and a duration at once.
+                val (poster, info) = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    com.dorr.app.chat.VideoTools.poster(context, video.file) to com.dorr.app.chat.VideoTools.info(context, video.file)
+                }
+                state.send(Outgoing("video", files = listOf(video), extra = info?.durationMs?.let { mapOf("duration_ms" to it) } ?: emptyMap(), thumbnail = poster))
+            }
+        }
+    }
+    val document = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        onDismiss()
+        uri?.let { copyToCache(context, it, "document") }?.let { f -> state.send(Outgoing(typeForMime(f.mime).let { if (it == "image" || it == "video") "document" else it }, files = listOf(f))) }
+    }
+    val contact = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
+        onDismiss()
+        uri ?: return@rememberLauncherForActivityResult
+        readContact(context, uri)?.let { (name, phones) ->
+            state.send(Outgoing("contact", extra = mapOf("contact_name" to name, "contact_phones" to phones)))
+        }
+    }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        if (granted.values.any { it }) {
+            host.showToast(locating)
+            currentLocation(context) { loc ->
+                if (loc == null) host.showToast(locationFailed)
+                else state.send(Outgoing("location", extra = mapOf("latitude" to loc.latitude, "longitude" to loc.longitude)))
+            }
+        }
+        onDismiss()
+    }
+    val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) contact.launch(null) else onDismiss()
+    }
+
+    val items = listOf(
+        AttachItem(Icons.Rounded.Photo, R.string.ch_attach_gallery, listOf(Color(0xFFA78BFA), Color(0xFF7C3AED))) { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+        AttachItem(Icons.Rounded.Description, R.string.ch_attach_document, listOf(Color(0xFF60A5FA), Color(0xFF2563EB))) { document.launch(arrayOf("*/*")) },
+        AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) {
+            locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        },
+        AttachItem(Icons.Rounded.Person, R.string.ch_attach_contact, listOf(Color(0xFF22D3EE), Color(0xFF0891B2))) {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) contact.launch(null)
+            else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+        },
+        AttachItem(Icons.Rounded.Payments, R.string.ch_attach_transfer, listOf(Color(0xFFF2202C), Color(0xFFB30710))) { onPickTransfer() },
+        AttachItem(Icons.Rounded.QrCode2, R.string.ch_attach_wallet_qr, listOf(Color(0xFFFBBF24), Color(0xFFD97706))) {
+            onDismiss()
+            state.send(Outgoing("wallet_qr"))
+        },
+    )
+
+    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
+            items.chunked(3).forEachIndexed { row, chunk ->
+                Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    chunk.forEachIndexed { col, item -> AttachButton(item, row * 3 + col) }
+                }
+            }
+        }
+    }
+}
+
+private class AttachItem(val icon: ImageVector, val label: Int, val colors: List<Color>, val onClick: () -> Unit)
+
+@Composable
+private fun AttachButton(item: AttachItem, index: Int) {
+    val pop = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(40L + index * 45L)
+        pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 380f))
+    }
+    Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(92.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value.coerceIn(0f, 1f) }) {
+        Box(
+            Modifier.size(62.dp).shadow(12.dp, CircleShape, spotColor = item.colors.last().copy(alpha = 0.5f)).clip(CircleShape).background(Brush.linearGradient(item.colors)).clickable(onClick = item.onClick),
+            contentAlignment = Alignment.Center,
+        ) { Icon(item.icon, null, tint = Color.White, modifier = Modifier.size(28.dp)) }
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(item.label), color = Ch.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    }
+}
+
+/** My recent outgoing transfers, to share one as a receipt card. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto) -> Unit) {
+    var list by remember { mutableStateOf<List<WalletTransactionDto>?>(null) }
+    LaunchedEffect(Unit) {
+        list = runCatching { ApiClient.wallet.transactions(chatAuth(), page = 1, perPage = 30, direction = "debit").data }.getOrNull()
+            .orEmpty().filter { it.type == "transfer_out" }
+    }
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 30.dp)) {
+            Text(stringResource(R.string.ch_pick_transfer), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(12.dp))
+            val items = list
+            when {
+                items == null -> repeat(3) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(62.dp).padding(vertical = 4.dp)) }
+                items.isEmpty() -> Text(stringResource(R.string.ch_no_transfers), color = Ch.Mut, modifier = Modifier.padding(vertical = 24.dp))
+                else -> LazyColumn(Modifier.heightIn(max = 420.dp)) {
+                    items(items, key = { it.uuid }) { tx ->
+                        Row(
+                            Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).clickable { onPick(tx) }.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.Payments, null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(tx.counterparty?.name ?: tx.typeLabel, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(listTime(tx.createdAt), color = Ch.Mut, fontSize = 12.sp)
+                            }
+                            androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                Text(formatMinor(tx.amountMinor, null), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private fun readContact(context: Context, uri: android.net.Uri): Pair<String, List<String>>? = runCatching {
+    val resolver = context.contentResolver
+    var name = ""
+    var id = ""
+    resolver.query(uri, arrayOf(ContactsContract.Contacts._ID, ContactsContract.Contacts.DISPLAY_NAME), null, null, null)?.use { c ->
+        if (c.moveToFirst()) {
+            id = c.getString(0)
+            name = c.getString(1).orEmpty()
+        }
+    }
+    val phones = mutableListOf<String>()
+    resolver.query(
+        ContactsContract.CommonDataKinds.Phone.CONTENT_URI, arrayOf(ContactsContract.CommonDataKinds.Phone.NUMBER),
+        "${ContactsContract.CommonDataKinds.Phone.CONTACT_ID} = ?", arrayOf(id), null,
+    )?.use { c -> while (c.moveToNext()) c.getString(0)?.let { phones += it } }
+    if (name.isBlank()) null else name to phones.distinct().take(10)
+}.getOrNull()
+
+@SuppressLint("MissingPermission")
+private fun currentLocation(context: Context, onResult: (Location?) -> Unit) {
+    val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
+    val last = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
+    if (provider == null) {
+        onResult(last)
+        return
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        runCatching {
+            manager.getCurrentLocation(provider, null, ContextCompat.getMainExecutor(context)) { loc -> onResult(loc ?: last) }
+        }.onFailure { onResult(last) }
+    } else {
+        onResult(last)
+    }
+}

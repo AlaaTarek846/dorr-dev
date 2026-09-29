@@ -26,6 +26,13 @@ object AppColors {
     val warning = Color(0xFFF59E0B)
     val info = Color(0xFF06B6D4)
 
+    // Auth brand (OTP / login) — 1:1 port of the preview's wa-red treatment.
+    val waRed = Color(0xFFE50914)
+    val otpPinkBorder = Color(0xFFF3C4CC)
+    val otpGlowDeep = Color(0xFFEFA8B4)
+    val otpGlowSoft = Color(0xFFF6C9D2)
+    val otpGlowMist = Color(0xFFF0B8C2)
+
     // Light neutrals
     val background = Color(0xFFF9FAFB)
     val surface = Color(0xFFFFFFFF)

@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_fab_content_description">المساعد الذكي</string>
+    <string name="ai_title">المساعد الذكي</string>
+    <string name="ai_subtitle">اسأل أي سؤال في أي وقت</string>
+    <string name="ai_history_title">سجل المحادثات</string>
+    <string name="ai_new_chat">محادثة جديدة</string>
+    <string name="ai_delete_chat">حذف المحادثة</string>
+    <string name="ai_delete_chat_confirm">سيتم حذف هذه المحادثة وكل رسائلها نهائيًا.</string>
+    <string name="ai_cancel">إلغاء</string>
+    <string name="ai_delete">حذف</string>
+    <string name="ai_retry">إعادة المحاولة</string>
+    <string name="ai_empty_history">لا توجد محادثات بعد</string>
+    <string name="ai_empty_conversation">اسأل المساعد أي سؤال لتبدأ</string>
+    <string name="ai_unavailable">%1$s غير متاح حاليًا. حاول مرة أخرى لاحقًا.</string>
+    <string name="ai_composer_hint">اكتب رسالتك للمساعد…</string>
+    <string name="ai_attach">إرفاق ملف</string>
+    <string name="ai_attach_photo">صورة</string>
+    <string name="ai_attach_document">مستند</string>
+    <string name="ai_send">إرسال</string>
+    <string name="ai_attachment_caption">مرفق</string>
+    <string name="ai_send_failed">تعذر إرسال الرسالة. حاول مرة أخرى.</string>
+    <string name="ai_typing">جاري التفكير…</string>
+    <string name="ai_trial_remaining">تجربة مجانية · تبقّى %1$d دقيقة اليوم</string>
+    <string name="ai_usage_blocked">لا يمكن لهذا الحساب استخدام المساعد الذكي حاليًا.</string>
+    <string name="ai_usage_trial_ended">انتهت فترتك التجريبية المجانية. يرجى الترقية لمتابعة المحادثة.</string>
+    <string name="ai_usage_cooldown">لقد وصلت للحد المسموح به اليوم. حاول مرة أخرى بعد قليل.</string>
+    <string name="ai_usage_limit_reached">لقد وصلت للحد المسموح به من الاستخدام لهذه الفترة.</string>
+    <string name="ai_usage_no_plan">لا توجد باقة فعّالة تغطي المساعد الذكي حاليًا.</string>
+    <string name="ai_usage_unavailable">المساعد الذكي غير متاح حاليًا.</string>
+    <string name="ai_record_voice">تسجيل رسالة صوتية</string>
+    <string name="ai_recording_hint">جارٍ التسجيل…</string>
+    <string name="ai_cancel_recording">إلغاء التسجيل</string>
+    <string name="ai_stop_recording">إيقاف وإرسال</string>
+    <string name="ai_voice_message_caption">رسالة صوتية</string>
+
+    <!-- وضع المكالمة الصوتية الحية (WebRTC) -->
+    <string name="ai_voice_mode">المكالمة الصوتية</string>
+    <string name="ai_voice_connecting">جارٍ الاتصال…</string>
+    <string name="ai_voice_listening">بيسمعك…</string>
+    <string name="ai_voice_speaking">بيتكلم…</string>
+    <string name="ai_voice_muted">الميكروفون مقفول</string>
+    <string name="ai_voice_ended">المكالمة انتهت</string>
+    <string name="ai_voice_error_generic">تعذر الاتصال بالمكالمة الصوتية. حاول تاني.</string>
+    <string name="ai_voice_permission_needed">محتاجين إذن الميكروفون عشان المكالمة الصوتية تشتغل.</string>
+    <string name="ai_voice_permission_denied">إذن الميكروفون مرفوض. فعّله من إعدادات التطبيق عشان تقدر تستخدم المكالمة الصوتية.</string>
+    <string name="ai_voice_mute">كتم الصوت</string>
+    <string name="ai_voice_unmute">إلغاء الكتم</string>
+    <string name="ai_voice_end_call">إنهاء المكالمة</string>
+    <string name="ai_voice_retry">حاول تاني</string>
+</resources>

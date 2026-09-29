@@ -28,6 +28,14 @@ class AiKnowledgeSource extends Model
 
     public const APPROVAL_DEPRECATED = 'deprecated';
 
+    public const PROCESSING_PENDING = 'pending';
+
+    public const PROCESSING_PROCESSING = 'processing';
+
+    public const PROCESSING_READY = 'ready';
+
+    public const PROCESSING_FAILED = 'failed';
+
     /**
      * @var list<string>
      */
@@ -49,6 +57,9 @@ class AiKnowledgeSource extends Model
         'change_detected',
         'is_active',
         'approval_status',
+        'processing_status',
+        'processing_error',
+        'indexed_at',
     ];
 
     /**
@@ -64,6 +75,7 @@ class AiKnowledgeSource extends Model
             'published_at' => 'datetime',
             'effective_at' => 'datetime',
             'fetched_at' => 'datetime',
+            'indexed_at' => 'datetime',
         ];
     }
 
@@ -84,6 +96,8 @@ class AiKnowledgeSource extends Model
      */
     public function isRetrievable(): bool
     {
-        return $this->approval_status === self::APPROVAL_APPROVED && $this->is_active;
+        return $this->approval_status === self::APPROVAL_APPROVED
+            && $this->is_active
+            && $this->processing_status === self::PROCESSING_READY;
     }
 }

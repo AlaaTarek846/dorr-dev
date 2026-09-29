@@ -42,11 +42,19 @@ class AiModelCapabilityClassifier
             return ['success' => true, 'message' => null, 'capabilities' => []];
         }
 
-        // Ask whichever model the provider already treats as its working
-        // default to classify its siblings, never a model from the very
-        // list being classified (it could be the deprecated/mistagged one
-        // this whole feature exists to correct).
-        $classifierModelKey = $provider->defaultRegisteredModel()?->model_key ?? $provider->model;
+        // Admin-requested fix: use the provider's own plain `model` field
+        // (the one the admin already sets directly on the provider's
+        // settings card - e.g. "gpt-4.1-mini") as the classifier model
+        // whenever it is set, rather than guessing from the
+        // ai_provider_models registry's is_default flag. This is no new
+        // setting - it reuses the field that was already there, and lets
+        // the admin fix a bad classifier call (e.g. one that hit a
+        // reasoning-tier model rejecting a custom temperature) simply by
+        // changing that one existing field, without a second model
+        // picker to keep in sync. Falls back to the registry's default
+        // registered model only when $provider->model is genuinely
+        // empty (a provider the admin never configured at all).
+        $classifierModelKey = $provider->model ?: $provider->defaultRegisteredModel()?->model_key;
 
         if (! $classifierModelKey) {
             return ['success' => false, 'message' => __('ai.classification_no_working_model'), 'capabilities' => []];

@@ -453,13 +453,15 @@ Jawad فيه نظام محاسبة بسيط ومفيد: `FinancialCategory` + `F
 ## 15. الاتجاه المقترح (مسودة للنقاش، مش قرار)
 
 ### المالك: Morph لـ User و Provider
-- `owner_type` / `owner_id` (polymorphic) للمحفظة، مع **`Relation::enforceMorphMap`** بأسماء ثابتة (`user`, `provider`, `platform`) بدل تخزين أسماء الكلاسات في الـ DB.
+- `owner_type` / `owner_id` (polymorphic) للمحفظة، بأسماء alias ثابتة (`user`, `provider`, `platform`) بدل تخزين أسماء الكلاسات في الـ DB — لكن عن طريق mapping محلي جوه موديول Wallet (`OwnerType`)، **مش** `Relation::morphMap()`/`enforceMorphMap()` العالمية (دي كسرت علاقة polymorphic تانية غير متعلقة بالمحفظة وقت التنفيذ الفعلي — التفاصيل في `wallet-structure.md § 0`).
 - trait `HasWallets` على `User` و`Provider` (علاقة `wallets()` + `walletFor(Country)`) **من غير أي منطق مالي جواهم**؛ كل المنطق في `WalletService`.
 - الإعدادات والقواعد ممكن تتحدد حسب `owner_type`.
 
 ### الجداول
-- **`wallets`:** `owner_type`, `owner_id`, `country_id`, `currency_id`, `withdrawable_balance`, `spend_only_balance`, `reserved_withdrawable`, `status`, `unique(owner_type, owner_id, country_id)`.
-- **`wallet_transactions`** (immutable): `uuid`, `wallet_id`, `operation_id`, `direction`, **`bucket`**, `type` (بما فيها `fee` و`promo_bonus`)، `amount` (موجب)، `currency_id`, `country_id`, `balance_after` و`total_after`, مرجع polymorphic، `counterparty_wallet_id`, `reverses_transaction_id`, `fee_rule_id`, `fee_percent`, `idempotency_key` (unique)، `status`, `notes` (مفتاح ترجمة + متغيرات)، `created_by`.
+> **التفاصيل الدقيقة (الأعمدة النهائية، minor units، composite FKs، `wallet_holds`...) موجودة في [wallet-structure.md](wallet-structure.md) — هنا مجرد سكتش عالي المستوى.**
+- **`wallets`:** `owner_type`, `owner_id`, `country_id`, `currency_id`, `withdrawable_minor`, `spend_only_minor`, `held_withdrawable_minor`, `held_spend_only_minor`, `status`, `unique(owner_type, owner_id, country_id)`.
+- **`wallet_transactions`** (immutable): `uuid`, `wallet_id`, `operation_id`, `direction`, **`bucket`**, `type` (بما فيها `fee` و`promo_bonus`)، `amount_minor` (موجب)، `currency_id`, `country_id`, `balance_after_minor` و`total_balance_after_minor`, مرجع polymorphic، `counterparty_wallet_id`, `reverses_transaction_id`, `fee_rule_id`, `fee_percent`, `idempotency_key` + `request_hash` (unique)، `notes` (مفتاح ترجمة + متغيرات)، `created_by`.
+- **`wallet_holds`** (Hold/Capture): حجز مبلغ من غير حركة مالية فعلية، لحد ما يتحصّل (capture) بالمبلغ الفعلي أو يتحرر (release). موحّد مع حجز طلبات السحب.
 - **`wallet_settings` لكل دولة:** حدود الشحن، حدود السحب، حدود التحويل (لكل عملية/يوم/شهر)، `min_allowed_balance` (فصل 14).
 - **`wallet_fee_rules`** (فصل 12، `operation = topup` بس بالبداية، default `percent = 0`).
 - **`financial_categories` + `financial_entries`** (فصل 13، دفتر إيرادات/مصروفات النظام، منفصل عن حركات المحافظ).

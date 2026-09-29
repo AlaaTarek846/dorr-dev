@@ -40,16 +40,19 @@ class AiGateway
 
     /**
      * @param  list<array{role: string, content: string}>  $messages
+     * @param  bool  $useWebSearch  See AiConnector::sendChat()'s docblock -
+     *   only ever true when the caller already confirmed $provider's
+     *   model is registered with the "web_search" capability.
      * @return array{success: bool, message: string, content: ?string}
      */
-    public function chat(AiProvider $provider, array $messages, ?AiRequest $context = null): array
+    public function chat(AiProvider $provider, array $messages, ?AiRequest $context = null, bool $useWebSearch = false): array
     {
         $provider = $this->applyModelOverrides($provider);
         $messages = $this->applyDataRules($provider, $messages);
         $messages = $this->formatMultimodalContent($provider, $messages);
 
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->sendChat($provider, $messages);
+        $result = $this->connectorFor($provider)->sendChat($provider, $messages, $useWebSearch);
         $this->logCall($provider, $context, $startedAt, $result);
 
         return $result;
@@ -229,6 +232,27 @@ class AiGateway
         $startedAt = microtime(true);
         $result = $this->connectorFor($provider)->synthesizeSpeech($provider, (string) $provider->model, $text);
         $this->logCall($provider, $context, $startedAt, $result);
+
+        return $result;
+    }
+
+    /**
+     * Real Realtime session credential (Phase 7 - see AiRealtimeService
+     * for why this exists): same choke-point/audit pattern as
+     * transcribeAudio()/synthesizeSpeech() above - no PII sanitization
+     * here, this call carries no user-authored text at all, only which
+     * model/voice to mint a session for.
+     *
+     * @param  array{voice?: string, instructions?: ?string}  $options
+     * @return array{success: bool, message: string, session: ?array{client_secret: string, expires_at: ?int, model: string}}
+     */
+    public function createRealtimeSession(AiProvider $provider, string $modelKey, array $options = [], ?AiRequest $context = null): array
+    {
+        $callProvider = tap(clone $provider, fn (AiProvider $p) => $p->model = $modelKey);
+
+        $startedAt = microtime(true);
+        $result = $this->connectorFor($callProvider)->createRealtimeSession($callProvider, $modelKey, $options);
+        $this->logCall($callProvider, $context, $startedAt, $result);
 
         return $result;
     }

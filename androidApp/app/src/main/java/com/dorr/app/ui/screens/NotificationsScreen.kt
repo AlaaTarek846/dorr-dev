@@ -1,5 +1,8 @@
 package com.dorr.app.ui.screens
 
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,7 +24,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Build
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.LocalOffer
@@ -45,6 +50,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -52,9 +58,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
+import com.dorr.app.network.NotificationDto
+import com.dorr.app.network.collectReconnectTick
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
-private enum class NotificationType { JOB_UPDATE, QUOTE, INVOICE, MAINTENANCE, PROMO, GENERAL }
+private enum class NotificationType { JOB_UPDATE, QUOTE, INVOICE, MAINTENANCE, PROMO, GENERAL, WALLET, WALLET_PIN }
 
 private data class NotificationItem(
     val id: String,
@@ -65,18 +82,6 @@ private data class NotificationItem(
     val unread: Boolean,
 )
 
-// Placeholder feed — wire this to a real notifications endpoint later
-// (pagination + push-triggered refresh, like the reference app's provider).
-@Composable
-private fun sampleNotifications() = listOf(
-    NotificationItem("1", NotificationType.JOB_UPDATE, stringResource(R.string.notif_sample_title_status_changed), stringResource(R.string.notif_sample_body_status_changed), 5, unread = true),
-    NotificationItem("2", NotificationType.QUOTE, stringResource(R.string.notif_sample_title_quote_ready), stringResource(R.string.notif_sample_body_quote_ready), 40, unread = true),
-    NotificationItem("3", NotificationType.INVOICE, stringResource(R.string.notif_sample_title_invoice), stringResource(R.string.notif_sample_body_invoice), 180, unread = false),
-    NotificationItem("4", NotificationType.MAINTENANCE, stringResource(R.string.notif_sample_title_maintenance), stringResource(R.string.notif_sample_body_maintenance), 1500, unread = false),
-    NotificationItem("5", NotificationType.PROMO, stringResource(R.string.notif_sample_title_promo), stringResource(R.string.notif_sample_body_promo), 4000, unread = false),
-    NotificationItem("6", NotificationType.GENERAL, stringResource(R.string.notif_sample_title_welcome), stringResource(R.string.notif_sample_body_welcome), 10000, unread = false),
-)
-
 private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (type) {
     NotificationType.JOB_UPDATE -> Icons.Rounded.Build to AppColors.info
     NotificationType.QUOTE -> Icons.Rounded.Description to AppColors.warning
@@ -84,6 +89,24 @@ private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (
     NotificationType.MAINTENANCE -> Icons.Rounded.Event to AppColors.accent
     NotificationType.PROMO -> Icons.Rounded.LocalOffer to AppColors.danger
     NotificationType.GENERAL -> Icons.Rounded.Notifications to AppColors.primary
+    NotificationType.WALLET -> Icons.Rounded.AccountBalanceWallet to Color(0xFF16A34A)
+    NotificationType.WALLET_PIN -> Icons.Rounded.Lock to AppColors.danger
+}
+
+private fun NotificationDto.toItem(): NotificationItem {
+    // Same precedence as the preview's notifStyleFor: wallet event first, then server type.
+    val type = when {
+        event?.startsWith("wallet.pin") == true -> NotificationType.WALLET_PIN
+        event?.startsWith("wallet.") == true -> NotificationType.WALLET
+        type == "job_update" -> NotificationType.JOB_UPDATE
+        type == "quote" -> NotificationType.QUOTE
+        type == "invoice" -> NotificationType.INVOICE
+        type == "maintenance" -> NotificationType.MAINTENANCE
+        type == "promo" -> NotificationType.PROMO
+        else -> NotificationType.GENERAL
+    }
+    val minutes = runCatching { java.time.Duration.between(java.time.Instant.parse(createdAtIso), java.time.Instant.now()).toMinutes().toInt() }.getOrDefault(0)
+    return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null)
 }
 
 @Composable
@@ -99,40 +122,48 @@ private fun relativeTime(minutesAgo: Int): String = when {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun NotificationsScreen(onBack: () -> Unit) {
-    val sample = sampleNotifications()
-    val notifications = remember { mutableStateListOf(*sample.toTypedArray()) }
+    val notifications = remember { mutableStateListOf<NotificationItem>() }
+    val scope = rememberCoroutineScope()
+    var loaded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<NotificationItem?>(null) }
     val hasUnread = notifications.any { it.unread }
+    val night = settingsNight()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.notifications_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.common_back))
-                    }
+    // The real feed. Reloaded on entry and on reconnect; every row arrives in
+    // the language the app is using.
+    val reconnectTick = collectReconnectTick()
+    LaunchedEffect(reconnectTick) {
+        runCatching { ApiClient.notifications.list("Bearer ${AuthSession.token.orEmpty()}").data.orEmpty() }
+            .onSuccess { rows ->
+                notifications.clear()
+                notifications.addAll(rows.map { it.toItem() })
+            }
+        loaded = true
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.matchParentSize())
+        Column(Modifier.fillMaxSize()) {
+        SubHeader(stringResource(R.string.notifications_title), onBack)
+        if (hasUnread) {
+            TextButton(
+                onClick = {
+                    notifications.replaceAll { it.copy(unread = false) }
+                    scope.launch { runCatching { ApiClient.notifications.markAllRead("Bearer ${AuthSession.token.orEmpty()}") } }
                 },
-                actions = {
-                    if (hasUnread) {
-                        TextButton(onClick = {
-                            notifications.replaceAll { it.copy(unread = false) }
-                        }) {
-                            Text(stringResource(R.string.notifications_mark_all_read), color = AppColors.primary)
-                        }
-                    }
-                },
-            )
-        },
-    ) { padding ->
-        if (notifications.isEmpty()) {
-            EmptyNotifications(modifier = Modifier.padding(padding))
+                modifier = Modifier.align(Alignment.End).padding(end = 8.dp),
+            ) {
+                Text(stringResource(R.string.notifications_mark_all_read), color = if (night) AccountDark.accent else settingsAccent(), fontWeight = FontWeight.Bold)
+            }
+        }
+        if (loaded && notifications.isEmpty()) {
+            EmptyNotifications(modifier = Modifier.weight(1f))
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(padding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    .weight(1f),
+                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 100.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 items(notifications, key = { it.id }) { item ->
@@ -142,10 +173,12 @@ fun NotificationsScreen(onBack: () -> Unit) {
                             val index = notifications.indexOfFirst { it.id == item.id }
                             if (index >= 0) notifications[index] = item.copy(unread = false)
                             selected = item.copy(unread = false)
+                            if (item.unread) scope.launch { runCatching { ApiClient.notifications.markRead("Bearer ${AuthSession.token.orEmpty()}", item.id) } }
                         },
                     )
                 }
             }
+        }
         }
     }
 
@@ -157,15 +190,24 @@ fun NotificationsScreen(onBack: () -> Unit) {
 @Composable
 private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
     val (icon, color) = typeStyle(item.type)
+    val night = settingsNight()
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (night) Modifier
+                else Modifier.shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+            )
             .clip(RoundedCornerShape(16.dp))
-            .background(if (item.unread) AppColors.tint(AppColors.primary) else AppColors.card)
+            .background(
+                if (night) {
+                    if (item.unread) AccountDark.well else AccountDark.card
+                } else if (item.unread) Color(0xFFFFF6F7) else Color.White,
+            )
             .border(
                 1.dp,
-                if (item.unread) AppColors.primary.copy(alpha = 0.15f) else AppColors.border,
+                if (night) AccountDark.line else Color.Transparent,
                 RoundedCornerShape(16.dp),
             )
             .clickable(onClick = onClick)
@@ -176,7 +218,7 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
             Box(
                 modifier = Modifier
                     .size(8.dp)
-                    .background(if (item.unread) AppColors.primary else Color.Transparent, CircleShape),
+                    .background(if (item.unread) (if (night) AccountDark.accent else settingsAccent()) else Color.Transparent, CircleShape),
             )
             Spacer(Modifier.height(4.dp))
             Box(
@@ -197,16 +239,17 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
                     fontWeight = if (item.unread) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = AppColors.textMuted)
+                Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = if (night) AccountDark.mut else AppColors.textMuted)
             }
             Spacer(Modifier.height(4.dp))
             Text(
                 item.body,
                 style = MaterialTheme.typography.bodySmall,
-                color = AppColors.textSecondary,
+                color = if (night) AccountDark.mut else AppColors.textSecondary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -218,8 +261,12 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
 @Composable
 private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Unit) {
     val (icon, color) = typeStyle(item.type)
+    val night = settingsNight()
 
-    ModalBottomSheet(onDismissRequest = onDismiss) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        containerColor = if (night) AccountDark.card else MaterialTheme.colorScheme.surface,
+    ) {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Box(
@@ -236,13 +283,14 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
                         item.title.ifBlank { stringResource(R.string.notification_default_title) },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
+                        color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
                     )
                     Spacer(Modifier.height(4.dp))
-                    Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = AppColors.textMuted)
+                    Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = if (night) AccountDark.mut else AppColors.textMuted)
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Text(item.body, style = MaterialTheme.typography.bodyLarge)
+            Text(item.body, style = MaterialTheme.typography.bodyLarge, color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified)
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -250,6 +298,7 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
 
 @Composable
 private fun EmptyNotifications(modifier: Modifier = Modifier) {
+    val night = settingsNight()
     Column(
         modifier = modifier.fillMaxSize().padding(40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -258,18 +307,23 @@ private fun EmptyNotifications(modifier: Modifier = Modifier) {
         Box(
             modifier = Modifier
                 .size(100.dp)
-                .background(AppColors.primary.copy(alpha = 0.08f), CircleShape),
+                .background(if (night) AccountDark.well else AppColors.primary.copy(alpha = 0.08f), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Notifications, contentDescription = null, tint = AppColors.textMuted, modifier = Modifier.size(48.dp))
+            Icon(Icons.Rounded.Notifications, contentDescription = null, tint = if (night) AccountDark.mut else AppColors.textMuted, modifier = Modifier.size(48.dp))
         }
         Spacer(Modifier.height(24.dp))
-        Text(stringResource(R.string.notifications_empty_title), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+        Text(
+            stringResource(R.string.notifications_empty_title),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
+        )
         Spacer(Modifier.height(8.dp))
         Text(
             stringResource(R.string.notifications_empty_body),
             style = MaterialTheme.typography.bodyMedium,
-            color = AppColors.textSecondary,
+            color = if (night) AccountDark.mut else AppColors.textSecondary,
         )
     }
 }

@@ -42,6 +42,11 @@ class ApiExceptionRenderer
             $payload['errors'] = $e->errors();
         }
 
+        if ($e instanceof ApiRenderable) {
+            $payload['error_code'] = $e->apiErrorCode();
+            $payload['data'] = $e->apiData();
+        }
+
         if ($request->boolean('debug') && config('app.debug')) {
             $payload['debug'] = [
                 'type' => class_basename($e),
@@ -59,6 +64,7 @@ class ApiExceptionRenderer
     {
         return match (true) {
             $e instanceof ValidationException => $e->status,
+            $e instanceof ApiRenderable => $e->apiStatus(),
             $e instanceof ConflictException => 409,
             $e instanceof NotFoundHttpException => 404,
             $e instanceof MethodNotAllowedHttpException => 405,
@@ -73,6 +79,7 @@ class ApiExceptionRenderer
     {
         return match (true) {
             $e instanceof ValidationException => __('api.validation_failed'),
+            $e instanceof ApiRenderable => $e->apiMessage(),
             $e instanceof NotFoundHttpException => __('api.not_found'),
             $e instanceof MethodNotAllowedHttpException => __('api.method_not_allowed'),
             $e instanceof AuthenticationException => __('api.unauthenticated'),

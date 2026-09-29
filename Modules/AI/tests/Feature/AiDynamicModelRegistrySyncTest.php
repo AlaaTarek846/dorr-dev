@@ -290,4 +290,51 @@ class AiDynamicModelRegistrySyncTest extends TestCase
             'an admin-supplied context_window must never be silently overwritten by a later sync',
         );
     }
+
+    /**
+     * Phase 7 (realtime voice) completion: a realtime voice model id used
+     * to fall all the way through to the generic "not chat capable"
+     * branch (category correctly RealtimeVoice, but capabilities=[] and
+     * is_active=false - registered, but inert and unusable by routing).
+     * This proves it now gets its own dedicated branch, mirroring
+     * speech-to-text/text-to-speech exactly: a real "realtime" capability
+     * tag and is_active=true, so AiRealtimeService's model lookup (via
+     * the same generic capability-matching every other feature uses) can
+     * actually find it.
+     */
+    public function test_a_realtime_voice_model_is_tagged_and_active_not_dropped_inert(): void
+    {
+        $provider = $this->openAiProvider();
+
+        $this->sync()->sync($provider, ['gpt-realtime-2.1']);
+
+        $row = $provider->models()->where('model_key', 'gpt-realtime-2.1')->first();
+        $this->assertSame(['realtime'], $row->capabilities);
+        $this->assertTrue($row->is_active);
+        $this->assertSame(AiModelCategory::RealtimeVoice->value, $row->category);
+    }
+
+    /**
+     * Phase 8 (web search) completion: a "-search-api"/"-search-preview"
+     * model is chat-capable (it drafts a real text reply), so it does
+     * reach inferCapabilities() - this proves it comes out tagged
+     * "web_search" (so AiRoutingEngine can actually match it for a
+     * "latest news"/"سعر الدولار اليوم" request) and, since
+     * isKnownMultimodalModel() explicitly excludes both search naming
+     * shapes, never "vision" - a real, observed gap for the newer
+     * "-search-api" naming specifically (only "-search-preview" used to
+     * be excluded, so "gpt-5-search-api" fell through to "starts with
+     * gpt-5" and was wrongly tagged vision).
+     */
+    public function test_a_web_search_model_is_tagged_web_search_and_never_vision(): void
+    {
+        $provider = $this->openAiProvider();
+
+        $this->sync()->sync($provider, ['gpt-5-search-api']);
+
+        $row = $provider->models()->where('model_key', 'gpt-5-search-api')->first();
+        $this->assertContains('web_search', $row->capabilities);
+        $this->assertNotContains('vision', $row->capabilities);
+        $this->assertTrue($row->is_active);
+    }
 }

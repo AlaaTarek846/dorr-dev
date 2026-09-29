@@ -87,15 +87,16 @@
                                         <th scope="col">{{ t('ai_knowledge_sources.data_classification') }}</th>
                                         <th scope="col">{{ t('ai_knowledge_sources.version') }}</th>
                                         <th scope="col">{{ t('ai_knowledge_sources.approval_status') }}</th>
+                                        <th scope="col">{{ t('ai_knowledge_sources.processing_status') }}</th>
                                         <th scope="col">{{ t('ai_knowledge_sources.created_at') }}</th>
                                         <th scope="col" class="text-end">{{ t('actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="5" :columns="7" />
+                                    <TableSkeleton v-if="loading" :rows="5" :columns="8" />
 
                                     <tr v-else-if="!sources.length">
-                                        <td colspan="7" class="border-0">
+                                        <td colspan="8" class="border-0">
                                             <div class="text-center py-5 text-muted">{{ t('ai_knowledge_sources.empty') }}</div>
                                         </td>
                                     </tr>
@@ -113,6 +114,11 @@
                                         <td>
                                             <span class="badge" :class="approvalBadgeClass(source.approval_status)">
                                                 {{ t('ai_knowledge_sources.approval_' + source.approval_status) }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span class="badge" :class="processingBadgeClass(source.processing_status)" :title="source.processing_status === 'failed' ? source.processing_error : ''">
+                                                {{ t('ai_knowledge_sources.processing_' + (source.processing_status || 'pending')) }}
                                             </span>
                                         </td>
                                         <td>{{ formatDateTime(source.created_at) }}</td>
@@ -210,6 +216,15 @@ function classificationBadgeClass(classification) {
         secret: 'bg-danger-transparent',
         unverified: 'bg-warning-transparent',
     }[classification] ?? 'bg-secondary-transparent';
+}
+
+function processingBadgeClass(status) {
+    return {
+        pending: 'bg-secondary-transparent',
+        processing: 'bg-info-transparent',
+        ready: 'bg-success-transparent',
+        failed: 'bg-danger-transparent',
+    }[status] ?? 'bg-secondary-transparent';
 }
 
 function approvalBadgeClass(status) {

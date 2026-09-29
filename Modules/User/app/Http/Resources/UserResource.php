@@ -23,6 +23,8 @@ class UserResource extends JsonResource
             'country' => $this->whenLoaded('country', fn () => [
                 'id' => $this->country?->id,
                 'code' => $this->country?->code,
+                'phone_starts_with' => $this->country?->phone_starts_with,
+                'phone_length' => $this->country?->phone_length,
                 'dial_code' => $this->country?->dial_code,
                 'flag' => $this->country?->flag ? [
                     'id' => $this->country->flag->id,

@@ -25,7 +25,7 @@ abstract class AbstractHttpConnector implements AiConnector
      * @param  list<array{role: string, content: string}>  $messages
      * @return array{success: bool, message: string, content: ?string}
      */
-    abstract public function sendChat(AiProvider $provider, array $messages): array;
+    abstract public function sendChat(AiProvider $provider, array $messages, bool $useWebSearch = false): array;
 
     /**
      * Default: no embeddings support. Only connectors that actually
@@ -85,6 +85,20 @@ abstract class AbstractHttpConnector implements AiConnector
     public function synthesizeSpeech(AiProvider $provider, string $modelKey, string $text): array
     {
         return ['success' => false, 'message' => __('ai.text_to_speech_not_supported', ['provider' => $provider->name]), 'audio' => null];
+    }
+
+    /**
+     * Default: no Realtime session support. Only a connector that
+     * actually implements a real ephemeral-session call (currently
+     * OpenAiConnector) should override this - never fake a session
+     * credential here, matching the synthesizeSpeech() precedent above.
+     *
+     * @param  array{voice?: string, instructions?: ?string}  $options
+     * @return array{success: bool, message: string, session: ?array{client_secret: string, expires_at: ?int, model: string}}
+     */
+    public function createRealtimeSession(AiProvider $provider, string $modelKey, array $options = []): array
+    {
+        return ['success' => false, 'message' => __('ai.realtime_not_supported', ['provider' => $provider->name]), 'session' => null];
     }
 
     protected function baseUrl(AiProvider $provider): string

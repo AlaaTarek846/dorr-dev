@@ -107,6 +107,41 @@ const UI_COPY = {
     accSettingsSub: 'اللغة والإشعارات والحساب',
     accPlacesTitle: 'العناوين',
     accPlacesSub: 'عناوين المنزل والعمل',
+    addrTitle: 'العناوين',
+    addrSearch: 'ابحث عن عنوان',
+    addrAdd: 'إضافة عنوان',
+    addrAddTitle: 'إضافة عنوان',
+    addrEditTitle: 'تعديل العنوان',
+    addrUpdate: 'تحديث',
+    addrEdit: 'تعديل',
+    addrDelete: 'حذف',
+    addrDeleteAsk: 'هل تريد المسح',
+    addrYes: 'نعم',
+    addrNo: 'إلغاء',
+    addrHome: 'المنزل',
+    addrWork: 'العمل',
+    addrOther: 'أخرى',
+    addrKindLabel: 'نوع العنوان',
+    addrNameLabel: 'اسم العنوان',
+    addrNameHint: 'مثال: بيت العائلة',
+    addrBuilding: 'رقم المبنى',
+    addrFloor: 'الدور',
+    addrDetailsLabel: 'العنوان بالتفصيل',
+    addrDetailsSection: 'تفاصيل العنوان',
+    addrOptional: '(اختياري)',
+    addrDetailsHint: 'الحي والشارع والمدينة',
+    addrLandmark: 'علامة مميزة',
+    addrLandmarkHint: 'بجوار مسجد أو محل',
+    addrSetDefault: 'تعيين كافتراضي',
+    addrMap: 'الخريطة',
+    addrDefault: 'افتراضي',
+    addrEmpty: 'لا توجد عناوين مطابقة',
+    addrNone: 'أضف عنوانك الأول',
+    toastAddrSaved: 'تم حفظ العنوان',
+    toastAddrUpdated: 'تم تحديث العنوان',
+    toastAddrDeleted: 'تم حذف العنوان',
+    toastAddrDetails: 'اكتب تفاصيل العنوان',
+    toastAddrName: 'اكتب اسم العنوان',
     accPaymentsTitle: 'طرق الدفع',
     accPaymentsSub: 'البطاقات والمحافظ',
     accPromoTitle: 'أكواد الخصم',
@@ -262,6 +297,41 @@ const UI_COPY = {
     accSettingsSub: 'Language, notifications and account',
     accPlacesTitle: 'Addresses',
     accPlacesSub: 'Home and work addresses',
+    addrTitle: 'Addresses',
+    addrSearch: 'Search addresses',
+    addrAdd: 'Add address',
+    addrAddTitle: 'Add address',
+    addrEditTitle: 'Edit address',
+    addrUpdate: 'Update',
+    addrEdit: 'Edit',
+    addrDelete: 'Delete',
+    addrDeleteAsk: 'Delete this address?',
+    addrYes: 'Yes',
+    addrNo: 'Cancel',
+    addrHome: 'Home',
+    addrWork: 'Work',
+    addrOther: 'Other',
+    addrKindLabel: 'Address type',
+    addrNameLabel: 'Address name',
+    addrNameHint: 'Example: Family house',
+    addrBuilding: 'Building number',
+    addrFloor: 'Floor',
+    addrDetailsLabel: 'Address details',
+    addrDetailsSection: 'Address details',
+    addrOptional: '(Optional)',
+    addrDetailsHint: 'District, street, and city',
+    addrLandmark: 'Landmark',
+    addrLandmarkHint: 'Near a mosque or shop',
+    addrSetDefault: 'Set as default',
+    addrMap: 'Map',
+    addrDefault: 'Default',
+    addrEmpty: 'No matching addresses',
+    addrNone: 'Add your first address',
+    toastAddrSaved: 'Address saved',
+    toastAddrUpdated: 'Address updated',
+    toastAddrDeleted: 'Address deleted',
+    toastAddrDetails: 'Enter the address details',
+    toastAddrName: 'Enter an address name',
     accPaymentsTitle: 'Payment methods',
     accPaymentsSub: 'Cards and wallets',
     accPromoTitle: 'Discount codes',
@@ -609,6 +679,7 @@ function applyLanguage(language) {
   document.documentElement.dir = String(language.direction || '').toLowerCase() === 'ltr' ? 'ltr' : 'rtl';
   langNameEls.forEach((el) => { el.textContent = language.name || code; });
   apiHeaders['X-Locale'] = code;
+  if (localeChanged && typeof loadNotifications === 'function') loadNotifications();
   const copy = LOGIN_COPY[code] || LOGIN_COPY.ar;
   $('#login-title').textContent = copy.title;
   $('#login-subtitle').textContent = copy.subtitle;
@@ -696,8 +767,8 @@ function paintMainScreenCopy() {
 
 function loadLanguages() {
   fetch('/api/general/v1/languages/dropdown', { headers: apiHeaders })
-    .then((r) => r.json())
-    .then((res) => {
+  .then((r) => r.json())
+  .then((res) => {
       languages = Array.isArray(res?.data) ? res.data : [];
       const chosen = languages.find((item) => String(item.code).toLowerCase() === selectedLanguageCode)
         || languages.find((item) => String(item.code).toLowerCase() === 'ar')
@@ -707,8 +778,8 @@ function loadLanguages() {
         renderLanguageMenu();
         refreshLanguageDialogIfOpen();
       }
-    })
-    .catch(() => {
+  })
+  .catch(() => {
       // Offline — keep the Arabic label already in the markup.
     });
 }
@@ -828,18 +899,42 @@ phoneInput.addEventListener('input', () => {
 
 termsCheck.addEventListener('change', syncSendEnabled);
 
-sendBtn.addEventListener('click', () => {
+// Bearer token from the real /auth/verify call. null = "demo mode" (backend
+// unreachable): the design preview still works, but wallet screens need a token.
+let authToken = null;
+
+// Real login: the same combined login/register OTP endpoints the Android app uses.
+async function authRequest(path, body) {
+  try {
+    const res = await fetch(`/api/mobile/v1/auth/${path}`, {
+      method: 'POST',
+      headers: { ...apiHeaders, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return { status: res.status, json: await res.json().catch(() => null) };
+  } catch {
+    return null; // network failure
+  }
+}
+
+sendBtn.addEventListener('click', async () => {
   sendBtn.disabled = true;
   $('.btn-label', sendBtn).hidden = true;
   $('.btn-spinner', sendBtn).hidden = false;
-  setTimeout(() => {
+  const result = await authRequest('otp', { dial_code: dialCode, phone: phoneInput.value });
     $('.btn-label', sendBtn).hidden = false;
     $('.btn-spinner', sendBtn).hidden = true;
+  if (result && (result.status < 200 || result.status >= 300)) {
+    const errors = result.json?.errors;
+    const first = errors ? Object.values(errors)[0]?.[0] : null;
+    showToast(first || result.json?.message || 'تعذّر إرسال الكود');
+    syncSendEnabled();
+    return;
+  }
     $('#otp-phone-target').textContent = `${dialCode} ${phoneInput.value}`;
     resetOtpBoxes();
     startOtpTimer();
     showScreen('otp');
-  }, 500);
 });
 
 // ===================== OTP (6 individual digit boxes) =====================
@@ -927,30 +1022,38 @@ $('#otp-back-btn').addEventListener('click', () => {
   showScreen('login');
 });
 
-function verifyOtp() {
+async function verifyOtp() {
   const code = currentOtpCode();
   if (code.length !== otpBoxes.length) return;
   verifyBtn.disabled = true;
   $('.btn-label', verifyBtn).hidden = true;
   $('.btn-spinner', verifyBtn).hidden = false;
-  setTimeout(() => {
+  const result = await authRequest('verify', { dial_code: dialCode, phone: phoneInput.value, code });
     $('.btn-label', verifyBtn).hidden = false;
     $('.btn-spinner', verifyBtn).hidden = true;
-    if (code === DEV_FIXED_OTP) {
+
+  const token = result?.json?.data?.token;
+  const demoFallback = result === null && code === DEV_FIXED_OTP; // backend unreachable
+  if (token || demoFallback) {
+    authToken = token || null;
+    const name = result?.json?.data?.user?.name;
+    if (name) profileState.name = name;
       otpBoxesEl.classList.add('success');
       clearInterval(otpTimerInterval);
       setTimeout(() => {
-        const contact = $('#profile-contact');
-        if (contact) contact.textContent = `${dialCode} ${phoneInput.value}`;
+      const contact = $('#profile-contact');
+      if (contact) contact.textContent = `${dialCode} ${phoneInput.value}`;
+      paintProfileSurfaces();
         showScreen('main');
+      refreshBellBadge();
         switchTab('home');
+      window.walletOnLogin?.();
       }, 300);
     } else {
       otpBoxesEl.classList.add('error', 'shake');
       setTimeout(() => otpBoxesEl.classList.remove('shake'), 400);
       verifyBtn.disabled = false;
     }
-  }, 400);
 }
 
 verifyBtn.addEventListener('click', verifyOtp);
@@ -990,14 +1093,14 @@ function goToSlide(i) {
 
 if (track && slideCount) {
   goToSlide(0);
-  setInterval(() => {
-    goToSlide((bannerIndex + 1) % slideCount);
-  }, 5000);
+setInterval(() => {
+  goToSlide((bannerIndex + 1) % slideCount);
+}, 5000);
 }
 
 // ===================== Profile menu (staggered slide-in) =====================
 const ICONS = {
-  person: 'icon-person', bell: 'icon-bell',
+  person: 'icon-person', bell: 'icon-bell', lock: 'icon-lock',
   language: 'icon-language', 'dark-mode': 'icon-dark-mode', help: 'icon-help',
   phone: 'icon-phone', info: 'icon-info', shield: 'icon-shield',
   logout: 'icon-logout', delete: 'icon-delete',
@@ -1072,6 +1175,7 @@ function handleProfileAction(action) {
     case 'personal-data': return openSubScreen('personal-data');
     case 'notifications': return openSubScreen('notifications');
     case 'privacy': return openSubScreen('privacy');
+    case 'wallet-pin': return window.openWalletApp('pin');
     case 'faq': return openSheet('faq');
     case 'contact': return openSheet('contact');
     case 'about': return openDialog('about');
@@ -1082,6 +1186,11 @@ function handleProfileAction(action) {
         ? t('logoutConfirm')
         : t('deleteConfirm');
       if (confirm(msg)) {
+        if (authToken) {
+          fetch('/api/mobile/v1/auth/logout', { method: 'POST', headers: { ...apiHeaders, Authorization: `Bearer ${authToken}` } }).catch(() => {});
+        }
+        authToken = null;
+        window.walletOnLogout?.();
         profileRendered = false;
         $('#profile-menu').innerHTML = '';
         showScreen('login');
@@ -1108,16 +1217,13 @@ $('#account-settings-back').addEventListener('click', () => {
   accountPage.hidden = false;
 });
 
-$('#wallet-add-btn').addEventListener('click', () => {
-  showToast(t('walletDemo'));
-});
-
 $$('[data-account-link]').forEach((button) => {
   button.addEventListener('click', () => {
     const link = button.dataset.accountLink;
     if (link === 'personal-data') openSubScreen('personal-data');
     else if (link === 'settings') openAccountSettings();
     else if (link === 'help') openSheet('faq');
+    else if (link === 'places') openSubScreen('addresses');
     else showToast(t('comingSoon'));
   });
 });
@@ -1635,6 +1741,16 @@ const SUB_SCREENS = {
       input.focus();
     },
   },
+  addresses: {
+    title: () => t('addrTitle'),
+    render: () => renderAddresses(),
+    afterRender: (root) => bindAddresses(root),
+  },
+  'add-address': {
+    title: () => (addressEditingId ? t('addrEditTitle') : t('addrAddTitle')),
+    render: () => renderAddAddress(),
+    afterRender: (root) => bindAddAddress(root),
+  },
   notifications: {
     title: () => t('notifTitle'),
     render: () => `
@@ -1646,7 +1762,7 @@ const SUB_SCREENS = {
           ${notifToggleRow('icon-email', t('notifToggle4Title'), t('notifToggle4Desc'), false)}
         </div>
       </div>`,
-afterRender: (root) => {
+    afterRender: (root) => {
       $$('.toggle', root).forEach((tl) => {
         tl.addEventListener('click', (event) => {
           event.stopPropagation();
@@ -1682,8 +1798,269 @@ function notifToggleRow(icon, title, desc, on) {
 
 const PROFILE_SCREENS = new Set([
   'personal-data', 'edit-name', 'edit-gender', 'edit-phone', 'edit-email',
-  'notifications', 'privacy',
+  'notifications', 'privacy', 'addresses', 'add-address',
 ]);
+
+let addressQuery = '';
+let addressSeq = 3;
+let addressEditingId = null;
+const addressDraft = {
+  kind: 'home',
+  building: '',
+  floor: '',
+  details: '',
+  landmark: '',
+  isDefault: true,
+};
+const savedAddresses = [
+  { id: 1, kind: 'home', building: '', floor: '', line: 'حي النرجس، شارع التحلية، الرياض', landmark: '', isDefault: true },
+  { id: 2, kind: 'work', building: '', floor: '', line: 'طريق الملك فهد، العليا، الرياض', landmark: '', isDefault: false },
+];
+
+function addressTitle(item) {
+  if (item.kind === 'home') return t('addrHome');
+  if (item.kind === 'work') return t('addrWork');
+  return item.label || t('addrOther');
+}
+
+function addressIcon(kind) {
+  if (kind === 'home') return 'icon-home';
+  if (kind === 'work') return 'icon-briefcase';
+  return 'icon-location';
+}
+
+function addressSummary(item) {
+  const line = item.line || '';
+  return [
+    line,
+    item.building ? `${t('addrBuilding')} ${item.building}` : '',
+    item.floor ? `${t('addrFloor')} ${item.floor}` : '',
+    item.landmark || '',
+  ].filter(Boolean).join(' · ');
+}
+
+function filteredAddresses() {
+  const q = addressQuery.trim().toLowerCase();
+  if (!q) return savedAddresses;
+  return savedAddresses.filter((item) => {
+    const hay = `${addressTitle(item)} ${addressSummary(item)}`.toLowerCase();
+    return hay.includes(q);
+  });
+}
+
+function resetAddressDraft() {
+  addressEditingId = null;
+  addressDraft.kind = 'home';
+  addressDraft.building = '';
+  addressDraft.floor = '';
+  addressDraft.details = '';
+  addressDraft.landmark = '';
+  addressDraft.isDefault = savedAddresses.length === 0;
+  addressDetailsOpen = false;
+}
+
+function openAddressEditor(item) {
+  if (item) {
+    addressEditingId = item.id;
+    addressDraft.kind = item.kind;
+    addressDraft.building = item.building || '';
+    addressDraft.floor = item.floor || '';
+    addressDraft.details = item.line || '';
+    addressDraft.landmark = item.landmark || '';
+    addressDraft.isDefault = item.isDefault;
+    addressDetailsOpen = Boolean(item.line || item.building || item.floor || item.landmark);
+  } else {
+    resetAddressDraft();
+  }
+  openSubScreen('add-address', { nested: true });
+}
+
+function renderAddresses() {
+  const items = filteredAddresses();
+  const cards = items.map((item) => `
+    <div class="account-link addr-card" data-id="${item.id}" role="button" tabindex="0">
+      <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#${addressIcon(item.kind)}"/></svg></span>
+      <span class="account-link-text">
+        <strong>${escapeHtml(addressTitle(item))}${item.isDefault ? `<span class="addr-badge">${t('addrDefault')}</span>` : ''}</strong>
+        <small>${escapeHtml(addressSummary(item))}</small>
+      </span>
+      <span class="addr-actions">
+        <button type="button" class="addr-action" data-addr-edit="${item.id}" aria-label="${escapeHtml(t('addrEdit'))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-edit"/></svg>
+        </button>
+        <button type="button" class="addr-action addr-action--delete" data-addr-delete="${item.id}" aria-label="${escapeHtml(t('addrDelete'))}">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-delete"/></svg>
+        </button>
+      </span>
+    </div>`).join('');
+  const empty = savedAddresses.length
+    ? t('addrEmpty')
+    : t('addrNone');
+  return `
+    <div class="addr-page">
+      <label class="addr-search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input id="addr-search" type="search" value="${escapeHtml(addressQuery)}" placeholder="${escapeHtml(t('addrSearch'))}" autocomplete="off">
+      </label>
+      <div class="account-links addr-list">
+        ${cards || `<p class="addr-empty">${empty}</p>`}
+      </div>
+      <button type="button" class="btn-primary" id="addr-add-btn"><span class="btn-label">${t('addrAdd')}</span></button>
+    </div>`;
+}
+
+function bindAddresses(root) {
+  const search = $('#addr-search', root);
+  search.addEventListener('input', () => {
+    addressQuery = search.value;
+    paintSubScreen();
+    const next = $('#addr-search', subBodyEl);
+    if (next) {
+      next.focus();
+      const end = next.value.length;
+      next.setSelectionRange(end, end);
+    }
+  });
+  $$('.addr-card', root).forEach((card) => {
+    card.addEventListener('click', () => {
+      const id = Number(card.dataset.id);
+      savedAddresses.forEach((item) => { item.isDefault = item.id === id; });
+      paintSubScreen();
+    });
+  });
+  $$('[data-addr-edit]', root).forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const item = savedAddresses.find((entry) => entry.id === Number(button.dataset.addrEdit));
+      if (item) openAddressEditor(item);
+    });
+  });
+  $$('[data-addr-delete]', root).forEach((button) => {
+    button.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openAddressDeleteConfirm(Number(button.dataset.addrDelete));
+    });
+  });
+  $('#addr-add-btn', root).addEventListener('click', () => openAddressEditor(null));
+}
+
+function addrInput(id, icon, label, value, placeholder) {
+  return `
+    <label class="profile-field-label" for="${id}">${label}</label>
+    <div class="profile-icon-field addr-field">
+      <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#${icon}"/></svg></span>
+      <input id="${id}" type="text" maxlength="160" value="${escapeHtml(value)}" placeholder="${escapeHtml(placeholder)}">
+    </div>`;
+}
+
+let addressDetailsOpen = false;
+
+function setAddressDetailsOpen(root, open) {
+  addressDetailsOpen = open;
+  const box = $('.addr-collapse', root);
+  const toggle = $('#addr-details-toggle', root);
+  const body = $('.addr-collapse-body', root);
+  if (!box || !toggle || !body) return;
+  box.classList.toggle('open', open);
+  toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+  body.hidden = !open;
+}
+
+function renderAddAddress() {
+  const kind = (value, label) => `
+    <button type="button" class="addr-kind${addressDraft.kind === value ? ' selected' : ''}" data-kind="${value}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#${addressIcon(value)}"/></svg>
+      <span>${label}</span>
+    </button>`;
+  return `
+    <div class="profile-form addr-add">
+      <div class="addr-kinds">
+        ${kind('home', t('addrHome'))}
+        ${kind('work', t('addrWork'))}
+        ${kind('other', t('addrOther'))}
+      </div>
+      <div class="addr-map">
+        <iframe title="${escapeHtml(t('addrMap'))}" loading="lazy" referrerpolicy="no-referrer" src="https://www.openstreetmap.org/export/embed.html?bbox=46.62%2C24.64%2C46.78%2C24.78&amp;layer=mapnik&amp;marker=24.7136%2C46.6753"></iframe>
+        <span class="addr-map-label"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-location"/></svg>${t('addrMap')}</span>
+      </div>
+      <div class="addr-collapse${addressDetailsOpen ? ' open' : ''}">
+        <button type="button" class="addr-collapse-toggle" id="addr-details-toggle" aria-expanded="${addressDetailsOpen ? 'true' : 'false'}">
+          <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-description"/></svg></span>
+          <span class="addr-collapse-title">${t('addrDetailsSection')} <span class="addr-collapse-optional">${t('addrOptional')}</span></span>
+          <svg class="menu-chevron addr-collapse-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#icon-chevron"/></svg>
+        </button>
+        <div class="addr-collapse-body"${addressDetailsOpen ? '' : ' hidden'}>
+          ${addrInput('addr-building', 'icon-building', t('addrBuilding'), addressDraft.building, t('addrBuilding'))}
+          ${addrInput('addr-floor', 'icon-stairs', t('addrFloor'), addressDraft.floor, t('addrFloor'))}
+          ${addrInput('addr-details', 'icon-location', t('addrDetailsLabel'), addressDraft.details, t('addrDetailsHint'))}
+          ${addrInput('addr-landmark', 'icon-flag', t('addrLandmark'), addressDraft.landmark, t('addrLandmarkHint'))}
+        </div>
+      </div>
+      <div class="profile-form-card">
+        <button type="button" class="addr-default" id="addr-default-btn">
+          <span class="profile-input-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#icon-tag"/></svg></span>
+          <span>${t('addrSetDefault')}</span>
+          <span class="toggle${addressDraft.isDefault ? ' on' : ''}" role="switch" aria-checked="${addressDraft.isDefault ? 'true' : 'false'}"></span>
+        </button>
+      </div>
+      <button type="button" class="btn-primary" id="addr-save-btn"><span class="btn-label">${addressEditingId ? t('addrUpdate') : t('save')}</span></button>
+    </div>`;
+}
+
+function bindAddAddress(root) {
+  $('#addr-details-toggle', root).addEventListener('click', () => {
+    setAddressDetailsOpen(root, !addressDetailsOpen);
+  });
+  $$('[data-kind]', root).forEach((button) => {
+    button.addEventListener('click', () => {
+      addressDraft.kind = button.dataset.kind;
+      $$('[data-kind]', root).forEach((item) => {
+        item.classList.toggle('selected', item.dataset.kind === addressDraft.kind);
+      });
+    });
+  });
+  $('#addr-default-btn', root).addEventListener('click', () => {
+    const toggle = $('.toggle', root);
+    addressDraft.isDefault = !addressDraft.isDefault;
+    toggle.classList.toggle('on', addressDraft.isDefault);
+    toggle.setAttribute('aria-checked', addressDraft.isDefault ? 'true' : 'false');
+  });
+  $('#addr-save-btn', root).addEventListener('click', () => {
+    const building = $('#addr-building', root).value.trim();
+    const floor = $('#addr-floor', root).value.trim();
+    const details = $('#addr-details', root).value.trim();
+    const landmark = $('#addr-landmark', root).value.trim();
+    if (details.length < 4) {
+      setAddressDetailsOpen(root, true);
+      showToast(t('toastAddrDetails'));
+      $('#addr-details', root).focus();
+      return;
+    }
+    const makeDefault = addressDraft.isDefault || savedAddresses.length === 0;
+    if (makeDefault) {
+      savedAddresses.forEach((item) => { item.isDefault = false; });
+    }
+    const payload = {
+      kind: addressDraft.kind,
+      building,
+      floor,
+      line: details,
+      landmark,
+      isDefault: makeDefault,
+    };
+    if (addressEditingId) {
+      const current = savedAddresses.find((item) => item.id === addressEditingId);
+      if (current) Object.assign(current, payload);
+      showToast(t('toastAddrUpdated'));
+    } else {
+      savedAddresses.unshift({ id: addressSeq++, ...payload });
+      showToast(t('toastAddrSaved'));
+    }
+    addressEditingId = null;
+    addressQuery = '';
+    closeSubScreen();
+  });
+}
 
 function paintSubScreen() {
   const type = subStack[subStack.length - 1];
@@ -1691,6 +2068,7 @@ function paintSubScreen() {
   if (!cfg) return;
   subTitleEl.textContent = typeof cfg.title === 'function' ? cfg.title() : cfg.title;
   subScreenEl.classList.toggle('is-profile', PROFILE_SCREENS.has(type));
+  subScreenEl.classList.toggle('keeps-tabs', type === 'addresses' || type === 'add-address');
   subBodyEl.innerHTML = cfg.render();
   cfg.afterRender?.(subBodyEl);
   subScreenEl.classList.add('open');
@@ -1887,8 +2265,45 @@ function openDialog(type) {
       });
   }
 }
+function deleteAddress(id) {
+  const index = savedAddresses.findIndex((entry) => entry.id === id);
+  if (index < 0) return;
+  const wasDefault = savedAddresses[index].isDefault;
+  savedAddresses.splice(index, 1);
+  if (wasDefault && savedAddresses.length) savedAddresses[0].isDefault = true;
+  showToast(t('toastAddrDeleted'));
+  if (subStack[subStack.length - 1] === 'addresses') paintSubScreen();
+}
+
+function openAddressDeleteConfirm(id) {
+  const item = savedAddresses.find((entry) => entry.id === id);
+  if (!item) return;
+  dialogOpenType = 'addr-delete';
+  dialogBox.className = 'dialog-box app-dialog addr-confirm-box';
+  dialogBox.innerHTML = `
+    <div class="addr-confirm">
+      <span class="account-link-icon addr-confirm-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><use href="#icon-delete"/></svg>
+      </span>
+      <h3>${t('addrDeleteAsk')}</h3>
+      <p>${escapeHtml(addressTitle(item))}</p>
+      <div class="addr-confirm-actions">
+        <button type="button" class="btn-primary" id="addr-confirm-yes">${t('addrYes')}</button>
+        <button type="button" class="addr-confirm-cancel" id="addr-confirm-no">${t('addrNo')}</button>
+      </div>
+    </div>`;
+  $('#addr-confirm-yes', dialogBox).addEventListener('click', () => {
+    deleteAddress(id);
+    closeDialog();
+  });
+  $('#addr-confirm-no', dialogBox).addEventListener('click', closeDialog);
+  dialogBackdrop.classList.add('open');
+}
+
 function closeDialog() {
   dialogBackdrop.classList.remove('open');
+  dialogOpenType = null;
+  dialogBox.className = 'dialog-box app-dialog';
 }
 dialogBackdrop.addEventListener('click', (e) => {
   if (e.target === dialogBackdrop) closeDialog();
@@ -1905,17 +2320,27 @@ function showToast(message) {
 }
 
 // ===================== Notifications feed (bell icon on Home) =====================
-// Placeholder feed, like the Kotlin screen — wire to a real notifications
-// endpoint later (pagination + push-triggered refresh).
+// Real feed: GET /api/mobile/v1/notifications. The server sends every row already in the
+// language the app is using right now (X-Locale), so switching language just reloads it.
 const NOTIF_TYPE_STYLE = {
   job_update: { icon: 'icon-build', color: 'var(--info)' },
   quote: { icon: 'icon-description', color: 'var(--warning)' },
   invoice: { icon: 'icon-receipt', color: 'var(--secondary)' },
   maintenance: { icon: 'icon-event', color: 'var(--accent)' },
   promo: { icon: 'icon-tag', color: 'var(--danger)' },
+  wallet: { icon: 'icon-wallet', color: '#16A34A' },
+  wallet_pin: { icon: 'icon-lock', color: 'var(--danger)' },
   general: { icon: 'icon-bell', color: 'var(--primary)' },
 };
 
+
+/** Which look a row gets, from the event the backend raised (see WalletNotifier). */
+function notifStyleFor(n) {
+  if (n.event?.startsWith('wallet.pin')) return NOTIF_TYPE_STYLE.wallet_pin;
+  if (n.event?.startsWith('wallet.transfer.sent') || n.event?.startsWith('wallet.withdrawal')) return { icon: 'icon-wallet', color: 'var(--info)' };
+  if (n.event?.startsWith('wallet.')) return NOTIF_TYPE_STYLE.wallet;
+  return NOTIF_TYPE_STYLE[n.type] || NOTIF_TYPE_STYLE.general;
+}
 let notifications = [
   { id: '1', type: 'job_update', titleKey: 'notif1Title', bodyKey: 'notif1Body', minutesAgo: 5, unread: true },
   { id: '2', type: 'quote', titleKey: 'notif2Title', bodyKey: 'notif2Body', minutesAgo: 40, unread: true },
@@ -1939,6 +2364,42 @@ const notifListEl = $('#notif-list');
 const notifMarkAllBtn = $('#notif-mark-all-btn');
 const bellDotEl = $('.home-bell-dot');
 
+async function notifApi(path, method = 'GET') {
+  if (!authToken) return null;
+  try {
+    const res = await fetch(`/api/mobile/v1/notifications${path}`, { method, headers: { ...apiHeaders, Authorization: `Bearer ${authToken}` } });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Full list (what the notifications screen shows). */
+async function loadNotifications() {
+  const r = await notifApi('?per_page=40');
+  if (!r) return;
+  notifications = (r.data || []).map((n) => ({
+    id: n.id,
+    type: n.type || 'general',
+    event: n.event,
+    data: n.data || {},
+    title: n.title,
+    body: n.message,
+    minutesAgo: Math.max(0, Math.round((Date.now() - new Date(n.created_at_iso || n.created_at).getTime()) / 60000)) || 0,
+    unread: !n.read_at,
+  }));
+  renderNotifications();
+}
+
+/** Just the badge — cheap enough to poll while the app is open. */
+async function refreshBellBadge() {
+  const r = await notifApi('/unread-count');
+  if (r) bellDotEl.hidden = !(r.data?.count > 0);
+}
+
+// Wallet code calls this after money moves, so the new notification shows up straight away.
+window.dorrRefreshNotifications = () => { refreshBellBadge(); if (notifScreenEl.classList.contains('open')) loadNotifications(); };
+
 function renderNotifications() {
   const hasUnread = notifications.some((n) => n.unread);
   notifMarkAllBtn.hidden = !hasUnread;
@@ -1956,9 +2417,9 @@ function renderNotifications() {
   }
 
   notifListEl.innerHTML = notifications.map((n) => {
-    const style = NOTIF_TYPE_STYLE[n.type] || NOTIF_TYPE_STYLE.general;
+    const style = notifStyleFor(n);
     return `
-      <div class="notif-card ${n.unread ? 'unread' : ''}" data-id="${n.id}">
+      <div class="notif-card ${n.unread ? 'unread' : ''}" data-id="${escapeHtml(n.id)}">
         <div class="notif-card-icons">
           <span class="notif-dot" style="visibility:${n.unread ? 'visible' : 'hidden'}"></span>
           <span class="notif-type-icon" style="background:color-mix(in srgb, ${style.color} 10%, transparent); color:${style.color}">
@@ -1967,10 +2428,10 @@ function renderNotifications() {
         </div>
         <div class="notif-card-body">
           <div class="notif-card-title-row">
-            <span class="notif-card-title">${t(n.titleKey)}</span>
+            <span class="notif-card-title">${escapeHtml(n.title)}</span>
             <span class="notif-card-time">${notifRelativeTime(n.minutesAgo)}</span>
           </div>
-          <p class="notif-card-excerpt">${t(n.bodyKey)}</p>
+          <p class="notif-card-excerpt">${escapeHtml(n.body)}</p>
         </div>
       </div>
     `;
@@ -1978,10 +2439,12 @@ function renderNotifications() {
 
   $$('.notif-card', notifListEl).forEach((card) => {
     card.addEventListener('click', () => {
-      const id = card.dataset.id;
-      const item = notifications.find((n) => n.id === id);
+      const item = notifications.find((n) => String(n.id) === card.dataset.id);
       if (!item) return;
+      if (item.unread) {
       item.unread = false;
+        notifApi(`/${encodeURIComponent(item.id)}/read`, 'POST');
+      }
       renderNotifications();
       openNotificationDetail(item);
     });
@@ -1989,31 +2452,156 @@ function renderNotifications() {
 }
 
 function openNotificationDetail(item) {
-  const style = NOTIF_TYPE_STYLE[item.type] || NOTIF_TYPE_STYLE.general;
+  const style = notifStyleFor(item);
+  const isWallet = !!item.event?.startsWith('wallet.');
   sheetPanel.innerHTML = `
     <div class="notif-detail-header">
       <span class="notif-type-icon" style="background:color-mix(in srgb, ${style.color} 12%, transparent); color:${style.color}">
         <svg viewBox="0 0 24 24"><use href="#${style.icon}"/></svg>
       </span>
       <div>
-        <h3 style="margin:0">${t(n.titleKey) || t('notifDetailDefault')}</h3>
-        <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted)">${notifRelativeTime(n.minutesAgo)}</p>
+        <h3 style="margin:0">${escapeHtml(item.title || 'إشعار')}</h3>
+        <p style="margin:4px 0 0; font-size:12px; color:var(--text-muted)">${notifRelativeTime(item.minutesAgo)}</p>
       </div>
     </div>
-    <p class="notif-detail-body">${t(n.bodyKey)}</p>
+    <p class="notif-detail-body">${escapeHtml(item.body)}</p>
+    ${isWallet ? '<button type="button" class="btn-primary" id="notif-open-wallet" style="margin-top:14px;width:100%">فتح المحفظة</button>' : ''}
   `;
   sheetBackdrop.classList.add('open');
+  $('#notif-open-wallet')?.addEventListener('click', () => {
+    sheetBackdrop.classList.remove('open');
+    notifScreenEl.classList.remove('open');
+    $('#home-wallet-btn')?.click();
+  });
 }
 
 $('#bell-btn').addEventListener('click', () => {
   renderNotifications();
   notifScreenEl.classList.add('open');
+  loadNotifications();
 });
 $('#notif-back-btn').addEventListener('click', () => notifScreenEl.classList.remove('open'));
-notifMarkAllBtn.addEventListener('click', () => {
+notifMarkAllBtn.addEventListener('click', async () => {
   notifications = notifications.map((n) => ({ ...n, unread: false }));
   renderNotifications();
+  await notifApi('/read-all', 'POST');
 });
 
-// Set the initial bell-badge state without building the full list yet.
-bellDotEl.hidden = !notifications.some((n) => n.unread);
+// No badge until we know; then keep it fresh while the app is open.
+bellDotEl.hidden = true;
+setInterval(() => { if (authToken) refreshBellBadge(); }, 20000);
+
+// ===================== Home: services from the dashboard =====================
+// Real call to GET /api/general/v1/services — the service categories the admin
+// dashboard flags for the app home. Same contract the Android ServicesSection uses.
+const HS_COLLAPSED = 6;
+const HS_PALETTE = ['#21888F', '#FF8A4C', '#06B6D4', '#0E9F6E', '#8B5CF6', '#F59E0B', '#3B82F6', '#F05252'];
+const HS_ICONS = {
+  mechanic: 'icon-build', electrician: 'icon-build',
+  car_rental: 'icon-car', passenger_ride: 'icon-car', car_wash: 'icon-car',
+  parcels: 'icon-box', moving: 'icon-box', stores: 'icon-box',
+  chat: 'icon-chat', events: 'icon-event', system_users: 'icon-person', admin: 'icon-shield', admin_permission: 'icon-lock',
+};
+const hsGrid = $('#hs-grid');
+const hsToggle = $('#hs-toggle');
+let hsServices = [];
+
+function hsIcon(service, color) {
+  const inner = service.image
+    ? `<img src="${escapeHtml(service.image)}" alt="">`
+    : `<svg viewBox="0 0 24 24"><use href="#${HS_ICONS[service.module_name] || 'icon-services'}"/></svg>`;
+  return `<span class="hs-ico" style="--c:${color}">${inner}</span>`;
+}
+
+function renderServices() {
+  const visible = hsServices.slice(0, HS_COLLAPSED);
+  hsToggle.hidden = hsServices.length <= HS_COLLAPSED;
+  hsToggle.textContent = `عرض الكل (${hsServices.length})`;
+
+  hsGrid.innerHTML = visible.map((s, i) => {
+    const color = HS_PALETTE[i % HS_PALETTE.length];
+    const count = (s.children || []).length;
+    return `
+      <button type="button" class="hs-tile" data-id="${s.id}" style="--c:${color}; --d:${((i % 3) + Math.floor(i / 3)) * 45}ms">
+        ${count ? `<span class="hs-count">${count}</span>` : ''}
+        ${hsIcon(s, color)}
+        <span class="hs-name">${escapeHtml(s.name)}</span>
+      </button>`;
+  }).join('');
+
+  $$('.hs-tile', hsGrid).forEach((tile) => tile.addEventListener('click', () => {
+    const idx = hsServices.findIndex((s) => String(s.id) === tile.dataset.id);
+    const service = hsServices[idx];
+    if (!service) return;
+    if (service.has_children) openServiceSheet(service, HS_PALETTE[idx % HS_PALETTE.length]);
+    else showToast('هذه الخدمة ستتوفر قريباً');
+  }));
+}
+
+function openServiceSheet(service, color) {
+  const children = service.children || [];
+  sheetPanel.innerHTML = `
+    <div class="hs-sheet-head">
+      ${hsIcon(service, color)}
+      <div><h3>${escapeHtml(service.name)}</h3><small>${children.length} خدمات فرعية</small></div>
+    </div>
+    ${children.map((c) => `<div class="hs-child">${hsIcon(c, color)}<span class="n">${escapeHtml(c.name)}</span></div>`).join('')}
+  `;
+  sheetBackdrop.classList.add('open');
+}
+
+function loadServices() {
+  hsToggle.hidden = true;
+  hsGrid.innerHTML = '<div class="hs-skeleton"></div>'.repeat(6);
+  fetch('/api/general/v1/services', { headers: { Accept: 'application/json', 'X-Locale': 'ar' } })
+    .then((r) => r.json())
+    .then((res) => {
+      hsServices = Array.isArray(res.data) ? res.data : [];
+      renderServices();
+    })
+    .catch(() => {
+      hsGrid.innerHTML = '<div class="hs-error">تعذّر تحميل الخدمات<button type="button" id="hs-retry">إعادة المحاولة</button></div>';
+      $('#hs-retry').addEventListener('click', loadServices);
+    });
+}
+
+// Full services page — every service, searchable, one row each.
+const svScreen = $('#services-screen');
+const svList = $('#sv-list');
+const svSearch = $('#sv-search');
+const svCount = $('#sv-count');
+
+function renderServicesPage() {
+  const q = svSearch.value.trim().toLowerCase();
+  const rows = hsServices
+    .map((s, i) => ({ s, i }))
+    .filter(({ s }) => s.name.toLowerCase().includes(q));
+  svCount.textContent = `${rows.length} خدمة`;
+  svList.innerHTML = rows.length ? rows.map(({ s, i }) => {
+    const color = HS_PALETTE[i % HS_PALETTE.length];
+    const count = (s.children || []).length;
+    return `
+      <button type="button" class="sv-row" data-id="${s.id}" style="--c:${color}">
+        ${hsIcon(s, color)}
+        <span class="sv-txt"><b>${escapeHtml(s.name)}</b>${count ? `<small>${count} خدمات فرعية</small>` : ''}</span>
+        <svg class="sv-chev" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+      </button>`;
+  }).join('') : '<p class="sv-empty">لا توجد خدمات مطابقة لبحثك</p>';
+
+  $$('.sv-row', svList).forEach((row) => row.addEventListener('click', () => {
+    const idx = hsServices.findIndex((s) => String(s.id) === row.dataset.id);
+    const service = hsServices[idx];
+    if (!service) return;
+    if (service.has_children) openServiceSheet(service, HS_PALETTE[idx % HS_PALETTE.length]);
+    else showToast('هذه الخدمة ستتوفر قريباً');
+  }));
+}
+
+hsToggle.addEventListener('click', () => {
+  svSearch.value = '';
+  renderServicesPage();
+  svScreen.classList.add('open');
+});
+svSearch.addEventListener('input', renderServicesPage);
+$('#services-back-btn').addEventListener('click', () => svScreen.classList.remove('open'));
+loadServices();

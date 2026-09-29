@@ -18,6 +18,7 @@ class ServiceCategoriesSeeder extends Seeder
             ['name' => ['ar' => 'لوحة الإدارة', 'en' => 'Admin'], 'module_name' => 'admin', 'requires_provider' => false],
             ['name' => ['ar' => 'صلاحيات الإدارة', 'en' => 'Admin Permissions'], 'module_name' => 'admin_permission', 'requires_provider' => false],
             ['name' => ['ar' => 'الدردشة', 'en' => 'Chat'], 'module_name' => 'chat', 'requires_provider' => false],
+            ['name' => ['ar' => 'المساعد الذكي', 'en' => 'AI Assistant'], 'module_name' => 'ai_assistant', 'requires_provider' => false],
             ['name' => ['ar' => 'توصيل الركاب', 'en' => 'Passenger Ride'], 'module_name' => 'passenger_ride', 'requires_provider' => true],
             ['name' => ['ar' => 'تأجير السيارات', 'en' => 'Car Rental'], 'module_name' => 'car_rental', 'requires_provider' => true],
             ['name' => ['ar' => 'تعليم القيادة', 'en' => 'Driving Lessons'], 'module_name' => 'driving_lessons', 'requires_provider' => true],
@@ -47,7 +48,6 @@ class ServiceCategoriesSeeder extends Seeder
             ['name' => ['ar' => 'الملاعب', 'en' => 'Sports Venues'], 'module_name' => 'sports_venues', 'requires_provider' => true],
             ['name' => ['ar' => 'الفعاليات', 'en' => 'Events'], 'module_name' => 'events', 'requires_provider' => true],
             ['name' => ['ar' => 'العمل الحر', 'en' => 'Freelance'], 'module_name' => 'freelance', 'requires_provider' => true],
-            ['name' => ['ar' => 'المساعد الذكي', 'en' => 'AI Assistant'], 'module_name' => 'ai_assistant', 'requires_provider' => false],
         ];
 
         foreach ($rows as $index => $row) {

@@ -1,4 +1,4 @@
-﻿<template>
+<template>
     <aside class="app-sidebar sticky" id="sidebar">
         <div class="main-sidebar-header">
             <PlatformLogo href="/admin/dashboard" />
@@ -458,6 +458,32 @@
                             </li>
                         </template>
 
+                        <template v-if="showWalletSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.wallet') }}</span>
+                            </li>
+
+                            <li v-for="item in walletItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
+                        <template v-if="showChatAdminSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.chat') }}</span>
+                            </li>
+
+                            <li v-for="item in chatAdminItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
                         <template v-if="showStaffSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.staff') }}</span>
@@ -494,6 +520,20 @@
                                 <router-link :to="{ name: 'admin.platform-settings' }" class="side-menu__item">
                                     <i class="ri-settings-3-line side-menu__icon"></i>
                                     <span class="side-menu__label">{{ t('platform_settings.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('mobile_app_fonts.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-fonts.index' }" class="side-menu__item">
+                                    <i class="ri-font-size-2 side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_fonts.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('mobile_app_color_defaults.view')" class="slide">
+                                <router-link :to="{ name: 'admin.mobile-app-colors' }" class="side-menu__item">
+                                    <i class="ri-smartphone-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('mobile_app_color_defaults.title') }}</span>
                                 </router-link>
                             </li>
                         </template>
@@ -552,12 +592,39 @@ const showCatalogSection = computed(
         || can('languages.view'),
 );
 
+/** Wallet screens (Modules/Wallet); each entry is shown only to admins holding its `.view` permission. */
+const walletItems = [
+    { route: 'admin.wallet.wallets', permission: 'wallets.view', icon: 'ri-wallet-3-line', label: 'wallet.wallets.title' },
+    { route: 'admin.wallet.online-transactions', permission: 'online-transactions.view', icon: 'ri-bank-card-line', label: 'wallet.online.title' },
+    { route: 'admin.wallet.withdrawals', permission: 'withdrawal-requests.view', icon: 'ri-hand-coin-line', label: 'wallet.withdrawals.title' },
+    { route: 'admin.wallet.pin-recovery', permission: 'pin-recovery-requests.view', icon: 'ri-lock-unlock-line', label: 'wallet.pinrec.title' },
+    { route: 'admin.wallet.financial-entries', permission: 'financial-entries.view', icon: 'ri-file-list-3-line', label: 'wallet.ledger.title' },
+    { route: 'admin.wallet.payment-methods', permission: 'payment-methods.view', icon: 'ri-secure-payment-line', label: 'wallet.methods.title' },
+    { route: 'admin.wallet.fee-rules', permission: 'wallet-fee-rules.view', icon: 'ri-percent-line', label: 'wallet.rules.title' },
+    { route: 'admin.wallet.settings', permission: 'wallet-settings.view', icon: 'ri-settings-4-line', label: 'wallet.settings.title' },
+];
+
+const showWalletSection = computed(() => walletItems.some((item) => can(item.permission)));
+
+/** Chat screens (Modules/Chat), same rule as the wallet: each entry needs its `.view` permission. */
+const chatAdminItems = [
+    { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
+    { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
+    { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
+    { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
+];
+
+const showChatAdminSection = computed(() => chatAdminItems.some((item) => can(item.permission)));
+
 const showStaffSection = computed(
     () => can('admins.view') || can('roles.view'),
 );
 
 const showSettingsSection = computed(
-    () => can('dashboard_themes.view') || can('platform_settings.view'),
+    () => can('dashboard_themes.view')
+        || can('platform_settings.view')
+        || can('mobile_app_fonts.view')
+        || can('mobile_app_color_defaults.view'),
 );
 
 const isGeneralVisible = computed(() => {
