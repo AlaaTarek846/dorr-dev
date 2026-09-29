@@ -22,6 +22,19 @@ class MobileAppColorDefaultService
         );
     }
 
+    /** Public defaults for pre-login mobile (Splash, Login, OTP). */
+    public function publicDefaults(): JsonResponse
+    {
+        $record = $this->repository->active();
+        $storedLight = is_array($record->light_tokens) ? $record->light_tokens : [];
+        $storedDark = is_array($record->dark_tokens) ? $record->dark_tokens : [];
+
+        return ApiResponse::success([
+            'light_tokens' => MobileColorTokens::defaultsFromStoredLight($storedLight),
+            'dark_tokens' => MobileColorTokens::defaultsFromStoredDark($storedDark),
+        ], __('api.retrieved'));
+    }
+
     /**
      * @param  array<string, mixed>  $data
      */

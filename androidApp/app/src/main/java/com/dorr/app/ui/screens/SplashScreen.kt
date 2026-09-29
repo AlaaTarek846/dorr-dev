@@ -3,9 +3,12 @@ package com.dorr.app.ui.screens
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
+<<<<<<< HEAD
+=======
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.background
+>>>>>>> main
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
@@ -13,7 +16,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,7 +24,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.stringResource
@@ -30,12 +31,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
 import com.dorr.app.ui.components.DorrLogo
+<<<<<<< HEAD
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+=======
 import com.dorr.app.ui.components.dorrPageWash
 import androidx.compose.ui.draw.drawBehind
+>>>>>>> main
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.theme.LocalAppearance
+import com.dorr.app.ui.theme.appearanceColor
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -53,7 +61,14 @@ fun SplashScreen(onFinished: () -> Unit) {
     // The logo rises into place from below the centre while everything fades in.
     val rise = remember { Animatable(if (inspecting) 1f else 0f) }
 
+    val appearance = LocalAppearance.current
+
     LaunchedEffect(Unit) {
+        launch {
+            runCatching { ApiClient.mobileAppearanceDefaults.show().data }.getOrNull()?.let { dto ->
+                appearance.applyPlatform(dto.lightTokens, dto.darkTokens)
+            }
+        }
         launch { alphaAnim.animateTo(1f, tween(900)) }
         launch {
             scale.animateTo(
@@ -67,51 +82,8 @@ fun SplashScreen(onFinished: () -> Unit) {
     }
 
     val night = settingsNight()
-    val nightBg = AccountDark.bg
-    val glow = if (night) AccountDark.accent else settingsAccent()
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .drawBehind {
-                if (night) {
-                    drawRect(nightBg)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                            center = Offset(size.width * 0.5f, size.height * -0.08f),
-                            radius = size.width * 0.85f,
-                        ),
-                        radius = size.width * 0.85f,
-                        center = Offset(size.width * 0.5f, size.height * -0.08f),
-                    )
-                    return@drawBehind
-                }
-                // 1:1 port of #screen-splash's pink radial-gradient background.
-                drawRect(Color.White)
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                        center = Offset(size.width * -0.08f, size.height * -0.12f),
-                        radius = size.width * 1.3f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
-                        center = Offset(size.width * 0.5f, size.height * -0.18f),
-                        radius = size.width * 1.1f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(glow.copy(alpha = 0.12f), Color.Transparent),
-                        center = Offset(size.width * 1.12f, size.height * -0.08f),
-                        radius = size.width * 0.9f,
-                    ),
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.matchParentSize())
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -121,20 +93,14 @@ fun SplashScreen(onFinished: () -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Spacer(Modifier.weight(3f))
-            Box(
-                modifier = Modifier
-                    .size(104.dp)
-                    .then(if (night) Modifier else Modifier.shadow(10.dp, RoundedCornerShape(22.dp)))
-                    .background(if (night) AccountDark.card else Color.White, RoundedCornerShape(22.dp))
-                    .padding(8.dp)
-                    .graphicsLayer {
-                        translationY = (1f - rise.value) * 140.dp.toPx()
-                        alpha = rise.value
-                    },
-                contentAlignment = Alignment.Center,
-            ) {
-                DorrLogo(width = 88.dp)
-            }
+            DorrLogo(
+                width = 156.dp,
+                onDark = night,
+                modifier = Modifier.graphicsLayer {
+                    translationY = (1f - rise.value) * 140.dp.toPx()
+                    alpha = rise.value
+                },
+            )
             Spacer(Modifier.height(24.dp))
             Text(
                 text = stringResource(R.string.app_name),
@@ -152,13 +118,14 @@ fun SplashScreen(onFinished: () -> Unit) {
             Spacer(Modifier.weight(3f))
             Text(
                 text = stringResource(R.string.app_tagline),
-                color = if (night) AccountDark.mut else AppColors.textSecondary,
+                color = if (night) AccountDark.mut else appearanceColor("authTextMuted", AppColors.textSecondary, night = false),
                 fontSize = 12.sp,
             )
             Spacer(Modifier.height(24.dp))
         }
     }
 }
+
 
 // Cubic approximation of Curves.easeOutBack from the reference animation.
 private fun overshoot(x: Float): Float {

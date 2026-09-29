@@ -6,10 +6,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PUT
 
-/**
- * Logged-in appearance under /api/mobile/v1/appearance.
- * Font is intentionally not sent from this client yet.
- */
+/** Logged-in appearance under /api/mobile/v1/appearance. */
 interface AppearanceApi {
     @GET("mobile/v1/appearance")
     suspend fun show(
@@ -28,6 +25,9 @@ data class AppearanceDto(
     @SerializedName("custom_light_tokens") val customLightTokens: Map<String, String>? = null,
     @SerializedName("custom_dark_tokens") val customDarkTokens: Map<String, String>? = null,
     @SerializedName("dark_mode") val darkMode: String = "system",
+    @SerializedName("mobile_app_font_id") val mobileAppFontId: Int? = null,
+    val font: MobileAppFontDto? = null,
+    @SerializedName("available_fonts") val availableFonts: List<MobileAppFontDto>? = null,
     @SerializedName("customizable_token_keys") val customizableTokenKeys: List<String>? = null,
     val resolved: AppearanceTokenSetDto? = null,
     val default: AppearanceTokenSetDto? = null,
@@ -43,4 +43,5 @@ data class AppearanceUpdateRequest(
     @SerializedName("custom_light_tokens") val customLightTokens: Map<String, String>? = null,
     @SerializedName("custom_dark_tokens") val customDarkTokens: Map<String, String>? = null,
     @SerializedName("dark_mode") val darkMode: String? = null,
+    @SerializedName("mobile_app_font_id") val mobileAppFontId: Int? = null,
 )

@@ -1,5 +1,6 @@
 package com.dorr.app
 
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.LocalActivityResultRegistryOwner
@@ -15,21 +16,25 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import com.dorr.app.navigation.DorrNavGraph
 import com.dorr.app.network.NetworkMonitor
 import com.dorr.app.ui.locale.LocalizedApp
 import com.dorr.app.ui.screens.NoInternetScreen
 import com.dorr.app.ui.theme.AppearanceState
+import com.dorr.app.ui.theme.AppFontLoader
 import com.dorr.app.ui.theme.DorrTheme
 import com.dorr.app.ui.theme.LocalAppearance
+import com.dorr.app.ui.theme.LocalDorrFontFamily
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.ThemeState
 import com.dorr.app.ui.theme.toThemeOverride
@@ -45,11 +50,14 @@ class MainActivity : FragmentActivity() {
                 AndroidColor.WHITE,
                 AndroidColor.WHITE
             ),
-            navigationBarStyle = SystemBarStyle.light(
-                AndroidColor.WHITE,
-                AndroidColor.WHITE
+            navigationBarStyle = SystemBarStyle.auto(
+                AndroidColor.TRANSPARENT,
+                AndroidColor.TRANSPARENT,
             )
         )
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
         val networkMonitor = NetworkMonitor.getInstance(this)
 
         setContent {
@@ -64,15 +72,20 @@ class MainActivity : FragmentActivity() {
                 val themeOverride = appearance.snapshot.toThemeOverride()
                 SideEffect { themeState.isDark = themeOverride }
                 val isOnline by networkMonitor.isOnline.collectAsState()
+                val context = LocalContext.current
+                LaunchedEffect(appearance.snapshot?.font?.id, appearance.snapshot?.font?.slug) {
+                    appearance.fontFamily = AppFontLoader.load(context, appearance.snapshot?.font)
+                }
 
                 CompositionLocalProvider(
                     LocalThemeState provides themeState,
                     LocalAppearance provides appearance,
+                    LocalDorrFontFamily provides appearance.fontFamily,
                 ) {
                     DorrTheme(darkTheme = themeState.isDark ?: isSystemInDarkTheme()) {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
-                            color = Color.White
+                            color = MaterialTheme.colorScheme.background,
                         ) {
                             Box(
                                 modifier = Modifier

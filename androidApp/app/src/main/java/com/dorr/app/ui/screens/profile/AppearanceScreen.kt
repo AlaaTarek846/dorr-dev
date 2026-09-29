@@ -33,7 +33,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
+import androidx.compose.material.icons.rounded.SettingsBrightness
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -78,14 +81,20 @@ import kotlinx.coroutines.launch
 fun AppearanceScreen(onBack: () -> Unit) {
     val appearance = LocalAppearance.current
     val snap = appearance.snapshot
-    val night = settingsNight()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
-    var primaryText by remember(snap, night) { mutableStateOf(brandHex(snap, "primary", night, "#E50914")) }
-    var secondaryText by remember(snap, night) { mutableStateOf(brandHex(snap, "secondary", night, "#111928")) }
-    var backgroundText by remember(snap, night) { mutableStateOf(brandHex(snap, "background", night, "#FFFFFF")) }
-    var textColor by remember(snap, night) { mutableStateOf(brandHex(snap, "textPrimary", night, "#111928")) }
+    val lightStored = snap?.takeIf { it.usesDefaultColors == false }?.customLightTokens
+    val darkStored = snap?.takeIf { it.usesDefaultColors == false }?.customDarkTokens
+    val darkChosen = !darkStored.isNullOrEmpty() && !samePalette(lightStored, darkStored)
+    var lightPrimary by remember(snap) { mutableStateOf(pickedOrDefault(lightStored, snap, "primary", night = false, "#E50914")) }
+    var lightBackground by remember(snap) { mutableStateOf(pickedOrDefault(lightStored, snap, "background", night = false, "#FFFFFF")) }
+    var lightText by remember(snap) { mutableStateOf(pickedOrDefault(lightStored, snap, "textPrimary", night = false, "#111928")) }
+    var darkPrimary by remember(snap) { mutableStateOf(pickedOrDefault(if (darkChosen) darkStored else null, snap, "primary", night = true, "#FF4D57")) }
+    var darkBackground by remember(snap) { mutableStateOf(pickedOrDefault(if (darkChosen) darkStored else null, snap, "background", night = true, "#101216")) }
+    var darkText by remember(snap) { mutableStateOf(pickedOrDefault(if (darkChosen) darkStored else null, snap, "textPrimary", night = true, "#F4F5F7")) }
+    var lightEdited by remember(snap) { mutableStateOf(!lightStored.isNullOrEmpty()) }
+    var darkEdited by remember(snap) { mutableStateOf(darkChosen) }
     val saved = stringResource(R.string.appearance_saved)
     val failed = stringResource(R.string.appearance_failed)
     val mode = snap?.darkMode ?: "system"
@@ -123,13 +132,13 @@ fun AppearanceScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.appearance_mode), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp)
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    ModeChip(stringResource(R.string.appearance_mode_system), mode == "system", Modifier.weight(1f)) {
+                    ModeChip(stringResource(R.string.appearance_mode_system), Icons.Rounded.SettingsBrightness, mode == "system", Modifier.weight(1f)) {
                         push(AppearanceUpdateRequest(darkMode = "system"))
                     }
-                    ModeChip(stringResource(R.string.appearance_mode_light), mode == "light", Modifier.weight(1f)) {
+                    ModeChip(stringResource(R.string.appearance_mode_light), Icons.Rounded.LightMode, mode == "light", Modifier.weight(1f)) {
                         push(AppearanceUpdateRequest(darkMode = "light"))
                     }
-                    ModeChip(stringResource(R.string.appearance_mode_dark), mode == "dark", Modifier.weight(1f)) {
+                    ModeChip(stringResource(R.string.appearance_mode_dark), Icons.Rounded.DarkMode, mode == "dark", Modifier.weight(1f)) {
                         push(AppearanceUpdateRequest(darkMode = "dark"))
                     }
                 }
@@ -140,31 +149,69 @@ fun AppearanceScreen(onBack: () -> Unit) {
                     fontSize = 13.sp,
                 )
                 Spacer(Modifier.height(18.dp))
-                ColorField(
-                    label = stringResource(R.string.appearance_primary),
-                    value = primaryText,
-                    onValueChange = { primaryText = it },
-                )
-                Spacer(Modifier.height(12.dp))
-                ColorField(
-                    label = stringResource(R.string.appearance_secondary),
-                    value = secondaryText,
-                    onValueChange = { secondaryText = it },
-                )
-                Spacer(Modifier.height(12.dp))
-                ColorField(
-                    label = stringResource(R.string.appearance_background),
-                    value = backgroundText,
-                    onValueChange = { backgroundText = it },
-                )
-                Spacer(Modifier.height(12.dp))
-                ColorField(
-                    label = stringResource(R.string.appearance_text),
-                    value = textColor,
-                    onValueChange = { textColor = it },
-                )
-                Spacer(Modifier.height(8.dp))
-                Text(stringResource(R.string.appearance_both_modes), color = settingsMut(), fontSize = 12.sp)
+                val deviceNight = settingsNight()
+                val showLight = mode == "light" || mode == "system"
+                val showDark = mode == "dark" || mode == "system"
+                val darkFirst = mode == "system" && deviceNight
+
+                @Composable
+                fun LightColorsBlock() {
+                    Text(stringResource(R.string.appearance_light_colors), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Spacer(Modifier.height(12.dp))
+                    ColorField(stringResource(R.string.appearance_primary), lightPrimary) {
+                        lightPrimary = it
+                        lightEdited = true
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ColorField(stringResource(R.string.appearance_background), lightBackground) {
+                        lightBackground = it
+                        lightEdited = true
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ColorField(stringResource(R.string.appearance_text), lightText) {
+                        lightText = it
+                        lightEdited = true
+                    }
+                }
+
+                @Composable
+                fun DarkColorsBlock() {
+                    Text(stringResource(R.string.appearance_dark_colors), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Spacer(Modifier.height(12.dp))
+                    ColorField(stringResource(R.string.appearance_primary), darkPrimary) {
+                        darkPrimary = it
+                        darkEdited = true
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ColorField(stringResource(R.string.appearance_background), darkBackground) {
+                        darkBackground = it
+                        darkEdited = true
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    ColorField(stringResource(R.string.appearance_text), darkText) {
+                        darkText = it
+                        darkEdited = true
+                    }
+                }
+
+                when {
+                    showLight && showDark && darkFirst -> {
+                        DarkColorsBlock()
+                        Spacer(Modifier.height(18.dp))
+                        LightColorsBlock()
+                    }
+                    showLight && showDark -> {
+                        LightColorsBlock()
+                        Spacer(Modifier.height(18.dp))
+                        DarkColorsBlock()
+                    }
+                    showLight -> LightColorsBlock()
+                    showDark -> DarkColorsBlock()
+                }
+                if (showLight && showDark) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(stringResource(R.string.appearance_separate_modes), color = settingsMut(), fontSize = 12.sp)
+                }
                 Spacer(Modifier.height(16.dp))
                 val shape = RoundedCornerShape(14.dp)
                 Box(
@@ -173,17 +220,22 @@ fun AppearanceScreen(onBack: () -> Unit) {
                         .clip(shape)
                         .background(settingsAccent())
                         .clickable(enabled = !busy) {
-                            val colors = mapOf(
-                                "primary" to primaryText,
-                                "secondary" to secondaryText,
-                                "background" to backgroundText,
-                                "textPrimary" to textColor,
-                            )
                             push(
                                 AppearanceUpdateRequest(
-                                    usesDefaultColors = false,
-                                    customLightTokens = colors,
-                                    customDarkTokens = colors,
+                                    usesDefaultColors = when {
+                                        lightEdited || darkEdited -> false
+                                        else -> null
+                                    },
+                                    customLightTokens = if (lightEdited) {
+                                        palette(lightPrimary, lightBackground, lightText)
+                                    } else {
+                                        null
+                                    },
+                                    customDarkTokens = if (darkEdited) {
+                                        palette(darkPrimary, darkBackground, darkText)
+                                    } else {
+                                        null
+                                    },
                                 ),
                             ) {
                                 Toast.makeText(context, saved, Toast.LENGTH_SHORT).show()
@@ -222,8 +274,15 @@ fun AppearanceScreen(onBack: () -> Unit) {
 }
 
 @Composable
-private fun ModeChip(label: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun ModeChip(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+) {
     val shape = RoundedCornerShape(12.dp)
+    val tint = if (selected) Color.White else settingsInk()
     Box(
         modifier = modifier
             .clip(shape)
@@ -232,15 +291,14 @@ private fun ModeChip(label: String, selected: Boolean, modifier: Modifier = Modi
                 else Modifier.settingsSurface(shape),
             )
             .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
+            .padding(horizontal = 6.dp, vertical = 12.dp),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            label,
-            color = if (selected) Color.White else settingsInk(),
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(label, color = tint, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        }
     }
 }
 
@@ -307,7 +365,7 @@ private fun ColorPickerDialog(initial: String, onConfirm: (String) -> Unit, onDi
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(16.dp))
                     .shadow(16.dp, RoundedCornerShape(16.dp))
-                    .background(if (settingsNight()) AccountDark.card else Color.White)
+                    .background(settingsCard())
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {})
                     .padding(12.dp),
             ) {
@@ -473,6 +531,34 @@ private fun RgbBox(label: String, channel: Int, modifier: Modifier, onChannel: (
                 .onFocusChanged { focused = it.isFocused },
         )
         Text(label, color = settingsMut(), fontSize = 12.sp)
+    }
+}
+
+private fun palette(primary: String, background: String, text: String): Map<String, String> = mapOf(
+    "primary" to primary,
+    "background" to background,
+    "textPrimary" to text,
+)
+
+private fun pickedOrDefault(
+    custom: Map<String, String>?,
+    snap: AppearanceDto?,
+    key: String,
+    night: Boolean,
+    fallback: String,
+): String {
+    val picked = custom?.get(key)?.let(::normalizeBrandHex)
+    if (picked != null) return picked
+    val defaults = if (night) snap?.default?.darkTokens?.get(key) else snap?.default?.lightTokens?.get(key)
+    return normalizeBrandHex(defaults ?: fallback) ?: fallback
+}
+
+private fun samePalette(light: Map<String, String>?, dark: Map<String, String>?): Boolean {
+    if (light.isNullOrEmpty() || dark.isNullOrEmpty()) return false
+    return listOf("primary", "background", "textPrimary").all { key ->
+        val left = light[key]?.let(::normalizeBrandHex)
+        val right = dark[key]?.let(::normalizeBrandHex)
+        left != null && left == right
     }
 }
 
