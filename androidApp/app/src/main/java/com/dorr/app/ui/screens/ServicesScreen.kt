@@ -63,6 +63,9 @@ import com.dorr.app.ui.components.serviceIcon
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
@@ -106,10 +109,10 @@ fun ServicesScreen(onBack: () -> Unit) {
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = if (night) AccountDark.line else AppColors.border,
                                 focusedBorderColor = if (night) AccountDark.accent else settingsAccent(),
-                                unfocusedContainerColor = if (night) AccountDark.card else Color.White,
-                                focusedContainerColor = if (night) AccountDark.card else Color.White,
-                                unfocusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
-                                focusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
+                                unfocusedContainerColor = settingsCard(),
+                                focusedContainerColor = settingsCard(),
+                                unfocusedTextColor = settingsInk(),
+                                focusedTextColor = settingsInk(),
                                 cursorColor = if (night) AccountDark.accent else settingsAccent(),
                             ),
                             modifier = Modifier.fillMaxWidth(),
@@ -170,7 +173,7 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
                 else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
             )
             .clip(RoundedCornerShape(18.dp))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
@@ -183,7 +186,7 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
                 service.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+                color = settingsInk(),
             )
             if (childCount > 0) {
                 Spacer(Modifier.height(2.dp))

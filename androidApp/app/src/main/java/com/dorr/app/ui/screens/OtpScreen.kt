@@ -200,7 +200,7 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
 
     Box(modifier = Modifier.fillMaxSize()) {
         // Full bleed background canvas
-        OtpBackdrop(Modifier.fillMaxSize())
+        com.dorr.app.ui.screens.profile.PinkBackdrop(Modifier.fillMaxSize())
 
         // Content with safe area insets
         Column(
@@ -401,34 +401,6 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
 
     LaunchedEffect(Unit) {
         focusRequesters[0].requestFocus()
-    }
-}
-
-@Composable
-private fun OtpBackdrop(modifier: Modifier = Modifier) {
-    val night = settingsNight()
-    val base = if (night) AccountDark.bg else Color.White
-    val glow = if (night) AccountDark.accent else settingsAccent()
-    Canvas(modifier) {
-        drawRect(base)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.08f),
-                radius = size.width * 0.85f,
-            ),
-            radius = size.width * 0.85f,
-            center = Offset(size.width * 0.5f, size.height * -0.08f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(size.width * 1.05f, size.height * 0.02f),
-                radius = size.width * 0.55f,
-            ),
-            radius = size.width * 0.55f,
-            center = Offset(size.width * 1.05f, size.height * 0.02f),
-        )
     }
 }
 

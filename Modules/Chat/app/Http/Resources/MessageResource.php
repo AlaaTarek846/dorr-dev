@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Services\MoneyRequestService;
 use Modules\Chat\Support\MessageViewContext;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -38,7 +39,22 @@ class MessageResource extends JsonResource
             'type' => $m->type->value,
             'body' => $gone ? null : $m->body,
             'meta' => $gone ? null : $m->meta,
-            'attachments' => $gone ? [] : $this->attachments($m),
+            // View-once files are never listed: the recipient gets them once from POST messages/{m}/open.
+            'attachments' => $gone || $m->view_once ? [] : $this->attachments($m),
+            'view_once' => $m->view_once,
+            // Mine: someone opened it · Theirs: I already opened it (it can't be opened again).
+            'view_once_opened' => $m->view_once
+                ? ($ctx->isMine($m) ? ($ctx->openedByOthers[$m->id] ?? 0) > 0 : isset($ctx->openedByMe[$m->id]))
+                : null,
+            'link_preview' => $gone ? null : ($m->meta['link_preview'] ?? null),
+            // Channels: how many followers saw this post.
+            'views' => $ctx->conversation->isChannel() && $m->sender_type !== null ? ($ctx->views[$m->id] ?? 0) : null,
+            'poll' => $m->type === MessageType::Poll && ! $gone ? $this->poll($m) : null,
+            'live_location' => $m->type === MessageType::Location && ! $gone ? $this->live($m) : null,
+            // Money request / bill split, as this viewer sees it (can I pay? my share…).
+            'payment' => in_array($m->type, [MessageType::MoneyRequest, MessageType::BillSplit], true) && ! $gone
+                ? MoneyRequestService::present($m, $ctx->me, fn ($type, $id) => $ctx->profile($type, $id))
+                : null,
             'sender' => $ctx->profile($m->sender_type, $m->sender_id),
             'is_mine' => $ctx->isMine($m),
             'status' => $ctx->statusOf($m),
@@ -83,6 +99,44 @@ class MessageResource extends JsonResource
     }
 
     /**
+     * @return array<string, mixed>
+     */
+    private function poll(ChatMessage $m): array
+    {
+        $summary = $this->context->polls[$m->id] ?? ['counts' => [], 'voters' => 0];
+
+        return [
+            'question' => $m->body,
+            'multiple' => (bool) data_get($m->meta, 'multiple'),
+            'options' => collect((array) data_get($m->meta, 'options'))->map(fn ($o) => [
+                'id' => (int) $o['id'],
+                'text' => (string) $o['text'],
+                'votes' => (int) ($summary['counts'][(int) $o['id']] ?? 0),
+            ])->values()->all(),
+            'my_votes' => $this->context->myVotes[$m->id] ?? [],
+            'voters' => $summary['voters'],
+        ];
+    }
+
+    /**
+     * @return array{active: bool, live_until: string|null, updated_at: string|null}|null
+     */
+    private function live(ChatMessage $m): ?array
+    {
+        $until = data_get($m->meta, 'live_until');
+
+        if ($until === null) {
+            return null;
+        }
+
+        return [
+            'active' => ! data_get($m->meta, 'stopped') && now()->lt($until),
+            'live_until' => (string) $until,
+            'updated_at' => data_get($m->meta, 'updated_at'),
+        ];
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function replyPreview(ChatMessage $m): ?array
@@ -111,7 +165,7 @@ class MessageResource extends JsonResource
 
     private function thumbnail(ChatMessage $m): ?string
     {
-        if (! $m->type->hasAttachments()) {
+        if (! $m->type->hasAttachments() || $m->view_once) {
             return null;
         }
 

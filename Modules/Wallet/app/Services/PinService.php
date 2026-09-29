@@ -39,6 +39,17 @@ class PinService
         return $this->find($owner)?->must_change === true;
     }
 
+    /**
+     * The end of a temporary lock (too many wrong PINs), while it lasts — so the app can show the
+     * countdown straight away on reopening, instead of the keypad until the next wrong try.
+     */
+    public function lockedUntil(Model $owner): ?\Illuminate\Support\Carbon
+    {
+        $until = $this->find($owner)?->locked_until;
+
+        return $until !== null && $until->isFuture() ? $until : null;
+    }
+
     /** Permanently locked — see PinFrozenException. Lifted only by {@see WalletRecoveryService::approve()}. */
     public function isFrozen(Model $owner): bool
     {

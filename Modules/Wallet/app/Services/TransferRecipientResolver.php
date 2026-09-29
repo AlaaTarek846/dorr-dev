@@ -191,6 +191,20 @@ class TransferRecipientResolver
         return $digits;
     }
 
+    /**
+     * A recipient token for someone the sender already knows by account — the chat's "pay this
+     * request" flow, where the requester *is* the recipient (no typing, so no lookup step). Same
+     * token, same checks and expiry as a lookup; TransferService::send() still decides everything.
+     *
+     * @throws TransferException
+     */
+    public function tokenFor(User $sender, Country $country, User $recipient): string
+    {
+        $this->assertPayable($sender, $recipient);
+
+        return $this->present($sender, $country, $recipient, $this->walletOf($recipient, $country), 'chat', [])['recipient_token'];
+    }
+
     private function assertPayable(User $sender, ?User $recipient): void
     {
         // One answer for "no such user", "inactive", "yourself", "other country".

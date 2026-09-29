@@ -436,9 +436,22 @@ class ChatTest extends TestCase
 
     public function test_lookup_by_number_and_by_qr(): void
     {
+        $this->saudi->update(['phone_starts_with' => '5']);
         $this->as($this->alice);
         $this->postJson('/api/mobile/v1/chat/contacts/lookup', ['phone' => '0500000002'], $this->headers())->assertOk()->assertJsonPath('data.id', $this->bob->id);
         $this->postJson('/api/mobile/v1/chat/contacts/lookup', ['phone' => '0599999999'], $this->headers())->assertNotFound();
+
+        // With or without the country code, spaces or the trunk 0 — the same person.
+        foreach (['500000002', '966500000002', '+966 50 000 0002', '00966500000002'] as $written) {
+            $this->postJson('/api/mobile/v1/chat/contacts/lookup', ['phone' => $written], $this->headers())->assertOk()->assertJsonPath('data.id', $this->bob->id);
+        }
+        $this->postJson('/api/mobile/v1/chat/contacts/lookup', ['phone' => '500000002', 'country_code' => 'SA'], $this->headers())->assertOk();
+
+        // Only a whole number: too short, too long, or the wrong first digit is refused, not searched.
+        foreach (['5000000', '5000000021', '400000002'] as $partial) {
+            $this->postJson('/api/mobile/v1/chat/contacts/lookup', ['phone' => $partial], $this->headers())
+                ->assertStatus(422)->assertJsonPath('error_code', 'chat_invalid_phone');
+        }
 
         $this->as($this->bob);
         $payload = $this->getJson('/api/mobile/v1/chat/contacts/qr', $this->headers())->json('data.payload');

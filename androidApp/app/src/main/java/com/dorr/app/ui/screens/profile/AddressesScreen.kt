@@ -498,7 +498,7 @@ private fun DeleteAddressDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(if (night) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(28.dp)) else Modifier)
                 .padding(horizontal = 22.dp, vertical = 26.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -616,7 +616,7 @@ private fun AddressesTopHeader(
                 .size(42.dp)
                 .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = Color(0x20000000)))
                 .clip(CircleShape)
-                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
@@ -645,7 +645,7 @@ private fun CustomSearchPill(
             .fillMaxWidth()
             .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, RoundedCornerShape(50), spotColor = Color(0x12000000)))
             .clip(RoundedCornerShape(50))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(50)) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
@@ -674,7 +674,7 @@ private fun CustomSearchPill(
                     singleLine = true,
                     textStyle = TextStyle(
                         fontSize = 14.sp,
-                        color = if (settingsNight()) AccountDark.ink else Color(0xFF1E293B),
+                        color = settingsInk(),
                         fontWeight = FontWeight.Medium,
                     ),
                     cursorBrush = SolidColor(settingsAccent()),
@@ -845,7 +845,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFFECDD3), RoundedCornerShape(12.dp))
                 .alpha(if (item.isDefault) 0.35f else 1f)
                 .clickable(onClick = onDelete),
@@ -1187,7 +1187,7 @@ private fun EditorKindChip(
     modifier: Modifier = Modifier,
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (selected) settingsAccent() else if (settingsNight()) AccountDark.card else Color.White,
+        targetValue = if (selected) settingsAccent() else settingsCard(),
         label = "chip_bg",
     )
     val contentColor by animateColorAsState(
@@ -1281,7 +1281,7 @@ private fun EditorFieldSection(
                         singleLine = true,
                         textStyle = TextStyle(
                             fontSize = 14.sp,
-                            color = if (settingsNight()) AccountDark.ink else Color(0xFF0F172A),
+                            color = settingsInk(),
                             fontWeight = FontWeight.Medium,
                         ),
                         cursorBrush = SolidColor(settingsAccent()),
@@ -1604,7 +1604,7 @@ private fun ShowMoreButton(loading: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .border(1.5.dp, if (settingsNight()) AccountDark.line else settingsAccent().copy(alpha = 0.35f), RoundedCornerShape(50))
             .clickable(enabled = !loading, onClick = onClick)
             .padding(vertical = 12.dp),

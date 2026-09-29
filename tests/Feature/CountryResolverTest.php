@@ -18,6 +18,8 @@ class CountryResolverTest extends TestCase
 {
     use RefreshDatabase;
 
+    private const PUBLIC_IP = '156.204.10.10';
+
     private CountryResolver $resolver;
 
     private Country $saudi;
@@ -29,6 +31,9 @@ class CountryResolverTest extends TestCase
         parent::setUp();
 
         $this->resolver = app(CountryResolver::class);
+
+        // The IP helper reads the app's current request; a loopback address is never looked up.
+        $this->app->instance('request', Request::create('/', 'GET', server: ['REMOTE_ADDR' => self::PUBLIC_IP]));
 
         $currency = Currency::create(['code' => 'SAR', 'symbol' => 'ر.س']);
         $flagSa = Flag::create(['code' => 'sa']);
@@ -59,21 +64,21 @@ class CountryResolverTest extends TestCase
         $user = User::create(['name' => 'U', 'phone' => '966500000002', 'country_id' => $this->egypt->id, 'status' => 'active']);
         Auth::guard('user_api')->setUser($user);
 
-        Http::fake(['*geoplugin*' => Http::response(['geoplugin_countryCode' => 'SA'])]);
+        Http::fake(['*ipwho.is*' => Http::response(['country_code' => 'SA'])]);
 
         $this->assertSame($this->egypt->id, $this->resolver->resolve(Request::create('/'))->id);
     }
 
     public function test_falls_back_to_ip_lookup_when_not_authenticated(): void
     {
-        Http::fake(['*geoplugin*' => Http::response(['geoplugin_countryCode' => 'EG'])]);
+        Http::fake(['*ipwho.is*' => Http::response(['country_code' => 'EG'])]);
 
         $this->assertSame($this->egypt->id, $this->resolver->resolve(Request::create('/'))->id);
     }
 
     public function test_falls_back_to_default_country_when_the_ip_provider_is_completely_unreachable(): void
     {
-        Http::fake(['*geoplugin*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('simulated outage')]);
+        Http::fake(['*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('simulated outage')]);
 
         // Must not throw a 500 — resolves to is_default instead.
         $resolved = $this->resolver->resolve(Request::create('/'));
@@ -84,7 +89,7 @@ class CountryResolverTest extends TestCase
 
     public function test_explicit_choice_for_an_unknown_or_inactive_code_is_ignored_not_fatal(): void
     {
-        Http::fake(['*geoplugin*' => Http::response(['geoplugin_countryCode' => 'EG'])]);
+        Http::fake(['*ipwho.is*' => Http::response(['country_code' => 'EG'])]);
 
         $request = Request::create('/', 'GET', server: ['HTTP_X_COUNTRY' => 'ZZ']);
 
@@ -99,5 +104,46 @@ class CountryResolverTest extends TestCase
         $response = $this->getJson('/__test/country', ['X-Country' => 'EG']);
 
         $response->assertOk()->assertJson(['code' => 'EG']);
+    }
+
+    public function test_second_provider_is_used_when_the_first_one_fails(): void
+    {
+        Http::fake([
+            '*ipwho.is*' => Http::response([], 500),
+            '*ip-api.com*' => Http::response(['status' => 'success', 'countryCode' => 'EG']),
+        ]);
+
+        $this->assertSame('EG', getCountryCodeByIp());
+    }
+
+    public function test_cloudflare_country_header_is_used_without_any_lookup(): void
+    {
+        Http::fake();
+        $this->app->instance('request', Request::create('/', 'GET', server: ['REMOTE_ADDR' => self::PUBLIC_IP, 'HTTP_CF_IPCOUNTRY' => 'EG']));
+
+        $this->assertSame('EG', getCountryCodeByIp());
+        Http::assertNothingSent();
+    }
+
+    public function test_a_loopback_address_gets_the_default_without_a_lookup(): void
+    {
+        Http::fake();
+        $this->app->instance('request', Request::create('/', 'GET', server: ['REMOTE_ADDR' => '127.0.0.1']));
+
+        $this->assertSame('SA', getCountryCodeByIp());
+        Http::assertNothingSent();
+    }
+
+    public function test_a_detected_but_inactive_country_answers_the_default_until_it_is_switched_on(): void
+    {
+        $this->egypt->update(['status' => false]);
+        Http::fake(['*ipwho.is*' => Http::response(['country_code' => 'EG'])]);
+
+        $this->assertSame('SA', getCountryCodeByIp());
+
+        // The detection is cached, but "active" is checked each time: switching Egypt on works at once.
+        $this->egypt->update(['status' => true]);
+        $this->assertSame('EG', getCountryCodeByIp());
+        Http::assertSentCount(1);
     }
 }

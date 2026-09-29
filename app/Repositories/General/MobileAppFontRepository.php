@@ -3,11 +3,11 @@
 namespace App\Repositories\General;
 
 use App\Models\MobileAppFont;
-use App\Repositories\TranslatableRepository;
+use App\Repositories\BaseRepository;
 
-class MobileAppFontRepository extends TranslatableRepository
+class MobileAppFontRepository extends BaseRepository
 {
-    protected array $with = ['translations', 'translation', 'media'];
+    protected array $with = ['media'];
 
     protected array $deleteBlockRelations = ['userAppearances'];
 
@@ -21,10 +21,10 @@ class MobileAppFontRepository extends TranslatableRepository
      */
     protected function reservedPayloadKeys(): array
     {
-        return array_merge(parent::reservedPayloadKeys(), [
+        return [
             'font_files',
             'remove_font_file_ids',
-        ]);
+        ];
     }
 
     public function defaultFont(): ?MobileAppFont

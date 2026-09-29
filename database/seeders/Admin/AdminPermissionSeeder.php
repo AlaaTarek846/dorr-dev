@@ -188,6 +188,10 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete'],
             ],
+            'chat-stickers' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
             'chat-reports' => [
                 'module_name' => 'general_services',
                 'actions' => ['view', 'update'],
@@ -230,6 +234,36 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                     'delete',
                     'multiple-delete',
+                ],
+            ],
+            'sms-providers' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                    'test',
+                ],
+            ],
+            'whatsapp' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'test',
+                ],
+            ],
+            'otp-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                    'send',
                 ],
             ],
         ];

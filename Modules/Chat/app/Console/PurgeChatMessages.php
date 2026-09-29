@@ -4,6 +4,7 @@ namespace Modules\Chat\Console;
 
 use Illuminate\Console\Command;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatPinnedMessage;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Services\StoryService;
@@ -51,7 +52,29 @@ class PurgeChatMessages extends Command
 
         $stories = app(StoryService::class)->purgeExpired();
 
-        $this->info("{$expired} disappeared, {$wiped} wiped, {$pins} pins expired, {$stories} stories expired.");
+        // View-once files: gone once everyone else opened them (10 minutes of grace to finish
+        // watching), and after 14 days in any case — like WhatsApp.
+        $viewOnce = 0;
+        ChatMessage::query()->where('view_once', true)->where('created_at', '<=', now()->subMinutes(10))
+            ->whereHas('media')
+            ->with('conversation')
+            ->chunkById(200, function ($messages) use (&$viewOnce) {
+                foreach ($messages as $message) {
+                    $others = $message->conversation?->activeParticipants()
+                        ->where(fn ($q) => $q->where('participant_type', '!=', $message->sender_type)->orWhere('participant_id', '!=', $message->sender_id))
+                        ->pluck('id') ?? collect();
+                    $opened = ChatMessageUserState::query()->where('message_id', $message->id)->whereIn('participant_id', $others)
+                        ->whereNotNull('opened_at')->where('opened_at', '<=', now()->subMinutes(10))->count();
+
+                    if ($message->created_at->lte(now()->subDays(14)) || ($others->isNotEmpty() && $opened >= $others->count())) {
+                        $message->clearMediaCollection(ChatMessage::ATTACHMENTS);
+                        $message->clearMediaCollection(ChatMessage::THUMBNAIL);
+                        $viewOnce++;
+                    }
+                }
+            });
+
+        $this->info("{$expired} disappeared, {$wiped} wiped, {$pins} pins expired, {$stories} stories expired, {$viewOnce} view-once cleared.");
 
         return self::SUCCESS;
     }

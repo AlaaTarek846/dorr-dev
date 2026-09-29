@@ -75,6 +75,18 @@ return [
 
     'dark_mode_values' => ['system', 'light', 'dark'],
 
+    /** Directory (relative to project root) scanned by MobileAppFontSeeder. */
+    'fonts_seed_directory' => 'fonts',
+
+    /** Default mobile font — matches androidApp CairoFontFamily (Type.kt). */
+    'default_font_slug' => 'cairo',
+
+    /** Copied into fonts_seed_directory when cairo.ttf is missing there. */
+    'cairo_font_fallback_paths' => [
+        'public/app/fonts/cairo.ttf',
+        'androidApp/app/src/main/res/font/cairo.ttf',
+    ],
+
     /**
      * Login / OTP / Splash auth chrome (Android LoginScreen, AccountDark, PinkBackdrop).
      * Stored in light_tokens / dark_tokens JSON but not editable in admin UI (16 core keys only).

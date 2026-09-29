@@ -35,7 +35,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddAPhoto
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -157,7 +161,7 @@ fun LockedGate(onUnlocked: () -> Unit) {
 /** One text field + a button (folder name, rename…). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TextInputSheet(title: String, initial: String = "", action: String, onDismiss: () -> Unit, onDone: (String) -> Unit) {
+fun TextInputSheet(title: String, initial: String = "", action: String, icon: ImageVector = Icons.Rounded.Edit, onDismiss: () -> Unit, onDone: (String) -> Unit) {
     var value by remember { mutableStateOf(initial) }
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
@@ -165,9 +169,7 @@ fun TextInputSheet(title: String, initial: String = "", action: String, onDismis
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).padding(16.dp)) {
-                BasicTextField(value, { value = it.take(50) }, singleLine = true, textStyle = TextStyle(color = Ch.Ink, fontSize = 15.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth().focusRequester(focus))
-            }
+            ChField(value, { value = it.take(50) }, title, icon = icon, fontSize = 15.sp, fieldModifier = Modifier.focusRequester(focus))
             Spacer(Modifier.height(16.dp))
             ChPrimaryButton(action, modifier = Modifier.fillMaxWidth(), enabled = value.isNotBlank()) { onDone(value.trim()); onDismiss() }
         }
@@ -262,9 +264,9 @@ fun GroupEditSheet(conversation: ConversationDto, onDismiss: () -> Unit, onSaved
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Field(name, stringResource(R.string.ch_group_name_hint)) { name = it.take(100) }
+            Field(name, stringResource(R.string.ch_group_name_hint), Icons.Rounded.Groups) { name = it.take(100) }
             Spacer(Modifier.height(10.dp))
-            Field(description, stringResource(R.string.ch_group_desc_hint)) { description = it.take(2000) }
+            Field(description, stringResource(R.string.ch_group_desc_hint), Icons.Rounded.Notes, multiline = true) { description = it.take(2000) }
             Spacer(Modifier.height(16.dp))
             ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = name.isNotBlank() && !saving) {
                 saving = true
@@ -290,11 +292,8 @@ fun GroupEditSheet(conversation: ConversationDto, onDismiss: () -> Unit, onSaved
 }
 
 @Composable
-private fun Field(value: String, hint: String, onChange: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).padding(16.dp)) {
-        if (value.isEmpty()) Text(hint, color = Ch.Soft, fontSize = 15.sp)
-        BasicTextField(value, onChange, textStyle = TextStyle(color = Ch.Ink, fontSize = 15.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
-    }
+private fun Field(value: String, hint: String, icon: ImageVector, multiline: Boolean = false, onChange: (String) -> Unit) {
+    ChField(value, onChange, hint, icon = icon, singleLine = !multiline, fontSize = 15.sp)
 }
 
 /** Light / dark / same as the app. */
