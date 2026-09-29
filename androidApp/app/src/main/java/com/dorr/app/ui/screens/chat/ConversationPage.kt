@@ -278,7 +278,11 @@ fun ConversationPage(route: ChRoute.Conversation) {
             PinnedBanner(state) { jumpTo(it) }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
+<<<<<<< HEAD
+                ChWallpaper()
+=======
                 ThemedWallpaper(chatTheme)
+>>>>>>> main
                 when {
                     state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red, strokeWidth = 3.dp) }
                     state.failed -> ChEmptyState(Icons.Rounded.Warning, stringResource(R.string.ch_load_failed), stringResource(R.string.ch_error_network), stringResource(R.string.ch_retry), onAction = { scope.launch { state.load() } })

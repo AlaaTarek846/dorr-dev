@@ -236,6 +236,36 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
+            'sms-providers' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'change-status',
+                    'multiple-delete',
+                    'test',
+                ],
+            ],
+            'whatsapp' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'create',
+                    'update',
+                    'delete',
+                    'test',
+                ],
+            ],
+            'otp-settings' => [
+                'module_name' => 'general_services',
+                'actions' => [
+                    'view',
+                    'update',
+                    'send',
+                ],
+            ],
         ];
     }
 

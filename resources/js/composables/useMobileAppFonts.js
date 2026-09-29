@@ -8,9 +8,8 @@ export function useMobileAppFonts() {
         lazyCounts: true,
         confirmDeleteKey: 'mobile_app_fonts.confirm_delete',
         searchDefaults: {
-            columns: ['slug'],
-            searchInTranslations: true,
-            filterTranslationByLocale: false,
+            columns: ['slug', 'name'],
+            searchInTranslations: false,
         },
         dataKey: 'mobile_app_fonts',
     });

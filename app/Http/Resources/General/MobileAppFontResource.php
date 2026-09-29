@@ -2,15 +2,12 @@
 
 namespace App\Http\Resources\General;
 
-use App\Http\Resources\Concerns\FormatsTranslations;
 use App\Models\MobileAppFont;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class MobileAppFontResource extends JsonResource
 {
-    use FormatsTranslations;
-
     /**
      * @return array<string, mixed>
      */
@@ -19,8 +16,9 @@ class MobileAppFontResource extends JsonResource
         /** @var MobileAppFont $font */
         $font = $this->resource;
 
-        return array_merge([
+        return [
             'id' => $font->id,
+            'name' => $font->name,
             'slug' => $font->slug,
             'status' => (bool) $font->status,
             'is_default' => (bool) $font->is_default,
@@ -38,7 +36,7 @@ class MobileAppFontResource extends JsonResource
             'created_at' => $font->created_at?->toISOString(),
             'updated_at' => $font->updated_at?->toISOString(),
             'deleted_at' => $font->deleted_at?->toISOString(),
-        ], $this->translationFields());
+        ];
     }
 
     private static function pathOnlyUrl(string $url): string

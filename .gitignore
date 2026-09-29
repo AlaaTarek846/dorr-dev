@@ -24,3 +24,33 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 /public/dashboard/themes/theme-1/html
+
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0ef82f8ab4ed44b94459c50dc8314a593b3782ec
+# Gradle
+.gradle/
+**/.gradle/
+
+# Android build files
+build/
+**/build/
+
+# Android local config
+local.properties
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+
+# Kotlin
+.kotlin/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+<<<<<<< HEAD
+
+=======
+>>>>>>> 0ef82f8ab4ed44b94459c50dc8314a593b3782ec

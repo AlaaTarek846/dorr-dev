@@ -84,7 +84,7 @@ class WalletPinRecoveryTest extends TestCase
     private function mailedCode(): string
     {
         $code = null;
-        Mail::assertSent(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
+        Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
             $code = $mail->code;
 
             return true;
@@ -491,7 +491,7 @@ class WalletPinRecoveryTest extends TestCase
             ->assertJsonPath('data.recovery.method', 'password')
             ->assertJsonPath('data.recovery.ready', true)
             ->assertJsonPath('data.recovery.pending_email', fn ($v) => $v !== null && str_contains($v, '@'));
-        Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('new@example.com'));
+        Mail::assertQueued(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('new@example.com'));
 
         // abandoned halfway: the password still recovers the PIN
         $this->postJson(self::BASE.'/recover', ['password' => 'secret123', 'pin' => '4444', 'pin_confirmation' => '4444'], $this->headers())->assertOk();
