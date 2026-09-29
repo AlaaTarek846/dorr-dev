@@ -31,20 +31,6 @@ data class AppearanceDto(
     @SerializedName("customizable_token_keys") val customizableTokenKeys: List<String>? = null,
     val resolved: AppearanceTokenSetDto? = null,
     val default: AppearanceTokenSetDto? = null,
-    /** The app font chosen by the admin / user (Settings → fonts). Null = the built-in Cairo. */
-    val font: AppFontDto? = null,
-)
-
-data class AppFontDto(
-    val id: Int,
-    val slug: String? = null,
-    @SerializedName("font_files") val fontFiles: List<AppFontFileDto> = emptyList(),
-)
-
-data class AppFontFileDto(
-    val id: Int,
-    val url: String,
-    val weight: String? = "400",
 )
 
 data class AppearanceTokenSetDto(

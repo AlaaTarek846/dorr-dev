@@ -20,7 +20,6 @@ class DorrApp : Application() {
         com.dorr.app.chat.CallController.attach(this)
         AppearanceStore.attach(this)
         // The font chosen in the appearance settings (downloaded once, then from the phone).
-        com.dorr.app.ui.theme.AppFont.attach(this)
         CountryCache.load(this)
     }
 }

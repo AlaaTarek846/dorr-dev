@@ -34,6 +34,7 @@ import com.dorr.app.ui.theme.AppearanceState
 import com.dorr.app.ui.theme.AppFontLoader
 import com.dorr.app.ui.theme.DorrTheme
 import com.dorr.app.ui.theme.LocalAppearance
+import com.dorr.app.ui.theme.AppFont
 import com.dorr.app.ui.theme.LocalDorrFontFamily
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.ThemeState
@@ -75,6 +76,7 @@ class MainActivity : FragmentActivity() {
                 val context = LocalContext.current
                 LaunchedEffect(appearance.snapshot?.font?.id, appearance.snapshot?.font?.slug) {
                     appearance.fontFamily = AppFontLoader.load(context, appearance.snapshot?.font)
+                    AppFont.family = appearance.fontFamily
                 }
 
                 CompositionLocalProvider(

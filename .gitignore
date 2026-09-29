@@ -25,10 +25,7 @@ Homestead.yaml
 Thumbs.db
 /public/dashboard/themes/theme-1/html
 
-<<<<<<< HEAD
-=======
 
->>>>>>> 0ef82f8ab4ed44b94459c50dc8314a593b3782ec
 # Gradle
 .gradle/
 **/.gradle/
@@ -50,7 +47,4 @@ local.properties
 # OS generated files
 .DS_Store
 Thumbs.db
-<<<<<<< HEAD
 
-=======
->>>>>>> 0ef82f8ab4ed44b94459c50dc8314a593b3782ec

@@ -40,8 +40,7 @@ val CairoBuiltIn = FontFamily(
 val CairoFontFamily: FontFamily get() = AppFont.family
 
 /** The type scale, in the current app font. */
-fun dorrTypography(family: FontFamily = AppFont.family) = Typography(
-fun dorrTypography(family: FontFamily): Typography = Typography(
+fun dorrTypography(family: FontFamily = AppFont.family): Typography = Typography(
     displayLarge = TextStyle(fontFamily = family, fontWeight = FontWeight.Bold, fontSize = 32.sp),
     displayMedium = TextStyle(fontFamily = family, fontWeight = FontWeight.Bold, fontSize = 28.sp),
     headlineLarge = TextStyle(fontFamily = family, fontWeight = FontWeight.SemiBold, fontSize = 24.sp),

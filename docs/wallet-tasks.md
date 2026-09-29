@@ -78,7 +78,7 @@
 1. ✅ **اكتشاف أثناء التنفيذ:** `app/Support/helpers.php::getCountryCodeByIp()` كان أصلاً اتصلّح (مش نفس نسخة LeeTaxi الأصلية اللي راجعناها في `wallet-plan.md § 8`) — فيه cache يوم لكل IP، `timeout(3)`، try/catch، وfallback chain بـ `is_default`/`status` مش قيمة ثابتة. **قرار: إعادة استخدامه** كخطوة IP جوه `CountryResolver` بدل ما نبني نظام `config/geo.php` قابل للتبديل من الصفر — كان هيبقى ازدواجية.
 2. ✅ `CountryResolver` (`app/Services/General/CountryResolver.php`، مش جوه Wallet — بيُستخدم في سياقات تانية غير المحفظة): الترتيب زي ما اتفقنا بالظبط — اختيار صريح (`X-Country` header أو `?country=`) → دولة البروفايل (`user_api`/`provider_api` بس، **مش أدمن عمداً**) → `getCountryCodeByIp()` → `is_default`.
 3. ✅ Middleware `ResolveCountryContext` (alias `country` في `bootstrap/app.php`) — بيحط الدولة في `$request->attributes` وفي الـ container، وبيتاح بدالة `currentCountry()` في `helpers.php` لأي كود من غير الحاجة للـ Request.
-4. ✅ اختبار: `Http::fake()` بيحاكي انقطاع geoplugin.net بالكامل (`ConnectionException`) → `CountryResolver` يكمل عادي ويرجّع الدولة الافتراضية من غير أي 500.
+4. ✅ اختبار: `Http::fake()` بيحاكي انقطاع خدمات تحديد الدولة بالـ IP بالكامل (كانت geoplugin.net، ودلوقتي ipwho.is ثم ip-api.com — انظر `docs/modules/general/API.md`) (`ConnectionException`) → `CountryResolver` يكمل عادي ويرجّع الدولة الافتراضية من غير أي 500.
 
 **Deliverable (اتحقق فعلياً):** أي Request عنده دولة سياق واضحة، حتى لو من غير مستخدم مسجّل دخول. **6 اختبارات جديدة ناجحة** (`tests/Feature/CountryResolverTest.php`) — أولوية الاختيار الصريح، أولوية البروفايل، fallback الـ IP، fallback الافتراضي عند الانقطاع، تجاهل كود دولة غير معروف بأمان، والـ middleware end-to-end. **كل الـ 44 اختبار في المشروع ناجحين.**
 
