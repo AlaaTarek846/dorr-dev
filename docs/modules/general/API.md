@@ -21,6 +21,8 @@ Routes: `routes/general.php` (loaded from `routes/api.php`).
 
 `/countries/dropdown` returns: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`.
 
+`/countries/detect` returns one country in the same shape: the caller's country by IP (`getCountryCodeByIp()` in `app/Support/helpers.php`), or the default country when it can't be told or **isn't active**. Order: Cloudflare's `CF-IPCountry` header → `ipwho.is` → `ip-api.com` (geoplugin.net went paid-only in 2026 and answers 403). Loopback/LAN IPs are not looked up. The detected code is cached per IP for a day (a failed lookup for 10 minutes); the active check runs on every call. Behind a proxy or tunnel (ngrok, nginx, a load balancer), set `TRUSTED_PROXIES` in `.env` (`127.0.0.1,::1` for ngrok locally, or `*`), or every caller looks like the proxy. The mobile login screen uses it to preselect the country, then falls back to the phone's network/SIM country. **NEEDS-DECISION (production):** the free providers are rate-limited (ip-api.com is non-commercial); use Cloudflare's header or a licensed source (e.g. MaxMind GeoLite2) in production.
+
 ## Admin Routes (`/api/admin/v1`)
 
 ### Authenticated — Platform Settings
