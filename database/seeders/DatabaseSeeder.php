@@ -7,11 +7,13 @@ use Database\Seeders\Admin\AdminSeeder;
 use Database\Seeders\General\CountrySeeder;
 use Database\Seeders\General\CurrencySeeder;
 use Database\Seeders\General\DashboardThemeSeeder;
+use Database\Seeders\General\FaqSeeder;
 use Database\Seeders\General\FlagSeeder;
 use Database\Seeders\General\LanguageSeeder;
 use Database\Seeders\General\MobileAppColorDefaultSeeder;
 use Database\Seeders\General\MobileAppFontSeeder;
 use Database\Seeders\General\PlatformSettingSeeder;
+use Database\Seeders\General\PrivacyPolicySeeder;
 use Database\Seeders\General\ServiceCategoriesSeeder;
 use Database\Seeders\Provider\ProviderSeeder;
 use Database\Seeders\User\UserSeeder;
@@ -43,6 +45,8 @@ class DatabaseSeeder extends Seeder
             MobileAppFontSeeder::class,
             DashboardThemeSeeder::class,
             ServiceCategoriesSeeder::class,
+            FaqSeeder::class,
+            PrivacyPolicySeeder::class,
             AdminSeeder::class,
             AdminPermissionSeeder::class,
             ProviderSeeder::class,

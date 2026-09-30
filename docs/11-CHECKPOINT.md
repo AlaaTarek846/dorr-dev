@@ -17,7 +17,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ### Backend
 - Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
-- Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, PlatformSetting)
+- Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, Faq, PrivacyPolicy, PlatformSetting)
 - Sanctum auth with `admin_api`, `user_api`, and `provider_api` guards
 - Standard API response envelope
 - Translation-based catalog pattern
@@ -33,6 +33,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - `SmsException implements ApiRenderable` — service-layer business errors become standard API error envelopes without controller try/catch
 - Country-driven E.164 normalisation (`PhoneNumberNormalizer`) using `Country::dial_code` / `phone_starts_with` / `phone_length`; no `libphonenumber` in the project
 - See [docs/modules/sms/README.md](./modules/sms/README.md)
+- FAQ and Privacy Policy catalogs: `faqs` / `faq_translations` and `privacy_policies` / `privacy_policy_translations`, each with optional `service_id` → `service_categories.id` (`nullOnDelete`), `status`, `sort_order`, soft deletes, and multilingual fields
+- Admin APIs: `/api/admin/v1/faqs*` (`faqs.*` permissions) and `/api/admin/v1/privacy-policies*` (`privacy-policy.*` permissions) — CRUD, trash, restore, force delete, status, bulk delete, dropdown
+- `ResolvesTranslatableFields` concern; translation sync/response/formatting generalized so a catalog can expose more than one translatable field (single-field `name` catalogs unchanged)
 
 ### Frontend
 - Admin SPA: full catalog CRUD, users, providers, AI settings, platform settings

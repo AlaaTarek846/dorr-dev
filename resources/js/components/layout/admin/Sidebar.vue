@@ -137,6 +137,20 @@
                                 </router-link>
                             </li>
 
+                            <li v-if="can('faqs.view')" class="slide">
+                                <router-link :to="{ name: 'admin.faqs.index' }" class="side-menu__item">
+                                    <i class="ri-question-answer-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('faqs.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('privacy-policy.view')" class="slide">
+                                <router-link :to="{ name: 'admin.privacy-policies.index' }" class="side-menu__item">
+                                    <i class="ri-shield-keyhole-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('privacy_policies.title') }}</span>
+                                </router-link>
+                            </li>
+
                             <li class="slide">
                                 <router-link :to="{ name: 'admin.providers.index' }" class="side-menu__item">
                                     <i class="ri-user-settings-line side-menu__icon"></i>

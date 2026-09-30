@@ -201,9 +201,17 @@
     <string name="account_about_sub">Version and information</string>
     <string name="account_privacy_sub">How we handle your data</string>
     <string name="account_logout_sub">Leave this device</string>
-    <string name="account_delete_sub">Cannot be undone</string>
+    <string name="account_delete_sub">Restorable by signing in again</string>
+    <string name="account_delete_in_progress">Deleting…</string>
+    <string name="account_delete_done">Your account was deleted. Sign in again with the same phone number to restore it.</string>
+    <string name="account_delete_failed">We couldn\'t delete your account. Please try again.</string>
+    <string name="account_deleted_title">Account Deleted</string>
+    <string name="account_deleted_message">You can restore your account by signing in again with the same phone number.</string>
+    <string name="account_restore_action">Restore Account</string>
+    <string name="account_restore_title">Restore your account</string>
+    <string name="account_restore_message">Your account was deleted. Enter the code to restore it.</string>
     <string name="logout_confirm_message">Are you sure you want to sign out?</string>
-    <string name="delete_confirm_message">Your account and all data will be permanently deleted. Are you sure?</string>
+    <string name="delete_confirm_message">Your account and all data will be permanently deleted. You can recover your account by logging in again with the same phone number. Are you sure?</string>
 
     <string name="common_back">Back</string>
     <string name="common_save">Save</string>
@@ -233,6 +241,9 @@
 
     <!-- FAQ -->
     <string name="faq_title">FAQs</string>
+    <string name="faq_search_hint">Search questions…</string>
+    <string name="faq_empty">No FAQs available at the moment</string>
+    <string name="faq_empty_search">No questions match your search</string>
     <string name="faq_q1">How do I edit my personal data?</string>
     <string name="faq_a1">Open Account → Personal Data, update your details, then tap Save.</string>
     <string name="faq_q2">How do I switch the app language?</string>
@@ -241,6 +252,10 @@
     <string name="faq_a3">Yes — toggle it from Account → Dark Mode.</string>
     <string name="faq_q4">How do I reach support?</string>
     <string name="faq_a4">Open Account → Contact Us for phone, WhatsApp and email options.</string>
+    <string name="privacy_empty">Privacy policy is currently unavailable</string>
+    <string name="content_loading">Loading…</string>
+    <string name="content_retry">Retry</string>
+    <string name="content_error">Failed to load content</string>
 
     <!-- Contact us -->
     <string name="contact_title">Contact Us</string>

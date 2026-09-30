@@ -3,6 +3,7 @@ package com.dorr.app.network
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -54,6 +55,16 @@ interface ProfileApi {
         @Header("Authorization") authorization: String,
         @Body body: ConfirmCodeBody,
     ): ApiEnvelope<UserDto>
+
+    /**
+     * DELETE /api/mobile/v1/profile/account
+     * Soft-deletes the account and revokes all Sanctum tokens server-side.
+     * The account can be recovered by logging in again with the same phone number.
+     */
+    @DELETE("mobile/v1/profile/account")
+    suspend fun deleteAccount(
+        @Header("Authorization") authorization: String,
+    ): ApiEnvelope<Any?>
 }
 
 data class PhoneChangeRequest(

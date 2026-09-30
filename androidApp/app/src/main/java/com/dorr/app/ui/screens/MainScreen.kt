@@ -103,6 +103,7 @@ fun MainScreen(
     onLogout: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenServices: () -> Unit,
+    onAccountDeleted: () -> Unit = {},
     initialTab: Int = 0,
     initialWalletOpen: Boolean = false,
     onStateChanged: (tab: Int, walletOpen: Boolean) -> Unit = { _, _ -> },
@@ -221,7 +222,11 @@ fun MainScreen(
                         onOpenChat = { chatOpen = true },
                     )
                     1 -> ServicesScreen(onBack = { currentTab = 0 })
-                    3 -> ProfileScreen(onLogout = onLogout, onOpenWallet = { walletOpen = true })
+                    3 -> ProfileScreen(
+                        onLogout = onLogout,
+                        onOpenWallet = { walletOpen = true },
+                        onAccountDeleted = onAccountDeleted,
+                    )
                     else -> PlaceholderScreen()
                 }
             }

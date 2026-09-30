@@ -48,6 +48,24 @@ return [
             'min' => 'The name field must be at least :min characters.',
             'max' => 'The name field must not be greater than :max characters.',
         ],
+        'translations.*.question' => [
+            'required' => 'The question field is required.',
+            'string' => 'The question field must be a string.',
+            'min' => 'The question field must be at least :min characters.',
+            'max' => 'The question field must not be greater than :max characters.',
+        ],
+        'translations.*.answer' => [
+            'required' => 'The answer field is required.',
+            'string' => 'The answer field must be a string.',
+            'min' => 'The answer field must be at least :min characters.',
+            'max' => 'The answer field must not be greater than :max characters.',
+        ],
+        'translations.*.content' => [
+            'required' => 'The content field is required.',
+            'string' => 'The content field must be a string.',
+            'min' => 'The content field must be at least :min characters.',
+            'max' => 'The content field must not be greater than :max characters.',
+        ],
     ],
 
     'attributes' => [
@@ -109,6 +127,10 @@ return [
         'slug' => 'slug',
         'path' => 'path',
         'sort_order' => 'sort order',
+        'service_id' => 'service',
+        'translations.*.question' => 'question',
+        'translations.*.answer' => 'answer',
+        'translations.*.content' => 'content',
         'preview_image' => 'preview image',
     ],
 ];

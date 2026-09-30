@@ -65,6 +65,40 @@ export function displayTranslatedName(record, locale) {
     return translation?.name || record?.name || '-';
 }
 
+/**
+ * Render rich-text HTML as plain text for list previews and titles.
+ */
+export function richTextToPlainText(html, { maxLength = 0, fallback = '-' } = {}) {
+    const source = String(html ?? '').trim();
+
+    if (! source) {
+        return fallback;
+    }
+
+    const withBreaks = source
+        .replace(/<\s*br\s*\/?\s*>/gi, ' ')
+        .replace(/<\/\s*(p|div|h[1-6]|li|blockquote|tr)\s*>/gi, ' ');
+
+    const text = withBreaks
+        .replace(/<[^>]*>/g, '')
+        .replace(/&nbsp;/gi, ' ')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    if (! text) {
+        return fallback;
+    }
+
+    return maxLength > 0 && text.length > maxLength
+        ? `${text.slice(0, maxLength).trimEnd()}…`
+        : text;
+}
+
 export function formatCatalogDate(value, locale) {
     if (! value) {
         return '-';
@@ -183,6 +217,60 @@ export function fillCatalogTranslationFields(target, record, localeCodes = null)
             if (! target[code]) {
                 target[code] = record.name;
             }
+        }
+    }
+}
+
+/**
+ * Same as syncTranslationFormKeys but for entities that translate more than a
+ * name, where each locale holds an object of field => value.
+ */
+export function syncTranslationObjectKeys(target, localeCodes = [], fieldNames = []) {
+    for (const code of localeCodes) {
+        const bucket = target[code];
+
+        if (! bucket || typeof bucket !== 'object' || Array.isArray(bucket)) {
+            target[code] = Object.fromEntries(fieldNames.map((field) => [field, '']));
+
+            continue;
+        }
+
+        for (const field of fieldNames) {
+            if (! (field in bucket)) {
+                bucket[field] = '';
+            }
+        }
+
+        for (const key of Object.keys(bucket)) {
+            if (! fieldNames.includes(key)) {
+                delete bucket[key];
+            }
+        }
+    }
+
+    for (const key of Object.keys(target)) {
+        if (! localeCodes.includes(key)) {
+            delete target[key];
+        }
+    }
+}
+
+/**
+ * Fills per-locale objects from a record that translates several fields.
+ */
+export function fillCatalogTranslationObjectFields(target, record, localeCodes = null, fieldNames = []) {
+    const codes = localeCodes ?? Object.keys(target);
+    const translations = Array.isArray(record?.translations) ? record.translations : [];
+
+    for (const code of codes) {
+        const translation = translations.find((item) => item.locale === code);
+
+        for (const field of fieldNames) {
+            target[code] ??= {};
+
+            const value = translation?.[field] ?? record?.[field] ?? '';
+
+            target[code][field] = typeof value === 'string' ? value : '';
         }
     }
 }

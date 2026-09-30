@@ -3,6 +3,12 @@
 return [
     'report_sent' => 'شكراً، البلاغ اتبعت وهنراجعه.',
 
+    'money_paid' => 'تم الدفع.',
+    'channel_followed' => 'تتابع الآن.',
+    'join_request_sent' => 'طلب الانضمام اتبعت للمشرفين.',
+    'join_request_approved' => 'تم قبول الطلب.',
+    'join_request_rejected' => 'تم رفض الطلب.',
+
     'errors' => [
         'report_type_invalid' => 'سبب البلاغ ده مبقاش متاح.',
         'theme_invalid' => 'الثيم ده مش متاح.',
@@ -20,6 +26,7 @@ return [
         'owner_only' => 'لا يمكن تغيير مالك المجموعة أو إزالته.',
         'group_only' => 'هذا متاح في المجموعات فقط.',
         'group_full' => 'الحد الأقصى لأعضاء المجموعة :max عضو.',
+    'join_request_missing' => 'طلب الانضمام هذا لم يعد قيد الانتظار.',
         'leave_group_first' => 'اخرج من المجموعة قبل حذفها.',
         'empty_message' => 'الرسالة فارغة.',
         'attachment_required' => 'أرفق ملفاً لإرسال هذا النوع من الرسائل.',
