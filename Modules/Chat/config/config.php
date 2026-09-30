@@ -62,4 +62,19 @@ return [
     | can be reset by its owner, so a leaked code can be revoked.
     */
     'qr_prefix' => 'dorr://chat/',
+
+    /*
+    | Link cards: before fetching a pasted URL the server checks that its host resolves only to
+    | public IPs (no localhost / private network). Only tests turn this off.
+    */
+    'link_preview_check_dns' => env('CHAT_LINK_PREVIEW_CHECK_DNS', true),
+
+    /*
+    | GIFs and animated stickers (Giphy). Without a key the GIF / sticker library tabs are empty
+    | and only Dorr's own sticker packs show. https://developers.giphy.com
+    */
+    'giphy' => [
+        'key' => env('GIPHY_API_KEY', ''),
+        'rating' => env('GIPHY_RATING', 'pg-13'),
+    ],
 ];

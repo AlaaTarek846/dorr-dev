@@ -118,8 +118,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.dorr.app.R
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.network.AddressDto
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
@@ -492,13 +492,13 @@ private fun DeleteAddressDialog(
     onConfirm: () -> Unit,
 ) {
     val night = settingsNight()
-    val red = if (night) AccountDark.accent else AppColors.waRed
-    Dialog(onDismissRequest = onDismiss) {
+    val red = settingsAccent()
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(28.dp))
-                .background(if (night) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(28.dp)) else Modifier)
                 .padding(horizontal = 22.dp, vertical = 26.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -507,7 +507,7 @@ private fun DeleteAddressDialog(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (night) AccountDark.well else Color(0xFFFDE8EC)),
+                    .background(red.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -549,14 +549,14 @@ private fun DeleteAddressDialog(
                 Button(
                     onClick = onConfirm,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.waRed,
+                        containerColor = red,
                         contentColor = Color.White,
                     ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
-                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = AppColors.waRed.copy(alpha = 0.4f)),
+                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = red.copy(alpha = 0.4f)),
                 ) {
                     Text(
                         stringResource(R.string.addr_yes),
@@ -568,7 +568,7 @@ private fun DeleteAddressDialog(
                 OutlinedButton(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, if (night) AccountDark.line else Color(0xFFFECDD3)),
+                    border = BorderStroke(1.dp, if (night) AccountDark.line else red.copy(alpha = 0.3f)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = if (night) Color.Transparent else Color.White,
                         contentColor = red,
@@ -616,7 +616,7 @@ private fun AddressesTopHeader(
                 .size(42.dp)
                 .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = Color(0x20000000)))
                 .clip(CircleShape)
-                .background(if (settingsNight()) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,
@@ -645,7 +645,7 @@ private fun CustomSearchPill(
             .fillMaxWidth()
             .then(if (settingsNight()) Modifier else Modifier.shadow(6.dp, RoundedCornerShape(50), spotColor = Color(0x12000000)))
             .clip(RoundedCornerShape(50))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(50)) else Modifier)
             .padding(horizontal = 16.dp, vertical = 12.dp),
     ) {
@@ -674,7 +674,7 @@ private fun CustomSearchPill(
                     singleLine = true,
                     textStyle = TextStyle(
                         fontSize = 14.sp,
-                        color = if (settingsNight()) AccountDark.ink else Color(0xFF1E293B),
+                        color = settingsInk(),
                         fontWeight = FontWeight.Medium,
                     ),
                     cursorBrush = SolidColor(settingsAccent()),
@@ -767,7 +767,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+                .background(settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -796,7 +796,7 @@ private fun AddressCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                            .background(settingsAccent().copy(alpha = 0.14f))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
@@ -825,7 +825,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                .background(settingsAccent().copy(alpha = 0.14f))
                 .clickable(onClick = onEdit),
             contentAlignment = Alignment.Center,
         ) {
@@ -845,8 +845,8 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.card else Color.White)
-                .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFFECDD3), RoundedCornerShape(12.dp))
+                .background(settingsCard())
+                .border(1.dp, if (settingsNight()) AccountDark.line else settingsAccent().copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                 .alpha(if (item.isDefault) 0.35f else 1f)
                 .clickable(onClick = onDelete),
             contentAlignment = Alignment.Center,
@@ -854,7 +854,7 @@ private fun AddressCard(
             Icon(
                 Icons.Rounded.DeleteOutline,
                 contentDescription = stringResource(R.string.addr_delete),
-                tint = if (item.isDefault) settingsMut() else AppColors.waRed,
+                tint = if (item.isDefault) settingsMut() else settingsAccent(),
                 modifier = Modifier.size(18.dp),
             )
         }
@@ -1187,7 +1187,7 @@ private fun EditorKindChip(
     modifier: Modifier = Modifier,
 ) {
     val bgColor by animateColorAsState(
-        targetValue = if (selected) settingsAccent() else if (settingsNight()) AccountDark.card else Color.White,
+        targetValue = if (selected) settingsAccent() else settingsCard(),
         label = "chip_bg",
     )
     val contentColor by animateColorAsState(
@@ -1281,7 +1281,7 @@ private fun EditorFieldSection(
                         singleLine = true,
                         textStyle = TextStyle(
                             fontSize = 14.sp,
-                            color = if (settingsNight()) AccountDark.ink else Color(0xFF0F172A),
+                            color = settingsInk(),
                             fontWeight = FontWeight.Medium,
                         ),
                         cursorBrush = SolidColor(settingsAccent()),
@@ -1604,7 +1604,7 @@ private fun ShowMoreButton(loading: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(50))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .border(1.5.dp, if (settingsNight()) AccountDark.line else settingsAccent().copy(alpha = 0.35f), RoundedCornerShape(50))
             .clickable(enabled = !loading, onClick = onClick)
             .padding(vertical = 12.dp),

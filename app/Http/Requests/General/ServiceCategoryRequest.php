@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\General;
 
+use App\Enums\ServiceAudience;
 use App\Http\Requests\Concerns\HasCatalogRules;
 use App\Repositories\General\LanguageRepository;
 use Illuminate\Foundation\Http\FormRequest;
@@ -18,11 +19,30 @@ class ServiceCategoryRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $audiences = $this->input('audiences');
+
+        if (is_string($audiences)) {
+            $decoded = json_decode($audiences, true);
+            $audiences = is_array($decoded) ? $decoded : null;
+        }
+
+        if ($audiences !== null) {
+            $audiences = array_values(array_unique(array_filter(array_map(
+                static fn ($value) => is_string($value) ? strtolower(trim($value)) : null,
+                (array) $audiences,
+            ))));
+        }
+
+        $legacy = $audiences !== null
+            ? ServiceAudience::legacyFlagsFromAudiences($audiences)
+            : null;
+
         $this->merge([
-            'requires_provider' => filter_var($this->input('requires_provider', false), FILTER_VALIDATE_BOOLEAN),
+            'audiences' => $audiences,
+            'requires_provider' => $legacy['requires_provider'] ?? filter_var($this->input('requires_provider', false), FILTER_VALIDATE_BOOLEAN),
             'status' => filter_var($this->input('status', true), FILTER_VALIDATE_BOOLEAN),
             'remove_image' => filter_var($this->input('remove_image', false), FILTER_VALIDATE_BOOLEAN),
-            'is_login_dashboard' => filter_var($this->input('is_login_dashboard', true), FILTER_VALIDATE_BOOLEAN),
+            'is_login_dashboard' => $legacy['is_login_dashboard'] ?? filter_var($this->input('is_login_dashboard', true), FILTER_VALIDATE_BOOLEAN),
             'is_auto_assign' => filter_var($this->input('is_auto_assign', false), FILTER_VALIDATE_BOOLEAN),
         ]);
     }
@@ -61,6 +81,8 @@ class ServiceCategoryRequest extends FormRequest
                 'max:100',
                 Rule::unique('service_categories', 'module_name')->ignore($categoryId),
             ],
+            'audiences' => ['required', 'array', 'min:1'],
+            'audiences.*' => ['required', 'string', Rule::in(ServiceAudience::values())],
             'is_login_dashboard' => ['nullable', 'boolean'],
             'is_auto_assign' => ['nullable', 'boolean'],
             'requires_provider' => ['nullable', 'boolean'],
@@ -82,6 +104,7 @@ class ServiceCategoryRequest extends FormRequest
             'translations' => ['required', 'array', 'min:'.$min],
             'translations.*.locale' => ['required', 'string', 'max:10'],
             'translations.*.name' => ['required', 'string', 'min:2', 'max:100'],
+            'translations.*.description' => ['nullable', 'string', 'max:65535'],
         ];
     }
 
@@ -93,6 +116,8 @@ class ServiceCategoryRequest extends FormRequest
         return [
             'parent_id' => __('validation.attributes.parent_id'),
             'module_name' => __('validation.attributes.module_name'),
+            'audiences' => __('validation.attributes.audiences'),
+            'audiences.*' => __('validation.attributes.audiences'),
             'is_login_dashboard' => __('validation.attributes.is_login_dashboard'),
             'is_auto_assign' => __('validation.attributes.is_auto_assign'),
             'requires_provider' => __('validation.attributes.requires_provider'),
@@ -103,6 +128,7 @@ class ServiceCategoryRequest extends FormRequest
             'translations' => __('validation.attributes.translations'),
             'translations.*.locale' => __('validation.attributes.translations.*.locale'),
             'translations.*.name' => __('validation.attributes.translations.*.name'),
+            'translations.*.description' => __('validation.attributes.translations.*.description'),
         ];
     }
 }

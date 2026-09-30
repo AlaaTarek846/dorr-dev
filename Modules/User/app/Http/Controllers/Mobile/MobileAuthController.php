@@ -25,13 +25,17 @@ class MobileAuthController extends Controller
     /**
      * Combined login/register — if a user with the given phone does not exist
      * it is created on the fly, then a (fixed demo) OTP is sent.
+     *
+     * A soft-deleted account (deleted_at set) is NOT signed back in here: we
+     * return a clear "account_state = deleted" signal and let the app offer a
+     * Restore step. Only a later OTP verify (verifyOtp) sets deleted_at = null.
      */
     public function requestOtp(MobileOtpRequest $request): JsonResponse
     {
         $fullPhone = $this->fullPhone($request->validated('dial_code'), $request->validated('phone'));
 
-        /** @var User $user */
-        $user = User::query()->where('phone', $fullPhone)->first();
+        /** @var User|null $user */
+        $user = User::query()->withTrashed()->where('phone', $fullPhone)->first();
 
         $isNewUser = false;
 
@@ -43,6 +47,14 @@ class MobileAuthController extends Controller
                 'status' => UserStatus::Active,
             ]);
             $isNewUser = true;
+        } elseif ($user->trashed()) {
+            // Deleted but restorable — tell the app instead of logging in directly.
+            // No OTP is sent (and nothing restored) until the user explicitly asks
+            // for the restore flow via requestRestoreOtp.
+            return ApiResponse::success([
+                'masked_phone' => $this->maskPhone($fullPhone),
+                'account_state' => 'deleted',
+            ], __('api.account_deleted_restore'));
         }
 
         $this->assertAccountActive($user);
@@ -52,16 +64,47 @@ class MobileAuthController extends Controller
         return ApiResponse::success([
             'masked_phone' => $this->maskPhone($fullPhone),
             'is_new_user' => $isNewUser,
+            'account_state' => 'active',
             'resend_cooldown_seconds' => $user->phoneOtpCooldownSeconds(),
         ], __('api.phone_otp_sent'));
+    }
+
+    /**
+     * Restore step: a soft-deleted account asks for a code so its owner can prove
+     * the phone still belongs to them. Nothing is restored yet — verifyOtp only
+     * sets deleted_at = null once the code checks out.
+     */
+    public function requestRestoreOtp(MobileOtpRequest $request): JsonResponse
+    {
+        $fullPhone = $this->fullPhone($request->validated('dial_code'), $request->validated('phone'));
+
+        /** @var User|null $user */
+        $user = User::query()->withTrashed()->where('phone', $fullPhone)->first();
+
+        if (! $user || ! $user->trashed()) {
+            throw ValidationException::withMessages([
+                'phone' => [__('api.account_not_deleted')],
+            ]);
+        }
+
+        $this->assertAccountActive($user);
+
+        $user->sendPhoneOtp();
+
+        return ApiResponse::success([
+            'masked_phone' => $this->maskPhone($fullPhone),
+            'account_state' => 'restore',
+            'resend_cooldown_seconds' => $user->phoneOtpCooldownSeconds(),
+        ], __('api.restore_otp_sent'));
     }
 
     public function verifyOtp(MobileVerifyRequest $request): JsonResponse
     {
         $fullPhone = $this->fullPhone($request->validated('dial_code'), $request->validated('phone'));
 
-        /** @var User $user */
-        $user = User::query()->where('phone', $fullPhone)->first();
+        /** @var User|null $user */
+        // withTrashed() finds accounts still soft-deleted mid-restore flow.
+        $user = User::query()->withTrashed()->where('phone', $fullPhone)->first();
 
         if (! $user) {
             throw ValidationException::withMessages([
@@ -73,6 +116,13 @@ class MobileAuthController extends Controller
 
         $this->verificationCodes->verify($user, VerificationType::Phone, $request->validated('code'));
 
+        // Restore only AFTER the code is verified, so a wrong code can never revive
+        // an account (deleted_at stays set) or create a sign-in token for it.
+        $isRestored = $user->trashed();
+        if ($isRestored) {
+            $user->restore();
+        }
+
         $user->update(['phone_verified_at' => now()]);
 
         $user->tokens()->delete();
@@ -83,15 +133,18 @@ class MobileAuthController extends Controller
             'user' => new UserResource($user->fresh()->load(['country.flag'])),
             'token' => $token,
             'token_type' => 'Bearer',
-        ], __('api.phone_verified'));
+            'is_restored' => $isRestored,
+        ], $isRestored ? __('api.account_restored') : __('api.phone_verified'));
     }
 
     public function resendOtp(MobileOtpRequest $request): JsonResponse
     {
         $fullPhone = $this->fullPhone($request->validated('dial_code'), $request->validated('phone'));
 
-        /** @var User $user */
-        $user = User::query()->where('phone', $fullPhone)->first();
+        /** @var User|null $user */
+        // withTrashed() mirrors requestOtp/requestRestoreOtp — a code may be resent
+        // while the account is still soft-deleted (the restore happens on verify).
+        $user = User::query()->withTrashed()->where('phone', $fullPhone)->first();
 
         if (! $user) {
             throw ValidationException::withMessages([

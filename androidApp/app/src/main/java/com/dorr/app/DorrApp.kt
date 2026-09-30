@@ -19,6 +19,7 @@ class DorrApp : Application() {
         // Calls ring over any screen, so the call state machine listens from app start.
         com.dorr.app.chat.CallController.attach(this)
         AppearanceStore.attach(this)
+        // The font chosen in the appearance settings (downloaded once, then from the phone).
         CountryCache.load(this)
     }
 }

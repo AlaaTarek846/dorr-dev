@@ -3,6 +3,12 @@
 return [
     'report_sent' => "Thanks — your report was sent. We'll review it.",
 
+    'money_paid' => 'Paid.',
+    'channel_followed' => 'Following.',
+    'join_request_sent' => 'Your request to join was sent to the admins.',
+    'join_request_approved' => 'The request was approved.',
+    'join_request_rejected' => 'The request was rejected.',
+
     'errors' => [
         'report_type_invalid' => 'This report reason is no longer available.',
         'theme_invalid' => 'This theme is not available.',
@@ -20,6 +26,7 @@ return [
         'owner_only' => 'The group owner can\'t be changed or removed.',
         'group_only' => 'This is only available in groups.',
         'group_full' => 'A group can have up to :max members.',
+    'join_request_missing' => 'That join request is no longer waiting.',
         'leave_group_first' => 'Leave the group before deleting it.',
         'empty_message' => 'The message is empty.',
         'attachment_required' => 'Attach a file to send this type of message.',
@@ -52,7 +59,31 @@ return [
         'story_not_found' => 'This story is no longer available.',
         'story_replies_off' => 'Replies are turned off for this story.',
         'story_video_too_long' => 'Story videos can be up to :seconds seconds.',
+        'poll_invalid' => 'A poll needs a question and 2 to 12 different options.',
+        'poll_invalid_vote' => 'Pick one of the poll\'s options.',
+        'view_once_not_allowed' => 'Only photos, videos and voice messages can be sent view once.',
+        'view_once_own' => 'You can\'t open your own view-once message.',
+        'view_once_opened' => 'You already opened this. View-once messages open only once.',
+        'live_location_ended' => 'This live location has ended.',
+        'join_request_not_found' => 'This join request was already answered.',
+        'money_request_direct_only' => 'Requests go to one person — in a group, split the bill instead.',
+        'money_request_amount' => 'Enter a valid amount.',
+        'money_request_closed' => 'This request is no longer open.',
+        'money_request_not_yours_to_pay' => 'You can\'t pay your own request.',
+        'gif_not_found' => 'This GIF isn\'t available.',
+        'sticker_not_found' => 'This sticker isn\'t available.',
+        'channel_not_found' => 'This channel doesn\'t exist or isn\'t public.',
+        'channel_handle_invalid' => 'A handle is 3–32 letters, digits or underscores.',
+        'channel_handle_taken' => 'This handle is already taken.',
+        'channel_follow_only' => 'People follow a channel — share its link instead of adding them.',
+        'channel_no_calls' => 'Channels don\'t have calls.',
+        'split_invalid' => 'Pick at least two people (you and someone else), and make the shares add up to the total.',
     ],
+
+    'money_paid' => 'Paid ✓',
+    'channel_followed' => 'You follow this channel.',
+
+    'join_requested' => 'Request sent. A group admin will review it.',
 
     // Short labels for chat-list previews and push notifications.
     'preview' => [
@@ -63,6 +94,13 @@ return [
         'document' => '📄 Document',
         'location' => '📍 Location',
         'contact' => '👤 Contact',
+        'poll' => '📊 Poll',
+        'gif' => '🎞️ GIF',
+        'sticker' => '💟 Sticker',
+        'money_request' => '💰 Money request',
+        'bill_split' => '🧾 Split the bill',
+        'view_once' => '① View once',
+        'live_location' => '📍 Live location',
         'wallet_transfer' => '💸 Transfer receipt',
         'wallet_qr' => '🔳 Wallet QR code',
         'story_reply' => '↩️ Replied to a story',
@@ -83,6 +121,7 @@ return [
     // System lines inside a conversation.
     'system' => [
         'group_created' => ':actor created the group ":name"',
+        'channel_created' => 'Channel ":name" created',
         'members_added' => ':actor added :targets',
         'member_removed' => ':actor removed :targets',
         'member_left' => ':actor left',
@@ -96,6 +135,9 @@ return [
         'group_photo_removed' => ':actor removed the group photo',
         'group_announcement_on' => ':actor allowed only admins to send messages',
         'group_announcement_off' => ':actor allowed all members to send messages',
+        'group_approval_on' => ':actor turned on admin approval for new members',
+        'group_approval_off' => ':actor turned off admin approval for new members',
+        'join_request_approved' => ':actor approved :targets to join',
         'disappearing_on' => ':actor turned on disappearing messages',
         'disappearing_off' => ':actor turned off disappearing messages',
         'message_pinned' => ':actor pinned a message',

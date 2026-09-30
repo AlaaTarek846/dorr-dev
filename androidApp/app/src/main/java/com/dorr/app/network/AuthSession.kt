@@ -68,7 +68,7 @@ object AuthSession {
         token = null
         user = null
         prefs?.edit()?.clear()?.apply()
-        AppearanceStore.clear()
+        AppearanceStore.clearUser()
     }
 
     private fun persist() {

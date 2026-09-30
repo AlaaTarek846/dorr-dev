@@ -26,7 +26,7 @@ class ConversationController extends Controller
     public function index(Request $request)
     {
         $filters = $request->validate([
-            'filter' => ['nullable', Rule::in(['all', 'unread', 'groups', 'direct', 'archived', 'locked', 'requests'])],
+            'filter' => ['nullable', Rule::in(['all', 'unread', 'groups', 'channels', 'direct', 'archived', 'locked', 'requests'])],
             'folder' => ['nullable', 'integer'],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],

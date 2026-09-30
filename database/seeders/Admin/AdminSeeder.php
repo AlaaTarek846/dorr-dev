@@ -3,6 +3,7 @@
 namespace Database\Seeders\Admin;
 
 use App\Enums\Gender;
+use App\Enums\ServiceAudience;
 use App\Models\Country;
 use App\Models\ServiceCategory;
 use Illuminate\Database\Seeder;
@@ -35,7 +36,7 @@ class AdminSeeder extends Seeder
 
         $categoryIds = ServiceCategory::query()
             ->where('status', true)
-            ->where('is_login_dashboard', true)
+            ->whereJsonContains('audiences', ServiceAudience::Admin->value)
             ->orderBy('sort_order')
             ->pluck('id')
             ->map(fn ($id) => (int) $id)

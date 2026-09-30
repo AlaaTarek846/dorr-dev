@@ -122,6 +122,18 @@ export default [
                 meta: { middleware: [auth], permission: 'service_categories.view' },
             },
             {
+                path: 'faqs',
+                name: 'admin.faqs.index',
+                component: page('faq/index'),
+                meta: { middleware: [auth], permission: 'faqs.view' },
+            },
+            {
+                path: 'privacy-policies',
+                name: 'admin.privacy-policies.index',
+                component: page('privacy-policy/index'),
+                meta: { middleware: [auth], permission: 'privacy-policy.view' },
+            },
+            {
                 // No permission: every admin has their own notifications.
                 path: 'notifications',
                 name: 'admin.notifications.index',
@@ -195,6 +207,12 @@ export default [
                 meta: { middleware: [auth], permission: 'chat-report-types.view' },
             },
             {
+                path: 'chat/stickers',
+                name: 'admin.chat.stickers',
+                component: page('chat/stickers/index'),
+                meta: { middleware: [auth], permission: 'chat-stickers.view' },
+            },
+            {
                 path: 'chat/reports',
                 name: 'admin.chat.reports',
                 component: page('chat/reports/index'),
@@ -205,6 +223,24 @@ export default [
                 name: 'admin.providers.index',
                 component: page('provider/index'),
                 meta: { middleware: [auth] },
+            },
+            {
+                path: 'sms/providers',
+                name: 'admin.sms.providers.index',
+                component: page('sms-providers/index'),
+                meta: { middleware: [auth], permission: 'sms-providers.view' },
+            },
+            {
+                path: 'sms/whatsapp',
+                name: 'admin.sms.whatsapp.index',
+                component: page('whatsapp/index'),
+                meta: { middleware: [auth], permission: 'whatsapp.view' },
+            },
+            {
+                path: 'sms/otp',
+                name: 'admin.sms.otp.index',
+                component: page('otp/index'),
+                meta: { middleware: [auth], permission: 'otp-settings.view' },
             },
         ],
     },

@@ -3,6 +3,7 @@
 namespace Modules\Admin\Http\Requests;
 
 use App\Enums\Gender;
+use App\Enums\ServiceAudience;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -104,7 +105,15 @@ class AdminRequest extends FormRequest
                 Rule::exists('roles', 'id')->where('guard_name', 'admin_api'),
             ],
             'service_category_ids' => ['required', 'array', 'min:1'],
-            'service_category_ids.*' => ['integer', 'distinct', 'exists:service_categories,id'],
+            'service_category_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('service_categories', 'id')->where(
+                    fn ($query) => $query
+                        ->where('status', true)
+                        ->whereJsonContains('audiences', ServiceAudience::Admin->value),
+                ),
+            ],
         ];
     }
 

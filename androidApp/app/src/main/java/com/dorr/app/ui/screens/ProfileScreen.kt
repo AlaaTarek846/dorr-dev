@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-import com.dorr.app.network.ApiClient
 import com.dorr.app.network.LanguageDto
 import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.profile.PinkBackdrop
@@ -79,6 +78,8 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -87,6 +88,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -99,10 +101,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.UserDto
+import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.locale.LocalAppLanguage
+import kotlinx.coroutines.launch
 import com.dorr.app.ui.screens.profile.AddressesScreen
+import com.dorr.app.ui.screens.profile.AppearanceFontScreen
 import com.dorr.app.ui.screens.profile.AppearanceScreen
 import com.dorr.app.ui.screens.profile.ContactUsSheet
 import com.dorr.app.ui.screens.profile.FaqSheet
@@ -110,7 +116,10 @@ import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
 import com.dorr.app.ui.screens.profile.PersonalDataScreen
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
 import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsBackground
+import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalAppearance
@@ -118,7 +127,7 @@ import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.appearanceColor
 
 
-private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, ADDRESSES, SETTINGS, APPEARANCE }
+private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, ADDRESSES, SETTINGS, APPEARANCE, FONT }
 
 private data class MenuEntry(
     val icon: ImageVector,
@@ -131,9 +140,45 @@ private data class MenuEntry(
 
 
 @Composable
-fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    onOpenWallet: () -> Unit,
+    onAccountDeleted: () -> Unit = {},
+) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
     val isAtRoot = subScreen == ProfileSub.NONE
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var isDeleting by remember { mutableStateOf(false) }
+
+    val deleteFailedMessage = stringResource(R.string.account_delete_failed)
+
+    /**
+     * DELETE /api/mobile/v1/profile/account. The account is soft-deleted and every
+     * Sanctum token is revoked server-side, so `onAccountDeleted` clears the local
+     * session and routes to Login *without* calling the logout endpoint — that token
+     * is already gone, so the request would 401 and fire the "session expired" notice.
+     * Logging in again with the same phone restores the account server-side
+     * (MobileAuthController::requestOtp), so this is recoverable, not destructive.
+     */
+    fun deleteAccount() {
+        if (isDeleting) return
+        isDeleting = true
+        scope.launch {
+            try {
+                ApiClient.profile.deleteAccount("Bearer ${AuthSession.token.orEmpty()}")
+                onAccountDeleted()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    context,
+                    e.serverMessage() ?: deleteFailedMessage,
+                    Toast.LENGTH_LONG,
+                ).show()
+            } finally {
+                isDeleting = false
+            }
+        }
+    }
 
     AnimatedContent(
         targetState = subScreen,
@@ -158,31 +203,35 @@ fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
     ) { currentSub ->
         when (currentSub) {
             ProfileSub.PERSONAL_DATA -> {
-                val context = LocalContext.current
+                val subContext = LocalContext.current
                 PersonalDataScreen(
                     onBack = { subScreen = ProfileSub.NONE },
-                    onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
             }
-            ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.WALLET_PIN -> {
-                val context = LocalContext.current
+                val subContext = LocalContext.current
                 WalletPinSettingsScreen(
-                    onBack = { subScreen = ProfileSub.NONE },
-                    onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                    onBack = { subScreen = ProfileSub.SETTINGS },
+                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
             }
-            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onLogout = onLogout,
+                onDeleteAccount = ::deleteAccount,
+                isDeleting = isDeleting,
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
                 onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
                 onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
+                onOpenFont = { subScreen = ProfileSub.FONT },
             )
             ProfileSub.APPEARANCE -> AppearanceScreen(onBack = { subScreen = ProfileSub.SETTINGS })
+            ProfileSub.FONT -> AppearanceFontScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.NONE -> ProfileMenuScreen(
                 onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
                 onOpenSettings = { subScreen = ProfileSub.SETTINGS },
@@ -253,51 +302,50 @@ private fun AccountAvatar(user: UserDto?, dark: Boolean, size: Dp) {
 
 @Composable
 private fun Modifier.accountBackdrop(dark: Boolean): Modifier {
-    val glow = if (dark) AccountDark.accent else settingsAccent()
-    val nightBg = AccountDark.bg
-    return drawBehind { drawAccountBackdrop(dark, glow, nightBg) }
-}
-
-private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawAccountBackdrop(dark: Boolean, glow: Color, nightBg: Color) {
-    if (dark) {
-        drawRect(nightBg)
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.08f),
-                radius = size.width * 0.85f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(size.width * 1.05f, size.height * 0.02f),
-                radius = size.width * 0.55f,
-            ),
-        )
-    } else {
-        drawRect(Color.White)
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
-                center = Offset(size.width * -0.08f, size.height * -0.12f),
-                radius = size.width * 1.3f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.18f),
-                radius = size.width * 1.1f,
-            ),
-        )
-        drawRect(
-            Brush.radialGradient(
-                colors = listOf(AppColors.otpGlowMist, Color.Transparent),
-                center = Offset(size.width * 1.12f, size.height * -0.08f),
-                radius = size.width * 0.9f,
-            ),
-        )
+    val loaded = LocalAppearance.current.snapshot != null
+    val base = if (dark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
+    val glow = if (dark) AccountDark.accent else appearanceColor("primary", settingsAccent(), night = false)
+    return drawBehind {
+        if (dark || loaded) {
+            drawRect(base)
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
+                    center = Offset(size.width * 0.5f, size.height * -0.08f),
+                    radius = size.width * 0.85f,
+                ),
+            )
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
+                    center = Offset(size.width * 1.05f, size.height * 0.02f),
+                    radius = size.width * 0.55f,
+                ),
+            )
+        } else {
+            drawRect(Color.White)
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(AppColors.otpGlowDeep, AppColors.otpGlowSoft, Color.Transparent),
+                    center = Offset(size.width * -0.08f, size.height * -0.12f),
+                    radius = size.width * 1.3f,
+                ),
+            )
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
+                    center = Offset(size.width * 0.5f, size.height * -0.18f),
+                    radius = size.width * 1.1f,
+                ),
+            )
+            drawRect(
+                Brush.radialGradient(
+                    colors = listOf(AppColors.otpGlowMist, Color.Transparent),
+                    center = Offset(size.width * 1.12f, size.height * -0.08f),
+                    radius = size.width * 0.9f,
+                ),
+            )
+        }
     }
 }
 
@@ -354,7 +402,7 @@ private fun ProfileMenuScreen(
                             else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
                         )
                         .clip(CircleShape)
-                        .background(if (dark) AccountDark.card else Color.White)
+                        .background(settingsCard())
                         .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                         .clickable(onClick = onOpenSettings),
                     contentAlignment = Alignment.Center,
@@ -385,7 +433,7 @@ private fun ProfileMenuScreen(
                             else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.1f)),
                         )
                         .clip(CircleShape)
-                        .background(if (dark) AccountDark.card else Color.White)
+                        .background(settingsCard())
                         .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -398,7 +446,7 @@ private fun ProfileMenuScreen(
                             text = user?.takeIf { !it.name.isNullOrBlank() }?.name ?: stringResource(R.string.account_default_user),
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Bold,
-                            color = if (dark) AccountDark.ink else AppColors.textPrimary,
+                            color = settingsInk(),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f, fill = false),
@@ -424,7 +472,7 @@ private fun ProfileMenuScreen(
                             Text(
                                 text = phone,
                                 fontSize = 12.sp,
-                                color = if (dark) AccountDark.mut else AppColors.textMuted,
+                                color = settingsMut(),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -510,10 +558,13 @@ private fun ProfileMenuScreen(
 private fun SettingsMenuScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    isDeleting: Boolean,
     onOpenNotifications: () -> Unit,
     onOpenWalletPin: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenAppearance: () -> Unit,
+    onOpenFont: () -> Unit,
 ) {
     val themeState = LocalThemeState.current
     val isDark = themeState.isDark ?: isSystemInDarkTheme()
@@ -534,6 +585,12 @@ private fun SettingsMenuScreen(
             label = R.string.appearance_title,
             subtitle = R.string.appearance_sub,
             onClick = onOpenAppearance,
+        ),
+        MenuEntry(
+            icon = Icons.Rounded.TextFields,
+            label = R.string.appearance_font,
+            subtitle = R.string.appearance_font_sub,
+            onClick = onOpenFont,
         ),
         MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
         MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
@@ -571,7 +628,7 @@ private fun SettingsMenuScreen(
                         else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
                     )
                     .clip(CircleShape)
-                    .background(if (isDark) AccountDark.card else Color.White)
+                    .background(settingsCard())
                     .then(if (isDark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                     .clickable(onClick = onBack),
                 contentAlignment = Alignment.Center,
@@ -620,8 +677,11 @@ private fun SettingsMenuScreen(
             icon = Icons.Rounded.DeleteForever,
             title = stringResource(R.string.account_delete),
             message = stringResource(R.string.delete_confirm_message),
-            onConfirm = { showDeleteConfirm = false; onLogout() },
-            onDismiss = { showDeleteConfirm = false },
+            loading = isDeleting,
+            // The dialog stays open showing a spinner until the call resolves; on
+            // success the whole profile screen goes away with it.
+            onConfirm = { onDeleteAccount() },
+            onDismiss = { if (!isDeleting) showDeleteConfirm = false },
         )
     }
     if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
@@ -652,7 +712,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                 else Modifier.shadow(6.dp, RoundedCornerShape(16.dp), spotColor = settingsAccent().copy(alpha = 0.07f)),
             )
             .clip(RoundedCornerShape(16.dp))
-            .background(if (dark) AccountDark.card else Color.White)
+            .background(settingsCard())
             .then(if (dark) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(16.dp)) else Modifier)
             .clickable(onClick = onOpenWallet)
             .padding(12.dp),
@@ -671,7 +731,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                     stringResource(R.string.home_wallet_balance),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
-                    color = if (dark) AccountDark.mut else AppColors.textPrimary,
+                    color = settingsMut(),
                 )
             }
             Spacer(Modifier.height(4.dp))
@@ -687,7 +747,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                     balanceText,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
-                    color = if (dark) AccountDark.ink else AppColors.textPrimary,
+                    color = settingsInk(),
                 )
                 if (currencyText.isNotBlank()) {
                     Spacer(Modifier.width(6.dp))
@@ -695,7 +755,7 @@ private fun ProfileWalletCard(onOpenWallet: () -> Unit) {
                         currencyText,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (dark) AccountDark.mut else AppColors.textSecondary,
+                        color = settingsMut(),
                     )
                 }
             }
@@ -736,7 +796,7 @@ private fun AccountStat(
                 else Modifier.shadow(4.dp, RoundedCornerShape(12.dp), spotColor = Color(0xFF111928).copy(alpha = 0.04f)),
             )
             .clip(RoundedCornerShape(12.dp))
-            .background(if (dark) AccountDark.card else Color.White)
+            .background(settingsCard())
             .border(1.dp, if (dark) AccountDark.line else AppColors.divider, RoundedCornerShape(12.dp))
             .padding(8.dp, 6.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -756,14 +816,14 @@ private fun AccountStat(
                 value,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
-                color = if (dark) AccountDark.ink else AppColors.textPrimary,
+                color = settingsInk(),
                 maxLines = 1,
             )
             Text(
                 label,
                 fontSize = 9.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (dark) AccountDark.mut else AppColors.textMuted,
+                color = settingsMut(),
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -783,7 +843,7 @@ private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false, dark: Bool
                 else Modifier.shadow(6.dp, shape, spotColor = settingsAccent().copy(alpha = 0.07f)),
             )
             .clip(shape)
-            .background(if (dark) AccountDark.card else Color.White)
+            .background(settingsCard())
             .then(if (dark) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
             .clickable(onClick = entry.onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp),
@@ -869,17 +929,18 @@ private fun ConfirmDialog(
     message: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    loading: Boolean = false,
 ) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!loading) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.45f))
-                .clickable(onClick = onDismiss),
+                .clickable(enabled = !loading, onClick = onDismiss),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -909,7 +970,7 @@ private fun ConfirmDialog(
                                 else Modifier.shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1AE50914), spotColor = Color(0x1AE50914)),
                             )
                             .clip(RoundedCornerShape(18.dp))
-                            .background(if (dark) AccountDark.card else Color.White)
+                            .background(settingsCard())
                             .then(if (dark) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(18.dp)) else Modifier),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -925,7 +986,7 @@ private fun ConfirmDialog(
                     Spacer(Modifier.height(4.dp))
                     Text(
                         message,
-                        color = if (dark) AccountDark.mut else AppColors.textSecondary,
+                        color = settingsMut(),
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         textAlign = TextAlign.Center,
@@ -942,23 +1003,47 @@ private fun ConfirmDialog(
                                 .height(46.dp)
                                 .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(settingsAccent())
-                                .clickable(onClick = onConfirm),
+                                .background(
+                                    if (loading) settingsAccent().copy(alpha = 0.6f) else settingsAccent(),
+                                )
+                                .clickable(enabled = !loading, onClick = onConfirm),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(stringResource(R.string.addr_yes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            if (loading) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(17.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        stringResource(R.string.account_delete_in_progress),
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            } else {
+                                Text(stringResource(R.string.addr_yes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                         Box(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(if (dark) AccountDark.card else Color.White)
+                                .background(settingsCard())
                                 .border(1.5.dp, if (dark) AccountDark.line else AppColors.otpPinkBorder, RoundedCornerShape(14.dp))
-                                .clickable(onClick = onDismiss),
+                                .clickable(enabled = !loading, onClick = onDismiss),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(stringResource(R.string.common_cancel), color = if (dark) AccountDark.accent else settingsAccent(), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.common_cancel),
+                                color = (if (dark) AccountDark.accent else settingsAccent()).copy(alpha = if (loading) 0.5f else 1f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
                         }
                     }
                 }
@@ -1004,14 +1089,14 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     }
                     Text(
                         stringResource(R.string.about_version),
-                        color = if (dark) AccountDark.mut else AppColors.textSecondary,
+                        color = settingsMut(),
                         fontSize = 13.sp,
                         lineHeight = 22.sp,
                     )
                     Spacer(Modifier.height(22.dp))
                     Text(
                         stringResource(R.string.about_description),
-                        color = if (dark) AccountDark.mut else AppColors.textSecondary,
+                        color = settingsMut(),
                         fontSize = 13.sp,
                         lineHeight = 22.sp,
                         modifier = Modifier.padding(bottom = 14.dp),
@@ -1084,7 +1169,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                     if (loading && languages.isEmpty()) {
                         Text(
                             stringResource(R.string.language_loading),
-                            color = if (dark) AccountDark.mut else AppColors.textSecondary,
+                            color = settingsMut(),
                             fontSize = 13.sp,
                             modifier = Modifier.padding(bottom = 14.dp),
                         )
@@ -1149,7 +1234,7 @@ private fun LanguageOption(name: String, flag: String, selected: Boolean, onClic
             modifier = Modifier
                 .size(34.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(if (dark) AccountDark.bg else Color.White),
+                .background(settingsBackground()),
             contentAlignment = Alignment.Center,
         ) {
             AsyncImage(
@@ -1160,7 +1245,7 @@ private fun LanguageOption(name: String, flag: String, selected: Boolean, onClic
             )
         }
         Spacer(Modifier.width(10.dp))
-        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = if (dark) AccountDark.ink else AppColors.textPrimary, modifier = Modifier.weight(1f))
+        Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f))
         Box(
             modifier = Modifier
                 .size(18.dp)

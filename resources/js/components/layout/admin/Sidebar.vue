@@ -73,6 +73,44 @@
                         </ul>
                     </li>
 
+                    <template v-if="smsSectionReady && showSmsSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.sms') }}</span>
+                        </li>
+
+                        <li class="slide has-sub">
+                            <a
+                                href="javascript:void(0);"
+                                class="side-menu__item"
+                                @click.prevent="toggleSubMenu"
+                            >
+                                <i class="ri-message-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
+                                <i class="fe fe-chevron-right side-menu__angle"></i>
+                            </a>
+                            <ul class="slide-menu child1">
+                                <li class="slide side-menu__label1">
+                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
+                                </li>
+                                <li v-if="can('sms-providers.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.providers') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('whatsapp.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.whatsapp') }}
+                                    </router-link>
+                                </li>
+                                <li v-if="can('otp-settings.view')" class="slide">
+                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
+                                        {{ t('sidebar.sms_items.otp') }}
+                                    </router-link>
+                                </li>
+                            </ul>
+                        </li>
+                    </template>
+
                     <template v-if="showSystemUsersSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.users') }}</span>
@@ -96,6 +134,20 @@
                                 <router-link :to="{ name: 'admin.service-categories.index' }" class="side-menu__item">
                                     <i class="ri-list-settings-line side-menu__icon"></i>
                                     <span class="side-menu__label">{{ t('service_categories.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('faqs.view')" class="slide">
+                                <router-link :to="{ name: 'admin.faqs.index' }" class="side-menu__item">
+                                    <i class="ri-question-answer-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('faqs.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('privacy-policy.view')" class="slide">
+                                <router-link :to="{ name: 'admin.privacy-policies.index' }" class="side-menu__item">
+                                    <i class="ri-shield-keyhole-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('privacy_policies.title') }}</span>
                                 </router-link>
                             </li>
 
@@ -234,7 +286,7 @@
 </template>
 
 <script setup>
-import { computed, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
 import PlatformLogo from '../PlatformLogo.vue';
@@ -266,6 +318,33 @@ const showSystemUsersSection = computed(
     () => isSystemUsersVisible.value && can('users.view'),
 );
 
+/**
+ * The theme's sidebar script (defaultmenu.min.js) binds its own click toggle to every
+ * top-level `.slide.has-sub` that exists when it runs — which is after Vue mounts
+ * (useDashboard loads it dynamically). Chat/AI dropdowns escape that double-binding
+ * because they only render later. The SMS section must wait for the theme scripts to
+ * finish loading, otherwise both toggles fire on every click and cancel each other out.
+ */
+const smsSectionReady = ref(false);
+
+onMounted(() => {
+    const reveal = () => {
+        smsSectionReady.value = true;
+    };
+
+    if (document.documentElement.dataset.dashboardThemeReady !== undefined) {
+        reveal();
+
+        return;
+    }
+
+    window.addEventListener('dashboard-theme-scripts-ready', reveal, { once: true });
+});
+
+const showSmsSection = computed(
+    () => can('sms-providers.view') || can('whatsapp.view') || can('otp-settings.view'),
+);
+
 /** Providers nav has no permission gate yet; section shows if it or service categories are visible. */
 const showServicesSection = computed(() => can('service_categories.view') || true);
 
@@ -295,6 +374,7 @@ const chatAdminItems = [
     { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
+    { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
 ];
 
@@ -326,6 +406,7 @@ watch(
 );
 
 function toggleSubMenu(event) {
+    event.stopImmediatePropagation();
     const toggle = event.currentTarget;
     const submenu = toggle.nextElementSibling;
 

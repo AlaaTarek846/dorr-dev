@@ -54,12 +54,24 @@ trait SyncsTranslations
             return;
         }
 
+        $fields = $this->translatableFields($model);
+
+        if ($fields === []) {
+            return;
+        }
+
         $allowedLocales = $this->shouldFilterTranslationsByStorableLocales()
             ? $this->storableTranslationLocales()
             : null;
 
         foreach ($data['translations'] as $translation) {
-            if (! isset($translation['locale'], $translation['name'])) {
+            if (! isset($translation['locale'])) {
+                continue;
+            }
+
+            $values = array_intersect_key($translation, array_flip($fields));
+
+            if ($values === []) {
                 continue;
             }
 
@@ -71,7 +83,7 @@ trait SyncsTranslations
 
             $model->translations()->updateOrCreate(
                 ['locale' => $locale],
-                ['name' => $translation['name']],
+                $values,
             );
         }
 
@@ -82,5 +94,23 @@ trait SyncsTranslations
                 $model->translations()->whereNotIn('locale', $allowedLocales)->delete();
             }
         }
+    }
+
+    /**
+     * Translatable columns taken from the translation model, minus the locale
+     * and the parent foreign key.
+     *
+     * @return list<string>
+     */
+    protected function translatableFields(Model $model): array
+    {
+        if (! method_exists($model, 'translatableFields')) {
+            return ['name'];
+        }
+
+        /** @var list<string> $fields */
+        $fields = $model->translatableFields();
+
+        return $fields;
     }
 }

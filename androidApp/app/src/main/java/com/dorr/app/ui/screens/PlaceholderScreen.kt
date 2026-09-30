@@ -21,8 +21,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
-import com.dorr.app.ui.theme.AppColors
 
 /** Stand-in for tabs outside this request's scope (Items / History). */
 @Composable
@@ -40,20 +41,20 @@ fun PlaceholderScreen() {
         Icon(
             Icons.Outlined.Construction,
             contentDescription = null,
-            tint = if (night) AccountDark.mut else AppColors.textMuted,
+            tint = settingsMut(),
             modifier = Modifier.size(40.dp),
         )
         Spacer(Modifier.height(12.dp))
         Text(
             stringResource(R.string.placeholder_title),
             style = MaterialTheme.typography.titleMedium,
-            color = if (night) AccountDark.ink else AppColors.textPrimary,
+            color = settingsInk(),
         )
         Spacer(Modifier.height(4.dp))
         Text(
             stringResource(R.string.placeholder_body),
             style = MaterialTheme.typography.bodySmall,
-            color = if (night) AccountDark.mut else AppColors.textSecondary,
+            color = settingsMut(),
             textAlign = TextAlign.Center,
         )
     }

@@ -1,6 +1,5 @@
 package com.dorr.app.ui.screens
 
-import android.widget.Toast
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.ui.unit.sp
@@ -45,7 +44,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -53,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.network.ServiceDto
 import com.dorr.app.ui.components.ServiceAvatar
-import com.dorr.app.ui.components.ServiceChildrenSheet
 import com.dorr.app.ui.components.ServicesError
 import com.dorr.app.ui.components.ServicesSkeleton
 import com.dorr.app.ui.components.ServicesState
@@ -63,19 +60,38 @@ import com.dorr.app.ui.components.serviceIcon
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 /** Every service the dashboard exposes to the app, searchable, one clean row each. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ServicesScreen(onBack: () -> Unit) {
+fun ServicesScreen(
+    onBack: () -> Unit,
+    onOpenService: ((ServiceDto, Color) -> Unit)? = null,
+) {
     val loader = rememberServicesLoader()
     var query by remember { mutableStateOf("") }
-    var opened by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
-    val context = LocalContext.current
-    val comingSoon = stringResource(R.string.services_coming_soon)
+    var localDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
     val night = settingsNight()
+
+    val openDetail: (ServiceDto, Color) -> Unit = { service, color ->
+        if (onOpenService != null) onOpenService(service, color)
+        else localDetail = service to color
+    }
+
+    localDetail?.let { (service, color) ->
+        ServiceDetailScreen(
+            service = service,
+            accentColor = color,
+            onBack = { localDetail = null },
+            onOpenChild = { child -> localDetail = child.toServiceDto() to color },
+        )
+        return
+    }
 
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.matchParentSize())
@@ -106,10 +122,10 @@ fun ServicesScreen(onBack: () -> Unit) {
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = if (night) AccountDark.line else AppColors.border,
                                 focusedBorderColor = if (night) AccountDark.accent else settingsAccent(),
-                                unfocusedContainerColor = if (night) AccountDark.card else Color.White,
-                                focusedContainerColor = if (night) AccountDark.card else Color.White,
-                                unfocusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
-                                focusedTextColor = if (night) AccountDark.ink else AppColors.textPrimary,
+                                unfocusedContainerColor = settingsCard(),
+                                focusedContainerColor = settingsCard(),
+                                unfocusedTextColor = settingsInk(),
+                                focusedTextColor = settingsInk(),
                                 cursorColor = if (night) AccountDark.accent else settingsAccent(),
                             ),
                             modifier = Modifier.fillMaxWidth(),
@@ -139,13 +155,7 @@ fun ServicesScreen(onBack: () -> Unit) {
                     items(filtered, key = { it.id }) { service ->
                         // Same colour as on Home: keyed to the position in the full list.
                         val color = palette[services.indexOf(service) % palette.size]
-                        ServiceRow(service, color) {
-                            if (service.hasChildren == true) {
-                                opened = service to color
-                            } else {
-                                Toast.makeText(context, comingSoon, Toast.LENGTH_SHORT).show()
-                            }
-                        }
+                        ServiceRow(service, color) { openDetail(service, color) }
                     }
                 }
             }
@@ -153,9 +163,6 @@ fun ServicesScreen(onBack: () -> Unit) {
         }
     }
 
-    opened?.let { (service, color) ->
-        ServiceChildrenSheet(service = service, color = color, onDismiss = { opened = null })
-    }
 }
 
 @Composable
@@ -170,7 +177,7 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
                 else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
             )
             .clip(RoundedCornerShape(18.dp))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(settingsCard())
             .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, RoundedCornerShape(18.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
@@ -183,7 +190,7 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
                 service.name,
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
-                color = if (settingsNight()) AccountDark.ink else Color.Unspecified,
+                color = settingsInk(),
             )
             if (childCount > 0) {
                 Spacer(Modifier.height(2.dp))

@@ -192,11 +192,11 @@ fun CallsPage() {
                         ChAvatar(other?.avatar, title, other?.key ?: call.conversationId, size = 48.dp, isGroup = call.conversationType == "group")
                         Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(title, color = if (missed && !call.isOutgoing) Color(0xFFDC2626) else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(title, color = if (missed && !call.isOutgoing) Ch.Danger else Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     when { missed && !call.isOutgoing -> Icons.Rounded.CallMissed; call.isOutgoing -> Icons.Rounded.CallMade; else -> Icons.Rounded.CallReceived },
-                                    null, tint = if (missed) Color(0xFFDC2626) else Color(0xFF16A34A), modifier = Modifier.size(15.dp),
+                                    null, tint = if (missed) Ch.Danger else Ch.Success, modifier = Modifier.size(15.dp),
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(listTime(call.createdAt) + " " + clockTime(call.createdAt) + (call.durationSeconds?.let { "  ·  " + durationText(it * 1000L) } ?: ""), color = Ch.Mut, fontSize = 12.5.sp)

@@ -16,6 +16,8 @@ Shared entities used by Admin (full CRUD) and partially by User (read-only dropd
 | Flag | `General\FlagController` | `General\FlagService` | `General\FlagRepository` |
 | Language | `General\LanguageController` | `General\LanguageService` | `General\LanguageRepository` |
 | ServiceCategory | `General\ServiceCategoryController` | `General\ServiceCategoryService` | `General\ServiceCategoryRepository` |
+| Faq | `General\FaqController` | `General\FaqService` | `General\FaqRepository` |
+| PrivacyPolicy | `General\PrivacyPolicyController` | `General\PrivacyPolicyService` | `General\PrivacyPolicyRepository` |
 | PlatformSetting | `General\PlatformSettingController` | `General\PlatformSettingService` | `General\PlatformSettingRepository` |
 
 ---

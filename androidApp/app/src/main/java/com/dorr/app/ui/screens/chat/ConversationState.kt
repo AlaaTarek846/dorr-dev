@@ -205,6 +205,18 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             isMine = true, status = null,
             replyTo = replyTo?.let { com.dorr.app.network.ReplyPreviewDto(it.id, it.type, it.body, it.sender, null, false) },
             expiresAt = null, system = null, createdAt = java.time.OffsetDateTime.now().toString(),
+            // Drawn right away while it uploads: the poll's options, the "1" of a view-once.
+            viewOnce = out.extra["view_once"] != null,
+            poll = if (out.type == "poll") com.dorr.app.network.PollDto(
+                question = out.body,
+                multiple = out.extra["poll_multiple"] == true,
+                options = (out.extra["poll_options"] as? List<*>).orEmpty().mapIndexed { i, text -> com.dorr.app.network.PollOptionDto(i + 1, text.toString()) },
+            ) else null,
+            payment = when (out.type) {
+                "money_request" -> com.dorr.app.network.PaymentDto(kind = "request", status = "pending", amountMinor = (out.extra["amount_minor"] as? Number)?.toLong() ?: 0, isRequester = true)
+                "bill_split" -> com.dorr.app.network.PaymentDto(kind = "split", status = "open", totalMinor = (out.extra["amount_minor"] as? Number)?.toLong() ?: 0, isRequester = true)
+                else -> null
+            },
         )
         val replyId = replyTo?.id
         replyTo = null
@@ -220,6 +232,90 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         val dto = message.dto
         val extra: Map<String, Any?> = dto.meta?.let { gson.fromJson(it, Map::class.java) as Map<String, Any?> } ?: emptyMap()
         upload(dto.id, Outgoing(dto.type, dto.body, message.localFiles, extra, message.localThumb), dto.replyTo?.id)
+    }
+
+    // ------------------------------------------------------------------ polls, view once, live location
+
+    /**
+     * Tap an option: ticks it (single choice replaces, multiple toggles), shows the new totals at
+     * once, then keeps the server's numbers.
+     */
+    fun vote(message: UiMessage, optionId: Int) {
+        val poll = message.dto.poll ?: return
+        val picked = when {
+            optionId in poll.myVotes -> poll.myVotes - optionId
+            poll.multiple -> poll.myVotes + optionId
+            else -> listOf(optionId)
+        }
+        val before = poll.myVotes.toSet()
+        val optimistic = poll.copy(
+            options = poll.options.map { o ->
+                val delta = (if (o.id in picked) 1 else 0) - (if (o.id in before) 1 else 0)
+                o.copy(votes = (o.votes + delta).coerceAtLeast(0))
+            },
+            myVotes = picked,
+            voters = poll.voters + (if (before.isEmpty() && picked.isNotEmpty()) 1 else 0) - (if (before.isNotEmpty() && picked.isEmpty()) 1 else 0),
+        )
+        replaceMessage(message.id, message.copy(dto = message.dto.copy(poll = optimistic)))
+        scope.launch {
+            try {
+                ApiClient.chat.vote(chatAuth(), message.id, mapOf("options" to picked)).data?.let { fresh ->
+                    val current = messages.firstOrNull { it.id == message.id } ?: return@let
+                    replaceMessage(message.id, current.copy(dto = current.dto.copy(poll = fresh.poll)))
+                }
+            } catch (e: Exception) {
+                replaceMessage(message.id, message)
+                e.apiFailure().message?.let { host.showToast(it) }
+            }
+        }
+    }
+
+    /** The files of a view-once message, this one time — null when it can't be opened. */
+    suspend fun openViewOnce(message: UiMessage): List<com.dorr.app.network.AttachmentDto>? {
+        return try {
+            val files = ApiClient.chat.openViewOnce(chatAuth(), message.id).data?.attachments
+            replaceMessage(message.id, message.copy(dto = message.dto.copy(viewOnceOpened = true)))
+            files
+        } catch (e: Exception) {
+            if (e.apiFailure().httpStatus == 410) replaceMessage(message.id, message.copy(dto = message.dto.copy(viewOnceOpened = true)))
+            e.apiFailure().message?.let { host.showToast(it) }
+            null
+        }
+    }
+
+    /** A money request / split answered on the server (paid, declined, cancelled): keep its new state. */
+    fun paymentUpdated(fresh: MessageDto) {
+        val current = messages.firstOrNull { it.id == fresh.id } ?: return
+        replaceMessage(fresh.id, current.copy(dto = current.dto.copy(payment = fresh.payment, meta = fresh.meta)))
+    }
+
+    fun declineRequest(message: UiMessage) {
+        scope.launch {
+            try {
+                ApiClient.chat.declineRequest(chatAuth(), message.id).data?.let(::paymentUpdated)
+            } catch (e: Exception) {
+                e.apiFailure().message?.let { host.showToast(it) }
+            }
+        }
+    }
+
+    fun cancelRequest(message: UiMessage) {
+        scope.launch {
+            try {
+                ApiClient.chat.cancelRequest(chatAuth(), message.id).data?.let(::paymentUpdated)
+            } catch (e: Exception) {
+                e.apiFailure().message?.let { host.showToast(it) }
+            }
+        }
+    }
+
+    fun stopLive(message: UiMessage) {
+        scope.launch {
+            runCatching { ApiClient.chat.stopLive(chatAuth(), message.id).data }.getOrNull()?.let { fresh ->
+                replaceMessage(message.id, message.copy(dto = fresh.copy(isMine = true, status = message.dto.status)))
+            }
+            com.dorr.app.chat.LiveLocationSharing.stop(context, message.id)
+        }
     }
 
     private fun upload(uuid: String, out: Outgoing, replyId: String?) {
@@ -265,14 +361,22 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                     }
                     ApiClient.chat.sendWithFiles(chatAuth(), id, fields, parts)
                 }
-                sent.data?.let { replaceMessage(uuid, UiMessage(it)) }
+                sent.data?.let {
+                    replaceMessage(uuid, UiMessage(it))
+                    // A live location starts its position updates as soon as the server has it.
+                    it.liveLocation?.takeIf { live -> live.active }?.liveUntil?.let { until ->
+                        com.dorr.app.chat.LiveLocationSharing.start(context, it.id, until)
+                    }
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 val failure = e.apiFailure()
                 val index = messages.indexOfFirst { it.id == uuid }
                 if (index >= 0) messages[index] = messages[index].copy(local = "failed")
-                failure.message?.let { host.showToast(it) }
+                android.util.Log.w("DorrChat", "send ${out.type} failed", e)
+                // No HTTP answer at all (offline, tunnel down, timeout): say so instead of staying silent.
+                (failure.message ?: context.getString(com.dorr.app.R.string.ch_error_network)).let { host.showToast(it) }
             }
         }
     }
@@ -406,6 +510,15 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             "chat.message.updated", "chat.message.deleted" -> {
                 val dto = parseMessage(event.data.getAsJsonObject("message")) ?: return
                 val old = messages.firstOrNull { it.id == dto.id } ?: return
+                // A money card is drawn per viewer (can I pay? my share): the broadcast is the
+                // requester's view, so read my own version of it.
+                if (dto.payment != null && event.name == "chat.message.updated") {
+                    scope.launch {
+                        runCatching { ApiClient.chat.messages(chatAuth(), id, around = dto.id, limit = 1).data?.messages }.getOrNull()
+                            ?.firstOrNull { it.id == dto.id }?.let(::paymentUpdated)
+                    }
+                    return
+                }
                 replaceMessage(dto.id, UiMessage(dto.copy(isMine = old.isMine, status = old.dto.status, isStarred = old.dto.isStarred, reactions = if (event.name == "chat.message.deleted") ReactionsDto() else old.dto.reactions)))
             }
             "chat.receipt" -> {
@@ -423,6 +536,40 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 val old = messages[index].dto
                 val mine = if (event.data.str("participant") == myKey()) event.data.str("emoji") else old.reactions.mine
                 messages[index] = messages[index].copy(dto = old.copy(reactions = ReactionsDto(summary, mine, summary.sumOf { it.count })))
+            }
+            // Someone voted: new totals (and my own ticks when it was me, from another device).
+            "chat.poll.updated" -> {
+                val index = messages.indexOfFirst { it.id == event.data.str("message_id") }
+                if (index < 0) return
+                val old = messages[index].dto
+                val poll = old.poll ?: return
+                val counts = event.data.getAsJsonObject("counts")
+                val mineNow = if (event.data.str("participant") == myKey()) {
+                    event.data.getAsJsonArray("option_ids")?.mapNotNull { runCatching { it.asInt }.getOrNull() } ?: poll.myVotes
+                } else poll.myVotes
+                messages[index] = messages[index].copy(dto = old.copy(poll = poll.copy(
+                    options = poll.options.map { o -> o.copy(votes = counts?.get(o.id.toString())?.asInt ?: 0) },
+                    myVotes = mineNow,
+                    voters = event.data.get("voters")?.asInt ?: poll.voters,
+                )))
+            }
+            // My view-once was opened (or I opened it on another device): it can't be opened again.
+            "chat.view_once.opened" -> {
+                val index = messages.indexOfFirst { it.id == event.data.str("message_id") }
+                if (index < 0) return
+                val m = messages[index]
+                if (m.isMine || event.data.str("participant") == myKey()) messages[index] = m.copy(dto = m.dto.copy(viewOnceOpened = true))
+            }
+            // A live location moved: the pin walks to the new spot.
+            "chat.location.moved" -> {
+                val index = messages.indexOfFirst { it.id == event.data.str("message_id") }
+                if (index < 0) return
+                val old = messages[index].dto
+                val meta = (old.meta?.deepCopy() ?: com.google.gson.JsonObject()).apply {
+                    event.data.get("latitude")?.let { add("latitude", it) }
+                    event.data.get("longitude")?.let { add("longitude", it) }
+                }
+                messages[index] = messages[index].copy(dto = old.copy(meta = meta, liveLocation = old.liveLocation?.copy(updatedAt = event.data.str("updated_at"))))
             }
             "chat.pins.updated" -> scope.launch { refreshPinned() }
             "chat.conversation.updated" -> scope.launch {

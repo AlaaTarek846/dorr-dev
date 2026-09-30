@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -70,8 +71,10 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.ServiceDto
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.LocalAppearance
+import com.dorr.app.ui.theme.appearanceColor
 import com.dorr.app.ui.screens.wallet.WalletScreen
 
 private data class Tab(
@@ -101,6 +104,7 @@ fun MainScreen(
     onLogout: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenServices: () -> Unit,
+    onAccountDeleted: () -> Unit = {},
     initialTab: Int = 0,
     initialWalletOpen: Boolean = false,
     onStateChanged: (tab: Int, walletOpen: Boolean) -> Unit = { _, _ -> },
@@ -108,6 +112,10 @@ fun MainScreen(
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
+    var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
+    val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
+        serviceDetail = service to color
+    }
 
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
     LaunchedEffect(Unit) {
@@ -126,6 +134,10 @@ fun MainScreen(
 
     // Chat real-time for the whole signed-in session, plus "online" while the app is in front.
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    // Live locations I was sharing before the app was closed carry on (the app is in front now,
+    // so Android lets the location service start).
+    val liveContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.app.chat.LiveLocationSharing.resume(liveContext) }
     androidx.compose.runtime.DisposableEffect(lifecycle) {
         com.dorr.app.chat.ChatRealtime.start()
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -173,6 +185,7 @@ fun MainScreen(
     }
 
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
@@ -211,10 +224,18 @@ fun MainScreen(
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
                         onOpenServices = onOpenServices,
+                        onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
                     )
-                    1 -> ServicesScreen(onBack = { currentTab = 0 })
-                    3 -> ProfileScreen(onLogout = onLogout, onOpenWallet = { walletOpen = true })
+                    1 -> ServicesScreen(
+                        onBack = { currentTab = 0 },
+                        onOpenService = openServiceDetail,
+                    )
+                    3 -> ProfileScreen(
+                        onLogout = onLogout,
+                        onOpenWallet = { walletOpen = true },
+                        onAccountDeleted = onAccountDeleted,
+                    )
                     else -> PlaceholderScreen()
                 }
             }
@@ -249,6 +270,15 @@ fun MainScreen(
         }
     }
 
+    serviceDetail?.let { (service, color) ->
+        ServiceDetailScreen(
+            service = service,
+            accentColor = color,
+            onBack = { serviceDetail = null },
+            onOpenChild = { child -> serviceDetail = child.toServiceDto() to color },
+        )
+    }
+
     // A call can ring over anything (it's the only chat screen that takes the whole display).
     com.dorr.app.ui.screens.chat.CallOverlay()
     }
@@ -266,51 +296,29 @@ private fun DorrBottomNavigationBar(
     val fabSize = 54.dp
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val accountDark = night
-    val barColor = if (accountDark) AccountDark.bg else Color.White
-    val ringColor = if (accountDark) AccountDark.bg else Color.White
+    val barColor = if (accountDark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
+    val ringColor = barColor
 
     Box(
         modifier = modifier.fillMaxWidth().background(barColor),
         contentAlignment = Alignment.BottomCenter,
     ) {
         Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .then(
-                    if (accountDark) Modifier
-                    else Modifier.shadow(
-                        elevation = 10.dp,
-                        spotColor = settingsAccent().copy(alpha = 0.08f),
-                        ambientColor = Color.Black.copy(alpha = 0.04f),
-                    ),
-                ),
+            modifier = Modifier.fillMaxWidth(),
             color = barColor,
             tonalElevation = 0.dp,
         ) {
+            val divider = if (barColor.luminance() > 0.6f) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.10f)
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .navigationBarsPadding(),
             ) {
-                // Subtle hairline top line with gentle pink gradient towards center
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(1.dp)
-                        .then(
-                            if (accountDark) Modifier.background(Color(0xFF2C313A))
-                            else Modifier.background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        Color(0xFFEEEEEE),
-                                        Color(0xFFFDE8EB),
-                                        Color(0xFFF9C0C8),
-                                        Color(0xFFFDE8EB),
-                                        Color(0xFFEEEEEE),
-                                    ),
-                                ),
-                            ),
-                        ),
+                        .background(divider),
                 )
 
                 // 4 Tab items evenly distributed around the center FAB space

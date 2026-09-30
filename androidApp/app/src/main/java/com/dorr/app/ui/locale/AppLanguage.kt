@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.dorr.app.network.AppLocale
 import java.util.Locale
 
@@ -84,6 +86,32 @@ fun LocalizedApp(content: @Composable () -> Unit) {
         LocalAppLanguage provides state,
     ) {
         content()
+    }
+}
+
+/**
+ * [Dialog] content is composed in a separate window that keeps the Activity's
+ * default [Context], so [stringResource] would ignore [LocalizedApp] and fall
+ * back to `values/` (English). Capture the locale-aware locals from the caller
+ * and re-provide them inside the dialog.
+ */
+@Composable
+fun LocaleAwareDialog(
+    onDismissRequest: () -> Unit,
+    properties: DialogProperties = DialogProperties(),
+    content: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val layoutDirection = LocalLayoutDirection.current
+    Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        CompositionLocalProvider(
+            LocalContext provides context,
+            LocalConfiguration provides configuration,
+            LocalLayoutDirection provides layoutDirection,
+        ) {
+            content()
+        }
     }
 }
 
