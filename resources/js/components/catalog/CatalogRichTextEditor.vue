@@ -1,5 +1,8 @@
 <template>
-    <div class="catalog-rich-text-editor-wrap w-100">
+    <div
+        class="catalog-rich-text-editor-wrap w-100"
+        :style="quillPickerVars"
+    >
         <Editor
             :id="id"
             :model-value="modelValue"
@@ -193,4 +196,12 @@ const rootClass = computed(() => [
         'catalog-rich-text-editor--disabled': props.disabled || props.readonly,
     },
 ]);
+
+/** Quill snow picker labels use ::before; CSS variables keep them translated. */
+const quillPickerVars = computed(() => ({
+    '--rte-header-normal': JSON.stringify(t('rich_text_editor.headers.normal')),
+    '--rte-font-sans': JSON.stringify(t('rich_text_editor.fonts.sans')),
+    '--rte-font-serif': JSON.stringify(t('rich_text_editor.fonts.serif')),
+    '--rte-font-mono': JSON.stringify(t('rich_text_editor.fonts.mono')),
+}));
 </script>

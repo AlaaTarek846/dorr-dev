@@ -492,7 +492,7 @@ private fun DeleteAddressDialog(
     onConfirm: () -> Unit,
 ) {
     val night = settingsNight()
-    val red = if (night) AccountDark.accent else AppColors.waRed
+    val red = settingsAccent()
     LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
@@ -507,7 +507,7 @@ private fun DeleteAddressDialog(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (night) AccountDark.well else Color(0xFFFDE8EC)),
+                    .background(red.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -549,14 +549,14 @@ private fun DeleteAddressDialog(
                 Button(
                     onClick = onConfirm,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.waRed,
+                        containerColor = red,
                         contentColor = Color.White,
                     ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
-                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = AppColors.waRed.copy(alpha = 0.4f)),
+                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = red.copy(alpha = 0.4f)),
                 ) {
                     Text(
                         stringResource(R.string.addr_yes),
@@ -568,7 +568,7 @@ private fun DeleteAddressDialog(
                 OutlinedButton(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, if (night) AccountDark.line else Color(0xFFFECDD3)),
+                    border = BorderStroke(1.dp, if (night) AccountDark.line else red.copy(alpha = 0.3f)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = if (night) Color.Transparent else Color.White,
                         contentColor = red,
@@ -767,7 +767,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+                .background(settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -796,7 +796,7 @@ private fun AddressCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                            .background(settingsAccent().copy(alpha = 0.14f))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
@@ -825,7 +825,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                .background(settingsAccent().copy(alpha = 0.14f))
                 .clickable(onClick = onEdit),
             contentAlignment = Alignment.Center,
         ) {
@@ -846,7 +846,7 @@ private fun AddressCard(
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(settingsCard())
-                .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFFECDD3), RoundedCornerShape(12.dp))
+                .border(1.dp, if (settingsNight()) AccountDark.line else settingsAccent().copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                 .alpha(if (item.isDefault) 0.35f else 1f)
                 .clickable(onClick = onDelete),
             contentAlignment = Alignment.Center,
@@ -854,7 +854,7 @@ private fun AddressCard(
             Icon(
                 Icons.Rounded.DeleteOutline,
                 contentDescription = stringResource(R.string.addr_delete),
-                tint = if (item.isDefault) settingsMut() else AppColors.waRed,
+                tint = if (item.isDefault) settingsMut() else settingsAccent(),
                 modifier = Modifier.size(18.dp),
             )
         }

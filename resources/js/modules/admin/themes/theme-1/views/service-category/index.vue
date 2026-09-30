@@ -172,7 +172,6 @@
                                         <th scope="col">{{ t('service_categories.module_name') }}</th>
                                         <th scope="col">{{ t('service_categories.audiences') }}</th>
                                         <th scope="col">{{ t('service_categories.is_auto_assign') }}</th>
-                                        <th scope="col">{{ t('service_categories.sort_order') }}</th>
                                         <th scope="col">{{ t('service_categories.status') }}</th>
                                         <th scope="col">{{ t('service_categories.created_at') }}</th>
                                         <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('service_categories.actions') }}</th>
@@ -279,9 +278,6 @@
                                             >
                                                 {{ category.is_auto_assign ? t('yes') : t('no') }}
                                             </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-light text-default">{{ category.sort_order ?? 0 }}</span>
                                         </td>
                                         <td>
                                             <span v-if="isTrashedRecord(category)" class="badge bg-danger-transparent">
@@ -491,7 +487,7 @@ function audienceLabel(value) {
 }
 
 const tableColumnCount = computed(() => {
-    let count = 8;
+    let count = 7;
 
     if (canMultipleDelete.value) {
         count += 1;

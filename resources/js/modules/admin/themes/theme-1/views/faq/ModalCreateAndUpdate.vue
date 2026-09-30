@@ -85,7 +85,7 @@
                         </div>
 
                         <div class="row g-3 align-items-end">
-                            <div class="col-md-6">
+                            <div class="col-md-9">
                                 <label for="faq-service" class="form-label">{{ t('faqs.service') }}</label>
                                 <Select
                                     id="faq-service"
@@ -102,28 +102,6 @@
                                     auto-filter-focus
                                     class="w-100"
                                 />
-                            </div>
-
-                            <div class="col-md-3">
-                                <label for="faq-sort-order" class="form-label">{{ t('faqs.sort_order') }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-sort-ascending"></i>
-                                    </span>
-                                    <input
-                                        id="faq-sort-order"
-                                        v-model.number="form.sort_order"
-                                        type="number"
-                                        min="0"
-                                        class="form-control"
-                                        :class="serverErrors.sort_order ? 'is-invalid' : ''"
-                                        :placeholder="t('faqs.sort_order_placeholder')"
-                                        @input="clearServerError('sort_order')"
-                                    >
-                                </div>
-                                <div v-if="serverErrors.sort_order?.[0]" class="invalid-feedback d-block">
-                                    {{ serverErrors.sort_order[0] }}
-                                </div>
                             </div>
 
                             <div class="col-md-3">
@@ -211,7 +189,6 @@ const isEdit = computed(() => props.type === 'edit');
 const form = reactive({
     service_id: '',
     status: true,
-    sort_order: 0,
     translations: {},
 });
 
@@ -271,10 +248,6 @@ async function loadServiceOptions() {
     }
 }
 
-function clearServerError(field) {
-    delete serverErrors[field];
-}
-
 function resetValidation() {
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
@@ -283,7 +256,6 @@ function resetValidation() {
 function resetForm() {
     form.service_id = null;
     form.status = true;
-    form.sort_order = 0;
     resetTranslations();
     resetValidation();
 }
@@ -291,7 +263,6 @@ function resetForm() {
 function fillForm(record) {
     form.service_id = record?.service_id ?? null;
     form.status = Boolean(record?.status ?? true);
-    form.sort_order = record?.sort_order ?? 0;
     fillTranslations(record);
     resetValidation();
 }
@@ -300,7 +271,6 @@ function buildPayload() {
     return {
         service_id: form.service_id ?? null,
         status: form.status,
-        sort_order: Number(form.sort_order ?? 0),
         translations: buildTranslationsPayload(),
     };
 }

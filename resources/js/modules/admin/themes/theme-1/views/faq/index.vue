@@ -101,7 +101,17 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="canCreate && statusFilter !== 'deleted'"
+                                v-if="canUpdate && statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-sm btn-wave"
+                                :class="reorderMode ? 'btn-primary' : 'btn-outline-primary'"
+                                @click="toggleReorderMode"
+                            >
+                                <i class="ri-drag-move-2-line me-1 align-middle"></i>
+                                {{ reorderMode ? t('faqs.reorder_done') : t('faqs.reorder') }}
+                            </button>
+                            <button
+                                v-if="canCreate && statusFilter !== 'deleted' && ! reorderMode"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -112,7 +122,15 @@
                         </div>
                     </div>
 
-                    <div class="card-body p-0">
+                    <div v-if="reorderMode" class="card-body p-4">
+                        <FaqReorderPanel
+                            ref="reorderPanelRef"
+                            :can-update="canUpdate"
+                            :locale="locale"
+                        />
+                    </div>
+
+                    <div v-else class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
@@ -128,7 +146,6 @@
                                         </th>
                                         <th scope="col">{{ t('faqs.question') }}</th>
                                         <th scope="col">{{ t('faqs.service') }}</th>
-                                        <th scope="col">{{ t('faqs.sort_order') }}</th>
                                         <th scope="col">{{ t('faqs.status') }}</th>
                                         <th scope="col">{{ t('faqs.created_at') }}</th>
                                         <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('faqs.actions') }}</th>
@@ -188,9 +205,6 @@
                                             <span v-else class="badge bg-secondary-transparent">
                                                 {{ t('faqs.general') }}
                                             </span>
-                                        </td>
-                                        <td>
-                                            <span class="badge bg-light text-dark">{{ faq.sort_order }}</span>
                                         </td>
                                         <td>
                                             <span v-if="isTrashedRecord(faq)" class="badge bg-danger-transparent">
@@ -273,7 +287,7 @@
                         </div>
                     </div>
 
-                    <div v-if="pagination && !loading" class="card-footer border-top-0">
+                    <div v-if="! reorderMode && pagination && !loading" class="card-footer border-top-0">
                         <div class="d-flex align-items-center flex-wrap gap-3">
                             <div class="d-flex align-items-center gap-2 text-muted fs-13">
                                 <span>{{ entriesLabel }}</span>
@@ -358,6 +372,7 @@ import { useCatalogPermissions } from '../../../../../../composables/useCatalogP
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import { useFaqs } from '../../../../../../composables/useFaqs';
 import { useFaqsStore } from '../../../../../../stores/faqs';
+import FaqReorderPanel from '../../../../../../components/catalog/FaqReorderPanel.vue';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
@@ -373,7 +388,7 @@ const {
 } = useCatalogPermissions('faqs');
 
 const tableColumnCount = computed(() => {
-    let count = 5;
+    let count = 4;
 
     if (canMultipleDelete.value) {
         count += 1;
@@ -419,10 +434,22 @@ const counts = computed(() => ({
     deleted: faqsStore.deletedCount ?? 0,
 }));
 
+const reorderMode = ref(false);
+const reorderPanelRef = ref(null);
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
 const deleteConfirm = useConfirmDelete();
+
+function toggleReorderMode() {
+    reorderMode.value = ! reorderMode.value;
+
+    if (reorderMode.value) {
+        reorderPanelRef.value?.reload?.();
+    } else {
+        fetchFaqs(currentPage.value);
+    }
+}
 
 const {
     confirmDelete,

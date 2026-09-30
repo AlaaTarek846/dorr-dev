@@ -2,7 +2,15 @@
 
 ## [Unreleased]
 
+### Changed
+- FAQ ordering is per service (general FAQs are one group): new FAQs go last in their group,
+  moving a FAQ to another service puts it last there, and `sort_order` is no longer accepted
+  from the create/edit form. The admin FAQ list is ordered newest first and no longer shows
+  the sort column; ordering is done from a drag-and-drop panel with a service select
+  (default "General"), like service categories.
+
 ### Added
+- `GET /api/admin/v1/faqs/ordered` and `PUT /api/admin/v1/faqs/reorder`, `FaqReorderPanel.vue`
 - `FaqSeeder` and `PrivacyPolicySeeder` (bilingual content, `sort_order`, optional
   `service_id` linkage, idempotent upsert on the English translation) plus registration in
   `DatabaseSeeder` after `ServiceCategoriesSeeder`
