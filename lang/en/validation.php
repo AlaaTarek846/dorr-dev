@@ -51,6 +51,9 @@ return [
         'service_categories' => [
             'reorder_siblings' => 'Reorder must include every category at the same level (same parent).',
         ],
+        'faqs' => [
+            'reorder_group' => 'Reorder must include every FAQ of the selected service.',
+        ],
         'translations.*.question' => [
             'required' => 'The question field is required.',
             'string' => 'The question field must be a string.',

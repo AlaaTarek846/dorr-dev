@@ -21,8 +21,7 @@ class ServiceCategoryRepository extends TranslatableRepository
     protected array $with = ['translations', 'translation', 'parent.translations', 'parent.translation'];
 
     protected array $orderBy = [
-        'sort_order' => 'asc',
-        'id' => 'asc',
+        'id' => 'desc',
     ];
 
     public function __construct(ServiceCategory $model)

@@ -43,7 +43,7 @@
                             <CatalogRichTextEditor
                                 :model-value="form.translations[activeLocale].content"
                                 :placeholder="t('privacy_policies.content_placeholder')"
-                                :label="t('rich_text_editor')"
+                                :label="t('rich_text_editor_label')"
                                 :dir="activeLocale === 'ar' ? 'rtl' : 'ltr'"
                                 :invalid="fieldInputClass(activeLocale, 'content')['is-invalid']"
                                 :error-message="fieldMessage(activeLocale, 'content')"

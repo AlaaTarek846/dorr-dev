@@ -68,7 +68,6 @@ class FaqManagementTest extends TestCase
         return array_merge([
             'service_id' => null,
             'status' => true,
-            'sort_order' => 0,
             'translations' => $this->translations(
                 ['How do I reset my password?', 'Use the reset link.'],
                 ['كيف أعيد تعيين كلمة المرور؟', 'استخدم رابط إعادة التعيين.'],
@@ -119,7 +118,7 @@ class FaqManagementTest extends TestCase
             ->assertJsonPath('data.service_id', null)
             ->assertJsonPath('data.service', null);
 
-        $this->assertDatabaseHas('faqs', ['service_id' => null, 'sort_order' => 0]);
+        $this->assertDatabaseHas('faqs', ['service_id' => null, 'sort_order' => 1]);
     }
 
     public function test_a_faq_can_be_linked_to_a_service(): void
@@ -214,31 +213,128 @@ class FaqManagementTest extends TestCase
 
     // ---------------------------------------------------------------------- ordering
 
-    public function test_the_list_is_ordered_by_sort_order_then_id(): void
+    private function createFaq(string $question, ?int $serviceId = null): int
+    {
+        return $this->postJson('/api/admin/v1/faqs', $this->payload([
+            'service_id' => $serviceId,
+            'translations' => $this->translations([$question, "{$question} answer"]),
+        ]))->assertCreated()->json('data.id');
+    }
+
+    public function test_the_admin_list_shows_the_newest_first(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/faqs', $this->payload([
-            'sort_order' => 5,
-            'translations' => $this->translations(['Third', 'Third answer']),
+        $this->createFaq('First');
+        $this->createFaq('Second');
+        $this->createFaq('Third');
+
+        $this->assertSame(
+            ['Third', 'Second', 'First'],
+            $this->getJson('/api/admin/v1/faqs')->assertOk()->json('data.*.question'),
+        );
+    }
+
+    public function test_a_new_faq_goes_last_within_its_own_service(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/admin/v1/faqs', $this->payload(['sort_order' => 50]))->assertCreated();
+        $this->createFaq('General two');
+        $serviceFaq = $this->createFaq('Service one', $this->service->id);
+
+        $this->assertSame(
+            [1, 2],
+            Faq::query()->whereNull('service_id')->orderBy('id')->pluck('sort_order')->all(),
+        );
+        $this->assertDatabaseHas('faqs', ['id' => $serviceFaq, 'sort_order' => 1]);
+    }
+
+    public function test_the_ordered_list_is_scoped_to_one_service(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->createFaq('General A');
+        $this->createFaq('General B');
+        $this->createFaq('Service A', $this->service->id);
+
+        $this->assertSame(
+            ['General A', 'General B'],
+            $this->getJson('/api/admin/v1/faqs/ordered')->assertOk()->json('data.*.question'),
+        );
+
+        $this->assertSame(
+            ['Service A'],
+            $this->getJson('/api/admin/v1/faqs/ordered?service_id='.$this->service->id)
+                ->assertOk()
+                ->json('data.*.question'),
+        );
+    }
+
+    public function test_the_faqs_of_one_service_can_be_reordered(): void
+    {
+        $this->actingAsAdmin();
+
+        $first = $this->createFaq('First');
+        $second = $this->createFaq('Second');
+        $third = $this->createFaq('Third');
+
+        $this->putJson('/api/admin/v1/faqs/reorder', [
             'service_id' => null,
-        ]))->assertCreated();
+            'ordered_ids' => [$third, $first, $second],
+        ])->assertOk();
 
-        $this->postJson('/api/admin/v1/faqs', $this->payload([
-            'sort_order' => 1,
-            'translations' => $this->translations(['First', 'First answer']),
-        ]))->assertCreated();
+        $this->assertSame(
+            ['Third', 'First', 'Second'],
+            $this->getJson('/api/admin/v1/faqs/ordered')->json('data.*.question'),
+        );
+    }
 
-        $this->postJson('/api/admin/v1/faqs', $this->payload([
-            'sort_order' => 1,
-            'translations' => $this->translations(['Second', 'Second answer']),
-        ]))->assertCreated();
+    public function test_a_reorder_must_cover_exactly_the_faqs_of_that_service(): void
+    {
+        $this->actingAsAdmin();
 
-        $questions = $this->getJson('/api/admin/v1/faqs')
-            ->assertOk()
-            ->json('data.*.question');
+        $general = $this->createFaq('General');
+        $otherGeneral = $this->createFaq('Other general');
+        $serviceFaq = $this->createFaq('Service', $this->service->id);
 
-        $this->assertSame(['First', 'Second', 'Third'], $questions);
+        $this->putJson('/api/admin/v1/faqs/reorder', [
+            'service_id' => null,
+            'ordered_ids' => [$general],
+        ])->assertStatus(422)->assertJsonValidationErrors('ordered_ids');
+
+        $this->putJson('/api/admin/v1/faqs/reorder', [
+            'service_id' => null,
+            'ordered_ids' => [$general, $otherGeneral, $serviceFaq],
+        ])->assertStatus(422)->assertJsonValidationErrors('ordered_ids');
+    }
+
+    public function test_moving_a_faq_to_another_service_puts_it_last_there(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->createFaq('Service one', $this->service->id);
+        $this->createFaq('Service two', $this->service->id);
+        $general = $this->createFaq('General');
+
+        $this->putJson("/api/admin/v1/faqs/{$general}", $this->payload(['service_id' => $this->service->id]))
+            ->assertOk();
+
+        $this->assertDatabaseHas('faqs', ['id' => $general, 'sort_order' => 3]);
+    }
+
+    public function test_editing_a_faq_keeps_its_position(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->createFaq('First');
+        $second = $this->createFaq('Second');
+
+        $this->putJson("/api/admin/v1/faqs/{$second}", $this->payload([
+            'translations' => $this->translations(['Second edited', 'Answer']),
+        ]))->assertOk();
+
+        $this->assertDatabaseHas('faqs', ['id' => $second, 'sort_order' => 2]);
     }
 
     public function test_the_search_matches_the_question_and_the_answer(): void
@@ -372,17 +468,13 @@ class FaqManagementTest extends TestCase
 
     // -------------------------------------------------------------------- validation
 
-    public function test_the_translations_and_the_sort_order_are_validated(): void
+    public function test_the_translations_are_validated(): void
     {
         $this->actingAsAdmin();
 
         $this->postJson('/api/admin/v1/faqs', $this->payload(['translations' => []]))
             ->assertStatus(422)
             ->assertJsonValidationErrors('translations');
-
-        $this->postJson('/api/admin/v1/faqs', $this->payload(['sort_order' => -1]))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('sort_order');
 
         $this->postJson('/api/admin/v1/faqs', $this->payload([
             'translations' => [['locale' => 'en', 'question' => 'x', 'answer' => 'A valid answer']],

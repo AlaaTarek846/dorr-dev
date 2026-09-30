@@ -1551,6 +1551,12 @@
         "general": "General",
         "sort_order": "Sort order",
         "sort_order_placeholder": "0",
+        "reorder": "Reorder",
+        "reorder_done": "Back to list",
+        "reorder_hint": "Pick a service, then drag the questions to set the order they appear in. Each service has its own order.",
+        "reorder_drag": "Drag to reorder",
+        "reorder_loading": "Loading order…",
+        "reorder_empty": "No questions for this service yet.",
         "status": "Status",
         "created_at": "Created at",
         "updated": "Updated",
@@ -1632,7 +1638,7 @@
         "add_image": "Add image",
         "image_url_prompt": "Enter the image URL (https://...)"
     },
-    "rich_text_editor": "Rich text editor",
+    "rich_text_editor_label": "Rich text editor",
     "messenger": {
         "title": "Messages",
         "new_chat": "New chat",

@@ -60,6 +60,9 @@ return [
         'service_categories' => [
             'reorder_siblings' => 'يجب أن يشمل الترتيب كل الخدمات في نفس المستوى (نفس الأب).',
         ],
+        'faqs' => [
+            'reorder_group' => 'يجب أن يشمل الترتيب كل الأسئلة الشائعة للخدمة المختارة.',
+        ],
         'translations.*.question' => [
             'required' => 'حقل السؤال مطلوب.',
             'string' => 'يجب أن يكون حقل السؤال نصاً.',

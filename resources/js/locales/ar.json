@@ -1551,6 +1551,12 @@
         "general": "عام",
         "sort_order": "الترتيب",
         "sort_order_placeholder": "0",
+        "reorder": "ترتيب",
+        "reorder_done": "العودة للقائمة",
+        "reorder_hint": "اختر الخدمة ثم اسحب الأسئلة لتغيير ترتيب ظهورها. لكل خدمة ترتيب مستقل.",
+        "reorder_drag": "اسحب للترتيب",
+        "reorder_loading": "جاري تحميل الترتيب…",
+        "reorder_empty": "لا توجد أسئلة لهذه الخدمة بعد.",
         "status": "الحالة",
         "created_at": "تاريخ الإنشاء",
         "updated": "تم التحديث",
@@ -1632,7 +1638,7 @@
         "add_image": "إضافة صورة",
         "image_url_prompt": "أدخل رابط الصورة (https://...)"
     },
-    "rich_text_editor": "محرر نصوص متقدم",
+    "rich_text_editor_label": "محرر نصوص متقدم",
     "messenger": {
         "title": "الرسايل",
         "new_chat": "محادثة جديدة",
