@@ -187,6 +187,37 @@ export function fillCatalogTranslationFields(target, record, localeCodes = null)
     }
 }
 
+export function fillCatalogDescriptionFields(target, record, localeCodes = null) {
+    const codes = localeCodes ?? Object.keys(target);
+    const translations = Array.isArray(record?.translations) ? record.translations : [];
+
+    for (const code of codes) {
+        target[code] = translations.find((item) => item.locale === code)?.description ?? '';
+    }
+
+    if (record?.description) {
+        for (const code of codes) {
+            if (! target[code]) {
+                target[code] = record.description;
+            }
+        }
+    }
+}
+
+export function syncCatalogLocaleObjectKeys(target, localeCodes) {
+    for (const code of localeCodes) {
+        if (! Object.prototype.hasOwnProperty.call(target, code)) {
+            target[code] = '';
+        }
+    }
+
+    for (const key of Object.keys(target)) {
+        if (! localeCodes.includes(key)) {
+            delete target[key];
+        }
+    }
+}
+
 export function isTrashedRecord(record) {
     return record?.deleted_at != null && record?.deleted_at !== '';
 }

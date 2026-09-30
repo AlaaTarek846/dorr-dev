@@ -118,8 +118,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.dorr.app.R
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.network.AddressDto
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
@@ -493,7 +493,7 @@ private fun DeleteAddressDialog(
 ) {
     val night = settingsNight()
     val red = if (night) AccountDark.accent else AppColors.waRed
-    Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()

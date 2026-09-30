@@ -13,6 +13,7 @@ import {
 } from '../../utils/direction';
 import '../../api/userAxios';
 import '../../styles/catalog-list.css';
+import '../../styles/rich-text-content.css';
 
 applyDocumentDirection(
     getStoredDirection(),

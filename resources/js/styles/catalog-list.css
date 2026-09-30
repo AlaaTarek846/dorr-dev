@@ -237,6 +237,76 @@
     z-index: 2000;
 }
 
+/* PrimeVue Select / MultiSelect in catalog modals — dark mode */
+[data-theme-mode='dark'] .modal .p-select,
+[data-theme-mode='dark'] .modal .p-multiselect,
+html.app-dark .modal .p-select,
+html.app-dark .modal .p-multiselect {
+    background: var(--form-control-bg, #232628);
+    border-color: var(--input-border, #313335);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .modal .p-select .p-select-label,
+[data-theme-mode='dark'] .modal .p-select .p-select-label.p-placeholder,
+[data-theme-mode='dark'] .modal .p-multiselect .p-multiselect-label,
+[data-theme-mode='dark'] .modal .p-multiselect .p-multiselect-label.p-placeholder,
+html.app-dark .modal .p-select .p-select-label,
+html.app-dark .modal .p-multiselect .p-multiselect-label {
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .modal .p-multiselect .p-multiselect-label.p-placeholder,
+html.app-dark .modal .p-multiselect .p-multiselect-label.p-placeholder {
+    color: var(--text-muted, rgba(255, 255, 255, 0.5));
+}
+
+[data-theme-mode='dark'] .modal .p-select .p-select-dropdown,
+[data-theme-mode='dark'] .modal .p-multiselect .p-multiselect-dropdown,
+html.app-dark .modal .p-select .p-select-dropdown,
+html.app-dark .modal .p-multiselect .p-multiselect-dropdown {
+    color: var(--default-text-color, rgba(255, 255, 255, 0.7));
+}
+
+[data-theme-mode='dark'] .modal .p-multiselect-chip,
+html.app-dark .modal .p-multiselect-chip {
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.22);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.9));
+}
+
+[data-theme-mode='dark'] .p-select-overlay,
+[data-theme-mode='dark'] .p-multiselect-overlay,
+html.app-dark .p-select-overlay,
+html.app-dark .p-multiselect-overlay {
+    background: var(--form-control-bg, #232628);
+    border-color: var(--input-border, #313335);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .p-select-option,
+[data-theme-mode='dark'] .p-multiselect-option,
+html.app-dark .p-select-option,
+html.app-dark .p-multiselect-option {
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .p-select-option.p-focus,
+[data-theme-mode='dark'] .p-multiselect-option.p-focus,
+[data-theme-mode='dark'] .p-select-option:not(.p-disabled).p-focus,
+html.app-dark .p-select-option.p-focus,
+html.app-dark .p-multiselect-option.p-focus {
+    background: var(--list-hover-focus-bg, rgba(255, 255, 255, 0.1));
+}
+
+[data-theme-mode='dark'] .p-multiselect-header,
+[data-theme-mode='dark'] .p-multiselect-filter-container .p-inputtext,
+html.app-dark .p-multiselect-header,
+html.app-dark .p-multiselect-filter-container .p-inputtext {
+    background: var(--form-control-bg, #232628);
+    border-color: var(--input-border, #313335);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
 /* PrimeVue overlays inside catalog CRUD modals only — do not apply to scrollable modals (e.g. roles). */
 .modal.show:has(.catalog-modal-header) .modal-dialog,
 .modal.show:has(.catalog-modal-header) .modal-content,

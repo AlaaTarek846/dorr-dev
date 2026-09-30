@@ -57,6 +57,9 @@ return [
             'min' => 'يجب ألا يقل حقل الاسم عن :min حرفاً.',
             'max' => 'يجب ألا يتجاوز حقل الاسم :max حرفاً.',
         ],
+        'service_categories' => [
+            'reorder_siblings' => 'يجب أن يشمل الترتيب كل الخدمات في نفس المستوى (نفس الأب).',
+        ],
     ],
 
     'attributes' => [
@@ -103,7 +106,9 @@ return [
         'translations' => 'الترجمات',
         'translations.*.locale' => 'اللغة',
         'translations.*.name' => 'الاسم',
+        'translations.*.description' => 'الوصف',
         'module_name' => 'اسم الوحدة',
+        'audiences' => 'الفئات المستهدفة',
         'is_login_dashboard' => 'الظهور في لوحة الدخول',
         'is_auto_assign' => 'الإسناد التلقائي',
         'ids' => 'العناصر المحددة',

@@ -47,4 +47,34 @@ class PhoneNumber
 
         return '+'.$dial.$digits;
     }
+
+    /**
+     * The active country whose dial code starts this E.164 number (longest code wins: +1 vs +1242).
+     */
+    public static function countryOf(string $e164): ?Country
+    {
+        $digits = ltrim($e164, '+');
+
+        return Country::query()->where('status', true)->whereNotNull('dial_code')->get(['id', 'code', 'dial_code', 'phone_length', 'phone_starts_with'])
+            ->filter(fn (Country $c) => ($dial = ltrim((string) $c->dial_code, '+')) !== '' && str_starts_with($digits, $dial))
+            ->sortByDesc(fn (Country $c) => strlen(ltrim((string) $c->dial_code, '+')))
+            ->first();
+    }
+
+    /**
+     * A complete number for that country: the national part has exactly `phone_length` digits and
+     * starts with one of `phone_starts_with` (comma separated) when the country sets them.
+     */
+    public static function fits(string $e164, Country $country): bool
+    {
+        $national = substr(ltrim($e164, '+'), strlen(ltrim((string) $country->dial_code, '+')));
+
+        if ($country->phone_length !== null && strlen($national) !== (int) $country->phone_length) {
+            return false;
+        }
+
+        $prefixes = array_filter(array_map('trim', explode(',', (string) $country->phone_starts_with)));
+
+        return $prefixes === [] || collect($prefixes)->contains(fn (string $p) => str_starts_with($national, $p));
+    }
 }

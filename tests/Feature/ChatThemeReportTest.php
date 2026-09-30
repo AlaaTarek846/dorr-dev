@@ -170,6 +170,19 @@ class ChatThemeReportTest extends TestCase
         $this->assertSame(0, ChatReportType::query()->count());
     }
 
+    public function test_the_website_uses_the_same_chat_api(): void
+    {
+        $this->as($this->alice);
+        $chat = $this->postJson('/api/user/v1/chat/conversations/direct', ['participant_id' => $this->bob->id])->assertOk()->json('data');
+        $this->postJson("/api/user/v1/chat/conversations/{$chat['id']}/messages", ['type' => 'text', 'body' => 'from the web'])->assertCreated();
+
+        // The same chat, seen from the app.
+        $this->getJson("/api/mobile/v1/chat/conversations/{$chat['id']}/messages", $this->headers())->assertOk()->assertJsonPath('data.messages.0.body', 'from the web');
+
+        $this->as($this->bob);
+        $this->getJson('/api/user/v1/chat/conversations?filter=requests')->assertOk()->assertJsonPath('data.0.id', $chat['id']);
+    }
+
     // ================================================================ helpers
 
     private function theme(string $name, bool $default = false): ChatTheme

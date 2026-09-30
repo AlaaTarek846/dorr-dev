@@ -80,6 +80,9 @@ import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Gif
+import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
@@ -378,26 +381,12 @@ internal fun GlassIcon(icon: ImageVector, size: Dp = 40.dp, onClick: () -> Unit)
 private fun SearchField(value: String, onChange: (String) -> Unit) {
     val focus = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.requestFocus() }
-    Row(
-        Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(21.dp)).background(Ch.Surface).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(Icons.Rounded.Search, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(8.dp))
-        Box(Modifier.weight(1f)) {
-            if (value.isEmpty()) Text(stringResource(R.string.ch_search_hint), color = Ch.Soft, fontSize = 14.sp)
-            BasicTextField(
-                value = value, onValueChange = onChange, singleLine = true,
-                textStyle = TextStyle(color = Ch.Ink, fontSize = 14.sp),
-                cursorBrush = SolidColor(Ch.Red),
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                modifier = Modifier.fillMaxWidth().focusRequester(focus),
-            )
-        }
-        AnimatedVisibility(value.isNotEmpty(), enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
-            Icon(Icons.Rounded.Close, null, tint = Ch.Soft, modifier = Modifier.size(18.dp).clickable { onChange("") })
-        }
-    }
+    ChField(
+        value, onChange, stringResource(R.string.ch_search_hint),
+        icon = Icons.Rounded.Search, clearable = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        fieldModifier = Modifier.focusRequester(focus),
+    )
 }
 
 @Composable
@@ -450,6 +439,7 @@ private fun FilterChips() {
         "all" to stringResource(R.string.ch_filter_all),
         "unread" to stringResource(R.string.ch_filter_unread),
         "groups" to stringResource(R.string.ch_filter_groups),
+        "channels" to stringResource(R.string.ch_filter_channels),
         "archived" to stringResource(R.string.ch_filter_archived),
     ) + host.folders.map { "folder:${it.id}" to it.name }
 
@@ -473,7 +463,7 @@ private fun FilterChips() {
                     .shadow(if (active) 8.dp else 1.dp, RoundedCornerShape(19.dp), spotColor = if (active) Ch.Red.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.08f))
                     .clip(RoundedCornerShape(19.dp))
                     .background(Ch.Surface)
-                    .background(Brush.horizontalGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812))), alpha = fill)
+                    .background(Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep)), alpha = fill)
                     .combinedClickable(onClick = { host.filter = key }, onLongClick = { if (folder != null) managing = folder })
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center,
@@ -680,13 +670,20 @@ private fun LastMessagePreview(c: ConversationDto) {
     val last = c.lastMessage
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (last == null) {
-            Text(if (c.isGroup) stringResource(R.string.ch_members, c.group?.membersCount ?: 0) else "", color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1)
+            Text(
+                when {
+                    c.isChannel -> stringResource(R.string.ch_followers, c.group?.membersCount ?: 0)
+                    c.isGroup -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
+                    else -> ""
+                },
+                color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1,
+            )
             return@Row
         }
         if (last.isMine && last.system == null && !last.isDeleted) {
             ChTicks(last.status, onBubble = false, size = 16.dp)
             Spacer(Modifier.width(3.dp))
-        } else if (c.isGroup && last.sender != null && last.system == null) {
+        } else if (c.isGroup && !c.isChannel && last.sender != null && last.system == null) {
             Text((last.sender.name ?: "") + ": ", color = Ch.colorFor(last.sender.key), fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
         }
         val (icon, label) = previewOf(last.type, last.isDeleted)
@@ -719,6 +716,11 @@ internal fun previewOf(type: String, deleted: Boolean): Pair<ImageVector?, Strin
     type == "wallet_transfer" -> Icons.Rounded.Payments to stringResource(R.string.ch_transfer_receipt)
     type == "wallet_qr" -> Icons.Rounded.QrCode2 to stringResource(R.string.ch_wallet_qr_title)
     type == "call" -> Icons.Rounded.Call to stringResource(R.string.ch_call_voice)
+    type == "poll" -> Icons.Rounded.Poll to stringResource(R.string.ch_poll)
+    type == "gif" -> Icons.Rounded.Gif to "GIF"
+    type == "sticker" -> Icons.Rounded.StickyNote2 to stringResource(R.string.ch_sticker)
+    type == "money_request" -> Icons.Rounded.Payments to stringResource(R.string.ch_money_request)
+    type == "bill_split" -> Icons.Rounded.Payments to stringResource(R.string.ch_split_title)
     else -> null to ""
 }
 
@@ -791,7 +793,7 @@ internal fun ChPrimaryButton(text: String, modifier: Modifier = Modifier, icon: 
             .graphicsLayer { alpha = if (enabled) 1f else 0.5f }
             .shadow(14.dp, RoundedCornerShape(18.dp), spotColor = Ch.Red.copy(alpha = 0.45f))
             .clip(RoundedCornerShape(18.dp))
-            .background(Brush.horizontalGradient(listOf(Color(0xFFF2202C), Color(0xFFC40812))))
+            .background(Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep)))
             .clickable(interactionSource = source, indication = null, enabled = enabled, onClick = onClick)
             .padding(horizontal = 26.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),

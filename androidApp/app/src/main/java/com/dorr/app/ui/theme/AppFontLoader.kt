@@ -19,11 +19,11 @@ object AppFontLoader {
 
     suspend fun load(context: Context, font: MobileAppFontDto?): FontFamily = withContext(Dispatchers.IO) {
         if (font == null || font.slug == BUNDLED_CAIRO_SLUG) {
-            return@withContext CairoFontFamily
+            return@withContext CairoBuiltIn
         }
         val files = font.fontFiles.orEmpty().filter { !it.url.isNullOrBlank() }
         if (files.isEmpty()) {
-            return@withContext CairoFontFamily
+            return@withContext CairoBuiltIn
         }
         val dir = File(context.filesDir, "fonts").apply { mkdirs() }
         val client = ApiClient.okHttpClient
@@ -45,7 +45,7 @@ object AppFontLoader {
             if (!dest.exists()) return@mapNotNull null
             Font(dest, FontWeight(weight))
         }
-        if (composeFonts.isEmpty()) CairoFontFamily else FontFamily(composeFonts)
+        if (composeFonts.isEmpty()) CairoBuiltIn else FontFamily(composeFonts)
     }
 
     @OptIn(ExperimentalTextApi::class)

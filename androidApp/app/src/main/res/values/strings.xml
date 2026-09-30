@@ -97,7 +97,7 @@
     <string name="addr_edit">Edit</string>
     <string name="addr_delete">Delete</string>
     <string name="addr_delete_ask">Delete this address?</string>
-    <string name="addr_yes">Yes</string>
+    <string name="addr_yes">Delete</string>
     <string name="addr_home">Home</string>
     <string name="addr_work">Work</string>
     <string name="addr_other">Other</string>
@@ -364,6 +364,9 @@
     <string name="services_search_hint">Search services</string>
     <string name="services_no_results">No services match your search</string>
     <string name="services_count">%1$d services</string>
+    <string name="services_detail_about">About this service</string>
+    <string name="services_detail_subservices">Sub-services</string>
+    <string name="services_detail_description_fallback">Browse this service and request what you need. Booking will be available in the app soon.</string>
     <!-- Sample notifications (placeholder feed — replace with real backend data) -->
     <string name="notif_sample_title_status_changed">Your request status changed</string>
     <string name="notif_sample_body_status_changed">Your service request moved to "In progress".</string>

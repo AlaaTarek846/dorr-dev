@@ -314,7 +314,7 @@ private fun Sonar(ringing: Boolean, content: @Composable () -> Unit) {
     Box(Modifier.size(240.dp), contentAlignment = Alignment.Center) {
         if (ringing) repeat(3) { i ->
             val p by t.animateFloat(0f, 1f, infiniteRepeatable(tween(2400, delayMillis = i * 800, easing = LinearEasing)), label = "ring$i")
-            Box(Modifier.size(124.dp).scale(1f + p * 0.95f).graphicsLayer { alpha = (1f - p) * 0.55f }.background(Color(0xFFE50914).copy(alpha = 0.55f), CircleShape))
+            Box(Modifier.size(124.dp).scale(1f + p * 0.95f).graphicsLayer { alpha = (1f - p) * 0.55f }.background(Ch.Red.copy(alpha = 0.55f), CircleShape))
         }
         content()
     }
@@ -325,7 +325,7 @@ private fun IncomingControls(onDecline: () -> Unit, onAccept: () -> Unit) {
     val t = rememberInfiniteTransition(label = "incoming")
     val bob by t.animateFloat(0f, 1f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "bob")
     Row(Modifier.fillMaxWidth().padding(horizontal = 50.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Bottom) {
-        RoundAction(Icons.Rounded.CallEnd, stringResource(R.string.ch_call_decline), Color(0xFFEF4444), size = 72.dp, onClick = onDecline)
+        RoundAction(Icons.Rounded.CallEnd, stringResource(R.string.ch_call_decline), Ch.Danger, size = 72.dp, onClick = onDecline)
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Color.White.copy(alpha = 0.6f), modifier = Modifier.offset(y = (-bob * 8).dp).size(28.dp))
             Box(Modifier.graphicsLayer { translationY = -bob * 6.dp.toPx() }) {
@@ -345,7 +345,7 @@ private fun ActiveControls(video: Boolean) {
         ToggleAction(Icons.Rounded.VolumeUp, CallController.speakerOn) { CallController.toggleSpeaker() }
         ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn) { CallController.toggleCamera() }
         if (CallController.cameraOn) ToggleAction(Icons.Rounded.Cameraswitch, false) { CallController.flipCamera() }
-        RoundAction(Icons.Rounded.CallEnd, null, Color(0xFFEF4444), size = 60.dp) { CallController.hangUp() }
+        RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
     }
 }
 

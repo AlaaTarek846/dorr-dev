@@ -38,6 +38,7 @@ Route::middleware('auth:admin_api')->group(function () {
     Route::get('service-categories/tree', [ServiceCategoryController::class, 'tree']);
     Route::get('service-categories/tree-options', [ServiceCategoryController::class, 'treeOptions']);
     Route::get('service-categories/leaf-options', [ServiceCategoryController::class, 'leafOptions']);
+    Route::put('service-categories/reorder', [ServiceCategoryController::class, 'reorder']);
 
     Route::post('dashboard-themes/delete-multiple', [DashboardThemeController::class, 'deleteMultiple']);
     Route::post('dashboard-themes/{dashboard_theme}/restore', [DashboardThemeController::class, 'restore']);

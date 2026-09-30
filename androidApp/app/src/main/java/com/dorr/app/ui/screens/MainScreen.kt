@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.ServiceDto
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.appearanceColor
@@ -110,6 +111,10 @@ fun MainScreen(
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
+    var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
+    val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
+        serviceDetail = service to color
+    }
 
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
     LaunchedEffect(Unit) {
@@ -128,6 +133,10 @@ fun MainScreen(
 
     // Chat real-time for the whole signed-in session, plus "online" while the app is in front.
     val lifecycle = androidx.compose.ui.platform.LocalLifecycleOwner.current.lifecycle
+    // Live locations I was sharing before the app was closed carry on (the app is in front now,
+    // so Android lets the location service start).
+    val liveContext = androidx.compose.ui.platform.LocalContext.current
+    androidx.compose.runtime.LaunchedEffect(Unit) { com.dorr.app.chat.LiveLocationSharing.resume(liveContext) }
     androidx.compose.runtime.DisposableEffect(lifecycle) {
         com.dorr.app.chat.ChatRealtime.start()
         val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
@@ -214,9 +223,13 @@ fun MainScreen(
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
                         onOpenServices = onOpenServices,
+                        onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
                     )
-                    1 -> ServicesScreen(onBack = { currentTab = 0 })
+                    1 -> ServicesScreen(
+                        onBack = { currentTab = 0 },
+                        onOpenService = openServiceDetail,
+                    )
                     3 -> ProfileScreen(onLogout = onLogout, onOpenWallet = { walletOpen = true })
                     else -> PlaceholderScreen()
                 }
@@ -250,6 +263,15 @@ fun MainScreen(
                 )
             }
         }
+    }
+
+    serviceDetail?.let { (service, color) ->
+        ServiceDetailScreen(
+            service = service,
+            accentColor = color,
+            onBack = { serviceDetail = null },
+            onOpenChild = { child -> serviceDetail = child.toServiceDto() to color },
+        )
     }
 
     // A call can ring over anything (it's the only chat screen that takes the whole display).

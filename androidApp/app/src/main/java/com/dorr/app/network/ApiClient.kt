@@ -26,7 +26,7 @@ private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
 /** Emulator: [EMULATOR_HOST] · Phone on Wi‑Fi: [LAN_HOST] · Remote: [NGROK_HOST] */
 private const val BASE_HOST = NGROK_HOST
 
-private fun apiBaseUrl(host: 12String): String =
+private fun apiBaseUrl(host: String): String =
     if (host == NGROK_HOST) "https://$host/api/" else "http://$host/api/"
 
 private val BASE_URL = apiBaseUrl(BASE_HOST)

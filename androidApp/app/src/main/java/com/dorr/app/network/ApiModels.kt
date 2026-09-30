@@ -145,6 +145,8 @@ data class ServiceDto(
     val name: String,
     @SerializedName("module_name") val moduleName: String?,
     val image: String?,
+    val description: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
     @SerializedName("requires_provider") val requiresProvider: Boolean?,
     @SerializedName("has_children") val hasChildren: Boolean?,
     val children: List<ServiceChildDto>?,
@@ -155,4 +157,6 @@ data class ServiceChildDto(
     val name: String,
     @SerializedName("module_name") val moduleName: String?,
     val image: String?,
+    val description: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
 )

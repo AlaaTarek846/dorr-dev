@@ -44,18 +44,26 @@ class ServiceCategoryService extends CatalogService
         /** @var ServiceCategoryRepository $repository */
         $repository = $this->repository;
 
-        $services = $repository->publicServices()->map(fn ($category) => [
+        $audience = strtolower(trim((string) request()->query('audience', 'user')));
+        $homeOnly = filter_var(request()->query('home', false), FILTER_VALIDATE_BOOLEAN);
+
+        $services = $repository->publicServices($audience, $homeOnly)->map(fn ($category) => [
             'id' => $category->id,
             'name' => $category->translatedName(),
+            'description' => $category->translatedDescription(),
             'module_name' => $category->module_name,
             'image' => $category->getSingleMediaUrl('image') ?: null,
+            'sort_order' => (int) $category->sort_order,
             'requires_provider' => (bool) $category->requires_provider,
+            'audiences' => is_array($category->audiences) ? $category->audiences : [],
             'has_children' => $category->children->isNotEmpty(),
             'children' => $category->children->map(fn ($child) => [
                 'id' => $child->id,
                 'name' => $child->translatedName(),
+                'description' => $child->translatedDescription(),
                 'module_name' => $child->module_name,
                 'image' => $child->getSingleMediaUrl('image') ?: null,
+                'sort_order' => (int) $child->sort_order,
             ])->values(),
         ])->values();
 
@@ -92,9 +100,34 @@ class ServiceCategoryService extends CatalogService
         );
     }
 
+    /**
+     * @param  array{parent_id?: int|null, ordered_ids: list<int>}  $data
+     */
+    public function reorder(array $data): JsonResponse
+    {
+        /** @var ServiceCategoryRepository $repository */
+        $repository = $this->repository;
+
+        $parentId = array_key_exists('parent_id', $data) && $data['parent_id'] !== null
+            ? (int) $data['parent_id']
+            : null;
+
+        $repository->reorderSiblings($parentId, $data['ordered_ids']);
+
+        return ApiResponse::success(null, __('api.updated'));
+    }
+
     protected function beforeStore(array $data): array
     {
-        return $this->mapImageMedia($data);
+        /** @var ServiceCategoryRepository $repository */
+        $repository = $this->repository;
+
+        $data = $this->mapImageMedia($data);
+
+        $parentId = isset($data['parent_id']) ? (int) $data['parent_id'] : null;
+        $data['sort_order'] = $repository->nextSortOrder($parentId);
+
+        return $data;
     }
 
     protected function beforeUpdate(int|string $id, array $data): array

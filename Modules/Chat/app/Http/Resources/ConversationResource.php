@@ -10,6 +10,7 @@ use Modules\Chat\Enums\ConversationStatus;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Services\ChatThemeService;
+use Modules\Chat\Services\GroupService;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 
@@ -59,10 +60,18 @@ class ConversationResource extends JsonResource
                 'name' => $group->name,
                 'description' => $group->description,
                 'avatar' => $group->avatarUrl(),
-                'members_count' => $active->count(),
+                // A channel counts its followers (they aren't loaded, see ConversationService::hydrate()).
+                'members_count' => $conversation->isChannel() ? $conversation->activeParticipants()->count() : $active->count(),
                 'only_admins_send' => $group->only_admins_send,
                 'only_admins_edit_info' => $group->only_admins_edit_info,
                 'only_admins_add_members' => $group->only_admins_add_members,
+                'approve_joins' => $group->approve_joins,
+                // The admins' badge; members don't see who's waiting.
+                'pending_join_requests' => $group->approve_joins && $me->isActive() && $me->isAdmin()
+                    ? app(GroupService::class)->pendingJoinCount($conversation) : 0,
+                // Channels: the @handle and whether anyone can find it in "Discover".
+                'handle' => $group->handle,
+                'is_public' => (bool) $group->is_public,
             ],
             'my_role' => $me->role->value,
             'is_member' => $me->isActive(),

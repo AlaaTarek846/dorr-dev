@@ -2,10 +2,14 @@
 
 namespace App\Repositories\General;
 
+use App\Enums\ServiceAudience;
 use App\Models\ServiceCategory;
 use App\Repositories\TranslatableRepository;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class ServiceCategoryRepository extends TranslatableRepository
 {
@@ -24,6 +28,79 @@ class ServiceCategoryRepository extends TranslatableRepository
     public function __construct(ServiceCategory $model)
     {
         $this->model = $model;
+    }
+
+    public function nextSortOrder(?int $parentId): int
+    {
+        $query = $this->model->newQuery();
+
+        if ($parentId === null) {
+            $query->whereNull('parent_id');
+        } else {
+            $query->where('parent_id', $parentId);
+        }
+
+        $max = $query->max('sort_order');
+
+        return ((int) $max) + 1;
+    }
+
+    /**
+     * @param  list<int>  $orderedIds
+     */
+    public function reorderSiblings(?int $parentId, array $orderedIds): void
+    {
+        DB::transaction(function () use ($parentId, $orderedIds): void {
+            $siblingQuery = $this->model->newQuery();
+
+            if ($parentId === null) {
+                $siblingQuery->whereNull('parent_id');
+            } else {
+                $siblingQuery->where('parent_id', $parentId);
+            }
+
+            $expectedIds = $siblingQuery
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->pluck('id')
+                ->map(static fn ($id) => (int) $id)
+                ->all();
+
+            $orderedIds = array_values(array_unique(array_map(static fn ($id) => (int) $id, $orderedIds)));
+
+            if ($expectedIds === [] && $orderedIds === []) {
+                return;
+            }
+
+            $normalizedExpected = $expectedIds;
+            $normalizedOrdered = $orderedIds;
+            sort($normalizedExpected);
+            sort($normalizedOrdered);
+
+            if ($normalizedExpected !== $normalizedOrdered) {
+                throw ValidationException::withMessages([
+                    'ordered_ids' => [__('validation.custom.service_categories.reorder_siblings')],
+                ]);
+            }
+
+            foreach ($orderedIds as $index => $id) {
+                $belongs = $this->model->newQuery()
+                    ->whereKey($id)
+                    ->when($parentId === null, fn ($query) => $query->whereNull('parent_id'))
+                    ->when($parentId !== null, fn ($query) => $query->where('parent_id', $parentId))
+                    ->exists();
+
+                if (! $belongs) {
+                    throw ValidationException::withMessages([
+                        'ordered_ids' => [__('validation.custom.service_categories.reorder_siblings')],
+                    ]);
+                }
+
+                $this->model->newQuery()
+                    ->whereKey($id)
+                    ->update(['sort_order' => $index + 1]);
+            }
+        });
     }
 
     /**
@@ -48,14 +125,19 @@ class ServiceCategoryRepository extends TranslatableRepository
      *
      * @return EloquentCollection<int, ServiceCategory>
      */
-    public function publicServices(): EloquentCollection
+    public function publicServices(string $audience = 'user', bool $homeOnly = false): EloquentCollection
     {
+        if (! in_array($audience, ServiceAudience::values(), true)) {
+            $audience = ServiceAudience::User->value;
+        }
+
         return $this->model->newQuery()
             ->with([
                 'translations',
                 'translation',
                 'children' => fn ($query) => $query
                     ->where('status', true)
+                    ->whereJsonContains('audiences', $audience)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
                 'children.translations',
@@ -63,7 +145,8 @@ class ServiceCategoryRepository extends TranslatableRepository
             ])
             ->whereNull('parent_id')
             ->where('status', true)
-            ->where('is_login_dashboard', true)
+            ->whereJsonContains('audiences', $audience)
+            ->when($homeOnly, fn ($query) => $query->where('is_login_dashboard', true))
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -80,6 +163,7 @@ class ServiceCategoryRepository extends TranslatableRepository
             ->with(['translations', 'translation'])
             ->whereDoesntHave('children')
             ->where('status', true)
+            ->whereJsonContains('audiences', ServiceAudience::Provider->value)
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();
@@ -110,12 +194,56 @@ class ServiceCategoryRepository extends TranslatableRepository
                 'parent_id' => $category->parent_id,
                 'module_name' => $category->module_name,
                 'image' => $category->getSingleMediaUrl('image') ?: null,
+                'audiences' => is_array($category->audiences) ? $category->audiences : [],
                 'translations' => $category->translations->map(fn ($item) => [
                     'locale' => $item->locale,
                     'name' => $item->name,
+                    'description' => $item->description,
                 ])->values(),
             ])
             ->values();
+    }
+
+    protected function syncTranslations(Model $model, array $data): void
+    {
+        if (! isset($data['translations']) || ! method_exists($model, 'translations')) {
+            return;
+        }
+
+        $allowedLocales = $this->shouldFilterTranslationsByStorableLocales()
+            ? $this->storableTranslationLocales()
+            : null;
+
+        foreach ($data['translations'] as $translation) {
+            if (! isset($translation['locale'], $translation['name'])) {
+                continue;
+            }
+
+            $locale = strtolower((string) $translation['locale']);
+
+            if ($allowedLocales !== null && ! in_array($locale, $allowedLocales, true)) {
+                continue;
+            }
+
+            $payload = ['name' => $translation['name']];
+
+            if (array_key_exists('description', $translation)) {
+                $payload['description'] = $translation['description'];
+            }
+
+            $model->translations()->updateOrCreate(
+                ['locale' => $locale],
+                $payload,
+            );
+        }
+
+        if ($allowedLocales !== null) {
+            if ($allowedLocales === []) {
+                $model->translations()->delete();
+            } else {
+                $model->translations()->whereNotIn('locale', $allowedLocales)->delete();
+            }
+        }
     }
 
     /**
