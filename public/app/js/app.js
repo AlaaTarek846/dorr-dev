@@ -1790,7 +1790,7 @@ const SUB_SCREENS = {
       const loader = card.querySelector('.privacy-loading');
       const container = card.querySelector('.privacy-html');
       try {
-        const res = await fetch('/api/mobile/v1/privacy-policy', { headers: apiHeaders });
+        const res = await fetch('/api/mobile/v1/legal-pages?type=privacy', { headers: apiHeaders });
         const json = await res.json();
         const content = json?.data?.content;
         if (loader) loader.style.display = 'none';

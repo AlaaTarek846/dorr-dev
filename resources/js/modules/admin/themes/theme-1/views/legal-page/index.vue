@@ -2,7 +2,7 @@
     <div>
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <h1 class="page-title fw-semibold fs-18 mb-0">
-                {{ t('privacy_policies.title') }}
+                {{ t('legal_pages.title') }}
                 <span v-if="pagination?.total != null" class="badge bg-primary-transparent ms-2 fs-12 align-middle">
                     {{ pagination.total }}
                 </span>
@@ -13,7 +13,7 @@
                         <li class="breadcrumb-item">
                             <router-link :to="{ name: 'admin.dashboard' }">{{ t('dashboard') }}</router-link>
                         </li>
-                        <li class="breadcrumb-item active" aria-current="page">{{ t('privacy_policies.title') }}</li>
+                        <li class="breadcrumb-item active" aria-current="page">{{ t('legal_pages.title') }}</li>
                     </ol>
                 </nav>
             </div>
@@ -32,13 +32,13 @@
                                     v-model="search"
                                     type="search"
                                     class="form-control"
-                                    :placeholder="t('privacy_policies.search')"
+                                    :placeholder="t('legal_pages.search')"
                                 >
                                 <button
                                     v-if="search"
                                     type="button"
                                     class="btn btn-light border catalog-search-clear"
-                                    :title="t('privacy_policies.clear_search')"
+                                    :title="t('legal_pages.clear_search')"
                                     @click="clearSearch"
                                 >
                                     <i class="ri-close-line"></i>
@@ -52,7 +52,7 @@
                                 :class="statusFilter === 'all' ? 'catalog-filter-btn--all' : 'catalog-filter-btn--all-idle'"
                                 @click="setStatusFilter('all')"
                             >
-                                {{ t('privacy_policies.filter_all') }} ({{ counts.total }})
+                                {{ t('legal_pages.filter_all') }} ({{ counts.total }})
                             </button>
                             <button
                                 type="button"
@@ -60,7 +60,7 @@
                                 :class="statusFilter === 'active' ? 'catalog-filter-btn--active' : 'catalog-filter-btn--active-idle'"
                                 @click="setStatusFilter('active')"
                             >
-                                {{ t('privacy_policies.filter_active') }} ({{ counts.active }})
+                                {{ t('legal_pages.filter_active') }} ({{ counts.active }})
                             </button>
                             <button
                                 type="button"
@@ -68,7 +68,7 @@
                                 :class="statusFilter === 'inactive' ? 'catalog-filter-btn--inactive' : 'catalog-filter-btn--inactive-idle'"
                                 @click="setStatusFilter('inactive')"
                             >
-                                {{ t('privacy_policies.filter_inactive') }} ({{ counts.inactive }})
+                                {{ t('legal_pages.filter_inactive') }} ({{ counts.inactive }})
                             </button>
                             <button
                                 v-if="counts.deleted > 0"
@@ -78,6 +78,19 @@
                                 @click="setStatusFilter('deleted')"
                             >
                                 {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
+                            </button>
+
+                            <span class="toolbar-separator"></span>
+
+                            <button
+                                v-for="option in typeOptions"
+                                :key="option.value"
+                                type="button"
+                                class="btn btn-sm catalog-filter-btn"
+                                :class="typeFilter === option.value ? 'catalog-filter-btn--all' : 'catalog-filter-btn--all-idle'"
+                                @click="onTypeFilter(option.value)"
+                            >
+                                {{ option.label }}
                             </button>
                         </div>
 
@@ -107,7 +120,7 @@
                                 @click="openCreate"
                             >
                                 <i class="ri-add-line me-1 align-middle"></i>
-                                {{ t('privacy_policies.add_short') }}
+                                {{ t('legal_pages.add_short') }}
                             </button>
                         </div>
                     </div>
@@ -122,32 +135,32 @@
                                                 class="form-check-input"
                                                 type="checkbox"
                                                 :checked="allSelected"
-                                                :disabled="loading || !policies.length"
+                                                :disabled="loading || !pages.length"
                                                 @change="onSelectAll($event.target.checked)"
                                             >
                                         </th>
-                                        <th scope="col">{{ t('privacy_policies.service') }}</th>
-                                        <th scope="col">{{ t('privacy_policies.content') }}</th>
-                                        <th scope="col">{{ t('privacy_policies.sort_order') }}</th>
-                                        <th scope="col">{{ t('privacy_policies.status') }}</th>
-                                        <th scope="col">{{ t('privacy_policies.created_at') }}</th>
-                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('privacy_policies.actions') }}</th>
+                                        <th scope="col">{{ t('legal_pages.type') }}</th>
+                                        <th scope="col">{{ t('legal_pages.service') }}</th>
+                                        <th scope="col">{{ t('legal_pages.content') }}</th>
+                                        <th scope="col">{{ t('legal_pages.status') }}</th>
+                                        <th scope="col">{{ t('legal_pages.created_at') }}</th>
+                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('legal_pages.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <TableSkeleton v-if="loading" :rows="8" :columns="tableColumnCount" />
 
-                                    <tr v-else-if="!policies.length">
+                                    <tr v-else-if="!pages.length">
                                         <td :colspan="tableColumnCount" class="border-0">
                                             <div class="text-center py-5">
                                                 <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
-                                                    <i class="ri-shield-keyhole-line fs-2 text-primary"></i>
+                                                    <i class="ri-file-shield-2-line fs-2 text-primary"></i>
                                                 </span>
-                                                <p class="fw-semibold mb-1">{{ t('privacy_policies.empty_title') }}</p>
-                                                <p class="text-muted mb-3">{{ t('privacy_policies.empty') }}</p>
+                                                <p class="fw-semibold mb-1">{{ t('legal_pages.empty_title') }}</p>
+                                                <p class="text-muted mb-3">{{ t('legal_pages.empty') }}</p>
                                                 <button v-if="canCreate && !isDeletedView" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
                                                     <i class="ri-add-line me-1 align-middle"></i>
-                                                    {{ t('privacy_policies.add') }}
+                                                    {{ t('legal_pages.add') }}
                                                 </button>
                                             </div>
                                         </td>
@@ -155,83 +168,85 @@
 
                                     <template v-else>
                                     <tr
-                                        v-for="policy in policies"
-                                        :key="policy.id"
+                                        v-for="page in pages"
+                                        :key="page.id"
                                         class="crm-contact"
                                     >
                                         <td v-if="canMultipleDelete" class="ps-4">
                                             <input
                                                 class="form-check-input"
                                                 type="checkbox"
-                                                :checked="isSelected(policy.id)"
-                                                @change="onRowSelect(policy.id, $event.target.checked)"
+                                                :checked="isSelected(page.id)"
+                                                @change="onRowSelect(page.id, $event.target.checked)"
                                             >
                                         </td>
                                         <td>
-                                            <span v-if="policy.service?.name" class="badge bg-primary-transparent">
-                                                {{ policy.service.name }}
-                                            </span>
-                                            <span v-else class="badge bg-secondary-transparent">
-                                                {{ t('privacy_policies.general') }}
+                                            <span class="badge bg-info-transparent">
+                                                {{ typeLabel(page.type) }}
                                             </span>
                                             <span class="d-block text-muted fs-11">
-                                                #{{ policy.id }}
+                                                #{{ page.id }}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span v-if="page.service?.name" class="badge bg-primary-transparent">
+                                                {{ page.service.name }}
+                                            </span>
+                                            <span v-else class="badge bg-secondary-transparent">
+                                                {{ t('legal_pages.general') }}
                                             </span>
                                         </td>
                                         <td>
                                             <button
-                                                v-if="canUpdate && !isTrashedRecord(policy)"
+                                                v-if="canUpdate && !isTrashedRecord(page)"
                                                 type="button"
                                                 class="btn btn-link p-0 text-start text-default text-wrap faq-content-cell"
-                                                @click="openEdit(policy)"
+                                                @click="openEdit(page)"
                                             >
-                                                {{ displayContent(policy) }}
+                                                {{ displayContent(page) }}
                                             </button>
-                                            <span v-else class="text-wrap faq-content-cell">{{ displayContent(policy) }}</span>
+                                            <span v-else class="text-wrap faq-content-cell">{{ displayContent(page) }}</span>
                                         </td>
                                         <td>
-                                            <span class="badge bg-light text-dark">{{ policy.sort_order }}</span>
-                                        </td>
-                                        <td>
-                                            <span v-if="isTrashedRecord(policy)" class="badge bg-danger-transparent">
+                                            <span v-if="isTrashedRecord(page)" class="badge bg-danger-transparent">
                                                 {{ t('catalog.deleted_badge') }}
                                             </span>
                                             <div
                                                 v-else-if="canChangeStatus"
                                                 class="toggle toggle-success mb-0 catalog-status-toggle"
                                                 :class="{
-                                                    on: policy.status,
-                                                    'catalog-status-toggle--loading': isTogglingStatus(policy.id),
+                                                    on: page.status,
+                                                    'catalog-status-toggle--loading': isTogglingStatus(page.id),
                                                 }"
                                                 role="button"
                                                 tabindex="0"
-                                                :aria-busy="isTogglingStatus(policy.id)"
-                                                @click="toggleStatus(policy)"
-                                                @keydown.enter.space.prevent="toggleStatus(policy)"
+                                                :aria-busy="isTogglingStatus(page.id)"
+                                                @click="toggleStatus(page)"
+                                                @keydown.enter.space.prevent="toggleStatus(page)"
                                             >
                                                 <span></span>
                                             </div>
-                                            <span v-else class="badge" :class="policy.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
-                                                {{ policy.status ? t('privacy_policies.active') : t('privacy_policies.inactive') }}
+                                            <span v-else class="badge" :class="page.status ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                                                {{ page.status ? t('legal_pages.active') : t('legal_pages.inactive') }}
                                             </span>
                                         </td>
                                         <td>
-                                            <span class="d-block">{{ formatDate(policy.created_at) }}</span>
-                                            <span v-if="catalogShowUpdatedSubtext(policy)" class="d-block text-muted fs-11">
-                                                {{ t('privacy_policies.updated') }}: {{ formatDate(policy.updated_at) }}
+                                            <span class="d-block">{{ formatDate(page.created_at) }}</span>
+                                            <span v-if="catalogShowUpdatedSubtext(page)" class="d-block text-muted fs-11">
+                                                {{ t('legal_pages.updated') }}: {{ formatDate(page.updated_at) }}
                                             </span>
-                                            <span v-if="catalogShowDeletedSubtext(policy, isDeletedView)" class="d-block text-muted fs-11">
-                                                {{ t('catalog.deleted_at') }}: {{ formatDate(policy.deleted_at) }}
+                                            <span v-if="catalogShowDeletedSubtext(page, isDeletedView)" class="d-block text-muted fs-11">
+                                                {{ t('catalog.deleted_at') }}: {{ formatDate(page.deleted_at) }}
                                             </span>
                                         </td>
                                         <td v-if="showActionsColumn" class="text-end pe-4">
-                                            <div v-if="isTrashedRecord(policy)" class="btn-list justify-content-end">
+                                            <div v-if="isTrashedRecord(page)" class="btn-list justify-content-end">
                                                 <button
                                                     v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-success-light btn-icon"
                                                     :title="t('catalog.restore_title')"
-                                                    @click="confirmRestore(policy.id)"
+                                                    @click="confirmRestore(page.id)"
                                                 >
                                                     <i class="ri-arrow-go-back-line"></i>
                                                 </button>
@@ -240,18 +255,18 @@
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
                                                     :title="t('catalog.force_delete_title')"
-                                                    @click="confirmForceDelete(policy.id)"
+                                                    @click="confirmForceDelete(page.id)"
                                                 >
                                                     <i class="ri-delete-bin-7-line"></i>
                                                 </button>
                                             </div>
-                                            <div v-else-if="!isTrashedRecord(policy)" class="btn-list justify-content-end">
+                                            <div v-else-if="!isTrashedRecord(page)" class="btn-list justify-content-end">
                                                 <button
                                                     v-if="canUpdate"
                                                     type="button"
                                                     class="btn btn-sm btn-info-light btn-icon"
-                                                    :title="t('privacy_policies.edit_title')"
-                                                    @click="openEdit(policy)"
+                                                    :title="t('legal_pages.edit_title')"
+                                                    @click="openEdit(page)"
                                                 >
                                                     <i class="ri-pencil-line"></i>
                                                 </button>
@@ -259,8 +274,8 @@
                                                     v-if="canDelete"
                                                     type="button"
                                                     class="btn btn-sm btn-danger-light btn-icon"
-                                                    :title="t('privacy_policies.confirm_delete')"
-                                                    @click="confirmDelete(policy.id)"
+                                                    :title="t('legal_pages.confirm_delete')"
+                                                    @click="confirmDelete(page.id)"
                                                 >
                                                     <i class="ri-delete-bin-line"></i>
                                                 </button>
@@ -281,9 +296,9 @@
                             </div>
 
                             <div class="d-flex align-items-center gap-2 ms-md-auto">
-                                <label class="text-muted fs-13 mb-0" for="policies-per-page">{{ t('privacy_policies.per_page') }}</label>
+                                <label class="text-muted fs-13 mb-0" for="pages-per-page">{{ t('legal_pages.per_page') }}</label>
                                 <select
-                                    id="policies-per-page"
+                                    id="pages-per-page"
                                     v-model.number="perPage"
                                     class="form-select form-select-sm w-auto"
                                 >
@@ -293,11 +308,11 @@
                                 </select>
                             </div>
 
-                            <nav aria-label="Privacy policies pagination" class="pagination-style-4">
+                            <nav aria-label="Legal pages pagination" class="pagination-style-4">
                                 <ul class="pagination mb-0">
                                     <li class="page-item" :class="{ disabled: !pagination.prev_page_url }">
                                         <button type="button" class="page-link" @click="changePage(currentPage - 1)">
-                                            {{ t('privacy_policies.previous') }}
+                                            {{ t('legal_pages.previous') }}
                                         </button>
                                     </li>
                                     <li
@@ -312,7 +327,7 @@
                                     </li>
                                     <li class="page-item" :class="{ disabled: !pagination.next_page_url }">
                                         <button type="button" class="page-link text-primary" @click="changePage(currentPage + 1)">
-                                            {{ t('privacy_policies.next') }}
+                                            {{ t('legal_pages.next') }}
                                         </button>
                                     </li>
                                 </ul>
@@ -327,6 +342,7 @@
             :show="modalShow"
             :type="modalType"
             :record="selectedRecord"
+            :default-type="typeFilter"
             @close="modalShow = false"
             @saved="onSaved"
         />
@@ -357,12 +373,12 @@ import {
 } from '../../../../../../utils/catalog';
 import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
-import { usePrivacyPolicies } from '../../../../../../composables/usePrivacyPolicies';
-import { usePrivacyPoliciesStore } from '../../../../../../stores/privacyPolicies';
+import { useLegalPages } from '../../../../../../composables/useLegalPages';
+import { useLegalPagesStore } from '../../../../../../stores/legalPages';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
-const policiesStore = usePrivacyPoliciesStore();
+const pagesStore = useLegalPagesStore();
 
 const {
     canCreate,
@@ -371,10 +387,10 @@ const {
     canChangeStatus,
     canMultipleDelete,
     showActionsColumn,
-} = useCatalogPermissions('privacy-policy');
+} = useCatalogPermissions('legal-page');
 
 const tableColumnCount = computed(() => {
-    let count = 5;
+    let count = 6;
 
     if (canMultipleDelete.value) {
         count += 1;
@@ -387,9 +403,9 @@ const tableColumnCount = computed(() => {
     return count;
 });
 
-const policiesApi = usePrivacyPolicies();
+const pagesApi = useLegalPages();
 const {
-    policies,
+    pages,
     loading,
     pagination,
     selectedIds,
@@ -397,28 +413,35 @@ const {
     perPage,
     search,
     statusFilter,
+    typeFilter,
     isDeletedView,
-} = storeToRefs(policiesApi);
+} = storeToRefs(pagesApi);
 const {
-    fetchPolicies,
+    fetchPages,
     setStatusFilter,
-    deletePolicy,
+    setTypeFilter,
+    deletePage,
     deleteSelected,
-    restorePolicy,
-    forceDeletePolicy,
+    restorePage,
+    forceDeletePage,
     forceDeleteSelected,
     toggleStatus,
     toggleSelectAll,
     toggleSelect,
     isTogglingStatus,
-} = policiesApi;
+} = pagesApi;
 
 const counts = computed(() => ({
-    total: policiesStore.total ?? pagination.value?.total ?? 0,
-    active: policiesStore.activeCount ?? 0,
-    inactive: policiesStore.inactiveCount ?? 0,
-    deleted: policiesStore.deletedCount ?? 0,
+    total: pagesStore.total ?? pagination.value?.total ?? 0,
+    active: pagesStore.activeCount ?? 0,
+    inactive: pagesStore.inactiveCount ?? 0,
+    deleted: pagesStore.deletedCount ?? 0,
 }));
+
+const typeOptions = computed(() => [
+    { value: 'privacy', label: t('legal_pages.type_privacy') },
+    { value: 'term', label: t('legal_pages.type_term') },
+]);
 
 const modalShow = ref(false);
 const modalType = ref('create');
@@ -436,11 +459,11 @@ const {
     t,
     deleteConfirm,
     deleteSelected,
-    deleteItem: deletePolicy,
-    restoreItem: restorePolicy,
-    forceDeleteItem: forceDeletePolicy,
+    deleteItem: deletePage,
+    restoreItem: restorePage,
+    forceDeleteItem: forceDeletePage,
     forceDeleteSelected,
-    i18nPrefix: 'privacy_policies',
+    i18nPrefix: 'legal_pages',
 });
 
 const selectedCount = computed(() => selectedIds.value.length);
@@ -454,11 +477,11 @@ const paginationArrowIcon = computed(() => (
 ));
 
 const allSelected = computed(() => {
-    if (! policies.value.length) {
+    if (! pages.value.length) {
         return false;
     }
 
-    return policies.value.every((policy) => selectedIds.value.includes(Number(policy.id)));
+    return pages.value.every((page) => selectedIds.value.includes(Number(page.id)));
 });
 
 function isSelected(id) {
@@ -471,6 +494,10 @@ function onRowSelect(id, checked) {
 
 function onSelectAll(checked) {
     toggleSelectAll(checked);
+}
+
+function onTypeFilter(value) {
+    setTypeFilter(typeFilter.value === value ? '' : value);
 }
 
 const pageNumbers = computed(() => {
@@ -501,16 +528,20 @@ const entriesLabel = computed(() => {
         return '';
     }
 
-    return t('privacy_policies.showing_entries', {
+    return t('legal_pages.showing_entries', {
         from: pagination.value.from ?? 0,
         to: pagination.value.to ?? 0,
         total: pagination.value.total ?? 0,
     });
 });
 
-function displayContent(policy) {
-    const translation = policy.translations?.find((item) => item.locale === locale.value);
-    const content = translation?.content || policy.content;
+function typeLabel(value) {
+    return value === 'term' ? t('legal_pages.type_term') : t('legal_pages.type_privacy');
+}
+
+function displayContent(page) {
+    const translation = page.translations?.find((item) => item.locale === locale.value);
+    const content = translation?.content || page.content;
 
     return richTextToPlainText(content, { maxLength: 120 });
 }
@@ -539,9 +570,9 @@ function openCreate() {
     modalShow.value = true;
 }
 
-function openEdit(policy) {
+function openEdit(page) {
     modalType.value = 'edit';
-    selectedRecord.value = { ...policy };
+    selectedRecord.value = { ...page };
     modalShow.value = true;
 }
 
@@ -554,16 +585,16 @@ function changePage(page) {
         return;
     }
 
-    fetchPolicies(page);
+    fetchPages(page);
 }
 
 function onSaved() {
     modalShow.value = false;
-    fetchPolicies(currentPage.value);
+    fetchPages(currentPage.value);
 }
 
 onMounted(() => {
-    fetchPolicies();
+    fetchPages();
 });
 </script>
 
@@ -573,5 +604,12 @@ onMounted(() => {
     max-width: 26rem;
     white-space: normal;
     word-break: break-word;
+}
+
+.toolbar-separator {
+    width: 1px;
+    height: 22px;
+    background: var(--default-border, #dee2e6);
+    margin: 0 0.25rem;
 }
 </style>

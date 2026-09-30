@@ -109,6 +109,7 @@ import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.TermsConditionsScreen
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -141,6 +142,7 @@ fun LoginScreen(
     var phone by remember { mutableStateOf("") }
     var acceptedTerms by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
@@ -262,6 +264,7 @@ fun LoginScreen(
             acceptedTerms = acceptedTerms,
             onAcceptedTermsChange = { acceptedTerms = it },
             onOpenPrivacy = { showPrivacy = true },
+            onOpenTerms = { showTerms = true },
             isLoading = isLoading,
             isFormValid = isFormValid,
             canSubmit = canSubmit,
@@ -345,6 +348,11 @@ fun LoginScreen(
         if (showPrivacy) {
             BackHandler { showPrivacy = false }
             PrivacyPolicyScreen(onBack = { showPrivacy = false })
+        }
+
+        if (showTerms) {
+            BackHandler { showTerms = false }
+            TermsConditionsScreen(onBack = { showTerms = false })
         }
     }
 }
@@ -575,6 +583,7 @@ private fun LoginContent(
     acceptedTerms: Boolean,
     onAcceptedTermsChange: (Boolean) -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
     isLoading: Boolean,
     isFormValid: Boolean,
     canSubmit: Boolean,
@@ -737,7 +746,7 @@ private fun LoginContent(
                         fontWeight = FontWeight.SemiBold,
                     )
                     append(stringResource(R.string.login_terms_prefix))
-                    pushStringAnnotation("link", "privacy")
+                    pushStringAnnotation("link", "terms")
                     withStyle(link) { append(stringResource(R.string.login_terms_use)) }
                     pop()
                     append(stringResource(R.string.login_terms_mid))
@@ -754,8 +763,10 @@ private fun LoginContent(
                     ),
                     modifier = Modifier.weight(1f),
                     onClick = { offset ->
-                        if (terms.getStringAnnotations("link", offset, offset).isNotEmpty()) {
-                            onOpenPrivacy()
+                        val link = terms.getStringAnnotations("link", offset, offset).firstOrNull()?.item
+                        when (link) {
+                            "terms" -> onOpenTerms()
+                            "privacy" -> onOpenPrivacy()
                         }
                     },
                 )

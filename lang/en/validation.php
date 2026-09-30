@@ -139,6 +139,7 @@ return [
         'translations.*.question' => 'question',
         'translations.*.answer' => 'answer',
         'translations.*.content' => 'content',
+        'legal_page_type' => 'page type',
         'preview_image' => 'preview image',
     ],
 ];

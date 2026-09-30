@@ -44,6 +44,11 @@ interface ProfileApi {
         @Part avatar: MultipartBody.Part,
     ): ApiEnvelope<UserDto>
 
+    @DELETE("mobile/v1/profile/avatar")
+    suspend fun deleteAvatar(
+        @Header("Authorization") authorization: String,
+    ): ApiEnvelope<UserDto>
+
     @POST("mobile/v1/profile/email/request")
     suspend fun requestEmailChange(
         @Header("Authorization") authorization: String,

@@ -149,6 +149,7 @@ return [
         'translations.*.question' => 'السؤال',
         'translations.*.answer' => 'الإجابة',
         'translations.*.content' => 'المحتوى',
+        'legal_page_type' => 'نوع الصفحة',
         'preview_image' => 'صورة المعاينة',
     ],
 ];

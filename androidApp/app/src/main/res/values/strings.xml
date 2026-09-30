@@ -71,6 +71,7 @@
     <string name="account_contact_us">Contact Us</string>
     <string name="account_about">About</string>
     <string name="account_privacy">Privacy Policy</string>
+    <string name="account_terms">Terms &amp; Conditions</string>
     <string name="account_logout">Logout</string>
     <string name="account_delete">Delete Account</string>
     <string name="account_verified">Verified</string>
@@ -115,6 +116,9 @@
     <string name="addr_landmark_hint">Near a mosque or shop</string>
     <string name="addr_set_default">Set as default</string>
     <string name="pd_change_photo">Change photo</string>
+    <string name="pd_delete_photo">Delete photo</string>
+    <string name="pd_delete_photo_ask">Do you want to delete this photo?</string>
+    <string name="pd_delete_photo_confirm">Your profile photo</string>
     <string name="pd_name">Name</string>
     <string name="pd_name_more">You can edit more details later</string>
     <string name="pd_gender">Gender</string>
@@ -200,6 +204,7 @@
     <string name="account_contact_us_sub">Phone, WhatsApp and email</string>
     <string name="account_about_sub">Version and information</string>
     <string name="account_privacy_sub">How we handle your data</string>
+    <string name="account_terms_sub">The rules that govern our services</string>
     <string name="account_logout_sub">Leave this device</string>
     <string name="account_delete_sub">Restorable by signing in again</string>
     <string name="account_delete_in_progress">Deleting…</string>
@@ -253,6 +258,7 @@
     <string name="faq_q4">How do I reach support?</string>
     <string name="faq_a4">Open Account → Contact Us for phone, WhatsApp and email options.</string>
     <string name="privacy_empty">Privacy policy is currently unavailable</string>
+    <string name="terms_empty">Terms &amp; Conditions are currently unavailable</string>
     <string name="content_loading">Loading…</string>
     <string name="content_retry">Retry</string>
     <string name="content_error">Failed to load content</string>
@@ -271,6 +277,7 @@
     <string name="language_title">Language</string>
     <string name="language_loading">Loading languages…</string>
     <string name="privacy_head">Your privacy matters</string>
+    <string name="terms_head">Terms &amp; Conditions</string>
     <string name="language_arabic">Arabic — العربية</string>
     <string name="language_english">English</string>
 

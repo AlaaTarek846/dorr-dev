@@ -5,10 +5,10 @@ namespace Tests\Feature;
 use App\Models\Faq;
 use App\Models\Flag;
 use App\Models\Language;
-use App\Models\PrivacyPolicy;
+use App\Models\LegalPage;
 use App\Models\ServiceCategory;
 use Database\Seeders\General\FaqSeeder;
-use Database\Seeders\General\PrivacyPolicySeeder;
+use Database\Seeders\General\LegalPageSeeder;
 use Database\Seeders\General\ServiceCategoriesSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionMethod;
@@ -141,52 +141,55 @@ class CatalogContentSeederTest extends TestCase
         );
     }
 
-    // ------------------------------------------------------------- privacy policy
+    // ------------------------------------------------------------- legal pages
 
-    public function test_it_seeds_a_rich_text_privacy_policy(): void
+    public function test_it_seeds_rich_text_legal_pages_for_every_type(): void
     {
-        $this->seed(PrivacyPolicySeeder::class);
+        $this->seed(LegalPageSeeder::class);
 
-        $policy = PrivacyPolicy::with('translations')->firstOrFail();
+        foreach (['privacy', 'term'] as $type) {
+            $page = LegalPage::where('type', $type)->with('translations')->firstOrFail();
 
-        $this->assertCount(2, $policy->translations);
+            $this->assertCount(2, $page->translations);
 
-        foreach ($policy->translations as $translation) {
-            $this->assertStringContainsString('<h2>', $translation->content);
-            $this->assertStringContainsString('<ul>', $translation->content);
-            $this->assertStringContainsString('<li>', $translation->content);
+            foreach ($page->translations as $translation) {
+                $this->assertStringContainsString('<h2>', $translation->content);
+                $this->assertStringContainsString('<ul>', $translation->content);
+                $this->assertStringContainsString('<li>', $translation->content);
+            }
         }
     }
 
-    public function test_privacy_policy_is_platform_wide(): void
+    public function test_legal_pages_are_platform_wide(): void
     {
-        $this->seed(PrivacyPolicySeeder::class);
+        $this->seed(LegalPageSeeder::class);
 
-        $this->assertTrue(PrivacyPolicy::whereNull('service_id')->exists());
+        $this->assertTrue(LegalPage::whereNull('service_id')->exists());
     }
 
-    public function test_privacy_policy_seeding_is_idempotent(): void
+    public function test_legal_page_seeding_is_idempotent(): void
     {
-        $this->seed(PrivacyPolicySeeder::class);
-        $count = PrivacyPolicy::count();
+        $this->seed(LegalPageSeeder::class);
+        $count = LegalPage::count();
 
-        $this->seed(PrivacyPolicySeeder::class);
+        $this->seed(LegalPageSeeder::class);
 
-        $this->assertSame($count, PrivacyPolicy::count());
-        $this->assertSame(2, PrivacyPolicy::firstOrFail()->translations()->count());
+        $this->assertSame($count, LegalPage::count());
+        $this->assertSame(2, LegalPage::count());
+        $this->assertSame(2, LegalPage::firstOrFail()->translations()->count());
     }
 
     public function test_seeded_content_passes_the_rich_text_allow_list(): void
     {
-        $this->seed([FaqSeeder::class, PrivacyPolicySeeder::class]);
+        $this->seed([FaqSeeder::class, LegalPageSeeder::class]);
 
         $allowed = '<p><br><strong><b><em><i><u><s><strike><del><ins><mark><small>'
             .'<sub><sup><code><pre><blockquote><ul><ol><li><h2><h3><h4><h5><h6>'
             .'<a><img><hr><span><div><table><caption><thead><tbody><tfoot><tr><th><td>'
             .'<figure><figcaption>';
 
-        $contents = PrivacyPolicy::with('translations')->get()
-            ->flatMap(fn (PrivacyPolicy $policy) => $policy->translations->pluck('content'));
+        $contents = LegalPage::with('translations')->get()
+            ->flatMap(fn (LegalPage $page) => $page->translations->pluck('content'));
 
         $contents->each(function (string $content) use ($allowed): void {
             $stripped = strip_tags($content, $allowed);
@@ -232,6 +235,6 @@ class CatalogContentSeederTest extends TestCase
         $source = file_get_contents(database_path('seeders/DatabaseSeeder.php'));
 
         $this->assertStringContainsString(FaqSeeder::class, $source);
-        $this->assertStringContainsString(PrivacyPolicySeeder::class, $source);
+        $this->assertStringContainsString(LegalPageSeeder::class, $source);
     }
 }
