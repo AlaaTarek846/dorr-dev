@@ -96,8 +96,8 @@
     <string name="addr_update">تحديث</string>
     <string name="addr_edit">تعديل</string>
     <string name="addr_delete">حذف</string>
-    <string name="addr_delete_ask">هل تريد المسح</string>
-    <string name="addr_yes">نعم</string>
+    <string name="addr_delete_ask">هل تريد حذف هذا العنوان؟</string>
+    <string name="addr_yes">حذف</string>
     <string name="addr_home">المنزل</string>
     <string name="addr_work">العمل</string>
     <string name="addr_other">أخرى</string>
@@ -379,6 +379,9 @@
     <string name="services_search_hint">ابحث في الخدمات</string>
     <string name="services_no_results">لا توجد خدمات مطابقة لبحثك</string>
     <string name="services_count">%1$d خدمة</string>
+    <string name="services_detail_about">عن الخدمة</string>
+    <string name="services_detail_subservices">الخدمات الفرعية</string>
+    <string name="services_detail_description_fallback">تصفّح هذه الخدمة واطلب ما تحتاجه. الحجز والطلب من التطبيق سيتوفر قريباً.</string>
     <!-- إشعارات تجريبية (بيانات مبدئية — استبدلها ببيانات حقيقية من السيرفر) -->
     <string name="notif_sample_title_status_changed">تغيرت حالة طلبك</string>
     <string name="notif_sample_body_status_changed">انتقل طلبك إلى «قيد التنفيذ».</string>

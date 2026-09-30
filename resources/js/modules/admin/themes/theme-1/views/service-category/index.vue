@@ -70,6 +70,29 @@
                             >
                                 {{ t('service_categories.filter_inactive') }} ({{ counts.inactive }})
                             </button>
+                            <div class="catalog-toolbar-audience-filter">
+                                <MultiSelect
+                                    v-model="audienceFilter"
+                                    :options="audienceFilterOptions"
+                                    option-label="label"
+                                    option-value="value"
+                                    :placeholder="t('service_categories.filter_audiences')"
+                                    display="chip"
+                                    :max-selected-labels="2"
+                                    append-to="self"
+                                    :disabled="statusFilter === 'deleted'"
+                                    class="catalog-toolbar-audience-filter__select"
+                                />
+                                <button
+                                    v-if="audienceFilter.length"
+                                    type="button"
+                                    class="btn btn-sm btn-light border catalog-search-clear catalog-toolbar-audience-filter__clear"
+                                    :title="t('service_categories.clear_audience_filter')"
+                                    @click="clearAudienceFilter"
+                                >
+                                    <i class="ri-close-line"></i>
+                                </button>
+                            </div>
                             <button
                                 v-if="counts.deleted > 0"
                                 type="button"
@@ -101,7 +124,17 @@
                                 {{ t('catalog.force_delete_count', { count: selectedCount }) }}
                             </button>
                             <button
-                                v-if="canCreate && statusFilter !== 'deleted'"
+                                v-if="canUpdate && statusFilter !== 'deleted'"
+                                type="button"
+                                class="btn btn-sm btn-wave"
+                                :class="reorderMode ? 'btn-primary' : 'btn-outline-primary'"
+                                @click="toggleReorderMode"
+                            >
+                                <i class="ri-drag-move-2-line me-1 align-middle"></i>
+                                {{ reorderMode ? t('service_categories.reorder_done') : t('service_categories.reorder') }}
+                            </button>
+                            <button
+                                v-if="canCreate && statusFilter !== 'deleted' && ! reorderMode"
                                 type="button"
                                 class="btn btn-primary btn-sm btn-wave"
                                 @click="openCreate"
@@ -112,7 +145,15 @@
                         </div>
                     </div>
 
-                    <div class="card-body p-0">
+                    <div v-if="reorderMode" class="card-body p-4">
+                        <ServiceCategoryReorderPanel
+                            ref="reorderPanelRef"
+                            :can-update="canUpdate"
+                            :locale="locale"
+                        />
+                    </div>
+
+                    <div v-else class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table text-nowrap table-striped table-hover mb-0">
                                 <thead>
@@ -129,9 +170,8 @@
                                         <th scope="col">{{ t('service_categories.name') }}</th>
                                         <th scope="col">{{ t('service_categories.parent') }}</th>
                                         <th scope="col">{{ t('service_categories.module_name') }}</th>
-                                        <th scope="col">{{ t('service_categories.is_login_dashboard') }}</th>
+                                        <th scope="col">{{ t('service_categories.audiences') }}</th>
                                         <th scope="col">{{ t('service_categories.is_auto_assign') }}</th>
-                                        <th scope="col">{{ t('service_categories.requires_provider') }}</th>
                                         <th scope="col">{{ t('service_categories.sort_order') }}</th>
                                         <th scope="col">{{ t('service_categories.status') }}</th>
                                         <th scope="col">{{ t('service_categories.created_at') }}</th>
@@ -221,12 +261,16 @@
                                             <span v-else class="text-muted">—</span>
                                         </td>
                                         <td>
-                                            <span
-                                                class="badge"
-                                                :class="category.is_login_dashboard ? 'bg-success-transparent' : 'bg-secondary-transparent'"
-                                            >
-                                                {{ category.is_login_dashboard ? t('yes') : t('no') }}
-                                            </span>
+                                            <div class="d-flex flex-wrap gap-1">
+                                                <span
+                                                    v-for="audience in categoryAudiences(category)"
+                                                    :key="`${category.id}-${audience}`"
+                                                    class="badge bg-primary-transparent"
+                                                >
+                                                    {{ audienceLabel(audience) }}
+                                                </span>
+                                                <span v-if="! categoryAudiences(category).length" class="text-muted">—</span>
+                                            </div>
                                         </td>
                                         <td>
                                             <span
@@ -234,14 +278,6 @@
                                                 :class="category.is_auto_assign ? 'bg-success-transparent' : 'bg-secondary-transparent'"
                                             >
                                                 {{ category.is_auto_assign ? t('yes') : t('no') }}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <span
-                                                class="badge"
-                                                :class="category.requires_provider ? 'bg-success-transparent' : 'bg-secondary-transparent'"
-                                            >
-                                                {{ category.requires_provider ? t('yes') : t('no') }}
                                             </span>
                                         </td>
                                         <td>
@@ -328,7 +364,7 @@
                         </div>
                     </div>
 
-                    <div v-if="pagination && !loading" class="card-footer border-top-0">
+                    <div v-if="! reorderMode && pagination && !loading" class="card-footer border-top-0">
                         <div class="d-flex align-items-center flex-wrap gap-3">
                             <div class="d-flex align-items-center gap-2 text-muted fs-13">
                                 <span>{{ entriesLabel }}</span>
@@ -401,6 +437,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { storeToRefs } from 'pinia';
 import { useI18n } from 'vue-i18n';
+import MultiSelect from 'primevue/multiselect';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import { useCatalogPermissions } from '../../../../../../composables/useCatalogPermissions';
@@ -416,6 +453,7 @@ import {
     formatCatalogDate,
     isTrashedRecord,
 } from '../../../../../../utils/catalog';
+import ServiceCategoryReorderPanel from '../../../../../../components/catalog/ServiceCategoryReorderPanel.vue';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t, locale } = useI18n();
@@ -430,8 +468,30 @@ const {
     showActionsColumn,
 } = useCatalogPermissions('service_categories');
 
+function categoryAudiences(category) {
+    if (Array.isArray(category?.audiences) && category.audiences.length) {
+        return category.audiences;
+    }
+
+    const legacy = [];
+
+    if (category?.is_login_dashboard) {
+        legacy.push('user');
+    }
+
+    if (category?.requires_provider) {
+        legacy.push('provider');
+    }
+
+    return legacy;
+}
+
+function audienceLabel(value) {
+    return t(`service_categories.audiences_labels.${value}`, value);
+}
+
 const tableColumnCount = computed(() => {
-    let count = 9;
+    let count = 8;
 
     if (canMultipleDelete.value) {
         count += 1;
@@ -454,11 +514,13 @@ const {
     perPage,
     search,
     statusFilter,
+    audienceFilter,
     isDeletedView,
 } = storeToRefs(categoriesApi);
 const {
     fetchCategories,
     setStatusFilter,
+    clearAudienceFilter,
     deleteCategory,
     deleteSelected,
     restoreCategory,
@@ -470,6 +532,11 @@ const {
     isTogglingStatus,
 } = categoriesApi;
 
+const audienceFilterOptions = computed(() => categoriesApi.audienceFilterValues.map((value) => ({
+    value,
+    label: t(`service_categories.audiences_labels.${value}`),
+})));
+
 const counts = computed(() => ({
     total: categoriesStore.total ?? pagination.value?.total ?? 0,
     active: categoriesStore.activeCount ?? 0,
@@ -477,9 +544,21 @@ const counts = computed(() => ({
     deleted: categoriesStore.deletedCount ?? 0,
 }));
 
+const reorderMode = ref(false);
+const reorderPanelRef = ref(null);
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
+
+function toggleReorderMode() {
+    reorderMode.value = ! reorderMode.value;
+
+    if (reorderMode.value) {
+        reorderPanelRef.value?.reload?.();
+    } else {
+        fetchCategories(currentPage.value);
+    }
+}
 const deleteConfirm = useConfirmDelete();
 
 const selectedCount = computed(() => selectedIds.value.length);
@@ -691,10 +770,43 @@ onMounted(() => {
     font-size: 1rem;
 }
 
+.catalog-toolbar-audience-filter {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 11rem;
+    max-width: 16rem;
+}
+
+.catalog-toolbar-audience-filter__select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.catalog-toolbar-audience-filter__select :deep(.p-multiselect) {
+    min-height: 31px;
+    font-size: 0.8125rem;
+}
+
+.catalog-toolbar-audience-filter__select :deep(.p-multiselect-label) {
+    padding-block: 0.25rem;
+}
+
+.catalog-toolbar-audience-filter__clear {
+    flex-shrink: 0;
+    padding: 0.25rem 0.45rem;
+    line-height: 1;
+}
+
 @media (max-width: 767.98px) {
     .catalog-toolbar-search {
         width: 100%;
         max-width: 220px;
+    }
+
+    .catalog-toolbar-audience-filter {
+        width: 100%;
+        max-width: 100%;
     }
 }
 </style>

@@ -1,7 +1,12 @@
+import { ref, watch } from 'vue';
 import { useCatalog } from './useCatalog';
 import { useServiceCategoriesStore } from '../stores/serviceCategories';
 
+const AUDIENCE_FILTER_VALUES = ['admin', 'user', 'provider', 'driver'];
+
 export function useServiceCategories() {
+    const audienceFilter = ref([]);
+
     const catalog = useCatalog({
         apiUri: '/api/admin/v1/service-categories',
         countsStore: useServiceCategoriesStore(),
@@ -13,9 +18,31 @@ export function useServiceCategories() {
             filterTranslationByLocale: false,
         },
         dataKey: 'categories',
+        getExtraListParams: () => (
+            audienceFilter.value.length
+                ? { audiences: [...audienceFilter.value] }
+                : {}
+        ),
     });
 
+    watch(
+        audienceFilter,
+        () => {
+            catalog.fetchItems(1);
+        },
+        { deep: true },
+    );
+
+    function clearAudienceFilter() {
+        if (audienceFilter.value.length) {
+            audienceFilter.value = [];
+        }
+    }
+
     return {
+        audienceFilter,
+        audienceFilterValues: AUDIENCE_FILTER_VALUES,
+        clearAudienceFilter,
         categories: catalog.categories,
         loading: catalog.loading,
         pagination: catalog.pagination,

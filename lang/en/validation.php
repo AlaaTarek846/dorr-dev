@@ -48,6 +48,9 @@ return [
             'min' => 'The name field must be at least :min characters.',
             'max' => 'The name field must not be greater than :max characters.',
         ],
+        'service_categories' => [
+            'reorder_siblings' => 'Reorder must include every category at the same level (same parent).',
+        ],
         'translations.*.question' => [
             'required' => 'The question field is required.',
             'string' => 'The question field must be a string.',
@@ -111,7 +114,9 @@ return [
         'translations' => 'translations',
         'translations.*.locale' => 'locale',
         'translations.*.name' => 'name',
+        'translations.*.description' => 'description',
         'module_name' => 'module name',
+        'audiences' => 'audiences',
         'is_login_dashboard' => 'show on login dashboard',
         'is_auto_assign' => 'auto assign',
         'ids' => 'selected items',

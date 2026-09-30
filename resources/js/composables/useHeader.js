@@ -6,6 +6,7 @@ import userAxios from '../api/userAxios';
 import { useAuthStore } from '../stores/auth';
 import { useProviderAuthStore } from '../stores/providerAuth';
 import { useUserAuthStore } from '../stores/userAuth';
+import { syncAppDarkClass } from '../utils/themeMode';
 
 export function useHeader() {
     const router = useRouter();
@@ -129,6 +130,8 @@ export function useHeader() {
         document.querySelector('#switcher-header-dark') && (document.querySelector('#switcher-header-dark').checked = isDark);
         document.querySelector('#switcher-menu-light') && (document.querySelector('#switcher-menu-light').checked = ! isDark);
         document.querySelector('#switcher-menu-dark') && (document.querySelector('#switcher-menu-dark').checked = isDark);
+
+        syncAppDarkClass(html);
     }
 
     function toggleFullscreen() {

@@ -2,13 +2,23 @@
 
 namespace Database\Seeders\General;
 
+use App\Enums\ServiceAudience;
 use App\Models\ServiceCategory;
-use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Illuminate\Database\Seeder;
 
 class ServiceCategoriesSeeder extends Seeder
 {
-    use SyncsSeedTranslations;
+    /**
+     * Internal admin catalog entries — not shown on the user app home.
+     *
+     * @var list<string>
+     */
+    private const ADMIN_ONLY_MODULES = [
+        'general_services',
+        'system_users',
+        'admin',
+        'admin_permission',
+    ];
 
     public function run(): void
     {
@@ -55,17 +65,97 @@ class ServiceCategoriesSeeder extends Seeder
                 ->where('sort_order', $index + 1)
                 ->first() ?? new ServiceCategory;
 
+            $audiences = $this->audiencesForRow($row);
+            $legacy = ServiceAudience::legacyFlagsFromAudiences($audiences);
+
             $category->fill([
                 'module_name' => $row['module_name'],
-                'is_login_dashboard' => true,
+                'audiences' => $audiences,
+                'is_login_dashboard' => $legacy['is_login_dashboard'],
                 'is_auto_assign' => false,
-                'requires_provider' => $row['requires_provider'],
+                'requires_provider' => $legacy['requires_provider'],
                 'status' => true,
                 'sort_order' => $index + 1,
             ]);
             $category->save();
 
-            $this->syncTranslations($category, $row['name']);
+            $this->syncServiceCategoryTranslations($category, $row['name']);
         }
+    }
+
+    /**
+     * @param  array<string, string>  $names
+     */
+    protected function syncServiceCategoryTranslations(ServiceCategory $category, array $names): void
+    {
+        foreach ($names as $locale => $name) {
+            $category->translations()->updateOrCreate(
+                ['locale' => $locale],
+                [
+                    'name' => $name,
+                    'description' => $locale === 'ar'
+                        ? $this->defaultDescriptionAr()
+                        : $this->defaultDescriptionEn(),
+                ],
+            );
+        }
+    }
+
+    private function defaultDescriptionAr(): string
+    {
+        return <<<'HTML'
+<p>نقدم خدمات متنوعة تهدف إلى تلبية احتياجاتك اليومية من خلال حلول عملية ومرنة، مع الحرص على توفير تجربة سهلة ومريحة تجمع بين الجودة والسهولة والموثوقية.</p>
+<h3>مميزات خدماتنا:</h3>
+<ul>
+<li><strong>سهولة الاستخدام:</strong> تجربة بسيطة تساعدك في الوصول إلى الخدمة المناسبة بكل سهولة.</li>
+<li><strong>جودة الخدمة:</strong> نحرص على تقديم خدمات تلبي توقعاتك واحتياجاتك.</li>
+<li><strong>المرونة:</strong> حلول متنوعة تناسب مختلف الاحتياجات والتفضيلات.</li>
+<li><strong>توفير الوقت والجهد:</strong> الوصول إلى الخدمات بطريقة سهلة ومنظمة.</li>
+<li><strong>التحسين المستمر:</strong> نعمل على تطوير خدماتنا لتقديم تجربة أفضل.</li>
+<li><strong>تجربة موثوقة:</strong> نسعى إلى توفير تجربة مريحة وموثوقة في كل خطوة.</li>
+</ul>
+HTML;
+    }
+
+    private function defaultDescriptionEn(): string
+    {
+        return <<<'HTML'
+<p>We offer a variety of services designed to meet your everyday needs through practical and flexible solutions. Our goal is to provide a smooth and convenient experience that combines quality, simplicity, and reliability.</p>
+<h3>Our Service Features:</h3>
+<ul>
+<li><strong>Easy to Use:</strong> A simple experience that helps you access the right service with ease.</li>
+<li><strong>Quality Service:</strong> We strive to deliver services that meet your expectations and needs.</li>
+<li><strong>Flexibility:</strong> A variety of solutions to suit different needs and preferences.</li>
+<li><strong>Save Time and Effort:</strong> Access services through a simple and organized process.</li>
+<li><strong>Continuous Improvement:</strong> We continuously develop our services to provide a better experience.</li>
+<li><strong>Reliable Experience:</strong> We aim to make every step convenient and reliable.</li>
+</ul>
+HTML;
+    }
+
+    /**
+     * @param  array{module_name: string, requires_provider: bool}  $row
+     * @return list<string>
+     */
+    protected function audiencesForRow(array $row): array
+    {
+        if (in_array($row['module_name'], self::ADMIN_ONLY_MODULES, true)) {
+            return [ServiceAudience::Admin->value];
+        }
+
+        $audiences = [
+            ServiceAudience::Admin->value,
+            ServiceAudience::User->value,
+        ];
+
+        if ($row['requires_provider']) {
+            $audiences[] = ServiceAudience::Provider->value;
+        }
+
+        if ($row['module_name'] === 'driver_without_vehicle') {
+            $audiences[] = ServiceAudience::Driver->value;
+        }
+
+        return array_values(array_unique($audiences));
     }
 }
