@@ -2292,6 +2292,7 @@ PROMPT;
         return match ($reason) {
             AiChatUsageGuard::REASON_BLOCKED => __('ai.usage_blocked'),
             AiChatUsageGuard::REASON_TRIAL_ENDED => __('ai.usage_trial_ended'),
+            AiChatUsageGuard::REASON_SUBSCRIPTION_SUSPENDED => __('ai.subscription_suspended'),
             AiChatUsageGuard::REASON_COOLDOWN => __('ai.usage_cooldown'),
             AiChatUsageGuard::REASON_LIMIT_REACHED => __('ai.usage_limit_reached'),
             default => __('ai.usage_unavailable'),

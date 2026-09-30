@@ -10,6 +10,7 @@ import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
 import retrofit2.http.PartMap
+import retrofit2.http.PUT
 import retrofit2.http.Path
 
 /**
@@ -79,4 +80,38 @@ interface AiChatApi {
         @Path("id") id: Int,
         @Body body: AiRealtimeSessionEndRequestDto,
     ): ApiEnvelope<Any?>
+
+    // Professional AI subscription system linked to the wallet (2026-09-29):
+    // Modules/AI's routes/user.php prefix('user/v1/ai-subscription'). subscribe()
+    // and changePlan() carry X-Wallet-Pin exactly like WalletApi.transfer() does -
+    // both move real money and the backend requires it (RequiresWalletPin).
+
+    @GET("user/v1/ai-subscription/plans")
+    suspend fun subscriptionPlans(@Header("Authorization") auth: String): ApiEnvelope<List<AiPlanDto>>
+
+    @GET("user/v1/ai-subscription")
+    suspend fun currentSubscription(@Header("Authorization") auth: String): ApiEnvelope<AiSubscriptionDto?>
+
+    @GET("user/v1/ai-subscription/payments")
+    suspend fun subscriptionPayments(@Header("Authorization") auth: String): ApiEnvelope<List<AiSubscriptionPaymentDto>>
+
+    @PUT("user/v1/ai-subscription/auto-renew")
+    suspend fun updateAutoRenew(
+        @Header("Authorization") auth: String,
+        @Body body: AiAutoRenewRequestDto,
+    ): ApiEnvelope<AiSubscriptionDto>
+
+    @POST("user/v1/ai-subscription/subscribe")
+    suspend fun subscribeToPlan(
+        @Header("Authorization") auth: String,
+        @Header("X-Wallet-Pin") pin: String,
+        @Body body: AiSubscribeRequestDto,
+    ): ApiEnvelope<AiSubscriptionDto>
+
+    @POST("user/v1/ai-subscription/change-plan")
+    suspend fun changeSubscriptionPlan(
+        @Header("Authorization") auth: String,
+        @Header("X-Wallet-Pin") pin: String,
+        @Body body: AiChangePlanRequestDto,
+    ): ApiEnvelope<AiSubscriptionDto>
 }

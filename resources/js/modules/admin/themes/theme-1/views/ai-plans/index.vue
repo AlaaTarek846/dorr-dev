@@ -36,16 +36,17 @@
                                         <th scope="col">{{ t('ai_plans.code') }}</th>
                                         <th scope="col">{{ t('ai_plans.usage_minutes') }}</th>
                                         <th scope="col">{{ t('ai_plans.price') }}</th>
+                                        <th scope="col">{{ t('ai_plans.duration_days') }}</th>
                                         <th scope="col">{{ t('ai_plans.is_trial') }}</th>
                                         <th scope="col">{{ t('ai_plans.status') }}</th>
                                         <th scope="col" class="text-end pe-4">{{ t('ai_plans.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="5" :columns="7" />
+                                    <TableSkeleton v-if="loading" :rows="5" :columns="8" />
 
                                     <tr v-else-if="!plans.length">
-                                        <td colspan="7" class="border-0">
+                                        <td colspan="8" class="border-0">
                                             <div class="text-center py-5">
                                                 <p class="fw-semibold mb-1">{{ t('ai_plans.empty_title') }}</p>
                                                 <p class="text-muted mb-0">{{ t('ai_plans.empty') }}</p>
@@ -58,10 +59,20 @@
                                             <button type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="openEdit(plan)">
                                                 {{ plan.name }}
                                             </button>
+                                            <div class="mt-1">
+                                                <span v-if="plan.is_featured" class="badge bg-primary-transparent me-1">
+                                                    <i class="ri-star-fill align-middle"></i>
+                                                </span>
+                                                <span v-if="plan.badge" class="badge bg-warning-transparent me-1">{{ plan.badge }}</span>
+                                                <span v-if="plan.discount_percent" class="badge bg-success-transparent">
+                                                    {{ t('ai_plans.discount_badge', { percent: plan.discount_percent }) }}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td><span class="badge bg-primary-transparent">{{ plan.code }}</span></td>
                                         <td>{{ plan.usage_minutes }}</td>
                                         <td>{{ plan.price }} {{ plan.currency }}</td>
+                                        <td>{{ plan.duration_days }}</td>
                                         <td>
                                             <span v-if="plan.is_trial" class="badge bg-warning-transparent">{{ t('ai_plans.is_trial') }}</span>
                                             <span v-else class="text-muted">-</span>
@@ -80,6 +91,9 @@
                                         </td>
                                         <td class="text-end pe-4">
                                             <div class="btn-list justify-content-end">
+                                                <button type="button" class="btn btn-sm btn-primary-light" @click="openPrices(plan)">
+                                                    <i class="ri-earth-line me-1 align-middle"></i>{{ t('ai_plans.manage_prices') }}
+                                                </button>
                                                 <button type="button" class="btn btn-sm btn-info-light btn-icon" @click="openEdit(plan)">
                                                     <i class="ri-pencil-line"></i>
                                                 </button>
@@ -112,6 +126,12 @@
             @close="modalShow = false"
             @saved="onSaved"
         />
+
+        <ModalManagePrices
+            :show="pricesModalShow"
+            :plan="pricesPlan"
+            @close="pricesModalShow = false"
+        />
     </div>
 </template>
 
@@ -122,6 +142,7 @@ import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
+import ModalManagePrices from './ModalManagePrices.vue';
 
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
@@ -135,6 +156,9 @@ const loading = ref(true);
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
+
+const pricesModalShow = ref(false);
+const pricesPlan = ref(null);
 
 async function loadPlans() {
     loading.value = true;
@@ -160,6 +184,11 @@ function openEdit(plan) {
     modalType.value = 'edit';
     selectedRecord.value = { ...plan };
     modalShow.value = true;
+}
+
+function openPrices(plan) {
+    pricesPlan.value = plan;
+    pricesModalShow.value = true;
 }
 
 async function toggleActive(plan) {

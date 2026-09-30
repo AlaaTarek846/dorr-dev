@@ -35,6 +35,14 @@ class AiChatUsageGuard
 
     public const REASON_LIMIT_REACHED = 'limit_reached';
 
+    /** A paid subscription that existed but was suspended after a
+     * renewal charge failed and its 3-day grace period passed
+     * (AiSubscriptionPurchaseService::processDueSubscriptions()) - kept
+     * distinct from REASON_TRIAL_ENDED so the owner is told the true,
+     * actionable reason (top up and resubscribe) instead of a generic
+     * "your trial ended" message that never applied to them. */
+    public const REASON_SUBSCRIPTION_SUSPENDED = 'subscription_suspended';
+
     /**
      * @return array{
      *     allowed: bool,
@@ -71,6 +79,18 @@ class AiChatUsageGuard
             ->first();
 
         if (! $subscription) {
+            $suspended = AiSubscription::query()
+                ->where('owner_type', $ownerType)
+                ->where('owner_id', $ownerId)
+                ->where('status', AiSubscription::STATUS_SUSPENDED)
+                ->with('plan')
+                ->latest('id')
+                ->first();
+
+            if ($suspended) {
+                return $this->deny(self::REASON_SUBSCRIPTION_SUSPENDED, plan: $suspended->plan, subscription: $suspended, trialStatus: $trial->trial_status);
+            }
+
             if ($trial->trial_status !== AiTrialControl::TRIAL_ELIGIBLE) {
                 // Trial already used up (or something ended their only
                 // subscription) and there is nothing active to fall back on.

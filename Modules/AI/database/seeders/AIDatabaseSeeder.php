@@ -71,9 +71,16 @@ class AIDatabaseSeeder extends Seeder
     }
 
     /**
-     * Seeds a starter set of AI plans (Phase 2) so the admin screens have
-     * real data to test/approve against right away, instead of an empty
-     * table. Safe to re-run - upserts by the unique "code" column.
+     * Seeds a professional, ready-to-sell set of AI plans (Phase 2 +
+     * the 2026-09-30 subscription/marketing pass) so the pricing screen
+     * and admin dashboard have realistic data from the first migrate -
+     * a real trial, three paid tiers with actual marketing polish
+     * (badges, feature bullets, a genuine "was/now" discount on the
+     * featured tier), and one truly unlimited top tier
+     * (usage_minutes = 0 means no cap - see AiChatUsageGuard::evaluate()).
+     * Safe to re-run - upserts by the unique "code" column, so an admin's
+     * own edits to price/description survive a re-seed only if this
+     * array is left untouched for that plan.
      */
     protected function seedDefaultPlans(): void
     {
@@ -81,11 +88,20 @@ class AIDatabaseSeeder extends Seeder
             [
                 'code' => 'free_trial',
                 'name' => 'تجربة مجانية',
-                'description' => 'خطة تجربة مجانية محدودة لليوزر أو مقدم الخدمة الجديد.',
+                'description' => 'جرّب المساعد الذكي أسبوع كامل مجاناً قبل ما تشترك.',
                 'usage_minutes' => 60,
                 'cooldown_minutes' => 30,
+                'duration_days' => 7,
                 'price' => 0,
+                'original_price' => null,
                 'currency' => 'EGP',
+                'badge' => null,
+                'is_featured' => false,
+                'features' => [
+                    '60 دقيقة محادثة مجاناً',
+                    'بدون بطاقة ائتمان',
+                    'تجربة كل مميزات المساعد الذكي',
+                ],
                 'is_trial' => true,
                 'is_active' => true,
                 'sort_order' => 1,
@@ -93,11 +109,20 @@ class AIDatabaseSeeder extends Seeder
             [
                 'code' => 'basic',
                 'name' => 'الخطة الأساسية',
-                'description' => 'خطة شهرية بسيطة للاستخدام العادي.',
-                'usage_minutes' => 500,
-                'cooldown_minutes' => 10,
+                'description' => 'مناسبة للاستخدام الخفيف والمتابعة اليومية العادية.',
+                'usage_minutes' => 300,
+                'cooldown_minutes' => 15,
+                'duration_days' => 30,
                 'price' => 99,
+                'original_price' => null,
                 'currency' => 'EGP',
+                'badge' => null,
+                'is_featured' => false,
+                'features' => [
+                    '300 دقيقة محادثة شهرياً',
+                    'دعم عبر الشات',
+                    'رسائل صوتية ونصية',
+                ],
                 'is_trial' => false,
                 'is_active' => true,
                 'sort_order' => 2,
@@ -105,14 +130,46 @@ class AIDatabaseSeeder extends Seeder
             [
                 'code' => 'pro',
                 'name' => 'الخطة الاحترافية',
-                'description' => 'خطة شهرية بدقائق استخدام أعلى وبدون فترة انتظار.',
-                'usage_minutes' => 2000,
+                'description' => 'الأنسب لمعظم المستخدمين - دقائق أكتر وبدون أي انتظار.',
+                'usage_minutes' => 1500,
                 'cooldown_minutes' => 0,
+                'duration_days' => 30,
                 'price' => 249,
+                'original_price' => 299,
                 'currency' => 'EGP',
+                'badge' => 'الأكثر شيوعاً',
+                'is_featured' => true,
+                'features' => [
+                    '1500 دقيقة محادثة شهرياً',
+                    'بدون فترة انتظار بين الجلسات',
+                    'أولوية في الرد والدعم الفني',
+                    'مكالمات صوتية فورية (Realtime)',
+                ],
                 'is_trial' => false,
                 'is_active' => true,
                 'sort_order' => 3,
+            ],
+            [
+                'code' => 'business',
+                'name' => 'خطة الأعمال',
+                'description' => 'استخدام غير محدود لأصحاب الأعمال ومقدمي الخدمة الكبار.',
+                'usage_minutes' => 0,
+                'cooldown_minutes' => 0,
+                'duration_days' => 30,
+                'price' => 599,
+                'original_price' => null,
+                'currency' => 'EGP',
+                'badge' => 'الأفضل قيمة',
+                'is_featured' => false,
+                'features' => [
+                    'استخدام غير محدود بدون أي سقف دقائق',
+                    'أولوية قصوى في المعالجة',
+                    'دعم مخصص على مدار الساعة',
+                    'مناسبة لفرق العمل الكبيرة',
+                ],
+                'is_trial' => false,
+                'is_active' => true,
+                'sort_order' => 4,
             ],
         ];
 

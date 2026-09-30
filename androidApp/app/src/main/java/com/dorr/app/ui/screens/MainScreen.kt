@@ -178,24 +178,36 @@ fun MainScreen(
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
-            DorrBottomNavigationBar(
-                currentTab = currentTab,
-                // No tab is "current" while the wallet or a chat is open over the tabs.
-                walletOpen = walletOpen || chatOpen || aiChatOpen,
-                onSelectTab = { index ->
-                    currentTab = index
-                    walletOpen = false
-                    chatOpen = false
-                    aiChatOpen = false
-                },
-                onFabClick = {
-                    // Central "+" button — opens the AI Assistant, the same way the
-                    // chat button opens person-to-person chat below.
-                    walletOpen = false
-                    chatOpen = false
-                    aiChatOpen = true
-                },
-            )
+            // Real, observed request (2026-09-29): unlike the wallet and the
+            // person-to-person chat (which deliberately keep the tab bar
+            // visible underneath them - see the comment on the AI overlay
+            // below), the user wants the AI Assistant specifically to feel
+            // like its own full-screen space with no tab bar showing
+            // through underneath it. Rendering nothing here (rather than
+            // hiding the bar with alpha/visibility) also lets Scaffold's
+            // own bottom content padding shrink to zero while it's open,
+            // so AiChatHost's content extends cleanly to the bottom edge
+            // instead of leaving an empty gap where the bar used to be.
+            if (!aiChatOpen) {
+                DorrBottomNavigationBar(
+                    currentTab = currentTab,
+                    // No tab is "current" while the wallet or a chat is open over the tabs.
+                    walletOpen = walletOpen || chatOpen,
+                    onSelectTab = { index ->
+                        currentTab = index
+                        walletOpen = false
+                        chatOpen = false
+                        aiChatOpen = false
+                    },
+                    onFabClick = {
+                        // Central "+" button — opens the AI Assistant, the same way the
+                        // chat button opens person-to-person chat below.
+                        walletOpen = false
+                        chatOpen = false
+                        aiChatOpen = true
+                    },
+                )
+            }
         },
     ) { padding ->
         // consumeWindowInsets: the tab bar already covers the navigation-bar area, so pages below

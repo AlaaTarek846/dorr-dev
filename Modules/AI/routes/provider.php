@@ -1,8 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 use Modules\AI\Http\Controllers\AiChatController;
 use Modules\AI\Http\Controllers\AiRealtimeController;
+use Modules\AI\Http\Controllers\AiUserSubscriptionController;
 
 // Same AiChatController as routes/user.php - AI chat is shared between the
 // User and Provider dashboards. ai_conversations.owner is polymorphic, see
@@ -38,4 +40,24 @@ Route::middleware(['locale', 'auth:provider_api', 'throttle:ai-chat-send'])->pre
 Route::middleware(['locale', 'auth:provider_api', 'throttle:ai-chat-send'])->prefix('provider/v1/ai-realtime')->group(function () {
     Route::post('session', [AiRealtimeController::class, 'createSession']);
     Route::post('session/{session}/end', [AiRealtimeController::class, 'endSession']);
+});
+
+// Professional AI subscription system linked to the wallet (2026-09-29):
+// browsing plans and reading the current subscription/payment history are
+// read-only, so they share the general limiter; subscribing and changing
+// plan move real money and require the wallet PIN
+// (Modules\Wallet\Http\Middleware\RequiresWalletPin) exactly like every
+// other money-moving endpoint in the app - "PIN إجباري على... دفع أي خدمة
+// من المحفظة" (docs/wallet-structure.md). 'country' is required so
+// currentCountry() (AiSubscriptionBillingService::walletFor()) resolves.
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-general'])->prefix('provider/v1/ai-subscription')->group(function () {
+    Route::get('plans', [AiUserSubscriptionController::class, 'plans']);
+    Route::get('/', [AiUserSubscriptionController::class, 'current']);
+    Route::get('payments', [AiUserSubscriptionController::class, 'payments']);
+    Route::put('auto-renew', [AiUserSubscriptionController::class, 'updateAutoRenew']);
+});
+
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-subscription')->group(function () {
+    Route::post('subscribe', [AiUserSubscriptionController::class, 'subscribe']);
+    Route::post('change-plan', [AiUserSubscriptionController::class, 'changePlan']);
 });

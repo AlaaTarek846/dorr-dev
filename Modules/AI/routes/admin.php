@@ -5,6 +5,7 @@ use Modules\AI\Enums\AiProviderKey;
 use Modules\AI\Http\Controllers\AiGatewayController;
 use Modules\AI\Http\Controllers\AiIntentController;
 use Modules\AI\Http\Controllers\AiPlanController;
+use Modules\AI\Http\Controllers\AiPlanPriceController;
 use Modules\AI\Http\Controllers\AiProviderController;
 use Modules\AI\Http\Controllers\AiRoutingPolicyController;
 use Modules\AI\Http\Controllers\AiRoutingRuleController;
@@ -19,6 +20,7 @@ use Modules\AI\Http\Controllers\AiSecurityPolicyController;
 use Modules\AI\Http\Controllers\AiRequestController;
 use Modules\AI\Http\Controllers\AiResponseController;
 use Modules\AI\Http\Controllers\AiSubscriptionController;
+use Modules\AI\Http\Controllers\AiSubscriptionAdminController;
 use Modules\AI\Http\Controllers\AiUsageController;
 use Modules\AI\Http\Controllers\AiTrialControlController;
 use Modules\AI\Http\Controllers\AiUsageSessionController;
@@ -84,14 +86,22 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::get('{plan}', [AiPlanController::class, 'show']);
     Route::put('{plan}', [AiPlanController::class, 'update']);
     Route::delete('{plan}', [AiPlanController::class, 'destroy']);
+    Route::get('{plan}/prices', [AiPlanPriceController::class, 'index']);
+    Route::post('{plan}/prices', [AiPlanPriceController::class, 'store']);
+    Route::delete('{plan}/prices/{price}', [AiPlanPriceController::class, 'destroy']);
 });
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-subscriptions')->group(function () {
+    Route::get('overview', [AiSubscriptionAdminController::class, 'overview']);
     Route::get('/', [AiSubscriptionController::class, 'index']);
     Route::post('/', [AiSubscriptionController::class, 'store']);
     Route::get('{subscription}', [AiSubscriptionController::class, 'show']);
     Route::put('{subscription}', [AiSubscriptionController::class, 'update']);
     Route::delete('{subscription}', [AiSubscriptionController::class, 'destroy']);
+    Route::post('{subscription}/extend', [AiSubscriptionAdminController::class, 'extend']);
+    Route::post('{subscription}/suspend', [AiSubscriptionAdminController::class, 'suspend']);
+    Route::post('{subscription}/reactivate', [AiSubscriptionAdminController::class, 'reactivate']);
+    Route::post('{subscription}/cancel', [AiSubscriptionAdminController::class, 'cancel']);
 });
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-usage-sessions')->group(function () {

@@ -21,7 +21,7 @@ import com.dorr.app.ui.screens.chat.chatAuth
 import com.dorr.app.ui.theme.LocalThemeState
 import kotlinx.coroutines.launch
 
-private enum class AiScreen { LIST, CONVERSATION, VOICE }
+private enum class AiScreen { LIST, CONVERSATION, VOICE, SUBSCRIPTION }
 
 /**
  * Owns the AI Assistant flow end to end: checks whether there is anything to chat with,
@@ -113,6 +113,7 @@ fun AiChatHost(onExit: () -> Unit) {
                         },
                         onNewChat = { scope.launch { startNewChat() } },
                         onOpenVoice = { screen = AiScreen.VOICE },
+                        onOpenSubscription = { screen = AiScreen.SUBSCRIPTION },
                     )
                 }
             }
@@ -120,6 +121,12 @@ fun AiChatHost(onExit: () -> Unit) {
                 AiVoiceScreen(
                     night = night,
                     conversationId = openConversationId,
+                    onExit = { screen = AiScreen.CONVERSATION },
+                )
+            }
+            AiScreen.SUBSCRIPTION -> {
+                AiSubscriptionScreen(
+                    night = night,
                     onExit = { screen = AiScreen.CONVERSATION },
                 )
             }

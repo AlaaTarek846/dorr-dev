@@ -22,6 +22,19 @@
     <string name="ai_attachment_caption">Attachment</string>
     <string name="ai_send_failed">Couldn\'t send the message. Please try again.</string>
     <string name="ai_typing">Thinking…</string>
+    <!-- Real, observed UX gap: the single static "Thinking…" bubble
+         above sat there unchanged for the whole wait, including a
+         30+ second image-generation call - with nothing to show it
+         was progressing, users assumed the app had frozen and tapped
+         send again, colliding with the still-in-flight request's
+         idempotency key. AiConversationPage now cycles through these
+         as elapsed time grows, so the assistant keeps narrating what
+         it's doing exactly like a normal AI chat, instead of one
+         frozen-looking label for the whole wait. -->
+    <string name="ai_typing_step_2">Reading your message…</string>
+    <string name="ai_typing_step_3">Still working on it, one moment…</string>
+    <string name="ai_typing_step_4">This is taking a bit longer than usual…</string>
+    <string name="ai_typing_step_image">Generating the image, this can take up to a minute…</string>
     <string name="ai_trial_remaining">Free trial · %1$d min left today</string>
     <string name="ai_usage_blocked">This account can\'t use the AI Assistant right now.</string>
     <string name="ai_usage_trial_ended">Your free trial has ended. Please upgrade to keep chatting.</string>
@@ -49,4 +62,35 @@
     <string name="ai_voice_unmute">Unmute</string>
     <string name="ai_voice_end_call">End call</string>
     <string name="ai_voice_retry">Try again</string>
+
+    <!-- Professional AI subscription system linked to the wallet (2026-09-29) -->
+    <string name="ai_subscription_title">AI Assistant subscription</string>
+    <string name="ai_subscription_current">Current plan</string>
+    <string name="ai_subscription_no_plan">You are not subscribed to a paid plan yet.</string>
+    <string name="ai_subscription_days_remaining">%1$d days remaining</string>
+    <string name="ai_subscription_ends_today">Ends today</string>
+    <string name="ai_subscription_auto_renew">Auto-renew</string>
+    <string name="ai_subscription_grace_warning">Your last renewal payment failed. Top up your wallet before %1$s or your subscription will be suspended.</string>
+    <string name="ai_subscription_suspended_banner">Your subscription was suspended because your wallet balance was not enough. Subscribe again to continue.</string>
+    <string name="ai_subscription_available_plans">Available plans</string>
+    <string name="ai_subscription_subscribe">Subscribe</string>
+    <string name="ai_subscription_switch_plan">Switch to this plan</string>
+    <string name="ai_subscription_current_badge">Current plan</string>
+    <string name="ai_subscription_per_cycle">/ %1$d days</string>
+    <string name="ai_subscription_pin_title">Wallet PIN</string>
+    <string name="ai_subscription_pin_subtitle_subscribe">Confirm your wallet PIN to subscribe</string>
+    <string name="ai_subscription_pin_subtitle_change">Confirm your wallet PIN to switch plans</string>
+    <string name="ai_subscription_success_subscribe">Subscribed successfully.</string>
+    <string name="ai_subscription_success_change">Plan changed successfully.</string>
+    <string name="ai_subscription_no_pin_set">Set up your wallet PIN from the Wallet tab first to subscribe.</string>
+    <string name="ai_subscription_payments_title">Payment history</string>
+    <string name="ai_subscription_payment_type_initial">Subscription</string>
+    <string name="ai_subscription_payment_type_renewal">Renewal</string>
+    <string name="ai_subscription_payment_type_upgrade">Upgrade</string>
+    <string name="ai_subscription_payment_type_downgrade">Downgrade</string>
+    <string name="ai_subscription_payment_failed">Failed</string>
+    <string name="ai_subscription_manage">Manage subscription</string>
+    <string name="ai_subscription_view_payments">View payment history</string>
+    <string name="ai_subscription_empty_plans">No plans are available right now.</string>
+    <string name="ai_ok">OK</string>
 </resources>

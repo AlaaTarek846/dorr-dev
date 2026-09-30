@@ -66,6 +66,11 @@
                             </div>
 
                             <div class="col-md-6">
+                                <label for="plan-duration-days" class="form-label">{{ t('ai_plans.duration_days') }}</label>
+                                <input id="plan-duration-days" v-model.number="form.duration_days" type="number" min="1" class="form-control">
+                            </div>
+
+                            <div class="col-md-6">
                                 <label for="plan-sort-order" class="form-label">{{ t('ai_plans.sort_order') }}</label>
                                 <input id="plan-sort-order" v-model.number="form.sort_order" type="number" min="0" class="form-control">
                             </div>
@@ -78,6 +83,16 @@
                             <div class="col-md-6">
                                 <label for="plan-currency" class="form-label">{{ t('ai_plans.currency') }}</label>
                                 <input id="plan-currency" v-model="form.currency" type="text" maxlength="3" class="form-control text-uppercase">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="plan-original-price" class="form-label">{{ t('ai_plans.original_price') }}</label>
+                                <input id="plan-original-price" v-model.number="form.original_price" type="number" min="0" step="0.01" class="form-control">
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="plan-badge" class="form-label">{{ t('ai_plans.badge') }}</label>
+                                <input id="plan-badge" v-model="form.badge" type="text" maxlength="60" class="form-control" :placeholder="t('ai_plans.badge_placeholder')">
                             </div>
 
                             <div class="col-12">
@@ -116,6 +131,40 @@
                                     @keydown.enter.space.prevent="form.is_active = !form.is_active"
                                 >
                                     <span></span>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label class="form-label d-block mb-2">{{ t('ai_plans.is_featured') }}</label>
+                                <div
+                                    class="toggle toggle-primary mb-0"
+                                    :class="{ on: form.is_featured }"
+                                    role="button"
+                                    tabindex="0"
+                                    @click="form.is_featured = !form.is_featured"
+                                    @keydown.enter.space.prevent="form.is_featured = !form.is_featured"
+                                >
+                                    <span></span>
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label">{{ t('ai_plans.features') }}</label>
+                                <div class="d-flex gap-2 mb-2">
+                                    <input
+                                        v-model="newFeature"
+                                        type="text"
+                                        class="form-control"
+                                        :placeholder="t('ai_plans.features_placeholder')"
+                                        @keydown.enter.prevent="addFeature"
+                                    >
+                                    <button type="button" class="btn btn-light" @click="addFeature">{{ t('ai_plans.add_feature') }}</button>
+                                </div>
+                                <div class="d-flex flex-wrap gap-1">
+                                    <span v-for="(feature, index) in form.features" :key="index" class="badge bg-light text-default border d-flex align-items-center gap-1">
+                                        {{ feature }}
+                                        <i class="ri-close-line" role="button" @click="form.features.splice(index, 1)"></i>
+                                    </span>
                                 </div>
                             </div>
                         </div>
@@ -168,12 +217,26 @@ const form = reactive({
     description: '',
     usage_minutes: 0,
     cooldown_minutes: 0,
+    duration_days: 30,
     price: 0,
+    original_price: null,
     currency: 'EGP',
+    badge: '',
+    is_featured: false,
+    features: [],
     is_trial: false,
     is_active: true,
     sort_order: 0,
 });
+
+const newFeature = ref('');
+
+function addFeature() {
+    const value = newFeature.value.trim();
+    if (! value) return;
+    form.features.push(value);
+    newFeature.value = '';
+}
 
 const rules = computed(() => ({
     name: stringFieldRules('ai_plans.name', 150),
@@ -211,11 +274,17 @@ function resetForm() {
     form.description = '';
     form.usage_minutes = 0;
     form.cooldown_minutes = 0;
+    form.duration_days = 30;
     form.price = 0;
+    form.original_price = null;
     form.currency = 'EGP';
+    form.badge = '';
+    form.is_featured = false;
+    form.features = [];
     form.is_trial = false;
     form.is_active = true;
     form.sort_order = 0;
+    newFeature.value = '';
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
 }
@@ -226,11 +295,17 @@ function fillForm(record) {
     form.description = record?.description ?? '';
     form.usage_minutes = record?.usage_minutes ?? 0;
     form.cooldown_minutes = record?.cooldown_minutes ?? 0;
+    form.duration_days = record?.duration_days ?? 30;
     form.price = record?.price ?? 0;
+    form.original_price = record?.original_price ?? null;
     form.currency = record?.currency ?? 'EGP';
+    form.badge = record?.badge ?? '';
+    form.is_featured = Boolean(record?.is_featured);
+    form.features = Array.isArray(record?.features) ? [...record.features] : [];
     form.is_trial = Boolean(record?.is_trial);
     form.is_active = Boolean(record?.is_active ?? true);
     form.sort_order = record?.sort_order ?? 0;
+    newFeature.value = '';
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
 }

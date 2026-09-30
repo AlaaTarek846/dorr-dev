@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Models;
 
+use App\Models\Country;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -16,8 +17,13 @@ class AiPlan extends Model
         'description',
         'usage_minutes',
         'cooldown_minutes',
+        'duration_days',
         'price',
+        'original_price',
         'currency',
+        'badge',
+        'is_featured',
+        'features',
         'is_trial',
         'is_active',
         'sort_order',
@@ -31,9 +37,13 @@ class AiPlan extends Model
         return [
             'usage_minutes' => 'integer',
             'cooldown_minutes' => 'integer',
+            'duration_days' => 'integer',
             'price' => 'decimal:2',
+            'original_price' => 'decimal:2',
             'is_trial' => 'boolean',
             'is_active' => 'boolean',
+            'is_featured' => 'boolean',
+            'features' => 'array',
             'sort_order' => 'integer',
         ];
     }
@@ -41,5 +51,71 @@ class AiPlan extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(AiSubscription::class, 'plan_id');
+    }
+
+    /**
+     * Per-country price overrides (docs: "اسعار الباقات على حسب البلد وبرده
+     * العمله"). Most plans will only have a handful of these, if any -
+     * resolvedPriceFor() is what everything else (purchase service,
+     * customer-facing plans() endpoint) should call instead of reading
+     * price/currency directly, so the fallback rule lives in one place.
+     */
+    public function prices(): HasMany
+    {
+        return $this->hasMany(AiPlanPrice::class, 'plan_id');
+    }
+
+    /**
+     * Whole-percent savings when original_price is set and genuinely higher
+     * than the live price - null otherwise (no discount to advertise).
+     */
+    public function discountPercent(): ?int
+    {
+        if ($this->original_price === null || (float) $this->original_price <= (float) $this->price) {
+            return null;
+        }
+
+        return (int) round((1 - ((float) $this->price / (float) $this->original_price)) * 100);
+    }
+
+    /**
+     * Resolves the price/currency this plan actually costs for a given
+     * country: a country-specific override when the admin has set one,
+     * otherwise the plan's own base price/currency columns (the fallback
+     * the business chose - a country with no explicit price simply uses
+     * the plan's normal price, it is never blocked from subscribing).
+     *
+     * Efficient in a list: eager-load prices scoped to the country first
+     * (`with(['prices' => fn ($q) => $q->where('country_id', $country->id)])`)
+     * and this reads the already-loaded relation instead of querying again.
+     * Called with a single plan (purchase/renewal flow) it queries directly.
+     *
+     * @return array{price: float, original_price: ?float, currency: string, is_country_specific: bool}
+     */
+    public function resolvedPriceFor(?Country $country): array
+    {
+        $override = null;
+
+        if ($country !== null) {
+            $override = $this->relationLoaded('prices')
+                ? $this->prices->firstWhere('country_id', $country->id)
+                : $this->prices()->where('country_id', $country->id)->with('currency')->first();
+        }
+
+        if ($override !== null) {
+            return [
+                'price' => (float) $override->price,
+                'original_price' => $override->original_price !== null ? (float) $override->original_price : null,
+                'currency' => $override->currency?->code ?? $this->currency,
+                'is_country_specific' => true,
+            ];
+        }
+
+        return [
+            'price' => (float) $this->price,
+            'original_price' => $this->original_price !== null ? (float) $this->original_price : null,
+            'currency' => $this->currency,
+            'is_country_specific' => false,
+        ];
     }
 }

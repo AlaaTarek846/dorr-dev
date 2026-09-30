@@ -21,6 +21,10 @@
     <string name="ai_attachment_caption">مرفق</string>
     <string name="ai_send_failed">تعذر إرسال الرسالة. حاول مرة أخرى.</string>
     <string name="ai_typing">جاري التفكير…</string>
+    <string name="ai_typing_step_2">جاري قراءة رسالتك…</string>
+    <string name="ai_typing_step_3">لسه شغال، لحظات…</string>
+    <string name="ai_typing_step_4">الطلب ده محتاج وقت أطول شوية من المعتاد…</string>
+    <string name="ai_typing_step_image">جاري توليد الصورة، ممكن ياخد لحد دقيقة…</string>
     <string name="ai_trial_remaining">تجربة مجانية · تبقّى %1$d دقيقة اليوم</string>
     <string name="ai_usage_blocked">لا يمكن لهذا الحساب استخدام المساعد الذكي حاليًا.</string>
     <string name="ai_usage_trial_ended">انتهت فترتك التجريبية المجانية. يرجى الترقية لمتابعة المحادثة.</string>
@@ -48,4 +52,35 @@
     <string name="ai_voice_unmute">إلغاء الكتم</string>
     <string name="ai_voice_end_call">إنهاء المكالمة</string>
     <string name="ai_voice_retry">حاول تاني</string>
+
+    <!-- نظام الاشتراكات الاحترافي المربوط بالمحفظة (2026-09-29) -->
+    <string name="ai_subscription_title">اشتراك المساعد الذكي</string>
+    <string name="ai_subscription_current">الخطة الحالية</string>
+    <string name="ai_subscription_no_plan">لسه مشتركش فى خطة مدفوعة.</string>
+    <string name="ai_subscription_days_remaining">باقي %1$d يوم</string>
+    <string name="ai_subscription_ends_today">بينتهي النهاردة</string>
+    <string name="ai_subscription_auto_renew">التجديد التلقائي</string>
+    <string name="ai_subscription_grace_warning">آخر عملية تجديد فشلت. اشحن محفظتك قبل %1$s وإلا هيتوقف اشتراكك.</string>
+    <string name="ai_subscription_suspended_banner">تم إيقاف اشتراكك لعدم كفاية رصيد المحفظة. اشترك من جديد عشان تكمل.</string>
+    <string name="ai_subscription_available_plans">الخطط المتاحة</string>
+    <string name="ai_subscription_subscribe">اشترك</string>
+    <string name="ai_subscription_switch_plan">تبديل لهذه الخطة</string>
+    <string name="ai_subscription_current_badge">الخطة الحالية</string>
+    <string name="ai_subscription_per_cycle">/ %1$d يوم</string>
+    <string name="ai_subscription_pin_title">رمز المحفظة</string>
+    <string name="ai_subscription_pin_subtitle_subscribe">أكّد رمز محفظتك عشان تشترك</string>
+    <string name="ai_subscription_pin_subtitle_change">أكّد رمز محفظتك عشان تبدّل الخطة</string>
+    <string name="ai_subscription_success_subscribe">تم الاشتراك بنجاح.</string>
+    <string name="ai_subscription_success_change">تم تغيير الخطة بنجاح.</string>
+    <string name="ai_subscription_no_pin_set">اعمل رمز محفظة من تبويب المحفظة الأول عشان تقدر تشترك.</string>
+    <string name="ai_subscription_payments_title">سجل المدفوعات</string>
+    <string name="ai_subscription_payment_type_initial">اشتراك</string>
+    <string name="ai_subscription_payment_type_renewal">تجديد</string>
+    <string name="ai_subscription_payment_type_upgrade">ترقية</string>
+    <string name="ai_subscription_payment_type_downgrade">تنزيل</string>
+    <string name="ai_subscription_payment_failed">فشلت</string>
+    <string name="ai_subscription_manage">إدارة الاشتراك</string>
+    <string name="ai_subscription_view_payments">عرض سجل المدفوعات</string>
+    <string name="ai_subscription_empty_plans">مفيش خطط متاحة دلوقتي.</string>
+    <string name="ai_ok">تمام</string>
 </resources>

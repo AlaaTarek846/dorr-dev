@@ -111,3 +111,70 @@ data class AiRealtimeSessionDto(
 data class AiRealtimeSessionEndRequestDto(
     @SerializedName("duration_seconds") val durationSeconds: Int? = null,
 )
+
+// Professional AI subscription system linked to the wallet (2026-09-29).
+// Mirrors AiPlanResource / AiSubscriptionResource / AiSubscriptionPaymentResource
+// field-for-field (Modules/AI's AiUserSubscriptionController).
+
+data class AiPlanDto(
+    val id: Int,
+    val name: String,
+    val code: String,
+    val description: String?,
+    @SerializedName("usage_minutes") val usageMinutes: Int,
+    @SerializedName("cooldown_minutes") val cooldownMinutes: Int,
+    @SerializedName("duration_days") val durationDays: Int,
+    val price: String,
+    @SerializedName("original_price") val originalPrice: String? = null,
+    @SerializedName("discount_percent") val discountPercent: Int? = null,
+    val currency: String,
+    val badge: String? = null,
+    @SerializedName("is_featured") val isFeatured: Boolean = false,
+    val features: List<String> = emptyList(),
+    @SerializedName("is_trial") val isTrial: Boolean,
+    @SerializedName("is_active") val isActive: Boolean,
+    @SerializedName("sort_order") val sortOrder: Int,
+    // True when this price was set specifically for the customer's own
+    // country; false means it's the plan's base price/currency (no
+    // country-specific override configured for them).
+    @SerializedName("is_country_specific_price") val isCountrySpecificPrice: Boolean = false,
+)
+
+data class AiSubscriptionDto(
+    val id: Int,
+    val plan: AiPlanDto?,
+    @SerializedName("starts_at") val startsAt: String?,
+    @SerializedName("ends_at") val endsAt: String?,
+    val status: String,
+    @SerializedName("auto_renew") val autoRenew: Boolean,
+    @SerializedName("in_grace_period") val inGracePeriod: Boolean,
+    @SerializedName("grace_ends_at") val graceEndsAt: String?,
+    @SerializedName("days_remaining") val daysRemaining: Int?,
+    @SerializedName("current_plan_price") val currentPlanPrice: String?,
+)
+
+data class AiSubscriptionPaymentDto(
+    val id: Int,
+    val plan: AiPlanDto?,
+    /** "initial" | "renewal" | "upgrade" | "downgrade". */
+    val type: String,
+    /** "succeeded" | "failed". */
+    val status: String,
+    val amount: String,
+    val currency: String,
+    @SerializedName("failure_reason") val failureReason: String?,
+    @SerializedName("created_at") val createdAt: String?,
+)
+
+data class AiSubscribeRequestDto(
+    @SerializedName("plan_id") val planId: Int,
+    @SerializedName("auto_renew") val autoRenew: Boolean = true,
+)
+
+data class AiChangePlanRequestDto(
+    @SerializedName("plan_id") val planId: Int,
+)
+
+data class AiAutoRenewRequestDto(
+    @SerializedName("auto_renew") val autoRenew: Boolean,
+)

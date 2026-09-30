@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -97,6 +98,7 @@ internal fun AiConversationPage(
     onOpenHistory: () -> Unit,
     onNewChat: () -> Unit,
     onOpenVoice: () -> Unit,
+    onOpenSubscription: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -119,6 +121,28 @@ internal fun AiConversationPage(
     var sendError by remember(conversationId) { mutableStateOf<String?>(null) }
     var idempotencyKey by remember(conversationId) { mutableStateOf(UUID.randomUUID().toString()) }
     var attachSheet by remember { mutableStateOf(false) }
+
+    // Real, observed UX gap (2026-09-29): the composer's single static
+    // "Thinking..." bubble never changed for the whole wait, including a
+    // 30+ second image-generation call - nothing on screen showed the
+    // request was still alive, so a user assumed the app had frozen and
+    // tapped send again, colliding with the still-in-flight request's
+    // idempotency key and getting a confusing rejection. typingElapsedMs
+    // ticks up every second while `sending` is true (see the
+    // LaunchedEffect below) and typingIsImageLike flags whether this
+    // particular send looks like an image request, so AiTypingBubble can
+    // narrate progress the way a normal AI chat does instead of sitting
+    // frozen on one label the whole time.
+    var typingElapsedMs by remember(conversationId) { mutableStateOf(0L) }
+    var typingIsImageLike by remember(conversationId) { mutableStateOf(false) }
+
+    LaunchedEffect(sending) {
+        typingElapsedMs = 0L
+        while (sending) {
+            kotlinx.coroutines.delay(1000)
+            typingElapsedMs += 1000
+        }
+    }
 
     suspend fun load() {
         loading = true
@@ -155,6 +179,10 @@ internal fun AiConversationPage(
         // instead of silently failing or inventing a description of the file's content.
         val isVoice = attachment != null && attachment.mime.startsWith("audio/")
         val text = typed.ifEmpty { if (isVoice) voiceCaption else attachmentCaption }
+
+        val imageKeywords = listOf("صورة", "صوره", "ارسم", "image", "picture", "photo", "draw")
+        typingIsImageLike = attachment?.mime?.startsWith("image/") == true ||
+            imageKeywords.any { typed.contains(it, ignoreCase = true) }
 
         sending = true
         sendError = null
@@ -255,10 +283,14 @@ internal fun AiConversationPage(
             Box(Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenHistory), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.ai_history_title), tint = mut, modifier = Modifier.size(19.dp))
             }
+            Box(Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenSubscription), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.WorkspacePremium, contentDescription = stringResource(R.string.ai_subscription_manage), tint = mut, modifier = Modifier.size(19.dp))
+            }
         }
 
         val blocked = usage?.allowed == false
         if (blocked) {
+            val offersSubscribe = usage?.reason in setOf("trial_ended", "no_plan", "subscription_suspended")
             Row(
                 Modifier.fillMaxWidth().background(Color(0xFFFEE2E2)).padding(horizontal = 16.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -266,6 +298,15 @@ internal fun AiConversationPage(
                 Icon(Icons.Rounded.Lock, contentDescription = null, tint = Color(0xFFB91C1C), modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(aiUsageReasonText(usage?.reason), color = Color(0xFFB91C1C), fontSize = 12.5.sp, modifier = Modifier.weight(1f))
+                if (offersSubscribe) {
+                    Text(
+                        stringResource(R.string.ai_subscription_subscribe),
+                        color = Color(0xFFB91C1C),
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.5.sp,
+                        modifier = Modifier.clickable(onClick = onOpenSubscription),
+                    )
+                }
             }
         } else if (usage?.planIsTrial == true && (usage?.remainingSeconds ?: 0) > 0) {
             Row(
@@ -301,7 +342,7 @@ internal fun AiConversationPage(
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    if (sending) item(key = "typing") { AiTypingBubble(surface, mut) }
+                    if (sending) item(key = "typing") { AiTypingBubble(surface, mut, typingElapsedMs, typingIsImageLike) }
                     items(messages.asReversed(), key = { it.id }) { message ->
                         AiMessageBubble(message = message, night = night, ink = ink, mut = mut, surface = surface, onOpenUrl = { url ->
                             runCatching {
@@ -440,6 +481,7 @@ internal fun AiConversationPage(
 @Composable
 private fun aiUsageReasonText(reason: String?): String = when (reason) {
     "trial_ended" -> stringResource(R.string.ai_usage_trial_ended)
+    "subscription_suspended" -> stringResource(R.string.ai_subscription_suspended_banner)
     "cooldown" -> stringResource(R.string.ai_usage_cooldown)
     "limit_reached" -> stringResource(R.string.ai_usage_limit_reached)
     "blocked" -> stringResource(R.string.ai_usage_blocked)
@@ -575,7 +617,19 @@ private fun AiMessageBubble(
 }
 
 @Composable
-private fun AiTypingBubble(surface: Color, mut: Color) {
+private fun AiTypingBubble(surface: Color, mut: Color, elapsedMs: Long, isImageLike: Boolean) {
+    // Time-based, not real backend step events (the send endpoint is one
+    // blocking call with no progress channel) - but escalating the copy
+    // as the wait grows is what actually fixes the observed problem: the
+    // user has continuous evidence the assistant is still working, not a
+    // precise trace of its internal steps.
+    val statusRes = when {
+        elapsedMs < 3_000L -> R.string.ai_typing
+        elapsedMs < 8_000L -> R.string.ai_typing_step_2
+        elapsedMs < 20_000L -> if (isImageLike) R.string.ai_typing_step_image else R.string.ai_typing_step_3
+        else -> if (isImageLike) R.string.ai_typing_step_image else R.string.ai_typing_step_4
+    }
+
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start) {
         Row(
             Modifier.clip(RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp, bottomStart = 4.dp, bottomEnd = 18.dp))
@@ -585,7 +639,7 @@ private fun AiTypingBubble(surface: Color, mut: Color) {
         ) {
             CircularProgressIndicator(color = Ai.Red, strokeWidth = 2.dp, modifier = Modifier.size(14.dp))
             Spacer(Modifier.width(8.dp))
-            Text(stringResource(R.string.ai_typing), color = mut, fontSize = 12.5.sp)
+            Text(stringResource(statusRes), color = mut, fontSize = 12.5.sp)
         }
     }
 }

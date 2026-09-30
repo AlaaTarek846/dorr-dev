@@ -105,9 +105,27 @@ class AiRequiredCapabilityResolver
         $required = [];
         $lower = mb_strtolower($content);
 
+        // Root-cause fix - real, observed bug: a real user message
+        // ("اعمل صوره فيها كلب بيضحك مع طفل") was never detected as
+        // needing "image_generation" at all, because the keyword list
+        // below only has the phrase spelled with taa marbuta ("اعمل
+        // صورة"), and Str::contains() is a byte-exact substring check -
+        // "صوره" (spelled with a plain haa, the extremely common informal
+        // spelling on mobile keyboards) simply never matches it. The
+        // result silently fell through to a plain chat model, which then
+        // honestly (but wrongly, from the user's point of view) declined
+        // to draw anything. Normalizing the taa-marbuta/haa ending before
+        // comparing (both the incoming text AND every keyword) makes
+        // "صورة"/"صوره" - and every other keyword ending the same way -
+        // match interchangeably, without having to hand-duplicate every
+        // phrase in the list under both spellings.
+        $normalizedLower = str_replace('ة', 'ه', $lower);
+
         foreach ($this->keywordsByCapability as $capability => $keywords) {
             foreach ($keywords as $keyword) {
-                if (Str::contains($lower, mb_strtolower($keyword))) {
+                $normalizedKeyword = str_replace('ة', 'ه', mb_strtolower($keyword));
+
+                if (Str::contains($normalizedLower, $normalizedKeyword)) {
                     $required[] = $capability;
                     break;
                 }

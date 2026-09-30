@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\AI\Console\Commands\EnforceAiDataRetention;
 use Modules\AI\Console\Commands\NormalizeAiModels;
+use Modules\AI\Console\Commands\ProcessAiSubscriptionRenewals;
 use Modules\AI\Console\Commands\RunAiBenchmark;
 use Modules\AI\Console\Commands\SyncAiModels;
 
@@ -35,6 +36,7 @@ class AIServiceProvider extends ModuleServiceProvider
         RunAiBenchmark::class,
         SyncAiModels::class,
         NormalizeAiModels::class,
+        ProcessAiSubscriptionRenewals::class,
     ];
 
     /**
@@ -135,6 +137,15 @@ class AIServiceProvider extends ModuleServiceProvider
         // change either way.
         $schedule->command('ai:sync-models')
             ->cron($this->modelSyncCronExpression())
+            ->onOneServer();
+
+        // Professional AI subscription billing (2026-09-29): renewals,
+        // grace periods and expirations all depend on wall-clock time
+        // having actually moved, so this has to run at least daily -
+        // hourly instead, so a renewal/suspension is never more than an
+        // hour late for an owner whose ends_at/grace_ends_at just passed.
+        $schedule->command('ai:process-subscription-renewals')
+            ->hourly()
             ->onOneServer();
     }
 

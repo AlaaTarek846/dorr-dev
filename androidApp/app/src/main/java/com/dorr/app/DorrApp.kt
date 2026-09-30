@@ -17,6 +17,7 @@ class DorrApp : Application(), ImageLoaderFactory {
         DeviceId.attach(this)
         OnboardingStore.attach(this)
         com.dorr.app.chat.ChatStore.attach(this)
+        com.dorr.app.chat.VoicePlayer.attach(this)
         // Push first: a notification tapped while the app was closed must find the listener ready.
         com.dorr.app.chat.ChatPush.attach(this)
         // Calls ring over any screen, so the call state machine listens from app start.
