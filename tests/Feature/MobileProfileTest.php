@@ -278,42 +278,46 @@ class MobileProfileTest extends TestCase
     // Restore deleted account on re-login
     // -----------------------------------------------------------------------
 
-    public function test_deleted_user_is_restored_when_requesting_otp(): void
+    public function test_deleted_user_is_reported_deleted_without_restore_on_otp_request(): void
     {
         $user = $this->verifiedUser();
         $user->delete();
 
         $this->assertSoftDeleted('users', ['id' => $user->id]);
 
+        // Requesting an OTP for a deleted account only reports its state — it must
+        // NOT send a code, and must NOT restore the account behind the user's back.
         $this->postJson('/api/mobile/v1/auth/otp', [
             'dial_code' => self::DIAL_CODE,
             'phone'     => self::PHONE,
         ])
             ->assertOk()
-            ->assertJsonPath('data.is_restored', true)
-            ->assertJsonPath('data.is_new_user', false);
+            ->assertJsonPath('data.account_state', 'deleted');
 
-        $this->assertNotSoftDeleted('users', ['id' => $user->id]);
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
     }
 
-    public function test_deleted_user_can_complete_otp_verify_after_restore(): void
+    public function test_deleted_user_is_restored_via_restore_flow_and_can_verify(): void
     {
         $user = $this->verifiedUser();
         $user->delete();
 
-        // requestOtp restores the account and sends the demo OTP code.
-        $this->postJson('/api/mobile/v1/auth/otp', [
+        // The restore endpoint sends the OTP without logging the user in.
+        $this->postJson('/api/mobile/v1/auth/otp/restore', [
             'dial_code' => self::DIAL_CODE,
             'phone'     => self::PHONE,
         ])->assertOk();
 
-        // The OTP is the fixed demo code '1234' (see SendsPhoneOtp / test env config).
+        // Verifying the demo code restores the account and issues a fresh token.
         $this->postJson('/api/mobile/v1/auth/verify', [
             'dial_code' => self::DIAL_CODE,
             'phone'     => self::PHONE,
             'code'      => '1234',
         ])
             ->assertOk()
-            ->assertJsonStructure(['data' => ['token', 'user']]);
+            ->assertJsonStructure(['data' => ['token', 'user', 'is_restored']])
+            ->assertJsonPath('data.is_restored', true);
+
+        $this->assertNotSoftDeleted('users', ['id' => $user->id]);
     }
 }

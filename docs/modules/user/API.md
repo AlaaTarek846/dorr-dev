@@ -40,6 +40,7 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | Method | Endpoint | Auth | Controller |
 |--------|----------|------|------------|
 | POST | `/auth/otp` | guest:user_api | MobileAuthController::requestOtp |
+| POST | `/auth/otp/restore` | guest:user_api | MobileAuthController::requestRestoreOtp |
 | POST | `/auth/verify` | guest:user_api | MobileAuthController::verifyOtp |
 | POST | `/auth/resend` | guest:user_api | MobileAuthController::resendOtp |
 | GET | `/auth/me` | auth:user_api + ensure-phone-verified | MobileAuthController::me |
@@ -82,8 +83,13 @@ digits); verify also sends `code` (6 digits). The user is matched/stored by the
 canonical full phone `+<dial><phone>` (same format the dashboard stores).
 
 Responses:
-- `POST /auth/otp` → `{ masked_phone, is_new_user, resend_cooldown_seconds }`
-- `POST /auth/verify` → `{ user, token, token_type: "Bearer" }`
+- `POST /auth/otp` → `{ masked_phone, is_new_user, account_state: "active", resend_cooldown_seconds }`.
+  For a soft-deleted (restorable) account: `{ masked_phone, account_state: "deleted" }` — **no OTP is sent and
+  nothing is restored**; the app must offer the restore step.
+- `POST /auth/otp/restore` → `{ masked_phone, account_state: "restore", resend_cooldown_seconds }` (deleted accounts
+  only; active accounts get `phone` → `account_not_deleted`). Still does not restore — the code must be verified first.
+- `POST /auth/verify` → `{ user, token, token_type: "Bearer", is_restored }`. `is_restored: true` means the account
+  was previously soft-deleted and `deleted_at` was set back to `null` on this successful verify.
 - `POST /auth/resend` → `{ masked_phone, resend_cooldown_seconds }`
 - `GET /auth/me` → `UserResource`
 - `POST /auth/logout` → `{}`
