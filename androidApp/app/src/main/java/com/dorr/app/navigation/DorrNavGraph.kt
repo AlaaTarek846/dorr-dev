@@ -1,4 +1,4 @@
-package com.dorr.app.navigation
+﻿package com.dorr.app.navigation
 
 import android.os.Handler
 import android.os.Looper
@@ -62,6 +62,11 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
     var pendingDialCode by remember { mutableStateOf("") }
     var pendingPhone by remember { mutableStateOf("") }
     var sessionExpiredNotice by remember { mutableStateOf(false) }
+    // Set right after DELETE /profile/account, so Login can tell the user their
+    // account was deleted *and* that signing in with the same phone restores it.
+    var accountDeletedNotice by remember { mutableStateOf(false) }
+    // Set when the OTP request found a soft-deleted account and restored it.
+    var restoreMode by remember { mutableStateOf(false) }
 
     // Preserve the page the user was on before being kicked out by 401
     var targetRouteAfterLogin by remember { mutableStateOf<String?>(null) }
@@ -80,6 +85,8 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             Handler(Looper.getMainLooper()).post {
                 appearance.clear()
                 sessionExpiredNotice = true
+                accountDeletedNotice = false
+                restoreMode = false
                 val currentRoute = navController.currentDestination?.route
                 if (currentRoute != null && currentRoute != Routes.LOGIN && currentRoute != Routes.SPLASH && currentRoute != Routes.OTP && currentRoute != Routes.ONBOARDING) {
                     targetRouteAfterLogin = currentRoute
@@ -107,6 +114,8 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         lastMainTab = 0
         lastWalletOpen = false
         sessionExpiredNotice = false
+        accountDeletedNotice = false
+        restoreMode = false
         if (!token.isNullOrBlank()) {
             scope.launch {
                 runCatching {
@@ -114,6 +123,30 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
                 }
             }
         }
+        navController.navigate(Routes.LOGIN) {
+            popUpTo(0) { inclusive = true }
+        }
+    }
+
+    /**
+     * DELETE /profile/account already soft-deleted the user and revoked every token,
+     * so this mirrors logout() without the logout request — that one would 401 and the
+     * ApiClient interceptor would turn a deliberate delete into a "session expired"
+     * notice on the login screen.
+     */
+    fun accountDeleted() {
+        com.dorr.app.chat.ChatRealtime.stop()
+        com.dorr.app.chat.ChatPush.signedOut()
+        com.dorr.app.chat.ChatStore.clear()
+        com.dorr.app.chat.LiveLocationSharing.stopAll(context)
+        appearance.clear()
+        AuthSession.clear()
+        targetRouteAfterLogin = null
+        lastMainTab = 0
+        lastWalletOpen = false
+        sessionExpiredNotice = false
+        restoreMode = false
+        accountDeletedNotice = true
         navController.navigate(Routes.LOGIN) {
             popUpTo(0) { inclusive = true }
         }
@@ -177,10 +210,14 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             LoginScreen(
                 sessionExpiredNotice = sessionExpiredNotice,
                 onDismissSessionExpired = { sessionExpiredNotice = false },
-                onOtpRequested = { dialCode, phone ->
+                accountDeletedNotice = accountDeletedNotice,
+                onDismissAccountDeleted = { accountDeletedNotice = false },
+                onOtpRequested = { dialCode, phone, restore ->
                     sessionExpiredNotice = false
+                    accountDeletedNotice = false
                     pendingDialCode = dialCode
                     pendingPhone = phone
+                    restoreMode = restore
                     navController.navigate(Routes.OTP)
                 },
             )
@@ -189,10 +226,15 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             OtpScreen(
                 dialCode = pendingDialCode,
                 phoneNumber = pendingPhone,
-                onBack = { navController.popBackStack() },
+                restoreMode = restoreMode,
+                onBack = {
+                    restoreMode = false
+                    navController.popBackStack()
+                },
                 onVerified = {
                     val returnDestination = targetRouteAfterLogin
                     targetRouteAfterLogin = null
+                    restoreMode = false
                     navController.navigate(Routes.MAIN) {
                         popUpTo(Routes.LOGIN) { inclusive = true }
                     }
@@ -212,6 +254,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
                     lastWalletOpen = wallet
                 },
                 onLogout = { logout() },
+                onAccountDeleted = { accountDeleted() },
                 onOpenNotifications = { navController.navigate(Routes.NOTIFICATIONS) },
                 onOpenServices = { navController.navigate(Routes.SERVICES) },
             )

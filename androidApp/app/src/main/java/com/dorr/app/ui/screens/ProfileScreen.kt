@@ -33,7 +33,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
-import com.dorr.app.network.ApiClient
 import com.dorr.app.network.LanguageDto
 import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.profile.PinkBackdrop
@@ -80,6 +79,7 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -88,6 +88,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -100,9 +101,12 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.UserDto
+import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.locale.LocalAppLanguage
+import kotlinx.coroutines.launch
 import com.dorr.app.ui.screens.profile.AddressesScreen
 import com.dorr.app.ui.screens.profile.AppearanceFontScreen
 import com.dorr.app.ui.screens.profile.AppearanceScreen
@@ -136,9 +140,45 @@ private data class MenuEntry(
 
 
 @Composable
-fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
+fun ProfileScreen(
+    onLogout: () -> Unit,
+    onOpenWallet: () -> Unit,
+    onAccountDeleted: () -> Unit = {},
+) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
     val isAtRoot = subScreen == ProfileSub.NONE
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var isDeleting by remember { mutableStateOf(false) }
+
+    val deleteFailedMessage = stringResource(R.string.account_delete_failed)
+
+    /**
+     * DELETE /api/mobile/v1/profile/account. The account is soft-deleted and every
+     * Sanctum token is revoked server-side, so `onAccountDeleted` clears the local
+     * session and routes to Login *without* calling the logout endpoint — that token
+     * is already gone, so the request would 401 and fire the "session expired" notice.
+     * Logging in again with the same phone restores the account server-side
+     * (MobileAuthController::requestOtp), so this is recoverable, not destructive.
+     */
+    fun deleteAccount() {
+        if (isDeleting) return
+        isDeleting = true
+        scope.launch {
+            try {
+                ApiClient.profile.deleteAccount("Bearer ${AuthSession.token.orEmpty()}")
+                onAccountDeleted()
+            } catch (e: Exception) {
+                Toast.makeText(
+                    context,
+                    e.serverMessage() ?: deleteFailedMessage,
+                    Toast.LENGTH_LONG,
+                ).show()
+            } finally {
+                isDeleting = false
+            }
+        }
+    }
 
     AnimatedContent(
         targetState = subScreen,
@@ -163,25 +203,27 @@ fun ProfileScreen(onLogout: () -> Unit, onOpenWallet: () -> Unit) {
     ) { currentSub ->
         when (currentSub) {
             ProfileSub.PERSONAL_DATA -> {
-                val context = LocalContext.current
+                val subContext = LocalContext.current
                 PersonalDataScreen(
                     onBack = { subScreen = ProfileSub.NONE },
-                    onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
             }
-            ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.WALLET_PIN -> {
-                val context = LocalContext.current
+                val subContext = LocalContext.current
                 WalletPinSettingsScreen(
-                    onBack = { subScreen = ProfileSub.NONE },
-                    onSaved = { message -> Toast.makeText(context, message, Toast.LENGTH_SHORT).show() },
+                    onBack = { subScreen = ProfileSub.SETTINGS },
+                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
             }
-            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onLogout = onLogout,
+                onDeleteAccount = ::deleteAccount,
+                isDeleting = isDeleting,
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
                 onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
                 onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
@@ -516,6 +558,8 @@ private fun ProfileMenuScreen(
 private fun SettingsMenuScreen(
     onBack: () -> Unit,
     onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    isDeleting: Boolean,
     onOpenNotifications: () -> Unit,
     onOpenWalletPin: () -> Unit,
     onOpenPrivacy: () -> Unit,
@@ -633,8 +677,11 @@ private fun SettingsMenuScreen(
             icon = Icons.Rounded.DeleteForever,
             title = stringResource(R.string.account_delete),
             message = stringResource(R.string.delete_confirm_message),
-            onConfirm = { showDeleteConfirm = false; onLogout() },
-            onDismiss = { showDeleteConfirm = false },
+            loading = isDeleting,
+            // The dialog stays open showing a spinner until the call resolves; on
+            // success the whole profile screen goes away with it.
+            onConfirm = { onDeleteAccount() },
+            onDismiss = { if (!isDeleting) showDeleteConfirm = false },
         )
     }
     if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
@@ -882,17 +929,18 @@ private fun ConfirmDialog(
     message: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
+    loading: Boolean = false,
 ) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     Dialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = { if (!loading) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(Color.Black.copy(alpha = 0.45f))
-                .clickable(onClick = onDismiss),
+                .clickable(enabled = !loading, onClick = onDismiss),
             contentAlignment = Alignment.Center,
         ) {
             Box(
@@ -955,11 +1003,30 @@ private fun ConfirmDialog(
                                 .height(46.dp)
                                 .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
                                 .clip(RoundedCornerShape(14.dp))
-                                .background(settingsAccent())
-                                .clickable(onClick = onConfirm),
+                                .background(
+                                    if (loading) settingsAccent().copy(alpha = 0.6f) else settingsAccent(),
+                                )
+                                .clickable(enabled = !loading, onClick = onConfirm),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(stringResource(R.string.addr_yes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            if (loading) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        strokeWidth = 2.dp,
+                                        modifier = Modifier.size(17.dp),
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        stringResource(R.string.account_delete_in_progress),
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                    )
+                                }
+                            } else {
+                                Text(stringResource(R.string.addr_yes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            }
                         }
                         Box(
                             modifier = Modifier
@@ -968,10 +1035,15 @@ private fun ConfirmDialog(
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(settingsCard())
                                 .border(1.5.dp, if (dark) AccountDark.line else AppColors.otpPinkBorder, RoundedCornerShape(14.dp))
-                                .clickable(onClick = onDismiss),
+                                .clickable(enabled = !loading, onClick = onDismiss),
                             contentAlignment = Alignment.Center,
                         ) {
-                            Text(stringResource(R.string.common_cancel), color = if (dark) AccountDark.accent else settingsAccent(), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(R.string.common_cancel),
+                                color = (if (dark) AccountDark.accent else settingsAccent()).copy(alpha = if (loading) 0.5f else 1f),
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
                         }
                     }
                 }

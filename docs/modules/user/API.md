@@ -56,6 +56,17 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | PATCH | `/addresses/{id}/set-default` | auth:user_api + ensure-phone-verified | AddressController::setDefault |
 | POST | `/profile/email/request` | auth:user_api + ensure-phone-verified | MobileProfileController::requestEmailChange |
 | POST | `/profile/email/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmEmailChange |
+| GET | `/faqs` | public | FaqController::index |
+| GET | `/privacy-policy` | public | PrivacyPolicyController::show |
+
+Public catalog content for the app: `/faqs` returns every **active general** FAQ
+(`faqs.service_id IS NULL`) ordered by `sort_order`, then `id`; `/privacy-policy`
+returns the single active general privacy policy (`privacy_policies.service_id IS
+NULL`, first by `sort_order`, then `id`, `data` empty when none exists). Service-linked
+rows stay admin-only — the mobile app only ever sees the general ones. Both are
+localized through the `locale` middleware (`X-Locale` header, `?lang=`, or
+`Accept-Language`) and shape their payloads with the shared `FaqResource` /
+`PrivacyPolicyResource`.
 
 Request payload (otp / verify / resend): `dial_code` (e.g. `+966`), `phone` (local
 digits); verify also sends `code` (6 digits). The user is matched/stored by the
@@ -88,6 +99,8 @@ Responses:
 - `PATCH /addresses/{id}/set-default` (`is_default: bool`) → `AddressResource` (pinning clears other defaults in a transaction)
 - `POST /profile/email/request` → `{ masked_email, resend_cooldown_seconds }`
 - `POST /profile/email/confirm` → `UserResource` (address swapped, verified)
+- `GET /faqs` → `FaqResource[]` (active general FAQs only, no pagination)
+- `GET /privacy-policy` → `PrivacyPolicyResource` for the general policy, or `[]` when none is published
 
 Phone/email changes are two-step: nothing on the user row changes until the
 `confirm` call verifies the code. The pending value lives in Cache with the OTP

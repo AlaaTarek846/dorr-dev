@@ -19,12 +19,17 @@ import java.net.UnknownHostException
  * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
  * Laravel builds absolute media URLs with, so those get rewritten to the LAN host.
  */
-// private const val LAN_HOST = "192.168.1.5"
-// private const val EMULATOR_HOST = "10.0.2.2"
+private const val LAN_HOST = "192.168.1.5"
+private const val EMULATOR_HOST = "10.0.2.2"
 private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
+
+/** Emulator: [EMULATOR_HOST] · Phone on Wi‑Fi: [LAN_HOST] · Remote: [NGROK_HOST] */
 private const val BASE_HOST = NGROK_HOST
-//private const val BASE_HOST = "unafraid-occupy-geography.ngrok-free.dev"
-private const val BASE_URL = "http://$BASE_HOST/api/"
+
+private fun apiBaseUrl(host: String): String =
+    if (host == NGROK_HOST) "https://$host/api/" else "http://$host/api/"
+
+private val BASE_URL = apiBaseUrl(BASE_HOST)
 // NOTE: BASE_HOST must be this PC's current Wi-Fi IP (check `ipconfig`) AND be
 // listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
 // otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
@@ -63,9 +68,9 @@ object ApiClient {
         .addInterceptor { chain ->
             val request = chain.request()
             val response = chain.proceed(request)
-            // Any API request returning 401 (unauthorized / session expired)
-            // drops session locally and routes the user back to the login screen.
-            if (response.code == 401) {
+            // Session expired only when we sent a Bearer token and the server rejected it.
+            // Public auth routes (OTP) must not wipe state or show the expired banner.
+            if (response.code == 401 && request.header("Authorization")?.startsWith("Bearer ") == true) {
                 AuthSession.clear()
                 AuthSession.onUnauthorized?.invoke()
             }
@@ -97,6 +102,7 @@ object ApiClient {
         retrofit.create(MobileAppearanceDefaultsApi::class.java)
     }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+    val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */

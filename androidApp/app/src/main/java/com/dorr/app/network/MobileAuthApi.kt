@@ -10,6 +10,10 @@ interface MobileAuthApi {
     @POST("mobile/v1/auth/otp")
     suspend fun requestOtp(@Body body: OtpRequest): ApiEnvelope<OtpSentDto>
 
+    /** POST /api/mobile/v1/auth/otp/restore — sends the OTP for a soft-deleted account. */
+    @POST("mobile/v1/auth/otp/restore")
+    suspend fun requestRestoreOtp(@Body body: OtpRequest): ApiEnvelope<OtpSentDto>
+
     /** POST /api/mobile/v1/auth/resend — resend the phone OTP. */
     @POST("mobile/v1/auth/resend")
     suspend fun resendOtp(@Body body: OtpRequest): ApiEnvelope<OtpSentDto>

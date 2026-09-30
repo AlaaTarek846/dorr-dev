@@ -56,4 +56,5 @@ fun dorrTypography(family: FontFamily = AppFont.family): Typography = Typography
     labelSmall = TextStyle(fontFamily = family, fontWeight = FontWeight.Medium, fontSize = 11.sp),
 )
 
-val DorrTypography = dorrTypography(CairoFontFamily)
+/** [CairoBuiltIn] only — must not touch [AppFont] during class init (see [AppFont] / [CairoFontFamily] cycle). */
+val DorrTypography = dorrTypography(CairoBuiltIn)

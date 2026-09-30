@@ -18,6 +18,17 @@ trait SearchFilterTrait
      */
     protected string $translationRelation = 'translations';
 
+    /**
+     * Translatable columns to search inside. Override the method, not the
+     * property, on models that translate more than a name.
+     *
+     * @return list<string>
+     */
+    protected function translationSearchColumns(): array
+    {
+        return $this->translationSearchColumns;
+    }
+
     public function scopeSearchAndFilter(Builder $query): Builder
     {
         return $query
@@ -109,7 +120,7 @@ trait SearchFilterTrait
      */
     protected function applyTranslationSearch(Builder $query, string $searchKey, ?object $config = null): void
     {
-        $columns = $config->translationColumns ?? $this->translationSearchColumns;
+        $columns = $config->translationColumns ?? $this->translationSearchColumns();
         $locale = $config->locale ?? null;
         $useAppLocale = $config->filterTranslationByLocale ?? true;
 
