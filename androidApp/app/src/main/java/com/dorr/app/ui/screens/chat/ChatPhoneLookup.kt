@@ -170,8 +170,8 @@ fun AddByPhoneSheet(initial: String = "", onDismiss: () -> Unit, onPicked: ((Pro
     )
     val ringColor by animateColorAsState(
         when {
-            input.wrongStart || (length != null && input.national.length > length) -> Color(0xFFDC2626)
-            input.complete -> Color(0xFF16A34A)
+            input.wrongStart || (length != null && input.national.length > length) -> Ch.Danger
+            input.complete -> Ch.Success
             else -> Ch.Red
         }, tween(250), label = "phoneRing",
     )
@@ -208,8 +208,8 @@ fun AddByPhoneSheet(initial: String = "", onDismiss: () -> Unit, onPicked: ((Pro
             // ------------------------------------------------------------ country + number (always LTR: numbers read left to right)
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted)
-                        .border(1.5.dp, ringColor.copy(alpha = if (raw.isEmpty()) 0f else 0.7f), RoundedCornerShape(18.dp)),
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Ch.FieldFill)
+                        .border(if (raw.isEmpty()) 1.dp else 1.5.dp, if (raw.isEmpty()) Ch.FieldLine else ringColor.copy(alpha = 0.8f), RoundedCornerShape(18.dp)),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Row(
@@ -254,7 +254,7 @@ fun AddByPhoneSheet(initial: String = "", onDismiss: () -> Unit, onPicked: ((Pro
                 length != null && raw.isNotEmpty() && !input.complete -> stringResource(R.string.ch_phone_digits_left, length - input.national.length)
                 else -> stringResource(R.string.ch_phone_any_format)
             }
-            Text(hint, color = if (input.wrongStart || (length != null && input.national.length > length)) Color(0xFFDC2626) else Ch.Mut, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp, top = 6.dp))
+            Text(hint, color = if (input.wrongStart || (length != null && input.national.length > length)) Ch.Danger else Ch.Mut, fontSize = 12.sp, modifier = Modifier.padding(start = 6.dp, top = 6.dp))
 
             Spacer(Modifier.height(14.dp))
             ChPrimaryButton(stringResource(R.string.ch_check_number), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth(), enabled = input.complete && state !is LookupState.Searching) { check() }
@@ -316,9 +316,9 @@ fun AddByPhoneSheet(initial: String = "", onDismiss: () -> Unit, onPicked: ((Pro
                         ChPrimaryButton(stringResource(R.string.ch_invite), icon = Icons.Rounded.Send, modifier = Modifier.fillMaxWidth()) { inviting = ContactEntry("", s.e164) }
                     }
                     is LookupState.Failed -> Row(Modifier.fillMaxWidth().padding(top = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.ErrorOutline, null, tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                        Icon(Icons.Rounded.ErrorOutline, null, tint = Ch.Danger, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text(s.message, color = Color(0xFFDC2626), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Text(s.message, color = Ch.Danger, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                 }
             }
@@ -348,14 +348,7 @@ private fun CountryPickerSheet(countries: List<CountryDto>, onDismiss: () -> Uni
     val shown = countries.filter { query.isBlank() || it.name.contains(query, true) || it.dialCode.contains(query.filter { c -> c.isDigit() }.ifEmpty { "~" }) || it.code.equals(query, true) }
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 20.dp)) {
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.Search, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text(stringResource(R.string.ch_search_country), color = Ch.Soft, fontSize = 14.sp)
-                    BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = Ch.Ink, fontSize = 14.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
-                }
-            }
+            ChField(query, { query = it }, stringResource(R.string.ch_search_country), icon = Icons.Rounded.Search, clearable = true)
             Spacer(Modifier.height(8.dp))
             LazyColumn(Modifier.heightIn(max = 420.dp)) {
                 items(shown, key = { it.id }) { c ->

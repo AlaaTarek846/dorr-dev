@@ -96,6 +96,8 @@ data class OtpRequest(
 data class OtpSentDto(
     @SerializedName("masked_phone") val maskedPhone: String?,
     @SerializedName("is_new_user") val isNewUser: Boolean?,
+    /** "active" (normal login), "deleted" (soft-deleted, offer restore), "restore" (restore OTP sent). */
+    @SerializedName("account_state") val accountState: String?,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int?,
 )
 
@@ -109,6 +111,8 @@ data class AuthResultDto(
     val user: UserDto?,
     val token: String?,
     @SerializedName("token_type") val tokenType: String?,
+    /** True when this verify restored a previously deleted account (deleted_at → null). */
+    @SerializedName("is_restored") val isRestored: Boolean?,
 )
 
 data class UserDto(

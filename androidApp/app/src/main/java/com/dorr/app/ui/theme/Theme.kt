@@ -5,9 +5,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.text.font.FontFamily
+
+val LocalDorrFontFamily = androidx.compose.runtime.compositionLocalOf<FontFamily> { CairoBuiltIn }
+
 @Composable
 fun DorrTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    fontFamily: FontFamily = LocalDorrFontFamily.current,
     content: @Composable () -> Unit,
 ) {
     val scheme = if (darkTheme) {
@@ -35,9 +41,10 @@ fun DorrTheme(
             outline = appearanceColor("border", AppColors.border, night = false),
         )
     }
+    val typography = remember(fontFamily) { dorrTypography(fontFamily) }
     MaterialTheme(
         colorScheme = scheme,
-        typography = DorrTypography,
+        typography = typography,
         content = content,
     )
 }

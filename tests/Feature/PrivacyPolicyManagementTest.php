@@ -138,6 +138,85 @@ class PrivacyPolicyManagementTest extends TestCase
             ->assertJsonValidationErrors('service_id');
     }
 
+    public function test_a_service_can_only_have_one_policy(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $this->service->id,
+        ]))->assertCreated();
+
+        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $this->service->id,
+        ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('service_id');
+
+        $this->assertDatabaseCount('privacy_policies', 1);
+    }
+
+    public function test_a_policy_can_keep_its_own_service_when_updated(): void
+    {
+        $this->actingAsAdmin();
+
+        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $this->service->id,
+        ]))->assertCreated()->json('data.id');
+
+        $this->putJson("/api/admin/v1/privacy-policies/{$id}", $this->payload([
+            'service_id' => $this->service->id,
+            'translations' => $this->translations('Updated policy content.'),
+        ]))
+            ->assertOk()
+            ->assertJsonPath('data.service_id', $this->service->id);
+    }
+
+    public function test_a_policy_cannot_move_to_a_service_that_already_has_one(): void
+    {
+        $this->actingAsAdmin();
+
+        $other = ServiceCategory::create(['module_name' => null, 'status' => true, 'sort_order' => 1]);
+
+        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $this->service->id,
+        ]))->assertCreated();
+
+        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $other->id,
+        ]))->assertCreated()->json('data.id');
+
+        $this->putJson("/api/admin/v1/privacy-policies/{$id}", $this->payload([
+            'service_id' => $this->service->id,
+        ]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('service_id');
+    }
+
+    public function test_a_service_freed_by_a_soft_deleted_policy_can_be_reused(): void
+    {
+        $this->actingAsAdmin();
+
+        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $this->service->id,
+        ]))->assertCreated()->json('data.id');
+
+        $this->deleteJson("/api/admin/v1/privacy-policies/{$id}")->assertNoContent();
+
+        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+            'service_id' => $this->service->id,
+        ]))->assertCreated();
+    }
+
+    public function test_multiple_general_policies_without_a_service_are_allowed(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/admin/v1/privacy-policies', $this->payload())->assertCreated();
+        $this->postJson('/api/admin/v1/privacy-policies', $this->payload())->assertCreated();
+
+        $this->assertDatabaseCount('privacy_policies', 2);
+    }
+
     // ------------------------------------------------------------------ translations
 
     public function test_it_stores_the_content_for_every_locale(): void

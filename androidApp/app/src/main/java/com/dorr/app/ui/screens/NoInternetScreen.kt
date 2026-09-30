@@ -84,10 +84,10 @@ fun NoInternetScreen(
     var isChecking by remember { mutableStateOf(false) }
     var showStillOfflineMessage by remember { mutableStateOf(false) }
 
-    val cardBg = if (isDark) AccountDark.card else AppColors.surface
+    val cardBg = com.dorr.app.ui.screens.profile.settingsCard()
     val cardBorder = if (isDark) AccountDark.line else AppColors.border
-    val textPrimaryColor = if (isDark) AccountDark.ink else AppColors.textPrimary
-    val textSecondaryColor = if (isDark) AccountDark.mut else AppColors.textSecondary
+    val textPrimaryColor = com.dorr.app.ui.screens.profile.settingsInk()
+    val textSecondaryColor = com.dorr.app.ui.screens.profile.settingsMut()
 
     // Subtle pulsing animation on the offline halo
     val infiniteTransition = rememberInfiniteTransition(label = "pulse")
@@ -338,8 +338,8 @@ private fun TipItem(
     desc: String,
     isDark: Boolean,
 ) {
-    val textPrimary = if (isDark) AccountDark.ink else AppColors.textPrimary
-    val textSecondary = if (isDark) AccountDark.mut else AppColors.textSecondary
+    val textPrimary = com.dorr.app.ui.screens.profile.settingsInk()
+    val textSecondary = com.dorr.app.ui.screens.profile.settingsMut()
     val iconBg = if (isDark) AccountDark.well else Color(0xFFF3F4F6)
     val iconTint = if (isDark) AccountDark.accent else settingsAccent()
 

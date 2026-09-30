@@ -7,9 +7,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class MobileAppFontTranslation extends Model
 {
-    /**
-     * @var list<string>
-     */
     protected $fillable = [
         'mobile_app_font_id',
         'locale',
@@ -18,6 +15,6 @@ class MobileAppFontTranslation extends Model
 
     public function font(): BelongsTo
     {
-        return $this->belongsTo(MobileAppFont::class, 'mobile_app_font_id');
+        return $this->belongsTo(MobileAppFont::class);
     }
 }

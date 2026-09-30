@@ -37,6 +37,11 @@
 
 ### Changed
 - Documented General namespace structure
+- Privacy policies: a service can now back at most one policy. `service_id` is validated
+  as unique among non-deleted records (general policies with a null `service_id` remain
+  unlimited, since no service is involved); soft-deleted policies free their service for
+  reuse. The admin create/edit modal hides services that already have a policy and shows
+  the `service_id` validation error.
 
 ## [2026-09-17]
 

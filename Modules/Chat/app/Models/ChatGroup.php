@@ -20,6 +20,8 @@ class ChatGroup extends Model implements HasMedia
         'only_admins_edit_info',
         'only_admins_add_members',
         'approve_joins',
+        'handle',
+        'is_public',
     ];
 
     protected function casts(): array
@@ -29,6 +31,7 @@ class ChatGroup extends Model implements HasMedia
             'only_admins_edit_info' => 'boolean',
             'only_admins_add_members' => 'boolean',
             'approve_joins' => 'boolean',
+            'is_public' => 'boolean',
         ];
     }
 

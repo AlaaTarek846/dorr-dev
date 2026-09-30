@@ -46,12 +46,4 @@ class ChatGroupJoinRequest extends Model
     {
         return ParticipantType::modelClassFor($this->requester_type)::query()->find($this->requester_id);
     }
-
-    /**
-     * `type:id`, the same shape the directory and the wire use.
-     */
-    public function requesterKey(): string
-    {
-        return $this->requester_type.':'.$this->requester_id;
-    }
 }

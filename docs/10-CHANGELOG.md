@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - Live location routes for the mobile chat app — `GET live-locations`, `PUT messages/{m}/live-location`, `POST messages/{m}/live-location/stop`, registered in `Modules/Chat/routes/customer.php` (the `MessageExtrasController` methods existed but nothing routed to them)
+- Public mobile catalog content under `Modules/User` — `GET /api/mobile/v1/faqs` (all active general FAQs, `service_id IS NULL`) and `GET /api/mobile/v1/privacy-policy` (the single active general policy), localized via the `locale` middleware
 - Chat message extras wired end to end: `poll` / `money_request` / `bill_split` / `gif` / `sticker` types, `MessageResource` `poll` / `payment` / `view_once` / `view_once_opened` / `live_location` / `link_preview` fields, link cards cached on send, view-once files purged by `chat:purge` once everyone opened them
 - Group join approval: `approve_joins` setting, `202` pending invites, `groups/{c}/join-requests` queue for admins, and `group.pending_join_requests` on the conversation
 - Admin sticker pack routes at `/api/admin/v1/chat-sticker-packs*` (`chat-stickers.*` permissions) plus the Giphy / sticker picker endpoints for the app
@@ -33,6 +34,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 - README updated with documentation index (project-specific section)
+- Privacy policies: a service can now back at most one policy (`service_id` unique among
+  non-deleted records; general policies with a null `service_id` stay unlimited). The admin
+  modal hides services that already have a policy and surfaces the validation error
 
 ---
 

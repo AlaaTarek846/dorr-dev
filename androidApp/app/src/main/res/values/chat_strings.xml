@@ -445,4 +445,15 @@
     <string name="ch_group_empty_sub">Add people to the group by their phone number, or invite your friends to join Dorr.</string>
     <string name="ch_invite_friends">Invite friends</string>
     <string name="ch_add_to_group">Add to group</string>
+    <string name="ch_poll">Poll</string>
+    <string name="ch_attach_poll">Poll</string>
+    <string name="ch_attach_view_once">View once</string>
+    <string name="ch_approve_joins">Approve new members</string>
+    <string name="ch_attach_request">Request money</string>
+    <string name="ch_attach_split">Split bill</string>
+    <string name="ch_money_request">Money request</string>
+    <string name="ch_filter_channels">Channels</string>
+    <string name="ch_channel_handle">Channel handle</string>
+    <string name="ch_unfollow">Unfollow</string>
+    <string name="ch_sticker">Sticker</string>
 </resources>

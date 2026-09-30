@@ -21,7 +21,6 @@ class MobileAppFont extends Model implements HasMedia
      */
     protected $fillable = [
         'slug',
-        'name',
         'status',
         'is_default',
         'sort_order',

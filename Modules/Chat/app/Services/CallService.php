@@ -60,6 +60,10 @@ class CallService
 
         $mine = $this->conversations->participantOf($me, $conversation, true);
 
+        if ($conversation->isChannel()) {
+            throw new ChatException('channel_no_calls', 422);
+        }
+
         if ($conversation->status !== ConversationStatus::Accepted) {
             throw ChatException::requestPending();
         }

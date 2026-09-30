@@ -11,5 +11,5 @@ import androidx.compose.ui.text.font.FontFamily
  * explicitly (the chat, text fields, custom styles) switches with the theme typography.
  */
 object AppFont {
-    var family by mutableStateOf<FontFamily>(CairoFontFamily)
+    var family by mutableStateOf<FontFamily>(CairoBuiltIn)
 }

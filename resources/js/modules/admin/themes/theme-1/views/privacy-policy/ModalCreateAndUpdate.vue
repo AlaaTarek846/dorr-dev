@@ -65,10 +65,15 @@
                                     filter-placeholder="Search..."
                                     :filter-fields="['name']"
                                     :show-clear="true"
+                                    :invalid="Boolean(serverErrors.service_id?.[0])"
                                     append-to="self"
                                     auto-filter-focus
                                     class="w-100"
+                                    @change="clearServerError('service_id')"
                                 />
+                                <div v-if="serverErrors.service_id?.[0]" class="invalid-feedback d-block">
+                                    {{ serverErrors.service_id[0] }}
+                                </div>
                             </div>
 
                             <div class="col-md-3">
@@ -170,13 +175,14 @@ const modalElement = ref(null);
 const submitting = ref(false);
 const serverErrors = reactive({});
 const serviceOptions = ref([]);
+const usedServiceIds = ref([]);
 let modalInstance = null;
 let v$;
 
 const isEdit = computed(() => props.type === 'edit');
 
 const form = reactive({
-    service_id: GENERAL_OPTION_ID,
+    service_id: null,
     status: true,
     sort_order: 0,
     translations: {},
@@ -212,10 +218,11 @@ const rules = computed(() => ({
 
 v$ = useVuelidate(rules, form, { $autoDirty: true });
 
-const serviceChoices = computed(() => [
-    { id: GENERAL_OPTION_ID, name: t('privacy_policies.general') },
-    ...serviceOptions.value,
-]);
+const serviceChoices = computed(() => {
+    const used = new Set(usedServiceIds.value);
+
+    return serviceOptions.value.filter((option) => ! used.has(Number(option.id)));
+});
 
 const modalTitle = computed(() => {
     if (! isEdit.value) {
@@ -237,6 +244,18 @@ async function loadServiceOptions() {
     }
 }
 
+async function loadUsedServiceIds() {
+    try {
+        const { data } = await adminAxios.get(RESOURCE_URI, { params: { all: 1 } });
+
+        usedServiceIds.value = (data.data ?? [])
+            .filter((item) => item.id !== props.record?.id && item.service_id != null)
+            .map((item) => Number(item.service_id));
+    } catch {
+        usedServiceIds.value = [];
+    }
+}
+
 function clearServerError(field) {
     delete serverErrors[field];
 }
@@ -252,7 +271,7 @@ function resetValidation() {
 }
 
 function resetForm() {
-    form.service_id = GENERAL_OPTION_ID;
+    form.service_id = null;
     form.status = true;
     form.sort_order = 0;
     resetTranslations();
@@ -260,7 +279,7 @@ function resetForm() {
 }
 
 function fillForm(record) {
-    form.service_id = record?.service_id ?? GENERAL_OPTION_ID;
+    form.service_id = record?.service_id ?? null;
     form.status = Boolean(record?.status ?? true);
     form.sort_order = record?.sort_order ?? 0;
     fillTranslations(record);
@@ -342,6 +361,7 @@ watch(
         if (visible) {
             await ensureLanguagesLoaded();
             await loadServiceOptions();
+            await loadUsedServiceIds();
 
             if (isEdit.value && props.record) {
                 fillForm(props.record);

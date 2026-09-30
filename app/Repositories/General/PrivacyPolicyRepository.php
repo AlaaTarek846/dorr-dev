@@ -35,4 +35,18 @@ class PrivacyPolicyRepository extends TranslatableRepository
             ])
             ->values();
     }
+
+    /**
+     * The active general privacy policy (not tied to any service) for the mobile app.
+     */
+    public function generalActive(): ?PrivacyPolicy
+    {
+        return $this->model->newQuery()
+            ->with(['translations', 'translation'])
+            ->whereNull('service_id')
+            ->where('status', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->first();
+    }
 }

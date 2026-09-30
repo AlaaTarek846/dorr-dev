@@ -32,6 +32,7 @@ class ChatMessage extends Model implements HasMedia
         'forward_score',
         'mentions',
         'has_link',
+        'view_once',
         'edited_at',
         'deleted_for_everyone_at',
         'expires_at',
@@ -46,18 +47,11 @@ class ChatMessage extends Model implements HasMedia
             'is_forwarded' => 'boolean',
             'forward_score' => 'integer',
             'has_link' => 'boolean',
+            'view_once' => 'boolean',
             'edited_at' => 'datetime',
             'deleted_for_everyone_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
-    }
-
-    /**
-     * Whether this media may be opened once by each recipient, then the files are purged.
-     */
-    public function getViewOnceAttribute(): bool
-    {
-        return (bool) data_get($this->meta, 'view_once');
     }
 
     protected static function booted(): void

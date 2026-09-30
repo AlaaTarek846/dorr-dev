@@ -34,6 +34,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.CalendarToday
+import androidx.compose.material.icons.rounded.LockReset
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.PhotoCamera
@@ -255,9 +258,9 @@ private fun WaBirthFields(day: String, month: String, year: String, onChange: (S
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             val keyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
-            DorrTextField(day, { onChange(it.filter(Char::isDigit).take(2), month, year) }, Modifier.weight(1f), label = stringResource(R.string.wa_rec_day), keyboardOptions = keyboard, error = error)
-            DorrTextField(month, { onChange(day, it.filter(Char::isDigit).take(2), year) }, Modifier.weight(1f), label = stringResource(R.string.wa_rec_month), keyboardOptions = keyboard, error = error)
-            DorrTextField(year, { onChange(day, month, it.filter(Char::isDigit).take(4)) }, Modifier.weight(1.4f), label = stringResource(R.string.wa_rec_year), keyboardOptions = keyboard, error = error)
+            DorrTextField(day, { onChange(it.filter(Char::isDigit).take(2), month, year) }, Modifier.weight(1f), label = stringResource(R.string.wa_rec_day), placeholder = "DD", icon = Icons.Rounded.CalendarToday, keyboardOptions = keyboard, error = error)
+            DorrTextField(month, { onChange(day, it.filter(Char::isDigit).take(2), year) }, Modifier.weight(1f), label = stringResource(R.string.wa_rec_month), placeholder = "MM", keyboardOptions = keyboard, error = error)
+            DorrTextField(year, { onChange(day, month, it.filter(Char::isDigit).take(4)) }, Modifier.weight(1.4f), label = stringResource(R.string.wa_rec_year), placeholder = "YYYY", keyboardOptions = keyboard, error = error)
         }
     }
 }
@@ -280,6 +283,7 @@ private fun WaCodeField(code: String, onChange: (String) -> Unit, error: Boolean
             placeholder = "••••",
             error = error,
             minHeight = 58.dp,
+            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
             textStyle = androidx.compose.ui.text.TextStyle(fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 10.sp, textAlign = TextAlign.Center),
         )
     }
@@ -454,9 +458,9 @@ fun WaPinSetupPage(
                 WaStepHeader(method.icon, method.tone, stringResource(method.title), "")
                 when (method) {
                     RecoveryMethodUi.Password -> {
-                        DorrTextField(password, { password = it; error = null }, label = stringResource(R.string.wa_rec_password), visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+                        DorrTextField(password, { password = it; error = null }, label = stringResource(R.string.wa_rec_password), icon = Icons.Rounded.Lock, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
                         Spacer(Modifier.height(12.dp))
-                        DorrTextField(passwordAgain, { passwordAgain = it; error = null }, label = stringResource(R.string.wa_rec_password_confirm), visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+                        DorrTextField(passwordAgain, { passwordAgain = it; error = null }, label = stringResource(R.string.wa_rec_password_confirm), icon = Icons.Rounded.LockReset, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
                         Spacer(Modifier.height(12.dp))
                         WaNote(stringResource(R.string.wa_rec_password_hint))
                     }
@@ -466,7 +470,7 @@ fun WaPinSetupPage(
                         WaNote(stringResource(R.string.wa_rec_birth_hint))
                     }
                     RecoveryMethodUi.Email -> {
-                        DorrTextField(email, { email = it; error = null }, label = stringResource(R.string.wa_rec_email), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
+                        DorrTextField(email, { email = it; error = null }, label = stringResource(R.string.wa_rec_email), icon = Icons.Rounded.Email, placeholder = "name@example.com", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                         Spacer(Modifier.height(12.dp))
                         WaNote(stringResource(R.string.wa_rec_email_hint))
                     }
@@ -664,7 +668,7 @@ fun WaForgotPinPage(status: PinStatusDto?, onExit: () -> Unit, onDone: () -> Uni
                 }
                 WaStepHeader(method.icon, method.tone, stringResource(method.title), sub)
                 when (method) {
-                    RecoveryMethodUi.Password -> DorrTextField(password, { password = it; error = null }, label = stringResource(R.string.wa_rec_password), visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), error = error != null)
+                    RecoveryMethodUi.Password -> DorrTextField(password, { password = it; error = null }, label = stringResource(R.string.wa_rec_password), icon = Icons.Rounded.Lock, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password), error = error != null)
                     RecoveryMethodUi.BirthDate -> WaBirthFields(day, month, year, { d, m, y -> day = d; month = m; year = y; error = null }, error = error != null)
                     else -> {
                         WaCodeField(code, { code = it; error = null }, error = error != null)

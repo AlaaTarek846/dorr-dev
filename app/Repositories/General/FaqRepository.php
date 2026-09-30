@@ -4,6 +4,7 @@ namespace App\Repositories\General;
 
 use App\Models\Faq;
 use App\Repositories\TranslatableRepository;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 
@@ -34,5 +35,21 @@ class FaqRepository extends TranslatableRepository
                 'name' => $item->translated('question'),
             ])
             ->values();
+    }
+
+    /**
+     * Active general FAQs (not tied to any service) for the mobile app, in display order.
+     *
+     * @return EloquentCollection<int, Faq>
+     */
+    public function generalActive(): EloquentCollection
+    {
+        return $this->model->newQuery()
+            ->with(['translations', 'translation'])
+            ->whereNull('service_id')
+            ->where('status', true)
+            ->orderBy('sort_order')
+            ->orderBy('id')
+            ->get();
     }
 }

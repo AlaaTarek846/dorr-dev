@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Http\Requests\CreateGroupRequest;
 use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Services\ConversationService;
 use Modules\Chat\Services\GroupService;
 use Modules\Chat\Support\ParticipantType;
@@ -64,6 +65,8 @@ class GroupController extends Controller
             'only_admins_edit_info' => ['sometimes', 'boolean'],
             'only_admins_add_members' => ['sometimes', 'boolean'],
             'approve_joins' => ['sometimes', 'boolean'],
+            // Channels only: listed in Discover or not.
+            'is_public' => ['sometimes', 'boolean'],
         ]);
 
         $me = $request->user();
@@ -122,43 +125,44 @@ class GroupController extends Controller
     }
 
     /**
-     * Joining by link either adds the member, or — when the group asks admins first — returns the
-     * status `pending` and leaves a join request. Null conversation means the request is waiting.
+     * 200 + the conversation when I'm in; 202 + `{status: pending}` when the admins approve joins.
      */
     public function join(Request $request, string $token)
     {
         $me = $request->user();
-        $participant = $this->groups->join($me, $token);
+        $result = $this->groups->join($me, $token);
 
-        if ($participant === null) {
-            return ApiResponse::success(['status' => 'pending'], __('chat.join_request_sent'), 202);
+        if ($result instanceof ChatGroupJoinRequest) {
+            return ApiResponse::success(['status' => 'pending', 'request_id' => $result->id], __('chat.join_requested'), 202);
         }
 
-        return ApiResponse::success($this->conversations->resource($me, $participant), __('api.updated'));
+        return ApiResponse::success($this->conversations->resource($me, $result), __('api.updated'));
     }
 
-    /** Take back a join request I sent. */
     public function cancelJoin(Request $request, string $token)
     {
-        $this->groups->cancelJoin($request->user(), $token);
+        $this->groups->cancelJoinRequest($request->user(), $token);
 
         return ApiResponse::success(null, __('api.updated'));
     }
 
-    /** The requests waiting on this group's admins. */
     public function joinRequests(Request $request, ChatConversation $conversation)
     {
         return ApiResponse::success($this->groups->joinRequests($request->user(), $conversation), __('api.retrieved'));
     }
 
-    public function approveJoin(Request $request, ChatConversation $conversation, int $requestId)
+    public function approveJoin(Request $request, ChatConversation $conversation, int $joinRequest)
     {
-        return ApiResponse::success($this->groups->decideJoin($request->user(), $conversation, $requestId, true), __('chat.join_request_approved'));
+        $this->groups->decideJoinRequest($request->user(), $conversation, $joinRequest, true);
+
+        return ApiResponse::success($this->groups->joinRequests($request->user(), $conversation), __('api.updated'));
     }
 
-    public function rejectJoin(Request $request, ChatConversation $conversation, int $requestId)
+    public function rejectJoin(Request $request, ChatConversation $conversation, int $joinRequest)
     {
-        return ApiResponse::success($this->groups->decideJoin($request->user(), $conversation, $requestId, false), __('chat.join_request_rejected'));
+        $this->groups->decideJoinRequest($request->user(), $conversation, $joinRequest, false);
+
+        return ApiResponse::success($this->groups->joinRequests($request->user(), $conversation), __('api.updated'));
     }
 
     /**

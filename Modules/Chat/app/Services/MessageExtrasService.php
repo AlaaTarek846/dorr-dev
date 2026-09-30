@@ -213,7 +213,7 @@ class MessageExtrasService
         $meta['live_until'] = now()->toIso8601String();
         $meta['stopped'] = true;
         $message->forceFill(['meta' => $meta])->save();
-        app(MessageService::class)->broadcastUpdate($message);
+        app(MessageService::class)->rebroadcast($message);
 
         return $message;
     }

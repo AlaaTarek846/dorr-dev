@@ -210,6 +210,10 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete'],
             ],
+            'chat-stickers' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
             'chat-reports' => [
                 'module_name' => 'general_services',
                 'actions' => ['view', 'update'],

@@ -27,7 +27,7 @@ Tables managed by General module logic:
 - `faq_translations`: faq_id, locale, question, answer (unique faq_id + locale)
 
 ## privacy_policies / privacy_policy_translations
-- `privacy_policies`: service_id (nullable FK → service_categories.id, nullOnDelete), status, sort_order
+- `privacy_policies`: service_id (nullable FK → service_categories.id, nullOnDelete; unique among non-deleted rows — at most one policy per service, null/general repeats allowed), status, sort_order
 - `privacy_policy_translations`: privacy_policy_id, locale, content (unique privacy_policy_id + locale)
 
 ## platform_settings

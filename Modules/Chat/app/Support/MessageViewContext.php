@@ -6,9 +6,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatMessageReceipt;
 use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatPollVote;
+use Modules\Chat\Enums\MessageType;
 
 /**
  * Everything MessageResource needs to render messages for *one* viewer, loaded once per page:
@@ -26,14 +28,23 @@ class MessageViewContext
     /** @var array<int, true> */
     public array $starred = [];
 
-    /** @var array<int, true> view-once messages somebody has already opened, by message row id */
-    public array $opened = [];
-
-    /** @var array<int, list<int>> the option ids I ticked, by message row id */
-    public array $myVotes = [];
-
     /** @var array<int, string> participant row id => account key */
     public array $participantKeys = [];
+
+    /** @var array<int, true> view-once messages *I* opened */
+    public array $openedByMe = [];
+
+    /** @var array<int, int> my view-once messages => how many others opened them */
+    public array $openedByOthers = [];
+
+    /** @var array<int, array{counts: array<int, int>, voters: int}> poll message id => totals */
+    public array $polls = [];
+
+    /** @var array<int, list<int>> poll message id => the options I ticked */
+    public array $myVotes = [];
+
+    /** @var array<int, int> channel post id => how many followers have seen it */
+    public array $views = [];
 
     public function __construct(
         public readonly Model $viewer,
@@ -62,32 +73,43 @@ class MessageViewContext
         $ids = $messages->pluck('id')->merge($messages->pluck('reply_to_id'))->filter()->unique()->all();
 
         if ($ids !== []) {
-            $states = ChatMessageUserState::query()
-                ->where('participant_id', $me->id)->whereIn('message_id', $ids)
-                ->get(['message_id', 'starred_at', 'opened_at']);
+            $context->starred = ChatMessageUserState::query()
+                ->where('participant_id', $me->id)->whereIn('message_id', $ids)->whereNotNull('starred_at')
+                ->pluck('message_id')->flip()->map(fn () => true)->all();
+        }
 
-            foreach ($states as $state) {
-                if ($state->starred_at !== null) {
-                    $context->starred[$state->message_id] = true;
+        // Channel posts show views instead of ticks: read receipts per post (one grouped query).
+        if ($conversation->isChannel() && $messages->isNotEmpty()) {
+            $context->views = ChatMessageReceipt::query()
+                ->whereIn('message_id', $messages->pluck('id'))->whereNotNull('read_at')
+                ->selectRaw('message_id, count(*) as n')->groupBy('message_id')
+                ->pluck('n', 'message_id')->map(fn ($n) => (int) $n)->all();
+        }
+
+        // View-once: who opened what (one query for the whole page).
+        $viewOnce = $messages->where('view_once', true)->pluck('id')->all();
+        if ($viewOnce !== []) {
+            $opened = ChatMessageUserState::query()->whereIn('message_id', $viewOnce)->whereNotNull('opened_at')->get(['message_id', 'participant_id']);
+            foreach ($opened as $row) {
+                if ((int) $row->participant_id === (int) $me->id) {
+                    $context->openedByMe[$row->message_id] = true;
+                } else {
+                    $context->openedByOthers[$row->message_id] = ($context->openedByOthers[$row->message_id] ?? 0) + 1;
                 }
             }
+        }
 
-            // A view-once file is opened by the recipient, so "opened" is a fact about the message,
-            // not about the viewer: the sender sees it too (only a starred tick is the viewer's own).
-            foreach (ChatMessageUserState::query()
-                ->whereIn('message_id', $ids)->whereNotNull('opened_at')
-                ->distinct()
-                ->pluck('message_id') as $openedId) {
-                $context->opened[$openedId] = true;
-            }
-
-            foreach (ChatPollVote::query()
-                ->whereIn('message_id', $ids)
-                ->where('participant_id', $me->id)
-                ->orderBy('option_id')
-                ->get(['message_id', 'option_id'])
-                ->groupBy('message_id') as $messageId => $votes) {
-                $context->myVotes[$messageId] = $votes->pluck('option_id')->map(fn ($n) => (int) $n)->all();
+        // Polls: totals and my own ticks.
+        $polls = $messages->filter(fn (ChatMessage $m) => $m->type === MessageType::Poll)->pluck('id')->all();
+        if ($polls !== []) {
+            $votes = ChatPollVote::query()->whereIn('message_id', $polls)->get(['message_id', 'participant_id', 'option_id']);
+            foreach ($polls as $id) {
+                $rows = $votes->where('message_id', $id);
+                $context->polls[$id] = [
+                    'counts' => $rows->countBy('option_id')->map(fn ($n) => (int) $n)->all(),
+                    'voters' => $rows->pluck('participant_id')->unique()->count(),
+                ];
+                $context->myVotes[$id] = $rows->where('participant_id', $me->id)->pluck('option_id')->map(fn ($o) => (int) $o)->values()->all();
             }
         }
 
@@ -125,7 +147,8 @@ class MessageViewContext
      */
     public function statusOf(ChatMessage $message): ?string
     {
-        if (! $this->isMine($message)) {
+        // A channel post has views, not ticks.
+        if (! $this->isMine($message) || $this->conversation->isChannel()) {
             return null;
         }
 

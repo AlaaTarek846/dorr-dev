@@ -22,12 +22,6 @@ class PurgeChatMessages extends Command
 
     protected $description = 'Delete disappeared messages and wipe the content of long-deleted ones.';
 
-    /**
-     * How long a view-once file is kept after the last person opened it, so a phone that is still
-     * downloading finishes before the bytes go.
-     */
-    private const VIEW_ONCE_GRACE_MINUTES = 15;
-
     public function handle(): int
     {
         $expired = 0;
@@ -56,69 +50,32 @@ class PurgeChatMessages extends Command
 
         $pins = ChatPinnedMessage::query()->whereNotNull('expires_at')->where('expires_at', '<=', now())->delete();
 
-        $viewOnce = $this->purgeOpenedViewOnce();
-
         $stories = app(StoryService::class)->purgeExpired();
 
-        $this->info("{$expired} disappeared, {$wiped} wiped, {$viewOnce} view-once files deleted, {$pins} pins expired, {$stories} stories expired.");
+        // View-once files: gone once everyone else opened them (10 minutes of grace to finish
+        // watching), and after 14 days in any case — like WhatsApp.
+        $viewOnce = 0;
+        ChatMessage::query()->where('view_once', true)->where('created_at', '<=', now()->subMinutes(10))
+            ->whereHas('media')
+            ->with('conversation')
+            ->chunkById(200, function ($messages) use (&$viewOnce) {
+                foreach ($messages as $message) {
+                    $others = $message->conversation?->activeParticipants()
+                        ->where(fn ($q) => $q->where('participant_type', '!=', $message->sender_type)->orWhere('participant_id', '!=', $message->sender_id))
+                        ->pluck('id') ?? collect();
+                    $opened = ChatMessageUserState::query()->where('message_id', $message->id)->whereIn('participant_id', $others)
+                        ->whereNotNull('opened_at')->where('opened_at', '<=', now()->subMinutes(10))->count();
 
-        return self::SUCCESS;
-    }
-
-    /**
-     * A view-once file leaves the server once everyone it was sent to has opened it, and the grace
-     * period is up. The message itself stays — it is part of the conversation.
-     */
-    private function purgeOpenedViewOnce(): int
-    {
-        $cutoff = now()->subMinutes(self::VIEW_ONCE_GRACE_MINUTES);
-        $purged = 0;
-
-        ChatMessageUserState::query()
-            ->whereNotNull('opened_at')->where('opened_at', '<=', $cutoff)
-            ->with('message')
-            ->chunkById(200, function ($states) use (&$purged) {
-                foreach ($states as $state) {
-                    $message = $state->message;
-
-                    if ($message === null || ! $message->view_once || ! $this->everyoneOpened($message)) {
-                        continue;
+                    if ($message->created_at->lte(now()->subDays(14)) || ($others->isNotEmpty() && $opened >= $others->count())) {
+                        $message->clearMediaCollection(ChatMessage::ATTACHMENTS);
+                        $message->clearMediaCollection(ChatMessage::THUMBNAIL);
+                        $viewOnce++;
                     }
-
-                    $message->clearMediaCollection(ChatMessage::ATTACHMENTS);
-                    $message->clearMediaCollection(ChatMessage::THUMBNAIL);
-                    $purged++;
                 }
             });
 
-        return $purged;
-    }
+        $this->info("{$expired} disappeared, {$wiped} wiped, {$pins} pins expired, {$stories} stories expired, {$viewOnce} view-once cleared.");
 
-    /**
-     * True when every other member still in the conversation has opened it; a member who left
-     * before opening cannot hold the file hostage.
-     */
-    private function everyoneOpened(ChatMessage $message): bool
-    {
-        $recipients = $message->conversation->participants()
-            ->whereNull('left_at')
-            ->where(fn ($q) => $q->where('id', '!=', $message->conversation->participants()
-                ->where('participant_type', $message->sender_type)
-                ->where('participant_id', $message->sender_id)
-                ->value('id')))
-            ->pluck('id');
-
-        if ($recipients->isEmpty()) {
-            return false;
-        }
-
-        $opened = ChatMessageUserState::query()
-            ->where('message_id', $message->id)
-            ->whereIn('participant_id', $recipients)
-            ->whereNotNull('opened_at')
-            ->distinct()
-            ->pluck('participant_id');
-
-        return $opened->count() === $recipients->count();
+        return self::SUCCESS;
     }
 }

@@ -68,10 +68,12 @@ class ConversationService
         $query = ChatParticipant::query()->of($me)
             ->where('is_deleted', false)
             ->whereHas('conversation', function (Builder $q) use ($filter) {
-                $q->where(fn (Builder $q) => $q->whereNotNull('last_message_id')->orWhere('type', ConversationType::Group->value));
+                $q->where(fn (Builder $q) => $q->whereNotNull('last_message_id')->orWhereIn('type', [ConversationType::Group->value, ConversationType::Channel->value]));
 
                 if ($filter === 'groups') {
                     $q->where('type', ConversationType::Group->value);
+                } elseif ($filter === 'channels') {
+                    $q->where('type', ConversationType::Channel->value);
                 } elseif ($filter === 'direct') {
                     $q->where('type', ConversationType::Direct->value);
                 }
@@ -180,7 +182,16 @@ class ConversationService
             return;
         }
 
-        (new EloquentCollection($rows->all()))->load(['conversation.group.media', 'conversation.participants', 'conversation.lastMessage']);
+        // A channel's thousands of followers are never on screen: only its admins and me are loaded.
+        $mine = $rows->pluck('id')->all();
+        (new EloquentCollection($rows->all()))->load([
+            'conversation.group.media',
+            'conversation.lastMessage',
+            'conversation.participants' => fn ($q) => $q->where(fn ($q) => $q
+                ->whereIn('chat_participants.id', $mine)
+                ->orWhere('chat_participants.role', '!=', 'member')
+                ->orWhereIn('chat_participants.conversation_id', ChatConversation::query()->where('type', '!=', ConversationType::Channel->value)->select('id'))),
+        ]);
 
         $keys = [];
         foreach ($rows as $row) {
@@ -364,7 +375,7 @@ class ConversationService
                 || (! $conversation->isGroup() && ! $this->privacy->peek($me)->read_receipts);
 
             if (! $hidden) {
-                $this->broadcaster->toParticipants($conversation->activeParticipants()->get(), 'chat.receipt', [
+                $this->broadcaster->toParticipants($this->receiptAudience($conversation), 'chat.receipt', [
                     'conversation_id' => $conversation->uuid,
                     'participant' => $participant->key(),
                     'read_up_to' => ChatMessage::query()->whereKey($newRead)->value('uuid'),
@@ -401,7 +412,7 @@ class ConversationService
             }
 
             if ($conversation->status !== ConversationStatus::Pending) {
-                $this->broadcaster->toParticipants($conversation->activeParticipants()->get(), 'chat.receipt', [
+                $this->broadcaster->toParticipants($this->receiptAudience($conversation), 'chat.receipt', [
                     'conversation_id' => $conversation->uuid,
                     'participant' => $row->key(),
                     'delivered_up_to' => ChatMessage::query()->whereKey($upTo)->value('uuid'),
@@ -410,6 +421,19 @@ class ConversationService
         }
 
         return $rows->count();
+    }
+
+    /**
+     * Who hears about reads: everyone in a chat or group; in a channel only its admins (they see
+     * the views go up) — never thousands of followers for every follower who reads.
+     *
+     * @return \Illuminate\Support\Collection<int, ChatParticipant>
+     */
+    private function receiptAudience(ChatConversation $conversation)
+    {
+        return $conversation->activeParticipants()
+            ->when($conversation->isChannel(), fn ($q) => $q->where('role', '!=', 'member'))
+            ->get();
     }
 
     /**
@@ -543,6 +567,11 @@ class ConversationService
     public function typing(Model $me, ChatConversation $conversation, string $state): void
     {
         $participant = $this->participantOf($me, $conversation, true);
+
+        // A channel has no "typing…": followers can't write, and an admin's draft is nobody's business.
+        if ($conversation->isChannel()) {
+            return;
+        }
 
         $this->broadcaster->toParticipants($conversation->activeParticipants()->get(), 'chat.typing', [
             'conversation_id' => $conversation->uuid,

@@ -146,7 +146,7 @@ class MoneyRequestService
             $message->setRawAttributes($locked->getAttributes());
         });
 
-        app(MessageService::class)->broadcastUpdate($message);
+        app(MessageService::class)->rebroadcast($message);
 
         return $message;
     }
@@ -277,7 +277,7 @@ class MoneyRequestService
             $message->setRawAttributes($locked->getAttributes());
         });
 
-        app(MessageService::class)->broadcastUpdate($message);
+        app(MessageService::class)->rebroadcast($message);
     }
 
     private function amount(mixed $value): int

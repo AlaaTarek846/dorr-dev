@@ -6,10 +6,7 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.PUT
 
-/**
- * Logged-in appearance under /api/mobile/v1/appearance.
- * Font is intentionally not sent from this client yet.
- */
+/** Logged-in appearance under /api/mobile/v1/appearance. */
 interface AppearanceApi {
     @GET("mobile/v1/appearance")
     suspend fun show(

@@ -122,24 +122,6 @@ class TransferRecipientResolver
     }
 
     /**
-     * A transfer token for someone already known — the chat, which pays a money request or a share
-     * of a bill, has no "who did I type?" step to go through. Same checks, same short life, and no
-     * wallet is pinned, so the money always lands in the person's own current wallet.
-     *
-     * @throws TransferException
-     */
-    public function tokenFor(User $sender, Country $country, User $recipient): string
-    {
-        if ($recipient->status !== UserStatus::Active) {
-            throw TransferException::recipientUnavailable();
-        }
-
-        $this->assertPayable($sender, $recipient);
-
-        return $this->mintToken($sender, $country, $recipient, $this->walletOf($recipient, $country));
-    }
-
-    /**
      * Validates the token from a previous lookup and returns who it points at.
      *
      * @return array{user: User, wallet: Wallet|null}
@@ -209,6 +191,20 @@ class TransferRecipientResolver
         return $digits;
     }
 
+    /**
+     * A recipient token for someone the sender already knows by account — the chat's "pay this
+     * request" flow, where the requester *is* the recipient (no typing, so no lookup step). Same
+     * token, same checks and expiry as a lookup; TransferService::send() still decides everything.
+     *
+     * @throws TransferException
+     */
+    public function tokenFor(User $sender, Country $country, User $recipient): string
+    {
+        $this->assertPayable($sender, $recipient);
+
+        return $this->present($sender, $country, $recipient, $this->walletOf($recipient, $country), 'chat', [])['recipient_token'];
+    }
+
     private function assertPayable(User $sender, ?User $recipient): void
     {
         // One answer for "no such user", "inactive", "yourself", "other country".
@@ -225,21 +221,6 @@ class TransferRecipientResolver
     }
 
     /**
-     * The signed, short-lived "this is who gets paid" proof, shared by every way of finding them.
-     */
-    private function mintToken(User $sender, Country $country, User $recipient, ?Wallet $wallet, bool $pinWallet = false): string
-    {
-        return Crypt::encryptString(json_encode([
-            'sender' => $sender->id,
-            'country_id' => $country->id,
-            'recipient' => $recipient->id,
-            // Pinned only when the sender addressed a specific wallet by its number.
-            'wallet_id' => $pinWallet ? $wallet?->id : null,
-            'exp' => now()->timestamp + self::TOKEN_TTL_SECONDS,
-        ], JSON_THROW_ON_ERROR));
-    }
-
-    /**
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
      */
@@ -251,7 +232,14 @@ class TransferRecipientResolver
         // preview.
         $settings = WalletSetting::query()->where('country_id', $country->id)->first();
 
-        $token = $this->mintToken($sender, $country, $recipient, $wallet, $via === 'wallet');
+        $token = Crypt::encryptString(json_encode([
+            'sender' => $sender->id,
+            'country_id' => $country->id,
+            'recipient' => $recipient->id,
+            // Pinned only when the sender addressed a specific wallet by its number.
+            'wallet_id' => $via === 'wallet' ? $wallet?->id : null,
+            'exp' => now()->timestamp + self::TOKEN_TTL_SECONDS,
+        ], JSON_THROW_ON_ERROR));
 
         return [
             'recipient_token' => $token,

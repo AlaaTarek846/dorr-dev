@@ -91,7 +91,7 @@ class LinkPreviewService
         }
 
         $message->forceFill(['meta' => $meta === [] ? null : $meta])->save();
-        app(MessageService::class)->broadcastUpdate($message);
+        app(MessageService::class)->rebroadcast($message);
     }
 
     /**

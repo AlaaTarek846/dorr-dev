@@ -6,6 +6,11 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import androidx.compose.material.icons.rounded.CallSplit
+import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.LooksOne
+import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.RequestQuote
 import android.os.Build
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -137,6 +142,7 @@ fun Composer(state: ConversationState) {
     val host = LocalChat.current
     var text by remember(state.id) { mutableStateOf("") }
     var attachOpen by remember { mutableStateOf(false) }
+    var exprOpen by remember { mutableStateOf(false) }
     var transferPicker by remember { mutableStateOf(false) }
     val recorder = remember { VoiceRecorder(context) }
     var locked by remember { mutableStateOf(false) }
@@ -179,6 +185,9 @@ fun Composer(state: ConversationState) {
     }
 
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        // --------------------------------------------------------------- the card of a link being typed
+        ComposerLinkPreview(text)
+
         // --------------------------------------------------------------- @mention suggestions
         val suggestions = if (mentionQuery == null) emptyList() else state.members
             .filter { it.profile?.isMe != true && (mentionQuery.isEmpty() || it.profile?.name.orEmpty().contains(mentionQuery, ignoreCase = true)) }
@@ -248,6 +257,14 @@ fun Composer(state: ConversationState) {
                                     maxLines = 6,
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                     modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
+                            // Emoji · stickers · GIFs — the face winks when the panel opens.
+                            val wink by animateFloatAsState(if (exprOpen) 1f else 0f, spring(dampingRatio = 0.4f), label = "exprWink")
+                            Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { exprOpen = true }, contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Rounded.EmojiEmotions, null, tint = if (exprOpen) Ch.Red else Ch.Mut,
+                                    modifier = Modifier.size(24.dp).graphicsLayer { rotationZ = wink * 18f; scaleX = 1f + wink * 0.15f; scaleY = 1f + wink * 0.15f },
                                 )
                             }
                         }
@@ -356,6 +373,11 @@ fun Composer(state: ConversationState) {
     }
 
     if (attachOpen) AttachSheet(state, onDismiss = { attachOpen = false }, onPickTransfer = { attachOpen = false; transferPicker = true })
+    if (exprOpen) ExpressionPanel(
+        onDismiss = { exprOpen = false },
+        onEmoji = { text += it },
+        onPick = { pick -> state.send(Outgoing(pick.type, extra = pick.extra.filterValues { it != null })) },
+    )
     if (transferPicker) TransferPicker(onDismiss = { transferPicker = false }) { tx ->
         transferPicker = false
         state.send(Outgoing("wallet_transfer", extra = mapOf("wallet_transaction_id" to tx.uuid)))
@@ -475,36 +497,108 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             state.send(Outgoing("contact", extra = mapOf("contact_name" to name, "contact_phones" to phones)))
         }
     }
+    // Location: pick "now" or live (15 min / 1 h / 8 h) first, then ask for the permission.
+    var locationChoice by remember { mutableStateOf(false) }
+    var liveSeconds by remember { mutableStateOf<Int?>(null) }
+    var askingLocation by remember { mutableStateOf(false) }
+    var pollOpen by remember { mutableStateOf(false) }
+    // Money: "request" to the other person in a direct chat, "split the bill" in a group.
+    var moneyOpen by remember { mutableStateOf(false) }
+    val isGroup = state.conversation?.isGroup == true
+    val isChannel = state.conversation?.isChannel == true
     val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         if (granted.values.any { it }) {
             host.showToast(locating)
+            val live = liveSeconds
             currentLocation(context) { loc ->
                 if (loc == null) host.showToast(locationFailed)
-                else state.send(Outgoing("location", extra = mapOf("latitude" to loc.latitude, "longitude" to loc.longitude)))
+                else state.send(Outgoing("location", extra = buildMap {
+                    put("latitude", loc.latitude)
+                    put("longitude", loc.longitude)
+                    if (live != null) put("live_seconds", live)
+                }))
             }
         }
         onDismiss()
+    }
+    // View once: one photo or video, never kept in the chat's gallery.
+    val viewOnce = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        onDismiss()
+        uri ?: return@rememberLauncherForActivityResult
+        host.scope.launch {
+            val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { copyToCache(context, uri, "media")?.let { compressImage(context, it) } } ?: return@launch
+            state.send(Outgoing(if (file.mime.startsWith("video/")) "video" else "image", files = listOf(file), extra = mapOf("view_once" to 1)))
+        }
     }
     val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) contact.launch(null) else onDismiss()
     }
 
-    val items = listOf(
+    val items = listOfNotNull(
         AttachItem(Icons.Rounded.Photo, R.string.ch_attach_gallery, listOf(Color(0xFFA78BFA), Color(0xFF7C3AED))) { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
         AttachItem(Icons.Rounded.Description, R.string.ch_attach_document, listOf(Color(0xFF60A5FA), Color(0xFF2563EB))) { document.launch(arrayOf("*/*")) },
-        AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) {
-            locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
+        AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
+        AttachItem(Icons.Rounded.LooksOne, R.string.ch_attach_view_once, listOf(Color(0xFFF472B6), Color(0xFFDB2777))) {
+            viewOnce.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         },
         AttachItem(Icons.Rounded.Person, R.string.ch_attach_contact, listOf(Color(0xFF22D3EE), Color(0xFF0891B2))) {
             if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) contact.launch(null)
             else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
         },
-        AttachItem(Icons.Rounded.Payments, R.string.ch_attach_transfer, listOf(Color(0xFFF2202C), Color(0xFFB30710))) { onPickTransfer() },
+        // Money requests / splits are between people — not in a channel.
+        if (isChannel) null else AttachItem(
+            if (isGroup) Icons.Rounded.CallSplit else Icons.Rounded.RequestQuote,
+            if (isGroup) R.string.ch_attach_split else R.string.ch_attach_request,
+            listOf(Color(0xFF34D399), Color(0xFF047857)),
+        ) { moneyOpen = true },
+        AttachItem(Icons.Rounded.Payments, R.string.ch_attach_transfer, listOf(Ch.Red, Ch.RedDeep)) { onPickTransfer() },
         AttachItem(Icons.Rounded.QrCode2, R.string.ch_attach_wallet_qr, listOf(Color(0xFFFBBF24), Color(0xFFD97706))) {
             onDismiss()
             state.send(Outgoing("wallet_qr"))
         },
     )
+
+    // While Android asks for the location permission this sheet stays composed (its launcher must
+    // be alive to get the answer) but draws nothing; the answer closes it.
+    if (askingLocation) return
+    if (locationChoice) {
+        fun ask(seconds: Int?) {
+            liveSeconds = seconds
+            locationChoice = false
+            askingLocation = true
+            locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+        }
+        LocationShareSheet(
+            onDismiss = { locationChoice = false; onDismiss() },
+            onCurrent = { ask(null) },
+            onLive = { ask(it) },
+        )
+        return
+    }
+    if (moneyOpen) {
+        if (isGroup) {
+            SplitBillSheet(state.members, onDismiss = { moneyOpen = false; onDismiss() }) { total, note, equal, shares ->
+                state.send(Outgoing("bill_split", body = note, extra = buildMap {
+                    put("amount_minor", total)
+                    put("split_mode", if (equal) "equal" else "custom")
+                    if (equal) put("split_participants", shares.keys.toList())
+                    else put("split_shares", shares.map { (id, minor) -> mapOf("participant_id" to id, "amount_minor" to minor) })
+                }))
+            }
+        } else {
+            RequestMoneySheet(state.conversation?.title.orEmpty(), onDismiss = { moneyOpen = false; onDismiss() }) { amount, note ->
+                state.send(Outgoing("money_request", body = note, extra = mapOf("amount_minor" to amount)))
+            }
+        }
+        return
+    }
+    if (pollOpen) {
+        PollComposerSheet(onDismiss = { pollOpen = false; onDismiss() }) { question, options, multiple ->
+            state.send(Outgoing("poll", body = question, extra = mapOf("poll_options" to options, "poll_multiple" to multiple)))
+        }
+        return
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {

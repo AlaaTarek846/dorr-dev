@@ -138,38 +138,51 @@ interface ChatApi {
     @GET("mobile/v1/chat/messages/{id}/info")
     suspend fun info(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageInfoDto>
 
-    @GET("mobile/v1/chat/conversations/{id}/messages/search")
-    suspend fun searchIn(@Header("Authorization") auth: String, @Path("id") id: String, @Query("q") q: String): ApiEnvelope<List<MessageDto>>
+    // ------------------------------------------------------------------ polls, view once, live location, link cards
 
-    @GET("mobile/v1/chat/conversations/{id}/gallery")
-    suspend fun gallery(@Header("Authorization") auth: String, @Path("id") id: String, @Query("kind") kind: String, @Query("before") before: String? = null): ApiEnvelope<GalleryPageDto>
+    @PUT("mobile/v1/chat/messages/{id}/vote")
+    suspend fun vote(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, List<Int>>): ApiEnvelope<MessageDto>
 
-    // ------------------------------------------------------------------ live location
+    @GET("mobile/v1/chat/messages/{id}/votes")
+    suspend fun votes(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<PollOptionVotersDto>>
 
-    @GET("mobile/v1/chat/live-locations")
-    suspend fun myLiveLocations(@Header("Authorization") auth: String): ApiEnvelope<List<LiveLocationDto>>
+    @POST("mobile/v1/chat/messages/{id}/open")
+    suspend fun openViewOnce(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ViewOnceFilesDto>
 
     @PUT("mobile/v1/chat/messages/{id}/live-location")
-    suspend fun moveLive(
-        @Header("Authorization") auth: String,
-        @Path("id") id: String,
-        @Body body: Map<String, @JvmSuppressWildcards Any?>,
-    ): ApiEnvelope<JsonElement?>
+    suspend fun moveLive(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Double?>): ApiEnvelope<JsonElement?>
 
     @POST("mobile/v1/chat/messages/{id}/live-location/stop")
     suspend fun stopLive(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
 
+    @GET("mobile/v1/chat/live-locations")
+    suspend fun myLiveLocations(@Header("Authorization") auth: String): ApiEnvelope<List<MyLiveLocationDto>>
+
+    @GET("mobile/v1/chat/link-preview")
+    suspend fun linkPreview(@Header("Authorization") auth: String, @Query("url") url: String): ApiEnvelope<JsonElement?>
+
+    // ------------------------------------------------------------------ money requests & bill splits
+
+    /** A real wallet transfer to the requester, checked with the wallet PIN. */
+    @POST("mobile/v1/chat/messages/{id}/pay")
+    suspend fun payRequest(@Header("Authorization") auth: String, @Header("X-Wallet-Pin") pin: String, @Path("id") id: String): ApiEnvelope<MessageDto>
+
+    @POST("mobile/v1/chat/messages/{id}/decline-request")
+    suspend fun declineRequest(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
+
+    @POST("mobile/v1/chat/messages/{id}/cancel-request")
+    suspend fun cancelRequest(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
+
+    // ------------------------------------------------------------------ stickers & GIFs
+
+    @GET("mobile/v1/chat/stickers")
+    suspend fun stickers(@Header("Authorization") auth: String): ApiEnvelope<StickerLibraryDto>
+
+    /** Giphy: trending (no q) or search. `kind`: gifs · stickers. */
+    @GET("mobile/v1/chat/gifs")
+    suspend fun gifs(@Header("Authorization") auth: String, @Query("kind") kind: String, @Query("q") q: String? = null, @Query("offset") offset: Int = 0): ApiEnvelope<GifPageDto>
+
     // ------------------------------------------------------------------ channels
-
-    @GET("mobile/v1/chat/channels/discover")
-    suspend fun discoverChannels(
-        @Header("Authorization") auth: String,
-        @Query("search") search: String? = null,
-    ): ApiEnvelope<List<ChannelCardDto>>
-
-    /** `channel` is a uuid or an @handle — the server takes either. */
-    @GET("mobile/v1/chat/channels/{channel}")
-    suspend fun showChannel(@Header("Authorization") auth: String, @Path("channel") channel: String): ApiEnvelope<ChannelCardDto>
 
     @Multipart
     @POST("mobile/v1/chat/channels")
@@ -179,31 +192,44 @@ interface ChatApi {
         @Part avatar: MultipartBody.Part?,
     ): ApiEnvelope<ConversationDto>
 
-    @POST("mobile/v1/chat/channels/{channel}/follow")
-    suspend fun followChannel(@Header("Authorization") auth: String, @Path("channel") channel: String): ApiEnvelope<ConversationDto>
+    @GET("mobile/v1/chat/channels/discover")
+    suspend fun discoverChannels(@Header("Authorization") auth: String, @Query("search") search: String? = null, @Query("per_page") perPage: Int = 30): ApiEnvelope<List<ChannelCardDto>>
 
-    @POST("mobile/v1/chat/channels/{conversation}/unfollow")
-    suspend fun unfollowChannel(@Header("Authorization") auth: String, @Path("conversation") id: String): ApiEnvelope<JsonElement?>
+    @POST("mobile/v1/chat/channels/{id}/follow")
+    suspend fun followChannel(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
 
-    @PUT("mobile/v1/chat/channels/{conversation}/handle")
-    suspend fun setChannelHandle(
-        @Header("Authorization") auth: String,
-        @Path("conversation") id: String,
-        @Body body: Map<String, String?>,
-    ): ApiEnvelope<ConversationDto>
+    @POST("mobile/v1/chat/channels/{id}/unfollow")
+    suspend fun unfollowChannel(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
 
-    // ------------------------------------------------------------------ expressions
+    @PATCH("mobile/v1/chat/channels/{id}/handle")
+    suspend fun channelHandle(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String?>): ApiEnvelope<ConversationDto>
 
-    @GET("mobile/v1/chat/stickers")
-    suspend fun stickers(@Header("Authorization") auth: String): ApiEnvelope<StickerLibraryDto>
+    // ------------------------------------------------------------------ joining groups by link
 
-    @GET("mobile/v1/chat/gifs")
-    suspend fun gifs(
-        @Header("Authorization") auth: String,
-        @Query("kind") kind: String = "gifs",
-        @Query("q") query: String? = null,
-        @Query("offset") offset: Int = 0,
-    ): ApiEnvelope<GiphyPageDto>
+    @GET("mobile/v1/chat/invites/{token}")
+    suspend fun previewInvite(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<InvitePreviewDto>
+
+    /** 200 + the conversation, or 202 + `{status: pending}` when the admins approve new members. */
+    @POST("mobile/v1/chat/invites/{token}/join")
+    suspend fun joinByInvite(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
+
+    @POST("mobile/v1/chat/invites/{token}/cancel")
+    suspend fun cancelJoin(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
+
+    @GET("mobile/v1/chat/groups/{id}/join-requests")
+    suspend fun joinRequests(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<JoinRequestDto>>
+
+    @POST("mobile/v1/chat/groups/{id}/join-requests/{request}/approve")
+    suspend fun approveJoin(@Header("Authorization") auth: String, @Path("id") id: String, @Path("request") request: Int): ApiEnvelope<List<JoinRequestDto>>
+
+    @POST("mobile/v1/chat/groups/{id}/join-requests/{request}/reject")
+    suspend fun rejectJoin(@Header("Authorization") auth: String, @Path("id") id: String, @Path("request") request: Int): ApiEnvelope<List<JoinRequestDto>>
+
+    @GET("mobile/v1/chat/conversations/{id}/messages/search")
+    suspend fun searchIn(@Header("Authorization") auth: String, @Path("id") id: String, @Query("q") q: String): ApiEnvelope<List<MessageDto>>
+
+    @GET("mobile/v1/chat/conversations/{id}/gallery")
+    suspend fun gallery(@Header("Authorization") auth: String, @Path("id") id: String, @Query("kind") kind: String, @Query("before") before: String? = null): ApiEnvelope<GalleryPageDto>
 
     // ------------------------------------------------------------------ groups
 
@@ -244,80 +270,6 @@ interface ChatApi {
 
     @GET("mobile/v1/chat/groups/{id}/invite")
     suspend fun invite(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<InviteDto>
-
-    // ------------------------------------------------------------------ polls, view once
-
-    /** Replace my answer. An empty list takes the vote back. */
-    @PUT("mobile/v1/chat/messages/{id}/vote")
-    suspend fun vote(
-        @Header("Authorization") auth: String,
-        @Path("id") id: String,
-        @Body body: Map<String, @JvmSuppressWildcards Any?>,
-    ): ApiEnvelope<MessageDto?>
-
-    /** Open a view-once file. The media comes back this one time only. */
-    @POST("mobile/v1/chat/messages/{id}/open")
-    suspend fun openViewOnce(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<AttachmentListDto>
-
-    // ------------------------------------------------------------------ invites
-
-    /** The group behind an invite link, shown before joining. */
-    @GET("mobile/v1/chat/invites/{token}")
-    suspend fun previewInvite(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<InvitePreviewDto>
-
-    @POST("mobile/v1/chat/invites/{token}/join")
-    suspend fun joinByInvite(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
-
-    // ------------------------------------------------------------------ message extras
-
-    /** The card for a link while it is still being typed in the composer. */
-    @GET("mobile/v1/chat/link-preview")
-    suspend fun linkPreview(
-        @Header("Authorization") auth: String,
-        @Query("url") url: String,
-    ): ApiEnvelope<JsonElement?>
-
-    /** Who voted for each option of a poll. */
-    @GET("mobile/v1/chat/messages/{id}/votes")
-    suspend fun votes(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<PollOptionVotersDto>>
-
-    /** Pay a money request or my share of a split. The PIN travels in `X-Wallet-Pin`, not the body. */
-    @POST("mobile/v1/chat/messages/{id}/pay")
-    suspend fun payRequest(
-        @Header("Authorization") auth: String,
-        @Header("X-Wallet-Pin") pin: String,
-        @Path("id") id: String,
-    ): ApiEnvelope<MessageDto?>
-
-    @POST("mobile/v1/chat/messages/{id}/decline-request")
-    suspend fun declineRequest(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
-
-    @POST("mobile/v1/chat/messages/{id}/cancel-request")
-    suspend fun cancelRequest(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
-
-    // ------------------------------------------------------------------ group join requests
-    // When a group sets `approve_joins`, joining by link leaves a pending request for the admins.
-
-    @GET("mobile/v1/chat/groups/{id}/join-requests")
-    suspend fun joinRequests(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<JoinRequestDto>>
-
-    @POST("mobile/v1/chat/groups/{id}/join-requests/{request}/approve")
-    suspend fun approveJoin(
-        @Header("Authorization") auth: String,
-        @Path("id") id: String,
-        @Path("request") request: Int,
-    ): ApiEnvelope<List<JoinRequestDto>>
-
-    @POST("mobile/v1/chat/groups/{id}/join-requests/{request}/reject")
-    suspend fun rejectJoin(
-        @Header("Authorization") auth: String,
-        @Path("id") id: String,
-        @Path("request") request: Int,
-    ): ApiEnvelope<List<JoinRequestDto>>
-
-    /** Withdraw my own pending request. */
-    @POST("mobile/v1/chat/invites/{token}/join/cancel")
-    suspend fun cancelJoin(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
 
     // ------------------------------------------------------------------ contacts, privacy, presence
 
@@ -481,17 +433,58 @@ data class GroupInfoDto(
     val name: String,
     val description: String?,
     val avatar: String?,
-    /** The @handle — a channel can be looked up by it, an ordinary group has none. */
-    @SerializedName("handle") val handle: String? = null,
     @SerializedName("members_count") val membersCount: Int,
     @SerializedName("only_admins_send") val onlyAdminsSend: Boolean,
     @SerializedName("only_admins_edit_info") val onlyAdminsEditInfo: Boolean,
     @SerializedName("only_admins_add_members") val onlyAdminsAddMembers: Boolean,
-        /** Join by link leaves a pending request for the admins instead of adding the member. */
-        @SerializedName("approve_joins") val approveJoins: Boolean = false,
-        /** How many people are waiting for an answer; only admins are told (0 for everyone else). */
-        @SerializedName("pending_join_requests") val pendingJoinRequests: Int = 0,
-    )
+    /** New members from the invite link wait for an admin. */
+    @SerializedName("approve_joins") val approveJoins: Boolean = false,
+    /** Admins only: how many are waiting. */
+    @SerializedName("pending_join_requests") val pendingJoinRequests: Int = 0,
+    /** Channels: @handle and whether it's listed in Discover. */
+    val handle: String? = null,
+    @SerializedName("is_public") val isPublic: Boolean = false,
+)
+
+data class StickerDto(
+    val id: Int,
+    @SerializedName("pack_id") val packId: Int,
+    val emoji: String?,
+    val url: String?,
+    val width: Int? = null,
+    val height: Int? = null,
+)
+
+data class StickerPackDto(val id: Int, val name: String?, val cover: String?, val stickers: List<StickerDto> = emptyList())
+
+data class StickerLibraryDto(val packs: List<StickerPackDto> = emptyList(), @SerializedName("library_enabled") val libraryEnabled: Boolean = false)
+
+/** A Giphy GIF or animated sticker. */
+data class GifDto(
+    val id: String,
+    val kind: String,
+    val title: String?,
+    val url: String,
+    val webp: String? = null,
+    val preview: String?,
+    val width: Int = 0,
+    val height: Int = 0,
+)
+
+data class GifPageDto(val items: List<GifDto> = emptyList(), @SerializedName("next_offset") val nextOffset: Int? = null)
+
+/** A channel as Discover shows it. */
+data class ChannelCardDto(
+    val id: String,
+    val name: String?,
+    val description: String?,
+    val avatar: String?,
+    val handle: String?,
+    @SerializedName("is_public") val isPublic: Boolean,
+    @SerializedName("followers_count") val followersCount: Int,
+    @SerializedName("is_following") val isFollowing: Boolean,
+    @SerializedName("last_post_at") val lastPostAt: String?,
+)
 
 data class LastMessageDto(
     val id: String,
@@ -536,7 +529,9 @@ data class ConversationDto(
     @SerializedName("blocked_me") val blockedMe: Boolean? = null,
     @SerializedName("block_screenshots") val blockScreenshots: Boolean? = null,
 ) {
-    val isGroup: Boolean get() = type == "group"
+    /** Group-like (a channel too: it has a group row, roles, an invite link). */
+    val isGroup: Boolean get() = type == "group" || type == "channel"
+    val isChannel: Boolean get() = type == "channel"
     val isAdmin: Boolean get() = myRole == "admin" || myRole == "owner"
 }
 
@@ -569,14 +564,9 @@ data class AttachmentDto(
     val width: Int?,
     val height: Int?,
     @SerializedName("duration_ms") val durationMs: Long?,
-        /** Videos: the poster frame. */
-        val thumbnail: String? = null,
-    )
-
-    /** Opening a view-once file answers with the one set of files it was allowed to show. */
-    data class AttachmentListDto(
-        val attachments: List<AttachmentDto> = emptyList(),
-    )
+    /** Videos: the poster frame. */
+    val thumbnail: String? = null,
+)
 
 data class ReplyPreviewDto(
     val id: String?,
@@ -613,12 +603,95 @@ data class MessageDto(
     val reactions: ReactionsDto = ReactionsDto(),
     @SerializedName("is_starred") val isStarred: Boolean = false,
     val system: SystemDto?,
-    /** Money requests and split bills: which of the two shapes it is, from `kind`. */
-    val payment: PaymentDto? = null,
-    val poll: PollDto? = null,
-    @SerializedName("view_once_opened") val viewOnceOpened: Boolean = false,
     @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("view_once") val viewOnce: Boolean = false,
+    /** Mine: someone opened it · theirs: I already opened it. */
+    @SerializedName("view_once_opened") val viewOnceOpened: Boolean? = null,
+    @SerializedName("link_preview") val linkPreview: LinkPreviewDto? = null,
+    val poll: PollDto? = null,
+    @SerializedName("live_location") val liveLocation: LiveLocationDto? = null,
+    /** Money request / bill split, as I see it. */
+    val payment: PaymentDto? = null,
+    /** Channel posts: how many followers saw it. */
+    val views: Int? = null,
 )
+
+data class PaymentShareDto(
+    val profile: ProfileDto?,
+    @SerializedName("amount_minor") val amountMinor: Long,
+    /** pending · paid · declined · owner (the requester's own share) */
+    val status: String,
+    @SerializedName("paid_at") val paidAt: String? = null,
+)
+
+data class MyShareDto(@SerializedName("amount_minor") val amountMinor: Long, val status: String)
+
+data class PaymentDto(
+    /** request · split */
+    val kind: String,
+    /** request: pending · paid · declined · cancelled — split: open · settled · cancelled */
+    val status: String,
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("total_minor") val totalMinor: Long = 0,
+    @SerializedName("paid_minor") val paidMinor: Long = 0,
+    val shares: List<PaymentShareDto> = emptyList(),
+    @SerializedName("my_share") val myShare: MyShareDto? = null,
+    val currency: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
+    @SerializedName("is_requester") val isRequester: Boolean = false,
+    @SerializedName("can_pay") val canPay: Boolean = false,
+    @SerializedName("can_cancel") val canCancel: Boolean = false,
+    @SerializedName("paid_at") val paidAt: String? = null,
+) {
+    val due: Long get() = if (kind == "request") amountMinor else myShare?.amountMinor ?: 0
+}
+
+data class LinkPreviewDto(
+    val url: String,
+    val title: String?,
+    val description: String?,
+    val image: String?,
+    @SerializedName("site_name") val siteName: String?,
+)
+
+data class PollOptionDto(val id: Int, val text: String, val votes: Int = 0)
+
+data class PollDto(
+    val question: String?,
+    val multiple: Boolean,
+    val options: List<PollOptionDto>,
+    @SerializedName("my_votes") val myVotes: List<Int> = emptyList(),
+    val voters: Int = 0,
+)
+
+data class PollOptionVotersDto(val id: Int, val text: String, val voters: List<ProfileDto> = emptyList())
+
+data class LiveLocationDto(
+    val active: Boolean,
+    @SerializedName("live_until") val liveUntil: String?,
+    @SerializedName("updated_at") val updatedAt: String?,
+)
+
+data class MyLiveLocationDto(
+    @SerializedName("message_id") val messageId: String,
+    @SerializedName("conversation_id") val conversationId: String,
+    @SerializedName("live_until") val liveUntil: String,
+)
+
+data class ViewOnceFilesDto(val attachments: List<AttachmentDto> = emptyList())
+
+data class InvitePreviewDto(
+    @SerializedName("conversation_id") val conversationId: String,
+    val name: String,
+    val description: String?,
+    val avatar: String?,
+    @SerializedName("members_count") val membersCount: Int,
+    @SerializedName("is_member") val isMember: Boolean,
+    @SerializedName("approve_joins") val approveJoins: Boolean = false,
+    @SerializedName("request_status") val requestStatus: String? = null,
+)
+
+data class JoinRequestDto(val id: Int, val profile: ProfileDto?, @SerializedName("requested_at") val requestedAt: String?)
 
 data class MessagePageDto(
     val messages: List<MessageDto>,
@@ -734,160 +807,3 @@ data class StoryPrivacyDto(val audience: String, val except: List<ProfileDto> = 
 data class JoinDto(val url: String, val room: String, val token: String)
 
 data class CallSessionDto(val call: CallDto, val join: JoinDto?)
-
-/** One of my live locations the server still has running (resume after an app restart). */
-data class LiveLocationDto(
-    @SerializedName("message_id") val messageId: String,
-    @SerializedName("conversation_id") val conversationId: String,
-    @SerializedName("live_until") val liveUntil: String,
-    /** Not a server field: the app works it out from `live_until` and the message's `stopped` meta. */
-    val active: Boolean = false,
-)
-
-/** A channel in the discover list / the preview sheet (Channels\ChannelService::present). */
-data class ChannelCardDto(
-    val id: String,
-    val name: String?,
-    val description: String?,
-    val avatar: String?,
-    val handle: String?,
-    @SerializedName("is_public") val isPublic: Boolean = false,
-    @SerializedName("followers_count") val followersCount: Int = 0,
-    @SerializedName("is_following") val isFollowing: Boolean = false,
-    @SerializedName("last_post_at") val lastPostAt: String? = null,
-)
-
-/** One sticker in a Dorr pack (StickerService / ChatSticker::present). */
-data class StickerDto(
-    val id: Int,
-    @SerializedName("pack_id") val packId: Int = 0,
-    val emoji: String? = null,
-    val url: String? = null,
-    val width: Int? = null,
-    val height: Int? = null,
-)
-
-data class StickerPackDto(
-    val id: Int,
-    val name: String? = null,
-    val cover: String? = null,
-    val stickers: List<StickerDto> = emptyList(),
-)
-
-/** The composer's sticker panel: Dorr's packs, plus whether the Giphy library is switched on. */
-data class StickerLibraryDto(
-    val packs: List<StickerPackDto> = emptyList(),
-    @SerializedName("library_enabled") val libraryEnabled: Boolean = false,
-)
-
-/** One GIF / animated sticker from Giphy (GiphyService::normalize). */
-data class GifDto(
-    val id: String,
-    val source: String = "giphy",
-    val kind: String = "gif",
-    val title: String? = null,
-    val url: String,
-    val webp: String? = null,
-    val mp4: String? = null,
-    val preview: String? = null,
-    val width: Int = 0,
-    val height: Int = 0,
-)
-
-/** One page of the Giphy library; `nextOffset` is null when there is nothing more. */
-data class GiphyPageDto(
-    val items: List<GifDto> = emptyList(),
-    @SerializedName("next_offset") val nextOffset: Int? = null,
-)
-
-/** One option of a poll, with how many people ticked it. */
-data class PollOptionDto(
-    val id: Int,
-    val text: String,
-    val votes: Int = 0,
-)
-
-/** A poll as this viewer sees it: the options, their counts, and which ones I ticked. */
-data class PollDto(
-    val question: String? = null,
-    val multiple: Boolean = false,
-    val options: List<PollOptionDto> = emptyList(),
-    /** How many distinct people voted, across every option. */
-    val voters: Int = 0,
-    @SerializedName("my_votes") val myVotes: List<Int> = emptyList(),
-)
-
-/** A link card (LinkPreviewService / ChatLinkPreview::card). */
-data class LinkPreviewDto(
-    val url: String,
-    val title: String? = null,
-    val description: String? = null,
-    val image: String? = null,
-    @SerializedName("site_name") val siteName: String? = null,
-)
-
-/** Who voted for one poll option (MessageExtrasService::voters). */
-data class PollOptionVotersDto(
-    val id: Int,
-    val text: String,
-    val voters: List<ProfileDto> = emptyList(),
-)
-
-/** The group behind an invite link, before joining (GroupService::previewInvite). */
-data class InvitePreviewDto(
-    @SerializedName("conversation_id") val conversationId: String,
-    val name: String? = null,
-    val description: String? = null,
-    val avatar: String? = null,
-    @SerializedName("members_count") val membersCount: Int = 0,
-    @SerializedName("is_member") val isMember: Boolean = false,
-    /** When true, joining by link asks the admins instead of adding me straight away. */
-    @SerializedName("approve_joins") val approveJoins: Boolean = false,
-    /** `type:id`, the key the chat list matches a join decision against. */
-    val key: String? = null,
-        /** `pending` while a request is in, `approved`/`rejected` after an admin answered. */
-        @SerializedName("request_status") val requestStatus: String? = null,
-)
-
-/** Someone waiting to join a group that asks an admin first. */
-data class JoinRequestDto(
-    val id: Int,
-    val profile: ProfileDto? = null,
-    @SerializedName("requested_at") val requestedAt: String? = null,
-)
-
-/** One person's share in a split bill (MoneyRequestService::present). */
-data class SplitShareDto(
-    val profile: ProfileDto? = null,
-    @SerializedName("amount_minor") val amountMinor: Long = 0,
-    val status: String = "pending",
-    @SerializedName("paid_at") val paidAt: String? = null,
-)
-
-/**
- * A money request or a split bill on one message. `kind` says which: a request has `amountMinor`
- * / `due`, a split has `totalMinor` / `shares` / `myShare`; both carry the currency.
- */
-data class PaymentDto(
-    val kind: String = "request",
-    val status: String = "pending",
-    @SerializedName("is_requester") val isRequester: Boolean = false,
-    @SerializedName("can_pay") val canPay: Boolean = false,
-    @SerializedName("can_cancel") val canCancel: Boolean = false,
-    // A money request:
-    @SerializedName("amount_minor") val amountMinor: Long = 0,
-    @SerializedName("paid_at") val paidAt: String? = null,
-    // A split bill:
-    @SerializedName("total_minor") val totalMinor: Long = 0,
-    val mode: String = "equal",
-    val shares: List<SplitShareDto> = emptyList(),
-    @SerializedName("paid_minor") val paidMinor: Long = 0,
-    @SerializedName("my_share") val myShare: SplitShareDto? = null,
-    // Currency, on both:
-    val currency: String? = null,
-    @SerializedName("currency_symbol") val currencySymbol: String? = null,
-    @SerializedName("decimal_places") val decimalPlaces: Int = 2,
-) {
-    /** What the card shows as the amount still owed. */
-    val due: Long get() = if (kind == "split") myShare?.amountMinor ?: 0L else amountMinor
-}

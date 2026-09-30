@@ -6,6 +6,7 @@ use App\Http\Requests\Concerns\HasCatalogRules;
 use App\Http\Requests\Concerns\SanitizesRichText;
 use App\Repositories\General\LanguageRepository;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class PrivacyPolicyRequest extends FormRequest
 {
@@ -21,7 +22,11 @@ class PrivacyPolicyRequest extends FormRequest
     {
         $this->sanitizeRichTranslations(['content']);
 
+        $serviceId = $this->input('service_id');
+        $isBlank = $serviceId === null || $serviceId === '' || $serviceId === 0 || $serviceId === '0';
+
         $this->merge([
+            'service_id' => $isBlank ? null : (int) $serviceId,
             'status' => filter_var($this->input('status', true), FILTER_VALIDATE_BOOLEAN),
             'sort_order' => $this->input('sort_order', 0),
         ]);
@@ -45,8 +50,17 @@ class PrivacyPolicyRequest extends FormRequest
      */
     protected function baseRules(): array
     {
+        $id = $this->route('privacy_policy');
+
         return [
-            'service_id' => ['nullable', 'integer', 'exists:service_categories,id'],
+            'service_id' => [
+                'nullable',
+                'integer',
+                'exists:service_categories,id',
+                Rule::unique('privacy_policies', 'service_id')
+                    ->ignore($id)
+                    ->whereNull('deleted_at'),
+            ],
             'status' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0'],
         ];

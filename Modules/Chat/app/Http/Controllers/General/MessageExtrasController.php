@@ -90,15 +90,13 @@ class MessageExtrasController extends Controller
     }
 
     /**
-     * The card for a link while it is still being typed in the composer.
+     * The card for a link while it's still being typed (the composer shows it above the keyboard).
      */
     public function linkPreview(Request $request, LinkPreviewService $previews)
     {
         $data = $request->validate(['url' => ['required', 'string', 'max:2000']]);
         $url = $previews->firstUrl($data['url']);
 
-        // No card (no url, or nothing fetchable) is an empty object, not null: the composer only
-        // draws when it finds a url in here.
-        return ApiResponse::success($url === null ? [] : ($previews->forUrl($url) ?? []), __('api.retrieved'));
+        return ApiResponse::success($url === null ? null : $previews->forUrl($url), __('api.retrieved'));
     }
 }

@@ -6,6 +6,6 @@ enum ConversationType: string
 {
     case Direct = 'direct';
     case Group = 'group';
-    /** Broadcast: anyone can follow a public one and read it, only its admins post. */
+    // Admins post, followers read and react. Group-like (isGroup() is true), see ChannelService.
     case Channel = 'channel';
 }

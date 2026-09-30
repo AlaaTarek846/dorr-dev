@@ -236,4 +236,84 @@ class MobileProfileTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('avatar');
     }
+
+    // -----------------------------------------------------------------------
+    // Delete account
+    // -----------------------------------------------------------------------
+
+    public function test_delete_account_soft_deletes_user_and_returns_success(): void
+    {
+        $user = $this->verifiedUser();
+        $headers = $this->bearerHeaders($user);
+
+        $this->deleteJson('/api/mobile/v1/profile/account', [], $headers)
+            ->assertOk()
+            ->assertJsonPath('message', __('api.account_deleted'));
+
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
+    }
+
+    public function test_delete_account_revokes_all_tokens(): void
+    {
+        $user = $this->verifiedUser();
+
+        // Issue two tokens to simulate multiple devices.
+        $user->createToken('mobile-app');
+        $token = $user->createToken('mobile-app')->plainTextToken;
+
+        $this->deleteJson('/api/mobile/v1/profile/account', [], [
+            'Authorization' => 'Bearer '.$token,
+        ])->assertOk();
+
+        $this->assertSame(0, $user->fresh()->tokens()->count());
+    }
+
+    public function test_delete_account_requires_authentication(): void
+    {
+        $this->deleteJson('/api/mobile/v1/profile/account')
+            ->assertUnauthorized();
+    }
+
+    // -----------------------------------------------------------------------
+    // Restore deleted account on re-login
+    // -----------------------------------------------------------------------
+
+    public function test_deleted_user_is_restored_when_requesting_otp(): void
+    {
+        $user = $this->verifiedUser();
+        $user->delete();
+
+        $this->assertSoftDeleted('users', ['id' => $user->id]);
+
+        $this->postJson('/api/mobile/v1/auth/otp', [
+            'dial_code' => self::DIAL_CODE,
+            'phone'     => self::PHONE,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.is_restored', true)
+            ->assertJsonPath('data.is_new_user', false);
+
+        $this->assertNotSoftDeleted('users', ['id' => $user->id]);
+    }
+
+    public function test_deleted_user_can_complete_otp_verify_after_restore(): void
+    {
+        $user = $this->verifiedUser();
+        $user->delete();
+
+        // requestOtp restores the account and sends the demo OTP code.
+        $this->postJson('/api/mobile/v1/auth/otp', [
+            'dial_code' => self::DIAL_CODE,
+            'phone'     => self::PHONE,
+        ])->assertOk();
+
+        // The OTP is the fixed demo code '1234' (see SendsPhoneOtp / test env config).
+        $this->postJson('/api/mobile/v1/auth/verify', [
+            'dial_code' => self::DIAL_CODE,
+            'phone'     => self::PHONE,
+            'code'      => '1234',
+        ])
+            ->assertOk()
+            ->assertJsonStructure(['data' => ['token', 'user']]);
+    }
 }

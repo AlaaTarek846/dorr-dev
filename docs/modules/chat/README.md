@@ -6,7 +6,11 @@ WhatsApp-style messaging. It is a module of its own, like `Modules/Wallet`. The 
 - **Backend: done** for conversations, message requests, messages (every type, including wallet cards), ticks, reply, forward, edit, delete, reactions, stars, pins, search, the gallery, disappearing messages, groups and roles, invite links, contacts (sync, number lookup, QR), privacy, blocks, presence, typing, folders, calls (LiveKit), push, and the admin limits.
 - **Android: done** (`androidApp/.../ui/screens/chat`, plus `chat/` for realtime, calls and voice). Opened from the chat button in the Home header, it takes the whole screen like the wallet does.
 - **Stories: done** on the backend (`StoryService`, 9 tests in `tests/Feature/ChatStoryTest.php`) and on Android (`StoriesBar`, `StoryViewer`, `StoryComposer`, `StoryPrivacyPage`).
-- **Not built yet:** chat themes CRUD and reports (admin), the Vue user web chat, and push-notification deep links on Android (the app has no OneSignal SDK yet).
+- **Themes & reports: done** (2026-09-28). Backend (`ChatThemeService`, `ChatReportService`, tables `chat_themes`, `chat_report_types`, `chat_reports`, each with `*_translations`, `*_users` and `*_messages` tables where needed, and 7 tests in `tests/Feature/ChatThemeReportTest.php`). Admin screens under **Chat** in the sidebar: reports, report reasons, themes and settings. Android: a theme picker with a live preview and a report sheet, both opened from chat info. The theme colours the bubbles and the wallpaper.
+- **Admin chat settings screen: done** (`views/chat/settings`).
+- **Group video calls: done**. Everyone in the call shows in a grid, with their camera or their photo, a glowing ring on whoever is talking, and a mic-off badge.
+- **Web chat: done**. Route `/user/messages` in the Vue user SPA (`views/messages/index.vue`, `components/messenger/*`, `composables/useChatRealtime.js`). It uses the same API under `/api/user/v1/chat`, with realtime over pusher-js from `realtime-config`.
+- `ChatDatabaseSeeder` seeds 6 report reasons and 6 colour themes (none set as the default) into empty tables only.
 
 ## Android app
 | Path | What |
@@ -21,6 +25,16 @@ WhatsApp-style messaging. It is a module of its own, like `Modules/Wallet`. The 
 Behaviour worth knowing: sending is optimistic. A message shows at once with ⏱, and a retry reuses the same `uuid`, so it can never be duplicated. "Send money" on a wallet-QR card hands off to the wallet through `WalletDeepLink`, and the wallet opens its normal confirmation after the PIN gate.
 
 **Server requirements for Android:** `BROADCAST_CONNECTION=pusher` with the Pusher keys (the app reads them from `realtime-config`), and "client events" doesn't need enabling because typing goes through the API. Calls also need the `LIVEKIT_*` values.
+
+## Web (Vue user SPA)
+| Path | What |
+|---|---|
+| `resources/js/modules/user/themes/theme-1/views/messages/index.vue` | Two panes: the list (search, All / Unread / Groups / Archived filters, requests) and the open chat (header with presence and typing, search inside the chat, messages, composer). Under 992px it shows one pane at a time |
+| `resources/js/components/messenger/MessengerBubble.vue` | One message. Covers every type, replies, reactions, ticks, and hover actions (react, reply, copy, edit, delete) |
+| `resources/js/components/messenger/messenger.css` | The look. It takes the brand colour from `--primary-rgb`, and supports dark mode and RTL |
+| `resources/js/composables/useChatRealtime.js` | pusher-js on `private-Modules.User.Models.User.{id}`, authorised through `/broadcasting/auth` with the user token |
+
+The web page supports optimistic sending with the same `uuid` rule as the app (retrying never duplicates), albums (several images sent as one message), drag-and-drop and paste for files, an upload progress bar, jumping to a replied message (it loads `around` it when it's old), and a media viewer. It also applies the chat theme.
 
 ## Layout
 | Path | What |

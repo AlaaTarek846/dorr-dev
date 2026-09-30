@@ -176,8 +176,8 @@ fun ComposerLinkPreview(text: String) {
         if (url == null) return@LaunchedEffect
         delay(500) // wait until the link is typed / pasted completely
         val json = runCatching { ApiClient.chat.linkPreview(chatAuth(), url).data }.getOrNull()
-        preview = (json as? JsonObject)?.takeIf { it.has("url") }?.let { card ->
-            com.google.gson.Gson().fromJson(card, LinkPreviewDto::class.java)
+        preview = json?.takeIf { it.isJsonObject && it.asJsonObject.has("url") }?.let {
+            com.google.gson.Gson().fromJson(it, LinkPreviewDto::class.java)
         }
     }
     val show = preview != null && dismissed != url
@@ -627,7 +627,7 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
                     LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f)) }
                     Box(Modifier.scale(pop.value)) { ChAvatar(p.avatar, p.name, p.conversationId, size = 92.dp) }
                     Spacer(Modifier.height(12.dp))
-                    Text(p.name.orEmpty(), color = Ch.Ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+                    Text(p.name, color = Ch.Ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                         Icon(Icons.Rounded.Groups, null, tint = Ch.Mut, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
@@ -677,7 +677,7 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
                                 busy = true
                                 host.scope.launch {
                                     try {
-                                        val result = ApiClient.chat.joinByInvite(chatAuth(), token).data as? JsonObject
+                                        val result = ApiClient.chat.joinByInvite(chatAuth(), token).data?.takeIf { it.isJsonObject }?.asJsonObject
                                         if (result?.get("status")?.asString == "pending") {
                                             preview = p.copy(requestStatus = "pending")
                                         } else {
@@ -698,18 +698,6 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
         }
     }
 }
-
-/**
- * How the admins answered a join request I sent, so the chat list can show me the outcome.
- *
- * @param groupName the group's name at the time, for the line under the verdict.
- * @param conversationId where to go when the request was approved.
- */
-data class JoinDecision(
-    val approved: Boolean,
-    val groupName: String,
-    val conversationId: String,
-)
 
 /** "You're in!" / "Not this time" — after the admins answered my request. */
 @Composable

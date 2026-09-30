@@ -447,4 +447,15 @@
     <string name="ch_group_empty_sub">ضيف الناس للجروب برقم موبايلهم، أو ادعي صحابك يدخلوا دُر.</string>
     <string name="ch_invite_friends">ادعي صحابك</string>
     <string name="ch_add_to_group">ضيفه للجروب</string>
+    <string name="ch_poll">استطلاع</string>
+    <string name="ch_attach_poll">استطلاع</string>
+    <string name="ch_attach_view_once">مرة واحدة</string>
+    <string name="ch_approve_joins">موافقة على الأعضاء الجدد</string>
+    <string name="ch_attach_request">اطلب فلوس</string>
+    <string name="ch_attach_split">قسّم فاتورة</string>
+    <string name="ch_money_request">طلب فلوس</string>
+    <string name="ch_filter_channels">القنوات</string>
+    <string name="ch_channel_handle">الاسم المميز للقناة</string>
+    <string name="ch_unfollow">إلغاء المتابعة</string>
+    <string name="ch_sticker">ملصق</string>
 </resources>

@@ -298,7 +298,7 @@ function fillForm(record) {
 
 function buildPayload() {
     return {
-        service_id: form.service_id ? form.service_id : GENERAL_OPTION_ID,
+        service_id: form.service_id ?? null,
         status: form.status,
         sort_order: Number(form.sort_order ?? 0),
         translations: buildTranslationsPayload(),
