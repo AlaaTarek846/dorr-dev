@@ -60,6 +60,24 @@ return [
         'service_categories' => [
             'reorder_siblings' => 'يجب أن يشمل الترتيب كل الخدمات في نفس المستوى (نفس الأب).',
         ],
+        'translations.*.question' => [
+            'required' => 'حقل السؤال مطلوب.',
+            'string' => 'يجب أن يكون حقل السؤال نصاً.',
+            'min' => 'يجب ألا يقل حقل السؤال عن :min حرفاً.',
+            'max' => 'يجب ألا يتجاوز حقل السؤال :max حرفاً.',
+        ],
+        'translations.*.answer' => [
+            'required' => 'حقل الإجابة مطلوب.',
+            'string' => 'يجب أن يكون حقل الإجابة نصاً.',
+            'min' => 'يجب ألا يقل حقل الإجابة عن :min حرفاً.',
+            'max' => 'يجب ألا يتجاوز حقل الإجابة :max حرفاً.',
+        ],
+        'translations.*.content' => [
+            'required' => 'حقل المحتوى مطلوب.',
+            'string' => 'يجب أن يكون حقل المحتوى نصاً.',
+            'min' => 'يجب ألا يقل حقل المحتوى عن :min حرفاً.',
+            'max' => 'يجب ألا يتجاوز حقل المحتوى :max حرفاً.',
+        ],
     ],
 
     'attributes' => [
@@ -124,6 +142,10 @@ return [
         'slug' => 'المعرّف',
         'path' => 'المسار',
         'sort_order' => 'الترتيب',
+        'service_id' => 'الخدمة',
+        'translations.*.question' => 'السؤال',
+        'translations.*.answer' => 'الإجابة',
+        'translations.*.content' => 'المحتوى',
         'preview_image' => 'صورة المعاينة',
     ],
 ];

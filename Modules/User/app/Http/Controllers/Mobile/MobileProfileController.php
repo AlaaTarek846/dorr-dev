@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Auth\VerificationCodeService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Modules\User\Http\Requests\ChangeEmailRequest;
@@ -169,6 +170,21 @@ class MobileProfileController extends Controller
             new UserResource($this->freshUser($user)),
             __('api.email_verified'),
         );
+    }
+
+    /**
+     * Soft-delete the user's account and revoke all authentication tokens
+     * immediately, kicking the user out of the app.
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('user_api');
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return ApiResponse::success([], __('api.account_deleted'));
     }
 
     /**

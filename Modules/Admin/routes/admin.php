@@ -7,6 +7,7 @@ use Modules\Admin\Http\Controllers\AdminProfileController;
 use Modules\Admin\Http\Controllers\NotificationController;
 use Modules\Admin\Http\Controllers\PermissionController;
 use Modules\Admin\Http\Controllers\RoleController;
+use Modules\Chat\Http\Controllers\Admin\ChatStickerController;
 
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
     require base_path('routes/admin.php');
@@ -38,5 +39,12 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
 
         Route::post('permissions/delete-multiple', [PermissionController::class, 'deleteMultiple']);
         Route::apiResource('permissions', PermissionController::class);
+
+        // Dorr's own sticker packs, uploaded in bulk and picked by the app.
+        Route::post('chat-sticker-packs/{chatStickerPack}/stickers', [ChatStickerController::class, 'addStickers']);
+        Route::patch('chat-sticker-packs/{chatStickerPack}/stickers/{chatSticker}', [ChatStickerController::class, 'updateSticker']);
+        Route::delete('chat-sticker-packs/{chatStickerPack}/stickers/{chatSticker}', [ChatStickerController::class, 'destroySticker']);
+        Route::patch('chat-sticker-packs/{chatStickerPack}/status', [ChatStickerController::class, 'status']);
+        Route::apiResource('chat-sticker-packs', ChatStickerController::class)->names('admin.chat-sticker-packs');
     });
 });

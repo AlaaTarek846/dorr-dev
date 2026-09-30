@@ -94,8 +94,11 @@ class ServiceCategoryService extends CatalogService
         /** @var ServiceCategoryRepository $repository */
         $repository = $this->repository;
 
+        $audience = strtolower(trim((string) request()->query('audience', '')));
+        $audience = $audience !== '' ? $audience : null;
+
         return ApiResponse::success(
-            ServiceCategoryTreeResource::collection($repository->treeOptions()),
+            ServiceCategoryTreeResource::collection($repository->treeOptions($audience)),
             __('api.retrieved'),
         );
     }

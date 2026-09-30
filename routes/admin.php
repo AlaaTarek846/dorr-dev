@@ -3,11 +3,13 @@
 use App\Http\Controllers\General\CountryController;
 use App\Http\Controllers\General\CurrencyController;
 use App\Http\Controllers\General\DashboardThemeController;
+use App\Http\Controllers\General\FaqController;
 use App\Http\Controllers\General\FlagController;
 use App\Http\Controllers\General\LanguageController;
 use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
+use App\Http\Controllers\General\PrivacyPolicyController;
 use App\Http\Controllers\General\ServiceCategoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -52,6 +54,8 @@ Route::middleware('auth:admin_api')->group(function () {
         ['currencies', CurrencyController::class, 'currency'],
         ['countries', CountryController::class, 'country'],
         ['service-categories', ServiceCategoryController::class, 'service_category'],
+        ['faqs', FaqController::class, 'faq'],
+        ['privacy-policies', PrivacyPolicyController::class, 'privacy_policy'],
     ] as [$uri, $controller, $parameter]) {
         if ($uri !== 'languages') {
             Route::get("{$uri}/dropdown", [$controller, 'dropdown']);

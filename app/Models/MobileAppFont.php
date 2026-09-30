@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasTranslations;
 use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
@@ -11,7 +12,7 @@ use Spatie\MediaLibrary\HasMedia;
 
 class MobileAppFont extends Model implements HasMedia
 {
-    use HasMediaTrait, SearchFilterTrait, SoftDeletes;
+    use HasMediaTrait, HasTranslations, SearchFilterTrait, SoftDeletes;
 
     public const FONT_FILES_COLLECTION = 'font_files';
 
@@ -19,7 +20,6 @@ class MobileAppFont extends Model implements HasMedia
      * @var list<string>
      */
     protected $fillable = [
-        'name',
         'slug',
         'status',
         'is_default',
@@ -36,6 +36,16 @@ class MobileAppFont extends Model implements HasMedia
             'is_default' => 'boolean',
             'sort_order' => 'integer',
         ];
+    }
+
+    public function translations(): HasMany
+    {
+        return $this->hasMany(MobileAppFontTranslation::class);
+    }
+
+    protected function translationModel(): string
+    {
+        return MobileAppFontTranslation::class;
     }
 
     public function userAppearances(): HasMany

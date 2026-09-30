@@ -143,7 +143,10 @@ HTML;
             return [ServiceAudience::Admin->value];
         }
 
-        $audiences = [ServiceAudience::User->value];
+        $audiences = [
+            ServiceAudience::Admin->value,
+            ServiceAudience::User->value,
+        ];
 
         if ($row['requires_provider']) {
             $audiences[] = ServiceAudience::Provider->value;

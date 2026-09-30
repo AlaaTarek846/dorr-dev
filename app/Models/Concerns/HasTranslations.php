@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 trait HasTranslations
 {
+    use ResolvesTranslatableFields;
+
     /**
      * @var array<string, array<string, string>>
      */
@@ -25,13 +27,22 @@ trait HasTranslations
 
     public function translatedName(): ?string
     {
+        return $this->translated('name');
+    }
+
+    /**
+     * Value of a translatable column for the current locale, with a fallback
+     * to any available locale so a record is never blank in the API.
+     */
+    public function translated(string $field): ?string
+    {
         if ($this->relationLoaded('translation') && $this->translation) {
-            return $this->translation->name;
+            return $this->translation->{$field};
         }
 
         if ($this->relationLoaded('translations')) {
-            return $this->translations->firstWhere('locale', app()->getLocale())?->name
-                ?? $this->translations->first()?->name;
+            return $this->translations->firstWhere('locale', app()->getLocale())?->{$field}
+                ?? $this->translations->first()?->{$field};
         }
 
         return null;
@@ -64,15 +75,17 @@ trait HasTranslations
             return;
         }
 
+        $allowed = $this->translatableFields();
+
         foreach ($this->pendingTranslations as $field => $locales) {
-            if ($field !== 'name') {
+            if (! in_array($field, $allowed, true)) {
                 continue;
             }
 
             foreach ($locales as $locale => $value) {
                 $this->translations()->updateOrCreate(
                     ['locale' => $locale],
-                    ['name' => $value],
+                    [$field => $value],
                 );
             }
         }

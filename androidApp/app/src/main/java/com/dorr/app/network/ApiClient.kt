@@ -102,6 +102,7 @@ object ApiClient {
         retrofit.create(MobileAppearanceDefaultsApi::class.java)
     }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+    val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */

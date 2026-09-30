@@ -2,6 +2,7 @@
 
 namespace Modules\Admin\Repositories;
 
+use App\Enums\ServiceAudience;
 use App\Exceptions\ConflictException;
 use App\Models\ServiceCategory;
 use App\Repositories\BaseRepository;
@@ -138,6 +139,7 @@ class AdminRepository extends BaseRepository
             ->whereIn('id', $categoryIds)
             ->whereDoesntHave('children')
             ->where('status', true)
+            ->whereJsonContains('audiences', ServiceAudience::Admin->value)
             ->pluck('id')
             ->map(fn ($id) => (int) $id)
             ->all();

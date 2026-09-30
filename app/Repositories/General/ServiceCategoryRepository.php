@@ -252,11 +252,17 @@ class ServiceCategoryRepository extends TranslatableRepository
      *
      * @return EloquentCollection<int, ServiceCategory>
      */
-    public function treeOptions(): EloquentCollection
+    public function treeOptions(?string $audience = null): EloquentCollection
     {
-        $categories = $this->model->newQuery()
+        $query = $this->model->newQuery()
             ->with(['translations', 'translation'])
-            ->where('status', true)
+            ->where('status', true);
+
+        if ($audience !== null && in_array($audience, ServiceAudience::values(), true)) {
+            $query->whereJsonContains('audiences', $audience);
+        }
+
+        $categories = $query
             ->orderBy('sort_order')
             ->orderBy('id')
             ->get();

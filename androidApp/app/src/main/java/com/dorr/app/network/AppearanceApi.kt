@@ -25,10 +25,12 @@ data class AppearanceDto(
     @SerializedName("custom_light_tokens") val customLightTokens: Map<String, String>? = null,
     @SerializedName("custom_dark_tokens") val customDarkTokens: Map<String, String>? = null,
     @SerializedName("dark_mode") val darkMode: String = "system",
+    @SerializedName("customizable_token_keys") val customizableTokenKeys: List<String>? = null,
+    /** The font this account picked, resolved for the app. */
     @SerializedName("mobile_app_font_id") val mobileAppFontId: Int? = null,
     val font: MobileAppFontDto? = null,
-    @SerializedName("available_fonts") val availableFonts: List<MobileAppFontDto>? = null,
-    @SerializedName("customizable_token_keys") val customizableTokenKeys: List<String>? = null,
+    /** Every font on offer, so the picker can list them. */
+    @SerializedName("available_fonts") val availableFonts: List<MobileAppFontDto> = emptyList(),
     val resolved: AppearanceTokenSetDto? = null,
     val default: AppearanceTokenSetDto? = null,
 )

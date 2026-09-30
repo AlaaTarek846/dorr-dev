@@ -820,7 +820,7 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
 
 @Composable
 private fun EditEmailScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
-    var email by remember { mutableStateOf(AuthSession.user?.email.orEmpty()) }
+    var email by remember { mutableStateOf("") }
     var stepOtp by remember { mutableStateOf(false) }
     var requesting by remember { mutableStateOf(false) }
     var maskedEmail by remember { mutableStateOf<String?>(null) }
