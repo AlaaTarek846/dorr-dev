@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ServiceCategoryTranslation extends Model
 {
-    protected $fillable = ['service_category_id', 'locale', 'name'];
+    protected $fillable = ['service_category_id', 'locale', 'name', 'description'];
 
     public function serviceCategory(): BelongsTo
     {

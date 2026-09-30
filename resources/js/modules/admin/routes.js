@@ -128,10 +128,10 @@ export default [
                 meta: { middleware: [auth], permission: 'faqs.view' },
             },
             {
-                path: 'privacy-policies',
-                name: 'admin.privacy-policies.index',
-                component: page('privacy-policy/index'),
-                meta: { middleware: [auth], permission: 'privacy-policy.view' },
+                path: 'legal-pages',
+                name: 'admin.legal-pages.index',
+                component: page('legal-page/index'),
+                meta: { middleware: [auth], permission: 'legal-page.view' },
             },
             {
                 // No permission: every admin has their own notifications.

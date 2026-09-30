@@ -72,3 +72,15 @@ Route → Controller → Service → Repository → Model
 ## Documentation Index
 
 See [README.md](README.md#documentation) for the full docs list.
+
+---
+
+## Plan First, Size the Model
+
+Every project starts with a plan. Choose model and effort by task size (table in [docs/AI-INSTRUCTIONS.md](docs/AI-INSTRUCTIONS.md#model-and-effort-selection)): trivial → Haiku/low, normal → Sonnet/medium, large → Opus (Fable for the hardest)/high.
+
+---
+
+## Android App
+
+Native app in `androidApp/` (Kotlin + Compose, `/api/mobile/v1/*`). Read [docs/modules/android/README.md](docs/modules/android/README.md) before touching it.

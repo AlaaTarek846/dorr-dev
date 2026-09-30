@@ -2,6 +2,7 @@ package com.dorr.app.network
 
 import com.google.gson.annotations.SerializedName
 import retrofit2.http.GET
+import retrofit2.http.Query
 
 data class FaqDto(
     val id: Int,
@@ -11,11 +12,11 @@ data class FaqDto(
     @SerializedName("sort_order") val sortOrder: Int? = null,
 )
 
-data class PrivacyPolicyDto(
+data class LegalPageDto(
     val id: Int? = null,
+    val type: String? = null,
     val content: String? = null,
     val status: Boolean? = null,
-    @SerializedName("sort_order") val sortOrder: Int? = null,
 )
 
 interface ContentApi {
@@ -23,7 +24,7 @@ interface ContentApi {
     @GET("mobile/v1/faqs")
     suspend fun getFaqs(): ApiEnvelope<List<FaqDto>>
 
-    /** GET /api/mobile/v1/privacy-policy — active general privacy policy */
-    @GET("mobile/v1/privacy-policy")
-    suspend fun getPrivacyPolicy(): ApiEnvelope<PrivacyPolicyDto?>
+    /** GET /api/mobile/v1/legal-pages?type= — active general legal page (privacy/term) */
+    @GET("mobile/v1/legal-pages")
+    suspend fun getLegalPage(@Query("type") type: String = "privacy"): ApiEnvelope<LegalPageDto?>
 }

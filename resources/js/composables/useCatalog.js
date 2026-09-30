@@ -19,6 +19,7 @@ export function useCatalog({
         filterTranslationByLocale: false,
     },
     dataKey = 'items',
+    getExtraListParams = null,
 }) {
     const { t } = useI18n();
     const { showSuccess, showError } = useToast();
@@ -64,6 +65,7 @@ export function useCatalog({
         statusFilterEnabled: true,
         optimisticStatus: true,
         fetchCounts: countsStore && ! lazyCounts ? fetchCounts : null,
+        getExtraListParams,
         onAfterFetch(data, { statusFilter }) {
             if (! countsStore || data.pagination?.total == null) {
                 return;

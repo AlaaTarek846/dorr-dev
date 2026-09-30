@@ -57,6 +57,12 @@ return [
             'min' => 'يجب ألا يقل حقل الاسم عن :min حرفاً.',
             'max' => 'يجب ألا يتجاوز حقل الاسم :max حرفاً.',
         ],
+        'service_categories' => [
+            'reorder_siblings' => 'يجب أن يشمل الترتيب كل الخدمات في نفس المستوى (نفس الأب).',
+        ],
+        'faqs' => [
+            'reorder_group' => 'يجب أن يشمل الترتيب كل الأسئلة الشائعة للخدمة المختارة.',
+        ],
         'translations.*.question' => [
             'required' => 'حقل السؤال مطلوب.',
             'string' => 'يجب أن يكون حقل السؤال نصاً.',
@@ -121,7 +127,9 @@ return [
         'translations' => 'الترجمات',
         'translations.*.locale' => 'اللغة',
         'translations.*.name' => 'الاسم',
+        'translations.*.description' => 'الوصف',
         'module_name' => 'اسم الوحدة',
+        'audiences' => 'الفئات المستهدفة',
         'is_login_dashboard' => 'الظهور في لوحة الدخول',
         'is_auto_assign' => 'الإسناد التلقائي',
         'ids' => 'العناصر المحددة',
@@ -141,6 +149,7 @@ return [
         'translations.*.question' => 'السؤال',
         'translations.*.answer' => 'الإجابة',
         'translations.*.content' => 'المحتوى',
+        'legal_page_type' => 'نوع الصفحة',
         'preview_image' => 'صورة المعاينة',
     ],
 ];

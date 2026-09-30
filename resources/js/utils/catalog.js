@@ -221,6 +221,27 @@ export function fillCatalogTranslationFields(target, record, localeCodes = null)
     }
 }
 
+export function fillCatalogDescriptionFields(target, record, localeCodes = null) {
+    const codes = localeCodes ?? Object.keys(target);
+    const translations = Array.isArray(record?.translations) ? record.translations : [];
+
+    for (const code of codes) {
+        target[code] = translations.find((item) => item.locale === code)?.description ?? '';
+    }
+
+    if (record?.description) {
+        for (const code of codes) {
+            if (! target[code]) {
+                target[code] = record.description;
+            }
+        }
+    }
+}
+
+export function syncCatalogLocaleObjectKeys(target, localeCodes) {
+    syncTranslationFormKeys(target, localeCodes);
+}
+
 /**
  * Same as syncTranslationFormKeys but for entities that translate more than a
  * name, where each locale holds an object of field => value.

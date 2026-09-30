@@ -67,6 +67,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Help
@@ -115,6 +116,7 @@ import com.dorr.app.ui.screens.profile.FaqSheet
 import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
 import com.dorr.app.ui.screens.profile.PersonalDataScreen
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.TermsConditionsScreen
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
@@ -127,7 +129,7 @@ import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.appearanceColor
 
 
-private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, ADDRESSES, SETTINGS, APPEARANCE, FONT }
+private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, TERMS, ADDRESSES, SETTINGS, APPEARANCE, FONT }
 
 private data class MenuEntry(
     val icon: ImageVector,
@@ -218,6 +220,7 @@ fun ProfileScreen(
                 )
             }
             ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.SETTINGS })
+            ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
@@ -227,6 +230,7 @@ fun ProfileScreen(
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
                 onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
                 onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
+                onOpenTerms = { subScreen = ProfileSub.TERMS },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
             )
@@ -563,6 +567,7 @@ private fun SettingsMenuScreen(
     onOpenNotifications: () -> Unit,
     onOpenWalletPin: () -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenFont: () -> Unit,
 ) {
@@ -596,6 +601,7 @@ private fun SettingsMenuScreen(
         MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
         MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub) { showAboutDialog = true },
         MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
+        MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = onOpenTerms),
         MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true) { showLogoutConfirm = true },
         MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
     )

@@ -62,6 +62,20 @@ For non-trivial changes, explain before implementing:
 
 **Do not make unrelated changes.**
 
+### Model and effort selection
+
+Every project starts with a plan. Choose the model and effort by task size to save tokens:
+
+| Task size | Examples | Model | Effort |
+|-----------|----------|-------|--------|
+| Trivial | typo, i18n key, rename, small CSS/text fix, doc edit | Haiku 4.5 | low |
+| Normal | one catalog field, one endpoint, one screen, a bug fix | Sonnet 5.5 | medium |
+| Large | new module, cross-layer feature (API + admin SPA + Android), migration with backfill, security or architecture change | Opus 5.5 (Fable 5.1 for the hardest) | high |
+
+- Plan with the stronger model, then hand well-specified steps to a cheaper one.
+- Use read-only exploration agents for wide searches instead of reading many files in the main session.
+- Escalate only when a cheaper model fails or the task turns out bigger than estimated.
+
 ---
 
 ## STEP 5 — IMPLEMENT

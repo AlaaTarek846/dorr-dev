@@ -23,8 +23,11 @@ class FaqRequest extends FormRequest
 
         $this->merge([
             'status' => filter_var($this->input('status', true), FILTER_VALIDATE_BOOLEAN),
-            'sort_order' => $this->input('sort_order', 0),
         ]);
+
+        if ($this->input('service_id') === '' || $this->input('service_id') === 'null') {
+            $this->merge(['service_id' => null]);
+        }
     }
 
     /**
@@ -34,6 +37,8 @@ class FaqRequest extends FormRequest
     {
         return match ($this->route()->getActionMethod()) {
             'store', 'update' => array_merge($this->baseRules(), $this->translationRules()),
+            'ordered' => ['service_id' => ['nullable', 'integer', 'exists:service_categories,id']],
+            'reorder' => $this->reorderRules(),
             'changeStatus' => $this->statusChangeRules(),
             'deleteMultiple' => $this->deleteMultipleRules('faqs'),
             default => [],
@@ -48,7 +53,18 @@ class FaqRequest extends FormRequest
         return [
             'service_id' => ['nullable', 'integer', 'exists:service_categories,id'],
             'status' => ['nullable', 'boolean'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function reorderRules(): array
+    {
+        return [
+            'service_id' => ['nullable', 'integer', 'exists:service_categories,id'],
+            'ordered_ids' => ['required', 'array', 'min:1'],
+            'ordered_ids.*' => ['required', 'integer', 'distinct', 'exists:faqs,id'],
         ];
     }
 
@@ -75,7 +91,8 @@ class FaqRequest extends FormRequest
         return [
             'service_id' => __('validation.attributes.service_id'),
             'status' => __('validation.attributes.status'),
-            'sort_order' => __('validation.attributes.sort_order'),
+            'ordered_ids' => __('validation.attributes.sort_order'),
+            'ordered_ids.*' => __('validation.attributes.sort_order'),
             'translations' => __('validation.attributes.translations'),
             'translations.*.locale' => __('validation.attributes.translations.*.locale'),
             'translations.*.question' => __('validation.attributes.translations.*.question'),

@@ -44,6 +44,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
@@ -189,6 +190,11 @@ private fun saveProfilePhoto(context: Context, uri: Uri, userId: Int): String? =
     dest.absolutePath
 }.getOrNull()
 
+private fun deleteProfilePhoto(context: Context, userId: Int) {
+    runCatching { photoFile(context, userId).delete() }
+    runCatching { profilePrefs(context, userId).edit().remove(PD_PHOTO).apply() }
+}
+
 private data class FieldRow(
     val icon: ImageVector,
     val label: String,
@@ -283,6 +289,34 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
         }
     }
 
+    var deletingAvatar by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    fun deleteAvatar() {
+        scope.launch {
+            deletingAvatar = true
+            runCatching {
+                ApiClient.profile.deleteAvatar(pdAuthHeader())
+            }.onSuccess { envelope ->
+                envelope.data?.let { AuthSession.user = it }
+                user?.id?.let { deleteProfilePhoto(context, it) }
+                photoPath = null
+                Toast.makeText(
+                    context,
+                    envelope.message.ifBlank { avatarSaved },
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }.onFailure {
+                Toast.makeText(
+                    context,
+                    it.serverMessage() ?: genericError,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            deletingAvatar = false
+        }
+    }
+
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val userId = user?.id ?: return@rememberLauncherForActivityResult
@@ -293,6 +327,16 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                 uploadAvatar(File(saved))
             }
         }
+    }
+
+    if (confirmDelete) {
+        // Same confirmation card as deleting an address.
+        DeleteAddressDialog(
+            title = stringResource(R.string.pd_delete_photo_ask),
+            name = stringResource(R.string.pd_delete_photo_confirm),
+            onDismiss = { confirmDelete = false },
+            onConfirm = { confirmDelete = false; deleteAvatar() },
+        )
     }
 
     PdScreen(title = stringResource(R.string.personal_data_title), onBack = onBack) {
@@ -359,7 +403,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             } else {
                                 Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = settingsAccent(), modifier = Modifier.size(44.dp))
                             }
-                            if (uploadingAvatar) {
+                            if (uploadingAvatar || deletingAvatar) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -385,6 +429,26 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
+                        // Only when there is a photo to remove (server avatar or the local copy).
+                        if ((user?.avatar != null || photoPath != null) && !uploadingAvatar && !deletingAvatar) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .size(28.dp)
+                                    .shadow(4.dp, CircleShape)
+                                    .clip(CircleShape)
+                                    .background(settingsCard())
+                                    .clickable { confirmDelete = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = stringResource(R.string.pd_delete_photo),
+                                    tint = settingsAccent(),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
                     }
                 }

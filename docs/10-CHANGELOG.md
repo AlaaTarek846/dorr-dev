@@ -9,6 +9,12 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- `DELETE /api/mobile/v1/profile/avatar` (`MobileProfileController::deleteAvatar`) and a delete-photo button with confirmation on the Android Personal Data screen
+- **Legal pages** replace the Privacy Policy catalog: `legal_pages` / `legal_page_translations` with a `type` (`privacy` | `term`), optional `service_id`, `General/LegalPage{Controller,Service,Repository}`, admin `/api/admin/v1/legal-pages*` (`legal-page.*` permissions), admin SPA `legal-page` views, `LegalPageSeeder`, `LegalPageManagementTest`; mobile `GET /api/mobile/v1/legal-pages` (replaces `/privacy-policy`); Android `PrivacyPolicyScreen` reads it
+- Service categories: `audiences` JSON (`ServiceAudience`: admin, user, provider, driver, backfilled from the legacy flags), translatable `description`, drag-and-drop ordering (`PUT /api/admin/v1/service-categories/reorder`, `ServiceCategoryReorderPanel.vue`)
+- FAQ drag-and-drop ordering per service (`GET faqs/ordered`, `PUT faqs/reorder`, `FaqReorderPanel.vue`); `sort_order` no longer comes from the form
+- Rich-text catalog editor and renderer (`CatalogRichTextEditor`, `CatalogRichTextContent`, `config/richTextEditor.js`, `RichTextSanitizationTest`)
+- Android: `ServiceDetailScreen`, `HtmlText`, services section and Home/Services screen updates, language and Type (font) changes
 - Live location routes for the mobile chat app — `GET live-locations`, `PUT messages/{m}/live-location`, `POST messages/{m}/live-location/stop`, registered in `Modules/Chat/routes/customer.php` (the `MessageExtrasController` methods existed but nothing routed to them)
 - Public mobile catalog content under `Modules/User` — `GET /api/mobile/v1/faqs` (all active general FAQs, `service_id IS NULL`) and `GET /api/mobile/v1/privacy-policy` (the single active general policy), localized via the `locale` middleware
 - Chat message extras wired end to end: `poll` / `money_request` / `bill_split` / `gif` / `sticker` types, `MessageResource` `poll` / `payment` / `view_once` / `view_once_opened` / `live_location` / `link_preview` fields, link cards cached on send, view-once files purged by `chat:purge` once everyone opened them
@@ -33,6 +39,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
   - `dorr-vue-frontend.mdc` (Vue/JS files)
 
 ### Changed
+- The Privacy Policy catalog and `GET /api/mobile/v1/privacy-policy` are removed (see Legal pages); older entries about them are historical
 - README updated with documentation index (project-specific section)
 - Privacy policies: a service can now back at most one policy (`service_id` unique among
   non-deleted records; general policies with a null `service_id` stay unlimited). The admin

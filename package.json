@@ -30,6 +30,8 @@
         "pinia": "^4.0.3",
         "primevue": "^4.3.6",
         "pusher-js": "^8.6.0",
+        "quill": "^2.0.3",
+        "sortablejs": "^1.15.6",
         "vue": "^3.5.42",
         "vue-i18n": "^11.4.10",
         "vue-router": "^5.3.1",

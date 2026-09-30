@@ -225,6 +225,37 @@ class MobileProfileTest extends TestCase
         $this->assertSame(1, $user->fresh()->getMedia('avatar')->count());
     }
 
+    public function test_delete_avatar_removes_media_and_returns_null_avatar(): void
+    {
+        Storage::fake('public');
+        $user = $this->verifiedUser();
+        $headers = $this->bearerHeaders($user);
+
+        $this->postJson('/api/mobile/v1/profile/avatar', [
+            'avatar' => UploadedFile::fake()->image('avatar.jpg'),
+        ], $headers)->assertOk();
+
+        $this->deleteJson('/api/mobile/v1/profile/avatar', [], $headers)
+            ->assertOk()
+            ->assertJsonPath('data.avatar', null);
+
+        $this->assertSame(0, $user->fresh()->getMedia('avatar')->count());
+    }
+
+    public function test_delete_avatar_without_avatar_is_ok(): void
+    {
+        $user = $this->verifiedUser();
+
+        $this->deleteJson('/api/mobile/v1/profile/avatar', [], $this->bearerHeaders($user))
+            ->assertOk()
+            ->assertJsonPath('data.avatar', null);
+    }
+
+    public function test_delete_avatar_requires_authentication(): void
+    {
+        $this->deleteJson('/api/mobile/v1/profile/avatar')->assertUnauthorized();
+    }
+
     public function test_update_avatar_rejects_non_image(): void
     {
         Storage::fake('public');

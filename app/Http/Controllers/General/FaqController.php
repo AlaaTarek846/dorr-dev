@@ -13,9 +13,32 @@ class FaqController extends CatalogController
         return 'faqs';
     }
 
+    /**
+     * @return list<array{0: string, 1: list<string>}>
+     */
+    protected static function extraAdminPermissionActionMethods(): array
+    {
+        return [
+            ['view', ['ordered']],
+            ['update', ['reorder']],
+        ];
+    }
+
     public function __construct(FaqService $service)
     {
         parent::__construct($service);
+    }
+
+    public function ordered(FaqRequest $request)
+    {
+        $serviceId = $request->validated('service_id');
+
+        return $this->service->ordered($serviceId !== null ? (int) $serviceId : null);
+    }
+
+    public function reorder(FaqRequest $request)
+    {
+        return $this->service->reorder($request->validated());
     }
 
     public function store(FaqRequest $request)

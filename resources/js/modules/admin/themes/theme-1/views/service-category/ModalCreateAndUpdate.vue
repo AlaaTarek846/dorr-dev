@@ -5,7 +5,7 @@
         tabindex="-1"
         aria-hidden="true"
     >
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header catalog-modal-header">
                     <div class="d-flex align-items-center justify-content-between w-100 gap-3">
@@ -93,6 +93,41 @@
                         </div>
 
                         <div class="mb-3">
+                            <label for="category-description" class="form-label">{{ t('service_categories.description') }}</label>
+                            <CatalogRichTextEditor
+                                id="category-description"
+                                v-model="form.descriptions[activeLocale]"
+                                min-height="180px"
+                                :placeholder="t('service_categories.description_placeholder')"
+                            />
+                            <div v-if="serverErrors[`translations.${activeLocale}.description`]?.[0]" class="invalid-feedback d-block">
+                                {{ serverErrors[`translations.${activeLocale}.description`][0] }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="category-audiences" class="form-label">
+                                {{ t('service_categories.audiences') }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            <MultiSelect
+                                id="category-audiences"
+                                v-model="form.audiences"
+                                :options="audienceOptions"
+                                option-label="label"
+                                option-value="value"
+                                :placeholder="t('service_categories.audiences_placeholder')"
+                                display="chip"
+                                append-to="self"
+                                class="w-100"
+                                :class="{ 'p-invalid': serverErrors.audiences?.[0] }"
+                            />
+                            <div v-if="serverErrors.audiences?.[0]" class="invalid-feedback d-block">
+                                {{ serverErrors.audiences[0] }}
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
                             <label for="category-parent" class="form-label">{{ t('service_categories.parent') }}</label>
                             <Select
                                 id="category-parent"
@@ -134,35 +169,6 @@
 
                         <div class="row g-3 mb-3">
 
-                            <div class="col-md-8">
-                                <label for="category-sort-order" class="form-label">{{ t('service_categories.sort_order') }}</label>
-                                <input
-                                    id="category-sort-order"
-                                    v-model.number="form.sort_order"
-                                    type="number"
-                                    min="0"
-                                    class="form-control"
-                                >
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label d-block mb-2">{{ t('service_categories.requires_provider') }}</label>
-                                <div
-                                    class="toggle toggle-success mb-0 catalog-modal-toggle"
-                                    :class="{ on: form.requires_provider }"
-                                    role="button"
-                                    tabindex="0"
-                                    @click="form.requires_provider = !form.requires_provider"
-                                    @keydown.enter.space.prevent="form.requires_provider = !form.requires_provider"
-                                >
-                                    <span></span>
-                                </div>
-                            </div>
-
-                        </div>
-
-                        <div class="row g-3 mb-3">
-
                             <div class="col-md-4">
                                 <label class="form-label d-block mb-2">{{ t('service_categories.status') }}</label>
                                 <div
@@ -172,20 +178,6 @@
                                     tabindex="0"
                                     @click="form.status = !form.status"
                                     @keydown.enter.space.prevent="form.status = !form.status"
-                                >
-                                    <span></span>
-                                </div>
-                            </div>
-
-                            <div class="col-md-4">
-                                <label class="form-label d-block mb-2">{{ t('service_categories.is_login_dashboard') }}</label>
-                                <div
-                                    class="toggle toggle-success mb-0 catalog-modal-toggle"
-                                    :class="{ on: form.is_login_dashboard }"
-                                    role="button"
-                                    tabindex="0"
-                                    @click="form.is_login_dashboard = !form.is_login_dashboard"
-                                    @keydown.enter.space.prevent="form.is_login_dashboard = !form.is_login_dashboard"
                                 >
                                     <span></span>
                                 </div>
@@ -224,14 +216,21 @@
 import useVuelidate from '@vuelidate/core';
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import adminAxios from '../../../../../../api/adminAxios';
+import CatalogRichTextEditor from '../../../../../../components/catalog/CatalogRichTextEditor.vue';
 import CatalogTranslationTabs from '../../../../../../components/catalog/CatalogTranslationTabs.vue';
 import FormFieldFeedback from '../../../../../../components/ui/FormFieldFeedback.vue';
 import useCatalogTranslations from '../../../../../../composables/useCatalogTranslations';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
-import { displayTranslatedName, setupCatalogModalWatcher } from '../../../../../../utils/catalog';
+import {
+    displayTranslatedName,
+    fillCatalogDescriptionFields,
+    setupCatalogModalWatcher,
+    syncCatalogLocaleObjectKeys,
+} from '../../../../../../utils/catalog';
 
 const DEFAULT_IMAGE = '/dashboard/themes/theme-1/assets/images/faces/9.jpg';
 
@@ -262,20 +261,27 @@ let v$;
 
 const isEdit = computed(() => props.type === 'edit');
 
+const AUDIENCE_VALUES = ['admin', 'user', 'provider', 'driver'];
+
 const form = reactive({
     parent_id: null,
     module_name: '',
-    is_login_dashboard: true,
+    audiences: ['user'],
     is_auto_assign: false,
-    requires_provider: false,
     status: true,
-    sort_order: 0,
     translations: {},
+    descriptions: {},
 });
+
+const audienceOptions = computed(() => AUDIENCE_VALUES.map((value) => ({
+    value,
+    label: t(`service_categories.audiences_labels.${value}`),
+})));
 
 const {
     activeLocale,
     storableLanguages,
+    localeOrder,
     translationRules,
     ensureLanguagesLoaded,
     translationTabFeedback,
@@ -379,15 +385,27 @@ function resetValidation() {
     applyApiErrors(serverErrors, {});
 }
 
+function resetDescriptions() {
+    syncCatalogLocaleObjectKeys(form.descriptions, localeOrder.value);
+
+    for (const code of localeOrder.value) {
+        form.descriptions[code] = '';
+    }
+}
+
+function fillDescriptions(record) {
+    syncCatalogLocaleObjectKeys(form.descriptions, localeOrder.value);
+    fillCatalogDescriptionFields(form.descriptions, record, localeOrder.value);
+}
+
 function resetForm() {
     form.parent_id = null;
     form.module_name = '';
-    form.is_login_dashboard = true;
+    form.audiences = ['user'];
     form.is_auto_assign = false;
-    form.requires_provider = false;
     form.status = true;
-    form.sort_order = 0;
     resetTranslations();
+    resetDescriptions();
     resetImageState();
     resetValidation();
 }
@@ -395,13 +413,14 @@ function resetForm() {
 function fillForm(record) {
     form.parent_id = record?.parent_id ?? null;
     form.module_name = record?.module_name ?? '';
-    form.is_login_dashboard = Boolean(record?.is_login_dashboard ?? true);
+    form.audiences = Array.isArray(record?.audiences) && record.audiences.length
+        ? [...record.audiences]
+        : ['user'];
     form.is_auto_assign = Boolean(record?.is_auto_assign ?? false);
-    form.requires_provider = Boolean(record?.requires_provider ?? false);
     form.status = Boolean(record?.status ?? true);
-    form.sort_order = record?.sort_order ?? 0;
     savedImageUrl.value = record?.image_thumb || record?.image || '';
     fillTranslations(record);
+    fillDescriptions(record);
     resetImageState();
     savedImageUrl.value = record?.image_thumb || record?.image || '';
     resetValidation();
@@ -418,15 +437,20 @@ function buildFormData() {
         formData.append('module_name', form.module_name);
     }
 
-    formData.append('is_login_dashboard', form.is_login_dashboard ? '1' : '0');
+    form.audiences.forEach((value, index) => {
+        formData.append(`audiences[${index}]`, value);
+    });
+
     formData.append('is_auto_assign', form.is_auto_assign ? '1' : '0');
-    formData.append('requires_provider', form.requires_provider ? '1' : '0');
     formData.append('status', form.status ? '1' : '0');
-    formData.append('sort_order', String(Number(form.sort_order) || 0));
 
     buildTranslationsPayload().forEach((translation, index) => {
         formData.append(`translations[${index}][locale]`, translation.locale);
         formData.append(`translations[${index}][name]`, translation.name);
+        formData.append(
+            `translations[${index}][description]`,
+            String(form.descriptions[translation.locale] ?? '').trim(),
+        );
     });
 
     if (imageFile.value) {
@@ -479,6 +503,12 @@ function onModalHidden() {
 }
 
 async function submit() {
+    if (! form.audiences.length) {
+        serverErrors.audiences = [t('validation.required', { field: t('service_categories.audiences') })];
+        showWarning(t('toast.validation_error'));
+        return;
+    }
+
     v$.value.$touch();
 
     if (v$.value.$invalid) {

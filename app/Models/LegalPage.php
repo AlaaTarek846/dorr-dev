@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class PrivacyPolicy extends Model
+class LegalPage extends Model
 {
     use HasTranslations, SearchFilterTrait, SoftDeletes;
 
@@ -25,9 +25,9 @@ class PrivacyPolicy extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'type',
         'service_id',
         'status',
-        'sort_order',
     ];
 
     /**
@@ -38,18 +38,17 @@ class PrivacyPolicy extends Model
         return [
             'service_id' => 'integer',
             'status' => 'boolean',
-            'sort_order' => 'integer',
         ];
     }
 
     public function translations(): HasMany
     {
-        return $this->hasMany(PrivacyPolicyTranslation::class);
+        return $this->hasMany(LegalPageTranslation::class);
     }
 
     protected function translationModel(): string
     {
-        return PrivacyPolicyTranslation::class;
+        return LegalPageTranslation::class;
     }
 
     public function service(): BelongsTo
