@@ -38,7 +38,7 @@ class LanguageRequest extends FormRequest
     protected function baseRules(mixed $id): array
     {
         return [
-            'code' => ['required', 'string', 'min:1', 'max:3', Rule::unique('languages', 'code')->ignore($id)],
+            'code' => ['required', 'string', 'min:1', 'max:3', 'regex:/^[A-Za-z]{2,3}$/', Rule::unique('languages', 'code')->ignore($id)],
             'direction' => ['required', Rule::in(['rtl', 'ltr'])],
             'is_default_website' => ['nullable', 'boolean'],
             'is_default_dashboard' => ['nullable', 'boolean'],

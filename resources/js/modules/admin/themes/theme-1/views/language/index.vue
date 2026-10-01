@@ -311,6 +311,15 @@
                                                 </div>
                                                 <div v-else-if="!isTrashedRecord(language)" class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canView"
+                                                        type="button"
+                                                        class="btn btn-sm btn-primary-light btn-icon"
+                                                        :title="t('language_translations.button')"
+                                                        @click="openTranslations(language)"
+                                                    >
+                                                        <i class="ri-translate-2"></i>
+                                                    </button>
+                                                    <button
                                                         v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-info-light btn-icon"
@@ -395,6 +404,13 @@
             @saved="onSaved"
         />
 
+        <TranslationsModal
+            :show="translationsShow"
+            :language="translationsLanguage"
+            @close="translationsShow = false"
+            @changed="availableLanguagesStore.fetchInterface(true)"
+        />
+
         <ConfirmDeleteModal
             :show="deleteConfirm.state.show"
             :title="deleteConfirm.state.title"
@@ -429,19 +445,23 @@ import {
     resolveRecordFlagCode,
 } from '../../../../../../utils/catalog';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
+import TranslationsModal from './TranslationsModal.vue';
 
 const { t, locale } = useI18n();
 const languagesStore = useLanguagesStore();
 const availableLanguagesStore = useAvailableLanguagesStore();
 
 const {
+    canView,
     canCreate,
     canUpdate,
     canDelete,
     canChangeStatus,
     canMultipleDelete,
-    showActionsColumn,
+    showActionsColumn: showEditActions,
 } = useCatalogPermissions('languages');
+
+const showActionsColumn = computed(() => showEditActions.value || canView.value);
 
 const tableColumnCount = computed(() => {
     let count = 8;
@@ -493,6 +513,8 @@ const counts = computed(() => ({
 const modalShow = ref(false);
 const modalType = ref('create');
 const selectedRecord = ref(null);
+const translationsShow = ref(false);
+const translationsLanguage = ref(null);
 const deleteConfirm = useConfirmDelete();
 
 const selectedCount = computed(() => selectedIds.value.length);
@@ -594,6 +616,11 @@ function openEdit(language) {
     modalShow.value = true;
 }
 
+function openTranslations(language) {
+    translationsLanguage.value = { ...language };
+    translationsShow.value = true;
+}
+
 function changePage(page) {
     if (! pagination.value) {
         return;
@@ -629,6 +656,7 @@ async function onSaved() {
     await Promise.all([
         fetchLanguages(currentPage.value),
         availableLanguagesStore.fetch(true),
+        availableLanguagesStore.fetchInterface(true),
     ]);
 }
 

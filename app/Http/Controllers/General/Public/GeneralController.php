@@ -8,7 +8,9 @@ use App\Services\General\LanguageService;
 use App\Services\General\PlatformSettingService;
 use App\Services\General\MobileAppColorDefaultService;
 use App\Services\General\ServiceCategoryService;
+use App\Services\General\TranslationService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 /**
  * Public General API — no authentication (mobile onboarding, pre-login SPA).
@@ -23,6 +25,7 @@ class GeneralController extends Controller
         protected PlatformSettingService $platformSettingService,
         protected ServiceCategoryService $serviceCategoryService,
         protected MobileAppColorDefaultService $mobileAppColorDefaultService,
+        protected TranslationService $translationService,
     ) {}
 
     public function countriesDropdown(): JsonResponse
@@ -53,5 +56,22 @@ class GeneralController extends Controller
     public function mobileAppearanceDefaults(): JsonResponse
     {
         return $this->mobileAppColorDefaultService->publicDefaults();
+    }
+
+    public function translationLanguages(Request $request): JsonResponse
+    {
+        $platform = $request->query('platform');
+
+        return $this->translationService->interfaceLanguages(is_string($platform) ? $platform : null);
+    }
+
+    public function vueTranslations(string $code): JsonResponse
+    {
+        return $this->translationService->vueMessages($code);
+    }
+
+    public function androidTranslations(string $code): JsonResponse
+    {
+        return $this->translationService->androidStrings($code);
     }
 }

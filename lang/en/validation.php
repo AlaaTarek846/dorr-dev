@@ -15,6 +15,9 @@ return [
     ],
     'image' => 'The :attribute field must be an image.',
     'mimes' => 'The :attribute field must be a file of type: :values.',
+    'mimetypes' => 'The :attribute field must be a file of type: :values.',
+    'extensions' => 'The :attribute field must have one of the following extensions: :values.',
+    'file' => 'The :attribute field must be a file.',
     'min' => [
         'array' => 'The :attribute field must have at least :min items.',
         'numeric' => 'The :attribute field must be at least :min.',
@@ -75,6 +78,7 @@ return [
     ],
 
     'attributes' => [
+        'file' => 'file',
         'avatar' => 'avatar',
         'name' => 'name',
         'email' => 'email',

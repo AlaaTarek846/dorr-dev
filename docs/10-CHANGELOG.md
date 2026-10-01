@@ -9,6 +9,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Dynamic Android translations (ADR-011): public `GET /api/general/v1/translations/{code}/android` (published Android groups merged, `version` hash, `ETag` + `304`) and `GET /api/general/v1/translations/languages?platform=android` (ar/en + languages with published Android `strings`, `android_version`); the list without `platform` is unchanged. Android app: `LanguageApi` uses the new endpoints, `DownloadedTranslations` (one file in `filesDir/translations`, atomic download, metadata in `dorr_app_prefs`), `DynamicResources` (string/plural lookups by entry name, English fallback), layout direction from the saved language, download-then-switch in the Profile and Login language pickers, update check on launch / dialog open, `bundle { language { enableSplit = false } }`. New string `language_download_failed`. Tests added to `TranslationManagementTest`
+- Interface translation management (ADR-011): `translation_files` table + `TranslationFile` media model, admin endpoints under `/api/admin/v1/languages/{language}/translations` (overview, CSV/JSON export, validate, import as draft, publish, discard, Android XML ZIP), public `GET /api/general/v1/translations/languages` and `GET /api/general/v1/translations/{code}/vue`, Translations modal on the admin Languages page, runtime loading of published locales (backend loader with `en` fallback, Vue messages without rebuild). Tests: `TranslationManagementTest`, `AndroidStringsXmlTest`
 - `DELETE /api/mobile/v1/profile/avatar` (`MobileProfileController::deleteAvatar`) and a delete-photo button with confirmation on the Android Personal Data screen
 - **Legal pages** replace the Privacy Policy catalog: `legal_pages` / `legal_page_translations` with a `type` (`privacy` | `term`), optional `service_id`, `General/LegalPage{Controller,Service,Repository}`, admin `/api/admin/v1/legal-pages*` (`legal-page.*` permissions), admin SPA `legal-page` views, `LegalPageSeeder`, `LegalPageManagementTest`; mobile `GET /api/mobile/v1/legal-pages` (replaces `/privacy-policy`); Android `PrivacyPolicyScreen` reads it
 - Service categories: `audiences` JSON (`ServiceAudience`: admin, user, provider, driver, backfilled from the legacy flags), translatable `description`, drag-and-drop ordering (`PUT /api/admin/v1/service-categories/reorder`, `ServiceCategoryReorderPanel.vue`)
@@ -39,6 +41,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
   - `dorr-vue-frontend.mdc` (Vue/JS files)
 
 ### Changed
+- `LocaleResolver` supports dynamically published locales and matches region tags (`fr-CA` → `fr`); language `code` must be 2–3 letters
+- Vue locale switchers use the interface language list and `language.direction` instead of hardcoded `ar`/`en`
 - The Privacy Policy catalog and `GET /api/mobile/v1/privacy-policy` are removed (see Legal pages); older entries about them are historical
 - README updated with documentation index (project-specific section)
 - Privacy policies: a service can now back at most one policy (`service_id` unique among

@@ -165,6 +165,25 @@ Applies to: **flags**, **languages**, **currencies**, **countries**, **service-c
 
 Catalog create/update requires `translations[]` with `locale` + `name` for all storable languages.
 
+### Authenticated — Interface Translations `/api/admin/v1/languages/{language}/translations`
+
+Translation files for new interface languages (e.g. `fr`). `ar` / `en` are the bundled sources and are
+rejected (`422 translations_source_locale`). `en` is the base and fallback. Files are JSON stored through
+Spatie Media Library (`translation_files` holds metadata only). Import never publishes.
+
+| Method | Endpoint | Permission | Description |
+|--------|----------|------------|-------------|
+| GET | `/` | `languages.view` | Groups per platform with status, key counts, missing, publish state |
+| GET | `/{platform}/{group}/export?format=csv\|json&mode=all\|missing` | `languages.view` | Download a template/working copy (CSV columns: `key,en,ar,translation`) |
+| POST | `/{platform}/{group}/validate` | `languages.update` | Dry run: `file` (json/csv) → report |
+| POST | `/{platform}/{group}/import` | `languages.update` | Validate and save as draft (missing keys allowed, extra keys / placeholder changes rejected) |
+| POST | `/{platform}/{group}/publish` | `languages.update` | Publish the pending draft (version +1) |
+| DELETE | `/{platform}/{group}/draft` | `languages.update` | Discard the pending draft |
+| GET | `/android/export?source=published\|draft` | `languages.view` | ZIP with `values-{qualifier}/{group}.xml` (generated, never written to the Android project) |
+
+Platforms / groups: `backend` (`api, validation, notifications, chat, wallet, sms, ai, provider`), `vue` (`messages`),
+`android` (`strings, chat_strings, wallet_strings`).
+
 **Countries dropdown** (`/countries/dropdown`) returns each active country: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`. `phone_length` + `phone_starts_with` + `is_default` drive frontend phone placeholder (`prefix*********`), phone validation, and default-country auto-selection in Admin user/provider modals.
 
 ### Authenticated — Providers
@@ -358,6 +377,10 @@ OAuth SPA landing routes: `/user/oauth/callback`, `/provider/oauth/callback`.
 Partial public data today:
 - `GET /api/admin/v1/platform-settings/branding` (no auth)
 - `GET /api/admin/v1/languages/dropdown` (no auth)
+- `GET /api/general/v1/translations/languages` (no auth) — interface languages: `ar`, `en` plus active languages with a published Vue file (`code`, `name`, `direction`, `version`)
+- `GET /api/general/v1/translations/{code}/vue` (no auth) — published Vue messages for a non-bundled locale (`ETag`); `404` when not published
+- `GET /api/general/v1/translations/languages?platform=android` (no auth) — Android app languages: `ar`, `en` (bundled in the APK, always listed, `android_version: null`) plus active languages whose Android `strings` group is published. Fields: `id`, `code`, `name`, `direction`, `flag {id, code}`, `android_version`. Without `platform` (or any other value) the response is the Vue list above, unchanged
+- `GET /api/general/v1/translations/{code}/android` (no auth) — published Android strings of a non-bundled locale, every published group (`strings`, `chat_strings`, `wallet_strings`) merged into one flat map: `{code, direction, version, strings}`. `strings` values are text or `{quantity: text}` for plurals (decoded, printf placeholders such as `%1$s`). `version` = `sha1("strings:N|chat_strings:N|wallet_strings:N")` of the published versions (0 for unpublished groups), so it changes on every re-publish and equals `android_version` in the list. Headers: `ETag: "android-{code}-{version}"`, `Cache-Control: no-cache`; `If-None-Match` with the current ETag answers `304`. `404` (`translations_not_published`) when `strings` is not published, the language is disabled, or the code is `ar` / `en`
 
 ---
 
