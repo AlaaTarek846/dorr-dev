@@ -39,6 +39,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
   - `dorr-vue-frontend.mdc` (Vue/JS files)
 
 ### Changed
+- Android: the system Back button now matches the in-app back — non-Home tabs return to Home, service pages close, and profile sub-screens, personal-data edit pages and the address form step back one level (Home still closes the app)
 - The Privacy Policy catalog and `GET /api/mobile/v1/privacy-policy` are removed (see Legal pages); older entries about them are historical
 - README updated with documentation index (project-specific section)
 - Privacy policies: a service can now back at most one policy (`service_id` unique among

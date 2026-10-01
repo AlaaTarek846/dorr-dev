@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
@@ -149,6 +150,16 @@ fun ProfileScreen(
 ) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
     val isAtRoot = subScreen == ProfileSub.NONE
+
+    // System back = the same step as each sub-screen's own back arrow. Sub-screens with inner
+    // steps (personal data, addresses form, privacy policy) register their own handlers after this one.
+    BackHandler(enabled = !isAtRoot) {
+        subScreen = when (subScreen) {
+            ProfileSub.NOTIFICATIONS, ProfileSub.WALLET_PIN, ProfileSub.PRIVACY, ProfileSub.TERMS,
+            ProfileSub.APPEARANCE, ProfileSub.FONT -> ProfileSub.SETTINGS
+            else -> ProfileSub.NONE
+        }
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var isDeleting by remember { mutableStateOf(false) }

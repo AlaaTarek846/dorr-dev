@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens.profile
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -91,6 +92,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
@@ -136,6 +139,7 @@ private const val PD_GENDER = "gender"
 private const val PD_PHOTO = "photo"
 // Matches the server's auth_flow.otp_length (phone and e-mail change codes alike).
 private const val PD_OTP_LENGTH = 4
+private const val PD_OTP_MARKER = "​"
 private val Pink = Color(0xFFFDE8EC)
 private val FieldFill = Color(0xFFFBF7F8)
 private val FieldBorder = Color(0xFFF3D5DB)
@@ -216,6 +220,9 @@ private fun pdAuthHeader(): String = "Bearer ${AuthSession.token.orEmpty()}"
 fun PersonalDataScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     var sub by remember { mutableStateOf(PdSub.NONE) }
     var refresh by remember { mutableIntStateOf(0) }
+
+    // Edit name / phone / email → back to the personal data list; on the list, ProfileScreen handles it.
+    BackHandler(enabled = sub != PdSub.NONE) { sub = PdSub.NONE }
 
     AnimatedContent(
         targetState = sub,
@@ -1085,6 +1092,12 @@ private fun PdOtpStep(
                                         if (code.length == PD_OTP_LENGTH) verify(code)
                                     }
                                 },
+                                onBackspaceOnEmpty = {
+                                    if (index > 0) {
+                                        focusers[index - 1].requestFocus()
+                                        digits = digits.toMutableList().also { it[index - 1] = "" }
+                                    }
+                                },
                             )
                         }
                     }
@@ -1127,6 +1140,7 @@ private fun OtpDigit(
     hasError: Boolean,
     focusRequester: FocusRequester,
     onValue: (String) -> Unit,
+    onBackspaceOnEmpty: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     val border = when {
@@ -1143,9 +1157,18 @@ private fun OtpDigit(
             .border(1.5.dp, border, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
     ) {
+        // A soft keyboard sends no key event for Backspace on an empty field, so the box always holds
+        // an invisible marker: deleting it is how an "empty" box learns Backspace was pressed.
+        val shown = PD_OTP_MARKER + value
         BasicTextField(
-            value = value,
-            onValueChange = { onValue(it.filter(Char::isDigit).takeLast(1)) },
+            value = TextFieldValue(shown, TextRange(shown.length)),
+            onValueChange = { typed ->
+                if (!typed.text.startsWith(PD_OTP_MARKER)) {
+                    if (value.isEmpty()) onBackspaceOnEmpty() else onValue("")
+                } else {
+                    onValue(typed.text.filter(Char::isDigit).takeLast(1))
+                }
+            },
             singleLine = true,
             textStyle = TextStyle(
                 fontSize = 20.sp,
