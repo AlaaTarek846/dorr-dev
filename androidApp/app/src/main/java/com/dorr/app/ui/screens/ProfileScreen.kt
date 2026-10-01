@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
@@ -30,7 +31,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.dorr.app.network.LanguageDto
@@ -150,6 +150,16 @@ fun ProfileScreen(
 ) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
     val isAtRoot = subScreen == ProfileSub.NONE
+
+    // System back = the same step as each sub-screen's own back arrow. Sub-screens with inner
+    // steps (personal data, addresses form, privacy policy) register their own handlers after this one.
+    BackHandler(enabled = !isAtRoot) {
+        subScreen = when (subScreen) {
+            ProfileSub.NOTIFICATIONS, ProfileSub.WALLET_PIN, ProfileSub.PRIVACY, ProfileSub.TERMS,
+            ProfileSub.APPEARANCE, ProfileSub.FONT -> ProfileSub.SETTINGS
+            else -> ProfileSub.NONE
+        }
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var isDeleting by remember { mutableStateOf(false) }
@@ -675,6 +685,7 @@ private fun SettingsMenuScreen(
             icon = Icons.Rounded.Logout,
             title = stringResource(R.string.account_logout),
             message = stringResource(R.string.logout_confirm_message),
+            confirmLabel = stringResource(R.string.common_yes),
             onConfirm = { showLogoutConfirm = false; onLogout() },
             onDismiss = { showLogoutConfirm = false },
         )
@@ -937,9 +948,10 @@ private fun ConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     loading: Boolean = false,
+    confirmLabel: String = stringResource(R.string.addr_yes),
 ) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = { if (!loading) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -1032,7 +1044,7 @@ private fun ConfirmDialog(
                                     )
                                 }
                             } else {
-                                Text(stringResource(R.string.addr_yes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(confirmLabel, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         Box(
@@ -1062,7 +1074,7 @@ private fun ConfirmDialog(
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {

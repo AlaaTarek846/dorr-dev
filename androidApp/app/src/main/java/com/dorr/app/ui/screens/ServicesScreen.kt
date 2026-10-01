@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -82,6 +83,8 @@ fun ServicesScreen(
         if (onOpenService != null) onOpenService(service, color)
         else localDetail = service to color
     }
+
+    BackHandler(enabled = localDetail != null) { localDetail = null }
 
     localDetail?.let { (service, color) ->
         ServiceDetailScreen(

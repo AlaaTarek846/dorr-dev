@@ -79,6 +79,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -455,6 +457,8 @@ fun OtpScreen(
     }
 }
 
+private const val OTP_MARKER = "​"
+
 @Composable
 private fun DigitBox(
     value: String,
@@ -488,9 +492,18 @@ private fun DigitBox(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
+            // A soft keyboard sends no key event for Backspace on an empty field, so the box always
+            // holds an invisible marker: deleting it is how an "empty" box learns Backspace was pressed.
+            val shown = OTP_MARKER + value
             BasicTextField(
-                value = value,
-                onValueChange = { new ->
+                value = TextFieldValue(shown, TextRange(shown.length)),
+                onValueChange = { typed ->
+                    val new = typed.text
+                    if (!new.startsWith(OTP_MARKER)) {
+                        // Marker deleted → Backspace: clear this digit, or step back from an empty box.
+                        if (value.isEmpty()) onBackspaceOnEmpty() else onValueChange("")
+                        return@BasicTextField
+                    }
                     val digit = new.filter(Char::isDigit).takeLast(1)
                     onValueChange(digit)
                     if (digit.isNotEmpty()) {
