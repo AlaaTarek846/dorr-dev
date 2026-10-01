@@ -137,7 +137,7 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
-            'privacy-policy' => [
+            'legal-page' => [
                 'module_name' => 'general_services',
                 'actions' => [
                     'view',

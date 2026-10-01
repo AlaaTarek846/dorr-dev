@@ -3,15 +3,15 @@
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\Mobile\AddressController;
 use Modules\User\Http\Controllers\Mobile\FaqController;
+use Modules\User\Http\Controllers\Mobile\LegalPageController;
 use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
-use Modules\User\Http\Controllers\Mobile\PrivacyPolicyController;
 use Modules\User\Http\Controllers\PhoneChangeController;
 
 Route::middleware('locale')->prefix('mobile/v1')->group(function () {
     Route::get('faqs', [FaqController::class, 'index']);
-    Route::get('privacy-policy', [PrivacyPolicyController::class, 'show']);
+    Route::get('legal-pages', [LegalPageController::class, 'show']);
 
     Route::middleware('guest:user_api')->group(function () {
         Route::post('auth/otp', [MobileAuthController::class, 'requestOtp']);
@@ -34,6 +34,7 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::post('profile/phone/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
         Route::put('profile/identity', [MobileProfileController::class, 'updateIdentity']);
         Route::post('profile/avatar', [MobileProfileController::class, 'updateAvatar']);
+        Route::delete('profile/avatar', [MobileProfileController::class, 'deleteAvatar']);
         Route::post('profile/email/request', [MobileProfileController::class, 'requestEmailChange']);
         Route::post('profile/email/confirm', [MobileProfileController::class, 'confirmEmailChange']);
         Route::delete('profile/account', [MobileProfileController::class, 'deleteAccount']);

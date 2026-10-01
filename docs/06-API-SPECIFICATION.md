@@ -329,6 +329,7 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/profile/phone/confirm` | `auth:user_api` + `ensure-phone-verified` | Change phone step 2: verify `code` → swap number, re-mark verified |
 | PUT | `/profile/identity` | `auth:user_api` + `ensure-phone-verified` | Update `name` + `gender` (`male`/`female`) directly |
 | POST | `/profile/avatar` | `auth:user_api` + `ensure-phone-verified` | Replace avatar (`avatar`: jpeg/jpg/png/webp ≤ 2MB, multipart) |
+| DELETE | `/profile/avatar` | `auth:user_api` + `ensure-phone-verified` | Remove avatar (idempotent); returns `UserResource` with `avatar: null` |
 | GET | `/addresses?search=` | `auth:user_api` + `ensure-phone-verified` | Own addresses, newest first, paginated (`page`/`per_page`, `all=1` for all) |
 | POST | `/addresses` | `auth:user_api` + `ensure-phone-verified` | Create address (201) |
 | GET | `/addresses/{id}` | `auth:user_api` + `ensure-phone-verified` | Single own address (404 for others') |

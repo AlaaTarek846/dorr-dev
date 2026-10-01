@@ -2,41 +2,43 @@
 
 namespace Database\Seeders\General;
 
-use App\Models\PrivacyPolicy;
+use App\Enums\LegalPageType;
+use App\Models\LegalPage;
 use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Illuminate\Database\Seeder;
 
-class PrivacyPolicySeeder extends Seeder
+class LegalPageSeeder extends Seeder
 {
     use SyncsSeedTranslations;
 
     /**
-     * Privacy policies are rich text, so the seeded content is the same HTML
-     * shape the admin editor stores. Re-running the seeder updates the row in
-     * place instead of duplicating it.
+     * Legal pages are rich text, so the seeded content is the same HTML shape
+     * the admin editor stores. Re-running the seeder updates each row in place
+     * instead of duplicating it. Exactly two seeds: privacy and term.
      */
     public function run(): void
     {
-        foreach ($this->rows() as $index => $row) {
-            $policy = $this->findExisting($row['content']['en']) ?? new PrivacyPolicy;
+        foreach ($this->rows() as $row) {
+            $page = $this->findExisting($row['type'], $row['content']['en']) ?? new LegalPage;
 
-            $policy->fill([
+            $page->fill([
+                'type' => $row['type'],
                 'service_id' => null,
                 'status' => $row['status'],
-                'sort_order' => $index + 1,
             ]);
-            $policy->save();
+            $page->save();
 
-            $this->syncTranslationFields($policy, [
+            $this->syncTranslationFields($page, [
                 'en' => ['content' => $row['content']['en']],
                 'ar' => ['content' => $row['content']['ar']],
             ]);
         }
     }
 
-    protected function findExisting(string $englishContent): ?PrivacyPolicy
+    protected function findExisting(string $type, string $englishContent): ?LegalPage
     {
-        return PrivacyPolicy::query()
+        return LegalPage::query()
+            ->where('type', $type)
             ->whereHas('translations', fn ($query) => $query
                 ->where('locale', 'en')
                 ->where('content', $englishContent))
@@ -44,16 +46,25 @@ class PrivacyPolicySeeder extends Seeder
     }
 
     /**
-     * @return list<array{status: bool, content: array{en: string, ar: string}}>
+     * @return list<array{type: string, status: bool, content: array{en: string, ar: string}}>
      */
     protected function rows(): array
     {
         return [
             [
+                'type' => LegalPageType::Privacy->value,
                 'status' => true,
                 'content' => [
                     'en' => $this->englishPolicy(),
                     'ar' => $this->arabicPolicy(),
+                ],
+            ],
+            [
+                'type' => LegalPageType::Term->value,
+                'status' => true,
+                'content' => [
+                    'en' => $this->englishTerms(),
+                    'ar' => $this->arabicTerms(),
                 ],
             ],
         ];
@@ -186,7 +197,7 @@ HTML;
 
 <h2>٥. مدة الاحتفاظ بالبيانات</h2>
 <p>نحتفظ بمعلوماتك الشخصية طوال فترة نشاط حسابك، ولمدة بعدها التي يفرضها القانون للاحتفاظ
-بالسجلات المالية والمعاملات. وعدم الحاجة إلى المعلومات، نحذفها أو نجعلها مجهولة الهوية.</p>
+بالسجلات المالية والمعاملات. وعند عدم الحاجة إلى المعلومات، نحذفها أو نجعلها مجهولة الهوية.</p>
 
 <h2>٦. الأمان</h2>
 <p>يتم حماية جميع البيانات أثناء النقل عبر اتصالات مشفّرة. تُخزَّن القيم الحساسة، مثل بيانات
@@ -223,6 +234,135 @@ HTML;
 <h2>١١. تواصل معنا</h2>
 <p>إذا كانت لديك أي أسئلة حول سياسة الخصوصية هذه أو حول كيفية تعاملنا مع معلوماتك، فيرجى
 التواصل مع فريق الدعم الفني من قسم "المساعدة" في تطبيق "دور".</p>
+HTML;
+    }
+
+    protected function englishTerms(): string
+    {
+        return <<<'HTML'
+<h2>1. Agreement</h2>
+<p>These terms of service form a binding agreement between you and Dorr. By creating an
+account, booking a service or using the platform in any way, you accept these terms in
+full. If you do not agree with any part of them, please do not use our services.</p>
+
+<h2>2. Accounts</h2>
+<p>You must provide accurate and complete information when creating an account and keep
+it up to date. You are responsible for safeguarding your account credentials and for
+everything that happens under your account. Notify us immediately if you suspect
+unauthorised use of your account.</p>
+<ul>
+<li>Use a strong, unique password for your Dorr account.</li>
+<li>Never share your wallet PIN or OTP codes with anyone.</li>
+<li>Keep your phone number and email address up to date.</li>
+</ul>
+
+<h2>3. Using the platform</h2>
+<p>You agree to use the platform only for lawful purposes and in a way that does not
+infringe the rights of others. You may not misrepresent your identity, submit false
+information, or attempt to disrupt the platform, its users or its providers.</p>
+
+<h2>4. Bookings and payments</h2>
+<p>When you book a service, a contract is formed directly between you and the provider
+who accepts the booking. Dorr facilitates the transaction and may hold or process
+payments on the provider's behalf. Prices are shown before you confirm a booking and
+may include service fees.</p>
+
+<h2>5. Cancellations</h2>
+<p>Cancellation policies are set per service category and shown at the time of booking.
+A provider may cancel a booking when they cannot complete it; we will issue a refund in
+that case and help you rebook.</p>
+
+<h2>6. Wallet and transfers</h2>
+<p>Your wallet balance is used for bookings and transfers. You must protect your wallet
+PIN and treat transfer confirmations like cash. We may limit, hold or reverse transactions
+to investigate fraud, chargebacks or disputes.</p>
+
+<h2>7. Acceptable content</h2>
+<p>You are responsible for any content you post, upload or share, and you must not post
+content that is unlawful, defamatory, obscene, harassing, or that violates the rights of
+others or our policies.</p>
+
+<h2>8. Suspension and termination</h2>
+<p>We may suspend or close your account if you breach these terms, act fraudulently, or
+harm the platform or other users. You may delete your account at any time from the app;
+deleting your account does not affect obligations that survive termination.</p>
+
+<h2>9. Liability</h2>
+<p>The platform is provided on an "as available" basis. To the maximum extent permitted
+by law, Dorr is not liable for indirect or incidental damages arising from your use of
+the service, and each party's total liability is limited to the amounts you paid in the
+six months before the claim.</p>
+
+<h2>10. Changes to these terms</h2>
+<p>We may update these terms from time to time and will notify you of material changes
+through the app or by email. Continued use of the platform after the changes take effect
+means you accept the updated terms.</p>
+
+<h2>11. Contact us</h2>
+<p>If you have any questions about these terms, please contact our support team from the
+Help section of the Dorr app.</p>
+HTML;
+    }
+
+    protected function arabicTerms(): string
+    {
+        return <<<'HTML'
+<h2>١. الاتفاقية</h2>
+<p>تشكّل هذه الشروط اتفاقية ملزمة بينك وبين منصة "دور". بإنشائك حساباً أو حجز خدمة أو
+استخدامك المنصة بأي شكل، فإنك تقبل هذه الشروط بالكامل. وإذا كنت لا توافق على أي جزء
+منها، فيرجى عدم استخدام خدماتنا.</p>
+
+<h2>٢. الحسابات</h2>
+<p>يجب عليك تقديم معلومات دقيقة وكاملة عند إنشاء الحساب وإبقاؤها محدّثة. أنت مسؤول عن
+حماية بيانات تسجيل الدخول الخاصة بك وعن كل ما يحدث من حسابك. أبلغنا فوراً إذا اشتبهت
+في أي استخدام غير مصرّح به لحسابك.</p>
+<ul>
+<li>استخدم كلمة مرور قوية وفريدة لحسابك في "دور".</li>
+<li>لا تشارك الرقم السري لمحفظتك أو رموز التحقق مع أي شخص.</li>
+<li>حافظ على تحديث رقم جوالك وبريدك الإلكتروني.</li>
+</ul>
+
+<h2>٣. استخدام المنصة</h2>
+<p>تتعهد باستخدام المنصة للأغراض المشروعة فقط وبطريقة لا تنتهك حقوق الآخرين. لا يجوز لك
+انتحال شخصية غيرك أو تقديم معلومات كاذبة أو محاولة التعطيل عن المنصة أو مستخدميها أو
+مزوديها.</p>
+
+<h2>٤. الحجوزات والمدفوعات</h2>
+<p>عند حجز خدمة، يُبرم تعاقد مباشر بينك وبين المزود الذي يقبل الحجز. وتقوم "دور" بتيسير
+المعاملة وقد تحتفظ بالمدفوعات أو تعالجها نيابة عن المزود. تُعرض الأسعار قبل تأكيد الحجز،
+وقد تشمل رسوم الخدمة.</p>
+
+<h2>٥. الإلغاءات</h2>
+<p>تُحدَّد سياسات الإلغاء لكل فئة خدمة وتظهر وقت الحجز. قد يلغي المزود الحجز إذا تعذّر
+إتمامه، وفي هذه الحالة نُصدر استرداداً ونساعدك في إعادة الحجز.</p>
+
+<h2>٦. المحفظة والتحويلات</h2>
+<p>تُستخدم رصيد محفظتك في الحجوزات والتحويلات. عليك حماية الرقم السري لمحفظتك والتعامل
+مع تأكيدات التحويل كما تتعامل مع النقد. قد نقوم بتقييد أو تعليق أو إعادة المعاملات
+للتحقيق في الاحتيال أو الاعتراضات أو النزاعات.</p>
+
+<h2>٧. المحتوى المقبول</h2>
+<p>أنت مسؤول عن أي محتوى تنشره أو ترفعه أو تشاركه، ويجب ألا تنشر محتوى غير قانوني أو
+تشهيرياً أو فاحشاً أو مضايقاً أو منتهكاً لحقوق الآخرين أو لسياساتنا.</p>
+
+<h2>٨. التعلّيق والإنهاء</h2>
+<p>قد نعلّق حسابك أو نغلقه إذا خالفت هذه الشروط أو تصرّفت باحتيال أو أضررت بالمنصة أو
+بالمستخدمين. يمكنك حذف حسابك في أي وقت من التطبيق، ولا يؤثر حذف الحساب على الالتزامات
+التي تبقى سارية بعد الإنهاء.</p>
+
+<h2>٩. المسؤولية</h2>
+<p>تُقدَّم المنصة على أساس "كما هي". إلى أقصى حد يسمح به القانون، لا تتحمل "دور"
+المسؤولية عن الأضرار غير المباشرة أو العرضية الناشئة عن استخدامك للخدمة، وتقتصر
+المسؤولية الإجمالية لكل طرف على المبالغ التي دفعتها خلال الأشهر الستة السابقة للمطالبة.</p>
+
+<h2>١٠. تعديل الشروط</h2>
+<p>قد نحدّث هذه الشروط من وقت لآخر وسنُشعرك بالتغييرات الجوهرية عبر التطبيق أو البريد
+الإلكتروني. واستمرارك في استخدام المنصة بعد سريان التغييرات يعني قبولك للشروط
+المحدّثة.</p>
+
+<h2>١١. تواصل معنا</h2>
+<p>إذا كانت لديك أي أسئلة حول هذه الشروط، فيرجى التواصل مع فريق الدعم الفني من قسم
+"المساعدة" في تطبيق "دور".</p>
 HTML;
     }
 }

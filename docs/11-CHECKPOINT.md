@@ -17,7 +17,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ### Backend
 - Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
-- Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, Faq, PrivacyPolicy, PlatformSetting)
+- Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, Faq, LegalPage, PlatformSetting)
 - Sanctum auth with `admin_api`, `user_api`, and `provider_api` guards
 - Standard API response envelope
 - Translation-based catalog pattern
@@ -33,8 +33,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - `SmsException implements ApiRenderable` — service-layer business errors become standard API error envelopes without controller try/catch
 - Country-driven E.164 normalisation (`PhoneNumberNormalizer`) using `Country::dial_code` / `phone_starts_with` / `phone_length`; no `libphonenumber` in the project
 - See [docs/modules/sms/README.md](./modules/sms/README.md)
-- FAQ and Privacy Policy catalogs: `faqs` / `faq_translations` and `privacy_policies` / `privacy_policy_translations`, each with optional `service_id` → `service_categories.id` (`nullOnDelete`), `status`, `sort_order`, soft deletes, and multilingual fields
-- Admin APIs: `/api/admin/v1/faqs*` (`faqs.*` permissions) and `/api/admin/v1/privacy-policies*` (`privacy-policy.*` permissions) — CRUD, trash, restore, force delete, status, bulk delete, dropdown
+- FAQ catalog (`faqs` / `faq_translations`) and Legal Pages catalog (`legal_pages` / `legal_page_translations`, `type` = privacy | term; replaced the Privacy Policy catalog on 2026-09-29), each with optional `service_id` → `service_categories.id` (`nullOnDelete`), `status`, `sort_order`, soft deletes, and multilingual fields
+- Admin APIs: `/api/admin/v1/faqs*` (`faqs.*` permissions) and `/api/admin/v1/legal-pages*` (`legal-page.*` permissions) — CRUD, trash, restore, force delete, status, bulk delete, dropdown
 - `ResolvesTranslatableFields` concern; translation sync/response/formatting generalized so a catalog can expose more than one translatable field (single-field `name` catalogs unchanged)
 
 ### Frontend
@@ -73,6 +73,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - `.env.example` — Pusher + OneSignal env vars added
   - **NEEDS-DECISION**: `onesignal_player_id` field not yet on User/Provider models; add it when push notifications are implemented per audience
 - **Chat module (`Modules/Chat`, 2026-09-29):** the backend is built and tested (23 tests in `tests/Feature/ChatTest.php`). It covers direct chats with message requests, groups and roles, every message type including the wallet transfer receipt and wallet QR cards, ticks, reply, forward, edit, delete, reactions, stars, pins, disappearing messages, contacts (sync, number lookup, QR), privacy and blocks, presence and typing, folders, LiveKit calls, OneSignal push, and admin `chat-settings`. See [chat-plan.md](chat-plan.md) and [modules/chat](modules/chat/README.md). **Android chat is built** (`ui/screens/chat`: list, conversation, info, new chat and group, QR, privacy, starred, calls, all animated) and compiles against `pusher-java-client` 2.4.4 and `livekit-android` 2.5.0 (JitPack repo added for LiveKit). **Since then (2026-09-28):** Stories, OneSignal push with deep links and full-screen incoming calls, admin themes, report reasons and reports, the admin chat-settings screen, group video grid, and the **web chat** at `/user/messages` (the same API mounted under `/api/user/v1/chat`). Tests: `ChatTest` 27, `ChatStoryTest` 9, `ChatThemeReportTest` 7. The open list is in [chat-tasks.md](chat-tasks.md). **Design system (2026-09-29):** the Android chat takes its colours from the appearance tokens (`Ch.palette`), the admin-chosen font now applies app-wide (`ui/theme/AppFont.kt`), and all fields use the shared field design (`DorrTextField` / chat `ChField`, with icons and a show/hide toggle on passwords).
+- **Catalog content (2026-09-30):** service categories carry `audiences` (`ServiceAudience`), a translatable `description` and drag-and-drop ordering; FAQs are ordered per service by drag-and-drop; a shared rich-text editor/renderer backs FAQ answers and legal pages; mobile reads `GET /api/mobile/v1/faqs` and `/legal-pages`; Android added `ServiceDetailScreen` and `HtmlText`
+- **Android docs (2026-09-30):** [modules/android/README.md](modules/android/README.md) documents app structure, backend host switch and rules
+- **Working agreement (2026-09-30):** plan first for any project; pick model and effort by task size — see [AI-INSTRUCTIONS.md](AI-INSTRUCTIONS.md#model-and-effort-selection)
 - **UNKNOWN:** No other active work tracked in repo
 
 ---

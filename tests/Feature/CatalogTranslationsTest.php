@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Faq;
 use App\Models\Flag;
 use App\Models\Language;
-use App\Models\PrivacyPolicy;
+use App\Models\LegalPage;
 use App\Models\ServiceCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -74,7 +74,7 @@ class CatalogTranslationsTest extends TestCase
     public function test_a_multi_field_entity_resolves_every_translatable_field(): void
     {
         $this->assertSame(['question', 'answer'], (new Faq)->translatableFields());
-        $this->assertSame(['content'], (new PrivacyPolicy)->translatableFields());
+        $this->assertSame(['content'], (new LegalPage)->translatableFields());
     }
 
     public function test_a_service_category_still_saves_its_name_per_locale(): void

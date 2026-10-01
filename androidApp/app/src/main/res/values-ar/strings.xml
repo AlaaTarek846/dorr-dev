@@ -71,6 +71,7 @@
     <string name="account_contact_us">تواصل معنا</string>
     <string name="account_about">عن التطبيق</string>
     <string name="account_privacy">سياسة الخصوصية</string>
+    <string name="account_terms">الشروط والأحكام</string>
     <string name="account_logout">تسجيل خروج</string>
     <string name="account_delete">حذف الحساب</string>
     <string name="account_verified">موثّق</string>
@@ -115,6 +116,9 @@
     <string name="addr_landmark_hint">بجوار مسجد أو محل</string>
     <string name="addr_set_default">تعيين كافتراضي</string>
     <string name="pd_change_photo">تغيير الصورة</string>
+    <string name="pd_delete_photo">حذف الصورة</string>
+    <string name="pd_delete_photo_ask">هل تريد حذف هذه الصورة؟</string>
+    <string name="pd_delete_photo_confirm">صورة الملف الشخصي</string>
     <string name="pd_name">الاسم</string>
     <string name="pd_name_more">في بيانات تانية تقدر تعدّلها لاحقًا</string>
     <string name="pd_gender">الجنس</string>
@@ -200,6 +204,7 @@
     <string name="account_contact_us_sub">هاتف واتساب وبريد</string>
     <string name="account_about_sub">الإصدار والمعلومات</string>
     <string name="account_privacy_sub">كيف نتعامل مع بياناتك</string>
+    <string name="account_terms_sub">القواعد التي تحكم خدماتنا</string>
     <string name="account_logout_sub">الخروج من هذا الجهاز</string>
     <string name="account_delete_sub">يمكن استرجاعه بتسجيل الدخول</string>
     <string name="account_delete_in_progress">جارٍ الحذف…</string>
@@ -253,6 +258,7 @@
     <string name="faq_q4">إزاي أتواصل مع الدعم؟</string>
     <string name="faq_a4">افتح الحساب ← تواصل معنا للاتصال أو واتساب أو إيميل.</string>
     <string name="privacy_empty">سياسة الخصوصية غير متوفرة حالياً</string>
+    <string name="terms_empty">الشروط والأحكام غير متوفرة حالياً</string>
     <string name="content_loading">جاري التحميل…</string>
     <string name="content_retry">إعادة المحاولة</string>
     <string name="content_error">تعذّر تحميل المحتوى</string>
@@ -272,6 +278,7 @@
     <string name="language_loading">جاري تحميل اللغات…</string>
     <string name="language_download_failed">تعذّر تحميل هذه اللغة. تحقّق من الاتصال وحاول مرة أخرى.</string>
     <string name="privacy_head">خصوصيتك مهمة</string>
+    <string name="terms_head">الشروط والأحكام</string>
     <string name="language_arabic">العربية</string>
     <string name="language_english">English — إنجليزي</string>
 

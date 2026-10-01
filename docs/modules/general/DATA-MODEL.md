@@ -27,9 +27,10 @@ Tables managed by General module logic:
 - `faqs`: service_id (nullable FK → service_categories.id, nullOnDelete), status, sort_order
 - `faq_translations`: faq_id, locale, question, answer (unique faq_id + locale)
 
-## privacy_policies / privacy_policy_translations
-- `privacy_policies`: service_id (nullable FK → service_categories.id, nullOnDelete; unique among non-deleted rows — at most one policy per service, null/general repeats allowed), status, sort_order
-- `privacy_policy_translations`: privacy_policy_id, locale, content (unique privacy_policy_id + locale)
+## legal_pages / legal_page_translations
+- `legal_pages`: type (`LegalPageType`: privacy | term), service_id (nullable FK → service_categories.id, nullOnDelete), status, soft deletes; unique (type, service_id, deleted_at) — at most one live page per type per service, null/general repeats allowed
+- `legal_page_translations`: legal_page_id, locale, content (longText; unique legal_page_id + locale)
+- Replaces `privacy_policies` / `privacy_policy_translations` (migration `2026_09_29_090100_create_legal_pages_table`); there is no `sort_order`
 
 ## platform_settings
 - `app_name` + media via Spatie (not column-based files)

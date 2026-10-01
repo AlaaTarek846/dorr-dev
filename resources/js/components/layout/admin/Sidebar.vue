@@ -144,10 +144,10 @@
                                 </router-link>
                             </li>
 
-                            <li v-if="can('privacy-policy.view')" class="slide">
-                                <router-link :to="{ name: 'admin.privacy-policies.index' }" class="side-menu__item">
-                                    <i class="ri-shield-keyhole-line side-menu__icon"></i>
-                                    <span class="side-menu__label">{{ t('privacy_policies.title') }}</span>
+                            <li v-if="can('legal-page.view')" class="slide">
+                                <router-link :to="{ name: 'admin.legal-pages.index' }" class="side-menu__item">
+                                    <i class="ri-file-shield-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('legal_pages.title') }}</span>
                                 </router-link>
                             </li>
 

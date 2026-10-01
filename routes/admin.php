@@ -6,10 +6,10 @@ use App\Http\Controllers\General\DashboardThemeController;
 use App\Http\Controllers\General\FaqController;
 use App\Http\Controllers\General\FlagController;
 use App\Http\Controllers\General\LanguageController;
+use App\Http\Controllers\General\LegalPageController;
 use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
-use App\Http\Controllers\General\PrivacyPolicyController;
 use App\Http\Controllers\General\ServiceCategoryController;
 use App\Http\Controllers\General\TranslationController;
 use App\Enums\TranslationPlatform;
@@ -78,7 +78,7 @@ Route::middleware('auth:admin_api')->group(function () {
         ['countries', CountryController::class, 'country'],
         ['service-categories', ServiceCategoryController::class, 'service_category'],
         ['faqs', FaqController::class, 'faq'],
-        ['privacy-policies', PrivacyPolicyController::class, 'privacy_policy'],
+        ['legal-pages', LegalPageController::class, 'legal_page'],
     ] as [$uri, $controller, $parameter]) {
         if ($uri !== 'languages') {
             Route::get("{$uri}/dropdown", [$controller, 'dropdown']);

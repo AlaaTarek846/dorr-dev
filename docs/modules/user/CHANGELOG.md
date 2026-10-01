@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- `GET /api/mobile/v1/privacy-policy` replaced by `GET /api/mobile/v1/legal-pages?type=privacy|term&service_id=` (`Mobile/LegalPageController` / `MobileLegalPageService`); `Mobile/PrivacyPolicyController` and `MobilePrivacyPolicyService` removed
+
 ### Added
 - Mobile-only auth APIs: `/api/mobile/v1/*` (`user_api` guard, `Routes/mobile.php`)
 - Combined login/register by phone (request OTP creates the user if missing)

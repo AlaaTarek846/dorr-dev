@@ -486,10 +486,11 @@ fun AddressesScreen(onBack: () -> Unit) {
  * cancel next to it. Follows the screen's night mode like every other card.
  */
 @Composable
-private fun DeleteAddressDialog(
+internal fun DeleteAddressDialog(
     name: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    title: String = stringResource(R.string.addr_delete_ask),
 ) {
     val night = settingsNight()
     val red = settingsAccent()
@@ -521,7 +522,7 @@ private fun DeleteAddressDialog(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                stringResource(R.string.addr_delete_ask),
+                title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = red,

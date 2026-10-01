@@ -7,14 +7,14 @@
     >
         <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
-                <div class="modal-header privacy-policy-modal-header">
+                <div class="modal-header legal-page-modal-header">
                     <div class="d-flex align-items-center justify-content-between w-100 gap-3">
                         <h6 class="modal-title mb-0">
                             {{ modalTitle }}
                         </h6>
                         <button
                             type="button"
-                            class="btn-close privacy-policy-modal-close"
+                            class="btn-close legal-page-modal-close"
                             aria-label="Close"
                             @click="close"
                         ></button>
@@ -35,32 +35,39 @@
                             {{ translationsGroupMessage }}
                         </div>
 
-                        <div class="mb-3">
-                            <label class="form-label">
-                                {{ t('privacy_policies.content') }}
-                                <span class="text-danger">*</span>
-                            </label>
-                            <CatalogRichTextEditor
-                                :model-value="form.translations[activeLocale].content"
-                                :placeholder="t('privacy_policies.content_placeholder')"
-                                :label="t('rich_text_editor_label')"
-                                :dir="activeLocale === 'ar' ? 'rtl' : 'ltr'"
-                                :invalid="fieldInputClass(activeLocale, 'content')['is-invalid']"
-                                :error-message="fieldMessage(activeLocale, 'content')"
-                                @update:model-value="onContentInput($event)"
-                            />
-                        </div>
-
-                        <div class="row g-3 align-items-end">
+                        <div class="row g-3">
                             <div class="col-md-6">
-                                <label for="policy-service" class="form-label">{{ t('privacy_policies.service') }}</label>
+                                <label for="legal-page-type" class="form-label">
+                                    {{ t('legal_pages.type') }}
+                                    <span class="text-danger">*</span>
+                                </label>
                                 <Select
-                                    id="policy-service"
+                                    id="legal-page-type"
+                                    v-model="form.type"
+                                    :options="typeChoices"
+                                    option-label="label"
+                                    option-value="value"
+                                    :placeholder="t('legal_pages.type_placeholder')"
+                                    :invalid="Boolean(serverErrors.type?.[0])"
+                                    append-to="self"
+                                    autofocus
+                                    class="w-100"
+                                    @change="clearServerError('type')"
+                                />
+                                <div v-if="serverErrors.type?.[0]" class="invalid-feedback d-block">
+                                    {{ serverErrors.type[0] }}
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="legal-page-service" class="form-label">{{ t('legal_pages.service') }}</label>
+                                <Select
+                                    id="legal-page-service"
                                     v-model="form.service_id"
                                     :options="serviceChoices"
                                     option-label="name"
                                     option-value="id"
-                                    :placeholder="t('privacy_policies.service_placeholder')"
+                                    :placeholder="t('legal_pages.service_placeholder')"
                                     :filter="true"
                                     filter-placeholder="Search..."
                                     :filter-fields="['name']"
@@ -75,31 +82,27 @@
                                     {{ serverErrors.service_id[0] }}
                                 </div>
                             </div>
+                        </div>
 
-                            <div class="col-md-3">
-                                <label for="policy-sort-order" class="form-label">{{ t('privacy_policies.sort_order') }}</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light">
-                                        <i class="ri-sort-ascending"></i>
-                                    </span>
-                                    <input
-                                        id="policy-sort-order"
-                                        v-model.number="form.sort_order"
-                                        type="number"
-                                        min="0"
-                                        class="form-control"
-                                        :class="serverErrors.sort_order ? 'is-invalid' : ''"
-                                        :placeholder="t('privacy_policies.sort_order_placeholder')"
-                                        @input="clearServerError('sort_order')"
-                                    >
-                                </div>
-                                <div v-if="serverErrors.sort_order?.[0]" class="invalid-feedback d-block">
-                                    {{ serverErrors.sort_order[0] }}
-                                </div>
-                            </div>
+                        <div class="mb-3 mt-3">
+                            <label class="form-label">
+                                {{ t('legal_pages.content') }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            <CatalogRichTextEditor
+                                :model-value="form.translations[activeLocale].content"
+                                :placeholder="t('legal_pages.content_placeholder')"
+                                :label="t('rich_text_editor_label')"
+                                :dir="activeLocale === 'ar' ? 'rtl' : 'ltr'"
+                                :invalid="fieldInputClass(activeLocale, 'content')['is-invalid']"
+                                :error-message="fieldMessage(activeLocale, 'content')"
+                                @update:model-value="onContentInput($event)"
+                            />
+                        </div>
 
-                            <div class="col-md-3">
-                                <label class="form-label d-block mb-2">{{ t('privacy_policies.status') }}</label>
+                        <div class="row g-3 align-items-end">
+                            <div class="col-md-6">
+                                <label class="form-label d-block mb-2">{{ t('legal_pages.status') }}</label>
                                 <div
                                     class="toggle toggle-success mb-0 catalog-modal-toggle"
                                     :class="{ on: form.status }"
@@ -114,19 +117,19 @@
                         </div>
                     </div>
 
-                    <div class="modal-footer privacy-policy-modal-footer">
+                    <div class="modal-footer legal-page-modal-footer">
                         <button type="button" class="btn btn-light" @click="close">
                             {{ t('close') }}
                         </button>
                         <button type="submit" class="btn btn-primary btn-wave" :disabled="submitting">
-                            {{ submitting ? t('privacy_policies.saving') : t('save_changes') }}
+                            {{ submitting ? t('legal_pages.saving') : t('save_changes') }}
                         </button>
                     </div>
                 </form>
 
                 <div v-else class="modal-body text-center py-5">
                     <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">{{ t('privacy_policies.loading') }}</span>
+                        <span class="visually-hidden">{{ t('legal_pages.loading') }}</span>
                     </div>
                 </div>
             </div>
@@ -146,9 +149,7 @@ import useCatalogTranslationFields from '../../../../../../composables/useCatalo
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
 
-const RESOURCE_URI = '/api/admin/v1/privacy-policies';
-
-const GENERAL_OPTION_ID = 0;
+const RESOURCE_URI = '/api/admin/v1/legal-pages';
 
 const props = defineProps({
     show: {
@@ -162,6 +163,10 @@ const props = defineProps({
     record: {
         type: Object,
         default: null,
+    },
+    defaultType: {
+        type: String,
+        default: '',
     },
 });
 
@@ -182,9 +187,9 @@ let v$;
 const isEdit = computed(() => props.type === 'edit');
 
 const form = reactive({
+    type: 'privacy',
     service_id: null,
     status: true,
-    sort_order: 0,
     translations: {},
 });
 
@@ -207,7 +212,7 @@ const {
     form,
     serverErrors,
     fields: [
-        { name: 'content', labelKey: 'privacy_policies.content', max: 65535, min: 2 },
+        { name: 'content', labelKey: 'legal_pages.content', max: 65535, min: 2 },
     ],
     getV$: () => v$.value,
 });
@@ -218,6 +223,11 @@ const rules = computed(() => ({
 
 v$ = useVuelidate(rules, form, { $autoDirty: true });
 
+const typeChoices = computed(() => [
+    { value: 'privacy', label: t('legal_pages.type_privacy') },
+    { value: 'term', label: t('legal_pages.type_term') },
+]);
+
 const serviceChoices = computed(() => {
     const used = new Set(usedServiceIds.value);
 
@@ -226,12 +236,12 @@ const serviceChoices = computed(() => {
 
 const modalTitle = computed(() => {
     if (! isEdit.value) {
-        return t('privacy_policies.create_title');
+        return t('legal_pages.create_title');
     }
 
     return props.record?.id
-        ? `${t('privacy_policies.edit_title')} #${props.record.id}`
-        : t('privacy_policies.edit_title');
+        ? `${t('legal_pages.edit_title')} #${props.record.id}`
+        : t('legal_pages.edit_title');
 });
 
 async function loadServiceOptions() {
@@ -248,8 +258,12 @@ async function loadUsedServiceIds() {
     try {
         const { data } = await adminAxios.get(RESOURCE_URI, { params: { all: 1 } });
 
+        // A service is only "taken" by another page of the SAME type, because the
+        // unique constraint is (type, service_id, deleted_at).
         usedServiceIds.value = (data.data ?? [])
-            .filter((item) => item.id !== props.record?.id && item.service_id != null)
+            .filter((item) => item.id !== props.record?.id
+                && item.service_id != null
+                && item.type === form.type)
             .map((item) => Number(item.service_id));
     } catch {
         usedServiceIds.value = [];
@@ -271,26 +285,26 @@ function resetValidation() {
 }
 
 function resetForm() {
+    form.type = props.defaultType === 'term' ? 'term' : 'privacy';
     form.service_id = null;
     form.status = true;
-    form.sort_order = 0;
     resetTranslations();
     resetValidation();
 }
 
 function fillForm(record) {
+    form.type = record?.type ?? (props.defaultType === 'term' ? 'term' : 'privacy');
     form.service_id = record?.service_id ?? null;
     form.status = Boolean(record?.status ?? true);
-    form.sort_order = record?.sort_order ?? 0;
     fillTranslations(record);
     resetValidation();
 }
 
 function buildPayload() {
     return {
+        type: form.type,
         service_id: form.service_id || null,
         status: form.status,
-        sort_order: Number(form.sort_order ?? 0),
         translations: buildTranslationsPayload(),
     };
 }
@@ -361,7 +375,6 @@ watch(
         if (visible) {
             await ensureLanguagesLoaded();
             await loadServiceOptions();
-            await loadUsedServiceIds();
 
             if (isEdit.value && props.record) {
                 fillForm(props.record);
@@ -369,9 +382,19 @@ watch(
                 resetForm();
             }
 
+            await loadUsedServiceIds();
             openModal();
         } else {
             closeModal();
+        }
+    },
+);
+
+watch(
+    () => [props.record?.id, form.type],
+    async ([id]) => {
+        if (props.show && isEdit.value && id) {
+            await loadUsedServiceIds();
         }
     },
 );
@@ -397,18 +420,18 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.privacy-policy-modal-header {
+.legal-page-modal-header {
     padding: 1.25rem 1.5rem;
     border-bottom: 1px solid var(--default-border, #dee2e6);
 }
 
-.privacy-policy-modal-header .modal-title {
+.legal-page-modal-header .modal-title {
     font-size: 1rem;
     font-weight: 600;
     line-height: 1.4;
 }
 
-.privacy-policy-modal-close {
+.legal-page-modal-close {
     margin: 0 !important;
     padding: 0.625rem;
     flex-shrink: 0;
@@ -416,11 +439,11 @@ onUnmounted(() => {
     background-size: 0.65rem;
 }
 
-.privacy-policy-modal-close:hover {
+.legal-page-modal-close:hover {
     opacity: 1;
 }
 
-.privacy-policy-modal-footer {
+.legal-page-modal-footer {
     padding: 1rem 1.5rem 1.25rem;
     gap: 0.5rem;
 }

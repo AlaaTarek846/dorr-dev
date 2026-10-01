@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Flag;
 use App\Models\Language;
-use App\Models\PrivacyPolicy;
+use App\Models\LegalPage;
 use App\Models\ServiceCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -13,7 +13,7 @@ use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
-class PrivacyPolicyManagementTest extends TestCase
+class LegalPageManagementTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -59,9 +59,9 @@ class PrivacyPolicyManagementTest extends TestCase
     private function payload(array $overrides = []): array
     {
         return array_merge([
+            'type' => 'privacy',
             'service_id' => null,
             'status' => true,
-            'sort_order' => 0,
             'translations' => $this->translations('We never sell your personal data.'),
         ], $overrides);
     }
@@ -75,8 +75,8 @@ class PrivacyPolicyManagementTest extends TestCase
         ]);
 
         $permissions ??= [
-            'privacy-policy.view', 'privacy-policy.create', 'privacy-policy.update',
-            'privacy-policy.delete', 'privacy-policy.change-status', 'privacy-policy.multiple-delete',
+            'legal-page.view', 'legal-page.create', 'legal-page.update',
+            'legal-page.delete', 'legal-page.change-status', 'legal-page.multiple-delete',
         ];
 
         foreach ($permissions as $name) {
@@ -90,25 +90,77 @@ class PrivacyPolicyManagementTest extends TestCase
         return $admin;
     }
 
-    // ------------------------------------------------------------- general vs service
+    // ------------------------------------------------------------- type
 
-    public function test_a_policy_without_a_service_is_general(): void
+    public function test_the_type_is_required_and_validated(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload())
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload(['type' => null]))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('type');
+
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload(['type' => 'jobs']))
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('type');
+    }
+
+    public function test_the_default_type_is_privacy_when_omitted(): void
+    {
+        $this->actingAsAdmin();
+
+        $payload = $this->payload();
+        unset($payload['type']);
+
+        $this->postJson('/api/admin/v1/legal-pages', $payload)
+            ->assertCreated()
+            ->assertJsonPath('data.type', 'privacy');
+    }
+
+    public function test_the_list_can_be_filtered_by_type(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
+            'type' => 'privacy',
+            'translations' => $this->translations('Privacy policy'),
+        ]))->assertCreated();
+
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
+            'type' => 'term',
+            'translations' => $this->translations('Terms'),
+        ]))->assertCreated();
+
+        $this->getJson('/api/admin/v1/legal-pages?type=term')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'term');
+
+        $this->getJson('/api/admin/v1/legal-pages?type=privacy')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.type', 'privacy');
+    }
+
+    // ------------------------------------------------------------- general vs service
+
+    public function test_a_page_without_a_service_is_general(): void
+    {
+        $this->actingAsAdmin();
+
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload())
             ->assertCreated()
             ->assertJsonPath('data.service_id', null)
             ->assertJsonPath('data.service', null);
 
-        $this->assertDatabaseHas('privacy_policies', ['service_id' => null, 'sort_order' => 0]);
+        $this->assertDatabaseHas('legal_pages', ['type' => 'privacy', 'service_id' => null]);
     }
 
-    public function test_a_policy_can_be_linked_to_a_service(): void
+    public function test_a_page_can_be_linked_to_a_service(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))
             ->assertCreated()
@@ -116,105 +168,121 @@ class PrivacyPolicyManagementTest extends TestCase
             ->assertJsonPath('data.service.id', $this->service->id);
     }
 
-    public function test_a_policy_can_be_moved_back_to_general(): void
+    public function test_a_page_can_be_moved_back_to_general(): void
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated()->json('data.id');
 
-        $this->putJson("/api/admin/v1/privacy-policies/{$id}", $this->payload(['service_id' => null]))
+        $this->putJson("/api/admin/v1/legal-pages/{$id}", $this->payload(['service_id' => null]))
             ->assertOk()
             ->assertJsonPath('data.service_id', null);
     }
 
-    public function test_a_policy_cannot_point_at_a_service_that_does_not_exist(): void
+    public function test_a_page_cannot_point_at_a_service_that_does_not_exist(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload(['service_id' => 9999]))
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload(['service_id' => 9999]))
             ->assertStatus(422)
             ->assertJsonValidationErrors('service_id');
     }
 
-    public function test_a_service_can_only_have_one_policy(): void
+    public function test_a_service_can_only_have_one_page_of_a_type(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors('service_id');
 
-        $this->assertDatabaseCount('privacy_policies', 1);
+        $this->assertDatabaseCount('legal_pages', 1);
     }
 
-    public function test_a_policy_can_keep_its_own_service_when_updated(): void
+    public function test_a_service_can_host_pages_of_different_types(): void
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
+            'service_id' => $this->service->id,
+        ]))->assertCreated();
+
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
+            'type' => 'term',
+            'service_id' => $this->service->id,
+        ]))->assertCreated();
+
+        $this->assertDatabaseCount('legal_pages', 2);
+    }
+
+    public function test_a_page_can_keep_its_own_service_when_updated(): void
+    {
+        $this->actingAsAdmin();
+
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated()->json('data.id');
 
-        $this->putJson("/api/admin/v1/privacy-policies/{$id}", $this->payload([
+        $this->putJson("/api/admin/v1/legal-pages/{$id}", $this->payload([
             'service_id' => $this->service->id,
-            'translations' => $this->translations('Updated policy content.'),
+            'translations' => $this->translations('Updated page content.'),
         ]))
             ->assertOk()
             ->assertJsonPath('data.service_id', $this->service->id);
     }
 
-    public function test_a_policy_cannot_move_to_a_service_that_already_has_one(): void
+    public function test_a_page_cannot_move_to_a_service_that_already_has_one_of_the_type(): void
     {
         $this->actingAsAdmin();
 
         $other = ServiceCategory::create(['module_name' => null, 'status' => true, 'sort_order' => 1]);
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $other->id,
         ]))->assertCreated()->json('data.id');
 
-        $this->putJson("/api/admin/v1/privacy-policies/{$id}", $this->payload([
+        $this->putJson("/api/admin/v1/legal-pages/{$id}", $this->payload([
             'service_id' => $this->service->id,
         ]))
             ->assertStatus(422)
             ->assertJsonValidationErrors('service_id');
     }
 
-    public function test_a_service_freed_by_a_soft_deleted_policy_can_be_reused(): void
+    public function test_a_service_freed_by_a_soft_deleted_page_can_be_reused(): void
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated()->json('data.id');
 
-        $this->deleteJson("/api/admin/v1/privacy-policies/{$id}")->assertNoContent();
+        $this->deleteJson("/api/admin/v1/legal-pages/{$id}")->assertNoContent();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated();
     }
 
-    public function test_multiple_general_policies_without_a_service_are_allowed(): void
+    public function test_multiple_general_pages_without_a_service_are_allowed(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload())->assertCreated();
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload())->assertCreated();
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload())->assertCreated();
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload())->assertCreated();
 
-        $this->assertDatabaseCount('privacy_policies', 2);
+        $this->assertDatabaseCount('legal_pages', 2);
     }
 
     // ------------------------------------------------------------------ translations
@@ -223,7 +291,7 @@ class PrivacyPolicyManagementTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'translations' => $this->translations(
                 'We never sell your personal data.',
                 'نحن لا نبيع بياناتك الشخصية أبداً.',
@@ -233,8 +301,8 @@ class PrivacyPolicyManagementTest extends TestCase
             ->assertJsonCount(2, 'data.translations')
             ->assertJsonPath('data.content', 'We never sell your personal data.');
 
-        $this->assertDatabaseHas('privacy_policy_translations', [
-            'privacy_policy_id' => PrivacyPolicy::query()->firstOrFail()->id,
+        $this->assertDatabaseHas('legal_page_translations', [
+            'legal_page_id' => LegalPage::query()->firstOrFail()->id,
             'locale' => 'ar',
             'content' => 'نحن لا نبيع بياناتك الشخصية أبداً.',
         ]);
@@ -244,18 +312,18 @@ class PrivacyPolicyManagementTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload())
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload())
             ->assertCreated()
             ->json('data.id');
 
-        $this->putJson("/api/admin/v1/privacy-policies/{$id}", $this->payload([
+        $this->putJson("/api/admin/v1/legal-pages/{$id}", $this->payload([
             'translations' => $this->translations('Updated policy text.'),
         ]))
             ->assertOk()
             ->assertJsonPath('data.content', 'Updated policy text.');
 
-        $this->assertDatabaseHas('privacy_policy_translations', [
-            'privacy_policy_id' => $id, 'locale' => 'en', 'content' => 'Updated policy text.',
+        $this->assertDatabaseHas('legal_page_translations', [
+            'legal_page_id' => $id, 'locale' => 'en', 'content' => 'Updated policy text.',
         ]);
     }
 
@@ -263,43 +331,42 @@ class PrivacyPolicyManagementTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'translations' => [['locale' => 'en', 'content' => 'Only English']],
         ]))->assertStatus(422)->assertJsonValidationErrors('translations');
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'translations' => $this->translations('English', ''),
         ]))->assertStatus(422)->assertJsonValidationErrors('translations.1.content');
     }
 
     // ---------------------------------------------------------------------- ordering
 
-    public function test_the_list_is_ordered_by_sort_order_then_id(): void
+    public function test_the_list_keeps_a_stable_id_ordering(): void
     {
         $this->actingAsAdmin();
 
-        foreach ([[5, 'Third'], [1, 'First'], [1, 'Second']] as [$sort, $label]) {
-            $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
-                'sort_order' => $sort,
+        foreach (['First', 'Second', 'Third'] as $label) {
+            $this->postJson('/api/admin/v1/legal-pages', $this->payload([
                 'translations' => $this->translations("{$label} policy"),
             ]))->assertCreated();
         }
 
         $this->assertSame(
             ['First policy', 'Second policy', 'Third policy'],
-            $this->getJson('/api/admin/v1/privacy-policies')->assertOk()->json('data.*.content'),
+            $this->getJson('/api/admin/v1/legal-pages')->assertOk()->json('data.*.content'),
         );
     }
 
-    public function test_the_search_matches_the_policy_content(): void
+    public function test_the_search_matches_the_page_content(): void
     {
         $this->actingAsAdmin();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'translations' => $this->translations('Cookies are used for sessions.'),
         ]))->assertCreated();
 
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'translations' => $this->translations('Location data is never collected.'),
         ]))->assertCreated();
 
@@ -310,38 +377,10 @@ class PrivacyPolicyManagementTest extends TestCase
             'filterTranslationByLocale' => false,
         ]);
 
-        $this->getJson('/api/admin/v1/privacy-policies?search='.urlencode($search))
+        $this->getJson('/api/admin/v1/legal-pages?search='.urlencode($search))
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.content', 'Cookies are used for sessions.');
-    }
-
-    public function test_the_list_can_be_filtered_by_service(): void
-    {
-        $this->actingAsAdmin();
-
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
-            'service_id' => $this->service->id,
-            'translations' => $this->translations('Wallet specific policy'),
-        ]))->assertCreated();
-
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
-            'translations' => $this->translations('General policy'),
-        ]))->assertCreated();
-
-        $this->getJson('/api/admin/v1/privacy-policies?'.http_build_query([
-            'filterColumns' => [
-                'columns' => [[
-                    'column' => 'service_id',
-                    'opreator' => '=',
-                    'value' => $this->service->id,
-                    'searchType' => 'where',
-                ]],
-            ],
-        ]))
-            ->assertOk()
-            ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.content', 'Wallet specific policy');
     }
 
     // --------------------------------------------------------------------- lifecycle
@@ -350,113 +389,102 @@ class PrivacyPolicyManagementTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload())
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload())
             ->assertCreated()
             ->json('data.id');
 
-        $this->patchJson("/api/admin/v1/privacy-policies/{$id}/status", ['status' => false])
+        $this->patchJson("/api/admin/v1/legal-pages/{$id}/status", ['status' => false])
             ->assertOk()
             ->assertJsonPath('data.status', false);
     }
 
-    public function test_a_soft_deleted_policy_keeps_its_content_and_can_be_restored(): void
+    public function test_a_soft_deleted_page_keeps_its_content_and_can_be_restored(): void
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload())
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload())
             ->assertCreated()
             ->json('data.id');
 
-        $this->deleteJson("/api/admin/v1/privacy-policies/{$id}")->assertNoContent();
+        $this->deleteJson("/api/admin/v1/legal-pages/{$id}")->assertNoContent();
 
-        $this->assertSoftDeleted('privacy_policies', ['id' => $id]);
-        $this->assertDatabaseCount('privacy_policy_translations', 2);
+        $this->assertSoftDeleted('legal_pages', ['id' => $id]);
+        $this->assertDatabaseCount('legal_page_translations', 2);
 
-        $this->getJson("/api/admin/v1/privacy-policies/{$id}")->assertNotFound();
+        $this->getJson("/api/admin/v1/legal-pages/{$id}")->assertNotFound();
 
-        $this->postJson("/api/admin/v1/privacy-policies/{$id}/restore")->assertOk();
+        $this->postJson("/api/admin/v1/legal-pages/{$id}/restore")->assertOk();
 
-        $this->getJson("/api/admin/v1/privacy-policies/{$id}")->assertOk();
+        $this->getJson("/api/admin/v1/legal-pages/{$id}")->assertOk();
     }
 
-    public function test_force_deleting_a_policy_removes_its_content(): void
+    public function test_force_deleting_a_page_removes_its_content(): void
     {
         $this->actingAsAdmin();
 
-        $id = $this->postJson('/api/admin/v1/privacy-policies', $this->payload())
+        $id = $this->postJson('/api/admin/v1/legal-pages', $this->payload())
             ->assertCreated()
             ->json('data.id');
 
-        $this->deleteJson("/api/admin/v1/privacy-policies/{$id}")->assertNoContent();
-        $this->deleteJson("/api/admin/v1/privacy-policies/{$id}/force")->assertNoContent();
+        $this->deleteJson("/api/admin/v1/legal-pages/{$id}")->assertNoContent();
+        $this->deleteJson("/api/admin/v1/legal-pages/{$id}/force")->assertNoContent();
 
-        $this->assertDatabaseMissing('privacy_policies', ['id' => $id]);
-        $this->assertDatabaseCount('privacy_policy_translations', 0);
+        $this->assertDatabaseMissing('legal_pages', ['id' => $id]);
+        $this->assertDatabaseCount('legal_page_translations', 0);
     }
 
-    public function test_several_policies_can_be_deleted_at_once(): void
+    public function test_several_pages_can_be_deleted_at_once(): void
     {
         $this->actingAsAdmin();
 
         $ids = collect([1, 2])->map(fn (int $index) => $this->postJson(
-            '/api/admin/v1/privacy-policies',
+            '/api/admin/v1/legal-pages',
             $this->payload(['translations' => $this->translations("Policy {$index}")]),
         )->assertCreated()->json('data.id'))->all();
 
-        $this->postJson('/api/admin/v1/privacy-policies/delete-multiple', ['ids' => $ids])->assertOk();
+        $this->postJson('/api/admin/v1/legal-pages/delete-multiple', ['ids' => $ids])->assertOk();
 
         foreach ($ids as $id) {
-            $this->assertSoftDeleted('privacy_policies', ['id' => $id]);
+            $this->assertSoftDeleted('legal_pages', ['id' => $id]);
         }
     }
 
-    public function test_removing_the_service_category_a_policy_pointed_at_makes_it_general(): void
+    public function test_removing_the_service_category_a_page_pointed_at_makes_it_general(): void
     {
-        $this->actingAsAdmin(['privacy-policy.view', 'privacy-policy.create', 'service_categories.delete']);
+        $this->actingAsAdmin(['legal-page.view', 'legal-page.create', 'service_categories.delete']);
 
-        $policyId = $this->postJson('/api/admin/v1/privacy-policies', $this->payload([
+        $pageId = $this->postJson('/api/admin/v1/legal-pages', $this->payload([
             'service_id' => $this->service->id,
         ]))->assertCreated()->json('data.id');
 
         $this->deleteJson("/api/admin/v1/service-categories/{$this->service->id}")->assertNoContent();
         $this->deleteJson("/api/admin/v1/service-categories/{$this->service->id}/force")->assertNoContent();
 
-        $this->assertDatabaseHas('privacy_policies', ['id' => $policyId, 'service_id' => null]);
-    }
-
-    // -------------------------------------------------------------------- validation
-
-    public function test_the_sort_order_is_validated(): void
-    {
-        $this->actingAsAdmin();
-
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload(['sort_order' => -1]))
-            ->assertStatus(422)
-            ->assertJsonValidationErrors('sort_order');
+        $this->assertDatabaseHas('legal_pages', ['id' => $pageId, 'service_id' => null]);
     }
 
     // ------------------------------------------------------------------- permissions
 
-    public function test_an_admin_without_the_privacy_permissions_is_refused_everywhere(): void
+    public function test_an_admin_without_the_legal_page_permissions_is_refused_everywhere(): void
     {
         $this->actingAsAdmin(['service_categories.view']);
 
-        $this->getJson('/api/admin/v1/privacy-policies')->assertForbidden();
-        $this->postJson('/api/admin/v1/privacy-policies', $this->payload())->assertForbidden();
-        $this->postJson('/api/admin/v1/privacy-policies/delete-multiple', ['ids' => [1]])->assertForbidden();
-        $this->patchJson('/api/admin/v1/privacy-policies/1/status', ['status' => true])->assertForbidden();
-        $this->deleteJson('/api/admin/v1/privacy-policies/1')->assertForbidden();
+        $this->getJson('/api/admin/v1/legal-pages')->assertForbidden();
+        $this->postJson('/api/admin/v1/legal-pages', $this->payload())->assertForbidden();
+        $this->postJson('/api/admin/v1/legal-pages/delete-multiple', ['ids' => [1]])->assertForbidden();
+        $this->patchJson('/api/admin/v1/legal-pages/1/status', ['status' => true])->assertForbidden();
+        $this->deleteJson('/api/admin/v1/legal-pages/1')->assertForbidden();
     }
 
-    public function test_the_privacy_permissions_are_seeded(): void
+    public function test_the_legal_page_permissions_are_seeded(): void
     {
         $this->seed(\Database\Seeders\Admin\AdminPermissionSeeder::class);
 
         foreach (['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'] as $action) {
             $this->assertDatabaseHas('permissions', [
-                'name' => "privacy-policy.{$action}",
+                'name' => "legal-page.{$action}",
                 'guard_name' => 'admin_api',
-                'group_name' => 'privacy-policy',
+                'group_name' => 'legal-page',
             ]);
         }
     }
