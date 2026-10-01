@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import androidx.compose.ui.window.DialogProperties
 import com.dorr.app.R
 import com.dorr.app.ui.theme.AppColors
@@ -53,7 +53,7 @@ fun ContactUsSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {

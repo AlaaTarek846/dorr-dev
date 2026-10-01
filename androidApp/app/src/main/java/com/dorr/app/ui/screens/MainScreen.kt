@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
@@ -185,6 +186,13 @@ fun MainScreen(
     }
 
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+
+    // The phone's back button mirrors the in-app back: any tab other than Home returns to Home
+    // (what the Services header arrow does); on Home it falls through and the app closes as before.
+    // The wallet, chat and profile sub-screens register their own handlers later, so they win.
+    BackHandler(enabled = currentTab != 0 && !walletOpen && !chatOpen) { currentTab = 0 }
+    // Declared after the tab handler so an open service page closes first.
+    BackHandler(enabled = serviceDetail != null) { serviceDetail = null }
 
     Box(Modifier.fillMaxSize()) {
     Scaffold(

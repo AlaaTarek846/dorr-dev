@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.profile
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -189,6 +190,9 @@ fun AddressesScreen(onBack: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedAddress?>(null) }
     var saving by remember { mutableStateOf(false) }
+
+    // Back from the add/edit form returns to the list, like the form's own back arrow.
+    BackHandler(enabled = adding || editing != null) { adding = false; editing = null }
 
     LaunchedEffect(query) {
         delay(400)

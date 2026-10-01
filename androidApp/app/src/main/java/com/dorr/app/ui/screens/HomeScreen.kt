@@ -151,7 +151,8 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
             color = accent,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.weight(1f),
+            // End padding keeps a long name (cut with "...") clear of the wallet icon; it follows RTL.
+            modifier = Modifier.weight(1f).padding(end = 10.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
