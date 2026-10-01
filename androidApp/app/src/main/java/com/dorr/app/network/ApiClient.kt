@@ -24,9 +24,8 @@ private const val LAN_HOST = "192.168.1.3"
 private const val EMULATOR_HOST = "10.0.2.2"
 private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
 
-// Phone on Wi-Fi uses LAN_HOST right now (ngrok is down on this machine, see header).
-// Emulator: EMULATOR_HOST · Remote: NGROK_HOST (must also switch the scheme to https).
-private const val BASE_HOST = LAN_HOST
+// Phone on Wi-Fi: LAN_HOST · Emulator: EMULATOR_HOST · Remote: NGROK_HOST (https is picked automatically).
+private const val BASE_HOST = NGROK_HOST
 
 private fun apiBaseUrl(host: String): String =
     if (host == NGROK_HOST) "https://$host/api/" else "http://$host/api/"
