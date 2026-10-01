@@ -221,6 +221,7 @@
     <string name="common_back">رجوع</string>
     <string name="common_save">حفظ</string>
     <string name="common_cancel">إلغاء</string>
+    <string name="common_yes">نعم</string>
     <string name="common_close">إغلاق</string>
 
     <!-- البيانات الشخصية -->
@@ -276,6 +277,7 @@
     <!-- اللغة -->
     <string name="language_title">اللغة</string>
     <string name="language_loading">جاري تحميل اللغات…</string>
+    <string name="language_download_failed">تعذّر تحميل هذه اللغة. تحقّق من الاتصال وحاول مرة أخرى.</string>
     <string name="privacy_head">خصوصيتك مهمة</string>
     <string name="terms_head">الشروط والأحكام</string>
     <string name="language_arabic">العربية</string>

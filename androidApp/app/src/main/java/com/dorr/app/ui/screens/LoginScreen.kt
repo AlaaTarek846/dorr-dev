@@ -1122,6 +1122,9 @@ private fun BrandName() {
 @Composable
 internal fun LanguagePicker() {
     val appLanguage = LocalAppLanguage.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val downloadFailed = stringResource(R.string.language_download_failed)
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<LanguageDto?>(null) }
@@ -1207,9 +1210,14 @@ internal fun LanguagePicker() {
                         }
                     } else null,
                     onClick = {
-                        selected = language
-                        appLanguage.set(language.code.lowercase())
                         expanded = false
+                        scope.launch {
+                            if (appLanguage.choose(context, language.code)) {
+                                selected = language
+                            } else {
+                                android.widget.Toast.makeText(context, downloadFailed, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     },
                     modifier = if (isSelected) Modifier.background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)) else Modifier,
                 )

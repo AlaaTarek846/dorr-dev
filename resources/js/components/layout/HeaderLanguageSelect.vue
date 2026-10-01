@@ -82,12 +82,12 @@ import { resolveLanguageFlagCode } from '../../utils/catalog';
 const { t } = useI18n();
 const localeStore = useLocaleStore();
 const languagesStore = useAvailableLanguagesStore();
-const { items: languages, loading } = storeToRefs(languagesStore);
+const { interfaceItems: languages, interfaceLoading: loading } = storeToRefs(languagesStore);
 const { locale } = storeToRefs(localeStore);
 
 const rootElement = ref(null);
 
-const selectedLanguage = computed(() => languagesStore.findByCode(locale.value));
+const selectedLanguage = computed(() => languagesStore.findInterfaceByCode(locale.value));
 
 const selectedFlagCode = computed(() => languageFlagCode(selectedLanguage.value));
 
@@ -96,7 +96,7 @@ function languageFlagCode(language) {
 }
 
 onMounted(async () => {
-    await languagesStore.fetch();
+    await languagesStore.fetchInterface();
     await localeStore.ensureValidLocale();
 });
 

@@ -86,6 +86,8 @@ data class LanguageDto(
     val name: String,
     val direction: String,
     val flag: FlagDto? = null,
+    /** Version of the downloadable Android strings; null for the bundled ar/en. */
+    @SerializedName("android_version") val androidVersion: String? = null,
 )
 
 data class OtpRequest(

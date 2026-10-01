@@ -11,6 +11,8 @@ use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
 use App\Http\Controllers\General\ServiceCategoryController;
+use App\Http\Controllers\General\TranslationController;
+use App\Enums\TranslationPlatform;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -44,6 +46,24 @@ Route::middleware('auth:admin_api')->group(function () {
 
     Route::get('faqs/ordered', [FaqController::class, 'ordered']);
     Route::put('faqs/reorder', [FaqController::class, 'reorder']);
+
+    Route::prefix('languages/{language}/translations')
+        ->whereNumber('language')
+        ->group(function () {
+            Route::get('/', [TranslationController::class, 'index']);
+            Route::get('android/export', [TranslationController::class, 'exportAndroid']);
+
+            Route::prefix('{platform}/{group}')
+                ->whereIn('platform', TranslationPlatform::values())
+                ->where(['group' => '[a-z_]+'])
+                ->group(function () {
+                    Route::get('export', [TranslationController::class, 'export']);
+                    Route::post('validate', [TranslationController::class, 'validateFile']);
+                    Route::post('import', [TranslationController::class, 'import']);
+                    Route::post('publish', [TranslationController::class, 'publish']);
+                    Route::delete('draft', [TranslationController::class, 'discardDraft']);
+                });
+        });
 
     Route::post('dashboard-themes/delete-multiple', [DashboardThemeController::class, 'deleteMultiple']);
     Route::post('dashboard-themes/{dashboard_theme}/restore', [DashboardThemeController::class, 'restore']);

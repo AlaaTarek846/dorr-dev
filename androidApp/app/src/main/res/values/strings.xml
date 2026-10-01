@@ -221,6 +221,7 @@
     <string name="common_back">Back</string>
     <string name="common_save">Save</string>
     <string name="common_cancel">Cancel</string>
+    <string name="common_yes">Yes</string>
     <string name="common_close">Close</string>
 
     <!-- Personal data -->
@@ -276,6 +277,7 @@
     <!-- Language -->
     <string name="language_title">Language</string>
     <string name="language_loading">Loading languages…</string>
+    <string name="language_download_failed">Couldn\'t download this language. Check your connection and try again.</string>
     <string name="privacy_head">Your privacy matters</string>
     <string name="terms_head">Terms &amp; Conditions</string>
     <string name="language_arabic">Arabic — العربية</string>

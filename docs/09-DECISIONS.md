@@ -118,6 +118,19 @@
 
 ---
 
+## ADR-011: Interface Translation Files via Media Library
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-09-30 |
+| **Status** | Accepted (implemented) |
+| **Context** | New interface languages (e.g. `fr`) must be added from the Dashboard without code changes or rebuilds |
+| **Decision** | `ar` / `en` stay in the repo (`lang/*`, bundled Vue JSON). Other languages get JSON files per platform/group stored with Spatie Media Library (`TranslationFile`, collections `draft` / `published`). Flow: Upload → Validate → Draft → Publish. `en` is the base and fallback. Backend loads published JSON through a decorating `TranslationLoader`; `LocaleResolver::supported()` includes active languages with a published backend file; Vue fetches `/api/general/v1/translations/{code}/vue` at runtime. Android also loads published strings at runtime (2026-10-01): the app lists languages from `/api/general/v1/translations/languages?platform=android`, downloads `/api/general/v1/translations/{code}/android` only when a non-bundled language is chosen, keeps that single file (`filesDir/translations/{code}.json`, metadata in `dorr_app_prefs`), and serves it through a `Resources` wrapper (`DynamicResources`) that falls back to the bundled English. The XML ZIP export stays available |
+| **Reason** | Reuses existing storage/permissions; uploaded files are data only (JSON/CSV parsed, never executed). Android languages reach installed apps without a new release |
+| **Consequences** | Cache invalidated by a generation counter on publish / language change. No revisions, no per-key editor, no XLSX. Android base strings must be available at `translations.android_res_path` for Android groups. Android: one downloaded language on the device; the stored file works offline, a newer `android_version` is fetched on launch / when the language dialog opens, and a language no longer offered falls back to `en`. Strings built outside Compose (notifications, foreground services, `applicationContext.getString`) stay in English for downloaded languages. AAB language splits are disabled so ar/en are always installed |
+
+---
+
 ## NEEDS-DECISION
 
 | Topic | Question |

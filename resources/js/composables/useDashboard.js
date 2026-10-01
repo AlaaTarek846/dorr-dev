@@ -9,7 +9,7 @@ function patchThemeDirectionHandlers() {
     const languagesStore = useAvailableLanguagesStore();
 
     window.rtlFn = () => {
-        const rtlLanguage = languagesStore.items.find((language) => language.direction === 'rtl');
+        const rtlLanguage = languagesStore.interfaceItems.find((language) => language.direction === 'rtl');
 
         if (rtlLanguage) {
             localeStore.setLocale(rtlLanguage.code);
@@ -17,7 +17,7 @@ function patchThemeDirectionHandlers() {
     };
 
     window.ltrFn = () => {
-        const ltrLanguage = languagesStore.items.find((language) => language.direction === 'ltr');
+        const ltrLanguage = languagesStore.interfaceItems.find((language) => language.direction === 'ltr');
 
         if (ltrLanguage) {
             localeStore.setLocale(ltrLanguage.code);
