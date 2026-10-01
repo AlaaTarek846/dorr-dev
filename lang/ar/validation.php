@@ -15,6 +15,9 @@ return [
     ],
     'image' => 'يجب أن يكون حقل :attribute صورة.',
     'mimes' => 'يجب أن يكون حقل :attribute ملفاً من نوع: :values.',
+    'mimetypes' => 'يجب أن يكون حقل :attribute ملفاً من نوع: :values.',
+    'extensions' => 'يجب أن يكون امتداد حقل :attribute أحد الامتدادات التالية: :values.',
+    'file' => 'يجب أن يكون حقل :attribute ملفاً.',
     'confirmed' => 'تأكيد حقل :attribute غير متطابق.',
     'email' => 'يجب أن يكون حقل :attribute بريداً إلكترونياً صالحاً.',
     'enum' => 'القيمة المحددة في :attribute غير صالحة.',
@@ -84,6 +87,7 @@ return [
     ],
 
     'attributes' => [
+        'file' => 'الملف',
         'avatar' => 'الصورة',
         'name' => 'الاسم',
         'email' => 'البريد الإلكتروني',

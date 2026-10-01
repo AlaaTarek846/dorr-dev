@@ -87,6 +87,13 @@ personal_access_tokens (Sanctum)
 - `languages`: code, direction (TextDirection), status, stores_translation, is_default_dashboard, is_default_website, flag_id, timestamps
 - `language_translations`: language_id, locale, name
 
+### `translation_files`
+
+- Interface translation file metadata per language: language_id (FK cascade), platform (`backend`/`vue`/`android`), group, status (`draft` = pending draft exists, `published`), checksum (sha256 of the draft), version, published_at, created_by / updated_by (FK `admins`, null on delete), timestamps
+- Unique `(language_id, platform, group)`
+- File contents live in Spatie media collections `draft` and `published` (single file each, disk `config('translations.disk')`, default private `local`); no file paths stored on the row
+- `ar` / `en` never get rows — they stay in `lang/*` and `resources/js/locales/*.json`
+
 ### `currencies` + `currency_translations`
 
 - `currencies`: code, symbol, exchange_rate, is_default, status, timestamps

@@ -106,6 +106,7 @@ import com.dorr.app.network.AuthSession
 import com.dorr.app.network.UserDto
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.locale.LocalAppLanguage
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import kotlinx.coroutines.launch
 import com.dorr.app.ui.screens.profile.AddressesScreen
 import com.dorr.app.ui.screens.profile.AppearanceFontScreen
@@ -1127,14 +1128,20 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 private fun LanguageDialog(onDismiss: () -> Unit) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val appLanguage = LocalAppLanguage.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val downloadFailed = stringResource(R.string.language_download_failed)
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    // Code of the language whose strings are being downloaded; the other choices wait for it.
+    var downloading by remember { mutableStateOf<String?>(null) }
     val reconnectTick = collectReconnectTick()
     LaunchedEffect(reconnectTick) {
         languages = runCatching { ApiClient.languages.list().data.orEmpty() }.getOrDefault(emptyList())
         loading = false
+        appLanguage.syncWith(context, languages)
     }
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -1187,8 +1194,18 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                                     name = language.name,
                                     flag = languageFlagCode(language),
                                     selected = code == appLanguage.code.lowercase(),
-                                    onClick = { appLanguage.set(code) },
+                                    onClick = {
+                                        if (downloading == null && code != appLanguage.code.lowercase()) {
+                                            scope.launch {
+                                                downloading = code
+                                                val switched = appLanguage.choose(context, code)
+                                                downloading = null
+                                                if (!switched) Toast.makeText(context, downloadFailed, Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
                                     dark = dark,
+                                    loading = downloading == code,
                                 )
                             }
                         }
@@ -1212,7 +1229,14 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun LanguageOption(name: String, flag: String, selected: Boolean, onClick: () -> Unit, dark: Boolean = false) {
+private fun LanguageOption(
+    name: String,
+    flag: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    dark: Boolean = false,
+    loading: Boolean = false,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1246,14 +1270,22 @@ private fun LanguageOption(name: String, flag: String, selected: Boolean, onClic
         }
         Spacer(Modifier.width(10.dp))
         Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .size(18.dp)
-                .border(2.dp, if (selected) settingsAccent() else if (dark) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(settingsAccent()))
+        if (loading) {
+            CircularProgressIndicator(
+                color = settingsAccent(),
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(18.dp),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .border(2.dp, if (selected) settingsAccent() else if (dark) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(settingsAccent()))
+                }
             }
         }
     }

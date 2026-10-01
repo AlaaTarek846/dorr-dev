@@ -9,6 +9,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Dynamic Android translations (ADR-011): public `GET /api/general/v1/translations/{code}/android` (published Android groups merged, `version` hash, `ETag` + `304`) and `GET /api/general/v1/translations/languages?platform=android` (ar/en + languages with published Android `strings`, `android_version`); the list without `platform` is unchanged. Android app: `LanguageApi` uses the new endpoints, `DownloadedTranslations` (one file in `filesDir/translations`, atomic download, metadata in `dorr_app_prefs`), `DynamicResources` (string/plural lookups by entry name, English fallback), layout direction from the saved language, download-then-switch in the Profile and Login language pickers, update check on launch / dialog open, `bundle { language { enableSplit = false } }`. New string `language_download_failed`. Tests added to `TranslationManagementTest`
+- Interface translation management (ADR-011): `translation_files` table + `TranslationFile` media model, admin endpoints under `/api/admin/v1/languages/{language}/translations` (overview, CSV/JSON export, validate, import as draft, publish, discard, Android XML ZIP), public `GET /api/general/v1/translations/languages` and `GET /api/general/v1/translations/{code}/vue`, Translations modal on the admin Languages page, runtime loading of published locales (backend loader with `en` fallback, Vue messages without rebuild). Tests: `TranslationManagementTest`, `AndroidStringsXmlTest`
 - Live location routes for the mobile chat app — `GET live-locations`, `PUT messages/{m}/live-location`, `POST messages/{m}/live-location/stop`, registered in `Modules/Chat/routes/customer.php` (the `MessageExtrasController` methods existed but nothing routed to them)
 - Public mobile catalog content under `Modules/User` — `GET /api/mobile/v1/faqs` (all active general FAQs, `service_id IS NULL`) and `GET /api/mobile/v1/privacy-policy` (the single active general policy), localized via the `locale` middleware
 - Chat message extras wired end to end: `poll` / `money_request` / `bill_split` / `gif` / `sticker` types, `MessageResource` `poll` / `payment` / `view_once` / `view_once_opened` / `live_location` / `link_preview` fields, link cards cached on send, view-once files purged by `chat:purge` once everyone opened them
@@ -33,6 +35,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
   - `dorr-vue-frontend.mdc` (Vue/JS files)
 
 ### Changed
+- `LocaleResolver` supports dynamically published locales and matches region tags (`fr-CA` → `fr`); language `code` must be 2–3 letters
+- Vue locale switchers use the interface language list and `language.direction` instead of hardcoded `ar`/`en`
 - README updated with documentation index (project-specific section)
 - Privacy policies: a service can now back at most one policy (`service_id` unique among
   non-deleted records; general policies with a null `service_id` stay unlimited). The admin

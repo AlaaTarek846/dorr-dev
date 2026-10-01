@@ -270,6 +270,7 @@
     <!-- Language -->
     <string name="language_title">Language</string>
     <string name="language_loading">Loading languages…</string>
+    <string name="language_download_failed">Couldn\'t download this language. Check your connection and try again.</string>
     <string name="privacy_head">Your privacy matters</string>
     <string name="language_arabic">Arabic — العربية</string>
     <string name="language_english">English</string>

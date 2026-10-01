@@ -270,6 +270,7 @@
     <!-- اللغة -->
     <string name="language_title">اللغة</string>
     <string name="language_loading">جاري تحميل اللغات…</string>
+    <string name="language_download_failed">تعذّر تحميل هذه اللغة. تحقّق من الاتصال وحاول مرة أخرى.</string>
     <string name="privacy_head">خصوصيتك مهمة</string>
     <string name="language_arabic">العربية</string>
     <string name="language_english">English — إنجليزي</string>
