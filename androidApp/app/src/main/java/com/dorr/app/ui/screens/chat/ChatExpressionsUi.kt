@@ -174,7 +174,7 @@ fun ExpressionPanel(onDismiss: () -> Unit, onEmoji: (String) -> Unit, onPick: (E
                 when (t) {
                     0 -> EmojiTab(onEmoji)
                     1 -> StickersTab(library, onPick = { onPick(it); onDismiss() })
-                    else -> GifTab(onPick = { onPick(it); onDismiss() })
+                    else -> GifTab(library, onPick = { onPick(it); onDismiss() })
                 }
             }
         }
@@ -264,7 +264,10 @@ private fun StickersTab(library: StickerLibraryDto?, onPick: (ExpressionPick) ->
             }
         }
         when (source) {
-            -2 -> if (recents.isEmpty()) EmptyHint(stringResource(R.string.ch_expr_no_recent)) else LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(10.dp), modifier = Modifier.fillMaxSize()) {
+            // Nothing at all to offer yet (no packs from the admin, no GIF library): say why, not just "nothing".
+            -2 -> if (recents.isEmpty()) EmptyHint(stringResource(
+                if (library != null && library.packs.isEmpty() && !library.libraryEnabled) R.string.ch_expr_no_stickers_yet else R.string.ch_expr_no_recent,
+            )) else LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(10.dp), modifier = Modifier.fillMaxSize()) {
                 items(recents) { r ->
                     PopCell(Modifier.aspectRatio(1f).padding(4.dp), onClick = {
                         Recents.add(context, r)
@@ -303,8 +306,13 @@ private fun SourceChip(selected: Boolean, icon: ImageVector? = null, image: Stri
 // ------------------------------------------------------------------------------- GIFs
 
 @Composable
-private fun GifTab(onPick: (ExpressionPick) -> Unit) {
+private fun GifTab(library: StickerLibraryDto?, onPick: (ExpressionPick) -> Unit) {
     val context = LocalContext.current
+    // The GIF library is off until the server has a Giphy key — say so instead of "no results".
+    if (library != null && !library.libraryEnabled) {
+        EmptyHint(stringResource(R.string.ch_expr_gifs_off))
+        return
+    }
     GiphyGrid(kind = "gifs", columns = 2, moods = true) { g ->
         Recents.add(context, RecentItem("gif", "giphy", g.id, g.webp ?: g.url, g.width, g.height))
         onPick(ExpressionPick("gif", mapOf("giphy_id" to g.id, "source" to "giphy", "url" to g.url, "webp" to g.webp, "width" to g.width, "height" to g.height, "title" to g.title)))

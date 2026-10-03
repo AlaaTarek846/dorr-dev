@@ -145,7 +145,8 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
             Spacer(Modifier.height(10.dp))
 
             // ------------------------------------------------------------ menu
-            val canEdit = focused.isMine && dto.type in setOf("text", "image", "video", "document")
+            // Only what the server will still accept (the admin sets both time limits).
+            val canEdit = focused.isMine && dto.type in setOf("text", "image", "video", "document") && stillOpen(dto.editUntil)
             val canPin = dto.type !in setOf("system", "call")
             val canForward = dto.type !in setOf("wallet_transfer", "call", "system", "story_reply")
             Column(
@@ -180,7 +181,9 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
     if (confirmDelete) ChoiceSheet(
         title = stringResource(R.string.ch_delete_title),
         options = buildList {
-            if (focused.isMine || state.conversation?.isAdmin == true && state.conversation?.isGroup == true) add(stringResource(R.string.ch_delete_for_everyone) to { state.deleteForEveryone(dto); Unit })
+            // Mine within the time limit, or anyone's when I'm a group admin.
+            val forEveryone = if (focused.isMine) stillOpen(dto.deleteUntil) else state.conversation?.isAdmin == true && state.conversation?.isGroup == true
+            if (forEveryone) add(stringResource(R.string.ch_delete_for_everyone) to { state.deleteForEveryone(dto); Unit })
             add(stringResource(R.string.ch_delete_for_me) to { state.deleteForMe(dto) })
         },
         danger = true,
@@ -312,3 +315,6 @@ private fun ForwardRow(c: ConversationDto, checked: Boolean, onClick: () -> Unit
         }
     }
 }
+
+/** A deadline from the server that hasn't passed yet. */
+private fun stillOpen(until: String?): Boolean = parseInstant(until)?.isAfter(java.time.Instant.now()) == true

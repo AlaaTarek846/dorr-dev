@@ -29,10 +29,12 @@ Route::prefix('chat')->group(function () {
     // ------------------------------------------------------------ conversations
     Route::get('conversations', [ConversationController::class, 'index']);
     Route::post('conversations/direct', [ConversationController::class, 'direct']);
+    Route::post('conversations/self', [ConversationController::class, 'self']);
     Route::post('conversations/delivered', [ConversationController::class, 'delivered']);
     Route::get('conversations/{conversation}', [ConversationController::class, 'show']);
     Route::delete('conversations/{conversation}', [ConversationController::class, 'destroy']);
     Route::patch('conversations/{conversation}/settings', [ConversationController::class, 'settings']);
+    Route::post('conversations/{conversation}/wallpaper', [ConversationController::class, 'wallpaper'])->middleware('throttle:20,1,chat-wallpaper');
     Route::post('conversations/{conversation}/clear', [ConversationController::class, 'clear']);
     Route::post('conversations/{conversation}/read', [ConversationController::class, 'read']);
     Route::post('conversations/{conversation}/typing', [ConversationController::class, 'typing'])->middleware('throttle:40,1,chat-typing');

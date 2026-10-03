@@ -273,7 +273,7 @@ fun AddByPhoneSheet(initial: String = "", onDismiss: () -> Unit, onPicked: ((Pro
                         ChAvatar(s.profile.avatar, s.profile.name, s.profile.key, size = 72.dp)
                         Spacer(Modifier.height(10.dp))
                         Text(s.profile.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-                        Text(s.profile.phone.orEmpty(), color = Ch.Mut, fontSize = 13.sp)
+                        Text(ltrNumber(s.profile.phone), color = Ch.Mut, fontSize = 13.sp)
                         Spacer(Modifier.height(14.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             if (!s.profile.isContact && !saved) {

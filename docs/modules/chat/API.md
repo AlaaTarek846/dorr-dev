@@ -17,8 +17,10 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 |---|---|---|---|
 | GET | `conversations` | `filter` = all\|unread\|groups\|direct\|archived\|locked\|requests, `folder`, `search`, `per_page` | Pinned first, then by last message. Returns `requests_count` next to `data` |
 | POST | `conversations/direct` | `participant_id`, `participant_type` (default `user`) | Opens or creates the chat. It is `pending` when the other person hasn't saved me as a contact |
+| POST | `conversations/self` | | My **note to self** chat, created on first use and the same one afterwards. A `direct` chat (`direct_key` = `self\|user:{id}`) with only me in it: `is_self: true`, `title` = "Notes (you)", `avatar` = mine, `peer` = null. No push, no typing, and calls answer `422 chat_self_no_calls` |
 | GET | `conversations/{c}` | | Also returns `presence`, `i_blocked`, `blocked_me`, and `block_screenshots` for a direct chat |
 | PATCH | `conversations/{c}/settings` | `pinned`, `archived`, `locked`, `marked_unread`, `mute` (8h\|1w\|always\|off), `theme_id`, `custom_theme` | Only for me |
+| POST | `conversations/{c}/wallpaper` | `image` (jpeg/png/webp, ≤ 8 MB, multipart) | My own wallpaper for this chat, seen only by me. It replaces and deletes the previous one, and `dim` defaults to 25. Stored at `public/chat/wallpapers/{participant}/` |
 | POST | `conversations/{c}/clear` | | Clears the history for me only |
 | DELETE | `conversations/{c}` | | Deletes the chat for me. A group has to be left first |
 | POST | `conversations/{c}/read` | `up_to` (message uuid, optional) | Sends blue ticks to the others |
@@ -32,7 +34,7 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
 | GET | `conversations/{c}/messages` | `before` \| `after` \| `around` (uuid), `limit` ≤100 | Newest last. Also returns `has_more_before` and `has_more_after` |
-| POST | `conversations/{c}/messages` | `type`, `body`, `uuid` (idempotent), `reply_to`, `mentions[]` (participant ids), `files[]`, plus the fields each type needs (see below) | Multipart when there are files |
+| POST | `conversations/{c}/messages` | `type`, `body`, `uuid` (idempotent), `reply_to`, `mentions[]` (participant ids), `silent` (bool), `files[]`, plus the fields each type needs (see below) | Multipart when there are files. `silent=1` stores `is_silent` and sends the push with `data.silent = "1"`, which the app shows without sound or vibration |
 | PATCH | `messages/{m}` | `body` | Own messages only, within `edit_window_minutes` |
 | DELETE | `messages/{m}` | | Deletes for everyone: my own message within the window, or any message if I'm a group admin |
 | POST | `conversations/{c}/messages/delete-for-me` | `messages[]` | |
@@ -92,6 +94,12 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 `payment` is `kind: request` (`amount_minor`, `can_pay`, `can_cancel`) or `kind: split` (`total_minor`, `mode`, `shares[] {profile, amount_minor, status}`, `paid_minor`, `my_share`, `status` open\|settled). Money and view-once messages can never be forwarded (`422`).
 
 **Message shape:** `id`, `conversation_id`, `type`, `body`, `meta`, `attachments[]`, `sender` (profile), `is_mine`, `status` (sent\|delivered\|read, my messages only), `reply_to`, `is_forwarded`, `forwarded_many_times`, `mentions[]`, `is_edited`, `is_deleted`, `expires_at`, `reactions {summary, mine, total}`, `is_starred`, `system {event, actor, targets, text}`, `created_at`, plus what the extra types need: `poll`, `payment`, `view_once`, `view_once_opened`, `live_location`, `link_preview`.
+
+**Text formatting.** `body` is stored as typed. The apps draw WhatsApp-style marks: `*bold*`, `_italic_`, `~strike~`, `` `code` `` and ```` ```block``` ````. A mark only counts at a word edge and around non-blank text, so `5*3*2` and `snake_case` stay as typed. Nothing is formatted inside code or links. The push text drops the marks (`ChatPushNotifier::plain()`). The same rules live in `ChatFormatting.kt` (Android) and `MessengerBubble.vue` (web).
+
+**Media page.** `GET conversations/{c}/gallery?kind=media|documents|audio|links|locations&before={uuid}` returns 60 per page with `has_more`. View-once and deleted messages are left out. The app's "Media, links and docs" page pages through it, and "show in chat" scrolls the conversation to the message (`around`).
+
+**My own chat look (`custom_theme`).** Each participant can set `sender_color`, `receiver_color`, `background_color` (hex) and `dim` (0–80, how much the photo is darkened). The photo itself is uploaded through `POST …/wallpaper`; a URL is never accepted (`wallpaper` can only be `null`, which removes it). Setting a key to `null` falls back to the theme's value, and `custom_theme: null` drops the whole look and deletes the photo. `theme.custom` returns my look (the photo as a URL). `theme.applied` returns what to draw: the picked or default theme with my look on top (`is_custom: true`, `id: 0`, `dim`). See `ChatThemeService::appliedFor()`. **Note for clients:** Retrofit's default Gson drops `null` map values, so the Android app sends these settings with `updateSettingsJson` + `jsonKeepingNulls()`. Otherwise `theme_id: null` ("back to Dorr") never reaches the server.
 
 ## Groups
 

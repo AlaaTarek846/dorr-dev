@@ -85,6 +85,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -411,26 +412,38 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
     val linkColor = if (mine) Ch.OutText else Color(0xFF2563EB)
     val mentionNames = dto.mentions.mapNotNull { it.name }.filter { it.isNotBlank() }
     val mentionColor = if (mine) Ch.OutText else Ch.Red
-    val annotated = remember(body, mine, mentionNames) {
+    val codeBg = if (mine) Color.White.copy(alpha = 0.2f) else Ch.Ink.copy(alpha = 0.08f)
+    val annotated = remember(body, mine, mentionNames, linkColor, mentionColor, codeBg) {
         buildAnnotatedString {
-            // "@Sara" of a real mention: bold, in the brand colour (white on my own red bubble).
-            mentionNames.forEach { name ->
-                var from = body.indexOf("@$name")
-                while (from >= 0) {
-                    addStyle(SpanStyle(color = mentionColor, fontWeight = FontWeight.ExtraBold), from, from + name.length + 1)
-                    from = body.indexOf("@$name", from + 1)
+            // *bold* _italic_ ~strike~ `code` ```block``` — marks removed, links never formatted.
+            parseChatText(body).forEach { piece ->
+                when {
+                    piece.url != null -> {
+                        pushStringAnnotation("url", piece.url)
+                        withStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)) { append(piece.text) }
+                        pop()
+                    }
+                    piece.code || piece.codeBlock -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace, background = codeBg, fontSize = 14.sp)) {
+                        append(if (piece.codeBlock) piece.text.trim('\n') else piece.text)
+                    }
+                    else -> withStyle(
+                        SpanStyle(
+                            fontWeight = if (piece.bold) FontWeight.Bold else null,
+                            fontStyle = if (piece.italic) FontStyle.Italic else null,
+                            textDecoration = if (piece.strike) TextDecoration.LineThrough else null,
+                        ),
+                    ) { append(piece.text) }
                 }
             }
-            val regex = Regex("(https?://\\S+|www\\.\\S+|dorr://chat/join/\\S+)")
-            var last = 0
-            regex.findAll(body).forEach { match ->
-                append(body.substring(last, match.range.first))
-                pushStringAnnotation("url", match.value)
-                withStyle(SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline, fontWeight = FontWeight.SemiBold)) { append(match.value) }
-                pop()
-                last = match.range.last + 1
+            // "@Sara" of a real mention: bold, in the brand colour (white on my own red bubble).
+            val shown = toAnnotatedString().text
+            mentionNames.forEach { name ->
+                var from = shown.indexOf("@$name")
+                while (from >= 0) {
+                    addStyle(SpanStyle(color = mentionColor, fontWeight = FontWeight.ExtraBold), from, from + name.length + 1)
+                    from = shown.indexOf("@$name", from + 1)
+                }
             }
-            append(body.substring(last))
         }
     }
     Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp, bottom = 7.dp)) {
@@ -708,13 +721,16 @@ private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
 private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions: BubbleActions) {
     val name = meta?.str("name").orEmpty()
     val phones = meta?.getAsJsonArray("phones")?.mapNotNull { runCatching { it.asString }.getOrNull() }.orEmpty()
-    Column(Modifier.width(250.dp).padding(8.dp)) {
+    // The whole card opens: call · message or invite · save · copy.
+    var sheet by remember { mutableStateOf(false) }
+    if (sheet) ContactActionsSheet(name, phones) { sheet = false }
+    Column(Modifier.width(250.dp).clip(RoundedCornerShape(16.dp)).clickable(enabled = phones.isNotEmpty()) { sheet = true }.padding(8.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             ChAvatar(null, name, phones.firstOrNull() ?: name, size = 44.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(name, color = if (mine) Ch.OutText else Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 14.5.sp, maxLines = 1)
-                phones.firstOrNull()?.let { Text(it, color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp) }
+                phones.firstOrNull()?.let { Text(ltrNumber(it) + if (phones.size > 1) "  +${phones.size - 1}" else "", color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp) }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -722,7 +738,7 @@ private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions:
         Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(R.string.ch_message_contact), color = if (mine) Ch.OutText else Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 13.5.sp,
-                modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable { phones.firstOrNull()?.let(actions.onMessageContact) }.padding(vertical = 4.dp),
+                modifier = Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = phones.isNotEmpty()) { sheet = true }.padding(vertical = 4.dp),
             )
             Footer(m, mine, overlay = false)
         }
