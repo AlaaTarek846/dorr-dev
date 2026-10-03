@@ -15,6 +15,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -59,6 +60,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -184,6 +186,12 @@ fun MainScreen(
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
+            // Hidden inside a chat (the conversation gets the whole screen), back on the chat list.
+            AnimatedVisibility(
+                visible = !(chatOpen && com.dorr.app.chat.ChatStore.immersive),
+                enter = slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(220)),
+                exit = slideOutVertically(tween(260, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180)),
+            ) {
             DorrBottomNavigationBar(
                 currentTab = currentTab,
                 // No tab is "current" while the wallet or the chat is open over the tabs.
@@ -197,6 +205,7 @@ fun MainScreen(
                     // New request flow placeholder / trigger
                 },
             )
+            }
         },
     ) { padding ->
         // consumeWindowInsets: the tab bar already covers the navigation-bar area, so pages below
@@ -261,6 +270,39 @@ fun MainScreen(
     }
 }
 
+/**
+ * The bar's top edge: flat under the four tabs, and under the centre button a smooth well — like
+ * a planet bending space-time, a bell curve with gentle shoulders and a round bottom. Only the
+ * middle dips; the tabs sit on the flat part.
+ */
+private fun gravityWellEdge(width: Float, top: Float, wellWidth: Float, depth: Float): androidx.compose.ui.graphics.Path {
+    val cx = width / 2f
+    val half = wellWidth / 2f
+    return androidx.compose.ui.graphics.Path().apply {
+        moveTo(0f, top)
+        lineTo(cx - half, top)
+        // Shoulder → slope → the round bottom of the well (two cubics per side keep it smooth).
+        cubicTo(cx - half * 0.62f, top, cx - half * 0.52f, top + depth, cx, top + depth)
+        cubicTo(cx + half * 0.52f, top + depth, cx + half * 0.62f, top, cx + half, top)
+        lineTo(width, top)
+    }
+}
+
+private class GravityWellShape(private val wellWidth: Float, private val depth: Float) : androidx.compose.ui.graphics.Shape {
+    override fun createOutline(
+        size: androidx.compose.ui.geometry.Size,
+        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
+        density: androidx.compose.ui.unit.Density,
+    ): androidx.compose.ui.graphics.Outline {
+        val path = gravityWellEdge(size.width, 0f, wellWidth, depth).apply {
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        return androidx.compose.ui.graphics.Outline.Generic(path)
+    }
+}
+
 @Composable
 private fun DorrBottomNavigationBar(
     currentTab: Int,
@@ -271,37 +313,52 @@ private fun DorrBottomNavigationBar(
 ) {
     val barHeight = 64.dp
     val fabSize = 54.dp
+    // Room above the bar for the button's top (it rises out of the well).
+    val headroom = 26.dp
+    val wellWidth = 156.dp
+    // The gap between the button and the bottom of the well.
+    val wellGap = 7.dp
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val accountDark = night
     val barColor = if (accountDark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
     val ringColor = barColor
+    val edgeColor = if (barColor.luminance() > 0.6f) Color.Black.copy(alpha = 0.07f) else Color.White.copy(alpha = 0.10f)
 
-    Box(
-        modifier = modifier.fillMaxWidth().background(barColor),
-        contentAlignment = Alignment.BottomCenter,
-    ) {
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = barColor,
-            tonalElevation = 0.dp,
-        ) {
-            val divider = if (barColor.luminance() > 0.6f) Color.Black.copy(alpha = 0.08f) else Color.White.copy(alpha = 0.10f)
-            Column(
-                modifier = Modifier
+    // Pressing the button makes the well a little deeper — the "planet" sinks in, then springs back.
+    val fabInteraction = remember { MutableInteractionSource() }
+    val pressed by fabInteraction.collectIsPressedAsState()
+    val depth by androidx.compose.animation.core.animateDpAsState(
+        if (pressed) 32.dp else 26.dp,
+        androidx.compose.animation.core.spring(dampingRatio = 0.42f, stiffness = 420f),
+        label = "wellDepth",
+    )
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val wellWidthPx = with(density) { wellWidth.toPx() }
+    val depthPx = with(density) { depth.toPx() }
+    val shape = remember(wellWidthPx, depthPx) { GravityWellShape(wellWidthPx, depthPx) }
+
+    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
+        Column(Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(headroom))
+            // The bar: its top edge dips under the button; a soft shadow and a hairline follow the curve.
+            Box(
+                Modifier
                     .fillMaxWidth()
-                    .navigationBarsPadding(),
+                    .shadow(16.dp, shape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
+                    .background(barColor, shape)
+                    .drawBehind {
+                        drawPath(
+                            gravityWellEdge(size.width, 0f, wellWidthPx, depthPx),
+                            color = edgeColor,
+                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
+                        )
+                    },
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(divider),
-                )
-
                 // 4 Tab items evenly distributed around the center FAB space
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .height(barHeight)
                         .padding(horizontal = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -319,8 +376,8 @@ private fun DorrBottomNavigationBar(
                         onClick = { onSelectTab(1) },
                     )
 
-                    // Spacer reserved for center protruding FAB
-                    Spacer(modifier = Modifier.width(68.dp))
+                    // The well's room: no tab here.
+                    Spacer(modifier = Modifier.width(wellWidth * 0.55f))
 
                     TabItem(
                         tab = tabs[2],
@@ -338,15 +395,14 @@ private fun DorrBottomNavigationBar(
             }
         }
 
-        // 2. Docked center floating red button with diffuse glow
+        // The button resting in the well (its bottom a small gap above the curve), with its glow.
         Box(
             modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .navigationBarsPadding()
-                .offset(y = (-21).dp),
+                .align(Alignment.TopCenter)
+                .offset(y = headroom + depth - wellGap - fabSize - 13.dp),
             contentAlignment = Alignment.Center,
         ) {
-            // Soft radial red glow that diffuses onto the white bar surface
+            // Soft radial glow that diffuses onto the bar surface
             Box(
                 modifier = Modifier
                     .size(80.dp)
@@ -363,7 +419,7 @@ private fun DorrBottomNavigationBar(
                     ),
             )
 
-            // Red circular button with crisp white ring
+            // Circular button with a crisp ring in the bar's colour
             Box(
                 modifier = Modifier
                     .size(fabSize)
@@ -377,7 +433,7 @@ private fun DorrBottomNavigationBar(
                     .border(3.5.dp, ringColor, CircleShape)
                     .clip(CircleShape)
                     .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
+                        interactionSource = fabInteraction,
                         indication = ripple(bounded = false, radius = 28.dp, color = Color.White),
                         onClick = onFabClick,
                     ),

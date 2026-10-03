@@ -668,7 +668,14 @@ private fun MentionMark() {
 @Composable
 private fun LastMessagePreview(c: ConversationDto) {
     val last = c.lastMessage
+    // Something I typed here and didn't send: "Draft: …" in red, like WhatsApp.
+    val draft = com.dorr.app.chat.ChatStore.drafts[c.id]
     Row(verticalAlignment = Alignment.CenterVertically) {
+        if (draft != null) {
+            Text(stringResource(R.string.ch_draft) + " ", color = Ch.Red, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(plainChatText(draft).replace('\n', ' '), color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            return@Row
+        }
         if (last == null) {
             Text(
                 when {
@@ -695,7 +702,8 @@ private fun LastMessagePreview(c: ConversationDto) {
             when {
                 last.isDeleted -> stringResource(R.string.ch_deleted)
                 last.system != null -> last.body ?: ""
-                !last.body.isNullOrBlank() -> last.body
+                // Formatting marks (*bold* …) don't show in the preview.
+                !last.body.isNullOrBlank() -> plainChatText(last.body)
                 else -> label
             },
             color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,

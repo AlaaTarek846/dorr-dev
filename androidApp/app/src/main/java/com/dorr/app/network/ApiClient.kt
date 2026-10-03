@@ -21,10 +21,9 @@ import java.net.UnknownHostException
  */
 // private const val LAN_HOST = "192.168.1.5"
 // private const val EMULATOR_HOST = "10.0.2.2"
-private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
-private const val BASE_HOST = NGROK_HOST
-//private const val BASE_HOST = "unafraid-occupy-geography.ngrok-free.dev"
-private const val BASE_URL = "http://$BASE_HOST/api/"
+// Set per developer in androidApp/local.properties (dorr.apiHost / dorr.apiScheme) — see app/build.gradle.kts.
+private const val BASE_HOST = com.dorr.app.BuildConfig.API_HOST
+private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOST/api/"
 // NOTE: BASE_HOST must be this PC's current Wi-Fi IP (check `ipconfig`) AND be
 // listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
 // otherwise the phone gets connection-refused or 404. Reload Apache after changing it.

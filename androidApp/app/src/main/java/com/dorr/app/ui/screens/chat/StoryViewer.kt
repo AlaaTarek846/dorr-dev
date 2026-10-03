@@ -233,7 +233,15 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
     }
 
     // The progress bar drives the timing: photo / text for a few seconds, video for its length.
+    // A new story starts its bar from zero *here*, before animating: a separate snapTo(0) in its
+    // own effect ran right after this one and cancelled the animation, so the bar stood still
+    // (on opening, and after every automatic move to the next story) until the screen was touched.
+    var progressFor by remember(group) { mutableStateOf<String?>(null) }
     LaunchedEffect(story.id, active, holding, videoMs) {
+        if (progressFor != story.id) {
+            progressFor = story.id
+            progress.snapTo(0f)
+        }
         if (!active || holding) return@LaunchedEffect
         val total = if (story.type == "video") (videoMs ?: story.durationMs ?: 15_000L) else PHOTO_MS
         if (story.type == "video" && videoMs == null) return@LaunchedEffect // wait for the video to start
@@ -241,10 +249,8 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
         progress.animateTo(1f, tween(remaining.toInt(), easing = LinearEasing))
         next()
     }
-    LaunchedEffect(story.id) {
-        progress.snapTo(0f)
-        videoMs = null
-    }
+    // A new video reports its own length again.
+    LaunchedEffect(story.id) { videoMs = null }
 
     Box(Modifier.fillMaxSize()) {
         // ------------------------------------------------------------ the story itself

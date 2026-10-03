@@ -69,6 +69,7 @@ Professional documentation system for developers and AI assistants:
 | [12-TESTING.md](./docs/12-TESTING.md) | Testing guide |
 | [13-SECURITY.md](./docs/13-SECURITY.md) | Security |
 | [14-DEPLOYMENT.md](./docs/14-DEPLOYMENT.md) | Deployment |
+| [config_requirements.md](./docs/config_requirements.md) | Every external service and key to obtain (Pusher, OneSignal, LiveKit, Giphy, SMS, payments…) and whether it runs on shared hosting |
 | [15-CONTRIBUTING.md](./docs/15-CONTRIBUTING.md) | Contributing |
 | [16-STYLEGUIDE.md](./docs/16-STYLEGUIDE.md) | Coding standards |
 | [AI-INSTRUCTIONS.md](./docs/AI-INSTRUCTIONS.md) | **AI assistants — read first** |

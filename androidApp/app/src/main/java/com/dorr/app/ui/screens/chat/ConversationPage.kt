@@ -182,7 +182,11 @@ fun ConversationPage(route: ChRoute.Conversation) {
     // The notification for this chat stays silent while it's on screen.
     DisposableEffect(route.id) {
         com.dorr.app.chat.ChatPush.openConversationId = route.id
-        onDispose { if (com.dorr.app.chat.ChatPush.openConversationId == route.id) com.dorr.app.chat.ChatPush.openConversationId = null }
+        onDispose {
+            if (com.dorr.app.chat.ChatPush.openConversationId == route.id) com.dorr.app.chat.ChatPush.openConversationId = null
+            // Leaving with a message still on its way: the background outbox finishes it.
+            state.close()
+        }
     }
 
     // Search inside this conversation.
@@ -222,6 +226,15 @@ fun ConversationPage(route: ChRoute.Conversation) {
             highlight = messageId
             kotlinx.coroutines.delay(1400)
             highlight = null
+        }
+    }
+
+    // Opened from "show in chat" (media page, starred…): scroll to that message once loaded.
+    val focus = host.focusRequest
+    LaunchedEffect(focus, state.loading) {
+        if (focus != null && focus.first == route.id && !state.loading) {
+            host.focusRequest = null
+            jumpTo(focus.second)
         }
     }
 
@@ -267,6 +280,9 @@ fun ConversationPage(route: ChRoute.Conversation) {
     }
 
     Box(Modifier.fillMaxSize().background(Ch.Bg)) {
+        // The wallpaper behind the whole page — header corners and the composer float over it
+        // (no white strip under the rounded header, no white band around the message box).
+        ThemedWallpaper(chatTheme)
         Column(Modifier.fillMaxSize().imePadding().then(if (blurred > 0.5f && Build.VERSION.SDK_INT >= 31) Modifier.blur(blurred.dp) else Modifier)) {
             AnimatedContent(targetState = searching, label = "convHeader", transitionSpec = {
                 (fadeIn(tween(220)) + slideInVertically { -it / 3 }) togetherWith (fadeOut(tween(150)) + slideOutVertically { -it / 3 })
@@ -276,9 +292,10 @@ fun ConversationPage(route: ChRoute.Conversation) {
             }
             BackHandler(searching) { searching = false; searchQuery = "" }
             PinnedBanner(state) { jumpTo(it) }
+            // Someone I haven't saved: "Add" (then they see my stories too).
+            c?.let { NotInContactsBanner(it) { fresh -> state.conversation = fresh; host.upsert(fresh) } }
 
             Box(Modifier.weight(1f).fillMaxWidth()) {
-                ThemedWallpaper(chatTheme)
                 when {
                     state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red, strokeWidth = 3.dp) }
                     state.failed -> ChEmptyState(Icons.Rounded.Warning, stringResource(R.string.ch_load_failed), stringResource(R.string.ch_error_network), stringResource(R.string.ch_retry), onAction = { scope.launch { state.load() } })
@@ -432,6 +449,7 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                         activity != null -> stringResource(if (activity.state == "recording") R.string.ch_recording else R.string.ch_typing)
                         c?.isChannel == true -> stringResource(R.string.ch_followers, c.group?.membersCount ?: 0)
                         c?.isGroup == true -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
+                        c?.isSelf == true -> stringResource(R.string.ch_note_to_self_sub)
                         presence?.online == true -> stringResource(R.string.ch_online)
                         presence?.lastSeenAt != null -> lastSeenText(presence.lastSeenAt)
                         else -> stringResource(R.string.ch_tap_info)
@@ -451,7 +469,8 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
             }
             GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
             Spacer(Modifier.width(6.dp))
-            if (c != null && !c.isRequest && c.canSend) {
+            // No calls with myself.
+            if (c != null && !c.isRequest && c.canSend && !c.isSelf) {
                 Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
                     GlassIcon(Icons.Rounded.Videocam, size = 38.dp) { startCall(state.id, true, c.title.orEmpty(), c.avatar, peerKey) }
                 }
@@ -585,7 +604,7 @@ private fun RequestBar(c: ConversationDto, state: ConversationState) {
 
 /** Full-screen photos: swipe between them, pinch to zoom, drag down to close. */
 @Composable
-private fun MediaViewer(message: MessageDto, start: Int, onClose: () -> Unit) {
+internal fun MediaViewer(message: MessageDto, start: Int, onClose: () -> Unit) {
     val context = LocalContext.current
     val images = message.attachments.filter { it.isImage() }
     val pager = androidx.compose.foundation.pager.rememberPagerState(initialPage = start.coerceIn(0, (images.size - 1).coerceAtLeast(0))) { images.size }

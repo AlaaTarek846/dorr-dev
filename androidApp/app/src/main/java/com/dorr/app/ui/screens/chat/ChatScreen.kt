@@ -94,6 +94,12 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
         }
     }
 
+    // Inside a chat — anything past the chat list — the app's tab bar steps away, so the
+    // conversation (its wallpaper and the composer) has the whole screen.
+    val immersive = host.current !is ChRoute.List
+    SideEffect { com.dorr.app.chat.ChatStore.immersive = immersive }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { com.dorr.app.chat.ChatStore.immersive = false } }
+
     CompositionLocalProvider(LocalChat provides host) {
         Box(Modifier.fillMaxSize().background(Ch.Bg)) {
             BackHandler { host.pop() }
@@ -142,6 +148,7 @@ private fun ChatPages(host: ChatHost) {
             ChRoute.List -> ChatListPage()
             is ChRoute.Conversation -> ConversationPage(route)
             is ChRoute.Info -> ChatInfoPage(route.id)
+            is ChRoute.Media -> ChatMediaPage(route)
             ChRoute.NewChat -> NewChatPage()
             ChRoute.Channels -> ChannelsPage()
             is ChRoute.NewGroup -> NewGroupPage(route.addTo)

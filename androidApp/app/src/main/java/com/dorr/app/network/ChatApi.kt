@@ -4,6 +4,8 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -42,11 +44,28 @@ interface ChatApi {
     @POST("mobile/v1/chat/conversations/direct")
     suspend fun openDirect(@Header("Authorization") auth: String, @Body body: OpenDirectRequest): ApiEnvelope<ConversationDto>
 
+    /** My "note to self" chat (created on first use). */
+    @POST("mobile/v1/chat/conversations/self")
+    suspend fun openSelf(@Header("Authorization") auth: String): ApiEnvelope<ConversationDto>
+
     @GET("mobile/v1/chat/conversations/{id}")
     suspend fun conversation(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ConversationDto>
 
     @PATCH("mobile/v1/chat/conversations/{id}/settings")
     suspend fun updateSettings(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any?>): ApiEnvelope<ConversationDto>
+
+    /**
+     * The same settings call, with a body that keeps `null`s ([jsonKeepingNulls]): Retrofit's Gson
+     * drops null map values, so `theme_id: null` / `custom_theme: null` ("back to Dorr's look")
+     * never reached the server through [updateSettings].
+     */
+    @PATCH("mobile/v1/chat/conversations/{id}/settings")
+    suspend fun updateSettingsJson(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: RequestBody): ApiEnvelope<ConversationDto>
+
+    /** My own wallpaper for this chat (only I see it). */
+    @Multipart
+    @POST("mobile/v1/chat/conversations/{id}/wallpaper")
+    suspend fun uploadWallpaper(@Header("Authorization") auth: String, @Path("id") id: String, @Part image: MultipartBody.Part): ApiEnvelope<ConversationDto>
 
     @GET("mobile/v1/chat/themes")
     suspend fun themes(@Header("Authorization") auth: String): ApiEnvelope<List<ChatThemeDto>>
@@ -505,6 +524,8 @@ data class ConversationDto(
     val type: String,
     val status: String,
     @SerializedName("is_request") val isRequest: Boolean,
+    /** "Note to self": only me in it — no calls, no presence, no peer. */
+    @SerializedName("is_self") val isSelf: Boolean = false,
     val title: String?,
     val avatar: String?,
     val peer: ProfileDto?,
@@ -541,15 +562,36 @@ data class ChatThemeDto(
     val name: String?,
     val wallpaper: String?,
     @SerializedName("background_color") val backgroundColor: String?,
-    @SerializedName("sender_color") val senderColor: String,
-    @SerializedName("receiver_color") val receiverColor: String,
+    // Null on my own look when neither I nor the theme under it set one (drawn in Dorr's colours).
+    @SerializedName("sender_color") val senderColor: String?,
+    @SerializedName("receiver_color") val receiverColor: String?,
     @SerializedName("is_dark") val isDark: Boolean,
     @SerializedName("is_default") val isDefault: Boolean,
+    /** My own look for this chat (wallpaper / colours I picked), laid over a theme. */
+    @SerializedName("is_custom") val isCustom: Boolean = false,
+    /** How much my own wallpaper is darkened, 0–80 (%). */
+    val dim: Int = 0,
 )
+
+/** My own look for one chat, as I edit it — only I see it. Null fields = the theme's. */
+data class CustomThemeDto(
+    val wallpaper: String? = null,
+    @SerializedName("sender_color") val senderColor: String? = null,
+    @SerializedName("receiver_color") val receiverColor: String? = null,
+    @SerializedName("background_color") val backgroundColor: String? = null,
+    val dim: Int? = null,
+)
+
+/** A JSON request body that keeps `null` values (Retrofit's own Gson leaves them out). */
+fun jsonKeepingNulls(body: Map<String, Any?>): RequestBody =
+    com.google.gson.GsonBuilder().serializeNulls().create().toJson(body)
+        .toRequestBody("application/json; charset=utf-8".toMediaType())
 
 /** My pick for a chat, and what to draw (the pick, or the admin's default; null = Dorr's own look). */
 data class ConversationThemeDto(
     @SerializedName("theme_id") val themeId: Int?,
+    /** My own wallpaper / colours for this chat, if I made some. */
+    val custom: CustomThemeDto? = null,
     val applied: ChatThemeDto?,
 )
 
@@ -588,6 +630,7 @@ data class MessageDto(
     @SerializedName("conversation_id") val conversationId: String,
     val type: String,
     val body: String?,
+    @com.google.gson.annotations.JsonAdapter(NullableJsonObjectAdapter::class)
     val meta: JsonObject?,
     val attachments: List<AttachmentDto> = emptyList(),
     val sender: ProfileDto?,
@@ -614,6 +657,11 @@ data class MessageDto(
     val payment: PaymentDto? = null,
     /** Channel posts: how many followers saw it. */
     val views: Int? = null,
+    /** Sent without a notification sound. */
+    @SerializedName("is_silent") val isSilent: Boolean = false,
+    /** My own message: until when the server still accepts an edit / "delete for everyone" (null = no more). */
+    @SerializedName("edit_until") val editUntil: String? = null,
+    @SerializedName("delete_until") val deleteUntil: String? = null,
 )
 
 data class PaymentShareDto(

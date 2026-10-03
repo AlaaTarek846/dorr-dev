@@ -49,6 +49,7 @@ data class NotificationDto(
     val type: String? = null,
     /** e.g. "wallet.transfer.received" — what the app keys its icon and deep link on. */
     val event: String? = null,
+    @com.google.gson.annotations.JsonAdapter(NullableJsonObjectAdapter::class)
     val data: JsonObject? = null,
     @SerializedName("created_at_iso") val createdAtIso: String? = null,
     @SerializedName("read_at") val readAt: String? = null,

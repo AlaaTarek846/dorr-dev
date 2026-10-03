@@ -11,10 +11,16 @@ import com.onesignal.notifications.INotificationServiceExtension
  *    (full-screen page, looping ringtone, Answer / Decline).
  *  - A missed / cancelled call stops that ringing and lets the "missed call" notification show.
  *  - While the app is open, the in-app ringing screen already handles the call, so no notification.
+ *  - A message the sender sent "without sound" shows silently (no sound, no vibration).
  */
 class ChatNotificationExtension : INotificationServiceExtension {
     override fun onNotificationReceived(event: INotificationReceivedEvent) {
         val data = event.notification.additionalData ?: return
+        // A message sent "without sound": shown as usual, but no sound and no vibration.
+        if (data.optString("type") == "chat" && data.optString("silent") == "1") {
+            event.notification.setExtender { builder -> builder.setSilent(true) }
+            return
+        }
         if (data.optString("type") != "chat_call") return
 
         val callId = data.optString("call_id")

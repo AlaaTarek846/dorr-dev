@@ -261,11 +261,37 @@ const callLabel = computed(() => {
     return seconds ? `${t(m.call_type === 'video' ? 'messenger.video_call' : 'messenger.voice_call')} · ${duration(seconds * 1000)}` : t('messenger.missed_call');
 });
 
-/** Escape, then linkify URLs and highlight @mentions — safe to v-html. */
+/**
+ * WhatsApp-style marks on already-escaped text: *bold*, _italic_, ~strike~, `code`, ```mono```.
+ * A mark only counts at a word edge and around non-blank text (so 5*3*2 and snake_case stay as
+ * typed); nothing is formatted inside code. Same rules as the app and the push text.
+ */
+function formatMarks(html) {
+    const codes = [];
+    const keep = (inner, block) => {
+        codes.push(block ? `<code class="mx-code mx-code-block">${inner}</code>` : `<code class="mx-code">${inner}</code>`);
+        return `\u0000${codes.length - 1}\u0000`;
+    };
+    html = html.replace(/```([\s\S]+?)```/g, (_, inner) => keep(inner, true));
+    html = html.replace(/(?<=^|[\s\p{P}])`(?=\S)([^`\n]*?\S)`(?=$|[\s\p{P}])/gu, (_, inner) => keep(inner, false));
+    for (const [mark, tag] of [['*', 'strong'], ['_', 'em'], ['~', 's']]) {
+        // Only * needs escaping; `u` regexes reject needless escapes such as \~.
+        const m = mark === '*' ? '\\*' : mark;
+        const re = new RegExp(`(?<=^|[\\s\\p{P}])${m}(?=\\S)([^${m}\\n]*?\\S)${m}(?=$|[\\s\\p{P}])`, 'gu');
+        html = html.replace(re, `<${tag}>$1</${tag}>`);
+    }
+
+    return html.replace(/\u0000(\d+)\u0000/g, (_, i) => codes[Number(i)]);
+}
+
+/** Escape, format, linkify URLs (never formatted inside) and highlight @mentions — safe to v-html. */
 const formatted = computed(() => {
     const escape = (s) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    let html = escape(props.message.body || '');
-    html = html.replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+    let html = (props.message.body || '').split(/(https?:\/\/[^\s<]+)/g)
+        .map((part, i) => (i % 2 === 1
+            ? `<a href="${escape(part)}" target="_blank" rel="noopener noreferrer">${escape(part)}</a>`
+            : formatMarks(escape(part))))
+        .join('');
     (props.message.mentions || []).forEach((p) => {
         if (p?.name) {
             html = html.split(`@${escape(p.name)}`).join(`<span class="mx-mention">@${escape(p.name)}</span>`);

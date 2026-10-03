@@ -62,6 +62,27 @@ class ConversationController extends Controller
         return ApiResponse::success($this->conversations->resource($me, $this->conversations->openDirect($me, $other)), __('api.retrieved'));
     }
 
+    /**
+     * My "note to self" chat (created on first use).
+     */
+    public function self(Request $request)
+    {
+        $me = $request->user();
+
+        return ApiResponse::success($this->conversations->resource($me, $this->conversations->openSelf($me)), __('api.retrieved'));
+    }
+
+    /**
+     * My own wallpaper for this chat (only I see it).
+     */
+    public function wallpaper(Request $request, ChatConversation $conversation)
+    {
+        $request->validate(['image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:8192']]);
+        $me = $request->user();
+
+        return ApiResponse::success($this->conversations->resource($me, $this->conversations->setWallpaper($me, $conversation, $request->file('image'))), __('api.updated'));
+    }
+
     public function show(Request $request, ChatConversation $conversation)
     {
         return ApiResponse::success($this->conversations->show($request->user(), $conversation), __('api.retrieved'));
