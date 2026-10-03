@@ -2,6 +2,7 @@
 
 namespace Modules\Admin\Http\Controllers;
 
+use App\Enums\ServiceAudience;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -21,6 +22,12 @@ class AdminAuthController extends Controller
     {
         return [
             'country.flag',
+            'services' => fn ($query) => $query->whereHas(
+                'category',
+                fn ($category) => $category
+                    ->where('status', true)
+                    ->whereJsonContains('audiences', ServiceAudience::Admin->value),
+            ),
             'services.category.translations',
             'services.category.translation',
         ];

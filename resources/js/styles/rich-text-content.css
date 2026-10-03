@@ -1,0 +1,307 @@
+/**
+ * Typography for HTML produced by CatalogRichTextEditor (Quill semantic HTML).
+ * Add class `dorr-rich-text-content` on any container that renders stored rich text.
+ */
+
+.dorr-rich-text-content {
+    color: inherit;
+    line-height: 1.65;
+    word-wrap: break-word;
+}
+
+.dorr-rich-text-content > *:first-child {
+    margin-top: 0;
+}
+
+.dorr-rich-text-content > *:last-child {
+    margin-bottom: 0;
+}
+
+.dorr-rich-text-content h1,
+.dorr-rich-text-content h2,
+.dorr-rich-text-content h3,
+.dorr-rich-text-content h4,
+.dorr-rich-text-content h5,
+.dorr-rich-text-content h6 {
+    font-weight: 600;
+    line-height: 1.3;
+    margin: 1.25em 0 0.5em;
+    color: inherit;
+}
+
+.dorr-rich-text-content h1 {
+    font-size: 1.75rem;
+}
+
+.dorr-rich-text-content h2 {
+    font-size: 1.5rem;
+}
+
+.dorr-rich-text-content h3 {
+    font-size: 1.3125rem;
+}
+
+.dorr-rich-text-content h4 {
+    font-size: 1.125rem;
+}
+
+.dorr-rich-text-content h5 {
+    font-size: 1rem;
+}
+
+.dorr-rich-text-content h6 {
+    font-size: 0.875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.dorr-rich-text-content p {
+    margin: 0 0 0.75em;
+}
+
+.dorr-rich-text-content a {
+    color: rgb(var(--primary-rgb, 132, 90, 223));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
+.dorr-rich-text-content a:hover {
+    text-decoration-thickness: 2px;
+}
+
+.dorr-rich-text-content ul,
+.dorr-rich-text-content ol {
+    margin: 0 0 0.75em;
+    padding-inline-start: 1.35em;
+}
+
+.dorr-rich-text-content blockquote {
+    margin: 0 0 0.75em;
+    padding: 0.65em 1em;
+    border-inline-start: 3px solid rgb(var(--primary-rgb, 132, 90, 223));
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.06);
+    border-radius: 0.25rem;
+}
+
+.dorr-rich-text-content pre,
+.dorr-rich-text-content .ql-code-block-container {
+    margin: 0 0 0.75em;
+    padding: 0.75em 1em;
+    border-radius: 0.375rem;
+    background: #1e293b;
+    color: #f1f5f9;
+    overflow-x: auto;
+    font-size: 0.875rem;
+}
+
+.dorr-rich-text-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.375rem;
+}
+
+.dorr-rich-text-content .ql-align-center {
+    text-align: center;
+}
+
+.dorr-rich-text-content .ql-align-right {
+    text-align: right;
+}
+
+.dorr-rich-text-content .ql-align-justify {
+    text-align: justify;
+}
+
+.dorr-rich-text-content .ql-direction-rtl {
+    direction: rtl;
+    text-align: right;
+}
+
+.dorr-rich-text-content .ql-direction-ltr {
+    direction: ltr;
+    text-align: left;
+}
+
+/* Editor surface (Quill snow) — heading preview while typing */
+.catalog-rich-text-editor .ql-editor h1 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.catalog-rich-text-editor .ql-editor h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.catalog-rich-text-editor .ql-editor h3 {
+    font-size: 1.3125rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.catalog-rich-text-editor .ql-editor h4 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+}
+
+.catalog-rich-text-editor .ql-editor h5 {
+    font-size: 1rem;
+    font-weight: 600;
+    line-height: 1.45;
+}
+
+.catalog-rich-text-editor .ql-editor h6 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    line-height: 1.5;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.catalog-rich-text-editor .ql-toolbar.ql-snow {
+    border-radius: 0.375rem 0.375rem 0 0;
+    border-color: var(--default-border, #dee2e6);
+    flex-wrap: wrap;
+    gap: 0.15rem;
+}
+
+.catalog-rich-text-editor .ql-container.ql-snow {
+    border-radius: 0 0 0.375rem 0.375rem;
+    border-color: var(--default-border, #dee2e6);
+    font-family: inherit;
+}
+
+.catalog-rich-text-editor .ql-editor {
+    min-height: inherit;
+    font-size: 0.9375rem;
+}
+
+.catalog-rich-text-editor--invalid .ql-toolbar.ql-snow,
+.catalog-rich-text-editor--invalid .ql-container.ql-snow {
+    border-color: var(--bs-danger, #dc3545);
+}
+
+.catalog-rich-text-editor-wrap .ql-snow .ql-picker.ql-header .ql-picker-label,
+.catalog-rich-text-editor-wrap .ql-snow .ql-picker.ql-font .ql-picker-label {
+    font-size: 0;
+}
+
+.catalog-rich-text-editor-wrap .ql-snow .ql-picker.ql-header .ql-picker-label::before,
+.catalog-rich-text-editor-wrap .ql-snow .ql-picker.ql-font .ql-picker-label::before {
+    font-size: 0.8125rem;
+}
+
+.catalog-rich-text-editor-wrap .ql-header .ql-picker-label:not([data-value])::before,
+.catalog-rich-text-editor-wrap .ql-header .ql-picker-item:not([data-value])::before {
+    content: var(--rte-header-normal, 'Normal');
+}
+
+.catalog-rich-text-editor-wrap .ql-font .ql-picker-label:not([data-value])::before,
+.catalog-rich-text-editor-wrap .ql-font .ql-picker-item:not([data-value])::before,
+.catalog-rich-text-editor-wrap .ql-font .ql-picker-item[data-value='']::before {
+    content: var(--rte-font-sans, 'Sans Serif');
+}
+
+.catalog-rich-text-editor-wrap .ql-font .ql-picker-item[data-value='serif']::before {
+    content: var(--rte-font-serif, 'Serif');
+}
+
+.catalog-rich-text-editor-wrap .ql-font .ql-picker-item[data-value='monospace']::before {
+    content: var(--rte-font-mono, 'Monospace');
+}
+
+.catalog-rich-text-editor .ql-header .ql-picker-label[data-value='1']::before,
+.catalog-rich-text-editor .ql-header .ql-picker-item[data-value='1']::before {
+    content: 'H1';
+}
+
+.catalog-rich-text-editor .ql-header .ql-picker-label[data-value='2']::before,
+.catalog-rich-text-editor .ql-header .ql-picker-item[data-value='2']::before {
+    content: 'H2';
+}
+
+.catalog-rich-text-editor .ql-header .ql-picker-label[data-value='3']::before,
+.catalog-rich-text-editor .ql-header .ql-picker-item[data-value='3']::before {
+    content: 'H3';
+}
+
+.catalog-rich-text-editor .ql-header .ql-picker-label[data-value='4']::before,
+.catalog-rich-text-editor .ql-header .ql-picker-item[data-value='4']::before {
+    content: 'H4';
+}
+
+.catalog-rich-text-editor .ql-header .ql-picker-label[data-value='5']::before,
+.catalog-rich-text-editor .ql-header .ql-picker-item[data-value='5']::before {
+    content: 'H5';
+}
+
+.catalog-rich-text-editor .ql-header .ql-picker-label[data-value='6']::before,
+.catalog-rich-text-editor .ql-header .ql-picker-item[data-value='6']::before {
+    content: 'H6';
+}
+
+/* ——— Dark mode (Ynex data-theme-mode) ——— */
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-toolbar.ql-snow,
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-container.ql-snow,
+html.app-dark .catalog-rich-text-editor .ql-toolbar.ql-snow,
+html.app-dark .catalog-rich-text-editor .ql-container.ql-snow {
+    background-color: var(--form-control-bg, #232628);
+    border-color: var(--input-border, #313335);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-editor,
+html.app-dark .catalog-rich-text-editor .ql-editor {
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-editor.ql-blank::before,
+html.app-dark .catalog-rich-text-editor .ql-editor.ql-blank::before {
+    color: var(--text-muted, rgba(255, 255, 255, 0.45));
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-stroke,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-stroke {
+    stroke: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-fill,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-fill {
+    fill: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-picker,
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-picker-label,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-picker,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-picker-label {
+    color: rgba(255, 255, 255, 0.85);
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-picker-options,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-picker-options {
+    background-color: var(--form-control-bg, #232628);
+    border-color: var(--input-border, #313335);
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-picker-item,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-picker-item {
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-tooltip,
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-tooltip {
+    background-color: var(--form-control-bg, #232628);
+    border-color: var(--input-border, #313335);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme-mode='dark'] .catalog-rich-text-editor .ql-snow .ql-tooltip input[type='text'],
+html.app-dark .catalog-rich-text-editor .ql-snow .ql-tooltip input[type='text'] {
+    background-color: rgb(var(--body-bg-rgb, 26, 28, 30));
+    border-color: var(--input-border, #313335);
+    color: var(--default-text-color, rgba(255, 255, 255, 0.85));
+}

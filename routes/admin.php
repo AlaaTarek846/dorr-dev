@@ -3,12 +3,16 @@
 use App\Http\Controllers\General\CountryController;
 use App\Http\Controllers\General\CurrencyController;
 use App\Http\Controllers\General\DashboardThemeController;
+use App\Http\Controllers\General\FaqController;
 use App\Http\Controllers\General\FlagController;
 use App\Http\Controllers\General\LanguageController;
+use App\Http\Controllers\General\LegalPageController;
 use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
 use App\Http\Controllers\General\ServiceCategoryController;
+use App\Http\Controllers\General\TranslationController;
+use App\Enums\TranslationPlatform;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -38,6 +42,28 @@ Route::middleware('auth:admin_api')->group(function () {
     Route::get('service-categories/tree', [ServiceCategoryController::class, 'tree']);
     Route::get('service-categories/tree-options', [ServiceCategoryController::class, 'treeOptions']);
     Route::get('service-categories/leaf-options', [ServiceCategoryController::class, 'leafOptions']);
+    Route::put('service-categories/reorder', [ServiceCategoryController::class, 'reorder']);
+
+    Route::get('faqs/ordered', [FaqController::class, 'ordered']);
+    Route::put('faqs/reorder', [FaqController::class, 'reorder']);
+
+    Route::prefix('languages/{language}/translations')
+        ->whereNumber('language')
+        ->group(function () {
+            Route::get('/', [TranslationController::class, 'index']);
+            Route::get('android/export', [TranslationController::class, 'exportAndroid']);
+
+            Route::prefix('{platform}/{group}')
+                ->whereIn('platform', TranslationPlatform::values())
+                ->where(['group' => '[a-z_]+'])
+                ->group(function () {
+                    Route::get('export', [TranslationController::class, 'export']);
+                    Route::post('validate', [TranslationController::class, 'validateFile']);
+                    Route::post('import', [TranslationController::class, 'import']);
+                    Route::post('publish', [TranslationController::class, 'publish']);
+                    Route::delete('draft', [TranslationController::class, 'discardDraft']);
+                });
+        });
 
     Route::post('dashboard-themes/delete-multiple', [DashboardThemeController::class, 'deleteMultiple']);
     Route::post('dashboard-themes/{dashboard_theme}/restore', [DashboardThemeController::class, 'restore']);
@@ -51,6 +77,8 @@ Route::middleware('auth:admin_api')->group(function () {
         ['currencies', CurrencyController::class, 'currency'],
         ['countries', CountryController::class, 'country'],
         ['service-categories', ServiceCategoryController::class, 'service_category'],
+        ['faqs', FaqController::class, 'faq'],
+        ['legal-pages', LegalPageController::class, 'legal_page'],
     ] as [$uri, $controller, $parameter]) {
         if ($uri !== 'languages') {
             Route::get("{$uri}/dropdown", [$controller, 'dropdown']);

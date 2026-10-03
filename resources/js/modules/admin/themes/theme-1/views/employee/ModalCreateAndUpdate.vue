@@ -636,7 +636,9 @@ function resetValidation() {
 
 async function loadTreeOptions() {
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/service-categories/tree-options');
+        const { data } = await adminAxios.get('/api/admin/v1/service-categories/tree-options', {
+            params: { audience: 'admin' },
+        });
         treeOptions.value = data.data ?? [];
     } catch {
         treeOptions.value = [];

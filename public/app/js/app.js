@@ -1775,14 +1775,41 @@ const SUB_SCREENS = {
     title: () => t('privacyTitle'),
     render: () => `
       <div class="profile-form">
-        <div class="profile-form-card privacy-card">
+        <div class="profile-form-card privacy-card" id="privacy-content-card">
           <div class="content-head">
             <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-shield"/></svg></span>
             <strong>${t('privacyHead')}</strong>
           </div>
-          <p class="privacy-text">${t('privacyBody')}</p>
+          <div class="privacy-loading" style="padding: 20px 0; text-align: center; color: #9CA3AF; font-size: 13px;">${t('loadingPrivacy') || 'جاري التحميل…'}</div>
+          <div class="privacy-html" style="display:none;"></div>
         </div>
       </div>`,
+    afterRender: async (root) => {
+      const card = root.querySelector('#privacy-content-card');
+      if (!card) return;
+      const loader = card.querySelector('.privacy-loading');
+      const container = card.querySelector('.privacy-html');
+      try {
+        const res = await fetch('/api/mobile/v1/legal-pages?type=privacy', { headers: apiHeaders });
+        const json = await res.json();
+        const content = json?.data?.content;
+        if (loader) loader.style.display = 'none';
+        if (container) {
+          container.style.display = 'block';
+          if (content) {
+            container.innerHTML = sanitizeHtml(content);
+          } else {
+            container.innerHTML = `<p class="privacy-text">${t('privacyBody')}</p>`;
+          }
+        }
+      } catch (e) {
+        if (loader) loader.style.display = 'none';
+        if (container) {
+          container.style.display = 'block';
+          container.innerHTML = `<p class="privacy-text">${t('privacyBody')}</p>`;
+        }
+      }
+    },
   },
 };
 
@@ -2106,6 +2133,39 @@ const sheetPanel = $('#sheet-panel');
 let sheetOpenType = null;
 let dialogOpenType = null;
 
+function sanitizeHtml(rawHtml) {
+  if (!rawHtml) return '';
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(rawHtml, 'text/html');
+  const allowedTags = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'BR', 'HR', 'UL', 'OL', 'LI', 'STRONG', 'B', 'EM', 'I', 'U', 'SPAN', 'DIV', 'BLOCKQUOTE', 'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD', 'A', 'MARK', 'SMALL']);
+  function clean(node) {
+    const children = Array.from(node.childNodes);
+    for (const child of children) {
+      if (child.nodeType === Node.ELEMENT_NODE) {
+        if (!allowedTags.has(child.tagName)) {
+          child.replaceWith(...Array.from(child.childNodes));
+        } else {
+          Array.from(child.attributes).forEach((attr) => {
+            if (child.tagName === 'A' && attr.name.toLowerCase() === 'href') {
+              const val = attr.value.trim().toLowerCase();
+              if (val.startsWith('javascript:')) child.removeAttribute(attr.name);
+              else {
+                child.setAttribute('target', '_blank');
+                child.setAttribute('rel', 'noopener noreferrer');
+              }
+            } else {
+              child.removeAttribute(attr.name);
+            }
+          });
+          clean(child);
+        }
+      }
+    }
+  }
+  clean(doc.body);
+  return doc.body.innerHTML;
+}
+
 const FAQ_ITEMS = [
   ['faq1q', 'faq1a'],
   ['faq2q', 'faq2a'],
@@ -2120,7 +2180,7 @@ const SHEETS = {
         <span class="account-link-icon"><svg viewBox="0 0 24 24"><use href="#icon-help"/></svg></span>
         <h3>${t('faqTitle')}</h3>
       </div>
-      <div class="sheet-list">
+      <div class="sheet-list" id="sheet-faq-list">
       ${FAQ_ITEMS.map(([qKey, aKey]) => `
         <div class="faq-item">
           <span class="account-link-icon faq-icon"><svg viewBox="0 0 24 24"><use href="#icon-help"/></svg></span>
@@ -2133,8 +2193,28 @@ const SHEETS = {
       `).join('')}
       </div>
     `,
-    afterRender: (root) => {
-      $$('.faq-item', root).forEach((item) => item.addEventListener('click', () => item.classList.toggle('open')));
+    afterRender: async (root) => {
+      const listEl = root.querySelector('#sheet-faq-list');
+      if (!listEl) return;
+      $$('.faq-item', listEl).forEach((item) => item.addEventListener('click', () => item.classList.toggle('open')));
+      try {
+        const res = await fetch('/api/mobile/v1/faqs', { headers: apiHeaders });
+        const json = await res.json();
+        const items = json?.data;
+        if (Array.isArray(items) && items.length > 0) {
+          listEl.innerHTML = items.map((faq) => `
+            <div class="faq-item">
+              <span class="account-link-icon faq-icon"><svg viewBox="0 0 24 24"><use href="#icon-help"/></svg></span>
+              <div class="faq-copy">
+                <div class="faq-q">${escapeHtml(faq.question)}</div>
+                <div class="faq-a">${escapeHtml(faq.answer)}</div>
+              </div>
+              <svg class="menu-chevron faq-chevron" viewBox="0 0 24 24"><use href="#icon-chevron"/></svg>
+            </div>
+          `).join('');
+          $$('.faq-item', listEl).forEach((item) => item.addEventListener('click', () => item.classList.toggle('open')));
+        }
+      } catch (e) {}
     },
   },
   contact: {

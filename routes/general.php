@@ -23,4 +23,9 @@ Route::middleware('locale')
         Route::get('platform-settings/branding', [GeneralController::class, 'platformBranding']);
         Route::get('mobile-appearance-defaults', [GeneralController::class, 'mobileAppearanceDefaults']);
         Route::get('services', [GeneralController::class, 'services']);
+        Route::get('translations/languages', [GeneralController::class, 'translationLanguages']);
+        Route::get('translations/{code}/vue', [GeneralController::class, 'vueTranslations'])
+            ->where('code', '[A-Za-z]{2,3}');
+        Route::get('translations/{code}/android', [GeneralController::class, 'androidTranslations'])
+            ->where('code', '[A-Za-z]{2,3}');
     });

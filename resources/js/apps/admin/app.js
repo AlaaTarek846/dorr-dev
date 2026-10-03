@@ -6,7 +6,7 @@ import PrimeVue from 'primevue/config';
 import Aura from '@primevue/themes/aura';
 import App from './App.vue';
 import router from '../../router';
-import i18n, { setI18nLocale } from '../../plugins/i18n';
+import i18n, { loadLocaleMessages, setI18nLocale } from '../../plugins/i18n';
 import {
     applyDocumentDirection,
     getStoredDirection,
@@ -21,12 +21,16 @@ import '../../composables/useAuth';
 import '../../composables/usePermission';
 import '../../plugins/echo';
 import '../../styles/catalog-list.css';
+import '../../styles/rich-text-content.css';
+import { watchThemeMode } from '../../utils/themeMode';
 
 applyDocumentDirection(
     getStoredDirection(),
     resolveInitialLocale(),
     hasStoredLocalePreference(),
 );
+
+watchThemeMode();
 
 const app = createApp(App);
 const pinia = createPinia();
@@ -47,13 +51,17 @@ app.use(PrimeVue, {
     },
 });
 
-setI18nLocale(resolveInitialLocale());
+const initialLocale = resolveInitialLocale();
 
-const mountEl = document.getElementById('app');
+loadLocaleMessages(initialLocale).finally(() => {
+    setI18nLocale(initialLocale);
 
-if (mountEl) {
-    document.documentElement.classList.add('admin-app-ready');
-    app.mount(mountEl);
-}
+    const mountEl = document.getElementById('app');
+
+    if (mountEl) {
+        document.documentElement.classList.add('admin-app-ready');
+        app.mount(mountEl);
+    }
+});
 
 

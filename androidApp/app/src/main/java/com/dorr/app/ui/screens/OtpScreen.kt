@@ -35,6 +35,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -78,6 +79,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -97,7 +100,13 @@ import kotlinx.coroutines.launch
 private const val OTP_LENGTH = 4
 
 @Composable
-fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerified: () -> Unit) {
+fun OtpScreen(
+    dialCode: String,
+    phoneNumber: String,
+    onBack: () -> Unit,
+    onVerified: () -> Unit,
+    restoreMode: Boolean = false,
+) {
     val digits = remember { mutableStateListOf(*Array(OTP_LENGTH) { "" }) }
     val focusRequesters = remember { List(OTP_LENGTH) { FocusRequester() } }
     val scope = rememberCoroutineScope()
@@ -239,6 +248,50 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
             }
 
             Spacer(Modifier.height(8.dp))
+
+            // A deleted account is being restored: the code above was sent by the
+            // restore endpoint, and verifying it will bring the account back.
+            AnimatedVisibility(
+                visible = restoreMode,
+                enter = fadeIn(animationSpec = tween(320)) + expandVertically(animationSpec = tween(320)),
+                exit = fadeOut(animationSpec = tween(200)) + shrinkVertically(animationSpec = tween(200)),
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .widthIn(max = 440.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(AppColors.success.copy(alpha = if (night) 0.16f else 0.12f))
+                        .border(1.dp, AppColors.success.copy(alpha = 0.45f), RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        Icons.Rounded.CheckCircle,
+                        contentDescription = null,
+                        tint = AppColors.success,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            stringResource(R.string.account_restore_title),
+                            color = if (night) Color.White else Color(0xFF14532D),
+                            fontSize = 13.5.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            stringResource(R.string.account_restore_message),
+                            color = if (night) Color(0xFFD1D5DB) else Color(0xFF166534),
+                            fontSize = 12.sp,
+                            lineHeight = 16.sp,
+                        )
+                    }
+                }
+            }
+
+            if (restoreMode) Spacer(Modifier.height(8.dp))
 
             Column(
                 modifier = Modifier
@@ -404,6 +457,8 @@ fun OtpScreen(dialCode: String, phoneNumber: String, onBack: () -> Unit, onVerif
     }
 }
 
+private const val OTP_MARKER = "​"
+
 @Composable
 private fun DigitBox(
     value: String,
@@ -437,9 +492,18 @@ private fun DigitBox(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
+            // A soft keyboard sends no key event for Backspace on an empty field, so the box always
+            // holds an invisible marker: deleting it is how an "empty" box learns Backspace was pressed.
+            val shown = OTP_MARKER + value
             BasicTextField(
-                value = value,
-                onValueChange = { new ->
+                value = TextFieldValue(shown, TextRange(shown.length)),
+                onValueChange = { typed ->
+                    val new = typed.text
+                    if (!new.startsWith(OTP_MARKER)) {
+                        // Marker deleted → Backspace: clear this digit, or step back from an empty box.
+                        if (value.isEmpty()) onBackspaceOnEmpty() else onValueChange("")
+                        return@BasicTextField
+                    }
                     val digit = new.filter(Char::isDigit).takeLast(1)
                     onValueChange(digit)
                     if (digit.isNotEmpty()) {

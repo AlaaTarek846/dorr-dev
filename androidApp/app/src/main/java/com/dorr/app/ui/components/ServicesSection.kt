@@ -109,7 +109,7 @@ private var imageLoader: ImageLoader? = null
 
 // One loader (and disk/memory cache) for every tile. It reuses the API client so
 // media requests carry the same dev Host header.
-private fun sharedImageLoader(context: android.content.Context): ImageLoader =
+internal fun sharedServiceImageLoader(context: android.content.Context): ImageLoader =
     imageLoader ?: ImageLoader.Builder(context.applicationContext)
         .okHttpClient(ApiClient.okHttpClient)
         .build()
@@ -174,26 +174,43 @@ internal fun serviceIcon(moduleName: String?): ImageVector = when (moduleName) {
 internal class ServicesLoader(val state: ServicesState, val reload: () -> Unit)
 
 @Composable
-internal fun rememberServicesLoader(): ServicesLoader {
+internal fun rememberServicesLoader(
+    audience: String = "user",
+    homeDashboardOnly: Boolean = false,
+): ServicesLoader {
     var reloadKey by remember { mutableIntStateOf(0) }
     var state by remember { mutableStateOf<ServicesState>(ServicesState.Loading) }
     val reconnectTick = collectReconnectTick()
 
-    LaunchedEffect(reloadKey, reconnectTick) {
+    LaunchedEffect(reloadKey, reconnectTick, audience, homeDashboardOnly) {
         state = ServicesState.Loading
-        state = runCatching { ApiClient.services.list().data.orEmpty() }
-            .fold({ ServicesState.Loaded(it) }, { ServicesState.Error })
+        state = runCatching {
+            ApiClient.services.list(
+                audience = audience,
+                home = if (homeDashboardOnly) 1 else null,
+            ).data.orEmpty()
+                .sortedWith(serviceDisplayOrder)
+                .map { service ->
+                    service.copy(
+                        children = service.children.orEmpty().sortedWith(childDisplayOrder),
+                    )
+                }
+        }.fold({ ServicesState.Loaded(it) }, { ServicesState.Error })
     }
     return ServicesLoader(state) { reloadKey++ }
 }
 
+private val serviceDisplayOrder = compareBy<ServiceDto>({ it.sortOrder }, { it.id })
+private val childDisplayOrder = compareBy<ServiceChildDto>({ it.sortOrder }, { it.id })
+
 /** Home preview of the dashboard services: the first few, with "view all" opening the full page. */
 @Composable
-fun ServicesSection(onViewAll: () -> Unit, modifier: Modifier = Modifier) {
-    val loader = rememberServicesLoader()
-    var opened by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
-    val context = LocalContext.current
-    val comingSoon = stringResource(R.string.services_coming_soon)
+fun ServicesSection(
+    onViewAll: () -> Unit,
+    onOpenService: (ServiceDto, Color) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val loader = rememberServicesLoader(homeDashboardOnly = true)
 
     Column(modifier = modifier) {
         SectionHeader(
@@ -208,20 +225,10 @@ fun ServicesSection(onViewAll: () -> Unit, modifier: Modifier = Modifier) {
             is ServicesState.Loaded -> if (s.services.isNotEmpty()) {
                 ServiceGrid(
                     services = s.services.take(COLLAPSED_COUNT),
-                    onClick = { service, color ->
-                        if (service.hasChildren == true) {
-                            opened = service to color
-                        } else {
-                            Toast.makeText(context, comingSoon, Toast.LENGTH_SHORT).show()
-                        }
-                    },
+                    onClick = { service, color -> onOpenService(service, color) },
                 )
             }
         }
-    }
-
-    opened?.let { (service, color) ->
-        ServiceChildrenSheet(service = service, color = color, onDismiss = { opened = null })
     }
 }
 
@@ -290,28 +297,34 @@ private fun ServiceTile(
         enter.animateTo(1f, tween(320, delayMillis = (index % COLUMNS + index / COLUMNS) * 45))
     }
 
+    val shape = RoundedCornerShape(20.dp)
     Column(
         modifier = modifier
             .alpha(enter.value)
             .scale(0.92f + 0.08f * enter.value)
             .then(
                 if (settingsNight()) Modifier
-                else Modifier.shadow(6.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+                else Modifier.shadow(8.dp, shape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
             )
-            .clip(RoundedCornerShape(20.dp))
+            .clip(shape)
             .background(settingsCard())
-            .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, RoundedCornerShape(20.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, shape)
+            .clickable(onClick = onClick),
     ) {
-        Box {
-            ServiceAvatar(image = service.image, icon = serviceIcon(service.moduleName), color = color, size = 56)
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            ServiceMediaStrip(
+                image = service.image,
+                icon = serviceIcon(service.moduleName),
+                height = 76.dp,
+            )
             val childCount = service.children?.size ?: 0
             if (childCount > 0) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
+                        .padding(8.dp)
                         .size(20.dp)
                         .background(if (settingsNight()) AccountDark.accent else settingsAccent(), CircleShape)
                         .border(1.5.dp, settingsCard(), CircleShape),
@@ -321,43 +334,100 @@ private fun ServiceTile(
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
         Text(
             service.name,
             style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.SemiBold,
+            fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
             color = settingsInk(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 12.dp),
         )
     }
 }
 
-/** Uploaded image when the dashboard has one, otherwise a tinted icon tile. */
+/** Contrast backdrop for dashboard PNG/SVG logos (often white line-art). */
+@Composable
+internal fun serviceMediaWellColor(): Color {
+    return if (settingsNight()) Color(0xFF22262E) else Color(0xFF2A3140)
+}
+
+@Composable
+private fun serviceIconFallbackWell(): Color {
+    return if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.10f)
+}
+
+/** Home grid / list header: full-width media from API, or accent icon when missing. */
+@Composable
+internal fun ServiceMediaStrip(
+    image: String?,
+    icon: ImageVector,
+    height: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val loader = sharedServiceImageLoader(context)
+    val hasImage = !image.isNullOrBlank()
+    val accent = if (settingsNight()) AccountDark.accent else settingsAccent()
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(height)
+            .background(if (hasImage) serviceMediaWellColor() else serviceIconFallbackWell()),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (hasImage) {
+            AsyncImage(
+                model = ApiClient.mediaUrl(image),
+                imageLoader = loader,
+                contentDescription = null,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(height)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            )
+        } else {
+            Icon(icon, contentDescription = null, tint = accent, modifier = Modifier.size(32.dp))
+        }
+    }
+}
+
+/** Compact tile for rows (services list, child rows). */
 @Composable
 internal fun ServiceAvatar(image: String?, icon: ImageVector, color: Color, size: Int) {
     val context = LocalContext.current
-    val loader = sharedImageLoader(context)
+    val loader = sharedServiceImageLoader(context)
     val shape = RoundedCornerShape(16.dp)
+    val hasImage = !image.isNullOrBlank()
 
     Box(
         modifier = Modifier
             .size(size.dp)
             .clip(shape)
-            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+            .background(if (hasImage) serviceMediaWellColor() else serviceIconFallbackWell()),
         contentAlignment = Alignment.Center,
     ) {
-        if (image.isNullOrBlank()) {
-            Icon(icon, contentDescription = null, tint = if (settingsNight()) AccountDark.accent else settingsAccent(), modifier = Modifier.size((size * 0.5f).dp))
+        if (!hasImage) {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (settingsNight()) AccountDark.accent else settingsAccent(),
+                modifier = Modifier.size((size * 0.5f).dp),
+            )
         } else {
             AsyncImage(
                 model = ApiClient.mediaUrl(image),
                 imageLoader = loader,
                 contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.size(size.dp),
+                contentScale = ContentScale.Fit,
+                modifier = Modifier
+                    .size(size.dp)
+                    .padding(6.dp),
             )
         }
     }
@@ -378,7 +448,7 @@ internal fun ServicesSkeleton() {
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .height(112.dp)
+                            .height(128.dp)
                             .alpha(pulse)
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (settingsNight()) AccountDark.line else AppColors.border),

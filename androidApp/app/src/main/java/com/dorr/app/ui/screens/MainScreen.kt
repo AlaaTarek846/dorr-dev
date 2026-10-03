@@ -1,5 +1,6 @@
 package com.dorr.app.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
@@ -73,6 +74,7 @@ import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.ServiceDto
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.appearanceColor
@@ -105,6 +107,7 @@ fun MainScreen(
     onLogout: () -> Unit,
     onOpenNotifications: () -> Unit,
     onOpenServices: () -> Unit,
+    onAccountDeleted: () -> Unit = {},
     initialTab: Int = 0,
     initialWalletOpen: Boolean = false,
     onStateChanged: (tab: Int, walletOpen: Boolean) -> Unit = { _, _ -> },
@@ -112,6 +115,10 @@ fun MainScreen(
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
+    var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
+    val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
+        serviceDetail = service to color
+    }
 
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
     LaunchedEffect(Unit) {
@@ -182,6 +189,13 @@ fun MainScreen(
 
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
 
+    // The phone's back button mirrors the in-app back: any tab other than Home returns to Home
+    // (what the Services header arrow does); on Home it falls through and the app closes as before.
+    // The wallet, chat and profile sub-screens register their own handlers later, so they win.
+    BackHandler(enabled = currentTab != 0 && !walletOpen && !chatOpen) { currentTab = 0 }
+    // Declared after the tab handler so an open service page closes first.
+    BackHandler(enabled = serviceDetail != null) { serviceDetail = null }
+
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
@@ -227,10 +241,18 @@ fun MainScreen(
                         onOpenNotifications = onOpenNotifications,
                         onOpenWallet = { walletOpen = true },
                         onOpenServices = onOpenServices,
+                        onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
                     )
-                    1 -> ServicesScreen(onBack = { currentTab = 0 })
-                    3 -> ProfileScreen(onLogout = onLogout, onOpenWallet = { walletOpen = true })
+                    1 -> ServicesScreen(
+                        onBack = { currentTab = 0 },
+                        onOpenService = openServiceDetail,
+                    )
+                    3 -> ProfileScreen(
+                        onLogout = onLogout,
+                        onOpenWallet = { walletOpen = true },
+                        onAccountDeleted = onAccountDeleted,
+                    )
                     else -> PlaceholderScreen()
                 }
             }
@@ -263,6 +285,15 @@ fun MainScreen(
                 )
             }
         }
+    }
+
+    serviceDetail?.let { (service, color) ->
+        ServiceDetailScreen(
+            service = service,
+            accentColor = color,
+            onBack = { serviceDetail = null },
+            onOpenChild = { child -> serviceDetail = child.toServiceDto() to color },
+        )
     }
 
     // A call can ring over anything (it's the only chat screen that takes the whole display).

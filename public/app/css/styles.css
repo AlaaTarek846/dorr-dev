@@ -1898,6 +1898,39 @@ svg[fill] { fill: currentColor; stroke: none; }
   color: #6B7280;
   white-space: pre-line;
 }
+.privacy-html {
+  font-size: 13px;
+  line-height: 1.85;
+  color: #4B5563;
+}
+.privacy-html h1, .privacy-html h2, .privacy-html h3, .privacy-html h4 {
+  color: #111827;
+  font-size: 14.5px;
+  font-weight: 700;
+  margin: 16px 0 6px;
+}
+.privacy-html h1:first-child, .privacy-html h2:first-child, .privacy-html h3:first-child {
+  margin-top: 0;
+}
+.privacy-html p {
+  margin: 0 0 10px;
+}
+.privacy-html ul, .privacy-html ol {
+  padding-inline-start: 18px;
+  margin: 0 0 12px;
+}
+.privacy-html li {
+  margin-bottom: 6px;
+  line-height: 1.75;
+}
+.privacy-html strong, .privacy-html b {
+  color: #111827;
+  font-weight: 700;
+}
+.privacy-html a {
+  color: #E50914;
+  text-decoration: underline;
+}
 
 /* ===================== Overlay backdrop (sheet + dialog share it) ===================== */
 .overlay-backdrop {

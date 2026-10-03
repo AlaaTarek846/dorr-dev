@@ -84,6 +84,7 @@ Professional documentation system for developers and AI assistants:
 | AI | [docs/modules/ai/README.md](./docs/modules/ai/README.md) |
 | Provider | [docs/modules/provider/README.md](./docs/modules/provider/README.md) |
 | SMS | [docs/modules/sms/README.md](./docs/modules/sms/README.md) |
+| Android app | [docs/modules/android/README.md](./docs/modules/android/README.md) |
 
 ---
 

@@ -52,6 +52,14 @@ android {
         compose = true
         buildConfig = true
     }
+
+    // ar/en ship in every install: languages downloaded at runtime fall back to the bundled
+    // English, and an App Bundle split would drop the locale the device isn't set to.
+    bundle {
+        language {
+            enableSplit = false
+        }
+    }
 }
 
 dependencies {

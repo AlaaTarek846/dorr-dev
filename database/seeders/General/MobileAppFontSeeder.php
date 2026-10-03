@@ -4,6 +4,7 @@ namespace Database\Seeders\General;
 
 use App\Models\MobileAppFont;
 use App\Support\Mobile\MobileFontWeightGuesser;
+use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Illuminate\Database\Seeder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\File;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class MobileAppFontSeeder extends Seeder
 {
+    use SyncsSeedTranslations;
+
     public function run(): void
     {
         $directory = $this->fontsDirectory();
@@ -45,12 +48,16 @@ class MobileAppFontSeeder extends Seeder
             $font = MobileAppFont::query()->updateOrCreate(
                 ['slug' => $slug],
                 [
-                    'name' => $name,
                     'status' => true,
                     'is_default' => $isDefault,
                     'sort_order' => $isDefault ? 0 : ++$sort,
                 ],
             );
+
+            $this->syncTranslations($font, [
+                'en' => $name,
+                'ar' => $name,
+            ]);
 
             $seededIds[] = $font->id;
             $this->attachFontFileIfMissing($font, $absolutePath, $fileName);

@@ -7,6 +7,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.offset
@@ -25,13 +26,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.chat.ChatRealtime
 import com.dorr.app.network.ApiClient
-import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
+import com.dorr.app.ui.screens.profile.settingsNight
 
 /**
  * The chat entry on the Home header: same round white button as its neighbours, with the number
@@ -54,17 +57,25 @@ fun HomeChatButton(onClick: () -> Unit) {
         }
     }
 
+    val night = settingsNight()
+    val accent = if (night) AccountDark.accent else settingsAccent()
     Box {
         Box(
             Modifier
                 .size(34.dp)
-                .shadow(6.dp, CircleShape, spotColor = AppColors.waRed.copy(alpha = 0.08f))
+                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = accent.copy(alpha = 0.08f)))
                 .clip(CircleShape)
-                .background(Color.White)
+                .background(settingsCard())
+                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.ChatBubble, contentDescription = stringResource(R.string.ch_open_chats), tint = AppColors.waRed, modifier = Modifier.size(17.dp))
+            Icon(
+                Icons.Rounded.ChatBubble,
+                contentDescription = stringResource(R.string.ch_open_chats),
+                tint = accent,
+                modifier = Modifier.size(18.dp),
+            )
         }
         AnimatedVisibility(
             visible = unread > 0,

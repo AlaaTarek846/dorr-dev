@@ -13,6 +13,22 @@ class ServiceCategoryResource extends JsonResource
     /**
      * @return array<string, mixed>
      */
+    protected function translationFields(): array
+    {
+        return [
+            'name' => $this->resource->translatedName(),
+            'description' => $this->resource->translatedDescription(),
+            'translations' => $this->whenLoaded('translations', fn () => $this->translations->map(fn ($item) => [
+                'locale' => $item->locale,
+                'name' => $item->name,
+                'description' => $item->description,
+            ])->values()),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
     public function toArray(Request $request): array
     {
         return array_merge([
@@ -22,6 +38,7 @@ class ServiceCategoryResource extends JsonResource
                 'id' => $this->parent->id,
             ], (new self($this->parent))->translationFields()) : null),
             'module_name' => $this->module_name,
+            'audiences' => is_array($this->audiences) ? array_values($this->audiences) : [],
             'is_login_dashboard' => (bool) $this->is_login_dashboard,
             'is_auto_assign' => (bool) $this->is_auto_assign,
             'requires_provider' => (bool) $this->requires_provider,

@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Services\Auth\VerificationCodeService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\ValidationException;
 use Modules\User\Http\Requests\ChangeEmailRequest;
@@ -116,6 +117,23 @@ class MobileProfileController extends Controller
     }
 
     /**
+     * Remove the avatar (file and media row). Idempotent: a user without an
+     * avatar gets the same success response.
+     */
+    public function deleteAvatar(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('user_api');
+
+        $user->clearMediaCollection('avatar');
+
+        return ApiResponse::success(
+            new UserResource($this->freshUser($user)),
+            __('api.deleted'),
+        );
+    }
+
+    /**
      * Step 1 of the email change: validate the new address, remember it, and
      * mail an OTP to it. Nothing on the user row changes until confirm.
      */
@@ -169,6 +187,21 @@ class MobileProfileController extends Controller
             new UserResource($this->freshUser($user)),
             __('api.email_verified'),
         );
+    }
+
+    /**
+     * Soft-delete the user's account and revoke all authentication tokens
+     * immediately, kicking the user out of the app.
+     */
+    public function deleteAccount(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('user_api');
+
+        $user->tokens()->delete();
+        $user->delete();
+
+        return ApiResponse::success([], __('api.account_deleted'));
     }
 
     /**

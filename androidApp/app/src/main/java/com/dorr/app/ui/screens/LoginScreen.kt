@@ -44,12 +44,15 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -106,6 +109,7 @@ import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.TermsConditionsScreen
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -117,9 +121,11 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    onOtpRequested: (dialCode: String, phone: String) -> Unit,
+    onOtpRequested: (dialCode: String, phone: String, restoreMode: Boolean) -> Unit,
     sessionExpiredNotice: Boolean = false,
     onDismissSessionExpired: () -> Unit = {},
+    accountDeletedNotice: Boolean = false,
+    onDismissAccountDeleted: () -> Unit = {},
 ) {
     LaunchedEffect(sessionExpiredNotice) {
         if (sessionExpiredNotice) {
@@ -127,13 +133,23 @@ fun LoginScreen(
             onDismissSessionExpired()
         }
     }
+    LaunchedEffect(accountDeletedNotice) {
+        if (accountDeletedNotice) {
+            delay(7000)
+            onDismissAccountDeleted()
+        }
+    }
     var phone by remember { mutableStateOf("") }
     var acceptedTerms by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // The server said this phone belongs to a deleted (restorable) account — show the Restore card.
+    var showRestoreCard by remember { mutableStateOf(false) }
+    var restoreRequesting by remember { mutableStateOf(false) }
 
     // Seeded default country is Saudi Arabia until dropdown answer.
     var selectedCountryId by remember { mutableStateOf<Int?>(null) }
@@ -195,16 +211,44 @@ fun LoginScreen(
         if (!canSubmit) return
         isLoading = true
         errorMessage = null
+        showRestoreCard = false
         scope.launch {
             runCatching {
                 ApiClient.mobileAuth.requestOtp(
                     OtpRequest(dialCode = dialCode, phone = phone),
                 ).data
-            }.onSuccess {
+            }.onSuccess { dto ->
                 isLoading = false
-                onOtpRequested(dialCode, phone)
+                if (dto?.accountState == "deleted") {
+                    // The account exists but was deleted — offer the restore step
+                    // instead of the normal OTP flow.
+                    onDismissAccountDeleted()
+                    showRestoreCard = true
+                } else {
+                    onOtpRequested(dialCode, phone, false)
+                }
             }.onFailure {
                 isLoading = false
+                errorMessage = it.serverMessage() ?: genericError
+            }
+        }
+    }
+
+    /** The user picked "Restore Account": send the restore OTP, then verify via the OTP screen. */
+    fun restoreAccount() {
+        if (restoreRequesting) return
+        restoreRequesting = true
+        errorMessage = null
+        scope.launch {
+            runCatching {
+                ApiClient.mobileAuth.requestRestoreOtp(
+                    OtpRequest(dialCode = dialCode, phone = phone),
+                ).data
+            }.onSuccess {
+                restoreRequesting = false
+                onOtpRequested(dialCode, phone, true)
+            }.onFailure {
+                restoreRequesting = false
                 errorMessage = it.serverMessage() ?: genericError
             }
         }
@@ -220,6 +264,7 @@ fun LoginScreen(
             acceptedTerms = acceptedTerms,
             onAcceptedTermsChange = { acceptedTerms = it },
             onOpenPrivacy = { showPrivacy = true },
+            onOpenTerms = { showTerms = true },
             isLoading = isLoading,
             isFormValid = isFormValid,
             canSubmit = canSubmit,
@@ -237,7 +282,12 @@ fun LoginScreen(
                 menuExpanded = false
             },
             phoneLength = phoneLength,
-            onPhoneChange = { if (it.length <= phoneLength) phone = it },
+            onPhoneChange = { newPhone ->
+                if (newPhone.length <= phoneLength) {
+                    phone = newPhone
+                    if (showRestoreCard) showRestoreCard = false
+                }
+            },
             onSubmit = ::submit,
             modifier = Modifier
                 .fillMaxSize()
@@ -246,9 +296,9 @@ fun LoginScreen(
                 .imePadding(),
         )
 
-        // Animated Session Expired Notification Banner
+        // Animated Session Expired / Account Deleted Notification Banner
         AnimatedVisibility(
-            visible = sessionExpiredNotice,
+            visible = sessionExpiredNotice || accountDeletedNotice,
             enter = slideInVertically(
                 initialOffsetY = { -it },
                 animationSpec = tween(400, easing = FastOutSlowInEasing),
@@ -263,18 +313,192 @@ fun LoginScreen(
                 .padding(top = 16.dp, start = 16.dp, end = 16.dp)
                 .widthIn(max = 440.dp),
         ) {
-            SessionExpiredBanner(onDismiss = onDismissSessionExpired)
+            if (sessionExpiredNotice) {
+                SessionExpiredBanner(onDismiss = onDismissSessionExpired)
+            } else {
+                AccountDeletedBanner(onDismiss = onDismissAccountDeleted)
+            }
+        }
+
+        // A deleted (but restorable) account — the user taps Restore to jump into
+        // the OTP flow and bring the account back.
+        AnimatedVisibility(
+            visible = showRestoreCard,
+            enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+            ),
+            exit = fadeOut(animationSpec = tween(200)) + slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(250, easing = FastOutSlowInEasing),
+            ),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                .widthIn(max = 440.dp),
+        ) {
+            RestoreAccountCard(
+                restoring = restoreRequesting,
+                onRestore = ::restoreAccount,
+                onDismiss = { showRestoreCard = false },
+            )
         }
 
         if (showPrivacy) {
             BackHandler { showPrivacy = false }
             PrivacyPolicyScreen(onBack = { showPrivacy = false })
         }
+
+        if (showTerms) {
+            BackHandler { showTerms = false }
+            TermsConditionsScreen(onBack = { showTerms = false })
+        }
     }
 }
 
 @Composable
 private fun SessionExpiredBanner(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NoticeBanner(
+        title = stringResource(R.string.session_expired_title),
+        message = stringResource(R.string.session_expired_message),
+        icon = Icons.Rounded.Lock,
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
+}
+
+/** "Your account was deleted — sign in again to restore it." Same shape, calmer colours. */
+@Composable
+private fun AccountDeletedBanner(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NoticeBanner(
+        title = stringResource(R.string.account_deleted_title),
+        message = stringResource(R.string.account_deleted_message),
+        icon = Icons.Rounded.DeleteForever,
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
+}
+
+/** The login attempt hit a soft-deleted account — offer to restore it via OTP. */
+@Composable
+private fun RestoreAccountCard(
+    restoring: Boolean,
+    onRestore: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val bgColor = if (isDark) Color(0xFF1F2A24) else Color(0xFFF0FDF4)
+    val borderColor = if (isDark) AppColors.success.copy(alpha = 0.45f) else Color(0xFF86EFAC)
+    val titleColor = if (isDark) Color(0xFFDCFCE7) else Color(0xFF14532D)
+    val messageColor = if (isDark) Color(0xFFA7C4B2) else Color(0xFF166534)
+    val accent = settingsAccent()
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color(0x33E50914),
+                spotColor = Color(0x33E50914),
+            )
+            .clip(RoundedCornerShape(16.dp))
+            .background(bgColor)
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(if (isDark) Color(0xFF2F3D45) else Color(0xFFDCFCE7)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Restore,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.account_deleted_title),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                ),
+                color = titleColor,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.account_restore_message),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                ),
+                color = messageColor,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent.copy(alpha = 0.14f))
+                    .clickable(enabled = !restoring, onClick = onRestore)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (restoring) {
+                        CircularProgressIndicator(
+                            color = accent,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = stringResource(R.string.account_restore_action),
+                        color = accent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.common_close),
+                tint = messageColor.copy(alpha = 0.8f),
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NoticeBanner(
+    title: String,
+    message: String,
+    icon: ImageVector,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -308,7 +532,7 @@ private fun SessionExpiredBanner(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Lock,
+                imageVector = icon,
                 contentDescription = null,
                 tint = settingsAccent(),
                 modifier = Modifier.size(20.dp),
@@ -319,7 +543,7 @@ private fun SessionExpiredBanner(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.session_expired_title),
+                text = title,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.5.sp,
@@ -328,7 +552,7 @@ private fun SessionExpiredBanner(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = stringResource(R.string.session_expired_message),
+                text = message,
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
@@ -359,6 +583,7 @@ private fun LoginContent(
     acceptedTerms: Boolean,
     onAcceptedTermsChange: (Boolean) -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
     isLoading: Boolean,
     isFormValid: Boolean,
     canSubmit: Boolean,
@@ -521,7 +746,7 @@ private fun LoginContent(
                         fontWeight = FontWeight.SemiBold,
                     )
                     append(stringResource(R.string.login_terms_prefix))
-                    pushStringAnnotation("link", "privacy")
+                    pushStringAnnotation("link", "terms")
                     withStyle(link) { append(stringResource(R.string.login_terms_use)) }
                     pop()
                     append(stringResource(R.string.login_terms_mid))
@@ -538,8 +763,10 @@ private fun LoginContent(
                     ),
                     modifier = Modifier.weight(1f),
                     onClick = { offset ->
-                        if (terms.getStringAnnotations("link", offset, offset).isNotEmpty()) {
-                            onOpenPrivacy()
+                        val link = terms.getStringAnnotations("link", offset, offset).firstOrNull()?.item
+                        when (link) {
+                            "terms" -> onOpenTerms()
+                            "privacy" -> onOpenPrivacy()
                         }
                     },
                 )
@@ -895,6 +1122,9 @@ private fun BrandName() {
 @Composable
 internal fun LanguagePicker() {
     val appLanguage = LocalAppLanguage.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val downloadFailed = stringResource(R.string.language_download_failed)
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<LanguageDto?>(null) }
@@ -980,9 +1210,14 @@ internal fun LanguagePicker() {
                         }
                     } else null,
                     onClick = {
-                        selected = language
-                        appLanguage.set(language.code.lowercase())
                         expanded = false
+                        scope.launch {
+                            if (appLanguage.choose(context, language.code)) {
+                                selected = language
+                            } else {
+                                android.widget.Toast.makeText(context, downloadFailed, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     },
                     modifier = if (isSelected) Modifier.background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)) else Modifier,
                 )

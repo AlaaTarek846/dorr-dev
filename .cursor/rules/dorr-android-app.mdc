@@ -1,0 +1,16 @@
+---
+description: Dorr Android app (Kotlin/Compose) conventions
+globs: "androidApp/**/*.{kt,xml,kts}"
+alwaysApply: false
+---
+
+# Dorr Android Standards
+
+Read `docs/modules/android/README.md` first. API base: `/api/mobile/v1/*` (guard `user_api`).
+
+- Endpoints only from documented backend routes; add them in `network/*Api.kt` + `ApiModels.kt`
+- Every UI string in **both** `values/strings.xml` and `values-ar/strings.xml`
+- Colors and font from appearance tokens (`Ch.palette`, `AppFont`), no hard-coded brand colors
+- Fields use `DorrTextField` / chat `ChField`
+- Do not commit `.gradle/` or `build/` output
+- Verify with `./gradlew assembleDebug` from `androidApp/`

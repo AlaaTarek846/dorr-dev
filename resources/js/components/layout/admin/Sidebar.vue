@@ -137,6 +137,20 @@
                                 </router-link>
                             </li>
 
+                            <li v-if="can('faqs.view')" class="slide">
+                                <router-link :to="{ name: 'admin.faqs.index' }" class="side-menu__item">
+                                    <i class="ri-question-answer-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('faqs.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('legal-page.view')" class="slide">
+                                <router-link :to="{ name: 'admin.legal-pages.index' }" class="side-menu__item">
+                                    <i class="ri-file-shield-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('legal_pages.title') }}</span>
+                                </router-link>
+                            </li>
+
                             <li class="slide">
                                 <router-link :to="{ name: 'admin.providers.index' }" class="side-menu__item">
                                     <i class="ri-user-settings-line side-menu__icon"></i>

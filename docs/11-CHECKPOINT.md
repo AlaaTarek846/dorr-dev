@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-09-20  
+**Last updated:** 2026-09-30  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -17,7 +17,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ### Backend
 - Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
-- Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, PlatformSetting)
+- Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, Faq, LegalPage, PlatformSetting)
 - Sanctum auth with `admin_api`, `user_api`, and `provider_api` guards
 - Standard API response envelope
 - Translation-based catalog pattern
@@ -33,6 +33,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - `SmsException implements ApiRenderable` — service-layer business errors become standard API error envelopes without controller try/catch
 - Country-driven E.164 normalisation (`PhoneNumberNormalizer`) using `Country::dial_code` / `phone_starts_with` / `phone_length`; no `libphonenumber` in the project
 - See [docs/modules/sms/README.md](./modules/sms/README.md)
+- FAQ catalog (`faqs` / `faq_translations`) and Legal Pages catalog (`legal_pages` / `legal_page_translations`, `type` = privacy | term; replaced the Privacy Policy catalog on 2026-09-29), each with optional `service_id` → `service_categories.id` (`nullOnDelete`), `status`, `sort_order`, soft deletes, and multilingual fields
+- Admin APIs: `/api/admin/v1/faqs*` (`faqs.*` permissions) and `/api/admin/v1/legal-pages*` (`legal-page.*` permissions) — CRUD, trash, restore, force delete, status, bulk delete, dropdown
+- `ResolvesTranslatableFields` concern; translation sync/response/formatting generalized so a catalog can expose more than one translatable field (single-field `name` catalogs unchanged)
 
 ### Frontend
 - Admin SPA: full catalog CRUD, users, providers, AI settings, platform settings
@@ -50,6 +53,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Interface translation management (2026-09-30, ADR-011):** Admin → Languages → Translations. New languages (e.g. `fr`) get backend / Vue / Android JSON groups via export → translate → import (draft) → publish. `ar`/`en` untouched and remain the bundled sources (`en` = base + fallback). Backend and Vue load published locales at runtime. Migration `2026_09_30_120000_create_translation_files_table`. Config `config/translations.php`.
+- **Dynamic Android translations (2026-10-01, ADR-011):** the Android app lists languages from `GET /api/general/v1/translations/languages?platform=android` and downloads `GET /api/general/v1/translations/{code}/android` when a non-bundled language is chosen (ar/en stay bundled; `en` = fallback). One language file on the device (`filesDir/translations/{code}.json`), served by `ui/locale/DynamicResources.kt`; direction saved with it for offline cold starts; newer `android_version` downloaded on launch / when the language dialog opens; a language no longer offered falls back to `en`. The XML ZIP export still exists. Not covered: strings built outside Compose (`chat/CallNotifications.kt`, `chat/LiveLocationService.kt`) stay English for downloaded languages.
 - Provider dashboard SPA **documented** (module docs + API spec aligned with code, 2026-09-20)
 - Provider profile services dropdown + sidebar links from `services[]` / `category.module_name`
 - **Mobile phone auth (Android):** `/api/mobile/v1/*` guard `user_api`; combined login/register by phone only; fixed demo OTP `123456` via `App\Traits\SendsPhoneOtp` (writes `verification_codes`); phone validated against `countries.phone_starts_with` / `phone_length`; `EnsurePhoneVerified` middleware blocks routes until `phone_verified_at` set; Android `LoginScreen`/`OtpScreen` wired to real APIs (`MobileAuthApi`)
@@ -68,6 +73,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - `.env.example` — Pusher + OneSignal env vars added
   - **NEEDS-DECISION**: `onesignal_player_id` field not yet on User/Provider models; add it when push notifications are implemented per audience
 - **Chat module (`Modules/Chat`, 2026-09-29):** the backend is built and tested (23 tests in `tests/Feature/ChatTest.php`). It covers direct chats with message requests, groups and roles, every message type including the wallet transfer receipt and wallet QR cards, ticks, reply, forward, edit, delete, reactions, stars, pins, disappearing messages, contacts (sync, number lookup, QR), privacy and blocks, presence and typing, folders, LiveKit calls, OneSignal push, and admin `chat-settings`. See [chat-plan.md](chat-plan.md) and [modules/chat](modules/chat/README.md). **Android chat is built** (`ui/screens/chat`: list, conversation, info, new chat and group, QR, privacy, starred, calls, all animated) and compiles against `pusher-java-client` 2.4.4 and `livekit-android` 2.5.0 (JitPack repo added for LiveKit). **Since then (2026-09-28):** Stories, OneSignal push with deep links and full-screen incoming calls, admin themes, report reasons and reports, the admin chat-settings screen, group video grid, and the **web chat** at `/user/messages` (the same API mounted under `/api/user/v1/chat`). Tests: `ChatTest` 27, `ChatStoryTest` 9, `ChatThemeReportTest` 7. The open list is in [chat-tasks.md](chat-tasks.md). **Design system (2026-09-29):** the Android chat takes its colours from the appearance tokens (`Ch.palette`), the admin-chosen font now applies app-wide (`ui/theme/AppFont.kt`), and all fields use the shared field design (`DorrTextField` / chat `ChField`, with icons and a show/hide toggle on passwords).
+- **Catalog content (2026-09-30):** service categories carry `audiences` (`ServiceAudience`), a translatable `description` and drag-and-drop ordering; FAQs are ordered per service by drag-and-drop; a shared rich-text editor/renderer backs FAQ answers and legal pages; mobile reads `GET /api/mobile/v1/faqs` and `/legal-pages`; Android added `ServiceDetailScreen` and `HtmlText`
+- **Android docs (2026-09-30):** [modules/android/README.md](modules/android/README.md) documents app structure, backend host switch and rules
+- **Working agreement (2026-09-30):** plan first for any project; pick model and effort by task size — see [AI-INSTRUCTIONS.md](AI-INSTRUCTIONS.md#model-and-effort-selection)
 - **UNKNOWN:** No other active work tracked in repo
 
 ---

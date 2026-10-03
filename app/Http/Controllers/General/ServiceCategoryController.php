@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\General;
 
 use App\Http\Controllers\CatalogController;
+use App\Http\Requests\General\ReorderServiceCategoriesRequest;
 use App\Http\Requests\General\ServiceCategoryRequest;
 use App\Services\General\ServiceCategoryService;
 
@@ -25,6 +26,7 @@ class ServiceCategoryController extends CatalogController
     {
         return [
             ['view', ['tree', 'treeOptions', 'leafOptions']],
+            ['update', ['reorder']],
         ];
     }
 
@@ -36,6 +38,11 @@ class ServiceCategoryController extends CatalogController
     public function tree()
     {
         return $this->service->tree();
+    }
+
+    public function reorder(ReorderServiceCategoriesRequest $request)
+    {
+        return $this->service->reorder($request->validated());
     }
 
     public function leafOptions()

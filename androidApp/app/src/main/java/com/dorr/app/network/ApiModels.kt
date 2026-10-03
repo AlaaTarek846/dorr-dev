@@ -94,6 +94,8 @@ data class LanguageDto(
     val name: String,
     val direction: String,
     val flag: FlagDto? = null,
+    /** Version of the downloadable Android strings; null for the bundled ar/en. */
+    @SerializedName("android_version") val androidVersion: String? = null,
 )
 
 data class OtpRequest(
@@ -104,6 +106,8 @@ data class OtpRequest(
 data class OtpSentDto(
     @SerializedName("masked_phone") val maskedPhone: String?,
     @SerializedName("is_new_user") val isNewUser: Boolean?,
+    /** "active" (normal login), "deleted" (soft-deleted, offer restore), "restore" (restore OTP sent). */
+    @SerializedName("account_state") val accountState: String?,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int?,
 )
 
@@ -117,6 +121,8 @@ data class AuthResultDto(
     val user: UserDto?,
     val token: String?,
     @SerializedName("token_type") val tokenType: String?,
+    /** True when this verify restored a previously deleted account (deleted_at → null). */
+    @SerializedName("is_restored") val isRestored: Boolean?,
 )
 
 data class UserDto(
@@ -153,6 +159,8 @@ data class ServiceDto(
     val name: String,
     @SerializedName("module_name") val moduleName: String?,
     val image: String?,
+    val description: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
     @SerializedName("requires_provider") val requiresProvider: Boolean?,
     @SerializedName("has_children") val hasChildren: Boolean?,
     val children: List<ServiceChildDto>?,
@@ -163,4 +171,6 @@ data class ServiceChildDto(
     val name: String,
     @SerializedName("module_name") val moduleName: String?,
     val image: String?,
+    val description: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
 )

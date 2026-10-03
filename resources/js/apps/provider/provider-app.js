@@ -4,7 +4,7 @@ import { createApp } from 'vue';
 import { createPinia } from 'pinia';
 import ProviderApp from './ProviderApp.vue';
 import router from '../../router/provider-index';
-import i18n, { setI18nLocale } from '../../plugins/i18n';
+import i18n, { loadLocaleMessages, setI18nLocale } from '../../plugins/i18n';
 import {
     applyDocumentDirection,
     getStoredDirection,
@@ -13,6 +13,7 @@ import {
 } from '../../utils/direction';
 import '../../api/providerAxios';
 import '../../styles/catalog-list.css';
+import '../../styles/rich-text-content.css';
 
 applyDocumentDirection(
     getStoredDirection(),
@@ -27,11 +28,15 @@ app.use(pinia);
 app.use(router);
 app.use(i18n);
 
-setI18nLocale(resolveInitialLocale());
+const initialLocale = resolveInitialLocale();
 
-const mountEl = document.getElementById('app');
+loadLocaleMessages(initialLocale).finally(() => {
+    setI18nLocale(initialLocale);
 
-if (mountEl) {
-    document.documentElement.classList.add('provider-app-ready');
-    app.mount(mountEl);
-}
+    const mountEl = document.getElementById('app');
+
+    if (mountEl) {
+        document.documentElement.classList.add('provider-app-ready');
+        app.mount(mountEl);
+    }
+});

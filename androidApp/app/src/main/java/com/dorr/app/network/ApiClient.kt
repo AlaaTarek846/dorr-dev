@@ -10,21 +10,21 @@ import java.net.NoRouteToHostException
 import java.net.UnknownHostException
 
 /**
- * Backend reached over the LAN (phone + PC on the same Wi-Fi) while ngrok is
- * down on this machine (the agent cannot authenticate: CRL fetch failure, so
- * it never opens a tunnel). Apache serves the app for this IP via a
- * ServerAlias, cleartext HTTP is allowed by the manifest.
- * To go back to ngrok: BASE_HOST = "juncture-calibrate-tingly.ngrok-free.dev",
- * BASE_URL = "https://$BASE_HOST/api/", and start:
- * ngrok http 80 --url https://$BASE_HOST --host-header=dorr.test The local dev host below is what
- * Laravel builds absolute media URLs with, so those get rewritten to the LAN host.
+ * Which backend this build talks to is each developer's own setting, in androidApp/local.properties
+ * (not committed — so merges never swap it again):
+ *
+ *   dorr.apiHost=my-tunnel.ngrok-free.dev   dorr.apiScheme=https   (ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test)
+ *   dorr.apiHost=192.168.1.3                dorr.apiScheme=http    (phone + PC on the same Wi-Fi; the IP from `ipconfig`,
+ *                                                                  listed as a ServerAlias in Apache — cleartext is allowed by the manifest)
+ *   dorr.apiHost=10.0.2.2                   dorr.apiScheme=http    (Android emulator)
+ *
+ * The local dev host (LOCAL_MEDIA_HOST) is what Laravel builds absolute media URLs with, so those
+ * get rewritten to the reachable host below.
  */
-// private const val LAN_HOST = "192.168.1.5"
-// private const val EMULATOR_HOST = "10.0.2.2"
 // Set per developer in androidApp/local.properties (dorr.apiHost / dorr.apiScheme) — see app/build.gradle.kts.
 private const val BASE_HOST = com.dorr.app.BuildConfig.API_HOST
 private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOST/api/"
-// NOTE: BASE_HOST must be this PC's current Wi-Fi IP (check `ipconfig`) AND be
+// NOTE (LAN): a Wi-Fi IP as dorr.apiHost must be this PC's current IP (check `ipconfig`) AND be
 // listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
 // otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
 
@@ -62,9 +62,9 @@ object ApiClient {
         .addInterceptor { chain ->
             val request = chain.request()
             val response = chain.proceed(request)
-            // Any API request returning 401 (unauthorized / session expired)
-            // drops session locally and routes the user back to the login screen.
-            if (response.code == 401) {
+            // Session expired only when we sent a Bearer token and the server rejected it.
+            // Public auth routes (OTP) must not wipe state or show the expired banner.
+            if (response.code == 401 && request.header("Authorization")?.startsWith("Bearer ") == true) {
                 AuthSession.clear()
                 AuthSession.onUnauthorized?.invoke()
             }
@@ -96,6 +96,7 @@ object ApiClient {
         retrofit.create(MobileAppearanceDefaultsApi::class.java)
     }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+    val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */

@@ -71,6 +71,7 @@
     <string name="account_contact_us">تواصل معنا</string>
     <string name="account_about">عن التطبيق</string>
     <string name="account_privacy">سياسة الخصوصية</string>
+    <string name="account_terms">الشروط والأحكام</string>
     <string name="account_logout">تسجيل خروج</string>
     <string name="account_delete">حذف الحساب</string>
     <string name="account_verified">موثّق</string>
@@ -96,8 +97,8 @@
     <string name="addr_update">تحديث</string>
     <string name="addr_edit">تعديل</string>
     <string name="addr_delete">حذف</string>
-    <string name="addr_delete_ask">هل تريد المسح</string>
-    <string name="addr_yes">نعم</string>
+    <string name="addr_delete_ask">هل تريد حذف هذا العنوان؟</string>
+    <string name="addr_yes">حذف</string>
     <string name="addr_home">المنزل</string>
     <string name="addr_work">العمل</string>
     <string name="addr_other">أخرى</string>
@@ -115,6 +116,9 @@
     <string name="addr_landmark_hint">بجوار مسجد أو محل</string>
     <string name="addr_set_default">تعيين كافتراضي</string>
     <string name="pd_change_photo">تغيير الصورة</string>
+    <string name="pd_delete_photo">حذف الصورة</string>
+    <string name="pd_delete_photo_ask">هل تريد حذف هذه الصورة؟</string>
+    <string name="pd_delete_photo_confirm">صورة الملف الشخصي</string>
     <string name="pd_name">الاسم</string>
     <string name="pd_name_more">في بيانات تانية تقدر تعدّلها لاحقًا</string>
     <string name="pd_gender">الجنس</string>
@@ -200,14 +204,24 @@
     <string name="account_contact_us_sub">هاتف واتساب وبريد</string>
     <string name="account_about_sub">الإصدار والمعلومات</string>
     <string name="account_privacy_sub">كيف نتعامل مع بياناتك</string>
+    <string name="account_terms_sub">القواعد التي تحكم خدماتنا</string>
     <string name="account_logout_sub">الخروج من هذا الجهاز</string>
-    <string name="account_delete_sub">إجراء لا يمكن التراجع عنه</string>
+    <string name="account_delete_sub">يمكن استرجاعه بتسجيل الدخول</string>
+    <string name="account_delete_in_progress">جارٍ الحذف…</string>
+    <string name="account_delete_done">تم حذف حسابك. سجّل الدخول مرة أخرى بنفس رقم الهاتف لاسترجاعه.</string>
+    <string name="account_delete_failed">تعذّر حذف حسابك. حاول مرة أخرى.</string>
+    <string name="account_deleted_title">تم حذف الحساب</string>
+    <string name="account_deleted_message">يمكنك استرجاع حسابك بتسجيل الدخول مرة أخرى بنفس رقم الهاتف.</string>
+    <string name="account_restore_action">استرجاع الحساب</string>
+    <string name="account_restore_title">استرجاع حسابك</string>
+    <string name="account_restore_message">تم حذف حسابك. أدخل الكود لاسترجاعه.</string>
     <string name="logout_confirm_message">هل أنت متأكد من تسجيل الخروج؟</string>
-    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. هل أنت متأكد؟</string>
+    <string name="delete_confirm_message">سيتم حذف حسابك وكل بياناتك نهائياً. يمكن استعادة حسابك بتسجيل الدخول مرة أخرى بنفس رقم الهاتف. هل أنت متأكد؟</string>
 
     <string name="common_back">رجوع</string>
     <string name="common_save">حفظ</string>
     <string name="common_cancel">إلغاء</string>
+    <string name="common_yes">نعم</string>
     <string name="common_close">إغلاق</string>
 
     <!-- البيانات الشخصية -->
@@ -233,6 +247,9 @@
 
     <!-- الأسئلة الشائعة -->
     <string name="faq_title">الأسئلة الشائعة</string>
+    <string name="faq_search_hint">ابحث في الأسئلة…</string>
+    <string name="faq_empty">لا توجد أسئلة شائعة حالياً</string>
+    <string name="faq_empty_search">لا توجد نتائج تطابق بحثك</string>
     <string name="faq_q1">إزاي أقدر أعدل بياناتي الشخصية؟</string>
     <string name="faq_a1">افتح الحساب ← البيانات الشخصية، عدّل بياناتك، ثم اضغط حفظ.</string>
     <string name="faq_q2">إزاي أغيّر لغة التطبيق؟</string>
@@ -241,6 +258,11 @@
     <string name="faq_a3">أيوة — فعّله من الحساب ← الوضع الليلي.</string>
     <string name="faq_q4">إزاي أتواصل مع الدعم؟</string>
     <string name="faq_a4">افتح الحساب ← تواصل معنا للاتصال أو واتساب أو إيميل.</string>
+    <string name="privacy_empty">سياسة الخصوصية غير متوفرة حالياً</string>
+    <string name="terms_empty">الشروط والأحكام غير متوفرة حالياً</string>
+    <string name="content_loading">جاري التحميل…</string>
+    <string name="content_retry">إعادة المحاولة</string>
+    <string name="content_error">تعذّر تحميل المحتوى</string>
 
     <!-- تواصل معنا -->
     <string name="contact_title">تواصل معنا</string>
@@ -255,7 +277,9 @@
     <!-- اللغة -->
     <string name="language_title">اللغة</string>
     <string name="language_loading">جاري تحميل اللغات…</string>
+    <string name="language_download_failed">تعذّر تحميل هذه اللغة. تحقّق من الاتصال وحاول مرة أخرى.</string>
     <string name="privacy_head">خصوصيتك مهمة</string>
+    <string name="terms_head">الشروط والأحكام</string>
     <string name="language_arabic">العربية</string>
     <string name="language_english">English — إنجليزي</string>
 
@@ -364,6 +388,9 @@
     <string name="services_search_hint">ابحث في الخدمات</string>
     <string name="services_no_results">لا توجد خدمات مطابقة لبحثك</string>
     <string name="services_count">%1$d خدمة</string>
+    <string name="services_detail_about">عن الخدمة</string>
+    <string name="services_detail_subservices">الخدمات الفرعية</string>
+    <string name="services_detail_description_fallback">تصفّح هذه الخدمة واطلب ما تحتاجه. الحجز والطلب من التطبيق سيتوفر قريباً.</string>
     <!-- إشعارات تجريبية (بيانات مبدئية — استبدلها ببيانات حقيقية من السيرفر) -->
     <string name="notif_sample_title_status_changed">تغيرت حالة طلبك</string>
     <string name="notif_sample_body_status_changed">انتقل طلبك إلى «قيد التنفيذ».</string>

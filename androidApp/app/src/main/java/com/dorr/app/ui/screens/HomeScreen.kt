@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.ServiceDto
 import com.dorr.app.ui.components.HeroBannerSlider
 import com.dorr.app.ui.components.ServicesSection
 import com.dorr.app.ui.components.StatChip
@@ -69,6 +70,7 @@ fun HomeScreen(
     onOpenNotifications: () -> Unit,
     onOpenWallet: () -> Unit,
     onOpenServices: () -> Unit,
+    onOpenService: (ServiceDto, Color) -> Unit,
     onOpenChat: () -> Unit = {},
 ) {
     Box(Modifier.fillMaxSize()) {
@@ -100,7 +102,13 @@ fun HomeScreen(
             )
         }
         item { Spacer(Modifier.height(12.dp)) }
-        item { ServicesSection(onViewAll = onOpenServices, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item {
+            ServicesSection(
+                onViewAll = onOpenServices,
+                onOpenService = onOpenService,
+                modifier = Modifier.padding(horizontal = 20.dp),
+            )
+        }
         item { Spacer(Modifier.height(24.dp)) }
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }
@@ -143,7 +151,8 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
             color = accent,
             fontSize = 18.sp,
             fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.weight(1f),
+            // End padding keeps a long name (cut with "...") clear of the wallet icon; it follows RTL.
+            modifier = Modifier.weight(1f).padding(end = 10.dp),
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

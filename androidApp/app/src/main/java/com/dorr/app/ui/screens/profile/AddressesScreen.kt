@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.profile
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -118,8 +119,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import com.dorr.app.R
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.network.AddressDto
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
@@ -189,6 +190,9 @@ fun AddressesScreen(onBack: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedAddress?>(null) }
     var saving by remember { mutableStateOf(false) }
+
+    // Back from the add/edit form returns to the list, like the form's own back arrow.
+    BackHandler(enabled = adding || editing != null) { adding = false; editing = null }
 
     LaunchedEffect(query) {
         delay(400)
@@ -486,14 +490,15 @@ fun AddressesScreen(onBack: () -> Unit) {
  * cancel next to it. Follows the screen's night mode like every other card.
  */
 @Composable
-private fun DeleteAddressDialog(
+internal fun DeleteAddressDialog(
     name: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    title: String = stringResource(R.string.addr_delete_ask),
 ) {
     val night = settingsNight()
-    val red = if (night) AccountDark.accent else AppColors.waRed
-    Dialog(onDismissRequest = onDismiss) {
+    val red = settingsAccent()
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -507,7 +512,7 @@ private fun DeleteAddressDialog(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(RoundedCornerShape(20.dp))
-                    .background(if (night) AccountDark.well else Color(0xFFFDE8EC)),
+                    .background(red.copy(alpha = 0.14f)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -521,7 +526,7 @@ private fun DeleteAddressDialog(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                stringResource(R.string.addr_delete_ask),
+                title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = red,
@@ -549,14 +554,14 @@ private fun DeleteAddressDialog(
                 Button(
                     onClick = onConfirm,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = AppColors.waRed,
+                        containerColor = red,
                         contentColor = Color.White,
                     ),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(52.dp)
-                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = AppColors.waRed.copy(alpha = 0.4f)),
+                        .shadow(8.dp, RoundedCornerShape(16.dp), spotColor = red.copy(alpha = 0.4f)),
                 ) {
                     Text(
                         stringResource(R.string.addr_yes),
@@ -568,7 +573,7 @@ private fun DeleteAddressDialog(
                 OutlinedButton(
                     onClick = onDismiss,
                     shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, if (night) AccountDark.line else Color(0xFFFECDD3)),
+                    border = BorderStroke(1.dp, if (night) AccountDark.line else red.copy(alpha = 0.3f)),
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = if (night) Color.Transparent else Color.White,
                         contentColor = red,
@@ -767,7 +772,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(46.dp)
                 .clip(RoundedCornerShape(16.dp))
-                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+                .background(settingsAccent().copy(alpha = 0.14f)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -796,7 +801,7 @@ private fun AddressCard(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                            .background(settingsAccent().copy(alpha = 0.14f))
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
@@ -825,7 +830,7 @@ private fun AddressCard(
             modifier = Modifier
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(if (settingsNight()) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                .background(settingsAccent().copy(alpha = 0.14f))
                 .clickable(onClick = onEdit),
             contentAlignment = Alignment.Center,
         ) {
@@ -846,7 +851,7 @@ private fun AddressCard(
                 .size(36.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .background(settingsCard())
-                .border(1.dp, if (settingsNight()) AccountDark.line else Color(0xFFFECDD3), RoundedCornerShape(12.dp))
+                .border(1.dp, if (settingsNight()) AccountDark.line else settingsAccent().copy(alpha = 0.3f), RoundedCornerShape(12.dp))
                 .alpha(if (item.isDefault) 0.35f else 1f)
                 .clickable(onClick = onDelete),
             contentAlignment = Alignment.Center,
@@ -854,7 +859,7 @@ private fun AddressCard(
             Icon(
                 Icons.Rounded.DeleteOutline,
                 contentDescription = stringResource(R.string.addr_delete),
-                tint = if (item.isDefault) settingsMut() else AppColors.waRed,
+                tint = if (item.isDefault) settingsMut() else settingsAccent(),
                 modifier = Modifier.size(18.dp),
             )
         }

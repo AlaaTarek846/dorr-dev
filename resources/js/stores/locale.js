@@ -1,7 +1,8 @@
 import { defineStore } from 'pinia';
-import { setI18nLocale } from '../plugins/i18n';
+import { loadLocaleMessages, setI18nLocale } from '../plugins/i18n';
 import {
     applyDocumentDirection,
+    getStoredDirection,
     hasStoredLocalePreference,
     persistLocale,
     resolveInitialLocale,
@@ -9,7 +10,9 @@ import {
 import { syncCatalogToggleLabels } from '../utils/catalog';
 import { useAvailableLanguagesStore } from './availableLanguages';
 
-const KNOWN_I18N_LOCALES = ['ar', 'en'];
+function findLanguage(languagesStore, code) {
+    return languagesStore.findInterfaceByCode(code) ?? languagesStore.findByCode(code);
+}
 
 export const useLocaleStore = defineStore('locale', {
     state: () => ({
@@ -19,27 +22,24 @@ export const useLocaleStore = defineStore('locale', {
 
     getters: {
         direction(state) {
-            const languagesStore = useAvailableLanguagesStore();
-            const language = languagesStore.findByCode(state.locale);
+            const language = findLanguage(useAvailableLanguagesStore(), state.locale);
 
             if (language?.direction) {
                 return language.direction;
             }
 
-            return state.locale === 'ar' ? 'rtl' : 'ltr';
+            return getStoredDirection();
         },
         isRtl() {
             return this.direction === 'rtl';
         },
         label: (state) => {
-            const languagesStore = useAvailableLanguagesStore();
-            const language = languagesStore.findByCode(state.locale);
+            const language = findLanguage(useAvailableLanguagesStore(), state.locale);
 
             return language?.name ?? state.locale.toUpperCase();
         },
         flagCode: (state) => {
-            const languagesStore = useAvailableLanguagesStore();
-            const language = languagesStore.findByCode(state.locale);
+            const language = findLanguage(useAvailableLanguagesStore(), state.locale);
 
             return language?.flag?.code ?? null;
         },
@@ -52,17 +52,17 @@ export const useLocaleStore = defineStore('locale', {
             }
 
             const languagesStore = useAvailableLanguagesStore();
-            await languagesStore.fetch();
+            await languagesStore.fetchInterface();
 
-            if (! languagesStore.items.length) {
+            if (! languagesStore.interfaceItems.length) {
                 return;
             }
 
             if (hasStoredLocalePreference()) {
-                const stored = languagesStore.findByCode(this.locale);
+                const stored = languagesStore.findInterfaceByCode(this.locale);
 
-                if (stored) {
-                    this.applyLocale(stored.code, stored.direction, true);
+                if (stored && await this.applyLocale(stored.code, stored.direction, true)) {
+                    this.initialized = true;
 
                     return;
                 }
@@ -71,39 +71,44 @@ export const useLocaleStore = defineStore('locale', {
                 localStorage.removeItem('admin_direction');
             }
 
-            const fallback = languagesStore.defaultDashboard ?? languagesStore.items[0];
+            const fallback = languagesStore.defaultInterface;
 
-            if (fallback) {
-                this.applyLocale(fallback.code, fallback.direction, false);
+            if (fallback && ! await this.applyLocale(fallback.code, fallback.direction, false)) {
+                await this.applyLocale('en', 'ltr', false);
             }
 
             this.initialized = true;
         },
 
-        setLocale(localeCode) {
+        async setLocale(localeCode) {
             const languagesStore = useAvailableLanguagesStore();
-            const language = languagesStore.findByCode(localeCode);
+            const language = languagesStore.findInterfaceByCode(localeCode);
 
             if (! language) {
-                return;
+                return false;
             }
 
-            this.applyLocale(language.code, language.direction, true);
+            return this.applyLocale(language.code, language.direction, true);
         },
 
-        applyLocale(localeCode, direction, persist = true) {
+        async applyLocale(localeCode, direction, persist = true) {
+            const language = useAvailableLanguagesStore().findInterfaceByCode(localeCode);
+
+            if (! await loadLocaleMessages(localeCode, language?.version ?? null)) {
+                return false;
+            }
+
             this.locale = localeCode;
-            applyDocumentDirection(direction, localeCode, persist);
-
-            const i18nLocale = KNOWN_I18N_LOCALES.includes(localeCode) ? localeCode : 'en';
-
-            setI18nLocale(i18nLocale);
+            applyDocumentDirection(direction || language?.direction || 'ltr', localeCode, persist);
+            setI18nLocale(localeCode);
             syncCatalogToggleLabels();
+
+            return true;
         },
 
         toggleLocale() {
             const languagesStore = useAvailableLanguagesStore();
-            const codes = languagesStore.storableLocales;
+            const codes = languagesStore.interfaceLocales;
 
             if (codes.length < 2) {
                 return;

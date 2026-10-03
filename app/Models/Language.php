@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\TextDirection;
 use App\Models\Concerns\HasTranslations;
+use App\Support\Translations\PublishedTranslations;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -35,9 +36,27 @@ class Language extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        $flush = fn () => app(PublishedTranslations::class)->flush();
+
+        static::saved($flush);
+        static::deleted($flush);
+        static::restored($flush);
+
+        static::forceDeleting(function (Language $language) {
+            $language->translationFiles()->get()->each->delete();
+        });
+    }
+
     public function translations(): HasMany
     {
         return $this->hasMany(LanguageTranslation::class);
+    }
+
+    public function translationFiles(): HasMany
+    {
+        return $this->hasMany(TranslationFile::class);
     }
 
     protected function translationModel(): string

@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use App\Support\LocaleResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -126,7 +127,7 @@ class StickerService
      */
     public function flush(): void
     {
-        foreach (['ar', 'en'] as $locale) {
+        foreach (LocaleResolver::supported() as $locale) {
             Cache::forget(self::CACHE_KEY.'.'.$locale);
         }
     }
