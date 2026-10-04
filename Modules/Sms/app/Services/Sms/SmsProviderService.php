@@ -6,6 +6,7 @@ use App\Models\Country;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Sms\Exceptions\SmsException;
 use Modules\Sms\Models\SmsProvider;
@@ -28,6 +29,7 @@ class SmsProviderService
     public function query(Request $request): Builder
     {
         return SmsProvider::query()
+            ->with('countries:id')
             ->when($request->filled('search'), fn (Builder $q) => $q->searchAndFilter($request->input('search')))
             ->when($request->filled('date_from'), fn (Builder $q) => $q->whereDate('created_at', '>=', $request->date_from))
             ->when($request->filled('date_to'), fn (Builder $q) => $q->whereDate('created_at', '<=', $request->date_to))
@@ -45,14 +47,20 @@ class SmsProviderService
         $data['priority'] = (int) ($data['priority'] ?? 1);
 
         $config = $data['configuration'] ?? null;
-        unset($data['configuration']);
+        $countries = $data['countries'] ?? null;
+        unset($data['configuration'], $data['countries']);
 
         if (! empty($config)) {
             $this->assertConfigurationComplete($data['key'], $config);
             $data['configuration'] = $this->registry->prepareConfiguration($data['key'], $config);
         }
 
-        return SmsProvider::create($data);
+        return DB::transaction(function () use ($data, $countries): SmsProvider {
+            $provider = SmsProvider::create($data);
+            $this->syncCountries($provider, $countries);
+
+            return $provider->load('countries:id');
+        });
     }
 
     /**
@@ -61,6 +69,9 @@ class SmsProviderService
     public function update(int|string $id, array $data): SmsProvider
     {
         $provider = $this->findOrFail($id);
+
+        $countries = $data['countries'] ?? null;
+        unset($data['countries']);
 
         if (isset($data['priority'])) {
             $data['priority'] = (int) $data['priority'];
@@ -82,9 +93,28 @@ class SmsProviderService
             unset($data['configuration']);
         }
 
-        $provider->update($data);
+        DB::transaction(function () use ($provider, $data, $countries): void {
+            $provider->update($data);
+            $this->syncCountries($provider, $countries);
+        });
 
-        return $provider->refresh();
+        return $provider->refresh()->load('countries:id');
+    }
+
+    /**
+     * Replace the provider's supported countries. `null` (field absent) leaves the
+     * mapping untouched; an empty array clears it. Existing pivot rows keep their
+     * `is_active` flag, new ones start active.
+     *
+     * @param  list<int|string>|null  $countryIds
+     */
+    protected function syncCountries(SmsProvider $provider, ?array $countryIds): void
+    {
+        if ($countryIds === null) {
+            return;
+        }
+
+        $provider->countries()->sync(array_values(array_unique(array_map('intval', $countryIds))));
     }
 
     public function findOrFail(int|string $id): SmsProvider
