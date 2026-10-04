@@ -35,12 +35,13 @@ return [
         'textPrimary',
     ],
 
+    // Dorr identity: the logo's navy (#001B53) and orange (#FA7552) — white backgrounds, dark text.
     'default_light_tokens' => [
-        'primary' => '#E50914',
-        'primaryLight' => '#F2202C',
-        'primaryDark' => '#B30710',
-        'secondary' => '#111928',
-        'accent' => '#FF8A4C',
+        'primary' => '#001B53',
+        'primaryLight' => '#1E3A7B',
+        'primaryDark' => '#00113A',
+        'secondary' => '#FA7552',
+        'accent' => '#FA7552',
         'danger' => '#F05252',
         'success' => '#059669',
         'warning' => '#F59E0B',
@@ -54,12 +55,13 @@ return [
         'headerBackground' => '#000000',
     ],
 
+    // Dark mode: navy is too dark on a dark background, so the logo orange leads and a light navy follows.
     'default_dark_tokens' => [
-        'primary' => '#2DA8B0',
-        'primaryLight' => '#2DA8B0',
-        'primaryDark' => '#166064',
-        'secondary' => '#0E9F6E',
-        'accent' => '#FF8A4C',
+        'primary' => '#FA7552',
+        'primaryLight' => '#FF8E6E',
+        'primaryDark' => '#D9583A',
+        'secondary' => '#8EA6DD',
+        'accent' => '#FA7552',
         'danger' => '#F05252',
         'success' => '#059669',
         'warning' => '#F59E0B',
@@ -109,24 +111,24 @@ return [
 
     /** Light Login / OTP — 1:1 LoginScreen.kt (wa-red + pink backdrop + headings). */
     'default_light_auth_tokens' => [
-        'authAccent' => '#E50914',
+        'authAccent' => '#001B53',
         'authBackdropBase' => '#FFFFFF',
-        'authGlowDeep' => '#EFA8B4',
-        'authGlowMid' => '#F3C4CC',
-        'authGlowSoft' => '#F0B8C2',
+        'authGlowDeep' => '#F8BCA9',
+        'authGlowMid' => '#FBD2C4',
+        'authGlowSoft' => '#F9C4B4',
         'authSurface' => '#FFFFFF',
-        'authWell' => '#FDE8EC',
+        'authWell' => '#FFEEE8',
         'authBorder' => '#E5E7EB',
-        'authBorderPink' => '#F8B4C0',
+        'authBorderPink' => '#FBC8B7',
         'authTextPrimary' => '#111928',
         'authTextMuted' => '#6B7280',
-        'authTextEmphasis' => '#991B1B',
+        'authTextEmphasis' => '#001B53',
     ],
 
     'default_dark_auth_tokens' => [
-        'authAccent' => '#FF4D57',
+        'authAccent' => '#FA7552',
         'authBackdropBase' => '#101216',
-        'authGlowAccent' => '#E50914',
+        'authGlowAccent' => '#FA7552',
         'authSurface' => '#1A1D24',
         'authBorder' => '#2C313A',
         'authTextPrimary' => '#F4F5F7',

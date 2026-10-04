@@ -62,6 +62,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.Archive
 import androidx.compose.material.icons.rounded.Call
@@ -73,6 +74,8 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material.icons.rounded.MarkChatUnread
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MoreVert
@@ -87,7 +90,10 @@ import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.material.icons.rounded.Mood
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Warning
@@ -252,6 +258,12 @@ fun ChatListPage() {
                         }
                     }
                     if (!searching) {
+                        // Safe View on / off in one tap (previews hidden while it's on).
+                        val shieldContext = androidx.compose.ui.platform.LocalContext.current
+                        GlassIcon(if (com.dorr.app.chat.ChatShield.safeView) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility) {
+                            com.dorr.app.chat.ChatShield.setSafeView(shieldContext, !com.dorr.app.chat.ChatShield.safeView)
+                        }
+                        Spacer(Modifier.width(6.dp))
                         GlassIcon(Icons.Rounded.Search) { searching = true }
                         Spacer(Modifier.width(6.dp))
                         ListMenu()
@@ -286,7 +298,10 @@ fun ChatListPage() {
                 },
                 modifier = Modifier.weight(1f),
             ) {
-                val rows = searchResults ?: host.conversations
+                // Safe View: the chats I marked stay out of the list while it's on.
+                val rows = (searchResults ?: host.conversations).let { all ->
+                    if (com.dorr.app.chat.ChatShield.safeView) all.filterNot { it.id in com.dorr.app.chat.ChatShield.safeHidden } else all
+                }
                 when {
                     !host.listLoaded -> SkeletonRows()
                     host.listFailed && rows.isEmpty() -> ChEmptyState(
@@ -296,6 +311,17 @@ fun ChatListPage() {
                         action = stringResource(R.string.ch_retry),
                         onAction = { scope.launch { host.refreshList() } },
                     )
+                    rows.isEmpty() && host.filter.startsWith("folder:") && searchResults == null -> {
+                        val folder = host.folders.firstOrNull { "folder:${it.id}" == host.filter }
+                        ChEmptyState(
+                            icon = Icons.Rounded.Folder,
+                            title = stringResource(R.string.ch_folder_empty_title),
+                            text = stringResource(R.string.ch_folder_empty_text),
+                            action = stringResource(R.string.ch_folder_add_chats),
+                            onAction = { host.fillingFolder = folder },
+                            animated = true,
+                        )
+                    }
                     rows.isEmpty() && host.requestsCount == 0 -> Column(Modifier.fillMaxSize()) {
                         // Stories stay reachable even with no chats yet.
                         if (host.filter == "all" && searchResults == null) StoriesBar(onAdd = { addStory = true })
@@ -338,7 +364,9 @@ fun ChatListPage() {
         SpeedDial(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 20.dp, bottom = 24.dp))
     }
 
-    folderFor?.let { FolderPickerSheet(it) { folderFor = null } }
+    // Long-press: the chat's actions (pin, read, mute, archive, folder, lock, delete).
+    folderFor?.let { ChatActionsSheet(it) { folderFor = null } }
+    host.fillingFolder?.let { FolderChatsSheet(it) { host.fillingFolder = null } }
 
     if (addStory) StoryAddSheet(
         onDismiss = { addStory = false },
@@ -395,14 +423,19 @@ private fun ListMenu() {
     val context = androidx.compose.ui.platform.LocalContext.current
     var open by remember { mutableStateOf(false) }
     var themeSheet by remember { mutableStateOf(false) }
+    var statusSheet by remember { mutableStateOf(false) }
     if (themeSheet) ThemeSheet { themeSheet = false }
+    if (statusSheet) StatusSheet { statusSheet = false }
     Box {
         GlassIcon(Icons.Rounded.MoreVert) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(18.dp), containerColor = Ch.Surface) {
             MenuItem(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr)) { open = false; host.push(ChRoute.MyQr) }
             MenuItem(Icons.Rounded.Star, stringResource(R.string.ch_starred_title)) { open = false; host.push(ChRoute.Starred) }
+            MenuItem(Icons.Rounded.BookmarkAdd, stringResource(R.string.ch_follow_ups_title)) { open = false; host.push(ChRoute.ReadLater) }
+            MenuItem(Icons.Rounded.Mood, stringResource(R.string.ch_status_title)) { open = false; statusSheet = true }
             MenuItem(Icons.Rounded.Call, stringResource(R.string.ch_calls_title)) { open = false; host.push(ChRoute.Calls) }
             MenuItem(Icons.Rounded.Shield, stringResource(R.string.ch_privacy_title)) { open = false; host.push(ChRoute.Privacy) }
+            MenuItem(Icons.Rounded.Storefront, stringResource(R.string.ch_business_title)) { open = false; host.push(ChRoute.Business) }
             MenuItem(Icons.Rounded.Lock, stringResource(R.string.ch_locked_chats)) {
                 open = false
                 ChatLock.unlock(context) { host.filter = "locked" }
@@ -481,7 +514,7 @@ private fun FilterChips() {
     if (creating) TextInputSheet(stringResource(R.string.ch_new_folder), action = stringResource(R.string.ch_save), onDismiss = { creating = false }) { name ->
         host.scope.launch {
             runCatching { ApiClient.chat.createFolder(chatAuth(), mapOf("name" to name)).data }
-                .onSuccess { f -> f?.let { host.folders.add(it); host.filter = "folder:${it.id}" } }
+                .onSuccess { f -> f?.let { host.folders.add(it); host.filter = "folder:${it.id}"; host.fillingFolder = it } }
                 .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
         }
     }
@@ -489,6 +522,7 @@ private fun FilterChips() {
         ChoiceSheet(
             title = f.name,
             options = listOf(
+                stringResource(R.string.ch_folder_edit_chats) to { host.fillingFolder = f },
                 stringResource(R.string.ch_rename_folder) to { renaming = f },
                 stringResource(R.string.ch_delete_folder) to {
                     host.scope.launch {
@@ -685,6 +719,11 @@ private fun LastMessagePreview(c: ConversationDto) {
                 },
                 color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1,
             )
+            return@Row
+        }
+        // Safe View, or a sensitive message: no preview at all.
+        if (com.dorr.app.chat.ChatShield.safeView || last.isSensitive) {
+            Text(stringResource(if (last.isSensitive) R.string.ch_sensitive else R.string.ch_safe_view_hidden), color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1)
             return@Row
         }
         if (last.isMine && last.system == null && !last.isDeleted) {

@@ -197,7 +197,7 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
             .fillMaxWidth()
             .then(
                 if (night) Modifier
-                else Modifier.shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+                else Modifier.shadow(6.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x12001B53), spotColor = Color(0x12001B53)),
             )
             .clip(RoundedCornerShape(16.dp))
             .background(

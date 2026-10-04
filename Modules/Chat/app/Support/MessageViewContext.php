@@ -28,6 +28,15 @@ class MessageViewContext
     /** @var array<int, true> */
     public array $starred = [];
 
+    /** @var array<int, true> message ids I set aside to "read later" */
+    public array $readLater = [];
+
+    /** @var array<int, true> message ids waiting for my reply */
+    public array $followUp = [];
+
+    /** @var array<int, string> message id => when I asked to be reminded (ISO) */
+    public array $reminders = [];
+
     /** @var array<int, string> participant row id => account key */
     public array $participantKeys = [];
 
@@ -73,9 +82,16 @@ class MessageViewContext
         $ids = $messages->pluck('id')->merge($messages->pluck('reply_to_id'))->filter()->unique()->all();
 
         if ($ids !== []) {
-            $context->starred = ChatMessageUserState::query()
-                ->where('participant_id', $me->id)->whereIn('message_id', $ids)->whereNotNull('starred_at')
-                ->pluck('message_id')->flip()->map(fn () => true)->all();
+            $states = ChatMessageUserState::query()
+                ->where('participant_id', $me->id)->whereIn('message_id', $ids)
+                ->where(fn ($q) => $q->whereNotNull('starred_at')->orWhereNotNull('read_later_at')->orWhereNotNull('follow_up_at'))
+                ->get(['message_id', 'starred_at', 'read_later_at', 'follow_up_at']);
+            $context->starred = $states->whereNotNull('starred_at')->pluck('message_id')->flip()->map(fn () => true)->all();
+            $context->readLater = $states->whereNotNull('read_later_at')->pluck('message_id')->flip()->map(fn () => true)->all();
+            $context->followUp = $states->whereNotNull('follow_up_at')->pluck('message_id')->flip()->map(fn () => true)->all();
+            $context->reminders = \Modules\Chat\Models\ChatMessageReminder::query()
+                ->where('participant_id', $me->id)->whereIn('message_id', $ids)->whereNull('sent_at')
+                ->get(['message_id', 'remind_at'])->mapWithKeys(fn ($r) => [$r->message_id => $r->remind_at->toIso8601String()])->all();
         }
 
         // Channel posts show views instead of ticks: read receipts per post (one grouped query).

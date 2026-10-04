@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.dorr.app.chat.ChatEvent
 import com.dorr.app.chat.ChatRealtime
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.apiFailure
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.LastMessageDto
 import com.dorr.app.network.PresenceDto
@@ -36,7 +37,11 @@ sealed interface ChRoute {
     data class NewGroup(val addTo: String? = null) : ChRoute
     data object MyQr : ChRoute
     data object Privacy : ChRoute
+    /** My business tools: opening hours, welcome / away messages, quick replies. */
+    data object Business : ChRoute
     data object Starred : ChRoute
+    /** Messages I set aside to read later. */
+    data object ReadLater : ChRoute
     data object Calls : ChRoute
     /** Write a text story, or caption a picked photo / video (`media`). */
     data class StoryComposer(val media: String? = null) : ChRoute
@@ -147,6 +152,9 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     /** My folders (the extra chips after All / Unread / Groups / Archived). */
     val folders = mutableStateListOf<com.dorr.app.network.FolderDto>()
 
+    /** The folder whose chats are being picked (FolderChatsSheet), if any. */
+    var fillingFolder by mutableStateOf<com.dorr.app.network.FolderDto?>(null)
+
     suspend fun refreshFolders() {
         runCatching { ApiClient.chat.folders(chatAuth()).data }.getOrNull()?.let {
             folders.clear()
@@ -254,6 +262,7 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
                 if (senderKey != null) clearActivity(id, senderKey)
             }
             "chat.message.deleted", "chat.message.updated", "chat.conversation.updated" -> conversationId?.let { id -> scope.launch { reload(id) } }
+            "chat.reminder.due" -> showToast("⏰ " + (data.str("note") ?: find(conversationId.orEmpty())?.title.orEmpty()))
             "chat.receipt" -> conversationId?.let { id ->
                 val c = find(id) ?: return
                 val last = c.lastMessage ?: return
@@ -323,9 +332,16 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     fun activity(conversationId: String): List<Activity> = activity[conversationId].orEmpty()
 
     suspend fun reload(id: String) {
-        runCatching { ApiClient.chat.conversation(chatAuth(), id).data }.getOrNull()?.let { fresh ->
-            val wasListed = find(id) != null || fresh.lastMessage != null || fresh.isGroup
-            if (wasListed) upsert(fresh)
+        try {
+            ApiClient.chat.conversation(chatAuth(), id).data?.let { fresh ->
+                val wasListed = find(id) != null || fresh.lastMessage != null || fresh.isGroup
+                if (wasListed) upsert(fresh)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Gone (the owner deleted the group / channel for everyone): off the list.
+            if (e.apiFailure().httpStatus == 404) remove(id)
         }
     }
 

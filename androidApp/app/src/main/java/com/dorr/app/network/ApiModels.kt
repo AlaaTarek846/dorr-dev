@@ -46,6 +46,8 @@ data class ApiFailure(
     val httpStatus: Int?,
     /** `data.locked_until` on a `wallet_pin_locked` (423) answer — an ISO-8601 instant. */
     val lockedUntil: String? = null,
+    /** `data.retry_after` (seconds) on a `chat_slow_mode` (429) answer. */
+    val retryAfter: Int? = null,
 )
 
 /**
@@ -62,8 +64,10 @@ fun Throwable.apiFailure(): ApiFailure {
         ?.let { if (it.isJsonArray) it.asJsonArray.firstOrNull() else it }.text()
     val message = firstError ?: root?.get("message").text()
     val errorCode = root?.get("error_code").text()
-    val lockedUntil = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject?.get("locked_until").text()
-    return ApiFailure(message, errorCode, code(), lockedUntil)
+    val data = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+    val lockedUntil = data?.get("locked_until").text()
+    val retryAfter = data?.get("retry_after")?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
+    return ApiFailure(message, errorCode, code(), lockedUntil, retryAfter)
 }
 
 data class CountryDto(

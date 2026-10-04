@@ -75,6 +75,11 @@ class MessageResource extends JsonResource
             'expires_at' => $m->expires_at?->toIso8601String(),
             'reactions' => $this->reactions($m),
             'is_starred' => isset($ctx->starred[$m->id]),
+            'is_read_later' => isset($ctx->readLater[$m->id]),
+            'is_follow_up' => isset($ctx->followUp[$m->id]),
+            'reminder_at' => $ctx->reminders[$m->id] ?? null,
+            'is_urgent' => (bool) $m->is_urgent,
+            'is_sensitive' => (bool) $m->is_sensitive,
             'system' => $m->sender_type === null ? $this->system($m) : null,
             'created_at' => $m->created_at?->toIso8601String(),
             'edited_at' => $m->edited_at?->toIso8601String(),
@@ -226,6 +231,8 @@ class MessageResource extends JsonResource
                 'actor' => $person($meta['actor'] ?? null)['name'] ?? '',
                 'targets' => implode('، ', array_map(fn ($p) => $p['name'] ?? '', array_filter(array_map($person, (array) ($meta['targets'] ?? []))))),
                 'name' => $meta['name'] ?? '',
+                // Slow mode: "one message every 30 seconds".
+                'duration' => isset($meta['seconds']) ? __('chat.durations.'.(int) $meta['seconds']) : '',
             ]),
         ];
     }

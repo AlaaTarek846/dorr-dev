@@ -71,7 +71,7 @@ import kotlinx.coroutines.delay
 /** Backgrounds for text stories — sent as a name, so both apps paint the same gradient. */
 object StoryLook {
     val backgrounds: Map<String, List<Color>> = linkedMapOf(
-        "dorr" to listOf(Color(0xFFF2202C), Color(0xFF7A0410)),
+        "dorr" to listOf(Color(0xFF1E3A7B), Color(0xFF7A0410)),
         "sunset" to listOf(Color(0xFFFF8A4C), Color(0xFFDB2777)),
         "ocean" to listOf(Color(0xFF22D3EE), Color(0xFF1D4ED8)),
         "forest" to listOf(Color(0xFF34D399), Color(0xFF065F46)),

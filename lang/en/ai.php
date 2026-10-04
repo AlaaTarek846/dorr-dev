@@ -14,4 +14,5 @@ return [
     'empty_reply' => 'The provider returned an empty reply.',
     'no_active_provider' => 'No AI model is active yet. Ask an administrator to enable and configure one from the AI settings screen.',
     'conversation_not_found' => 'This conversation was not found.',
+    'transcription_unsupported' => "This AI provider can't turn speech into text.",
 ];

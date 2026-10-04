@@ -213,8 +213,8 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                         .shadow(
                             elevation = 8.dp,
                             shape = buttonShape,
-                            ambientColor = Color(0x66E50914),
-                            spotColor = Color(0x66E50914),
+                            ambientColor = Color(0x66001B53),
+                            spotColor = Color(0x66001B53),
                         ),
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
