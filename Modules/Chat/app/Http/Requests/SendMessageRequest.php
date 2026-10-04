@@ -75,6 +75,8 @@ class SendMessageRequest extends FormRequest
 
             // Photo / video / voice note that opens once.
             'view_once' => ['nullable', 'boolean'],
+            // Delivered without a notification sound.
+            'silent' => ['nullable', 'boolean'],
 
             'wallet_transaction_id' => ['required_if:type,wallet_transfer', 'nullable', 'uuid'],
             'country_code' => ['nullable', 'string', 'size:2'],

@@ -201,6 +201,7 @@ class MessageService
                 'mentions' => $mentions ?: null,
                 'has_link' => $body !== null && (bool) preg_match('~(https?://|www\.)\S+~i', $body),
                 'view_once' => $viewOnce,
+                'is_silent' => ! empty($data['silent']),
                 'expires_at' => $conversation->disappearing_seconds ? now()->addSeconds($conversation->disappearing_seconds) : null,
             ]);
 
@@ -713,6 +714,11 @@ class MessageService
                 throw ChatException::adminsOnly();
             }
 
+            return;
+        }
+
+        // Note to self: nobody else to be blocked by.
+        if ($conversation->isSelf()) {
             return;
         }
 

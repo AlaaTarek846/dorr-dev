@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.Block
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Link
+import androidx.compose.material.icons.rounded.HowToReg
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsOff
@@ -148,7 +150,8 @@ fun ChatInfoPage(id: String) {
                             when {
                                 conversation?.isChannel == true -> listOfNotNull(conversation.group?.handle?.let { "@$it" }, stringResource(R.string.ch_followers, conversation.group?.membersCount ?: 0)).joinToString("  ·  ")
                                 conversation?.isGroup == true -> stringResource(R.string.ch_members, conversation.group?.membersCount ?: 0)
-                                else -> conversation?.peer?.phone.orEmpty()
+                                conversation?.isSelf == true -> stringResource(R.string.ch_note_to_self_sub)
+                                else -> ltrNumber(conversation?.peer?.phone)
                             },
                             color = Color.White.copy(alpha = 0.8f), fontSize = 14.sp,
                         )
@@ -156,7 +159,7 @@ fun ChatInfoPage(id: String) {
                             Text(it, color = Color.White.copy(alpha = 0.9f), fontSize = 13.5.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(horizontal = 30.dp, vertical = 6.dp))
                         }
                         Spacer(Modifier.height(16.dp))
-                        if (conversation != null && conversation.canSend && !conversation.isChannel) {
+                        if (conversation != null && conversation.canSend && !conversation.isChannel && !conversation.isSelf) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 QuickAction(Icons.Rounded.Call, stringResource(R.string.ch_call_voice), 0) { startCall(id, false, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
                                 QuickAction(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video), 1) { startCall(id, true, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
@@ -189,7 +192,7 @@ fun ChatInfoPage(id: String) {
                                 items.flatMap { m -> m.attachments.map { m to it } }.take(12).chunked(3).forEach { row ->
                                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                                         row.forEach { (m, a) ->
-                                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted)) {
+                                            Box(Modifier.weight(1f).aspectRatio(1f).clip(RoundedCornerShape(12.dp)).background(Ch.SurfaceMuted).clickable { host.push(ChRoute.Media(id, tab)) }) {
                                                 AsyncImage(ApiClient.mediaUrl(if (m.type == "video") a.thumbnail ?: a.url else a.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
                                                 if (m.type == "video") Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.align(Alignment.Center).size(30.dp))
                                             }
@@ -200,15 +203,22 @@ fun ChatInfoPage(id: String) {
                             }
                         } else {
                             Column(Modifier.padding(horizontal = 8.dp, vertical = 4.dp)) {
-                                items.take(10).forEach { m ->
-                                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                                items.take(5).forEach { m ->
+                                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { host.push(ChRoute.Media(id, tab)) }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                                         Icon(if (tab == "docs") Icons.Rounded.Description else Icons.Rounded.Link, null, tint = Ch.Red, modifier = Modifier.size(22.dp))
                                         Spacer(Modifier.width(10.dp))
-                                        Text(m.attachments.firstOrNull()?.name ?: m.body.orEmpty(), color = Ch.Ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                        Text(m.attachments.firstOrNull()?.name ?: plainChatText(m.body), color = Ch.Ink, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                     }
                                 }
                             }
                         }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().clickable { host.push(ChRoute.Media(id, tab)) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(stringResource(R.string.ch_media_all), color = Ch.Red, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+                        Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
                     }
                 }
             }
@@ -219,6 +229,21 @@ fun ChatInfoPage(id: String) {
                     SettingRow(if (conversation.isMuted) Icons.Rounded.NotificationsOff else Icons.Rounded.Notifications, stringResource(R.string.ch_mute_notifications),
                         value = if (conversation.isMuted) stringResource(R.string.ch_muted) else null) { sheet = "mute" }
                     SettingRow(Icons.Rounded.Timer, stringResource(R.string.ch_disappearing), value = disappearingLabel(conversation.disappearingSeconds)) { sheet = "disappearing" }
+                    // In my contacts? (They see my stories only if they are.)
+                    if (!conversation.isGroup && !conversation.isSelf && conversation.peer != null) {
+                        if (conversation.peer.isContact) {
+                            SettingRow(Icons.Rounded.HowToReg, stringResource(R.string.ch_in_contacts), value = "✓") {}
+                        } else {
+                            val added = stringResource(R.string.ch_contact_added)
+                            SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_to_contacts)) {
+                                scope.launch {
+                                    runCatching { addPeerToContacts(conversation) }
+                                        .onSuccess { fresh -> fresh?.let { c = it; host.upsert(it) }; host.showToast(added) }
+                                        .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+                                }
+                            }
+                        }
+                    }
                     ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_lock_chat), conversation.isLocked) { update(mapOf("locked" to it)) }
                     SettingRow(Icons.Rounded.Palette, stringResource(R.string.ch_chat_theme), value = conversation.theme?.applied?.name ?: stringResource(R.string.ch_theme_dorr)) { sheet = "theme" }
                 }
@@ -288,7 +313,8 @@ fun ChatInfoPage(id: String) {
                     if (!conversation.isGroup && conversation.peer != null) {
                         SettingRow(Icons.Rounded.Block, stringResource(if (conversation.iBlocked == true) R.string.ch_unblock else R.string.ch_block), danger = true) { sheet = "block" }
                     }
-                    SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
+                    // Nobody to report in my own notes.
+                    if (!conversation.isSelf) SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
                     SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true) { sheet = "clear" }
                     if (conversation.isGroup && conversation.isMember) SettingRow(
                         Icons.AutoMirrored.Rounded.ExitToApp,

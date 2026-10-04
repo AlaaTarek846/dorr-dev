@@ -27,6 +27,8 @@ sealed interface ChRoute {
     data object List : ChRoute
     data class Conversation(val id: String, val preview: ConversationDto? = null) : ChRoute
     data class Info(val id: String) : ChRoute
+    /** Everything shared in a chat: photos & videos, files, links, voice — [tab] opens on one of them. */
+    data class Media(val id: String, val tab: String = "media") : ChRoute
     data object NewChat : ChRoute
     /** Find and follow public channels. */
     data object Channels : ChRoute
@@ -111,6 +113,24 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     fun replace(route: ChRoute) {
         forward = true
         stack[stack.lastIndex] = route
+    }
+
+    /** A message the conversation page should scroll to and flash once it's open (conversation id → message id). */
+    var focusRequest by mutableStateOf<Pair<String, String>?>(null)
+
+    /**
+     * "Show in chat" (media page, starred…): back to that conversation if it's already open under
+     * this page — no second copy of it — or open it; then it scrolls to the message.
+     */
+    fun showInChat(conversationId: String, messageId: String) {
+        focusRequest = conversationId to messageId
+        val open = stack.indexOfLast { it is ChRoute.Conversation && it.id == conversationId }
+        if (open >= 0) {
+            forward = false
+            while (stack.lastIndex > open) stack.removeAt(stack.lastIndex)
+        } else {
+            push(ChRoute.Conversation(conversationId))
+        }
     }
 
     fun showToast(message: String) {

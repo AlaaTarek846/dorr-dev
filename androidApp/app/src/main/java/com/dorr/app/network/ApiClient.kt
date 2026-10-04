@@ -10,29 +10,21 @@ import java.net.NoRouteToHostException
 import java.net.UnknownHostException
 
 /**
- * Backend reached over the LAN (phone + PC on the same Wi-Fi) while ngrok is
- * down on this machine (the agent cannot authenticate: CRL fetch failure, so
- * it never opens a tunnel). Apache serves the app for this IP via a
- * ServerAlias, cleartext HTTP is allowed by the manifest.
- * To go back to ngrok: set BASE_HOST = NGROK_HOST (the scheme flips to https
- * automatically in apiBaseUrl) and start:
- * ngrok http 80 --url https://$NGROK_HOST --host-header=dorr.test. The local
- * dev host (LOCAL_MEDIA_HOST) is what Laravel builds absolute media URLs with,
- * so those get rewritten to the reachable host below.
+ * Which backend this build talks to is each developer's own setting, in androidApp/local.properties
+ * (not committed — so merges never swap it again):
+ *
+ *   dorr.apiHost=my-tunnel.ngrok-free.dev   dorr.apiScheme=https   (ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test)
+ *   dorr.apiHost=192.168.1.3                dorr.apiScheme=http    (phone + PC on the same Wi-Fi; the IP from `ipconfig`,
+ *                                                                  listed as a ServerAlias in Apache — cleartext is allowed by the manifest)
+ *   dorr.apiHost=10.0.2.2                   dorr.apiScheme=http    (Android emulator)
+ *
+ * The local dev host (LOCAL_MEDIA_HOST) is what Laravel builds absolute media URLs with, so those
+ * get rewritten to the reachable host below.
  */
-private const val LAN_HOST = "192.168.1.3"
-private const val EMULATOR_HOST = "10.0.2.2"
-private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
-
-// Phone on Wi-Fi uses LAN_HOST right now (ngrok is down on this machine, see header).
-// Emulator: EMULATOR_HOST · Remote: NGROK_HOST (must also switch the scheme to https).
-private const val BASE_HOST = LAN_HOST
-
-private fun apiBaseUrl(host: String): String =
-    if (host == NGROK_HOST) "https://$host/api/" else "http://$host/api/"
-
-private val BASE_URL = apiBaseUrl(BASE_HOST)
-// NOTE: BASE_HOST must be this PC's current Wi-Fi IP (check `ipconfig`) AND be
+// Set per developer in androidApp/local.properties (dorr.apiHost / dorr.apiScheme) — see app/build.gradle.kts.
+private const val BASE_HOST = com.dorr.app.BuildConfig.API_HOST
+private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOST/api/"
+// NOTE (LAN): a Wi-Fi IP as dorr.apiHost must be this PC's current IP (check `ipconfig`) AND be
 // listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
 // otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
 

@@ -107,6 +107,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         com.dorr.app.chat.ChatRealtime.stop()
         com.dorr.app.chat.ChatPush.signedOut()
         com.dorr.app.chat.ChatStore.clear()
+        com.dorr.app.chat.ChatOutbox.clear(context)
         com.dorr.app.chat.LiveLocationSharing.stopAll(context)
         appearance.clear()
         AuthSession.clear()

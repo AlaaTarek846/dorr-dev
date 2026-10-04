@@ -46,6 +46,8 @@ class ConversationResource extends JsonResource
         $active = $conversation->participants->whereNull('left_at');
         $peer = $isGroup ? null : $active->first(fn (ChatParticipant $p) => $p->id !== $me->id);
         $peerProfile = $peer !== null ? $directory->profile($this->viewer, $peer->participant_type, $peer->participant_id) : null;
+        $isSelf = $conversation->isSelf();
+        $selfProfile = $isSelf ? $directory->profile($this->viewer, $me->participant_type, $me->participant_id) : null;
 
         return [
             'id' => $conversation->uuid,
@@ -53,8 +55,18 @@ class ConversationResource extends JsonResource
             'status' => $conversation->status->value,
             // A request someone sent *me* — shown in the "message requests" box, not the chat list.
             'is_request' => $conversation->status === ConversationStatus::Pending && ! $this->startedByMe($me),
-            'title' => $isGroup ? $group?->name : ($peerProfile['name'] ?? null),
-            'avatar' => $isGroup ? $group?->avatarUrl() : ($peerProfile['avatar'] ?? null),
+            // Note to self: named "Notes (you)", with my own picture; no peer, no calls.
+            'is_self' => $isSelf,
+            'title' => match (true) {
+                $isGroup => $group?->name,
+                $isSelf => __('chat.self_title'),
+                default => $peerProfile['name'] ?? null,
+            },
+            'avatar' => match (true) {
+                $isGroup => $group?->avatarUrl(),
+                $isSelf => $selfProfile['avatar'] ?? null,
+                default => $peerProfile['avatar'] ?? null,
+            },
             'peer' => $peerProfile,
             'group' => $group === null ? null : [
                 'name' => $group->name,
@@ -90,8 +102,10 @@ class ConversationResource extends JsonResource
             // My pick (theme_id / custom) and what to draw: the pick if still active, else the admin's default.
             'theme' => [
                 'theme_id' => $me->theme_id,
-                'custom' => $me->custom_theme,
-                'applied' => app(ChatThemeService::class)->resolve($me->theme_id)?->present(),
+                // My own wallpaper / colours / dim for this chat (only I see them), and what to
+                // draw: that over the pick (or the default) — see ChatThemeService::appliedFor().
+                'custom' => app(ChatThemeService::class)->presentCustom($me->custom_theme),
+                'applied' => app(ChatThemeService::class)->appliedFor($me->theme_id, $me->custom_theme),
             ],
             'created_at' => $conversation->created_at?->toIso8601String(),
         ] + $this->extra;

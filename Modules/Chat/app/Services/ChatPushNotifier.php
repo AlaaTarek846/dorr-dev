@@ -45,6 +45,8 @@ class ChatPushNotifier
             'event' => 'chat.message.sent',
             'conversation_uuid' => $conversation->uuid,
             'message_uuid' => $message->uuid,
+            // The app shows it without a sound or vibration (the sender sent it silently).
+            'silent' => $message->is_silent ? '1' : '0',
         ];
 
         // Two audiences at most: people who see the text, and people who only see "New message".
@@ -137,7 +139,7 @@ class ChatPushNotifier
     private function previewInEveryLanguage(ChatMessage $message): array
     {
         if ($message->type === MessageType::Text) {
-            return ['en' => Str::limit((string) $message->body, 180)];
+            return ['en' => Str::limit(self::plain((string) $message->body), 180)];
         }
 
         // A view-once photo never shows its caption in a notification; a live location says it's live.
@@ -150,11 +152,27 @@ class ChatPushNotifier
 
         if ($message->body && ! $message->view_once) {
             foreach ($texts as $locale => $label) {
-                $texts[$locale] = $label.' · '.Str::limit((string) $message->body, 140);
+                $texts[$locale] = $label.' · '.Str::limit(self::plain((string) $message->body), 140);
             }
         }
 
         return $texts;
+    }
+
+    /**
+     * The text without its formatting marks (*bold*, _italic_, ~strike~, `code`, ```mono```), the
+     * same rules as the apps: a mark only counts at a word edge and around non-blank text.
+     */
+    public static function plain(string $body): string
+    {
+        $body = preg_replace('/```([\s\S]+?)```/u', '$1', $body) ?? $body;
+
+        foreach (['`', '*', '_', '~'] as $mark) {
+            $m = preg_quote($mark, '/');
+            $body = preg_replace("/(?<=^|[\\s\\p{P}]){$m}(?=\\S)([^{$m}\\n]*?\\S){$m}(?=$|[\\s\\p{P}])/u", '$1', $body) ?? $body;
+        }
+
+        return $body;
     }
 
     /**

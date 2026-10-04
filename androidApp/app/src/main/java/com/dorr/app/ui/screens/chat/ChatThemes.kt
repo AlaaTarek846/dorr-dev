@@ -39,6 +39,12 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import androidx.compose.material.icons.rounded.Image
+import androidx.compose.material.icons.rounded.HideImage
+import androidx.compose.material.icons.rounded.FormatColorReset
+import androidx.compose.material.icons.rounded.Brightness6
 import androidx.compose.material.icons.rounded.CheckBox
 import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.EditNote
@@ -94,7 +100,9 @@ fun ThemedWallpaper(theme: ChatThemeDto?, modifier: Modifier = Modifier) {
             t == null -> ChWallpaper()
             t.wallpaper != null -> Box(Modifier.fillMaxSize().background(hexColor(t.backgroundColor) ?: Ch.Bg)) {
                 AsyncImage(ApiClient.mediaUrl(t.wallpaper), null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = if (t.isDark || Ch.dark) 0.28f else 0.06f)))
+                // My own picture: darkened as much as I chose; an admin theme: a light standard veil.
+                val veil = if (t.isCustom) t.dim / 100f else if (t.isDark || Ch.dark) 0.28f else 0.06f
+                Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = veil.coerceIn(0f, 0.8f))))
             }
             else -> Box(Modifier.fillMaxSize().background(hexColor(t.backgroundColor) ?: Ch.Bg)) {
                 ChDoodles(tint = hexColor(t.senderColor)?.let { if (t.isDark) Color.White else it.shade(0.6f) } ?: Ch.Red)
@@ -112,61 +120,214 @@ private fun ChDoodles(tint: Color) {
 
 // =============================================================================== theme picker
 
+/** Bubble colours to pick from: strong ones for mine, soft ones for theirs (null = the theme's). */
+private val MyBubbleColors = listOf("#E50914", "#F97316", "#F59E0B", "#10B981", "#0D9488", "#0EA5E9", "#2563EB", "#6366F1", "#7C3AED", "#DB2777", "#111827")
+private val TheirBubbleColors = listOf("#FFFFFF", "#F3F4F6", "#FEF3C7", "#DCFCE7", "#E0F2FE", "#EDE9FE", "#FCE7F3", "#FFE4E6", "#1F2937", "#334155")
+
 /**
  * Pick a look for this chat: a live preview on top (wallpaper + two bubbles) that changes as you
- * tap the swatches below, then "Apply". "Dorr" = the app's own look.
+ * go, the admin's themes, and "make it yours" — a photo from the gallery (dimmed as you like) and
+ * your own bubble colours. Only you see it. "Dorr" = the app's own look.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApplied: (ConversationDto) -> Unit) {
     val host = LocalChat.current
+    val context = LocalContext.current
     var themes by remember { mutableStateOf<List<ChatThemeDto>?>(null) }
     var picked by remember { mutableStateOf(conversation.theme?.themeId) }
+    // My own look as it stands on the server (the photo is uploaded right away) …
+    var custom by remember { mutableStateOf(conversation.theme?.custom) }
+    // … and the colour / dim changes not applied yet.
+    var mine by remember { mutableStateOf(custom?.senderColor) }
+    var theirs by remember { mutableStateOf(custom?.receiverColor) }
+    var dim by remember { mutableStateOf((custom?.dim ?: 25).toFloat()) }
     var saving by remember { mutableStateOf(false) }
+    var uploading by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { themes = runCatching { ApiClient.chat.themes(chatAuth()).data }.getOrNull().orEmpty() }
+
+    fun applyServer(updated: ConversationDto) {
+        custom = updated.theme?.custom
+        onApplied(updated)
+    }
+
+    val gallery = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia()) { uri ->
+        uri ?: return@rememberLauncherForActivityResult
+        uploading = true
+        host.scope.launch {
+            try {
+                val file = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    copyToCache(context, uri, "wallpaper.jpg")?.let { compressImage(context, it) }
+                }
+                if (file != null) {
+                    val part = okhttp3.MultipartBody.Part.createFormData("image", file.name, file.file.asRequestBody(file.mime.toMediaTypeOrNull()))
+                    ApiClient.chat.uploadWallpaper(chatAuth(), conversation.id, part).data?.let(::applyServer)
+                    dim = (custom?.dim ?: 25).toFloat()
+                }
+            } catch (e: Exception) {
+                host.showToast(e.apiFailure().message ?: context.getString(R.string.ch_error_network))
+            }
+            uploading = false
+        }
+    }
 
     val list = themes
     // What "no pick" shows: the admin's default when there is one, else Dorr's look.
     val fallback = list?.firstOrNull { it.isDefault }
-    val previewTheme = picked?.let { id -> list?.firstOrNull { it.id == id } } ?: fallback
+    val base = picked?.let { id -> list?.firstOrNull { it.id == id } } ?: fallback
+    val hasCustom = custom?.wallpaper != null || mine != null || theirs != null || custom?.backgroundColor != null
+    // The preview: my look over the theme, exactly as the server will draw it.
+    val previewTheme = if (!hasCustom) base else ChatThemeDto(
+        id = 0, name = null,
+        wallpaper = custom?.wallpaper ?: base?.wallpaper,
+        backgroundColor = custom?.backgroundColor ?: base?.backgroundColor,
+        senderColor = mine ?: base?.senderColor, receiverColor = theirs ?: base?.receiverColor,
+        isDark = base?.isDark ?: false, isDefault = false, isCustom = true,
+        dim = if (custom?.wallpaper != null) dim.toInt() else 0,
+    )
+    val savedCustom = conversation.theme?.custom
+    val changed = picked != conversation.theme?.themeId || mine != savedCustom?.senderColor || theirs != savedCustom?.receiverColor ||
+        (custom?.wallpaper != null && dim.toInt() != (savedCustom?.dim ?: 25))
+
+    fun save(body: Map<String, Any?>, close: Boolean = true) {
+        saving = true
+        host.scope.launch {
+            try {
+                ApiClient.chat.updateSettingsJson(chatAuth(), conversation.id, com.dorr.app.network.jsonKeepingNulls(body)).data?.let(::applyServer)
+                if (close) onDismiss()
+            } catch (e: Exception) {
+                e.apiFailure().message?.let { host.showToast(it) }
+            }
+            saving = false
+        }
+    }
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(bottom = 26.dp)) {
+        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.ch_chat_theme), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp))
             Text(stringResource(R.string.ch_chat_theme_sub), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
             Spacer(Modifier.height(14.dp))
 
-            ThemePreview(previewTheme, Modifier.padding(horizontal = 20.dp).fillMaxWidth().height(210.dp))
+            Box(Modifier.padding(horizontal = 20.dp)) {
+                ThemePreview(previewTheme, Modifier.fillMaxWidth().height(210.dp))
+                androidx.compose.animation.AnimatedVisibility(uploading, enter = fadeIn(), exit = fadeOut(), modifier = Modifier.matchParentSize()) {
+                    Box(Modifier.fillMaxSize().clip(RoundedCornerShape(24.dp)).background(Color.Black.copy(alpha = 0.35f)), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(Modifier.size(30.dp), color = Color.White, strokeWidth = 3.dp)
+                    }
+                }
+            }
             Spacer(Modifier.height(16.dp))
 
+            // ------------------------------------------------------------ the admin's themes
             if (list == null) {
                 Box(Modifier.fillMaxWidth().height(96.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), color = Ch.Red, strokeWidth = 2.5.dp) }
             } else {
                 LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    item(key = "dorr") { Swatch(null, stringResource(R.string.ch_theme_dorr), selected = picked == null && fallback == null, index = 0) { picked = null } }
+                    item(key = "dorr") {
+                        Swatch(null, stringResource(R.string.ch_theme_dorr), selected = !hasCustom && picked == null && fallback == null, index = 0) { picked = null; mine = null; theirs = null }
+                    }
                     itemsIndexed(list, key = { _, t -> t.id }) { i, t ->
-                        Swatch(t, t.name.orEmpty(), selected = (picked ?: fallback?.id) == t.id, index = i + 1) { picked = t.id }
+                        Swatch(t, t.name.orEmpty(), selected = !hasCustom && (picked ?: fallback?.id) == t.id, index = i + 1) { picked = t.id; mine = null; theirs = null }
                     }
                 }
             }
+
+            // ------------------------------------------------------------ make it yours
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.ch_theme_yours), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp))
+            Text(stringResource(R.string.ch_theme_yours_sub), color = Ch.Mut, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 20.dp))
+            Spacer(Modifier.height(10.dp))
+            Row(Modifier.padding(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                ThemeAction(
+                    Icons.Rounded.Image, stringResource(if (custom?.wallpaper != null) R.string.ch_theme_change_photo else R.string.ch_theme_photo),
+                    Modifier.weight(1f), enabled = !uploading,
+                ) {
+                    gallery.launch(androidx.activity.result.PickVisualMediaRequest(androidx.activity.result.contract.ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+                if (custom?.wallpaper != null) {
+                    ThemeAction(Icons.Rounded.HideImage, stringResource(R.string.ch_theme_remove_photo), Modifier.weight(1f), enabled = !saving) {
+                        save(mapOf("custom_theme" to mapOf("wallpaper" to null)), close = false)
+                    }
+                }
+            }
+            // How dark the photo is under the bubbles.
+            AnimatedVisibility(custom?.wallpaper != null, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                Row(Modifier.padding(horizontal = 20.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Brightness6, null, tint = Ch.Mut, modifier = Modifier.size(20.dp))
+                    androidx.compose.material3.Slider(
+                        value = dim, onValueChange = { dim = it }, valueRange = 0f..80f, modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                        colors = androidx.compose.material3.SliderDefaults.colors(thumbColor = Ch.Red, activeTrackColor = Ch.Red, inactiveTrackColor = Ch.Red.copy(alpha = 0.2f)),
+                    )
+                    Text("${dim.toInt()}%", color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(38.dp))
+                }
+            }
+            ColorRow(stringResource(R.string.ch_theme_my_bubbles), MyBubbleColors, mine) { mine = it }
+            ColorRow(stringResource(R.string.ch_theme_their_bubbles), TheirBubbleColors, theirs) { theirs = it }
 
             Spacer(Modifier.height(18.dp))
             ChPrimaryButton(
                 stringResource(R.string.ch_apply), icon = Icons.Rounded.Check,
                 modifier = Modifier.padding(horizontal = 20.dp).fillMaxWidth(),
-                enabled = !saving && list != null && picked != conversation.theme?.themeId,
+                enabled = !saving && !uploading && list != null && changed,
             ) {
-                saving = true
-                host.scope.launch {
-                    try {
-                        ApiClient.chat.updateSettings(chatAuth(), conversation.id, mapOf("theme_id" to picked)).data?.let(onApplied)
-                        onDismiss()
-                    } catch (e: Exception) {
-                        e.apiFailure().message?.let { host.showToast(it) }
-                    }
-                    saving = false
-                }
+                // My colours (and the dim over my photo) — or none: just the picked theme.
+                val keepCustom = custom?.wallpaper != null || mine != null || theirs != null
+                save(
+                    mapOf(
+                        "theme_id" to picked,
+                        "custom_theme" to if (!keepCustom) null else mapOf("sender_color" to mine, "receiver_color" to theirs, "dim" to dim.toInt()),
+                    ),
+                )
             }
+            // Everything back to Dorr's look (my photo is deleted too).
+            if (conversation.theme?.themeId != null || savedCustom != null || custom != null) {
+                Text(
+                    stringResource(R.string.ch_theme_reset), color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 13.5.sp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally).padding(top = 12.dp).clip(RoundedCornerShape(10.dp))
+                        .clickable(enabled = !saving) { save(mapOf("theme_id" to null, "custom_theme" to null)) }.padding(horizontal = 12.dp, vertical = 6.dp),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeAction(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    Row(
+        modifier.clip(RoundedCornerShape(16.dp)).background(Ch.Red.copy(alpha = if (enabled) 0.1f else 0.05f))
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 13.5.sp, maxLines = 1)
+    }
+}
+
+/** A row of colour dots; the first one means: use the theme's colour. */
+@Composable
+private fun ColorRow(title: String, colors: List<String>, selected: String?, onPick: (String?) -> Unit) {
+    Text(title, color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 6.dp))
+    LazyRow(contentPadding = PaddingValues(horizontal = 20.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        item(key = "theme") { ColorDot(null, selected == null) { onPick(null) } }
+        itemsIndexed(colors, key = { _, c -> c }) { i, hex ->
+            Box(Modifier.chStagger(i)) { ColorDot(hex, selected.equals(hex, ignoreCase = true)) { onPick(hex) } }
+        }
+    }
+}
+
+@Composable
+private fun ColorDot(hex: String?, selected: Boolean, onClick: () -> Unit) {
+    val ring by animateDpAsState(if (selected) 3.dp else 0.dp, spring(dampingRatio = 0.5f), label = "dotRing")
+    val color = hexColor(hex)
+    Box(
+        Modifier.size(42.dp).border(ring, Ch.Red, CircleShape).padding(if (selected) 5.dp else 2.dp).clip(CircleShape)
+            .background(color ?: Ch.SurfaceMuted).border(1.dp, Ch.Line, CircleShape).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            color == null -> Icon(Icons.Rounded.FormatColorReset, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+            selected -> Icon(Icons.Rounded.Check, null, tint = if (color.isLight()) Color(0xFF111928) else Color.White, modifier = Modifier.size(18.dp))
         }
     }
 }
