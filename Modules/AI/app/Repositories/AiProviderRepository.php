@@ -88,6 +88,25 @@ class AiProviderRepository extends BaseRepository
         return $usable->count() === 1 ? $usable->first() : null;
     }
 
+    /**
+     * The provider for speech to text: the chat provider when it takes audio, else the first
+     * enabled-and-configured one that does (Anthropic doesn't).
+     */
+    public function resolveForTranscription(): ?AiProvider
+    {
+        $audio = [AiProviderKey::OpenAi->value, AiProviderKey::Groq->value, AiProviderKey::Google->value];
+        $chat = $this->resolveActiveForChat();
+
+        if ($chat !== null && in_array($chat->key, $audio, true)) {
+            return $chat;
+        }
+
+        return $this->all()
+            ->filter(fn (AiProvider $provider) => $provider->isUsableForChat() && in_array($provider->key, $audio, true))
+            ->sortByDesc('is_default')
+            ->first();
+    }
+
     public function ensureDefaults(): void
     {
         foreach (AiProviderKey::cases() as $providerKey) {

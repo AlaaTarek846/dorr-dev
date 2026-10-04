@@ -63,7 +63,7 @@ Apache on Windows (`mpm_winnt`) serves requests on threads, and reading `.env` p
 php artisan config:cache      # again after every .env change
 ```
 
-Code must read settings through `config()`, never `env()` outside `config/` (a cached config makes `env()` return null). Tests are unaffected: `phpunit.xml` points `APP_CONFIG_CACHE` at a file that doesn't exist, so they always load fresh config on the in-memory database. For that reason `composer test` no longer runs `config:clear`.
+Code must read settings through `config()`, never `env()` outside `config/` (a cached config makes `env()` return null). Tests are unaffected: `phpunit.xml` points `APP_CONFIG_CACHE` at a file that doesn't exist, so they always load fresh config on the in-memory database. For that reason `composer test` no longer runs `config:clear`. As a last line of defence, `tests/TestCase.php` refuses to start (before the first query) unless the app is on the in-memory SQLite and booted from this project's folder. On 2026-10-03, a test run from a second checkout that shared this `vendor` folder booted this project with its cached config and `RefreshDatabase` wiped the dev database. It was restored from the MySQL binary log (`mysqlbinlog --rewrite-db … --stop-position`). Never point tests at a real database, and never share `vendor` between checkouts.
 
 ### Phone over ngrok / LAN
 

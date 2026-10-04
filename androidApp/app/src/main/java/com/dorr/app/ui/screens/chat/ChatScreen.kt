@@ -84,6 +84,29 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
         Ch.palette = palette
     }
 
+    // Which AI tools the server offers (the ✨ buttons only show for those).
+    LaunchedEffect(Unit) { ChatAi.load() }
+
+    // This phone's privacy: settings, the private-notification count, the recent-apps snapshot,
+    // and "while you were private" once a timed privacy mode has ended.
+    val shieldContext = androidx.compose.ui.platform.LocalContext.current
+    var privateSummary by remember { mutableStateOf<com.dorr.app.network.PrivacySummaryDto?>(null) }
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatShield.load(shieldContext)
+        com.dorr.app.chat.ChatShield.clearPrivate(shieldContext)
+        val started = com.dorr.app.chat.ChatShield.privacyStartedAt(shieldContext)
+        if (started > 0) {
+            val mode = runCatching { com.dorr.app.network.ApiClient.chat.privacy(chatAuth()).data?.privacyMode }.getOrNull()
+            if (mode != null && !mode.on) {
+                val from = java.time.Instant.ofEpochMilli(started).toString()
+                privateSummary = runCatching { com.dorr.app.network.ApiClient.chat.privacySummary(chatAuth(), from).data }.getOrNull()
+                com.dorr.app.chat.ChatShield.setPrivacyStartedAt(shieldContext, 0)
+                com.dorr.app.chat.ChatShield.setSafeView(shieldContext, false)
+            }
+        }
+    }
+    HideFromRecents()
+
     // A notification tapped for a conversation: open it on top of whatever chat page is showing.
     LaunchedEffect(Unit) {
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
@@ -111,6 +134,9 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             // otherwise sit on the composer / the last row.
             Box(Modifier.fillMaxSize().padding(bottom = 12.dp)) { ChatPages(host) }
             StoryViewerOverlay()
+            // A video played / a PDF read inside the app.
+            ChatViewersHost()
+            privateSummary?.let { PrivacySummaryDialog(it) { privateSummary = null } }
             OfflineBanner()
             ChatToast(host)
             // A group invite link was tapped: preview + "Join" / "Ask to join".
@@ -154,7 +180,9 @@ private fun ChatPages(host: ChatHost) {
             is ChRoute.NewGroup -> NewGroupPage(route.addTo)
             ChRoute.MyQr -> MyQrPage()
             ChRoute.Privacy -> PrivacyPage()
+            ChRoute.Business -> BusinessPage()
             ChRoute.Starred -> StarredPage()
+            ChRoute.ReadLater -> FollowUpsPage()
             ChRoute.Calls -> CallsPage()
             is ChRoute.StoryComposer -> StoryComposerPage(route.media)
             ChRoute.StoryPrivacy -> StoryPrivacyPage()

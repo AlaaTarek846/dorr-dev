@@ -19,6 +19,7 @@
                             </div>
                         </div>
                         <div class="card-body">
+                            <p v-if="section.note" class="text-muted fs-12 mb-0">{{ t(`chat.settings.note_${section.key}`) }}</p>
                             <div class="row g-3">
                                 <div v-for="f in section.fields" :key="f.key" class="col-sm-6">
                                     <label class="form-label fs-13">{{ t(`chat.settings.${f.key}`) }}</label>
@@ -28,6 +29,23 @@
                                     </div>
                                     <div v-if="errors[f.key]" class="text-danger fs-12 mt-1">{{ errors[f.key] }}</div>
                                     <div v-else-if="f.hint" class="text-muted fs-11 mt-1">{{ t(`chat.settings.hint_${f.key}`) }}</div>
+                                </div>
+                                <div v-if="section.countries" class="col-12">
+                                    <label class="form-label fs-13">{{ t(`chat.settings.${section.countries}`) }}</label>
+                                    <MultiSelect
+                                        v-model="form[section.countries]"
+                                        :options="countries"
+                                        option-label="name"
+                                        option-value="id"
+                                        filter
+                                        display="chip"
+                                        class="w-100"
+                                        :placeholder="t('chat.settings.countries_placeholder')"
+                                        :loading="loadingCountries"
+                                        :disabled="!canUpdate || !form[section.toggle]"
+                                    />
+                                    <div v-if="errors[section.countries]" class="text-danger fs-12 mt-1">{{ errors[section.countries] }}</div>
+                                    <div v-else class="text-muted fs-11 mt-1">{{ t(`chat.settings.hint_${section.countries}`) }}</div>
                                 </div>
                             </div>
                         </div>
@@ -50,6 +68,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MultiSelect from 'primevue/multiselect';
 import adminAxios from '../../../../../../../api/adminAxios';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
@@ -96,9 +115,18 @@ const sections = [
         key: 'calls',
         icon: 'ri-phone-line',
         toggle: 'calls_enabled',
+        // Calls off in some countries only (internet calls need a licence in some places).
+        countries: 'calls_disabled_countries',
         fields: [
             { key: 'max_call_participants', min: 2, max: 100, unit: 'members' },
         ],
+    },
+    {
+        key: 'ai',
+        icon: 'ri-sparkling-line',
+        toggle: 'ai_enabled',
+        note: true,
+        fields: [],
     },
 ];
 
@@ -107,17 +135,38 @@ const saving = ref(false);
 const form = reactive({});
 const errors = reactive({});
 const original = ref({});
+const countries = ref([]);
+const loadingCountries = ref(false);
 
-const dirty = computed(() => Object.keys(original.value).some((key) => original.value[key] !== form[key]));
+/** Lists (the countries) compare by content, not by reference. */
+const same = (a, b) => (Array.isArray(a) || Array.isArray(b)
+    ? JSON.stringify([...(a ?? [])].sort()) === JSON.stringify([...(b ?? [])].sort())
+    : a === b);
+
+const dirty = computed(() => Object.keys(original.value).some((key) => !same(original.value[key], form[key])));
 
 function fill(data) {
-    original.value = { ...data };
-    Object.assign(form, data);
+    const copy = { ...data, calls_disabled_countries: [...(data.calls_disabled_countries ?? [])] };
+    original.value = copy;
+    Object.assign(form, { ...copy, calls_disabled_countries: [...copy.calls_disabled_countries] });
 }
 
 function reset() {
-    Object.assign(form, original.value);
+    Object.assign(form, { ...original.value, calls_disabled_countries: [...(original.value.calls_disabled_countries ?? [])] });
     Object.keys(errors).forEach((key) => delete errors[key]);
+}
+
+async function loadCountries() {
+    loadingCountries.value = true;
+
+    try {
+        const { data } = await adminAxios.get('/api/admin/v1/countries/dropdown');
+        countries.value = data?.data ?? [];
+    } catch {
+        countries.value = [];
+    } finally {
+        loadingCountries.value = false;
+    }
 }
 
 async function save() {
@@ -126,7 +175,7 @@ async function save() {
 
     const body = {};
     Object.keys(original.value).forEach((key) => {
-        if (original.value[key] !== form[key]) {
+        if (!same(original.value[key], form[key])) {
             body[key] = form[key];
         }
     });
@@ -147,6 +196,8 @@ async function save() {
 }
 
 onMounted(async () => {
+    loadCountries();
+
     try {
         const { data } = await adminAxios.get('/api/admin/v1/chat-settings');
 

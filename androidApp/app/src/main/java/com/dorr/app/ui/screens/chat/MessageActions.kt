@@ -41,7 +41,12 @@ import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.BookmarkAdd
+import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.NoteAdd
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.StarBorder
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -90,6 +95,8 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
     val context = LocalContext.current
     val host = LocalChat.current
     val copied = stringResource(R.string.ch_copied)
+    val savedToNotes = stringResource(R.string.ch_saved_to_notes)
+    var reminding by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var pinPicker by remember { mutableStateOf(false) }
     var forward by remember { mutableStateOf(false) }
@@ -164,7 +171,19 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                     close()
                 }
                 if (canForward) ActionRow(Icons.Rounded.Forward, stringResource(R.string.ch_forward)) { forward = true }
+                // AI, on a tap: translate the text (never a view-once message).
+                if (ChatAi.translate && !dto.body.isNullOrBlank() && !dto.viewOnce && dto.type != "system") {
+                    ActionRow(Icons.Rounded.Translate, stringResource(R.string.ch_ai_translate)) { state.translate(focused); close() }
+                }
                 ActionRow(if (dto.isStarred) Icons.Rounded.Star else Icons.Rounded.StarBorder, stringResource(if (dto.isStarred) R.string.ch_unstar else R.string.ch_star)) { state.star(dto); close() }
+                // Set it aside to come back to, or keep a copy in my own notes.
+                if (dto.type != "system") ActionRow(Icons.Rounded.BookmarkAdd, stringResource(if (dto.isReadLater) R.string.ch_read_later_done else R.string.ch_read_later)) { state.readLater(dto); close() }
+                if (canForward && !dto.viewOnce && state.conversation?.isSelf != true) ActionRow(Icons.Rounded.NoteAdd, stringResource(R.string.ch_save_to_notes)) { state.saveToNotes(dto, savedToNotes); close() }
+                // Someone else's message I owe an answer to; a reminder at a time I pick.
+                if (!focused.isMine && dto.type != "system") ActionRow(Icons.Rounded.Flag, stringResource(if (dto.isFollowUp) R.string.ch_needs_reply_done else R.string.ch_needs_reply)) { state.followUp(dto); close() }
+                if (dto.type != "system") ActionRow(Icons.Rounded.Alarm, stringResource(if (dto.reminderAt != null) R.string.ch_reminder_remove else R.string.ch_reminder)) {
+                    if (dto.reminderAt != null) { state.remind(dto, null); close() } else reminding = true
+                }
                 if (canPin) {
                     val isPinned = state.pinned.any { it.id == dto.id }
                     ActionRow(Icons.Rounded.PushPin, stringResource(if (isPinned) R.string.ch_unpin else R.string.ch_pin)) {
@@ -178,6 +197,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
         }
     }
 
+    if (reminding) ScheduleSheet(onDismiss = { reminding = false; close() }) { at -> state.remind(dto, at) }
     if (confirmDelete) ChoiceSheet(
         title = stringResource(R.string.ch_delete_title),
         options = buildList {

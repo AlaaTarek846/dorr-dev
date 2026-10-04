@@ -376,8 +376,8 @@ fun OtpScreen(
                         .shadow(
                             elevation = 8.dp,
                             shape = buttonShape,
-                            ambientColor = Color(0x38E50914),
-                            spotColor = Color(0x38E50914),
+                            ambientColor = Color(0x38001B53),
+                            spotColor = Color(0x38001B53),
                         ),
                 ) {
                     if (isVerifying) {
@@ -418,7 +418,7 @@ fun OtpScreen(
                                 .padding(top = 16.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
-                                .border(1.dp, if (night) AccountDark.accent else Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
+                                .border(1.dp, if (night) AccountDark.accent else Color(0xFFFBC8B7), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -431,7 +431,7 @@ fun OtpScreen(
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 text = message,
-                                color = if (night) AccountDark.accent else Color(0xFF991B1B),
+                                color = if (night) AccountDark.accent else Color(0xFF001B53),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
@@ -473,7 +473,7 @@ private fun DigitBox(
     val scope = rememberCoroutineScope()
 
     val night = settingsNight()
-    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.line else Color(0xFFF3C4CC)
+    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.line else Color(0xFFFBD2C4)
 
     Surface(
         modifier = Modifier

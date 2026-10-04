@@ -302,7 +302,7 @@ fun ChatPaySheet(message: MessageDto, onDismiss: () -> Unit, onPaid: (MessageDto
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         AnimatedContent(done, label = "payDone", transitionSpec = { (fadeIn(tween(220)) + scaleIn(initialScale = 0.9f)) togetherWith fadeOut(tween(150)) }) { finished ->
             if (finished) {
-                PaidCelebration(p.money(p.due), message.sender?.name.orEmpty())
+                PaidCelebration(p.money(p.due), message.sender?.name.orEmpty(), R.string.ch_money_paid_title)
             } else {
                 Column(Modifier.fillMaxWidth().heightIn(min = 520.dp).padding(horizontal = 12.dp).padding(bottom = 16.dp)) {
                     WaPinPad(
@@ -339,7 +339,7 @@ private fun kotlinx.coroutines.CoroutineScope.launchDelayed(ms: Long, block: () 
 
 /** A tick that pops, a burst of rings, "Paid 25.00 SAR to Alice". */
 @Composable
-private fun PaidCelebration(amount: String, to: String) {
+private fun PaidCelebration(amount: String, to: String, title: Int) {
     val pop = remember { Animatable(0f) }
     val burst = remember { Animatable(0f) }
     LaunchedEffect(Unit) {
@@ -359,7 +359,7 @@ private fun PaidCelebration(amount: String, to: String) {
                     val angle = Math.toRadians(i * 36.0)
                     val r = size.minDimension / 2 * (0.45f + 0.45f * burst.value)
                     val c = Offset(size.width / 2 + (r * kotlin.math.cos(angle)).toFloat(), size.height / 2 + (r * kotlin.math.sin(angle)).toFloat())
-                    drawCircle(listOf(Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFFF2202C))[i % 3].copy(alpha = 1f - burst.value), radius = 4.dp.toPx(), center = c)
+                    drawCircle(listOf(Color(0xFF10B981), Color(0xFFF59E0B), Color(0xFF1E3A7B))[i % 3].copy(alpha = 1f - burst.value), radius = 4.dp.toPx(), center = c)
                 }
             }
             Box(
@@ -367,7 +367,7 @@ private fun PaidCelebration(amount: String, to: String) {
                 contentAlignment = Alignment.Center,
             ) { Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(46.dp)) }
         }
-        Text(stringResource(R.string.ch_money_paid_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+        Text(stringResource(title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         androidx.compose.runtime.CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Text(amount, color = MoneyDone, fontWeight = FontWeight.ExtraBold, fontSize = 26.sp, modifier = Modifier.padding(top = 4.dp))
         }
@@ -376,6 +376,75 @@ private fun PaidCelebration(amount: String, to: String) {
 }
 
 // =============================================================================== composing
+
+/**
+ * "Send money" straight from a one-to-one chat: the amount and a note, then the wallet PIN. The
+ * server moves the money and posts the receipt in the chat in one go; the same uuid on a retry
+ * can never pay twice.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SendMoneySheet(conversationId: String, peerName: String, onDismiss: () -> Unit, onSent: (MessageDto) -> Unit) {
+    val host = LocalChat.current
+    var amount by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf("") }
+    var step by remember { mutableStateOf(0) } // 0 amount · 1 PIN · 2 done
+    var gift by remember { mutableStateOf<String?>(null) }
+    val uuid = remember { java.util.UUID.randomUUID().toString() }
+    val minor = parseAmountToMinor(amount)
+
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+        AnimatedContent(step, label = "sendMoney", transitionSpec = { (fadeIn(tween(220)) + scaleIn(initialScale = 0.92f)) togetherWith fadeOut(tween(150)) }) { now ->
+            when (now) {
+                0 -> Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 22.dp).padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.size(58.dp).clip(CircleShape).background(Brush.linearGradient(MoneyGreen)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Payments, null, tint = Color.White, modifier = Modifier.size(30.dp))
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(stringResource(R.string.ch_money_send_to, peerName), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(16.dp))
+                    AmountField(amount) { amount = it }
+                    Spacer(Modifier.height(12.dp))
+                    NoteField(note, stringResource(R.string.ch_money_note_hint)) { note = it.take(200) }
+                    Spacer(Modifier.height(12.dp))
+                    GiftPicker(gift) { gift = it }
+                    Spacer(Modifier.height(18.dp))
+                    ChPrimaryButton(stringResource(R.string.ch_next), icon = Icons.Rounded.Send, modifier = Modifier.fillMaxWidth(), enabled = minor != null) { step = 1 }
+                }
+                1 -> Column(Modifier.fillMaxWidth().heightIn(min = 520.dp).padding(horizontal = 12.dp).padding(bottom = 16.dp)) {
+                    WaPinPad(
+                        title = stringResource(R.string.ch_money_send_title, amount),
+                        sub = stringResource(R.string.ch_money_pay_to, peerName),
+                        icon = Icons.Rounded.Payments,
+                        modifier = Modifier.fillMaxWidth().height(500.dp),
+                        onComplete = { pin ->
+                            try {
+                                val sent = ApiClient.chat.sendMoney(chatAuth(), pin, conversationId, buildMap {
+                                    put("amount_minor", minor ?: 0L)
+                                    put("uuid", uuid)
+                                    note.trim().takeIf { it.isNotEmpty() }?.let { put("note", it) }
+                                    gift?.let { put("gift", it) }
+                                }).data
+                                step = 2
+                                sent?.let(onSent)
+                                host.scope.launchDelayed(1600) { onDismiss() }
+                                PadResult.Ok
+                            } catch (e: Exception) {
+                                val failure = e.apiFailure()
+                                // PIN problems stay on the pad (shake / countdown); the rest closes with the reason.
+                                if (failure.errorCode?.startsWith("wallet_pin") == true) throw e
+                                failure.message?.let { host.showToast(it) }
+                                onDismiss()
+                                PadResult.Ok
+                            }
+                        },
+                    )
+                }
+                else -> PaidCelebration(amount, peerName, R.string.ch_money_sent_title)
+            }
+        }
+    }
+}
 
 /** Ask the other person for an amount, with an optional note ("Dinner 🍕"). */
 @OptIn(ExperimentalMaterial3Api::class)

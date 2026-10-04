@@ -298,8 +298,35 @@ const formatted = computed(() => {
         }
     });
 
-    return html.replace(/\n/g, '<br>');
+    return formatLines(html, props.message.body || '');
 });
+
+/**
+ * Line marks, like the app: "- " / "* " bullet, "1. " numbered, "> " quote (escaped to &gt;).
+ * Not inside a ``` block, whose lines are code.
+ */
+function formatLines(html, raw) {
+    if (raw.includes('```')) {
+        return html.replace(/\n/g, '<br>');
+    }
+
+    return html.split('\n').map((line) => {
+        let m = line.match(/^[-*] (.*)$/);
+        if (m) {
+            return `<div class="mx-li"><b>•</b> ${m[1]}</div>`;
+        }
+        m = line.match(/^(\d{1,3})\. (.*)$/);
+        if (m) {
+            return `<div class="mx-li"><b>${m[1]}.</b> ${m[2]}</div>`;
+        }
+        m = line.match(/^&gt; (.*)$/);
+        if (m) {
+            return `<div class="mx-quote">${m[1]}</div>`;
+        }
+
+        return `${line}<br>`;
+    }).join('').replace(/<br>$/, '');
+}
 
 function typeLabel(type) {
     return t(`messenger.types.${type}`, type || '');

@@ -18,6 +18,8 @@ AiProviderController → AiProviderService → AiProviderRepository
 
 Routes chat requests to configured default (or selected) provider connector.
 
+**Speech to text (2026-10-04):** `AiGateway::transcribe($provider, $path, $mime)` for connectors that implement `Contracts\TranscribesAudio` — OpenAI and Groq through `Concerns\TranscribesOpenAiCompatibleAudio` (`/audio/transcriptions`, model `ai.providers.{key}.transcription_model`, default `whisper-1` / `whisper-large-v3-turbo`), Google by sending the audio inline to Gemini. Anthropic takes no audio. `AiProviderRepository::resolveForTranscription()` picks the chat provider when it takes audio, else the first enabled one that does. Timeout `ai.transcription_timeout` (60 s). Used by the chat's "voice to text" (`Modules\Chat\Services\ChatAiService`, which also uses `chat()` for translate, summary and suggested replies).
+
 ## Models
 
 - **AiProvider** — configuration row per provider key; `live_models_cache` JSON; `is_default`

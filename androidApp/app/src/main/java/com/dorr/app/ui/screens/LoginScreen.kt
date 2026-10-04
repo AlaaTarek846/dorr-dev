@@ -407,8 +407,8 @@ private fun RestoreAccountCard(
             .shadow(
                 elevation = 10.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = Color(0x33E50914),
-                spotColor = Color(0x33E50914),
+                ambientColor = Color(0x33001B53),
+                spotColor = Color(0x33001B53),
             )
             .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
@@ -506,7 +506,7 @@ private fun NoticeBanner(
     val bgColor = if (isDark) Color(0xFF2B191C) else Color(0xFFFFF5F5)
     val borderColor = if (isDark) settingsAccent().copy(alpha = 0.45f) else Color(0xFFFCA5A5)
     val iconBgColor = if (isDark) Color(0xFF4A1E24) else Color(0xFFFEE2E2)
-    val titleColor = if (isDark) Color(0xFFFDE8E8) else Color(0xFF991B1B)
+    val titleColor = if (isDark) Color(0xFFFDE8E8) else Color(0xFF001B53)
     val messageColor = if (isDark) Color(0xFFE5C0C4) else Color(0xFF7F1D1D)
 
     Row(
@@ -515,8 +515,8 @@ private fun NoticeBanner(
             .shadow(
                 elevation = 10.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = Color(0x33E50914),
-                spotColor = Color(0x33E50914),
+                ambientColor = Color(0x33001B53),
+                spotColor = Color(0x33001B53),
             )
             .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
@@ -836,7 +836,7 @@ private fun LoginContent(
                             .padding(top = 16.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
-                            .border(1.dp, if (night) AccountDark.accent else Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
+                            .border(1.dp, if (night) AccountDark.accent else Color(0xFFFBC8B7), RoundedCornerShape(12.dp))
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -849,7 +849,7 @@ private fun LoginContent(
                         Spacer(Modifier.width(10.dp))
                         Text(
                             text = message,
-                            color = if (night) AccountDark.accent else Color(0xFF991B1B),
+                            color = if (night) AccountDark.accent else Color(0xFF001B53),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.weight(1f),

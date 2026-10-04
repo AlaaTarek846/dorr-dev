@@ -184,7 +184,7 @@ fun WaPinPad(
                 .padding(horizontal = 8.dp)
                 .then(
                     if (night) Modifier
-                    else Modifier.shadow(12.dp, cardShape, ambientColor = Color(0x1AE50914), spotColor = Color(0x24E50914)),
+                    else Modifier.shadow(12.dp, cardShape, ambientColor = Color(0x1A001B53), spotColor = Color(0x24001B53)),
                 )
                 .clip(cardShape)
                 .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Color.White)
@@ -291,7 +291,7 @@ private fun PadKey(key: String, modifier: Modifier = Modifier, dark: Boolean = f
             .scale(pressScale)
             .then(
                 if (isDelete || dark) Modifier
-                else Modifier.shadow(6.dp, keyShape, ambientColor = Color(0x14E50914), spotColor = Color(0x1AE50914)),
+                else Modifier.shadow(6.dp, keyShape, ambientColor = Color(0x14001B53), spotColor = Color(0x1A001B53)),
             )
             .clip(keyShape)
             .background(if (isDelete) Color.Transparent else if (dark) com.dorr.app.ui.screens.AccountDark.card else Color.White)

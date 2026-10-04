@@ -6,12 +6,16 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.LooksOne
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.PriorityHigh
+import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.RequestQuote
+import androidx.compose.material.icons.rounded.Schedule
 import android.os.Build
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -144,8 +148,10 @@ fun Composer(state: ConversationState) {
     val host = LocalChat.current
     // What I typed last time and didn't send comes back (and is kept as I type — see the effect below).
     var text by remember(state.id) { mutableStateOf(com.dorr.app.chat.ChatStore.draft(state.id)) }
-    // Long-press on Send: "Send without sound".
+    // Long-press on Send: "Send without sound" / "Schedule message".
     var silentMenu by remember { mutableStateOf(false) }
+    var scheduling by remember { mutableStateOf(false) }
+    var scheduledOpen by remember { mutableStateOf(false) }
     var attachOpen by remember { mutableStateOf(false) }
     var exprOpen by remember { mutableStateOf(false) }
     var transferPicker by remember { mutableStateOf(false) }
@@ -179,10 +185,29 @@ fun Composer(state: ConversationState) {
     // The word being typed right now, when it starts with "@" (null otherwise).
     val mentionQuery = if (isGroup) Regex("(?:^|\\s)@([^\\s@]{0,30})$").find(text)?.groupValues?.get(1) else null
     LaunchedEffect(mentionQuery != null) { if (mentionQuery != null) state.loadMembers() }
+    // "/word" alone in the field: my quick replies that start with it.
+    val quickQuery = if (state.editing == null) Regex("^/([^\\s/]{0,32})$").find(text)?.groupValues?.get(1) else null
 
-    fun send(silent: Boolean = false) {
+    // Slow mode: seconds left before I may send again (ticks down on the send button).
+    var clock by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.slowUntil) {
+        while (System.currentTimeMillis() < state.slowUntil) {
+            clock = System.currentTimeMillis()
+            kotlinx.coroutines.delay(250)
+        }
+        clock = System.currentTimeMillis()
+    }
+    val slowLeft = if (state.slowUntil > clock) ((state.slowUntil - clock + 999) / 1000).toInt() else 0
+    val slowWait = if (slowLeft > 0) stringResource(R.string.ch_slow_mode_wait, slowLeft) else ""
+    val scheduledToast = stringResource(R.string.ch_scheduled_toast)
+
+    fun send(silent: Boolean = false, urgent: Boolean = false, sensitive: Boolean = false) {
         val body = text.trim()
         if (body.isEmpty()) return
+        if (slowLeft > 0 && state.editing == null) {
+            host.showToast(slowWait)
+            return
+        }
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         val editing = state.editing
         val mentions = mentioned.filter { (_, name) -> body.contains("@$name") }.keys.toList()
@@ -193,6 +218,10 @@ fun Composer(state: ConversationState) {
                 if (mentions.isNotEmpty()) put("mentions", mentions)
                 // Delivered without a notification sound or vibration.
                 if (silent) put("silent", true)
+                // Gets through their mute, when they allow urgent messages from me.
+                if (urgent) put("urgent", true)
+                // Hidden until they unlock it, and never in a notification.
+                if (sensitive) put("sensitive", true)
             }
             state.send(Outgoing("text", body, extra = extra))
         }
@@ -209,8 +238,24 @@ fun Composer(state: ConversationState) {
     }
 
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        // --------------------------------------------------------------- my scheduled messages here
+        ScheduledPill(state) { scheduledOpen = true }
+
         // --------------------------------------------------------------- the card of a link being typed
         ComposerLinkPreview(text)
+
+        // --------------------------------------------------------------- "/" quick replies
+        QuickReplySuggestions(quickQuery) { reply ->
+            text = reply.body
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+
+        // --------------------------------------------------------------- ✨ suggested replies (on a tap)
+        SmartRepliesRow(state) { reply ->
+            text = reply
+            state.clearSmartReplies()
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
 
         // --------------------------------------------------------------- @mention suggestions
         val suggestions = if (mentionQuery == null) emptyList() else state.members
@@ -270,7 +315,11 @@ fun Composer(state: ConversationState) {
                                 Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(26.dp).rotate(rotation))
                             }
                             Box(Modifier.weight(1f).padding(vertical = 14.dp, horizontal = 4.dp)) {
-                                if (text.isEmpty()) Text(stringResource(R.string.ch_message_hint), color = Ch.Soft, fontSize = 15.5.sp)
+                                if (text.isEmpty()) Text(
+                                    // Slow mode on: say so where I type.
+                                    if (state.slowModeSeconds > 0) stringResource(R.string.ch_slow_mode_hint, slowModeLabel(state.slowModeSeconds)) else stringResource(R.string.ch_message_hint),
+                                    color = Ch.Soft, fontSize = 15.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
                                 BasicTextField(
                                     value = text,
                                     onValueChange = {
@@ -283,6 +332,12 @@ fun Composer(state: ConversationState) {
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
+                            }
+                            // ✨ Suggest replies — only on an empty field, only when the AI is available.
+                            if (text.isEmpty() && ChatAi.smartReplies && state.editing == null) {
+                                Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { state.loadSmartReplies() }, contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.AutoAwesome, null, tint = if (state.loadingReplies) Ch.Red else Ch.Mut, modifier = Modifier.size(22.dp))
+                                }
                             }
                             // Emoji · stickers · GIFs — the face winks when the panel opens.
                             val wink by animateFloatAsState(if (exprOpen) 1f else 0f, spring(dampingRatio = 0.4f), label = "exprWink")
@@ -319,20 +374,19 @@ fun Composer(state: ConversationState) {
                         onDismissRequest = { silentMenu = false },
                         properties = androidx.compose.ui.window.PopupProperties(focusable = true),
                     ) {
-                        Row(
+                        Column(
                             Modifier
                                 .graphicsLayer { scaleX = popIn.value; scaleY = popIn.value; alpha = popIn.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f) }
                                 .shadow(14.dp, RoundedCornerShape(18.dp), spotColor = Color.Black.copy(alpha = 0.25f))
                                 .clip(RoundedCornerShape(18.dp)).background(Ch.Surface)
-                                .clickable { silentMenu = false; send(silent = true) }
-                                .padding(horizontal = 16.dp, vertical = 13.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .padding(vertical = 4.dp),
                         ) {
-                            Box(Modifier.size(32.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                                Icon(Icons.Rounded.NotificationsOff, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+                            SendMenuRow(Icons.Rounded.NotificationsOff, stringResource(R.string.ch_send_silent)) { silentMenu = false; send(silent = true) }
+                            SendMenuRow(Icons.Rounded.Schedule, stringResource(R.string.ch_schedule_message)) { silentMenu = false; scheduling = true }
+                            SendMenuRow(Icons.Rounded.Lock, stringResource(R.string.ch_send_sensitive)) { silentMenu = false; send(sensitive = true) }
+                            if (state.conversation?.let { !it.isGroup && !it.isSelf } == true) {
+                                SendMenuRow(Icons.Rounded.PriorityHigh, stringResource(R.string.ch_send_urgent)) { silentMenu = false; send(urgent = true) }
                             }
-                            Spacer(Modifier.width(10.dp))
-                            Text(stringResource(R.string.ch_send_silent), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
                         }
                     }
                 }
@@ -429,16 +483,31 @@ fun Composer(state: ConversationState) {
                     AnimatedContent(targetState = showSend, label = "micSend", transitionSpec = {
                         (scaleIn(spring(dampingRatio = 0.45f), initialScale = 0.3f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.3f) + fadeOut())
                     }) { send ->
-                        Icon(
-                            if (send) (if (state.editing != null) Icons.Rounded.Edit else Icons.AutoMirrored.Rounded.Send) else Icons.Rounded.Mic,
-                            null, tint = Color.White, modifier = Modifier.size(24.dp),
-                        )
+                        if (send && slowLeft > 0 && state.editing == null) {
+                            Text(slowLeft.toString(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                        } else {
+                            Icon(
+                                if (send) (if (state.editing != null) Icons.Rounded.Edit else Icons.AutoMirrored.Rounded.Send) else Icons.Rounded.Mic,
+                                null, tint = Color.White, modifier = Modifier.size(24.dp),
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
+    if (scheduling) ScheduleSheet(onDismiss = { scheduling = false }) { at ->
+        val body = text.trim()
+        scope.launch {
+            if (body.isNotEmpty() && state.schedule(body, at)) {
+                host.showToast(scheduledToast.format(scheduleLabel(at)))
+                text = ""
+                com.dorr.app.chat.ChatStore.saveDraft(state.id, "")
+            }
+        }
+    }
+    if (scheduledOpen) ScheduledListSheet(state) { scheduledOpen = false }
     if (attachOpen) AttachSheet(state, onDismiss = { attachOpen = false }, onPickTransfer = { attachOpen = false; transferPicker = true })
     if (exprOpen) ExpressionPanel(
         onDismiss = { exprOpen = false },
@@ -448,6 +517,18 @@ fun Composer(state: ConversationState) {
     if (transferPicker) TransferPicker(onDismiss = { transferPicker = false }) { tx ->
         transferPicker = false
         state.send(Outgoing("wallet_transfer", extra = mapOf("wallet_transaction_id" to tx.uuid)))
+    }
+}
+
+/** One action in the send button's long-press menu. */
+@Composable
+private fun SendMenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(Modifier.clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(32.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
     }
 }
 
@@ -571,7 +652,10 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     var pollOpen by remember { mutableStateOf(false) }
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
+    var sendMoneyOpen by remember { mutableStateOf(false) }
     val isGroup = state.conversation?.isGroup == true
+    // Sending money goes to one other person: not in a group, a channel, or my own notes.
+    val canSendMoney = !isGroup && state.conversation?.isSelf != true && state.conversation != null
     val isChannel = state.conversation?.isChannel == true
     // Why the location couldn't be sent yet: "off" (location turned off on the phone) or
     // "denied" (no permission) — a sheet explains and opens the right settings.
@@ -630,7 +714,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             if (isGroup) R.string.ch_attach_split else R.string.ch_attach_request,
             listOf(Color(0xFF34D399), Color(0xFF047857)),
         ) { moneyOpen = true },
-        AttachItem(Icons.Rounded.Payments, R.string.ch_attach_transfer, listOf(Ch.Red, Ch.RedDeep)) { onPickTransfer() },
+        if (canSendMoney) AttachItem(Icons.Rounded.Payments, R.string.ch_attach_send_money, listOf(Color(0xFF10B981), Color(0xFF047857))) { sendMoneyOpen = true } else null,
+        AttachItem(Icons.Rounded.ReceiptLong, R.string.ch_attach_transfer, listOf(Ch.Red, Ch.RedDeep)) { onPickTransfer() },
         AttachItem(Icons.Rounded.QrCode2, R.string.ch_attach_wallet_qr, listOf(Color(0xFFFBBF24), Color(0xFFD97706))) {
             onDismiss()
             state.send(Outgoing("wallet_qr"))
@@ -694,6 +779,12 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             RequestMoneySheet(state.conversation?.title.orEmpty(), onDismiss = { moneyOpen = false; onDismiss() }) { amount, note ->
                 state.send(Outgoing("money_request", body = note, extra = mapOf("amount_minor" to amount)))
             }
+        }
+        return
+    }
+    if (sendMoneyOpen) {
+        SendMoneySheet(state.id, state.conversation?.title.orEmpty(), onDismiss = { sendMoneyOpen = false; onDismiss() }) { sent ->
+            state.replaceMessage(sent.id, UiMessage(sent))
         }
         return
     }

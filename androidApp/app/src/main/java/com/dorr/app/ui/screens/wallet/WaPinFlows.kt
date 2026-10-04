@@ -192,7 +192,7 @@ private fun WaPhotoPicker(photo: PickedPhoto?, onPicked: (PickedPhoto?) -> Unit,
                 .heightIn(min = 190.dp)
                 .clip(shape)
                 .background(Color.White)
-                .border(1.5.dp, if (photo == null) Color(0xFFF3C4CC) else Wa.Line, shape)
+                .border(1.5.dp, if (photo == null) Color(0xFFFBD2C4) else Wa.Line, shape)
                 .clickable { launchPicker() },
             contentAlignment = Alignment.Center,
         ) {

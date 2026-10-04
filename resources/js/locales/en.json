@@ -1455,7 +1455,13 @@
             "unit_days": "days",
             "unit_hours": "hours",
             "unit_seconds": "sec",
-            "unit_members": "people"
+            "unit_members": "people",
+            "calls_disabled_countries": "Countries where calls are off",
+            "hint_calls_disabled_countries": "Accounts in these countries can't make or receive calls (internet calls need a licence in some places).",
+            "countries_placeholder": "Choose countries",
+            "section_ai": "AI in chat",
+            "ai_enabled": "On",
+            "note_ai": "Translate messages, voice to text, chat summary and suggested replies. Each only when the person taps it, and it needs an AI provider switched on in the AI settings (voice to text needs OpenAI, Groq or Google)."
         },
         "themes": {
             "title": "Chat themes",

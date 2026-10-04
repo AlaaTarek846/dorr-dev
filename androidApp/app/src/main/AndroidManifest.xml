@@ -73,6 +73,11 @@
         <meta-data
             android:name="com.onesignal.NotificationServiceExtension"
             android:value="com.dorr.app.chat.ChatNotificationExtension" />
+
+        <!-- The sticker maker's cut-out model is fetched by Play services when the app is installed. -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="subject_segment" />
     </application>
 
 </manifest>

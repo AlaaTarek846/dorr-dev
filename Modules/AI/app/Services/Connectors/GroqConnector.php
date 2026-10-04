@@ -4,10 +4,13 @@ namespace Modules\AI\Services\Connectors;
 
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Services\Connectors\Concerns\SendsOpenAiCompatibleChat;
+use Modules\AI\Services\Connectors\Concerns\TranscribesOpenAiCompatibleAudio;
+use Modules\AI\Services\Connectors\Contracts\TranscribesAudio;
 
-class GroqConnector extends AbstractHttpConnector
+class GroqConnector extends AbstractHttpConnector implements TranscribesAudio
 {
     use SendsOpenAiCompatibleChat;
+    use TranscribesOpenAiCompatibleAudio;
 
     protected function providerKey(): string
     {

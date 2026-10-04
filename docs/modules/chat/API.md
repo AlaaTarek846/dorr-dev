@@ -18,7 +18,7 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | GET | `conversations` | `filter` = all\|unread\|groups\|direct\|archived\|locked\|requests, `folder`, `search`, `per_page` | Pinned first, then by last message. Returns `requests_count` next to `data` |
 | POST | `conversations/direct` | `participant_id`, `participant_type` (default `user`) | Opens or creates the chat. It is `pending` when the other person hasn't saved me as a contact |
 | POST | `conversations/self` | | My **note to self** chat, created on first use and the same one afterwards. A `direct` chat (`direct_key` = `self\|user:{id}`) with only me in it: `is_self: true`, `title` = "Notes (you)", `avatar` = mine, `peer` = null. No push, no typing, and calls answer `422 chat_self_no_calls` |
-| GET | `conversations/{c}` | | Also returns `presence`, `i_blocked`, `blocked_me`, and `block_screenshots` for a direct chat |
+| GET | `conversations/{c}` | | Also returns `presence`, `i_blocked`, `blocked_me`, and `block_screenshots` for a direct chat, `can_call` (calls on for the platform and in my country — and, one-to-one, in theirs; the app hides the call buttons when false), and `business` for a peer with opening hours: `{hours[7] {open, from, to}, timezone, open_now}` (Sunday first) |
 | PATCH | `conversations/{c}/settings` | `pinned`, `archived`, `locked`, `marked_unread`, `mute` (8h\|1w\|always\|off), `theme_id`, `custom_theme` | Only for me |
 | POST | `conversations/{c}/wallpaper` | `image` (jpeg/png/webp, ≤ 8 MB, multipart) | My own wallpaper for this chat, seen only by me. It replaces and deletes the previous one, and `dim` defaults to 25. Stored at `public/chat/wallpapers/{participant}/` |
 | POST | `conversations/{c}/clear` | | Clears the history for me only |
@@ -34,7 +34,7 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | Method | Path | Body / query | Notes |
 |---|---|---|---|
 | GET | `conversations/{c}/messages` | `before` \| `after` \| `around` (uuid), `limit` ≤100 | Newest last. Also returns `has_more_before` and `has_more_after` |
-| POST | `conversations/{c}/messages` | `type`, `body`, `uuid` (idempotent), `reply_to`, `mentions[]` (participant ids), `silent` (bool), `files[]`, plus the fields each type needs (see below) | Multipart when there are files. `silent=1` stores `is_silent` and sends the push with `data.silent = "1"`, which the app shows without sound or vibration |
+| POST | `conversations/{c}/messages` | `type`, `body`, `uuid` (idempotent), `reply_to`, `mentions[]` (participant ids), `silent` (bool), `urgent` (bool), `files[]`, plus the fields each type needs (see below) | Multipart when there are files. `silent=1` stores `is_silent` and sends the push with `data.silent = "1"`, which the app shows without sound or vibration |
 | PATCH | `messages/{m}` | `body` | Own messages only, within `edit_window_minutes` |
 | DELETE | `messages/{m}` | | Deletes for everyone: my own message within the window, or any message if I'm a group admin |
 | POST | `conversations/{c}/messages/delete-for-me` | `messages[]` | |
@@ -43,6 +43,12 @@ Ids: `{conversation}`, `{message}` and `{call}` are **uuids**. `{contact}`, `{fo
 | GET | `messages/{m}/reactions` | | Who reacted with what |
 | PUT | `messages/{m}/star` | `starred` | |
 | GET | `messages/starred`, `conversations/{c}/starred` | | |
+| PUT | `messages/{m}/read-later` | `on` (bool) | "Read later": my own list, apart from stars. The message carries `is_read_later` |
+| GET | `messages/read-later` | | My list across every chat, oldest first (up to 200) |
+| PUT | `messages/{m}/follow-up` | `on` (bool) | "Needs a reply" (spec 118): on my follow-up list until I answer. In a one-to-one chat anything I send afterwards answers it; in a group only a reply to it does. The message carries `is_follow_up` |
+| GET | `messages/follow-up` | | Waiting for my reply, oldest first |
+| PUT / DELETE | `messages/{m}/reminder` | `remind_at` (ISO-8601, 30 s to 365 days ahead), `note?` (≤200) | "Remind me" (spec 47, 121): one per message per person. `chat:send-reminders` (every minute) pushes it once (title "⏰ Reminder", the note or the text — following my `notification_privacy`) and sends `chat.reminder.due` `{conversation_id, message_id, note}`. The message carries `reminder_at` |
+| GET | `reminders` | | My reminders still to come: `{remind_at, note, message}` |
 | POST / DELETE | `messages/{m}/pin` | `duration_seconds` = 86400\|604800\|2592000 | Pinned for everyone. The oldest pin gives way at `max_pinned_messages` |
 | GET | `conversations/{c}/pinned` | | |
 | GET | `messages/{m}/info` | | My own message: `read_by`, `delivered_to`, `pending` |
@@ -90,16 +96,25 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 | GET | `link-preview` | `url` (query) | The card for a link being typed, or an empty object when there is none |
 | POST | `messages/{m}/pay` | | The PIN travels in `X-Wallet-Pin`. One transfer per payer, however often it is retried |
 | POST | `messages/{m}/decline-request`, `messages/{m}/cancel-request` | | "Not paying this" / "never mind" |
+| POST | `conversations/{c}/send-money` | `amount_minor`, `note?` (≤500), `uuid` | **Send money** straight from a one-to-one chat (no request first). The PIN travels in `X-Wallet-Pin`. A normal wallet transfer to the other person, then its `wallet_transfer` receipt posted with `id = uuid` and the note as its body. The uuid is also the transfer's idempotency key: a retry gives the same transfer and message. Not in groups, channels or my notes (`chat_money_request_direct_only`); blocked either way → `403` before any money moves. Throttled to 20 per minute |
 
 `payment` is `kind: request` (`amount_minor`, `can_pay`, `can_cancel`) or `kind: split` (`total_minor`, `mode`, `shares[] {profile, amount_minor, status}`, `paid_minor`, `my_share`, `status` open\|settled). Money and view-once messages can never be forwarded (`422`).
 
 **Message shape:** `id`, `conversation_id`, `type`, `body`, `meta`, `attachments[]`, `sender` (profile), `is_mine`, `status` (sent\|delivered\|read, my messages only), `reply_to`, `is_forwarded`, `forwarded_many_times`, `mentions[]`, `is_edited`, `is_deleted`, `expires_at`, `reactions {summary, mine, total}`, `is_starred`, `system {event, actor, targets, text}`, `created_at`, plus what the extra types need: `poll`, `payment`, `view_once`, `view_once_opened`, `live_location`, `link_preview`.
 
-**Text formatting.** `body` is stored as typed. The apps draw WhatsApp-style marks: `*bold*`, `_italic_`, `~strike~`, `` `code` `` and ```` ```block``` ````. A mark only counts at a word edge and around non-blank text, so `5*3*2` and `snake_case` stay as typed. Nothing is formatted inside code or links. The push text drops the marks (`ChatPushNotifier::plain()`). The same rules live in `ChatFormatting.kt` (Android) and `MessengerBubble.vue` (web).
+**Text formatting.** `body` is stored as typed. The apps draw WhatsApp-style marks: `*bold*`, `_italic_`, `~strike~`, `` `code` `` and ```` ```block``` ````, and at the start of a line `- ` or `* ` (bullet), `1. ` (numbered) and `> ` (quote) — not inside a ```` ``` ```` block. The push text shows bullets as "• " and drops the quote mark. A mark only counts at a word edge and around non-blank text, so `5*3*2` and `snake_case` stay as typed. Nothing is formatted inside code or links. The push text drops the marks (`ChatPushNotifier::plain()`). The same rules live in `ChatFormatting.kt` (Android) and `MessengerBubble.vue` (web).
 
 **Media page.** `GET conversations/{c}/gallery?kind=media|documents|audio|links|locations&before={uuid}` returns 60 per page with `has_more`. View-once and deleted messages are left out. The app's "Media, links and docs" page pages through it, and "show in chat" scrolls the conversation to the message (`around`).
 
 **My own chat look (`custom_theme`).** Each participant can set `sender_color`, `receiver_color`, `background_color` (hex) and `dim` (0–80, how much the photo is darkened). The photo itself is uploaded through `POST …/wallpaper`; a URL is never accepted (`wallpaper` can only be `null`, which removes it). Setting a key to `null` falls back to the theme's value, and `custom_theme: null` drops the whole look and deletes the photo. `theme.custom` returns my look (the photo as a URL). `theme.applied` returns what to draw: the picked or default theme with my look on top (`is_custom: true`, `id: 0`, `dim`). See `ChatThemeService::appliedFor()`. **Note for clients:** Retrofit's default Gson drops `null` map values, so the Android app sends these settings with `updateSettingsJson` + `jsonKeepingNulls()`. Otherwise `theme_id: null` ("back to Dorr") never reaches the server.
+
+**Urgent messages (spec 116–117).** `urgent: true` on a one-to-one message (else `422 chat_urgent_direct_only`) when the recipient allows it — privacy `who_can_urgent`: everyone | contacts (default) | nobody, else `403 chat_urgent_not_allowed` — and at most 3 in 24 hours to the same person (`429 chat_urgent_quota`). It gets through a mute: the push goes out with the title "🚨 {name}" and `data.urgent = "1"`. The message carries `is_urgent`.
+
+**Money gifts (spec 65).** `send-money` takes `gift` (general | birthday | eid | ramadan | wedding | newborn | graduation | congrats | thanks): the receipt's `meta.gift`, which the app draws as a card for the occasion.
+
+**Privacy mode and sensitive messages (spec 104–113).** `sensitive: true` on a message: its content never shows in a push (at most the sender's name), the chat list's `last_message.body` is `null` with `is_sensitive: true`, and the app hides it until the recipient unlocks it. `PUT privacy-mode` `{minutes: 5–10080}` turns quick privacy mode on, `DELETE privacy-mode` turns it off and returns `{settings, summary: {messages, conversations, from}}`, and `GET privacy-mode/summary?from=` gives the same summary after a timed mode ended. `PATCH privacy` takes `privacy_schedule {from: "HH:mm", to: "HH:mm", days?: [0–6], timezone?}` (or `null`): a daily window, which may run past midnight. While privacy mode is on (now or by schedule), every chat push says only "Dorr / New message", and those pushes carry `data.private = "1"` so the phone folds them into one "N new messages". `GET privacy` returns `privacy_mode {on, until, started_at, schedule}`.
+
+**Personal status (spec 90).** `PUT status` `{emoji?, text? (≤100), until? (future ISO), audience? (everyone | contacts | nobody)}` (one of emoji / text required: `chat_status_empty`), `DELETE status`. `GET privacy` returns it as `status {emoji, text, until, audience, active}`. Profiles carry `status {emoji, text, until}` while it lasts and only for its audience (contacts = people the owner saved).
 
 ## Groups
 
@@ -107,13 +122,17 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 |---|---|---|---|
 | POST | `groups` | `name`, `description`, `avatar`, `members[]` (user ids), `disappearing_seconds` | Returns `not_added` for people whose privacy said no |
 | POST | `groups/{c}` | `name`, `description`, `avatar`, `remove_avatar` | Admins only when `only_admins_edit_info` is on |
-| PATCH | `groups/{c}/settings` | `only_admins_send`, `only_admins_edit_info`, `only_admins_add_members`, `approve_joins` | Admins only |
+| PATCH | `groups/{c}/settings` | `only_admins_send`, `only_admins_edit_info`, `only_admins_add_members`, `approve_joins`, `slow_mode_seconds` (0\|10\|30\|60\|300\|900\|3600), `banned_words[]` (≤200, each ≤50 chars) | Admins only. Slow mode and banned words are for groups (ignored on a channel) |
 | GET / POST | `groups/{c}/members` | `members[]` | Limited by `max_group_members` |
 | DELETE | `groups/{c}/members/{participant}` | | Admins only. The owner can't be removed |
 | PATCH | `groups/{c}/members/{participant}/role` | `role` = admin\|member | |
 | POST | `groups/{c}/leave` | | When the owner leaves, the oldest admin (or oldest member) takes over |
-| GET / POST | `groups/{c}/invite`, `groups/{c}/invite/reset` | | Returns `dorr://chat/join/{token}` |
-| GET / POST | `invites/{token}`, `invites/{token}/join`, `invites/{token}/join/cancel` | | Someone who joins doesn't see earlier history. The preview carries `approve_joins` and `request_status` |
+| POST | `groups/{c}/owner` | `participant_id` | Owner only (`403 chat_owner_action_only`): that member becomes the owner and I stay an admin. System line `owner_changed`. Groups and channels |
+| DELETE | `groups/{c}` | | Owner only: the group / channel is deleted for everyone (everyone leaves, soft-deleted). Members hear `chat.conversation.updated`, get `404` for it, and drop it from their list |
+| GET / POST | `groups/{c}/invite`, `groups/{c}/invite/reset` | `expires_in_hours` (reset only: 1\|24\|168\|720, or none = never) | Returns `{token, link: dorr://chat/join/{token}, expires_at}`. A reset kills the old link at once. Opening an expired link as an admin makes a fresh one that never expires |
+| GET / POST | `invites/{token}`, `invites/{token}/join`, `invites/{token}/join/cancel` | | Someone who joins doesn't see earlier history. The preview carries `approve_joins` and `request_status`. An expired link answers `410 chat_invite_expired` |
+
+**Moderation.** With `slow_mode_seconds` on, a member (not an admin) who sent less than that long ago gets `429 chat_slow_mode` with `data.retry_after` (seconds left); turning it on or off leaves a system line (`slow_mode_on` with `seconds`, `slow_mode_off`). A member's text, caption, poll option or edit containing a banned word is refused with `422 chat_banned_word` (admins are exempt). Matching ignores case, tashkeel and tatweel, treats أ/إ/آ/ا, ى/ي and ة/ه as the same letter, allows any spacing inside a phrase, and never matches inside another word (`Support\BannedWords`). `group.banned_words` is only returned to admins (`null` for members); `group.slow_mode_seconds` is returned to everyone.
 
 **Joining by link with `approve_joins` on** leaves a request instead of a membership: `invites/{token}/join` answers `202` with `status: pending`, the conversation reports `group.pending_join_requests` to admins, and the queue is answered with:
 
@@ -131,7 +150,7 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 | POST / PATCH / DELETE | `contacts`, `contacts/{id}` | `name`, `phone`, `is_favorite` | |
 | POST | `contacts/lookup` | `phone`, `country_code?` | The number can be written with or without the country code (`+966…`, `00966…`, `966…`), with or without the trunk `0`, and with spaces. Numbers without a code are read in `country_code`, or else in the country of my own phone. It must be a **whole** number: exactly the country's `phone_length` digits, starting with `phone_starts_with`. Otherwise it's `422 chat_invalid_phone` (with `data.phone_length`, `dial_code`), and no search is made. 404 when the number isn't registered. Throttled to 20 per minute. `POST contacts` (manual add) uses the same rule |
 | GET / POST | `contacts/qr`, `contacts/qr/reset`, `contacts/qr/resolve` | `payload` | `dorr://chat/{token}` |
-| GET / PATCH | `privacy` | `last_seen`, `profile_photo`, `who_can_message`, `who_can_add_to_groups`, `who_can_call` (everyone\|contacts\|nobody), `read_receipts`, `block_screenshots`, `notification_preview` | |
+| GET / PATCH | `privacy` | `last_seen`, `profile_photo`, `who_can_message`, `who_can_add_to_groups`, `who_can_call` (everyone\|contacts\|nobody), `read_receipts`, `block_screenshots`, `notification_privacy` (all\|name\|none) | What a chat push shows: `all` = name + text, `name` = name + "New message", `none` = "Dorr" + "New message". The old switch `notification_preview` (bool) is still accepted (true → all, false → none) and still returned |
 | GET / POST | `blocks`, `blocks/remove` | `participant_id` | |
 | POST | `presence` | `online` | Send it on foreground, then every ~60s. It expires after 90s |
 | CRUD | `folders`, `folders/{id}/conversations` (PUT `conversations[]`) | | Limited by `max_folders` |
@@ -176,7 +195,9 @@ Realtime events: `chat.story.posted`, `chat.story.deleted`, `chat.story.viewed` 
 | GET | `stickers` | `{packs: [{id, name, cover, stickers[{id, pack_id, emoji, url, width, height}]}], library_enabled}`. These are Dorr's own packs (admin). `library_enabled` = a Giphy key is set |
 | GET | `gifs?kind=gifs\|stickers&q=&offset=` | Giphy: trending (no `q`) or search, in the request locale. `{items[{id, kind, title, url, webp, mp4, preview, width, height}], next_offset}`. Cached for 10 minutes and throttled to 60 per minute. Empty without a key |
 | — | `messages` (send) `type=gif` + `giphy_id` | The server fetches it from Giphy by id and stores its URLs in `meta` (`source=giphy`). A URL sent by the client is never used. `chat_gif_not_found` |
-| — | `messages` (send) `type=sticker` + `sticker_id` **or** `giphy_id` | A pack sticker (`source=pack`, active packs only, otherwise `chat_sticker_not_found`) or a Giphy sticker |
+| — | `messages` (send) `type=sticker` + `sticker_id` **or** `my_sticker_id` **or** `giphy_id` | A pack sticker (`source=pack`, active packs only, otherwise `chat_sticker_not_found`), one of mine (`source=mine`, only my own) or a Giphy sticker |
+| POST | `stickers/mine` | **My stickers** (made from my own photos in the app: cut-out with a white outline, or circle / rounded square). `image` PNG/WebP, ≤1 MB, ≤1024×1024 (the app sends 512×512 with a transparent background), `emoji?`. Up to 200 (`chat_my_stickers_full`). Throttled to 30 per minute. `GET stickers` returns them in `mine[]` |
+| DELETE | `stickers/mine/{id}` | Removes it from my list; messages already sent keep it |
 
 Admin: `chat-sticker-packs` (GET, POST, `POST {id}` update with a multipart `cover`, `PATCH {id}/status`, DELETE), `POST chat-sticker-packs/{id}/stickers` (`files[]` PNG/WebP/GIF up to 1MB each, max 50, `emoji?`), `PATCH / DELETE chat-stickers/{id}`. Permissions: `chat-stickers.view/create/update/delete`. `.env`: `GIPHY_API_KEY`, `GIPHY_RATING` (pg-13).
 
@@ -241,6 +262,45 @@ The `chat.message.updated` broadcast carries the **requester's** view, so the ap
 | GET | `report-types` | | Active reasons, `id` + `name` in the request locale |
 | POST | `conversations/{c}/report` | `report_type_id`, `details?`, `participant_ids[]?` (group members), `block?`, `leave?` | `201`. A direct chat always reports the other person. Copies the last 30 messages **I can see** into the report. `block` works in direct chats and `leave` in groups. Throttled to 10 a minute. `chat_report_type_invalid` if the reason is inactive or missing |
 
+## Scheduled messages
+
+Text written now and sent later by the server (`chat:send-scheduled`, every minute — needs the scheduler running). It goes out through the normal send, so every rule is checked at that moment; one that can't go stays as `failed` with `error_code` (e.g. `chat_blocked`). The scheduled id becomes the message's uuid, so it can never be sent twice. Only the author sees them; changes reach the author's devices as `chat.scheduled.changed` `{conversation_id, id, status, pending}`.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `conversations/{c}/scheduled` | | Mine here that are `pending` or `failed`, soonest first: `{id, conversation_id, body, is_silent, send_at, status, error_code}` |
+| POST | `conversations/{c}/scheduled` | `body`, `send_at` (ISO-8601 with offset), `silent?` | From 30 s to 365 days ahead (`chat_schedule_time_invalid`), up to 100 waiting (`chat_too_many_scheduled`). Refused up front where I can't post (`chat_admins_only`) or with a banned word. Throttled to 30 per minute |
+| PATCH | `scheduled/{id}` | `body?`, `send_at?`, `silent?` | Editing a failed one puts it back in the queue (a minute from now if its time has passed) |
+| DELETE | `scheduled/{id}` | | `404 chat_scheduled_not_found` once sent or deleted |
+| POST | `scheduled/{id}/send` | | Send now; returns the message |
+
+## Business tools
+
+For the accounts in `config('chat.business_participants')` (users and providers today), otherwise `403 chat_business_unavailable`.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `business` | | `{profile, quick_replies[]}` |
+| PATCH | `business` | `welcome_enabled`, `welcome_message` (≤1000), `away_enabled`, `away_message` (≤1000), `away_mode` (always\|outside_hours), `hours[7] {open, from: "HH:mm", to: "HH:mm"}` (Sunday first; `to` < `from` runs past midnight), `timezone` | Switching a message on without text → `chat_business_message_required`; "away outside hours" without any hours → `chat_business_hours_required` |
+| GET / POST | `quick-replies` | `shortcut` (letters, digits, `_`, `-`, ≤32; a leading `/` is dropped; stored lower-case), `body` (≤4000) | Up to 100 (`chat_too_many_quick_replies`); a shortcut I already use → `chat_quick_reply_taken`. The app shows them when the field starts with `/` |
+| PATCH / DELETE | `quick-replies/{id}` | | Only my own (`404 chat_quick_reply_not_found`) |
+
+**Automatic replies** go out as the business, only in one-to-one chats, right after a customer's message: the **away** message when it's on and (for `outside_hours`) the business is closed in its own time zone — at most once per 12 hours in a chat — otherwise the **welcome** message on a customer's first message or the first after 14 quiet days. They carry `meta.auto_reply` (`welcome`\|`away`; the apps label them "Automatic reply"), don't accept a message request, and don't mark the customer's message as read. Nothing is sent when either side blocked the other.
+
+## AI
+
+Translate, voice to text, summary and suggested replies, through the AI module's provider (`Services\ChatAiService`). Each is **one tap by the person** — nothing is ever sent to an AI provider by itself. Only chats I'm in, only messages I can see, never a view-once message (`chat_ai_view_once`). Translations and transcripts are cached per message (30 days), summaries for 10 minutes. The admin switch is `ai_enabled` in chat settings.
+
+| Method | Path | Body | Notes |
+|---|---|---|---|
+| GET | `ai` | | `{enabled, translate, summarize, smart_replies, transcribe}` — the app shows the buttons from this. `transcribe` needs a provider that takes audio (OpenAI or Groq Whisper, or Google Gemini; Anthropic can't) |
+| POST | `messages/{m}/translate` | `to?` (ar, en, fr, es, de, tr, ur, hi, bn, id, fa, ru, zh, pt, it, tl; default = request locale) | `{text, to}`. Formatting marks are removed first. Throttled to 60 per minute |
+| POST | `messages/{m}/transcribe` | | Voice / audio messages (≤25 MB): `{text}`. Throttled to 20 per minute |
+| POST | `conversations/{c}/summarize` | `unread_only?` | `{text, messages}`: 3–7 bullet points in the request language, from my latest 200 visible messages (12 000 characters, newest kept), or only those after my last read. Throttled to 10 per minute |
+| POST | `conversations/{c}/smart-replies` | | `{replies[3]}`: short replies in the chat's own language and dialect, from the last 15 messages. They're only suggestions — nothing is sent. Throttled to 20 per minute |
+
+Errors: `503 chat_ai_unavailable` (switched off, or no provider), `502 chat_ai_failed` (the provider failed — its own message goes to the log only), `422 chat_ai_nothing_to_translate`, `chat_ai_not_voice`, `chat_ai_audio_too_long`, `chat_ai_nothing_to_summarize`.
+
 ## Calls (LiveKit)
 
 | Method | Path | Notes |
@@ -250,6 +310,8 @@ The `chat.message.updated` broadcast carries the **requester's** view, so the ap
 | GET | `calls/{id}/token` | Rejoin an ongoing call |
 | GET | `calls` · `calls/{id}` | Call log |
 
+Calls can be switched off per country (`calls_disabled_countries` in chat settings, by the account's `country_id`): the caller gets `403 chat_calls_unavailable_country`, calling someone there gets `403 chat_calls_unavailable_peer_country`, and in a group members there simply aren't rung.
+
 The token is a LiveKit JWT (HS256) for one room and one identity (`user:{id}`), signed with `LIVEKIT_API_SECRET`. `chat:expire-calls` runs every minute and turns a call that rang longer than `CHAT_CALL_RING_TIMEOUT_SECONDS` (45) into a missed call.
 
 ## Admin
@@ -257,7 +319,7 @@ The token is a LiveKit JWT (HS256) for one room and one identity (`user:{id}`), 
 | Method | Path | Permission |
 |---|---|---|
 | GET | `/api/admin/v1/chat-settings` | `chat-settings.view` |
-| PUT | `/api/admin/v1/chat-settings` | `chat-settings.update` |
+| PUT | `/api/admin/v1/chat-settings` (also `calls_disabled_countries[]` country ids, `ai_enabled`) | `chat-settings.update` |
 | GET | `/api/admin/v1/chat-themes` · `chat-themes/{id}` | `chat-themes.view` |
 | POST | `/api/admin/v1/chat-themes` (multipart: `translations[i][locale/name]`, `sender_color`, `receiver_color`, `background_color`, `is_dark`, `is_default`, `status`, `sort_order`, `wallpaper`) | `chat-themes.create` |
 | POST | `/api/admin/v1/chat-themes/{id}` (same fields + `remove_wallpaper`) | `chat-themes.update` |

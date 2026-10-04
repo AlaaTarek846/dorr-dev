@@ -309,7 +309,7 @@ private fun ScanCta(modifier: Modifier, onClick: () -> Unit) {
         modifier
             .fillMaxWidth()
             .scale(pressScale)
-            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color(0x47E50914), spotColor = Color(0x47E50914))
+            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color(0x47001B53), spotColor = Color(0x47001B53))
             .clip(RoundedCornerShape(22.dp))
             .background(Wa.ButtonBrush)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
@@ -394,7 +394,7 @@ private fun InputCard(
         when {
             state == FieldState.Ok -> Wa.Green
             isError -> Wa.Danger
-            focused -> Color(0x73E50914)
+            focused -> Color(0x73001B53)
             else -> Color.Transparent
         },
         label = "inputBorder",

@@ -9,6 +9,7 @@ use Illuminate\Validation\Rule;
 use Modules\Chat\Http\Requests\SendMessageRequest;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Services\MessageReminderService;
 use Modules\Chat\Services\MessageService;
 
 /**
@@ -101,6 +102,58 @@ class MessageController extends Controller
         $this->messages->star($request->user(), $message, (bool) $data['starred']);
 
         return ApiResponse::success(['is_starred' => (bool) $data['starred']], __('api.updated'));
+    }
+
+    public function readLater(Request $request, ChatMessage $message)
+    {
+        $data = $request->validate(['on' => ['required', 'boolean']]);
+        $this->messages->readLater($request->user(), $message, (bool) $data['on']);
+
+        return ApiResponse::success(['is_read_later' => (bool) $data['on']], __('api.updated'));
+    }
+
+    public function readLaterList(Request $request)
+    {
+        return ApiResponse::success($this->messages->readLaterList($request->user()), __('api.retrieved'));
+    }
+
+    /**
+     * "Needs a reply": on my follow-up list until I answer (or `on: false`).
+     */
+    public function followUp(Request $request, ChatMessage $message)
+    {
+        $data = $request->validate(['on' => ['required', 'boolean']]);
+        $this->messages->followUp($request->user(), $message, (bool) $data['on']);
+
+        return ApiResponse::success(['is_follow_up' => (bool) $data['on']], __('api.updated'));
+    }
+
+    public function followUpList(Request $request)
+    {
+        return ApiResponse::success($this->messages->followUpList($request->user()), __('api.retrieved'));
+    }
+
+    /**
+     * Remind me about this message at `remind_at` (ISO-8601 with offset), with an optional note.
+     */
+    public function setReminder(Request $request, ChatMessage $message, MessageReminderService $reminders)
+    {
+        $data = $request->validate(['remind_at' => ['required', 'date'], 'note' => ['nullable', 'string', 'max:200']]);
+        $reminder = $reminders->set($request->user(), $message, \Illuminate\Support\Carbon::parse($data['remind_at']), $data['note'] ?? null);
+
+        return ApiResponse::success(['reminder_at' => $reminder->remind_at->toIso8601String(), 'note' => $reminder->note], __('api.updated'));
+    }
+
+    public function clearReminder(Request $request, ChatMessage $message, MessageReminderService $reminders)
+    {
+        $reminders->clear($request->user(), $message);
+
+        return ApiResponse::success(['reminder_at' => null], __('api.deleted'));
+    }
+
+    public function reminders(Request $request, MessageReminderService $reminders)
+    {
+        return ApiResponse::success($reminders->upcoming($request->user()), __('api.retrieved'));
     }
 
     public function starred(Request $request, ?ChatConversation $conversation = null)

@@ -20,6 +20,7 @@ use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatPinnedMessage;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Support\BannedWords;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
@@ -33,6 +34,12 @@ use Modules\Chat\Support\ParticipantType;
  */
 class MessageService
 {
+    /** Card designs for a money gift (spec 65). */
+    public const GIFT_CARDS = ['general', 'birthday', 'eid', 'ramadan', 'wedding', 'newborn', 'graduation', 'congrats', 'thanks'];
+
+    /** How many urgent messages one person may send another in 24 hours (spec 117). */
+    public const URGENT_PER_DAY = 3;
+
     public function __construct(
         private readonly ConversationService $conversations,
         private readonly ChatPrivacy $privacy,
@@ -161,6 +168,9 @@ class MessageService
             throw ChatException::emptyMessage();
         }
 
+        // The text, and a poll's options too.
+        $this->assertNoBannedWords($participant, $conversation, trim($body.' '.implode("\n", array_column((array) data_get($meta, 'options', []), 'text'))));
+
         if ($type->hasAttachments() && ! $hasFiles) {
             throw new ChatException('attachment_required', 422);
         }
@@ -181,7 +191,12 @@ class MessageService
             throw new ChatException('view_once_not_allowed', 422);
         }
 
-        $message = DB::transaction(function () use ($me, $participant, $conversation, $type, $body, $meta, $files, $replyTo, $mentions, $data, $copyFrom, $viewOnce) {
+        $urgent = ! empty($data['urgent']);
+        if ($urgent) {
+            $this->assertMayBeUrgent($me, $participant, $conversation);
+        }
+
+        $message = DB::transaction(function () use ($me, $participant, $conversation, $type, $body, $meta, $files, $replyTo, $mentions, $data, $copyFrom, $viewOnce, $urgent) {
             // Replying to a request accepts it (you clearly want to talk).
             if ($conversation->status === ConversationStatus::Pending && ! $this->startedBy($conversation, $participant)) {
                 $conversation->status = ConversationStatus::Accepted;
@@ -202,6 +217,9 @@ class MessageService
                 'has_link' => $body !== null && (bool) preg_match('~(https?://|www\.)\S+~i', $body),
                 'view_once' => $viewOnce,
                 'is_silent' => ! empty($data['silent']),
+                'is_urgent' => $urgent,
+                // Sensitive: never in a notification; the recipient's app hides it until unlocked.
+                'is_sensitive' => ! empty($data['sensitive']),
                 'expires_at' => $conversation->disappearing_seconds ? now()->addSeconds($conversation->disappearing_seconds) : null,
             ]);
 
@@ -220,6 +238,7 @@ class MessageService
             }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
+            $this->answeredFollowUps($conversation, $participant, $message, $replyTo);
 
             $senderName = app(ParticipantDirectory::class)->profile($me, $participant->participant_type, $participant->participant_id)['account_name'] ?? '';
             $others = $conversation->activeParticipants()->where('id', '!=', $participant->id)->get();
@@ -229,6 +248,15 @@ class MessageService
         });
 
         $this->previewLinkLater($message);
+
+        // A business on the other side may answer by itself (welcome / away). Never fails the send.
+        if (! $conversation->isGroup() && ! $conversation->isSelf()) {
+            try {
+                app(BusinessService::class)->answer($conversation, $message, $participant);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return $message;
     }
@@ -252,6 +280,34 @@ class MessageService
     public function rebroadcast(ChatMessage $message): void
     {
         $this->broadcast($message->conversation, $message, 'chat.message.updated');
+    }
+
+    /**
+     * A business's automatic reply (welcome / away), sent as the business. Unlike a reply typed by
+     * hand it doesn't accept a message request, doesn't mark the customer's message as read, and
+     * is labelled `meta.auto_reply` so the apps can show "Automatic reply".
+     */
+    public function autoReply(ChatConversation $conversation, ChatParticipant $business, string $body, string $kind): ChatMessage
+    {
+        return DB::transaction(function () use ($conversation, $business, $body, $kind) {
+            $message = ChatMessage::query()->create([
+                'conversation_id' => $conversation->id,
+                'sender_type' => $business->participant_type,
+                'sender_id' => $business->participant_id,
+                'type' => MessageType::Text,
+                'body' => $body,
+                'meta' => ['auto_reply' => $kind],
+                'has_link' => (bool) preg_match('~(https?://|www\.)\S+~i', $body),
+                'expires_at' => $conversation->disappearing_seconds ? now()->addSeconds($conversation->disappearing_seconds) : null,
+            ]);
+
+            $this->afterNewMessage($conversation, $message, $business, [], senderReads: false);
+
+            $name = app(ParticipantDirectory::class)->profile($business->participant(), $business->participant_type, $business->participant_id)['account_name'] ?? '';
+            $this->push->message($conversation, $message, (string) $name, $conversation->activeParticipants()->where('id', '!=', $business->id)->get());
+
+            return $message;
+        });
     }
 
     /**
@@ -279,7 +335,7 @@ class MessageService
      *
      * @param  list<int>  $mentions  participant ids
      */
-    public function afterNewMessage(ChatConversation $conversation, ChatMessage $message, ?ChatParticipant $sender, array $mentions): void
+    public function afterNewMessage(ChatConversation $conversation, ChatMessage $message, ?ChatParticipant $sender, array $mentions, bool $senderReads = true): void
     {
         $conversation->forceFill(['last_message_id' => $message->id, 'last_message_at' => $message->created_at])->save();
 
@@ -292,8 +348,11 @@ class MessageService
                 ChatParticipant::query()->whereIn('id', $mentions)->where('conversation_id', $conversation->id)->update(['has_unread_mention' => true]);
             }
 
-            // My own message counts as read (and delivered) by me.
-            $sender->update(['last_read_message_id' => $message->id, 'last_delivered_message_id' => $message->id, 'last_read_at' => now(), 'unread_count' => 0, 'marked_unread' => false, 'has_unread_mention' => false, 'is_deleted' => false]);
+            // My own message counts as read (and delivered) by me — except an automatic reply:
+            // the business hasn't read the customer's message just because the reply went out.
+            if ($senderReads) {
+                $sender->update(['last_read_message_id' => $message->id, 'last_delivered_message_id' => $message->id, 'last_read_at' => now(), 'unread_count' => 0, 'marked_unread' => false, 'has_unread_mention' => false, 'is_deleted' => false]);
+            }
         } else {
             (clone $others)->update(['is_deleted' => false]);
         }
@@ -328,6 +387,9 @@ class MessageService
         if ($body === '' && $message->type === MessageType::Text) {
             throw ChatException::emptyMessage();
         }
+
+        // Editing can't sneak a banned word past the filter.
+        $this->assertNoBannedWords($participant, $message->conversation, $body);
 
         $message->update([
             'body' => $body === '' ? null : $body,
@@ -508,6 +570,131 @@ class MessageService
             ['message_id' => $message->id, 'participant_id' => $participant->id],
             ['starred_at' => $starred ? now() : null],
         );
+    }
+
+    /**
+     * "Read later": set a message aside for me (or take it off the list once done).
+     */
+    public function readLater(Model $me, ChatMessage $message, bool $on): void
+    {
+        $participant = $this->conversations->participantOf($me, $message->conversation);
+
+        ChatMessageUserState::query()->updateOrCreate(
+            ['message_id' => $message->id, 'participant_id' => $participant->id],
+            ['read_later_at' => $on ? now() : null],
+        );
+    }
+
+    /**
+     * My "read later" list across every chat, oldest first (the order I set them aside).
+     *
+     * @return list<MessageResource>
+     */
+    public function readLaterList(Model $me): array
+    {
+        $states = ChatMessageUserState::query()
+            ->whereIn('participant_id', ChatParticipant::query()->of($me)->pluck('id'))
+            ->whereNotNull('read_later_at')->whereNull('deleted_at')
+            ->oldest('read_later_at')->limit(200)->with('message.conversation')->get();
+
+        return $states->map(function (ChatMessageUserState $state) use ($me) {
+            $message = $state->message;
+
+            return $message === null || $message->isGone() ? null : $this->presentOne($me, $message);
+        })->filter()->values()->all();
+    }
+
+    /**
+     * "Needs a reply" (spec 118): a message I keep on a follow-up list until I answer it — or
+     * take it off by hand.
+     */
+    public function followUp(Model $me, ChatMessage $message, bool $on): void
+    {
+        $participant = $this->conversations->participantOf($me, $message->conversation);
+
+        ChatMessageUserState::query()->updateOrCreate(
+            ['message_id' => $message->id, 'participant_id' => $participant->id],
+            ['follow_up_at' => $on ? now() : null],
+        );
+    }
+
+    /**
+     * What came in while I was private (spec 113): messages from others in my chats since
+     * `$from`, and how many chats they were in.
+     *
+     * @return array{messages: int, conversations: int, from: string}
+     */
+    public function receivedSince(Model $me, \Carbon\CarbonInterface $from): array
+    {
+        $mine = ChatParticipant::query()->of($me)->whereNull('left_at')->get(['id', 'conversation_id', 'participant_type', 'participant_id']);
+        $rows = ChatMessage::query()
+            ->whereIn('conversation_id', $mine->pluck('conversation_id'))
+            ->where('created_at', '>=', $from)->whereNotNull('sender_type')
+            ->where(fn ($q) => $q->where('sender_type', '!=', ParticipantType::aliasFor($me))->orWhere('sender_id', '!=', $me->getKey()))
+            ->get(['id', 'conversation_id']);
+
+        return ['messages' => $rows->count(), 'conversations' => $rows->pluck('conversation_id')->unique()->count(), 'from' => $from->toIso8601String()];
+    }
+
+    /**
+     * Messages still waiting for my answer, oldest first.
+     *
+     * @return list<MessageResource>
+     */
+    public function followUpList(Model $me): array
+    {
+        $states = ChatMessageUserState::query()
+            ->whereIn('participant_id', ChatParticipant::query()->of($me)->pluck('id'))
+            ->whereNotNull('follow_up_at')->whereNull('deleted_at')
+            ->oldest('follow_up_at')->limit(200)->with('message.conversation')->get();
+
+        return $states->map(function (ChatMessageUserState $state) use ($me) {
+            $message = $state->message;
+
+            return $message === null || $message->isGone() ? null : $this->presentOne($me, $message);
+        })->filter()->values()->all();
+    }
+
+    /**
+     * I answered: in a one-to-one chat anything I send answers what came before it; in a group
+     * only a reply to that message does.
+     */
+    private function answeredFollowUps(ChatConversation $conversation, ChatParticipant $participant, ChatMessage $message, ?ChatMessage $replyTo): void
+    {
+        $answered = $conversation->isGroup()
+            ? ($replyTo ? [$replyTo->id] : [])
+            : ChatMessage::query()->where('conversation_id', $conversation->id)->where('id', '<', $message->id)->select('id');
+
+        if ($answered === []) {
+            return;
+        }
+
+        ChatMessageUserState::query()->where('participant_id', $participant->id)->whereNotNull('follow_up_at')
+            ->whereIn('message_id', $answered)->update(['follow_up_at' => null]);
+    }
+
+    /**
+     * Urgent (spec 116–117): one-to-one only, the recipient must allow it (`who_can_urgent`), and
+     * at most URGENT_PER_DAY in 24 hours to the same person.
+     */
+    private function assertMayBeUrgent(Model $me, ChatParticipant $participant, ChatConversation $conversation): void
+    {
+        if ($conversation->isGroup() || $conversation->isSelf()) {
+            throw new ChatException('urgent_direct_only', 422);
+        }
+
+        $peer = $conversation->activeParticipants()->where('id', '!=', $participant->id)->first()?->participant();
+        if ($peer === null || ! $this->privacy->canSendUrgent($me, $peer)) {
+            throw new ChatException('urgent_not_allowed', 403);
+        }
+
+        $sent = ChatMessage::query()->where('conversation_id', $conversation->id)
+            ->where('sender_type', $participant->participant_type)->where('sender_id', $participant->participant_id)
+            ->where('is_urgent', true)->where('created_at', '>=', now()->subDay())->count();
+
+        if ($sent >= self::URGENT_PER_DAY) {
+            throw new ChatException('urgent_quota', 429, ['max' => self::URGENT_PER_DAY]);
+        }
     }
 
     /**
@@ -714,6 +901,8 @@ class MessageService
                 throw ChatException::adminsOnly();
             }
 
+            $this->assertNotTooSoon($participant, $conversation);
+
             return;
         }
 
@@ -730,6 +919,49 @@ class MessageService
 
         // Blocked either way = the chat is closed until someone unblocks.
         $this->privacy->assertReachable($me, $peer);
+    }
+
+    /**
+     * Slow mode: a member waits `slow_mode_seconds` after their last message (admins never wait).
+     * The wait left comes back in `retry_after` so the app can count it down.
+     */
+    private function assertNotTooSoon(ChatParticipant $participant, ChatConversation $conversation): void
+    {
+        $seconds = (int) $conversation->group?->slow_mode_seconds;
+
+        if ($seconds <= 0 || $participant->isAdmin()) {
+            return;
+        }
+
+        $last = ChatMessage::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', $participant->participant_type)->where('sender_id', $participant->participant_id)
+            ->latest('id')->value('created_at');
+
+        if ($last === null) {
+            return;
+        }
+
+        $wait = $seconds - (int) floor(\Illuminate\Support\Carbon::parse($last)->diffInSeconds(now(), true));
+
+        if ($wait > 0) {
+            throw new ChatException('slow_mode', 429, ['seconds' => $wait], ['retry_after' => $wait]);
+        }
+    }
+
+    /**
+     * A group's banned words: a member's text (or caption) containing one isn't sent. Admins are
+     * exempt — they moderate, and may need to quote what they're removing.
+     */
+    private function assertNoBannedWords(ChatParticipant $participant, ChatConversation $conversation, ?string $body): void
+    {
+        if (! $conversation->isGroup() || $participant->isAdmin()) {
+            return;
+        }
+
+        if (BannedWords::firstIn($body, $conversation->group?->banned_words) !== null) {
+            throw new ChatException('banned_word', 422);
+        }
     }
 
     private function startedBy(ChatConversation $conversation, ChatParticipant $participant): bool
@@ -768,9 +1000,11 @@ class MessageService
             ],
             // Looked up by id on the server: a message can only show real library media.
             MessageType::Gif => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'gif'),
-            MessageType::Sticker => ! empty($data['sticker_id'])
-                ? app(StickerService::class)->meta((int) $data['sticker_id'])
-                : app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
+            MessageType::Sticker => match (true) {
+                ! empty($data['my_sticker_id']) => app(StickerService::class)->myMeta($me, (int) $data['my_sticker_id']),
+                ! empty($data['sticker_id']) => app(StickerService::class)->meta((int) $data['sticker_id']),
+                default => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
+            },
             MessageType::Poll => MessageExtrasService::pollMeta((array) ($data['poll_options'] ?? []), (bool) ($data['poll_multiple'] ?? false)),
             MessageType::Contact => [
                 'name' => (string) $data['contact_name'],
@@ -781,7 +1015,9 @@ class MessageService
                 'waveform' => isset($data['waveform']) ? array_map('intval', (array) $data['waveform']) : null,
             ], fn ($v) => $v !== null) ?: null,
             MessageType::Video => isset($data['duration_ms']) ? ['duration_ms' => (int) $data['duration_ms']] : null,
-            MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id']),
+            MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id'])
+                // A money gift: the same receipt, drawn as a card for the occasion.
+                + (in_array($data['gift'] ?? null, self::GIFT_CARDS, true) ? ['gift' => $data['gift']] : []),
             MessageType::WalletQr => $this->walletShare->walletQr($me, $data['country_code'] ?? null),
             // Built by StoryService::reply() from the real story — never from the client.
             MessageType::StoryReply => $data['story_meta'] ?? throw new ChatException('story_not_found', 404),
