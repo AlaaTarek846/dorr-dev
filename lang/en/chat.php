@@ -77,6 +77,8 @@ return [
         'channel_handle_taken' => 'This handle is already taken.',
         'channel_follow_only' => 'People follow a channel — share its link instead of adding them.',
         'channel_no_calls' => 'Channels don\'t have calls.',
+        'self_no_calls' => 'You can\'t call yourself.',
+        'wallpaper_upload_only' => 'Upload the wallpaper as a picture, not a link.',
         'split_invalid' => 'Pick at least two people (you and someone else), and make the shares add up to the total.',
     ],
 
@@ -86,6 +88,9 @@ return [
     'join_requested' => 'Request sent. A group admin will review it.',
 
     // Short labels for chat-list previews and push notifications.
+    // Note to self.
+    'self_title' => 'Notes (you)',
+
     'preview' => [
         'image' => '📷 Photo',
         'video' => '🎥 Video',

@@ -256,6 +256,36 @@ class ConversationService
         });
     }
 
+    /**
+     * My "note to self" chat: notes, links and files I keep for myself — synced to every device,
+     * never notified, nobody else in it. Created on first use, the same one afterwards.
+     */
+    public function openSelf(Model $me): ChatParticipant
+    {
+        $key = 'self|'.ParticipantType::key($me);
+
+        $existing = ChatConversation::query()->withTrashed()->where('direct_key', $key)->first();
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $this->participantOf($me, $existing);
+        }
+
+        return DB::transaction(function () use ($me, $key) {
+            $conversation = ChatConversation::query()->create([
+                'type' => ConversationType::Direct,
+                'status' => ConversationStatus::Accepted,
+                'direct_key' => $key,
+                'created_by_type' => ParticipantType::aliasFor($me),
+                'created_by_id' => $me->getKey(),
+            ]);
+
+            return $this->addParticipant($conversation, $me, ParticipantRole::Member);
+        });
+    }
+
     public static function directKey(Model $a, Model $b): string
     {
         $keys = [ParticipantType::key($a), ParticipantType::key($b)];
@@ -496,10 +526,22 @@ class ConversationService
             $changes['theme_id'] = $data['theme_id'];
         }
         if (array_key_exists('custom_theme', $data)) {
-            $changes['custom_theme'] = $data['custom_theme'];
+            $changes['custom_theme'] = app(ChatThemeService::class)->mergeCustom($participant, $data['custom_theme']);
         }
 
         $participant->update($changes);
+
+        return $participant;
+    }
+
+    /**
+     * My own wallpaper for this chat (only I see it): replaces the previous one; the rest of my
+     * custom look (colours, dim) stays.
+     */
+    public function setWallpaper(Model $me, ChatConversation $conversation, \Illuminate\Http\UploadedFile $image): ChatParticipant
+    {
+        $participant = $this->participantOf($me, $conversation);
+        $participant->update(['custom_theme' => app(ChatThemeService::class)->storeWallpaper($participant, $image)]);
 
         return $participant;
     }

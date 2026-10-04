@@ -64,6 +64,10 @@ class CallService
             throw new ChatException('channel_no_calls', 422);
         }
 
+        if ($conversation->isSelf()) {
+            throw new ChatException('self_no_calls', 422);
+        }
+
         if ($conversation->status !== ConversationStatus::Accepted) {
             throw ChatException::requestPending();
         }

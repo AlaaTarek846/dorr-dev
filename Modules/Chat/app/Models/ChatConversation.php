@@ -63,6 +63,12 @@ class ChatConversation extends Model
         return $this->type === ConversationType::Channel;
     }
 
+    /** "Note to self": a direct chat whose only member is its owner (see ConversationService::openSelf()). */
+    public function isSelf(): bool
+    {
+        return $this->type === ConversationType::Direct && str_starts_with((string) $this->direct_key, 'self|');
+    }
+
     /**
      * The people a message page needs to know (ticks, names, mentions). A channel can have
      * thousands of followers who never appear on screen: only its admins (and me) are loaded.

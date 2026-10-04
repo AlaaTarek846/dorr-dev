@@ -33,13 +33,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'role_or_permission' => RoleOrPermissionMiddleware::class,
         ]);
 
-        // Behind a tunnel / load balancer (ngrok, Cloudflare, nginx) the socket address is the
-        // proxy's, so the caller's real IP (country by IP, throttling) comes from X-Forwarded-For.
-        // TRUSTED_PROXIES: "*" to trust any proxy, or a comma list of proxy IPs/CIDRs; empty = none.
-        $proxies = trim((string) env('TRUSTED_PROXIES', ''));
-        if ($proxies !== '') {
-            $middleware->trustProxies(at: $proxies === '*' ? '*' : array_map('trim', explode(',', $proxies)));
-        }
+        // The caller's real IP behind ngrok / a load balancer: app.trusted_proxies (TRUSTED_PROXIES).
+        $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->render(function (Throwable $e, Request $request) {

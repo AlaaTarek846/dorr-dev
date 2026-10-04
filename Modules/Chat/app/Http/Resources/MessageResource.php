@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Services\MoneyRequestService;
 use Modules\Chat\Support\MessageViewContext;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -42,6 +43,7 @@ class MessageResource extends JsonResource
             // View-once files are never listed: the recipient gets them once from POST messages/{m}/open.
             'attachments' => $gone || $m->view_once ? [] : $this->attachments($m),
             'view_once' => $m->view_once,
+            'is_silent' => $m->is_silent,
             // Mine: someone opened it · Theirs: I already opened it (it can't be opened again).
             'view_once_opened' => $m->view_once
                 ? ($ctx->isMine($m) ? ($ctx->openedByOthers[$m->id] ?? 0) > 0 : isset($ctx->openedByMe[$m->id]))
@@ -57,6 +59,11 @@ class MessageResource extends JsonResource
                 : null,
             'sender' => $ctx->profile($m->sender_type, $m->sender_id),
             'is_mine' => $ctx->isMine($m),
+            // My own message: until when I may still edit it / delete it for everyone (null = no
+            // more), so the app only offers what the server will accept. Same rules as MessageService.
+            'edit_until' => $ctx->isMine($m) && ! $gone && in_array($m->type, [MessageType::Text, MessageType::Image, MessageType::Video, MessageType::Document], true)
+                ? $this->deadline($m, ChatSetting::current()->edit_window_minutes) : null,
+            'delete_until' => $ctx->isMine($m) && ! $gone ? $this->deadline($m, ChatSetting::current()->delete_for_everyone_window_minutes) : null,
             'status' => $ctx->statusOf($m),
             'reply_to' => $this->replyPreview($m),
             'is_forwarded' => $m->is_forwarded,
@@ -221,5 +228,13 @@ class MessageResource extends JsonResource
                 'name' => $meta['name'] ?? '',
             ]),
         ];
+    }
+
+    /** The ISO time a window closes, or null when it already has. */
+    private function deadline(ChatMessage $m, int $minutes): ?string
+    {
+        $until = $m->created_at?->copy()->addMinutes($minutes);
+
+        return $until !== null && $until->isFuture() ? $until->toIso8601String() : null;
     }
 }
