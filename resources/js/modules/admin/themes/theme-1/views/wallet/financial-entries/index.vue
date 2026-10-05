@@ -33,6 +33,8 @@
                         </button>
                     </div>
                     <Select
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
                         v-model="filters.type"
                         :options="typeFilterOptions"
                         option-label="label"

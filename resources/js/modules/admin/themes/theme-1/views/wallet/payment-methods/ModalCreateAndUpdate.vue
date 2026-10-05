@@ -151,6 +151,8 @@
                                 <div class="col-md-6">
                                     <label for="method-gateway" class="form-label">{{ t('wallet.methods.gateway') }}</label>
                                     <Select
+                                        filter
+                                        :filter-placeholder="t('search_placeholder')"
                                         id="method-gateway"
                                         v-model="form.gateway"
                                         :options="gatewayOptions"
@@ -165,6 +167,8 @@
                                 <div class="col-md-6">
                                     <label for="method-type" class="form-label">{{ t('wallet.methods.type') }}</label>
                                     <Select
+                                        filter
+                                        :filter-placeholder="t('search_placeholder')"
                                         id="method-type"
                                         v-model="form.type"
                                         :options="typeOptions"
