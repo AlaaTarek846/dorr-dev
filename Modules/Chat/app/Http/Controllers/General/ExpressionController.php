@@ -14,12 +14,34 @@ use Modules\Chat\Services\StickerService;
  */
 class ExpressionController extends Controller
 {
-    public function stickers(StickerService $stickers, GiphyService $giphy)
+    public function stickers(Request $request, StickerService $stickers, GiphyService $giphy)
     {
         return ApiResponse::success([
             'packs' => $stickers->packs(),
+            // The stickers I made from my own photos.
+            'mine' => $stickers->mine($request->user()),
             'library_enabled' => $giphy->enabled(),
         ], __('api.retrieved'));
+    }
+
+    /**
+     * A sticker made from my photo: the app cuts it out and uploads a 512×512 transparent image.
+     */
+    public function storeMine(Request $request, StickerService $stickers)
+    {
+        $data = $request->validate([
+            'image' => ['required', 'image', 'mimes:png,webp', 'max:1024', 'dimensions:max_width=1024,max_height=1024'],
+            'emoji' => ['nullable', 'string', 'max:16'],
+        ]);
+
+        return ApiResponse::created($stickers->addMine($request->user(), $request->file('image'), $data['emoji'] ?? null), __('api.created'));
+    }
+
+    public function destroyMine(Request $request, StickerService $stickers, int $sticker)
+    {
+        $stickers->removeMine($request->user(), $sticker);
+
+        return ApiResponse::success(null, __('api.deleted'));
     }
 
     public function library(Request $request, GiphyService $giphy)

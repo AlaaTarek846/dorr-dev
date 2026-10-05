@@ -41,7 +41,9 @@ class ChatPrivacy
                 'who_can_add_to_groups' => PrivacyAudience::Everyone,
                 'who_can_call' => PrivacyAudience::Everyone,
                 'block_screenshots' => false,
-                'notification_preview' => true,
+                'notification_privacy' => 'all',
+                'who_can_urgent' => PrivacyAudience::Contacts,
+                'status_audience' => PrivacyAudience::Contacts,
             ]);
     }
 
@@ -115,6 +117,15 @@ class ChatPrivacy
         if (! $this->audienceAllows($this->peek($callee)->who_can_call, $callee, $caller)) {
             throw ChatException::notAllowedToCall();
         }
+    }
+
+    /**
+     * An urgent message gets through a mute, so the recipient decides who may send one
+     * (`who_can_urgent`: my contacts by default).
+     */
+    public function canSendUrgent(Model $sender, Model $recipient): bool
+    {
+        return $this->audienceAllows($this->peek($recipient)->who_can_urgent ?? PrivacyAudience::Contacts, $recipient, $sender);
     }
 
     /**

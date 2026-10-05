@@ -77,8 +77,8 @@ import com.dorr.app.ui.theme.appearanceColor
  */
 object Wa {
     val Red: Color @Composable get() = com.dorr.app.ui.screens.profile.settingsAccent()
-    val RedDark = Color(0xFFB30710)
-    val RedBright = Color(0xFFF2202C)
+    val RedDark = Color(0xFF00113A)
+    val RedBright = Color(0xFF1E3A7B)
     val Ink: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.ink else appearanceColor("textPrimary", Color(0xFF111928), night = false)
     val Mut: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.mut else appearanceColor("textSecondary", Color(0xFF6B7280), night = false)
     val Soft: Color @Composable get() = if (walletNight()) Color(0xFF8B93A0) else appearanceColor("textMuted", Color(0xFF9CA3AF), night = false)
@@ -115,7 +115,7 @@ internal fun walletNight(): Boolean = LocalThemeState.current.isDark ?: isSystem
 
 /** The tinted icon wells (background + glyph colour) — `tone-*` in the preview. */
 enum class Tone(val bg: Color, val fg: Color) {
-    Red(Color(0xFFFDE8EC), Color(0xFFE50914)),
+    Red(Color(0xFFFFEEE8), Color(0xFF001B53)),
     Green(Color(0xFFE5F6EC), Color(0xFF16A34A)),
     Amber(Color(0xFFFEF1DC), Color(0xFFD97706)),
     Pink(Color(0xFFFCE7F3), Color(0xFFDB2777)),
@@ -211,7 +211,7 @@ fun WaCircleButton(
         modifier
             .size(38.dp)
             .scale(scale)
-            .shadow(6.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x2EE50914))
+            .shadow(6.dp, CircleShape, ambientColor = Color(0x1F001B53), spotColor = Color(0x2E001B53))
             .clip(CircleShape)
             .background(background)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
@@ -243,7 +243,7 @@ fun WaButton(
 
     val decorated = when (style) {
         WaButtonStyle.Primary -> base
-            .shadow(if (enabled) 14.dp else 0.dp, Wa.ButtonShape, ambientColor = Color(0x59E50914), spotColor = Color(0x8CE50914))
+            .shadow(if (enabled) 14.dp else 0.dp, Wa.ButtonShape, ambientColor = Color(0x59001B53), spotColor = Color(0x8C001B53))
             .clip(Wa.ButtonShape)
             .background(if (enabled) Wa.ButtonBrush else Brush.linearGradient(listOf(Color(0xFF9CA3AF), Color(0xFF9CA3AF))))
         WaButtonStyle.Ghost -> base
@@ -406,7 +406,7 @@ fun WaPage(
                             .size(34.dp)
                             .then(
                                 if (night) Modifier
-                                else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                                else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                             )
                             .clip(CircleShape)
                             .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Color.White)

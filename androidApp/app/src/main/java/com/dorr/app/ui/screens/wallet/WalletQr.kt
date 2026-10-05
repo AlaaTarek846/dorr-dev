@@ -133,7 +133,7 @@ fun WalletMyQr() {
         ) {
             Box(
                 Modifier.fillMaxWidth().height(120.dp).background(
-                    if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
+                    if (walletNight()) Brush.verticalGradient(listOf(Color(0x33001B53), Color.Transparent))
                     else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
                 ),
             )
@@ -324,7 +324,7 @@ private fun Viewfinder(busy: Boolean, modifier: Modifier = Modifier) {
                         .height(3.dp)
                         .graphicsLayer { translationY = sweep * 300.dp.toPx() * 0.78f }
                         .clip(RoundedCornerShape(3.dp))
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFF4D57), Color.Transparent))),
+                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFA7552), Color.Transparent))),
                 )
             }
         }

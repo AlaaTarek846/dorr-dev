@@ -27,6 +27,8 @@ class ChatSetting extends Model
         'max_call_participants',
         'stories_enabled',
         'calls_enabled',
+        'calls_disabled_countries',
+        'ai_enabled',
     ];
 
     protected function casts(): array
@@ -45,12 +47,37 @@ class ChatSetting extends Model
             'max_call_participants' => 'integer',
             'stories_enabled' => 'boolean',
             'calls_enabled' => 'boolean',
+            'calls_disabled_countries' => 'array',
+            'ai_enabled' => 'boolean',
         ];
     }
 
     protected static function booted(): void
     {
         static::saved(fn () => Cache::forget(self::CACHE_KEY));
+    }
+
+    /**
+     * Calls are off for everyone, or in this account's country (VoIP needs a licence in some places).
+     */
+    public function callsAllowedFor(?Model $account): bool
+    {
+        if (! $this->calls_enabled) {
+            return false;
+        }
+
+        $country = $account?->getAttribute('country_id');
+
+        return $country === null || ! in_array((int) $country, array_map('intval', $this->calls_disabled_countries ?? []), true);
+    }
+
+    /**
+     * AI in the chat. On unless the admin switched it off (a copy cached before the column
+     * existed has no value — that means on, the column's default).
+     */
+    public function aiEnabled(): bool
+    {
+        return $this->ai_enabled ?? true;
     }
 
     public static function current(): self

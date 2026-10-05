@@ -305,7 +305,7 @@ private fun ModeChip(
 @Composable
 private fun ColorField(label: String, value: String, onValueChange: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
-    val swatch = hexToColor(value) ?: Color(0xFFE50914)
+    val swatch = hexToColor(value) ?: Color(0xFF001B53)
     val night = settingsNight()
     val shape = RoundedCornerShape(999.dp)
 
@@ -343,7 +343,7 @@ private fun ColorField(label: String, value: String, onValueChange: (String) -> 
 
 @Composable
 private fun ColorPickerDialog(initial: String, onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
-    val start = colorToHsv(hexToColor(initial) ?: Color(0xFFE50914))
+    val start = colorToHsv(hexToColor(initial) ?: Color(0xFF001B53))
     var hue by remember { mutableStateOf(start[0]) }
     var sat by remember { mutableStateOf(start[1]) }
     var value by remember { mutableStateOf(start[2]) }

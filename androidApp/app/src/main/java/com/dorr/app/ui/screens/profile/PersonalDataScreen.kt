@@ -140,10 +140,10 @@ private const val PD_PHOTO = "photo"
 // Matches the server's auth_flow.otp_length (phone and e-mail change codes alike).
 private const val PD_OTP_LENGTH = 4
 private const val PD_OTP_MARKER = "​"
-private val Pink = Color(0xFFFDE8EC)
+private val Pink = Color(0xFFFFEEE8)
 private val FieldFill = Color(0xFFFBF7F8)
 private val FieldBorder = Color(0xFFF3D5DB)
-private val CardShadow = Color(0x12E50914)
+private val CardShadow = Color(0x12001B53)
 private val VerifiedGreen = Color(0xFF16A34A)
 
 private fun profilePrefs(context: Context, userId: Int) =
@@ -379,7 +379,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914)))
+                                .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1F001B53), spotColor = Color(0x1F001B53)))
                                 .clip(CircleShape)
                                 .background(com.dorr.app.ui.screens.profile.settingsCard()),
                             contentAlignment = Alignment.Center,
@@ -430,7 +430,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .size(28.dp)
-                                .shadow(4.dp, CircleShape, ambientColor = Color(0x40E50914), spotColor = Color(0x40E50914))
+                                .shadow(4.dp, CircleShape, ambientColor = Color(0x40001B53), spotColor = Color(0x40001B53))
                                 .clip(CircleShape)
                                 .background(settingsAccent()),
                             contentAlignment = Alignment.Center,
@@ -565,7 +565,7 @@ private fun PdFieldRow(
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4),
+            tint = if (settingsNight()) AccountDark.chevron else Color(0xFFF8BCA9),
             modifier = Modifier
                 .size(16.dp)
                 .graphicsLayer { if (rtl) scaleX = -1f },
@@ -674,7 +674,7 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
         Box(
             modifier = Modifier
                 .size(18.dp)
-                .border(2.dp, if (selected) settingsAccent() else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
+                .border(2.dp, if (selected) settingsAccent() else if (settingsNight()) AccountDark.chevron else Color(0xFFF8BCA9), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
@@ -1146,7 +1146,7 @@ private fun OtpDigit(
     val border = when {
         hasError -> AppColors.danger
         focused -> settingsAccent()
-        else -> Color(0xFFF3C4CC)
+        else -> Color(0xFFFBD2C4)
     }
     Box(
         modifier = Modifier
@@ -1387,7 +1387,7 @@ private fun PdSaveButton(label: String, enabled: Boolean = true, onClick: () -> 
                 .fillMaxWidth()
                 .height(48.dp)
                 .alpha(if (enabled) 1f else 0.5f)
-                .shadow(8.dp, shape, ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                .shadow(8.dp, shape, ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                 .clip(shape)
                 .background(settingsAccent())
                 .clickable(enabled = enabled, onClick = onClick),
@@ -1429,7 +1429,7 @@ private fun PdHeader(title: String, onBack: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914))
+                .shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53))
                 .clip(CircleShape)
                 .background(Color.White)
                 .clickable(onClick = onBack),
@@ -1462,8 +1462,8 @@ private fun PdBackdrop(modifier: Modifier = Modifier) {
                 center = center,
             )
         }
-        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFEFA8B4))
-        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFF3C4CC))
-        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF0B8C2))
+        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFF8BCA9))
+        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFFBD2C4))
+        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF9C4B4))
     }
 }

@@ -45,6 +45,9 @@ import androidx.compose.material.icons.rounded.CallMissed
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Alarm
+import androidx.compose.material.icons.rounded.Bolt
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.Pause
@@ -56,6 +59,7 @@ import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -66,6 +70,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
@@ -124,6 +129,12 @@ class BubbleActions(
     val onPay: (UiMessage) -> Unit = {},
     val onDeclineRequest: (UiMessage) -> Unit = {},
     val onCancelRequest: (UiMessage) -> Unit = {},
+    /** AI: turn a voice message into text / hide a translation or transcript. */
+    val onTranscribe: (UiMessage) -> Unit = {},
+    val onHideAi: (UiMessage) -> Unit = {},
+    /** Sensitive messages / blurred media: shown yet? And unlock / uncover one. */
+    val isRevealed: (String) -> Boolean = { true },
+    val onReveal: (UiMessage) -> Unit = {},
 )
 
 /**
@@ -260,8 +271,19 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
                     )
                 }
                 if (dto.isForwarded && !dto.isDeleted) ForwardedLabel(dto.forwardedManyTimes, mine)
+                if (dto.isUrgent && !dto.isDeleted) UrgentLabel()
+                // A business's welcome / away message, sent by itself.
+                if (!dto.isDeleted && dto.meta?.get("auto_reply")?.takeIf { it.isJsonPrimitive } != null) AutoReplyLabel(mine)
                 dto.replyTo?.let { if (!dto.isDeleted) ReplyQuote(it, mine) { it.id?.let(actions.onJumpTo) } }
                 BubbleContent(m, mine, actions)
+                // AI, only for me and only when I asked: the translation / transcript, or the
+                // "show text" button under a voice message.
+                m.ai?.let { AiNotePanel(it, mine) { actions.onHideAi(m) } }
+                    ?: run {
+                        if (dto.type in setOf("voice", "audio") && !dto.viewOnce && !dto.isDeleted && m.local == null && ChatAi.transcribe) {
+                            TranscribeChip(mine) { actions.onTranscribe(m) }
+                        }
+                    }
             }
         }
         Reactions(dto, mine)
@@ -276,6 +298,23 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
 }
 
 private val FailedRed get() = Ch.Danger
+
+@Composable
+private fun UrgentLabel() {
+    Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Danger).padding(horizontal = 7.dp, vertical = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("🚨 " + stringResource(R.string.ch_urgent), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+    }
+}
+
+@Composable
+private fun AutoReplyLabel(mine: Boolean) {
+    val tint = if (mine) Ch.OutText.copy(alpha = 0.75f) else Ch.Soft
+    Row(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Rounded.Bolt, null, tint = tint, modifier = Modifier.size(14.dp))
+        Spacer(Modifier.width(4.dp))
+        Text(stringResource(R.string.ch_auto_reply), color = tint, fontSize = 11.5.sp, fontStyle = FontStyle.Italic)
+    }
+}
 
 @Composable
 private fun ForwardedLabel(many: Boolean, mine: Boolean) {
@@ -337,6 +376,11 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
     }
     if (dto.viewOnce) {
         ViewOnceCard(m, mine, onOpen = { actions.onOpenViewOnce(m) }) { Footer(m, mine, overlay = false) }
+        return
+    }
+    // Someone's sensitive message: nothing until I unlock it (fingerprint / screen lock).
+    if (dto.isSensitive && !mine && !actions.isRevealed(m.id)) {
+        SensitiveCard(mine, onReveal = { actions.onReveal(m) }) { Footer(m, mine, overlay = false) }
         return
     }
     when (dto.type) {
@@ -415,8 +459,7 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
     val codeBg = if (mine) Color.White.copy(alpha = 0.2f) else Ch.Ink.copy(alpha = 0.08f)
     val annotated = remember(body, mine, mentionNames, linkColor, mentionColor, codeBg) {
         buildAnnotatedString {
-            // *bold* _italic_ ~strike~ `code` ```block``` — marks removed, links never formatted.
-            parseChatText(body).forEach { piece ->
+            fun pieces(text: String) = parseChatText(text).forEach { piece ->
                 when {
                     piece.url != null -> {
                         pushStringAnnotation("url", piece.url)
@@ -433,6 +476,28 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
                             textDecoration = if (piece.strike) TextDecoration.LineThrough else null,
                         ),
                     ) { append(piece.text) }
+                }
+            }
+            // *bold* _italic_ ~strike~ `code` ```block``` — marks removed, links never formatted.
+            // Lists and quotes are laid out line by line: a hanging indent under the bullet / number,
+            // a quote dimmed behind a bar.
+            val lines = chatLines(body)
+            if (lines == null) {
+                pieces(body)
+            } else {
+                lines.forEachIndexed { i, line ->
+                    when (line.kind) {
+                        LineKind.Plain -> pieces(line.text)
+                        LineKind.Quote -> {
+                            withStyle(SpanStyle(color = mentionColor.copy(alpha = 0.55f), fontWeight = FontWeight.ExtraBold)) { append("▍ ") }
+                            withStyle(SpanStyle(fontStyle = FontStyle.Italic, color = Color.Unspecified)) { pieces(line.text) }
+                        }
+                        else -> {
+                            withStyle(SpanStyle(fontWeight = FontWeight.Bold)) { append(line.marker + "  ") }
+                            pieces(line.text)
+                        }
+                    }
+                    if (i < lines.lastIndex) append('\n')
                 }
             }
             // "@Sara" of a real mention: bold, in the brand colour (white on my own red bubble).
@@ -490,6 +555,8 @@ private fun Footer(m: UiMessage, mine: Boolean, overlay: Boolean, modifier: Modi
     ) {
         if (dto.expiresAt != null) Icon(Icons.Rounded.Timer, null, tint = color, modifier = Modifier.size(11.dp))
         if (dto.isStarred) Icon(Icons.Rounded.Star, null, tint = color, modifier = Modifier.size(11.dp))
+        if (dto.reminderAt != null) Icon(Icons.Rounded.Alarm, null, tint = color, modifier = Modifier.size(11.dp))
+        if (dto.isFollowUp) Icon(Icons.Rounded.Flag, null, tint = color, modifier = Modifier.size(11.dp))
         // Channel posts: 👁 1.2K — how many followers saw it.
         dto.views?.let { views ->
             Icon(Icons.Rounded.Visibility, null, tint = color, modifier = Modifier.size(12.dp))
@@ -510,6 +577,8 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
     val count = if (remote.isNotEmpty()) remote.size else local.size
     val isVideo = dto.type == "video"
     val shape = RoundedCornerShape(17.dp)
+    // "Blur photos and videos": covered until I tap (others' media only).
+    val covered = !mine && com.dorr.app.chat.ChatShield.blurMedia && !actions.isRevealed(m.id) && remote.isNotEmpty()
 
     Column {
         Box(Modifier.width(260.dp).clip(shape)) {
@@ -521,13 +590,19 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
                             val ratio = if (count == 1) aspectOf(remote.getOrNull(0)) else 1f
                             Box(
                                 Modifier.weight(1f).aspectRatio(ratio).background(Ch.SurfaceMuted)
-                                    .clickable(enabled = remote.isNotEmpty()) { actions.onOpenMedia(dto, i) },
+                                    .clickable(enabled = remote.isNotEmpty()) { if (covered) actions.onReveal(m) else actions.onOpenMedia(dto, i) },
                             ) {
                                 // Photos: the photo. Videos: their poster (the server's copy, or the one made on this phone).
                                 val model: Any? = if (isVideo) remote.getOrNull(i)?.thumbnail?.let { ApiClient.mediaUrl(it) } ?: m.localThumb
                                 else remote.getOrNull(i)?.let { ApiClient.mediaUrl(it.url) } ?: local.getOrNull(i)?.file
                                 if (model != null) {
-                                    AsyncImage(model, null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize())
+                                    AsyncImage(model, null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().then(if (covered) Modifier.blur(28.dp) else Modifier))
+                                }
+                                if (covered) {
+                                    // Phones before Android 12 can't blur: a solid veil instead.
+                                    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = if (android.os.Build.VERSION.SDK_INT >= 31) 0.25f else 0.9f)), contentAlignment = Alignment.Center) {
+                                        Icon(Icons.Rounded.VisibilityOff, null, tint = Color.White, modifier = Modifier.size(28.dp))
+                                    }
                                 }
                                 if (isVideo) {
                                     if (m.local != "pending") {
@@ -657,10 +732,21 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
     val file = m.dto.attachments.firstOrNull()
     val name = file?.name ?: m.localFiles.firstOrNull()?.name ?: ""
     val ext = name.substringAfterLast('.', "").uppercase().take(4)
+    val pdf = file != null && ChatViewers.isPdf(name, file.mimeType)
+    // A PDF opens inside the chat; other files in the app that handles them.
+    val open = {
+        file?.let {
+            if (pdf) ChatViewers.pdf = PdfTarget(it.url, name)
+            else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.mediaUrl(it.url)))) }
+        }
+        Unit
+    }
     Column(Modifier.width(260.dp).padding(6.dp)) {
+        // A small PDF shows its first page.
+        if (pdf && file != null && m.local == null) PdfFirstPage(file.url, file.size, Modifier.padding(bottom = 6.dp).clickable { open() })
         Row(
             Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(if (mine) Ch.OutText.copy(alpha = 0.16f) else Ch.SurfaceMuted)
-                .clickable(enabled = file != null) { file?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.mediaUrl(it.url)))) } } }
+                .clickable(enabled = file != null) { open() }
                 .padding(10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -757,9 +843,17 @@ private fun TransferReceiptCard(meta: JsonObject?, m: UiMessage, mine: Boolean) 
     val reversed = meta?.get("is_reversed")?.asBoolean == true
     val check = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { check.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 260f)) }
+    // A money gift: the same receipt, drawn as a card for the occasion (it unwraps as it appears).
+    val gift = giftOf(meta?.str("gift"))
     Column(
         Modifier.width(262.dp).clip(RoundedCornerShape(20.dp)).background(Ch.HeaderBrush).padding(16.dp),
     ) {
+        if (gift != null) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(gift.first, fontSize = 46.sp, modifier = Modifier.scale(0.6f + 0.4f * check.value))
+                Text(gift.second, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(34.dp).scale(check.value).clip(CircleShape).background(Ch.Surface), contentAlignment = Alignment.Center) {
                 Icon(if (reversed) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle, null, tint = Ch.Red, modifier = Modifier.size(24.dp))

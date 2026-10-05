@@ -21,8 +21,8 @@ use Throwable;
  *
  * Unlike NotificationCenter, a chat message never goes into the in-app notifications list — the
  * chat list *is* its inbox. Respects, per recipient: mute, locked chats (no content), and the
- * `notification_preview` privacy switch. Everything is best-effort: a push problem never fails
- * sending the message.
+ * `notification_privacy` setting (all · name only · nothing). Everything is best-effort: a push
+ * problem never fails sending the message.
  */
 class ChatPushNotifier
 {
@@ -31,7 +31,8 @@ class ChatPushNotifier
      */
     public function message(ChatConversation $conversation, ChatMessage $message, string $senderName, Collection $recipients): void
     {
-        $recipients = $recipients->reject(fn (ChatParticipant $p) => $p->isMuted())->values();
+        // An urgent message (the recipient allowed it) gets through a mute.
+        $recipients = $recipients->reject(fn (ChatParticipant $p) => $p->isMuted() && ! $message->is_urgent)->values();
 
         if ($recipients->isEmpty()) {
             return;
@@ -39,6 +40,9 @@ class ChatPushNotifier
 
         $groupName = $conversation->isGroup() ? $conversation->group?->name : null;
         $title = $groupName !== null ? "{$senderName} @ {$groupName}" : $senderName;
+        if ($message->is_urgent) {
+            $title = '🚨 '.$title;
+        }
 
         $data = [
             'type' => 'chat',
@@ -47,13 +51,25 @@ class ChatPushNotifier
             'message_uuid' => $message->uuid,
             // The app shows it without a sound or vibration (the sender sent it silently).
             'silent' => $message->is_silent ? '1' : '0',
+            'urgent' => $message->is_urgent ? '1' : '0',
         ];
 
-        // Two audiences at most: people who see the text, and people who only see "New message".
-        [$preview, $hidden] = $recipients->partition(fn (ChatParticipant $p) => ! $p->is_locked && $this->wantsPreview($p));
+        // Three audiences at most: the name and the text · the name and "New message" · "Dorr",
+        // "New message". A locked chat never shows anything.
+        $levels = $this->privacyLevels($recipients);
+        $level = function (ChatParticipant $p) use ($levels, $message) {
+            $chosen = $p->is_locked ? 'none' : ($levels[$p->participant_type.':'.$p->participant_id] ?? 'all');
 
-        $this->send($preview, ['en' => $title], $this->previewInEveryLanguage($message), $data);
-        $this->send($hidden, $this->inEveryLanguage('chat.push.new_message_title'), $this->inEveryLanguage('chat.push.new_message_body'), $data);
+            // A sensitive message never shows its content, whatever the recipient chose.
+            return $chosen === 'all' && $message->is_sensitive ? 'name' : $chosen;
+        };
+        $groups = $recipients->groupBy($level);
+
+        $this->send($groups->get('all', collect()), ['en' => $title], $this->previewInEveryLanguage($message), $data);
+        $this->send($groups->get('name', collect()), ['en' => $title], $this->inEveryLanguage('chat.push.new_message_body'), $data);
+        // Nothing shown (or privacy mode on): `private = 1` lets the phone fold them into one
+        // "N new messages" notification that names nobody (spec 104).
+        $this->send($groups->get('none', collect()), $this->inEveryLanguage('chat.push.new_message_title'), $this->inEveryLanguage('chat.push.new_message_body'), $data + ['private' => '1']);
     }
 
     /**
@@ -92,6 +108,30 @@ class ChatPushNotifier
      * @param  array<string, mixed>  $data
      */
     /**
+     * "You asked to be reminded": the note (or the message's text) to the one person who set it.
+     * The text follows their notification privacy — "none" says only that there's a reminder.
+     */
+    public function reminder(ChatParticipant $owner, ChatMessage $message, ?string $note): void
+    {
+        $level = ChatPrivacySetting::query()->where('owner_type', $owner->participant_type)->where('owner_id', $owner->participant_id)->value('notification_privacy') ?: 'all';
+        $text = $note ?: ($message->type === MessageType::Text ? Str::limit(self::plain((string) $message->body), 140) : null);
+
+        $this->send(
+            collect([$owner]),
+            $this->inEveryLanguage('chat.push.reminder_title'),
+            $level === 'all' && $text ? ['en' => $text] : $this->inEveryLanguage('chat.push.reminder_body'),
+            [
+                'type' => 'chat',
+                'event' => 'chat.reminder.due',
+                'conversation_uuid' => $message->conversation?->uuid,
+                'message_uuid' => $message->uuid,
+                'silent' => '0',
+                'urgent' => '0',
+            ],
+        );
+    }
+
+    /**
      * @param  array<string, mixed>  $options  extra OneSignal fields (priority, ttl…)
      */
     private function send(Collection $recipients, array $headings, array $contents, array $data, array $options = []): void
@@ -124,13 +164,29 @@ class ChatPushNotifier
         });
     }
 
-    private function wantsPreview(ChatParticipant $recipient): bool
+    /**
+     * Everyone's `notification_privacy` in one query, keyed "user:7" (no row = all).
+     *
+     * @param  Collection<int, ChatParticipant>  $recipients
+     * @return array<string, string>
+     */
+    private function privacyLevels(Collection $recipients): array
     {
-        $setting = ChatPrivacySetting::query()
-            ->where('owner_type', $recipient->participant_type)->where('owner_id', $recipient->participant_id)
-            ->value('notification_preview');
+        $levels = [];
 
-        return $setting === null || (bool) $setting;
+        ChatPrivacySetting::query()
+            ->where(function ($q) use ($recipients) {
+                foreach ($recipients->groupBy('participant_type') as $type => $rows) {
+                    $q->orWhere(fn ($q) => $q->where('owner_type', $type)->whereIn('owner_id', $rows->pluck('participant_id')));
+                }
+            })
+            ->get(['owner_type', 'owner_id', 'notification_privacy', 'privacy_mode_until', 'privacy_schedule'])
+            ->each(function (ChatPrivacySetting $s) use (&$levels) {
+                // Privacy mode (now, or by schedule) shows nothing, whatever the usual level.
+                $levels[$s->owner_type.':'.$s->owner_id] = $s->privacyModeOn() ? 'none' : ($s->notification_privacy ?: 'all');
+            });
+
+        return $levels;
     }
 
     /**
@@ -172,7 +228,10 @@ class ChatPushNotifier
             $body = preg_replace("/(?<=^|[\\s\\p{P}]){$m}(?=\\S)([^{$m}\\n]*?\\S){$m}(?=$|[\\s\\p{P}])/u", '$1', $body) ?? $body;
         }
 
-        return $body;
+        // Line marks: "> " quotes lose their mark, "- " / "* " list items read as "• ".
+        $body = preg_replace('/^> /mu', '', $body) ?? $body;
+
+        return preg_replace('/^[-*] /mu', '• ', $body) ?? $body;
     }
 
     /**

@@ -1,8 +1,7 @@
 package com.dorr.app.ui.screens.chat
 
-import android.content.ClipData
-import android.content.ClipboardManager
-import android.content.Context
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -35,26 +34,32 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
 import androidx.compose.material.icons.rounded.AlternateEmail
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import com.dorr.app.network.apiFailure
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CleaningServices
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Flag
+import androidx.compose.material.icons.rounded.HourglassBottom
 import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Link
 import androidx.compose.material.icons.rounded.HowToReg
 import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.NotificationsOff
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
+import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -103,9 +108,18 @@ fun ChatInfoPage(id: String) {
     var sheet by remember { mutableStateOf<String?>(null) }
     var memberSheet by remember { mutableStateOf<MemberDto?>(null) }
     val listState = rememberLazyListState()
-    val linkCopied = stringResource(R.string.ch_link_copied)
     val startCall = rememberCallStarter()
     var editing by remember { mutableStateOf(false) }
+    // This chat's notification tone, picked from the phone's own tones (kept on this phone).
+    var tone by remember { mutableStateOf(com.dorr.app.chat.ChatTones.get(context, id)) }
+    val tonePicker = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != android.app.Activity.RESULT_OK) return@rememberLauncherForActivityResult
+        @Suppress("DEPRECATION")
+        val picked = result.data?.getParcelableExtra<android.net.Uri>(android.media.RingtoneManager.EXTRA_RINGTONE_PICKED_URI)
+        val value = picked?.toString() ?: com.dorr.app.chat.ChatTones.SILENT
+        com.dorr.app.chat.ChatTones.set(context, id, value)
+        tone = value
+    }
 
     suspend fun reload() {
         c = runCatching { ApiClient.chat.conversation(chatAuth(), id).data }.getOrNull() ?: c
@@ -161,8 +175,11 @@ fun ChatInfoPage(id: String) {
                         Spacer(Modifier.height(16.dp))
                         if (conversation != null && conversation.canSend && !conversation.isChannel && !conversation.isSelf) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                QuickAction(Icons.Rounded.Call, stringResource(R.string.ch_call_voice), 0) { startCall(id, false, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
-                                QuickAction(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video), 1) { startCall(id, true, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
+                                // No call buttons where calls can't work (switched off in my or their country).
+                                if (conversation.canCall != false) {
+                                    QuickAction(Icons.Rounded.Call, stringResource(R.string.ch_call_voice), 0) { startCall(id, false, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
+                                    QuickAction(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video), 1) { startCall(id, true, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
+                                }
                                 if (conversation.isGroup && (conversation.isAdmin || !conversation.group!!.onlyAdminsAddMembers)) {
                                     QuickAction(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members), 2) { host.push(ChRoute.NewGroup(addTo = id)) }
                                 }
@@ -229,6 +246,14 @@ fun ChatInfoPage(id: String) {
                     SettingRow(if (conversation.isMuted) Icons.Rounded.NotificationsOff else Icons.Rounded.Notifications, stringResource(R.string.ch_mute_notifications),
                         value = if (conversation.isMuted) stringResource(R.string.ch_muted) else null) { sheet = "mute" }
                     SettingRow(Icons.Rounded.Timer, stringResource(R.string.ch_disappearing), value = disappearingLabel(conversation.disappearingSeconds)) { sheet = "disappearing" }
+                    if (!conversation.isSelf) SettingRow(
+                        Icons.Rounded.MusicNote, stringResource(R.string.ch_tone),
+                        value = when (tone) {
+                            null -> stringResource(R.string.ch_tone_default)
+                            com.dorr.app.chat.ChatTones.SILENT -> stringResource(R.string.ch_tone_none)
+                            else -> com.dorr.app.chat.ChatTones.title(context, tone) ?: stringResource(R.string.ch_tone_custom)
+                        },
+                    ) { sheet = "tone" }
                     // In my contacts? (They see my stories only if they are.)
                     if (!conversation.isGroup && !conversation.isSelf && conversation.peer != null) {
                         if (conversation.peer.isContact) {
@@ -245,6 +270,12 @@ fun ChatInfoPage(id: String) {
                         }
                     }
                     ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_lock_chat), conversation.isLocked) { update(mapOf("locked" to it)) }
+                    ToggleRow(Icons.Rounded.VisibilityOff, stringResource(R.string.ch_hide_in_safe_view), id in com.dorr.app.chat.ChatShield.safeHidden, subtitle = stringResource(R.string.ch_hide_in_safe_view_sub)) {
+                        com.dorr.app.chat.ChatShield.toggleSafeHidden(context, id)
+                    }
+                    SettingRow(Icons.Rounded.Folder, stringResource(R.string.ch_add_to_folder)) { sheet = "folder" }
+                    // ✨ The AI's summary of this chat (one tap; the messages go to the AI provider for it).
+                    if (ChatAi.summarize) SettingRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_summary)) { sheet = "summary" }
                     SettingRow(Icons.Rounded.Palette, stringResource(R.string.ch_chat_theme), value = conversation.theme?.applied?.name ?: stringResource(R.string.ch_theme_dorr)) { sheet = "theme" }
                 }
             }
@@ -253,14 +284,7 @@ fun ChatInfoPage(id: String) {
             if (conversation?.isGroup == true) {
                 if (conversation.isAdmin) item {
                     Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
-                        SettingRow(Icons.Rounded.Link, stringResource(R.string.ch_invite_link)) {
-                            scope.launch {
-                                runCatching { ApiClient.chat.invite(chatAuth(), id).data }.getOrNull()?.let {
-                                    (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("invite", it.link))
-                                    host.showToast(linkCopied)
-                                }
-                            }
-                        }
+                        SettingRow(Icons.Rounded.Link, stringResource(R.string.ch_invite_link)) { sheet = "invite" }
                         val g = conversation.group!!
                         if (conversation.isChannel) {
                             // A channel: public (in Discover) or link-only, and its @handle.
@@ -269,6 +293,9 @@ fun ChatInfoPage(id: String) {
                         } else {
                             GroupToggle(stringResource(R.string.ch_only_admins_send), g.onlyAdminsSend) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_send" to it)).data }.getOrNull()?.let { c = it } } }
                             GroupToggle(stringResource(R.string.ch_only_admins_add), g.onlyAdminsAddMembers) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_add_members" to it)).data }.getOrNull()?.let { c = it } } }
+                            // Moderation: members wait between messages; some words aren't allowed.
+                            SettingRow(Icons.Rounded.HourglassBottom, stringResource(R.string.ch_slow_mode), value = slowModeLabel(g.slowModeSeconds)) { sheet = "slow" }
+                            SettingRow(Icons.Rounded.Block, stringResource(R.string.ch_banned_words), value = g.bannedWords?.size?.takeIf { it > 0 }?.toString()) { sheet = "banned" }
                         }
                         GroupToggle(stringResource(R.string.ch_only_admins_edit), g.onlyAdminsEditInfo) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_edit_info" to it)).data }.getOrNull()?.let { c = it } } }
                         GroupToggle(stringResource(R.string.ch_approve_joins), g.approveJoins) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("approve_joins" to it)).data }.getOrNull()?.let { c = it } } }
@@ -279,6 +306,18 @@ fun ChatInfoPage(id: String) {
                                 value = if (g.pendingJoinRequests > 0) g.pendingJoinRequests.toString() else null,
                             ) { sheet = "joins" }
                         }
+                    }
+                }
+                // Add people right where the members are: a group adds them, a channel invites them
+                // (nobody is added to a channel — they choose to follow).
+                val canAdd = conversation.isMember && (conversation.isAdmin || !(conversation.group?.onlyAdminsAddMembers ?: true))
+                if (conversation.isChannel && conversation.isAdmin) item {
+                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                        SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_channel_invite_contacts)) { sheet = "inviteChannel" }
+                    }
+                } else if (!conversation.isChannel && canAdd) item {
+                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                        SettingRow(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members)) { host.push(ChRoute.NewGroup(addTo = id)) }
                     }
                 }
                 if (members.isNotEmpty()) item {
@@ -316,6 +355,11 @@ fun ChatInfoPage(id: String) {
                     // Nobody to report in my own notes.
                     if (!conversation.isSelf) SettingRow(Icons.Rounded.Flag, stringResource(R.string.ch_report), danger = true) { sheet = "report" }
                     SettingRow(Icons.Rounded.CleaningServices, stringResource(R.string.ch_clear_chat), danger = true) { sheet = "clear" }
+                    // The owner can delete the whole group / channel for everyone.
+                    if (conversation.isGroup && conversation.myRole == "owner" && conversation.isMember) SettingRow(
+                        Icons.Rounded.DeleteForever,
+                        stringResource(if (conversation.isChannel) R.string.ch_delete_channel_all else R.string.ch_delete_group_all), danger = true,
+                    ) { sheet = "deleteAll" }
                     if (conversation.isGroup && conversation.isMember) SettingRow(
                         Icons.AutoMirrored.Rounded.ExitToApp,
                         stringResource(if (conversation.isChannel) R.string.ch_unfollow else R.string.ch_leave_group), danger = true,
@@ -340,6 +384,29 @@ fun ChatInfoPage(id: String) {
         }
     }
     when (sheet) {
+        "folder" -> c?.let { current -> FolderPickerSheet(current) { sheet = null } }
+        "invite" -> c?.let { current -> InviteLinkSheet(current) { sheet = null } }
+        "tone" -> ChoiceSheet(stringResource(R.string.ch_tone), listOf(
+            stringResource(R.string.ch_tone_pick) to {
+                tonePicker.launch(android.content.Intent(android.media.RingtoneManager.ACTION_RINGTONE_PICKER).apply {
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_TYPE, android.media.RingtoneManager.TYPE_NOTIFICATION)
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, false)
+                    putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true)
+                    tone?.takeIf { it != com.dorr.app.chat.ChatTones.SILENT }?.let { putExtra(android.media.RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, android.net.Uri.parse(it)) }
+                })
+                Unit
+            },
+            stringResource(R.string.ch_tone_default) to { com.dorr.app.chat.ChatTones.set(context, id, null); tone = null; Unit },
+        ), subtitle = stringResource(R.string.ch_tone_sub), onDismiss = { sheet = null })
+        "summary" -> AiSummarySheet(id, unreadFirst = false) { sheet = null }
+        "banned" -> c?.let { current -> BannedWordsSheet(current, onDismiss = { sheet = null }) { saved -> c = saved; host.upsert(saved) } }
+        "slow" -> ChoiceSheet(stringResource(R.string.ch_slow_mode), SlowModeSteps.map { seconds ->
+            (if (seconds == (c?.group?.slowModeSeconds ?: 0)) "✓  " else "") + slowModeLabel(seconds) to {
+                scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("slow_mode_seconds" to seconds)).data }.getOrNull()?.let { c = it; host.upsert(it) } }
+                Unit
+            }
+        }, subtitle = stringResource(R.string.ch_slow_mode_sub), onDismiss = { sheet = null })
+        "inviteChannel" -> c?.let { current -> ChannelInviteSheet(current) { sheet = null } }
         "theme" -> c?.let { current ->
             ThemePickerSheet(current, onDismiss = { sheet = null }) { saved ->
                 c = saved
@@ -378,6 +445,20 @@ fun ChatInfoPage(id: String) {
             scope.launch { runCatching { ApiClient.chat.clear(chatAuth(), id) }; host.pop(); host.pop() }
             Unit
         }), danger = true, subtitle = stringResource(R.string.ch_confirm_clear), onDismiss = { sheet = null })
+        "deleteAll" -> {
+            val label = stringResource(if (c?.isChannel == true) R.string.ch_delete_channel_all else R.string.ch_delete_group_all)
+            ChoiceSheet(label, listOf(label to {
+                scope.launch {
+                    try {
+                        ApiClient.chat.deleteGroup(chatAuth(), id)
+                        host.remove(id); host.pop(); host.pop()
+                    } catch (e: Exception) {
+                        e.apiFailure().message?.let { host.showToast(it) }
+                    }
+                }
+                Unit
+            }), danger = true, subtitle = stringResource(R.string.ch_confirm_delete_all), onDismiss = { sheet = null })
+        }
         "delete" -> ChoiceSheet(stringResource(R.string.ch_delete_chat), listOf(stringResource(R.string.ch_delete_chat) to {
             scope.launch { runCatching { ApiClient.chat.deleteConversation(chatAuth(), id) }; host.remove(id); host.pop(); host.pop() }
             Unit
@@ -410,7 +491,19 @@ fun ChatInfoPage(id: String) {
         }
     }
     memberSheet?.let { m ->
-        ChoiceSheet(m.profile?.name.orEmpty(), listOf(
+        ChoiceSheet(m.profile?.name.orEmpty(), listOfNotNull(
+            // Only the owner hands over ownership (and stays an admin).
+            if (c?.myRole == "owner") stringResource(R.string.ch_make_owner) to {
+                scope.launch {
+                    try {
+                        ApiClient.chat.transferOwnership(chatAuth(), id, mapOf("participant_id" to m.participantId)).data?.let { c = it; host.upsert(it) }
+                        reload()
+                    } catch (e: Exception) {
+                        e.apiFailure().message?.let { host.showToast(it) }
+                    }
+                }
+                Unit
+            } else null,
             stringResource(if (m.role == "admin") R.string.ch_dismiss_admin else R.string.ch_make_admin) to {
                 scope.launch { members = runCatching { ApiClient.chat.setRole(chatAuth(), id, m.participantId, mapOf("role" to if (m.role == "admin") "member" else "admin")).data }.getOrNull() ?: members }
                 Unit

@@ -302,7 +302,7 @@ private fun AnimatedBackdrop() {
     val a by t.animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "a")
     val b by t.animateFloat(1f, 0f, infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
     Canvas(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF3B0206), Color(0xFF120203), Color.Black)))) {
-        drawCircle(Brush.radialGradient(listOf(Color(0x66E50914), Color.Transparent), center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f), radius = size.width * 0.8f), radius = size.width * 0.8f, center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f))
+        drawCircle(Brush.radialGradient(listOf(Color(0x66001B53), Color.Transparent), center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f), radius = size.width * 0.8f), radius = size.width * 0.8f, center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f))
         drawCircle(Brush.radialGradient(listOf(Color(0x44FF8A4C), Color.Transparent), center = Offset(size.width * (0.8f - 0.4f * b), size.height * 0.75f), radius = size.width * 0.7f), radius = size.width * 0.7f, center = Offset(size.width * (0.8f - 0.4f * b), size.height * 0.75f))
     }
 }
