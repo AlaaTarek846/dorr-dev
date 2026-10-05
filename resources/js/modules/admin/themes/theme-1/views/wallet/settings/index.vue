@@ -5,10 +5,21 @@
         <div class="alert alert-info fs-13">{{ t('wallet.settings.intro') }}</div>
 
         <div class="card custom-card">
-            <div class="card-header py-3">
-                <div class="input-group input-group-sm" style="max-width: 260px;">
-                    <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
-                    <input v-model="search" type="search" class="form-control" :placeholder="t('wallet.settings.search')">
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 catalog-toolbar-filters">
+                    <div class="input-group input-group-sm catalog-toolbar-search">
+                        <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
+                        <input v-model="search" type="search" class="form-control" :placeholder="t('wallet.settings.search')">
+                        <button
+                            v-if="search"
+                            type="button"
+                            class="btn btn-light border"
+                            :title="t('wallet.common.clear_search')"
+                            @click="search = ''"
+                        >
+                            <i class="ri-close-line"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="card-body p-0">
@@ -21,15 +32,33 @@
                                 <th>{{ t('wallet.settings.transfers') }}</th>
                                 <th>{{ t('wallet.settings.provider_debt') }}</th>
                                 <th>{{ t('wallet.settings.user_debt') }}</th>
-                                <th class="text-end pe-4"></th>
+                                <th class="text-end pe-4">{{ t('wallet.common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading"><td colspan="6" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                            <tr v-else-if="!visibleRows.length"><td colspan="6" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td></tr>
+                            <TableSkeleton v-if="loading" :rows="8" :columns="6" />
+                            <tr v-else-if="!visibleRows.length">
+                                <td colspan="6" class="border-0">
+                                    <div class="text-center py-5">
+                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
+                                            <i class="ri-settings-3-line fs-2 text-primary"></i>
+                                        </span>
+                                        <p class="fw-semibold mb-1">{{ t('wallet.common.empty_title') }}</p>
+                                        <p class="text-muted mb-0">{{ t('wallet.common.empty') }}</p>
+                                    </div>
+                                </td>
+                            </tr>
                             <template v-else>
-                                <tr v-for="row in visibleRows" :key="row.country_id">
-                                    <td class="ps-4 fw-semibold">{{ row.country_code }}</td>
+                                <tr v-for="row in visibleRows" :key="row.country_id" class="crm-contact">
+                                    <td class="ps-4">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-primary-transparent">
+                                                <i class="ri-global-line text-primary"></i>
+                                            </span>
+                                            <button v-if="canUpdate" type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="edit(row)">{{ row.country_code }}</button>
+                                            <span v-else class="fw-semibold text-default">{{ row.country_code }}</span>
+                                        </div>
+                                    </td>
                                     <td>{{ range(row.min_withdrawal_minor, row.max_withdrawal_minor) }}</td>
                                     <td>
                                         <span class="badge" :class="row.transfers_enabled ? 'bg-success-transparent' : 'bg-secondary-transparent'">
@@ -42,7 +71,9 @@
                                     <td>{{ debt(row.min_allowed_balance_provider_minor) }}</td>
                                     <td>{{ debt(row.min_allowed_balance_user_minor) }}</td>
                                     <td class="text-end pe-4">
-                                        <button v-if="canUpdate" type="button" class="btn btn-sm btn-info-light btn-icon" @click="edit(row)"><i class="ri-pencil-line"></i></button>
+                                        <div class="btn-list justify-content-end">
+                                            <button v-if="canUpdate" type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('wallet.settings.edit')" @click="edit(row)"><i class="ri-pencil-line"></i></button>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
@@ -52,93 +83,36 @@
             </div>
         </div>
 
-        <WalletModal :show="showModal" :title="`${t('wallet.settings.edit')} · ${form.country_code}`" @close="showModal = false">
-            <form id="wallet-settings-form" @submit.prevent="save">
-                <h6 class="fw-semibold">{{ t('wallet.settings.section_withdrawal') }}</h6>
-                <div class="row g-3 mb-3">
-                    <div v-for="f in withdrawalFields" :key="f" class="col-md-6">
-                        <label class="form-label">{{ t(`wallet.settings.${f}`) }}</label>
-                        <input v-model="form[f]" type="text" inputmode="decimal" dir="ltr" class="form-control" :class="{ 'is-invalid': errors[f] }" :placeholder="t('wallet.settings.no_limit')">
-                        <div v-if="errors[f]" class="invalid-feedback">{{ errors[f] }}</div>
-                    </div>
-                </div>
-
-                <h6 class="fw-semibold">{{ t('wallet.settings.section_transfers') }}</h6>
-                <div class="form-check form-switch mb-2">
-                    <input id="tr-enabled" v-model="form.transfers_enabled" class="form-check-input" type="checkbox">
-                    <label class="form-check-label" for="tr-enabled">{{ t('wallet.settings.transfers_enabled') }}</label>
-                </div>
-                <div class="row g-3 mb-3">
-                    <div v-for="f in transferFields" :key="f" class="col-md-4">
-                        <label class="form-label">{{ t(`wallet.settings.${f}`) }}</label>
-                        <input v-model="form[f]" type="text" inputmode="decimal" dir="ltr" class="form-control" :class="{ 'is-invalid': errors[f] }" :placeholder="t('wallet.settings.no_limit')">
-                        <div v-if="errors[f]" class="invalid-feedback">{{ errors[f] }}</div>
-                    </div>
-                </div>
-
-                <p class="text-muted fs-12">{{ t('wallet.settings.fee_hint') }}</p>
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <label class="form-label">{{ t('wallet.settings.transfer_fee_percent') }}</label>
-                        <div class="input-group">
-                            <input v-model="form.transfer_fee_percent" type="text" inputmode="decimal" dir="ltr" class="form-control" :class="{ 'is-invalid': errors.transfer_fee_percent }" placeholder="0">
-                            <span class="input-group-text">%</span>
-                        </div>
-                        <div v-if="errors.transfer_fee_percent" class="invalid-feedback d-block">{{ errors.transfer_fee_percent }}</div>
-                    </div>
-                    <div class="col-md-8">
-                        <label class="form-label">{{ t('wallet.settings.transfer_fee_payer') }}</label>
-                        <select v-model="form.transfer_fee_payer" class="form-select" :class="{ 'is-invalid': errors.transfer_fee_payer }">
-                            <option value="recipient">{{ t('wallet.settings.fee_payer_recipient') }}</option>
-                            <option value="sender">{{ t('wallet.settings.fee_payer_sender') }}</option>
-                        </select>
-                        <div v-if="errors.transfer_fee_payer" class="invalid-feedback">{{ errors.transfer_fee_payer }}</div>
-                    </div>
-                </div>
-
-                <h6 class="fw-semibold">{{ t('wallet.settings.section_debt') }}</h6>
-                <p class="text-muted fs-12">{{ t('wallet.settings.debt_hint') }}</p>
-                <div class="row g-3">
-                    <div v-for="f in debtFields" :key="f" class="col-md-6">
-                        <label class="form-label">{{ t(`wallet.settings.${f}`) }}</label>
-                        <input v-model="form[f]" type="text" inputmode="decimal" dir="ltr" class="form-control" :class="{ 'is-invalid': errors[f] }" placeholder="0.00">
-                        <div v-if="errors[f]" class="invalid-feedback">{{ errors[f] }}</div>
-                    </div>
-                </div>
-                <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
-            </form>
-            <template #footer>
-                <button type="button" class="btn btn-light" :disabled="saving" @click="showModal = false">{{ t('cancel') }}</button>
-                <button type="submit" form="wallet-settings-form" class="btn btn-primary" :disabled="saving">
-                    <span v-if="saving" class="spinner-border spinner-border-sm me-1"></span>{{ t('save') }}
-                </button>
-            </template>
-        </WalletModal>
+        <ModalCreateAndUpdate
+            :show="modalShow"
+            :record="selectedRecord"
+            @close="modalShow = false"
+            @saved="onSaved"
+        />
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
-import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
+import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
-import useToast from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
-import { fmtMinor, majorFromMinor, parseMajor } from '../../../../../../../utils/walletMoney';
+import { fmtMinor } from '../../../../../../../utils/walletMoney';
+import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t } = useI18n();
 const { can } = usePermission();
-const { showSuccess } = useToast();
 
 const canUpdate = computed(() => can('wallet-settings.update'));
 
-const withdrawalFields = ['min_withdrawal_minor', 'max_withdrawal_minor'];
-const transferFields = ['transfer_max_per_transaction_minor', 'transfer_max_per_day_minor', 'transfer_max_per_month_minor'];
-const debtFields = ['min_allowed_balance_provider_minor', 'min_allowed_balance_user_minor'];
-
 const rows = ref([]);
 const search = ref('');
+const loading = ref(false);
+
+const modalShow = ref(false);
+const selectedRecord = ref(null);
 
 /** 200+ countries: filter by code so the admin isn't scrolling for one row. */
 const visibleRows = computed(() => {
@@ -146,11 +120,6 @@ const visibleRows = computed(() => {
 
     return needle ? rows.value.filter((row) => (row.country_code || '').toLowerCase().includes(needle)) : rows.value;
 });
-const loading = ref(false);
-const showModal = ref(false);
-const saving = ref(false);
-const form = reactive({ country_id: null, country_code: '', transfers_enabled: false });
-const errors = reactive({});
 
 function range(min, max) {
     if (min == null && max == null) {
@@ -178,73 +147,13 @@ async function load() {
 }
 
 function edit(row) {
-    Object.keys(errors).forEach((key) => delete errors[key]);
-    Object.assign(form, {
-        country_id: row.country_id,
-        country_code: row.country_code,
-        transfers_enabled: !!row.transfers_enabled,
-        transfer_fee_percent: row.transfer_fee_percent != null ? String(row.transfer_fee_percent) : '0',
-        transfer_fee_payer: row.transfer_fee_payer || 'recipient',
-    });
-
-    [...withdrawalFields, ...transferFields].forEach((f) => { form[f] = majorFromMinor(row[f]); });
-    debtFields.forEach((f) => { form[f] = row[f] ? majorFromMinor(Math.abs(row[f])) : ''; });
-
-    showModal.value = true;
+    selectedRecord.value = { ...row };
+    modalShow.value = true;
 }
 
-async function save() {
-    Object.keys(errors).forEach((key) => delete errors[key]);
-
-    const feePercent = Number(String(form.transfer_fee_percent).replace(',', '.'));
-
-    if (Number.isNaN(feePercent) || feePercent < 0 || feePercent > 100) {
-        errors.transfer_fee_percent = t('wallet.common.invalid_amount');
-
-        return;
-    }
-
-    const payload = {
-        transfers_enabled: form.transfers_enabled,
-        transfer_fee_percent: feePercent,
-        transfer_fee_payer: form.transfer_fee_payer,
-    };
-    let invalid = false;
-
-    [...withdrawalFields, ...transferFields, ...debtFields].forEach((f) => {
-        const minor = parseMajor(form[f]);
-
-        if (Number.isNaN(minor)) {
-            errors[f] = t('wallet.common.invalid_amount');
-            invalid = true;
-
-            return;
-        }
-
-        // Debt limits are stored signed (≤ 0); the form takes them as a positive "debt allowed".
-        payload[f] = debtFields.includes(f) ? -(minor ?? 0) : minor;
-    });
-
-    if (invalid) {
-        return;
-    }
-
-    saving.value = true;
-
-    try {
-        await adminAxios.put(`/api/admin/v1/wallet-settings/${form.country_id}`, payload);
-
-        showSuccess(t('wallet.settings.saved'));
-        showModal.value = false;
-        load();
-    } catch (error) {
-        const bag = error?.response?.data?.errors ?? {};
-
-        Object.entries(bag).forEach(([key, messages]) => { errors[key] = messages[0]; });
-        errors.general = Object.keys(bag).length ? '' : (error?.response?.data?.message ?? '');
-    } finally {
-        saving.value = false;
-    }
+function onSaved() {
+    modalShow.value = false;
+    load();
 }
 
 onMounted(load);

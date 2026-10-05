@@ -1,9 +1,10 @@
 <template>
-    <div v-if="pagination && pagination.last_page > 1" class="card-footer border-top-0">
+    <div v-if="pagination && pagination.total > 0" class="card-footer border-top-0">
         <div class="d-flex align-items-center flex-wrap gap-3">
-            <span class="text-muted fs-13">
-                {{ t('wallet.common.showing', { from: pagination.from ?? 0, to: pagination.to ?? 0, total: pagination.total ?? 0 }) }}
-            </span>
+            <div class="d-flex align-items-center gap-2 text-muted fs-13">
+                <span>{{ t('wallet.common.showing', { from: pagination.from ?? 0, to: pagination.to ?? 0, total: pagination.total ?? 0 }) }}</span>
+                <i :class="arrowIcon"></i>
+            </div>
             <nav class="ms-md-auto pagination-style-4">
                 <ul class="pagination mb-0">
                     <li class="page-item" :class="{ disabled: pagination.current_page <= 1 }">
@@ -33,7 +34,11 @@ const props = defineProps({ pagination: { type: Object, default: null } });
 
 defineEmits(['change']);
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+const arrowIcon = computed(() => (
+    locale.value === 'ar' ? 'ri-arrow-left-s-line fw-semibold' : 'ri-arrow-right-s-line fw-semibold'
+));
 
 const pages = computed(() => {
     const last = props.pagination?.last_page ?? 1;

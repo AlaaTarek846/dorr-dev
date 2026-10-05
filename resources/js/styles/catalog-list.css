@@ -320,3 +320,13 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
         max-width: 220px;
     }
 }
+
+/* Wallet pages: PrimeVue filter selects sit in the toolbar like the small Bootstrap controls. */
+.wallet-filter-select {
+    min-width: 180px;
+}
+
+.wallet-filter-select .p-select-label {
+    padding-block: 0.3rem;
+    font-size: 0.8125rem;
+}

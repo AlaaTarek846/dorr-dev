@@ -23,25 +23,43 @@
         </div>
 
         <div class="card custom-card">
-            <div class="card-header d-flex align-items-center flex-wrap gap-2 py-3">
-                <div class="input-group input-group-sm" style="max-width: 260px;">
-                    <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
-                    <input v-model="filters.search" type="search" class="form-control" :placeholder="t('wallet.online.search')">
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 catalog-toolbar-filters">
+                    <div class="input-group input-group-sm catalog-toolbar-search">
+                        <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
+                        <input v-model="filters.search" type="search" class="form-control" :placeholder="t('wallet.online.search')">
+                        <button
+                            v-if="filters.search"
+                            type="button"
+                            class="btn btn-light border"
+                            :title="t('wallet.common.clear_search')"
+                            @click="filters.search = ''"
+                        >
+                            <i class="ri-close-line"></i>
+                        </button>
+                    </div>
+                    <Select
+                        v-model="filters.status"
+                        :options="statusFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                        class="wallet-filter-select"
+                    />
+                    <Select
+                        v-model="filters.owner_type"
+                        :options="ownerFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                        class="wallet-filter-select"
+                    />
+                    <AdminDatePicker v-model="filters.from" :placeholder="t('wallet.common.date_from')" />
+                    <AdminDatePicker v-model="filters.to" :placeholder="t('wallet.common.date_to')" />
                 </div>
-                <select v-model="filters.status" class="form-select form-select-sm w-auto">
-                    <option value="">{{ t('wallet.common.all_statuses') }}</option>
-                    <option v-for="s in statuses" :key="s" :value="s">{{ t(`wallet.status.${s}`) }}</option>
-                </select>
-                <select v-model="filters.owner_type" class="form-select form-select-sm w-auto">
-                    <option value="">{{ t('wallet.common.all_owners') }}</option>
-                    <option value="user">{{ t('wallet.owner.user') }}</option>
-                    <option value="provider">{{ t('wallet.owner.provider') }}</option>
-                </select>
-                <input v-model="filters.from" type="date" class="form-control form-control-sm w-auto">
-                <input v-model="filters.to" type="date" class="form-control form-control-sm w-auto">
-                <button type="button" class="btn btn-sm btn-light ms-auto" @click="reload">
-                    <i class="ri-refresh-line"></i>
-                </button>
+                <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-light" :title="t('wallet.common.refresh')" @click="reload">
+                        <i class="ri-refresh-line"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="card-body p-0">
@@ -56,32 +74,49 @@
                                 <th>{{ t('wallet.common.amount') }}</th>
                                 <th>{{ t('wallet.common.status') }}</th>
                                 <th>{{ t('wallet.online.reference') }}</th>
-                                <th class="text-end pe-4"></th>
+                                <th class="text-end pe-4">{{ t('wallet.common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading">
-                                <td colspan="8" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td>
-                            </tr>
+                            <TableSkeleton v-if="loading" :rows="8" :columns="8" />
                             <tr v-else-if="!rows.length">
-                                <td colspan="8" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td>
+                                <td colspan="8" class="border-0">
+                                    <div class="text-center py-5">
+                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
+                                            <i class="ri-bank-card-line fs-2 text-primary"></i>
+                                        </span>
+                                        <p class="fw-semibold mb-1">{{ t('wallet.common.empty_title') }}</p>
+                                        <p class="text-muted mb-0">{{ t('wallet.common.empty') }}</p>
+                                    </div>
+                                </td>
                             </tr>
                             <template v-else>
-                                <tr v-for="row in rows" :key="row.id" role="button" @click="openDetail(row.id)">
-                                    <td class="ps-4">#{{ row.id }}</td>
+                                <tr v-for="row in rows" :key="row.id" class="crm-contact" @click="openDetail(row.id)">
+                                    <td class="ps-4">
+                                        <button type="button" class="btn btn-link p-0 fw-semibold text-default" @click.stop="openDetail(row.id)">#{{ row.id }}</button>
+                                    </td>
                                     <td>{{ formatDateTime(row.created_at, locale) }}</td>
                                     <td>
-                                        <span class="badge bg-light text-default">{{ t(`wallet.owner.${row.owner_type}`) }}</span>
-                                        #{{ row.owner_id }}
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-primary-transparent">
+                                                <i :class="row.owner_type === 'provider' ? 'ri-store-2-line' : 'ri-user-line'" class="text-primary"></i>
+                                            </span>
+                                            <div>
+                                                <span class="fw-semibold d-block">#{{ row.owner_id }}</span>
+                                                <span class="d-block text-muted fs-11">{{ t(`wallet.owner.${row.owner_type}`) }}</span>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td>{{ row.payment_method?.name || row.payment_method?.code }}</td>
+                                    <td><span class="badge bg-secondary-transparent">{{ row.payment_method?.name || row.payment_method?.code }}</span></td>
                                     <td class="fw-semibold">{{ fmtMinor(row.requested_amount_minor, row.currency_code) }}</td>
                                     <td><span class="badge" :class="statusClass(row.status)">{{ t(`wallet.status.${row.status}`) }}</span></td>
                                     <td class="text-muted fs-12">{{ row.gateway_reference || '-' }}</td>
                                     <td class="text-end pe-4">
-                                        <button type="button" class="btn btn-sm btn-info-light btn-icon" @click.stop="openDetail(row.id)">
-                                            <i class="ri-eye-line"></i>
-                                        </button>
+                                        <div class="btn-list justify-content-end">
+                                            <button type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('wallet.online.detail')" @click.stop="openDetail(row.id)">
+                                                <i class="ri-eye-line"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
@@ -213,9 +248,12 @@
 </template>
 
 <script setup>
+import Select from 'primevue/select';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import AdminDatePicker from '../../../../../../../components/ui/AdminDatePicker.vue';
+import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
@@ -229,6 +267,16 @@ const { can } = usePermission();
 const { showSuccess } = useToast();
 
 const statuses = ['pending', 'paid', 'failed', 'expired', 'refunded'];
+
+const statusFilterOptions = computed(() => [
+    { value: '', label: t('wallet.common.all_statuses') },
+    ...statuses.map((status) => ({ value: status, label: t(`wallet.status.${status}`) })),
+]);
+const ownerFilterOptions = computed(() => [
+    { value: '', label: t('wallet.common.all_owners') },
+    { value: 'user', label: t('wallet.owner.user') },
+    { value: 'provider', label: t('wallet.owner.provider') },
+]);
 const { rows, loading, pagination, filters, fetch } = useWalletList('online-transactions', {
     defaults: { search: '', status: '', owner_type: '', from: '', to: '' },
 });
