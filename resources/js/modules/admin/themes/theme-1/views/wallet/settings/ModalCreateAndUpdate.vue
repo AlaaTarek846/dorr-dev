@@ -103,6 +103,8 @@
                             <div class="col-md-8">
                                 <label for="ws-fee-payer" class="form-label">{{ t('wallet.settings.transfer_fee_payer') }}</label>
                                 <Select
+                                    filter
+                                    :filter-placeholder="t('search_placeholder')"
                                     id="ws-fee-payer"
                                     v-model="form.transfer_fee_payer"
                                     :options="feePayerOptions"

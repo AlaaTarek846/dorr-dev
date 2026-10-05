@@ -54,6 +54,7 @@
                                 <span class="text-danger">*</span>
                             </label>
                             <Select
+                                :filter-placeholder="t('search_placeholder')"
                                 id="sms-provider-key"
                                 v-model="form.key"
                                 :options="types"
@@ -105,6 +106,7 @@
                                     option-value="id"
                                     filter
                                     :filter-fields="['name', 'code', 'dial_code']"
+                                    :filter-placeholder="t('search_placeholder')"
                                     display="chip"
                                     :placeholder="t('sms.providers.countries_placeholder')"
                                     :loading="loadingCountries"
@@ -144,6 +146,8 @@
 
                                     <template v-if="field.options?.length">
                                         <Select
+                                            filter
+                                            :filter-placeholder="t('search_placeholder')"
                                             :id="`sms-provider-field-${field.key}`"
                                             v-model="form.configuration[field.key]"
                                             :options="field.options"
