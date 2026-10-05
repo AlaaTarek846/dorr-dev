@@ -11,6 +11,7 @@
     "select_language": "Select Language",
     "save_changes": "Save changes",
     "close": "Close",
+    "search_placeholder": "Search...",
     "remove": "Remove",
     "signing_in": "Signing In...",
     "yes": "Yes",
@@ -1091,6 +1092,7 @@
             "title": "Withdrawal requests",
             "method": "Payout method",
             "request": "Withdrawal request",
+            "review": "Review request",
             "payout_to": "Pay out to",
             "receipt": "Transfer receipt",
             "approve": "Approve",
@@ -1105,6 +1107,7 @@
         "pinrec": {
             "title": "PIN recovery requests",
             "request": "PIN recovery request",
+            "review": "Review request",
             "document": "Document",
             "reason_column": "Type",
             "reason": {

@@ -11,6 +11,7 @@
     "select_language": "اختر اللغة",
     "save_changes": "حفظ التغييرات",
     "close": "إغلاق",
+    "search_placeholder": "بحث...",
     "remove": "إزالة",
     "signing_in": "جاري تسجيل الدخول...",
     "yes": "نعم",
@@ -1091,6 +1092,7 @@
             "title": "طلبات السحب",
             "method": "وسيلة السحب",
             "request": "طلب سحب",
+            "review": "مراجعة الطلب",
             "payout_to": "التحويل إلى",
             "receipt": "إيصال التحويل",
             "approve": "موافقة",
@@ -1105,6 +1107,7 @@
         "pinrec": {
             "title": "طلبات استرجاع الرقم السري",
             "request": "طلب استرجاع الرقم السري",
+            "review": "مراجعة الطلب",
             "document": "المستند",
             "reason_column": "النوع",
             "reason": {

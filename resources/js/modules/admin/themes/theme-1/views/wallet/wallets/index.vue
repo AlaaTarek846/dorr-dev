@@ -19,6 +19,8 @@
                     </button>
                 </div>
                 <Select
+                    filter
+                    :filter-placeholder="t('search_placeholder')"
                     v-model="filters.owner_type"
                     :options="ownerFilterOptions"
                     option-label="label"
@@ -114,6 +116,8 @@
                 <div v-if="tab === 'statement'">
                     <div class="d-flex flex-wrap gap-2 mb-2">
                         <Select
+                            filter
+                            :filter-placeholder="t('search_placeholder')"
                             v-model="txFilters.bucket"
                             :options="bucketFilterOptions"
                             option-label="label"
@@ -123,6 +127,8 @@
                             @change="loadTx(1)"
                         />
                         <Select
+                            filter
+                            :filter-placeholder="t('search_placeholder')"
                             v-model="txFilters.direction"
                             :options="directionFilterOptions"
                             option-label="label"
@@ -175,6 +181,8 @@
                         <div class="col-md-4">
                             <label class="form-label">{{ t('wallet.common.direction') }}</label>
                             <Select
+                                filter
+                                :filter-placeholder="t('search_placeholder')"
                                 v-model="adjust.direction"
                                 :options="directionOptions"
                                 option-label="label"
@@ -186,6 +194,8 @@
                         <div class="col-md-4">
                             <label class="form-label">{{ t('wallet.common.bucket') }} <span class="text-danger">*</span></label>
                             <Select
+                                filter
+                                :filter-placeholder="t('search_placeholder')"
                                 v-model="adjust.bucket"
                                 :options="bucketOptions"
                                 option-label="label"
