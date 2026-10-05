@@ -74,7 +74,8 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist
+            # مؤقت: السيرفر مفيهوش ext-sodium. شيل السطر ده بعد تفعيل الامتداد.
+            "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist --ignore-platform-req=ext-sodium
 
             # استبدال مجلد build كوحدة واحدة عشان الموقع ما يشتغلش بملفات نصّها قديم
             rm -rf public/build.new public/build.old
