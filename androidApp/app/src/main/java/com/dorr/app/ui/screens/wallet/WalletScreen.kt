@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -89,8 +91,9 @@ fun WalletScreen(onExit: () -> Unit) {
                 }
                 WalletPages(host)
                 WaSheetHost(host)
-                WaToastHost(host)
             }
+            // Outside the lock check: a wrong PIN at the gate is reported the same way.
+            WaToastHost(host)
         }
     }
 }
@@ -128,20 +131,29 @@ private fun WalletPages(host: WalletHost) {
 private fun WaToastHost(host: WalletHost) {
     val message = host.toast
     var last by remember { mutableStateOf("") }
-    if (message != null) last = message
-    Box(Modifier.fillMaxSize().padding(bottom = 26.dp), contentAlignment = Alignment.BottomCenter) {
+    var lastIsError by remember { mutableStateOf(false) }
+    if (message != null) {
+        last = message
+        lastIsError = host.toastError
+    }
+    // A notification at the top, over everything (the PIN gate included), so it never hides the keypad or the buttons.
+    Box(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(
             visible = message != null,
-            enter = slideInVertically(tween(300)) { it / 2 } + fadeIn(tween(250)),
-            exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
+            enter = slideInVertically(tween(300)) { -it } + fadeIn(tween(250)),
+            exit = slideOutVertically(tween(250)) { -it } + fadeOut(tween(200)),
         ) {
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF111928)).padding(horizontal = 18.dp, vertical = 11.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier
+                    .shadow(12.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x33111928), spotColor = Color(0x44111928))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (lastIsError) Wa.Danger else Color(0xFF111928))
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text(last, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Icon(if (lastIsError) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Text(last, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp, modifier = Modifier.weight(1f, fill = false))
             }
         }
     }
@@ -198,7 +210,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
         resetPin != null -> WaForcePinChangePage(resetPin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
         untrustedDevicePin != null -> WaDeviceTrustPage(untrustedDevicePin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
         forgot -> WaForgotPinPage(current, onExit = { forgot = false }, onDone = { forgot = false; attempt++ })
-        else -> WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
+        else -> WaPage(title = stringResource(R.string.wa_my_wallet), onBack = onCancel, scroll = false) {
             when {
                 failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaEmpty(

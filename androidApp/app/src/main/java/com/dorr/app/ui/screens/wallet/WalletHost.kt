@@ -66,6 +66,8 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
     var hideBalance by mutableStateOf(false)
     var sheet by mutableStateOf<WaSheet?>(null)
     var toast by mutableStateOf<String?>(null)
+    /** True when the toast on screen reports a problem (validation, a refused request) rather than a success. */
+    var toastError by mutableStateOf(false)
 
     /** The total the hero card last counted up to, so the next count starts from there. */
     var shownTotal: Long = 0L
@@ -97,14 +99,18 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
         stack.removeAt(stack.lastIndex)
     }
 
-    fun showToast(message: String) {
+    fun showToast(message: String, error: Boolean = false) {
         toast = message
+        toastError = error
         toastJob?.cancel()
         toastJob = scope.launch {
-            delay(2200)
+            delay(if (error) 3200 else 2200)
             toast = null
         }
     }
+
+    /** A validation or request problem, shown as a notification at the top instead of text inside the page. */
+    fun showError(message: String) = showToast(message, error = true)
 
     fun openSheet(value: WaSheet) {
         sheet = value

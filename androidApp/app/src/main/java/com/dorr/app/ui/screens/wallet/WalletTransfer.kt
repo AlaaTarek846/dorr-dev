@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -309,7 +310,7 @@ private fun ScanCta(modifier: Modifier, onClick: () -> Unit) {
         modifier
             .fillMaxWidth()
             .scale(pressScale)
-            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color(0x47001B53), spotColor = Color(0x47001B53))
+            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Wa.Red.copy(alpha = 0.28f), spotColor = Wa.Red.copy(alpha = 0.28f))
             .clip(RoundedCornerShape(22.dp))
             .background(Wa.ButtonBrush)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
@@ -390,11 +391,16 @@ private fun InputCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val isError = errorMessage != null || state == FieldState.Bad
+    // The reason a field was refused arrives as a notification, not as a box under the field.
+    val host = LocalWallet.current
+    LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrBlank()) host.showError(errorMessage)
+    }
     val border by animateColorAsState(
         when {
             state == FieldState.Ok -> Wa.Green
             isError -> Wa.Danger
-            focused -> Color(0x73001B53)
+            focused -> Wa.Red.copy(alpha = 0.45f)
             else -> Color.Transparent
         },
         label = "inputBorder",
@@ -448,42 +454,7 @@ private fun InputCard(
                 }
             }
         }
-        AnimatedVisibility(
-            visible = errorMessage != null,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
-        ) {
-            errorMessage?.let { message ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.ErrorOutline,
-                        contentDescription = null,
-                        tint = Wa.Danger,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = message,
-                        color = Wa.Danger,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-        if (errorMessage == null) {
-            Text(hint, color = if (state == FieldState.Bad) Wa.Danger else Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
-        }
+        Text(hint, color = if (isError) Wa.Danger else Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
     }
 }
 

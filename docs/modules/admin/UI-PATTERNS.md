@@ -63,7 +63,17 @@ Rules: `option-label` / `option-value`; `append-to="self"` inside Bootstrap moda
 
 Pages migrated: every page under `views/wallet/` (`wallets`, `fee-rules`, `financial-entries`, `online-transactions`, `payment-methods`, `withdrawals`, `pin-recovery`, `settings`). Any other admin page that still has native controls must be migrated when touched.
 
-## 5. Always
+## 5. Form validation (mandatory)
+
+Every admin form validates on the client the same way as the catalog modals — and only with the rule kinds those pages already use:
+
+- Vuelidate (`useVuelidate(rules, form, { $autoDirty: true })`) with `required`, string `minLength` / `maxLength`, `integer`, `minValue` / `maxValue`, `email`, `sameAs` (password confirmation) and `regex` (format). Helpers in `composables/useValidation.js`: `requiredField`, `stringFieldRules`, `minString` / `maxString`, `digitsBetween`, `numberRules(fieldKey, { min, max, integerOnly })` (integer + min/max with the standard messages) and `moneyFormat` (regex for amounts typed in major units, up to 2 decimals).
+- Do **not** add rule kinds the other pages do not have (cross-field comparisons, date-after-date, file type/size, conditional required, per-row limits). Anything else is enforced by the backend Form Request and its 422 errors are shown inline.
+- `composables/useFormFields.js` gives the template `feedbackOf`, `classOf`, `invalidOf`, `messageOf` and `onInput` (pass `serverKeys` when the API error key differs from the form key). Each input: `input-group` with `FormFieldFeedback`, `:class="classOf(key)"`, and an `invalid-feedback d-block` line with `messageOf(key)`.
+- Submit with `await v$.value.$validate()`; when invalid show `toast.validation_error`, open the tab that holds the problem, and stop. 422 responses go through `applyApiErrors(serverErrors, errors)`.
+- Messages come from `validation.*` in both locale files; never hard-code them.
+
+## 6. Always
 
 - Strings via `t()` in **both** `locales/ar.json` and `locales/en.json`; RTL-safe (use `ms-*`/`me-*`, `text-start`/`text-end`).
 - Routes registered in `modules/admin/routes.js` with `meta.permission`; sidebar entry in `components/layout/admin/Sidebar.vue`.

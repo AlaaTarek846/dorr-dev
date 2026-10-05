@@ -133,17 +133,17 @@ fun WalletMyQr() {
         ) {
             Box(
                 Modifier.fillMaxWidth().height(120.dp).background(
-                    if (walletNight()) Brush.verticalGradient(listOf(Color(0x33001B53), Color.Transparent))
+                    if (walletNight()) Brush.verticalGradient(listOf(Wa.Red.copy(alpha = 0.2f), Color.Transparent))
                     else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
                 ),
             )
             Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
-                    Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFE5F6EC)).padding(horizontal = 12.dp, vertical = 5.dp),
+                    Modifier.clip(RoundedCornerShape(999.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color(0xFF15803D), modifier = Modifier.size(15.dp))
-                    Text(stringResource(R.string.wa_your_wallet_in, country), color = Color(0xFF15803D), fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Wa.Red, modifier = Modifier.size(15.dp))
+                    Text(stringResource(R.string.wa_your_wallet_in, country), color = Wa.Red, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 Spacer(Modifier.height(16.dp))
                 Box(
@@ -324,7 +324,7 @@ private fun Viewfinder(busy: Boolean, modifier: Modifier = Modifier) {
                         .height(3.dp)
                         .graphicsLayer { translationY = sweep * 300.dp.toPx() * 0.78f }
                         .clip(RoundedCornerShape(3.dp))
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFA7552), Color.Transparent))),
+                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Wa.Red, Color.Transparent))),
                 )
             }
         }

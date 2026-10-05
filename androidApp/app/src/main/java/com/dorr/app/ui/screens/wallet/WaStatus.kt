@@ -114,8 +114,9 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPolyline(points
 /** Confetti burst for a successful payment (`wa-confetti`): 26 pieces fall, spin and fade. */
 @Composable
 fun WaConfetti(modifier: Modifier = Modifier) {
-    val pieces = remember {
-        val colors = listOf(Color(0xFF001B53), Color(0xFFF59E0B), Color(0xFF16A34A), Color(0xFF2563EB), Color(0xFFDB2777), Color(0xFFFFFFFF))
+    val brand = Wa.Red
+    val pieces = remember(brand) {
+        val colors = listOf(brand, Color(0xFFF59E0B), Color(0xFF16A34A), Color(0xFF2563EB), Color(0xFFDB2777), Color(0xFFFFFFFF))
         List(26) {
             ConfettiPiece(
                 dx = (Random.nextFloat() - 0.5f) * 300f,
@@ -166,7 +167,7 @@ fun WaPulse(icon: ImageVector, modifier: Modifier = Modifier) {
         Box(
             Modifier
                 .size(78.dp)
-                .shadow(14.dp, CircleShape, ambientColor = Color(0x66001B53), spotColor = Color(0x99001B53))
+                .shadow(14.dp, CircleShape, ambientColor = Wa.Red.copy(alpha = 0.4f), spotColor = Wa.Red.copy(alpha = 0.6f))
                 .clip(CircleShape)
                 .background(Wa.ButtonBrush),
             contentAlignment = Alignment.Center,
