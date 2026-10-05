@@ -224,7 +224,7 @@ private fun MediaGrid(feed: MediaFeed, onMore: () -> Unit, onOpen: (MessageDto, 
                             .combinedClickable(
                                 onClick = {
                                     if (video) {
-                                        runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(ApiClient.mediaUrl(a.url)), a.mimeType ?: "video/*")) }
+                                        ChatViewers.video = a.url
                                     } else {
                                         // The viewer pages through this message's photos.
                                         onOpen(m, m.attachments.filter { it.isImage() }.indexOf(a).coerceAtLeast(0))
@@ -270,7 +270,11 @@ private fun MediaList(t: MediaTab, feed: MediaFeed, onMore: () -> Unit, onShowIn
             val link = if (t.key == "links") m.linkPreview?.url ?: LinkInText.find(m.body.orEmpty())?.value else null
             val open: () -> Unit = {
                 when (t.key) {
-                    "docs" -> file?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(ApiClient.mediaUrl(it.url)), it.mimeType ?: "*/*")) } }
+                    // A PDF opens inside the app; other files in their own app.
+                    "docs" -> file?.let {
+                        if (ChatViewers.isPdf(it.name, it.mimeType)) ChatViewers.pdf = PdfTarget(it.url, it.name.orEmpty())
+                        else runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(ApiClient.mediaUrl(it.url)), it.mimeType ?: "*/*")) }
+                    }
                     "links" -> link?.let { url -> runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(if (url.startsWith("http")) url else "https://$url"))) } }
                     // Voice notes play in the chat itself.
                     else -> onShowInChat(m)

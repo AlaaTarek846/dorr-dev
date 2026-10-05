@@ -78,6 +78,10 @@ class ConversationResource extends JsonResource
                 'only_admins_edit_info' => $group->only_admins_edit_info,
                 'only_admins_add_members' => $group->only_admins_add_members,
                 'approve_joins' => $group->approve_joins,
+                // Moderation: members wait this long between messages (0 = off); the banned
+                // words list is only shown to the admins who manage it.
+                'slow_mode_seconds' => (int) $group->slow_mode_seconds,
+                'banned_words' => $me->isActive() && $me->isAdmin() ? array_values($group->banned_words ?? []) : null,
                 // The admins' badge; members don't see who's waiting.
                 'pending_join_requests' => $group->approve_joins && $me->isActive() && $me->isAdmin()
                     ? app(GroupService::class)->pendingJoinCount($conversation) : 0,
@@ -144,7 +148,9 @@ class ConversationResource extends JsonResource
         return [
             'id' => $message->uuid,
             'type' => $message->type->value,
-            'body' => $gone ? null : Str::limit((string) $message->body, 120),
+            // A sensitive message never shows in the list.
+            'body' => $gone || $message->is_sensitive ? null : Str::limit((string) $message->body, 120),
+            'is_sensitive' => (bool) $message->is_sensitive,
             'sender' => $context->profile($message->sender_type, $message->sender_id),
             'is_mine' => $context->isMine($message),
             'status' => $context->statusOf($message),

@@ -72,7 +72,7 @@ object CallNotifications {
             .setOngoing(true)
             .setAutoCancel(false)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
-            .setColor(0xFFE50914.toInt())
+            .setColor(0xFF001B53.toInt())
             .setContentIntent(activity(1, autoAnswer = false))
             // The ringing page, straight over the lock screen.
             .setFullScreenIntent(activity(1, autoAnswer = false), true)

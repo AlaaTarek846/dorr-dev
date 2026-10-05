@@ -19,6 +19,7 @@ use Modules\Chat\Models\ChatFolder;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatMessageReceipt;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 
@@ -150,7 +151,10 @@ class ConversationService
     public function show(Model $me, ChatConversation $conversation): ConversationResource
     {
         $participant = $this->participantOf($me, $conversation);
-        $extra = [];
+        $settings = ChatSetting::current();
+        // Calls: on for the platform and in my country (and, one-to-one, in theirs). No calls in
+        // a channel or with myself.
+        $extra = ['can_call' => ! $conversation->isChannel() && ! $conversation->isSelf() && $settings->callsAllowedFor($me)];
 
         if (! $conversation->isGroup()) {
             $peerRow = $conversation->participants()->where('id', '!=', $participant->id)->first();
@@ -162,6 +166,9 @@ class ConversationService
                     'blocked_me' => $this->privacy->hasBlocked($peer, $me),
                     'presence' => app(PresenceService::class)->presenceFor($me, $peer),
                     'block_screenshots' => (bool) $this->privacy->peek($peer)->block_screenshots,
+                    'can_call' => $extra['can_call'] && $settings->callsAllowedFor($peer),
+                    // A business's opening hours and whether it's open now (null if none set).
+                    'business' => app(BusinessService::class)->publicProfile($peer),
                 ];
             }
         }

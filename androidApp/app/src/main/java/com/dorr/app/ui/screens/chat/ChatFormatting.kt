@@ -1,7 +1,8 @@
 package com.dorr.app.ui.screens.chat
 
 /**
- * WhatsApp-style text marks: *bold*, _italic_, ~strike~, `code`, ```mono block```.
+ * WhatsApp-style text marks: *bold*, _italic_, ~strike~, `code`, ```mono block```, and at the
+ * start of a line: "- " or "* " (bullet list), "1. " (numbered list), "> " (quote).
  *
  * The same rules as the web bubble and the push text (ChatPushNotifier::plain on the server): a mark
  * only counts at a word edge and around non-blank text, so `5*3*2` and `snake_case` stay as typed;
@@ -76,4 +77,29 @@ private fun marks(text: String, style: ChatPiece, allowed: Set<Char>, out: Mutab
         marks(inner, styled, allowed - mark, out)
     }
     marks(text.substring(match.range.last + 1), style, allowed, out)
+}
+
+/** How a line is laid out: plain, a list item, or a quote. */
+enum class LineKind { Plain, Bullet, Numbered, Quote }
+
+/** One line of a message: its kind, the marker shown ("•", "3."), and the text after it. */
+data class ChatLine(val kind: LineKind, val marker: String, val text: String)
+
+private val BulletLine = Regex("^[-*] (.*)$")
+private val NumberedLine = Regex("^(\\d{1,3})\\. (.*)$")
+private val QuoteLine = Regex("^> (.*)$")
+
+/**
+ * The message line by line, when it uses list or quote lines (null otherwise, and for anything
+ * with a ``` block, whose lines are code).
+ */
+fun chatLines(body: String): List<ChatLine>? {
+    if (body.contains("```")) return null
+    val lines = body.split('\n').map { line ->
+        BulletLine.matchEntire(line)?.let { ChatLine(LineKind.Bullet, "•", it.groupValues[1]) }
+            ?: NumberedLine.matchEntire(line)?.let { ChatLine(LineKind.Numbered, it.groupValues[1] + ".", it.groupValues[2]) }
+            ?: QuoteLine.matchEntire(line)?.let { ChatLine(LineKind.Quote, "", it.groupValues[1]) }
+            ?: ChatLine(LineKind.Plain, "", line)
+    }
+    return lines.takeIf { it.any { line -> line.kind != LineKind.Plain } }
 }

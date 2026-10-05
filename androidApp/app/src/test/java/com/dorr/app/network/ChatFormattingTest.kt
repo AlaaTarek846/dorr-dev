@@ -1,8 +1,11 @@
 package com.dorr.app.network
 
+import com.dorr.app.ui.screens.chat.LineKind
+import com.dorr.app.ui.screens.chat.chatLines
 import com.dorr.app.ui.screens.chat.parseChatText
 import com.dorr.app.ui.screens.chat.plainChatText
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -49,5 +52,23 @@ class ChatFormattingTest {
         val pieces = parseChatText("*مرحبا* يا _صاحبي_")
         assertEquals("مرحبا يا صاحبي", pieces.joinToString("") { it.text })
         assertTrue(pieces.first { it.text == "مرحبا" }.bold)
+    }
+
+    @Test
+    fun listAndQuoteLines() {
+        val lines = chatLines("الطلبات:\n- عيش\n* لبن\n2. سكر\n> قالها امبارح")!!
+        assertEquals(listOf(LineKind.Plain, LineKind.Bullet, LineKind.Bullet, LineKind.Numbered, LineKind.Quote), lines.map { it.kind })
+        assertEquals("عيش", lines[1].text)
+        assertEquals("2.", lines[3].marker)
+        assertEquals("قالها امبارح", lines[4].text)
+    }
+
+    @Test
+    fun noListsMeansNoLineLayout() {
+        // Plain text, "*bold*" at the start, "-5" and code blocks keep the normal layout.
+        assertNull(chatLines("hello\nworld"))
+        assertNull(chatLines("*bold* start"))
+        assertNull(chatLines("-5 degrees"))
+        assertNull(chatLines("```\n- not a list\n```"))
     }
 }

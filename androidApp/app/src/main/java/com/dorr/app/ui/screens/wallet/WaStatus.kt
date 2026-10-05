@@ -115,7 +115,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawPolyline(points
 @Composable
 fun WaConfetti(modifier: Modifier = Modifier) {
     val pieces = remember {
-        val colors = listOf(Color(0xFFE50914), Color(0xFFF59E0B), Color(0xFF16A34A), Color(0xFF2563EB), Color(0xFFDB2777), Color(0xFFFFFFFF))
+        val colors = listOf(Color(0xFF001B53), Color(0xFFF59E0B), Color(0xFF16A34A), Color(0xFF2563EB), Color(0xFFDB2777), Color(0xFFFFFFFF))
         List(26) {
             ConfettiPiece(
                 dx = (Random.nextFloat() - 0.5f) * 300f,
@@ -166,7 +166,7 @@ fun WaPulse(icon: ImageVector, modifier: Modifier = Modifier) {
         Box(
             Modifier
                 .size(78.dp)
-                .shadow(14.dp, CircleShape, ambientColor = Color(0x66E50914), spotColor = Color(0x99E50914))
+                .shadow(14.dp, CircleShape, ambientColor = Color(0x66001B53), spotColor = Color(0x99001B53))
                 .clip(CircleShape)
                 .background(Wa.ButtonBrush),
             contentAlignment = Alignment.Center,

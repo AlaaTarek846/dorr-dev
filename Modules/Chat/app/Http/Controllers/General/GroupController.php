@@ -6,12 +6,14 @@ use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Http\Requests\CreateGroupRequest;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Services\ConversationService;
 use Modules\Chat\Services\GroupService;
+use Modules\Chat\Support\BannedWords;
 use Modules\Chat\Support\ParticipantType;
 
 /**
@@ -67,6 +69,10 @@ class GroupController extends Controller
             'approve_joins' => ['sometimes', 'boolean'],
             // Channels only: listed in Discover or not.
             'is_public' => ['sometimes', 'boolean'],
+            // Groups: members wait between messages (admins don't), and words that aren't allowed.
+            'slow_mode_seconds' => ['sometimes', 'integer', Rule::in(GroupService::SLOW_MODE_STEPS)],
+            'banned_words' => ['sometimes', 'nullable', 'array', 'max:'.BannedWords::MAX_WORDS],
+            'banned_words.*' => ['nullable', 'string', 'max:'.BannedWords::MAX_LENGTH],
         ]);
 
         $me = $request->user();
@@ -102,6 +108,28 @@ class GroupController extends Controller
         return ApiResponse::success($this->groups->members($request->user(), $conversation), __('api.updated'));
     }
 
+    /**
+     * The owner hands over the group / channel; they stay as an admin.
+     */
+    public function transferOwnership(Request $request, ChatConversation $conversation)
+    {
+        $data = $request->validate(['participant_id' => ['required', 'integer']]);
+        $me = $request->user();
+        $this->groups->transferOwnership($me, $conversation, (int) $data['participant_id']);
+
+        return ApiResponse::success($this->conversations->show($me, $conversation->refresh()), __('api.updated'));
+    }
+
+    /**
+     * The owner deletes the group / channel for everyone.
+     */
+    public function destroy(Request $request, ChatConversation $conversation)
+    {
+        $this->groups->deleteForEveryone($request->user(), $conversation);
+
+        return ApiResponse::success(null, __('api.deleted'));
+    }
+
     public function leave(Request $request, ChatConversation $conversation)
     {
         $this->groups->leave($request->user(), $conversation);
@@ -114,9 +142,15 @@ class GroupController extends Controller
         return ApiResponse::success($this->groups->inviteLink($request->user(), $conversation), __('api.retrieved'));
     }
 
+    /**
+     * A new link (the old one stops working), optionally lasting only `expires_in_hours`.
+     */
     public function resetInvite(Request $request, ChatConversation $conversation)
     {
-        return ApiResponse::success($this->groups->inviteLink($request->user(), $conversation, reset: true), __('api.updated'));
+        $data = $request->validate(['expires_in_hours' => ['nullable', 'integer', Rule::in(GroupService::INVITE_EXPIRY_HOURS)]]);
+        $hours = isset($data['expires_in_hours']) ? (int) $data['expires_in_hours'] : null;
+
+        return ApiResponse::success($this->groups->inviteLink($request->user(), $conversation, reset: true, expiresInHours: $hours), __('api.updated'));
     }
 
     public function previewInvite(Request $request, string $token)

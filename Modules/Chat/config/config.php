@@ -30,6 +30,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Business tools
+    |--------------------------------------------------------------------------
+    |
+    | Who gets quick replies ("/"), opening hours, and the welcome / away
+    | messages. Everyone for now (only users chat today, and a small shop
+    | owner is a user too); narrow it to ['provider'] once providers chat.
+    */
+    'business_participants' => ['user', 'provider'],
+
+    /*
+    |--------------------------------------------------------------------------
     | Calls (LiveKit)
     |--------------------------------------------------------------------------
     |

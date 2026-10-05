@@ -142,6 +142,37 @@ interface ChatApi {
     @PUT("mobile/v1/chat/messages/{id}/star")
     suspend fun star(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Boolean>): ApiEnvelope<JsonElement?>
 
+    /** "Read later": set a message aside for me (or take it off once done). */
+    @PUT("mobile/v1/chat/messages/{id}/read-later")
+    suspend fun readLater(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Boolean>): ApiEnvelope<JsonElement?>
+
+    @GET("mobile/v1/chat/messages/read-later")
+    suspend fun readLaterList(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+
+    /** "Needs a reply": on my follow-up list until I answer (or take it off). */
+    @PUT("mobile/v1/chat/messages/{id}/follow-up")
+    suspend fun followUp(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Boolean>): ApiEnvelope<JsonElement?>
+
+    @GET("mobile/v1/chat/messages/follow-up")
+    suspend fun followUpList(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+
+    /** Remind me about this message: `remind_at` (ISO-8601 with offset), `note?`. */
+    @PUT("mobile/v1/chat/messages/{id}/reminder")
+    suspend fun setReminder(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<JsonElement?>
+
+    @DELETE("mobile/v1/chat/messages/{id}/reminder")
+    suspend fun clearReminder(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    @GET("mobile/v1/chat/reminders")
+    suspend fun reminders(@Header("Authorization") auth: String): ApiEnvelope<List<ReminderDto>>
+
+    /** My personal status: `emoji?`, `text?`, `until?` (ISO), `audience?` (everyone · contacts · nobody). */
+    @PUT("mobile/v1/chat/status")
+    suspend fun setStatus(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<PrivacyDto>
+
+    @DELETE("mobile/v1/chat/status")
+    suspend fun clearStatus(@Header("Authorization") auth: String): ApiEnvelope<PrivacyDto>
+
     @GET("mobile/v1/chat/messages/starred")
     suspend fun starred(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
 
@@ -186,6 +217,10 @@ interface ChatApi {
     @POST("mobile/v1/chat/messages/{id}/pay")
     suspend fun payRequest(@Header("Authorization") auth: String, @Header("X-Wallet-Pin") pin: String, @Path("id") id: String): ApiEnvelope<MessageDto>
 
+    /** Send money straight from a one-to-one chat (PIN in `X-Wallet-Pin`): `amount_minor`, `note?`, `uuid`. */
+    @POST("mobile/v1/chat/conversations/{id}/send-money")
+    suspend fun sendMoney(@Header("Authorization") auth: String, @Header("X-Wallet-Pin") pin: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<MessageDto>
+
     @POST("mobile/v1/chat/messages/{id}/decline-request")
     suspend fun declineRequest(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
 
@@ -196,6 +231,14 @@ interface ChatApi {
 
     @GET("mobile/v1/chat/stickers")
     suspend fun stickers(@Header("Authorization") auth: String): ApiEnvelope<StickerLibraryDto>
+
+    /** A sticker I made from my own photo (512×512 PNG / WebP) — kept in "My stickers". */
+    @Multipart
+    @POST("mobile/v1/chat/stickers/mine")
+    suspend fun uploadMySticker(@Header("Authorization") auth: String, @Part image: MultipartBody.Part): ApiEnvelope<StickerDto>
+
+    @DELETE("mobile/v1/chat/stickers/mine/{id}")
+    suspend fun deleteMySticker(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<JsonElement?>
 
     /** Giphy: trending (no q) or search. `kind`: gifs · stickers. */
     @GET("mobile/v1/chat/gifs")
@@ -270,7 +313,7 @@ interface ChatApi {
     ): ApiEnvelope<ConversationDto>
 
     @PATCH("mobile/v1/chat/groups/{id}/settings")
-    suspend fun groupSettings(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Boolean>): ApiEnvelope<ConversationDto>
+    suspend fun groupSettings(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<ConversationDto>
 
     @GET("mobile/v1/chat/groups/{id}/members")
     suspend fun members(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<MemberDto>>
@@ -287,8 +330,76 @@ interface ChatApi {
     @POST("mobile/v1/chat/groups/{id}/leave")
     suspend fun leave(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
 
+    /** The owner hands the group / channel to another member (and stays an admin). */
+    @POST("mobile/v1/chat/groups/{id}/owner")
+    suspend fun transferOwnership(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Int>): ApiEnvelope<ConversationDto>
+
+    /** The owner deletes the group / channel for everyone. */
+    @DELETE("mobile/v1/chat/groups/{id}")
+    suspend fun deleteGroup(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
     @GET("mobile/v1/chat/groups/{id}/invite")
     suspend fun invite(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<InviteDto>
+
+    /** A new link (the old one stops working), lasting `expires_in_hours` (1, 24, 168, 720) or forever. */
+    @POST("mobile/v1/chat/groups/{id}/invite/reset")
+    suspend fun resetInvite(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Int>): ApiEnvelope<InviteDto>
+
+    // ------------------------------------------------------------------ scheduled messages
+
+    @GET("mobile/v1/chat/conversations/{id}/scheduled")
+    suspend fun scheduled(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<ScheduledMessageDto>>
+
+    /** `send_at`: ISO-8601 with its offset. */
+    @POST("mobile/v1/chat/conversations/{id}/scheduled")
+    suspend fun schedule(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<ScheduledMessageDto>
+
+    @PATCH("mobile/v1/chat/scheduled/{id}")
+    suspend fun updateScheduled(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<ScheduledMessageDto>
+
+    @DELETE("mobile/v1/chat/scheduled/{id}")
+    suspend fun deleteScheduled(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    @POST("mobile/v1/chat/scheduled/{id}/send")
+    suspend fun sendScheduledNow(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<MessageDto>
+
+    // ------------------------------------------------------------------ AI (each call is one tap)
+
+    @GET("mobile/v1/chat/ai")
+    suspend fun aiCapabilities(@Header("Authorization") auth: String): ApiEnvelope<AiCapabilitiesDto>
+
+    /** Into my language unless `to` says another (ar, en, fr…). */
+    @POST("mobile/v1/chat/messages/{id}/translate")
+    suspend fun translate(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<AiTextDto>
+
+    @POST("mobile/v1/chat/messages/{id}/transcribe")
+    suspend fun transcribe(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<AiTextDto>
+
+    @POST("mobile/v1/chat/conversations/{id}/summarize")
+    suspend fun summarize(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Boolean>): ApiEnvelope<AiSummaryDto>
+
+    @POST("mobile/v1/chat/conversations/{id}/smart-replies")
+    suspend fun smartReplies(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<AiRepliesDto>
+
+    // ------------------------------------------------------------------ business tools
+
+    @GET("mobile/v1/chat/business")
+    suspend fun business(@Header("Authorization") auth: String): ApiEnvelope<BusinessDto>
+
+    @PATCH("mobile/v1/chat/business")
+    suspend fun updateBusiness(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<BusinessProfileDto>
+
+    @GET("mobile/v1/chat/quick-replies")
+    suspend fun quickReplies(@Header("Authorization") auth: String): ApiEnvelope<List<QuickReplyDto>>
+
+    @POST("mobile/v1/chat/quick-replies")
+    suspend fun addQuickReply(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<QuickReplyDto>
+
+    @PATCH("mobile/v1/chat/quick-replies/{id}")
+    suspend fun updateQuickReply(@Header("Authorization") auth: String, @Path("id") id: Int, @Body body: Map<String, String>): ApiEnvelope<QuickReplyDto>
+
+    @DELETE("mobile/v1/chat/quick-replies/{id}")
+    suspend fun deleteQuickReply(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<JsonElement?>
 
     // ------------------------------------------------------------------ contacts, privacy, presence
 
@@ -318,6 +429,21 @@ interface ChatApi {
 
     @PATCH("mobile/v1/chat/privacy")
     suspend fun updatePrivacy(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<PrivacyDto>
+
+    /** The same, as JSON — so `privacy_schedule: null` (schedule off) isn't dropped by Gson. */
+    @PATCH("mobile/v1/chat/privacy")
+    suspend fun updatePrivacyJson(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<PrivacyDto>
+
+    /** Quick privacy mode: every chat notification shows nothing for `minutes`. */
+    @PUT("mobile/v1/chat/privacy-mode")
+    suspend fun privacyModeOn(@Header("Authorization") auth: String, @Body body: Map<String, Int>): ApiEnvelope<PrivacyDto>
+
+    /** Privacy mode off — with what came in meanwhile. */
+    @DELETE("mobile/v1/chat/privacy-mode")
+    suspend fun privacyModeOff(@Header("Authorization") auth: String): ApiEnvelope<PrivacyOffDto>
+
+    @GET("mobile/v1/chat/privacy-mode/summary")
+    suspend fun privacySummary(@Header("Authorization") auth: String, @Query("from") from: String): ApiEnvelope<PrivacySummaryDto>
 
     @GET("mobile/v1/chat/blocks")
     suspend fun blocks(@Header("Authorization") auth: String): ApiEnvelope<List<BlockDto>>
@@ -446,7 +572,24 @@ data class ProfileDto(
     @SerializedName("is_contact") val isContact: Boolean = false,
     @SerializedName("is_me") val isMe: Boolean = false,
     @SerializedName("is_deleted") val isDeleted: Boolean = false,
+    /** Their personal status ("🏖️ On holiday"), when its audience includes me. */
+    val status: UserStatusDto? = null,
 )
+
+/** A personal status: an emoji and a few words, until a time (or until cleared). */
+data class UserStatusDto(val emoji: String? = null, val text: String? = null, val until: String? = null)
+
+/** My own status as I set it (also once it has ended). */
+data class MyStatusDto(
+    val emoji: String? = null,
+    val text: String? = null,
+    val until: String? = null,
+    val audience: String = "contacts",
+    val active: Boolean = false,
+)
+
+/** A reminder I set on a message. */
+data class ReminderDto(@SerializedName("remind_at") val remindAt: String, val note: String? = null, val message: MessageDto)
 
 data class GroupInfoDto(
     val name: String,
@@ -463,11 +606,16 @@ data class GroupInfoDto(
     /** Channels: @handle and whether it's listed in Discover. */
     val handle: String? = null,
     @SerializedName("is_public") val isPublic: Boolean = false,
+    /** Slow mode: members wait this long between messages (0 = off; admins never wait). */
+    @SerializedName("slow_mode_seconds") val slowModeSeconds: Int = 0,
+    /** Admins only (null for members): words a member's message may not contain. */
+    @SerializedName("banned_words") val bannedWords: List<String>? = null,
 )
 
 data class StickerDto(
     val id: Int,
-    @SerializedName("pack_id") val packId: Int,
+    /** 0 for one of "My stickers". */
+    @SerializedName("pack_id") val packId: Int = 0,
     val emoji: String?,
     val url: String?,
     val width: Int? = null,
@@ -476,7 +624,12 @@ data class StickerDto(
 
 data class StickerPackDto(val id: Int, val name: String?, val cover: String?, val stickers: List<StickerDto> = emptyList())
 
-data class StickerLibraryDto(val packs: List<StickerPackDto> = emptyList(), @SerializedName("library_enabled") val libraryEnabled: Boolean = false)
+data class StickerLibraryDto(
+    val packs: List<StickerPackDto> = emptyList(),
+    /** The stickers I made from my own photos, newest first. */
+    val mine: List<StickerDto> = emptyList(),
+    @SerializedName("library_enabled") val libraryEnabled: Boolean = false,
+)
 
 /** A Giphy GIF or animated sticker. */
 data class GifDto(
@@ -515,6 +668,7 @@ data class LastMessageDto(
     @SerializedName("is_deleted") val isDeleted: Boolean,
     val system: String?,
     @SerializedName("created_at") val createdAt: String?,
+    @SerializedName("is_sensitive") val isSensitive: Boolean = false,
 )
 
 data class PresenceDto(val online: Boolean, @SerializedName("last_seen_at") val lastSeenAt: String?)
@@ -549,6 +703,10 @@ data class ConversationDto(
     @SerializedName("i_blocked") val iBlocked: Boolean? = null,
     @SerializedName("blocked_me") val blockedMe: Boolean? = null,
     @SerializedName("block_screenshots") val blockScreenshots: Boolean? = null,
+    /** Calls work here (on for the platform and in both people's countries). Null in lists = assume yes. */
+    @SerializedName("can_call") val canCall: Boolean? = null,
+    /** The other person is a business with opening hours: the week and whether it's open now. */
+    val business: BusinessHoursDto? = null,
 ) {
     /** Group-like (a channel too: it has a group row, roles, an invite link). */
     val isGroup: Boolean get() = type == "group" || type == "channel"
@@ -645,6 +803,16 @@ data class MessageDto(
     @SerializedName("expires_at") val expiresAt: String?,
     val reactions: ReactionsDto = ReactionsDto(),
     @SerializedName("is_starred") val isStarred: Boolean = false,
+    /** On my "read later" list. */
+    @SerializedName("is_read_later") val isReadLater: Boolean = false,
+    /** On my "needs a reply" list. */
+    @SerializedName("is_follow_up") val isFollowUp: Boolean = false,
+    /** When I asked to be reminded about it (ISO), or null. */
+    @SerializedName("reminder_at") val reminderAt: String? = null,
+    /** Sent as urgent (it got through the recipient's mute). */
+    @SerializedName("is_urgent") val isUrgent: Boolean = false,
+    /** Sensitive: hidden until the recipient unlocks it, never in a notification. */
+    @SerializedName("is_sensitive") val isSensitive: Boolean = false,
     val system: SystemDto?,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("view_once") val viewOnce: Boolean = false,
@@ -766,7 +934,7 @@ data class MemberDto(
 
 data class CreatedGroupDto(val conversation: ConversationDto, @SerializedName("not_added") val notAdded: List<String>)
 
-data class InviteDto(val token: String, val link: String)
+data class InviteDto(val token: String, val link: String, @SerializedName("expires_at") val expiresAt: String? = null)
 
 data class ContactDto(
     val id: Int,
@@ -793,6 +961,81 @@ data class PrivacyDto(
     @SerializedName("read_receipts") val readReceipts: Boolean,
     @SerializedName("block_screenshots") val blockScreenshots: Boolean,
     @SerializedName("notification_preview") val notificationPreview: Boolean,
+    /** What a chat notification shows: all (name and text) · name · none. */
+    @SerializedName("notification_privacy") val notificationPrivacy: String? = null,
+    /** Who may send me an urgent message (it gets through my mute). */
+    @SerializedName("who_can_urgent") val whoCanUrgent: String? = null,
+    val status: MyStatusDto? = null,
+    @SerializedName("privacy_mode") val privacyMode: PrivacyModeDto? = null,
+)
+
+/** Privacy mode: on now (until a time, or by the daily schedule), and the schedule. */
+data class PrivacyModeDto(
+    val on: Boolean = false,
+    val until: String? = null,
+    @SerializedName("started_at") val startedAt: String? = null,
+    val schedule: PrivacyScheduleDto? = null,
+)
+
+data class PrivacyScheduleDto(val from: String = "22:00", val to: String = "07:00", val days: List<Int>? = null, val timezone: String? = null)
+
+/** What came in while I was private. */
+data class PrivacySummaryDto(val messages: Int = 0, val conversations: Int = 0, val from: String? = null)
+
+data class PrivacyOffDto(val settings: PrivacyDto, val summary: PrivacySummaryDto)
+
+/** A text written now, sent by the server at `send_at` (or `failed`, with the reason). */
+data class ScheduledMessageDto(
+    val id: String,
+    @SerializedName("conversation_id") val conversationId: String?,
+    val body: String,
+    @SerializedName("is_silent") val isSilent: Boolean = false,
+    @SerializedName("send_at") val sendAt: String,
+    val status: String,
+    @SerializedName("error_code") val errorCode: String? = null,
+)
+
+/** Which AI tools the server offers now (a provider is set up and the admin left them on). */
+data class AiCapabilitiesDto(
+    val enabled: Boolean = false,
+    val translate: Boolean = false,
+    val summarize: Boolean = false,
+    @SerializedName("smart_replies") val smartReplies: Boolean = false,
+    val transcribe: Boolean = false,
+)
+
+data class AiTextDto(val text: String, val to: String? = null)
+
+data class AiSummaryDto(val text: String, val messages: Int = 0)
+
+data class AiRepliesDto(val replies: List<String> = emptyList())
+
+/** One day of opening hours (the list is 7 days, Sunday first). */
+data class BusinessDayDto(val open: Boolean, val from: String, val to: String)
+
+data class BusinessProfileDto(
+    @SerializedName("welcome_enabled") val welcomeEnabled: Boolean = false,
+    @SerializedName("welcome_message") val welcomeMessage: String? = null,
+    @SerializedName("away_enabled") val awayEnabled: Boolean = false,
+    @SerializedName("away_message") val awayMessage: String? = null,
+    /** always · outside_hours */
+    @SerializedName("away_mode") val awayMode: String = "outside_hours",
+    val hours: List<BusinessDayDto> = emptyList(),
+    val timezone: String = "UTC",
+)
+
+data class QuickReplyDto(val id: Int, val shortcut: String, val body: String)
+
+data class BusinessDto(
+    val profile: BusinessProfileDto,
+    @SerializedName("quick_replies") val quickReplies: List<QuickReplyDto> = emptyList(),
+)
+
+/** What a customer sees about a business on the chat screen. */
+data class BusinessHoursDto(
+    val hours: List<BusinessDayDto> = emptyList(),
+    val timezone: String = "UTC",
+    @SerializedName("open_now") val openNow: Boolean = true,
 )
 
 data class BlockDto(val profile: ProfileDto?, @SerializedName("blocked_at") val blockedAt: String?)

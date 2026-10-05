@@ -7,6 +7,8 @@ use Illuminate\Foundation\Http\Events\RequestHandled;
 use Illuminate\Support\Facades\Event;
 use Modules\Chat\Console\ExpireUnansweredCalls;
 use Modules\Chat\Console\PurgeChatMessages;
+use Modules\Chat\Console\SendMessageReminders;
+use Modules\Chat\Console\SendScheduledMessages;
 use Modules\Chat\Services\ChatThemeService;
 use Modules\Chat\Support\ParticipantDirectory;
 use Nwidart\Modules\Support\ModuleServiceProvider;
@@ -23,6 +25,8 @@ class ChatServiceProvider extends ModuleServiceProvider
     protected array $commands = [
         ExpireUnansweredCalls::class,
         PurgeChatMessages::class,
+        SendScheduledMessages::class,
+        SendMessageReminders::class,
     ];
 
     /**
@@ -59,5 +63,7 @@ class ChatServiceProvider extends ModuleServiceProvider
     {
         $schedule->command(ExpireUnansweredCalls::class)->everyMinute()->withoutOverlapping();
         $schedule->command(PurgeChatMessages::class)->hourly()->withoutOverlapping();
+        $schedule->command(SendScheduledMessages::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(SendMessageReminders::class)->everyMinute()->withoutOverlapping();
     }
 }

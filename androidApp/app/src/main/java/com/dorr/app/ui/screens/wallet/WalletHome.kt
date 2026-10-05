@@ -247,7 +247,7 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
     Box(
         Modifier
             .fillMaxWidth()
-            .shadow(22.dp, RoundedCornerShape(28.dp), ambientColor = Color(0x66E50914), spotColor = Color(0x99E50914))
+            .shadow(22.dp, RoundedCornerShape(28.dp), ambientColor = Color(0x66001B53), spotColor = Color(0x99001B53))
             .clip(RoundedCornerShape(28.dp))
             .background(Wa.HeroBrush),
     ) {

@@ -3,7 +3,7 @@
 > المرجع الوحيد لكل **حساب أو مفتاح أو خدمة خارجية** محتاجها دُر عشان تشتغل.
 > لكل بند: بيعمل إيه، بيتحط فين، حالته على جهاز التطوير الحالي، ولو بيشتغل على **استضافة مشتركة (Shared Hosting)** ولا محتاج **VPS**.
 >
-> آخر مراجعة: 2026-10-03. أي مفتاح بيتغير في `.env` لازم بعده **`php artisan config:cache`** (السبب في [14-DEPLOYMENT.md](14-DEPLOYMENT.md)).
+> آخر مراجعة: 2026-10-04. أي مفتاح بيتغير في `.env` لازم بعده **`php artisan config:cache`** (السبب في [14-DEPLOYMENT.md](14-DEPLOYMENT.md)).
 
 ## ملخص سريع
 
@@ -18,7 +18,7 @@
 | 7 | **SMTP / Mail** | إيميلات التحقق | `.env` | ✅ متضبط | ✅ |
 | 8 | **Google Sign-In** | الدخول بجوجل | `.env` | ✅ متضبط | ✅ |
 | 9 | **Apple Sign-In** | الدخول بأبل | `.env` | ❌ ناقص | ✅ |
-| 10 | **مزودي الـ AI** (OpenAI / Anthropic / Google / Groq) | دُر AI | لوحة الأدمن ← AI | ⚠️ 1 من 4 بس فيه مفتاح | ✅ |
+| 10 | **مزودي الـ AI** (OpenAI / Anthropic / Google / Groq) | دُر AI، والـ AI جوه الشات (ترجمة، وفويس لنص، وتلخيص، وردود مقترحة) | لوحة الأدمن ← AI | ⚠️ 1 من 4 بس فيه مفتاح | ✅ |
 | 11 | **MyFatoorah** | شحن المحفظة | `.env` | ✅ متضبط | ✅ |
 | 12 | **ARB (البنك العربي)** | شحن المحفظة | `.env` | ❌ ناقص | ✅ |
 | 13 | **URPay** | شحن المحفظة | `.env` | ❌ ناقص | ✅ |
@@ -105,6 +105,10 @@
 
 - **بيتحطوا فين:** لوحة الأدمن ← AI ← المزودين (جدول `ai_providers`). فيه 4 مزودين متعرّفين ومفتاح واحد بس متحط.
 - **منين:** OpenAI (platform.openai.com)، وAnthropic (console.anthropic.com)، وGoogle AI Studio، وGroq (console.groq.com).
+- **الـ AI جوه الشات** بيستخدم نفس المزود النشط (الافتراضي). الترجمة والتلخيص والردود المقترحة شغالين مع أي مزود.
+- **تحويل الفويس لنص محتاج مزود بياخد صوت:** OpenAI أو Groq (Whisper) أو Google (Gemini). Anthropic مابياخدش صوت، فلو هو النشط لازم يكون فيه واحد من التلاتة دول متفعّل ومعاه مفتاح، والسيرفر بيختاره لوحده. Groq عنده خطة مجانية، وده أرخص اختيار للفويس.
+- **موديلات الفويس** (اختياري، في `.env`): `AI_OPENAI_TRANSCRIPTION_MODEL` (افتراضي `whisper-1`) و`AI_GROQ_TRANSCRIPTION_MODEL` (افتراضي `whisper-large-v3-turbo`)، و`AI_TRANSCRIPTION_TIMEOUT` (60 ثانية).
+- **مفتاح التشغيل:** لوحة الأدمن ← إعدادات الشات ← "الذكاء الاصطناعي في الشات" (`ai_enabled`).
 
 ## 11 و12 و13. بوابات الدفع (المحفظة)
 
@@ -129,11 +133,34 @@
 |---|---|---|
 | **storage link** | الصور والفويس والحالات بتتعرض من `public/storage`، ومن غيره بيرجع 403 | `php artisan storage:link` (مرة واحدة على كل سيرفر) |
 | **config cache** | Apache على ويندوز، وأي استضافة كتير الطلبات، بيضيّع `.env` مع الطلبات المتزامنة | `php artisan config:cache` بعد أي تعديل في `.env` |
-| **Cron (الـ scheduler)** | انتهاء المكالمات اللي محدش رد عليها (كل دقيقة)، ومسح الرسائل اللي بتختفي والحالات المنتهية (كل ساعة)، ومطابقة المحافظ (كل ساعة) | `* * * * * php /path/artisan schedule:run` — **متاح في cPanel على الاستضافة المشتركة** |
+| **Cron (الـ scheduler)** | **الرسائل المجدولة والتذكيرات** (`chat:send-scheduled` و`chat:send-reminders` كل دقيقة، ومن غيره عمرهم ما هيتبعتوا)، وانتهاء المكالمات اللي محدش رد عليها (كل دقيقة)، ومسح الرسائل اللي بتختفي والحالات المنتهية (كل ساعة)، ومطابقة المحافظ (كل ساعة). محلياً: `php artisan schedule:work` | `* * * * * php /path/artisan schedule:run` — **متاح في cPanel على الاستضافة المشتركة** |
 | **Queue worker** | إيميلات التحقق متبعتة على queue (`QUEUE_CONNECTION=database`) | VPS: `php artisan queue:work` شغال دايماً. استضافة مشتركة: cron كل دقيقة `php artisan queue:work --stop-when-empty` |
 | **TRUSTED_PROXIES** | IP المستخدم الحقيقي ورا Cloudflare / nginx / ngrok | `127.0.0.1,::1` محلياً، و`*` ورا Cloudflare أو load balancer |
 | **APP_URL** | روابط الملفات والوسائط | الدومين الحقيقي بـ `https://` |
 | **composer dump-autoload** | بعد سحب موديول جديد في `Modules/*` | `composer dump-autoload` |
+
+## الأوامر: بعد كل سحب للكود أو نشر على سيرفر
+
+بالترتيب ده. كلهم آمنين لو اتكرروا.
+
+| # | الأمر | إمتى | ليه |
+|---|---|---|---|
+| 1 | `composer install` ثم `composer dump-autoload` | بعد أي سحب فيه موديول جديد في `Modules/*` أو تغيير في `composer.json` | من غيره Laravel مايعرفش كلاسات الموديول الجديد، و`optimize:clear` نفسه بيقع (حصلت مع موديول SMS) |
+| 2 | `php artisan migrate` | بعد أي سحب فيه migrations جديدة | آخرهم بتوع الشات `2026_10_04_100000` لـ `100700`: ألوان الهوية، وملصقاتي، والإشراف على الجروبات، والبيزنس، والجدولة، وشكل الإشعار، والمكالمات لكل دولة، و`ai_enabled` |
+| 3 | `php artisan db:seed --class="Modules\Chat\Database\Seeders\ChatDatabaseSeeder"` | أول مرة على أي سيرفر | أسباب البلاغات والثيمات الافتراضية. مابيعملش حاجة لو الجداول فيها بيانات |
+| 4 | `php artisan db:seed --class="Database\Seeders\Admin\AdminPermissionSeeder"` | أول مرة، وبعد أي صلاحية جديدة | صلاحيات الشات (`chat-settings`، `chat-themes`، `chat-report-types`، `chat-stickers`، `chat-reports`). **وبعده لازم تدي الأدوار الصلاحيات الجديدة من لوحة الأدمن**، وإلا الصفحات مش هتظهر غير للسوبر أدمن |
+| 5 | `php artisan optimize:clear` ثم `php artisan config:cache` | بعد أي سحب، وبعد أي تعديل في `.env` | يمسح الكاش القديم (إعدادات، routes، views) ويبني الإعدادات من جديد |
+| 6 | `php artisan cache:forget chat.settings` | لو إعدادات الشات باينة قديمة | إعدادات الشات متخزنة في الكاش على طول. الـ migrations الجديدة بتمسحها لوحدها، والأمر ده للاحتياط |
+| 7 | `npm run build` | بعد أي تعديل في الواجهة (Vue أو ملفات الترجمة) أو مفاتيح `VITE_*` | لوحة الأدمن وشات الويب بيتبنوا من الملفات دي |
+| 8 | `php artisan storage:link` | مرة واحدة على كل سيرفر | من غيره الصور والفويس والحالات بترجع 403 |
+
+**وقت التطوير على الجهاز:**
+
+| الأمر | ليه |
+|---|---|
+| `php artisan schedule:work` | بديل الـ cron محلياً. من غيره الرسايل المجدولة مش هتتبعت، والمكالمات اللي محدش رد عليها مش هتبقى "فائتة" |
+| `php artisan queue:work` | إيميلات التحقق |
+| `php artisan test` | الاختبارات. **مش** `composer test`، لأن Composer بيقطعها بعد 300 ثانية والاختبارات كلها بتاخد أكتر من كده. الاختبارات بتشتغل على SQLite في الذاكرة بس، و`tests/TestCase.php` بيرفض يشغلها على أي داتا بيز تانية |
 
 ## الأندرويد
 
@@ -143,6 +170,9 @@
 | OneSignal App ID | من السيرفر تلقائياً | مفيش حاجة في التطبيق |
 | Pusher | من السيرفر تلقائياً | مفيش حاجة في التطبيق |
 | توقيع النسخة النهائية (Keystore) | `androidApp/` + Play Console | **ناقص** — لازم قبل الرفع على Google Play |
+| موديل قص الملصقات (ML Kit) | من Google Play Services على الموبايل | بيتنزل لوحده أول ما التطبيق يتسطب (`com.google.mlkit.vision.DEPENDENCIES` في الـ manifest). موبايل من غير Play Services: القص مش هيشتغل، والدايرة والمربع شغالين |
+| بناء التطبيق لو الـ Kotlin daemon وقع | سطر الأوامر | `gradlew :app:compileDebugKotlin -Pkotlin.compiler.execution.strategy=in-process` |
+| JDK | Android Studio | ماتحطش `org.gradle.java.home` في `gradle.properties` (مسار جهاز واحد بس). Gradle بياخد JDK بتاع Android Studio أو `JAVA_HOME` |
 
 ## ترتيب مقترح للتجهيز
 

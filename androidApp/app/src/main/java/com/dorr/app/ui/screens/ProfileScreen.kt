@@ -265,7 +265,7 @@ internal object AccountDark {
     private val fallbackLine = Color(0xFF2C313A)
     private val fallbackInk = Color(0xFFF4F5F7)
     private val fallbackMut = Color(0xFF9AA1AC)
-    private val fallbackAccent = Color(0xFFFF4D57)
+    private val fallbackAccent = Color(0xFFFA7552)
     private val fallbackChevron = Color(0xFF8B93A0)
 
     val bg: Color @Composable get() = appearanceColor("background", fallbackBg, night = true)
@@ -414,7 +414,7 @@ private fun ProfileMenuScreen(
                         .size(34.dp)
                         .then(
                             if (dark) Modifier
-                            else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                            else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                         )
                         .clip(CircleShape)
                         .background(settingsCard())
@@ -642,7 +642,7 @@ private fun SettingsMenuScreen(
                     .size(34.dp)
                     .then(
                         if (isDark) Modifier
-                        else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                        else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                     )
                     .clip(CircleShape)
                     .background(settingsCard())
@@ -967,7 +967,7 @@ private fun ConfirmDialog(
                     .padding(horizontal = 24.dp)
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
-                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24E50914), spotColor = Color(0x24E50914))
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -986,7 +986,7 @@ private fun ConfirmDialog(
                             .size(56.dp)
                             .then(
                                 if (dark) Modifier
-                                else Modifier.shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1AE50914), spotColor = Color(0x1AE50914)),
+                                else Modifier.shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1A001B53), spotColor = Color(0x1A001B53)),
                             )
                             .clip(RoundedCornerShape(18.dp))
                             .background(settingsCard())
@@ -1020,7 +1020,7 @@ private fun ConfirmDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp)
-                                .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                                .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     if (loading) settingsAccent().copy(alpha = 0.6f) else settingsAccent(),
@@ -1090,7 +1090,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     .padding(horizontal = 24.dp)
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
-                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24E50914), spotColor = Color(0x24E50914))
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
             ) {
@@ -1124,7 +1124,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
-                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                             .clip(RoundedCornerShape(14.dp))
                             .background(settingsAccent())
                             .clickable(onClick = onDismiss),
@@ -1176,7 +1176,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24E50914), spotColor = Color(0x24E50914))
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
             ) {
                 PinkBackdrop(Modifier.matchParentSize())
@@ -1232,7 +1232,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
-                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                             .clip(RoundedCornerShape(14.dp))
                             .background(settingsAccent())
                             .clickable(onClick = onDismiss),
@@ -1298,7 +1298,7 @@ private fun LanguageOption(
             Box(
                 modifier = Modifier
                     .size(18.dp)
-                    .border(2.dp, if (selected) settingsAccent() else if (dark) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
+                    .border(2.dp, if (selected) settingsAccent() else if (dark) AccountDark.chevron else Color(0xFFF8BCA9), CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 if (selected) {

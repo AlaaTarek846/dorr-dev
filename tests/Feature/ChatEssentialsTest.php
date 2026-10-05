@@ -94,11 +94,42 @@ class ChatEssentialsTest extends TestCase
         Http::assertSent(fn ($r) => $r['contents']['en'] === 'Meeting at 9, not 8, room B2');
     }
 
+    public function test_list_and_quote_lines_read_cleanly_in_the_notification(): void
+    {
+        $this->assertSame("Shopping:\n• milk\n• bread\n1. eggs\nshe said so", ChatPushNotifier::plain("Shopping:\n- milk\n* *bread*\n1. eggs\n> she said so"));
+        // A dash inside a line, or "-5", isn't a list.
+        $this->assertSame('-5 degrees - cold', ChatPushNotifier::plain('-5 degrees - cold'));
+    }
+
+    public function test_read_later_is_my_own_list_apart_from_stars(): void
+    {
+        $chat = $this->direct($this->alice, $this->bob);
+        $first = $this->send($this->bob, $chat, ['type' => 'text', 'body' => 'the long article'])->json('data.id');
+        $second = $this->send($this->bob, $chat, ['type' => 'text', 'body' => 'the recipe'])->json('data.id');
+
+        $this->as($this->alice);
+        $this->putJson("/api/mobile/v1/chat/messages/{$first}/read-later", ['on' => true], $this->headers())->assertOk();
+        $this->putJson("/api/mobile/v1/chat/messages/{$second}/read-later", ['on' => true], $this->headers())->assertOk();
+
+        // Oldest first, flagged on the message, and not starred by it.
+        $this->getJson('/api/mobile/v1/chat/messages/read-later', $this->headers())->assertOk()
+            ->assertJsonPath('data.0.id', $first)->assertJsonPath('data.1.id', $second)
+            ->assertJsonPath('data.0.is_read_later', true)->assertJsonPath('data.0.is_starred', false);
+        $this->getJson('/api/mobile/v1/chat/messages/starred', $this->headers())->assertOk()->assertJsonCount(0, 'data');
+
+        // Done with one; Bob's list is his own.
+        $this->putJson("/api/mobile/v1/chat/messages/{$first}/read-later", ['on' => false], $this->headers())->assertOk();
+        $this->getJson('/api/mobile/v1/chat/messages/read-later', $this->headers())->assertOk()->assertJsonCount(1, 'data');
+        $this->as($this->bob);
+        $this->getJson('/api/mobile/v1/chat/messages/read-later', $this->headers())->assertOk()->assertJsonCount(0, 'data');
+    }
+
     public function test_marks_inside_words_and_maths_are_left_alone(): void
     {
         $this->assertSame('price 5*3*2 = 30', ChatPushNotifier::plain('price 5*3*2 = 30'));
         $this->assertSame('snake_case_name', ChatPushNotifier::plain('snake_case_name'));
-        $this->assertSame('* spaced *', ChatPushNotifier::plain('* spaced *'));
+        // Mid-line "* x *" isn't bold (at the start of a line "* " is a bullet — see the list test).
+        $this->assertSame('a * spaced *', ChatPushNotifier::plain('a * spaced *'));
         $this->assertSame('x = 1', ChatPushNotifier::plain('```x = 1```'));
         $this->assertSame('(bold)', ChatPushNotifier::plain('(*bold*)'));
     }
@@ -268,6 +299,50 @@ class ChatEssentialsTest extends TestCase
             ->assertJsonPath('data.theme.applied.is_custom', true)
             ->assertJsonPath('data.theme.applied.is_dark', true)
             ->assertJsonPath('data.theme.applied.wallpaper', null);
+    }
+
+    // ================================================================ my stickers
+
+    public function test_a_sticker_made_from_my_photo_is_kept_and_sent(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $chat = $this->direct($this->alice, $this->bob);
+        $this->as($this->alice);
+
+        $made = $this->post('/api/mobile/v1/chat/stickers/mine', ['image' => \Illuminate\Http\UploadedFile::fake()->image('me.png', 512, 512), 'emoji' => '😄'], $this->headers() + ['Accept' => 'application/json'])
+            ->assertCreated()->assertJsonPath('data.width', 512)->json('data');
+
+        $this->getJson('/api/mobile/v1/chat/stickers', $this->headers())->assertOk()
+            ->assertJsonPath('data.mine.0.id', $made['id'])
+            ->assertJsonPath('data.mine.0.emoji', '😄');
+
+        $sent = $this->send($this->alice, $chat, ['type' => 'sticker', 'my_sticker_id' => $made['id']])->assertCreated()
+            ->assertJsonPath('data.meta.source', 'mine')
+            ->assertJsonPath('data.meta.url', $made['url'])
+            ->json('data.id');
+
+        // Bob sees it, but can't send Alice's sticker as his own.
+        $this->send($this->bob, $chat, ['type' => 'sticker', 'my_sticker_id' => $made['id']])->assertStatus(422)
+            ->assertJsonPath('error_code', 'chat_sticker_not_found');
+
+        // Removing it from "My stickers" doesn't break the message that already carries it.
+        $this->as($this->alice);
+        $this->deleteJson("/api/mobile/v1/chat/stickers/mine/{$made['id']}", [], $this->headers())->assertOk();
+        $this->getJson('/api/mobile/v1/chat/stickers', $this->headers())->assertOk()->assertJsonCount(0, 'data.mine');
+        $this->getJson("/api/mobile/v1/chat/conversations/{$chat}/messages", $this->headers())->assertOk()
+            ->assertJsonPath('data.messages.0.id', $sent)
+            ->assertJsonPath('data.messages.0.meta.url', $made['url']);
+    }
+
+    public function test_my_sticker_must_be_a_small_transparent_image(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $this->as($this->alice);
+        $post = fn ($file) => $this->post('/api/mobile/v1/chat/stickers/mine', ['image' => $file], $this->headers() + ['Accept' => 'application/json']);
+
+        $post(\Illuminate\Http\UploadedFile::fake()->image('photo.jpg', 512, 512))->assertStatus(422);      // no transparency
+        $post(\Illuminate\Http\UploadedFile::fake()->image('huge.png', 3000, 3000))->assertStatus(422);     // too big
+        $post(\Illuminate\Http\UploadedFile::fake()->image('ok.webp', 512, 512))->assertCreated();
     }
 
     // ================================================================ helpers

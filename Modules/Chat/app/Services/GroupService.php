@@ -15,6 +15,7 @@ use Modules\Chat\Models\ChatGroup;
 use Modules\Chat\Models\ChatGroupJoinRequest;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Support\BannedWords;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 
@@ -29,6 +30,12 @@ use Modules\Chat\Support\ParticipantType;
  */
 class GroupService
 {
+    /** Slow mode steps, in seconds (Telegram's): off, 10s, 30s, 1m, 5m, 15m, 1h. */
+    public const SLOW_MODE_STEPS = [0, 10, 30, 60, 300, 900, 3600];
+
+    /** How long a new invite link can last, in hours: 1 hour, 1 day, 7 days, 30 days (or never). */
+    public const INVITE_EXPIRY_HOURS = [1, 24, 168, 720];
+
     public function __construct(
         private readonly ConversationService $conversations,
         private readonly MessageService $messages,
@@ -113,7 +120,8 @@ class GroupService
     }
 
     /**
-     * only_admins_send / only_admins_edit_info / only_admins_add_members — admins only.
+     * only_admins_send / only_admins_edit_info / only_admins_add_members / approve_joins, and
+     * moderation: slow_mode_seconds and banned_words — admins only.
      */
     public function updateSettings(Model $me, ChatConversation $conversation, array $data): ChatGroup
     {
@@ -121,15 +129,25 @@ class GroupService
         $group = $conversation->group;
 
         DB::transaction(function () use ($me, $conversation, $group, $data) {
-            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins', 'is_public']));
+            $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins', 'is_public', 'slow_mode_seconds', 'banned_words']));
             if ($conversation->isChannel()) {
-                unset($data['only_admins_send'], $data['only_admins_add_members']); // a channel is always "admins post"
+                // A channel is always "admins post": nothing for members to slow down or filter.
+                unset($data['only_admins_send'], $data['only_admins_add_members'], $data['slow_mode_seconds'], $data['banned_words']);
             } else {
                 unset($data['is_public']);
             }
+            if (array_key_exists('banned_words', $data)) {
+                $data['banned_words'] = BannedWords::clean((array) $data['banned_words']) ?: null;
+            }
             $before = $group->only_admins_send;
             $approveBefore = $group->approve_joins;
+            $slowBefore = (int) $group->slow_mode_seconds;
             $group->update($data);
+
+            if (array_key_exists('slow_mode_seconds', $data) && (int) $data['slow_mode_seconds'] !== $slowBefore) {
+                $seconds = (int) $data['slow_mode_seconds'];
+                $this->messages->system($conversation, $me, $seconds > 0 ? 'slow_mode_on' : 'slow_mode_off', [], $seconds > 0 ? ['seconds' => $seconds] : []);
+            }
 
             if (array_key_exists('only_admins_send', $data) && (bool) $data['only_admins_send'] !== $before) {
                 $this->messages->system($conversation, $me, $data['only_admins_send'] ? 'group_announcement_on' : 'group_announcement_off');
@@ -229,6 +247,47 @@ class GroupService
     }
 
     /**
+     * The owner hands the group (or channel) to another member, who becomes the owner; the old
+     * owner stays on as an admin. Owner only.
+     */
+    public function transferOwnership(Model $me, ChatConversation $conversation, int $participantId): ChatParticipant
+    {
+        $mine = $this->assertOwner($me, $conversation);
+        $target = $this->activeMember($conversation, $participantId);
+
+        if ($target->id === $mine->id) {
+            return $mine;
+        }
+
+        DB::transaction(function () use ($me, $conversation, $mine, $target) {
+            $target->update(['role' => ParticipantRole::Owner]);
+            $mine->update(['role' => ParticipantRole::Admin]);
+            $this->messages->system($conversation, $me, 'owner_changed', [$target->key()]);
+            $this->changed($conversation);
+        });
+
+        return $target->refresh();
+    }
+
+    /**
+     * The owner deletes the group or channel for everyone: every member is out, the conversation
+     * is gone from every list (each app hears `chat.conversation.updated`, finds nothing, and drops
+     * it). Kept soft-deleted, like any closed conversation, so reports can still be reviewed.
+     */
+    public function deleteForEveryone(Model $me, ChatConversation $conversation): void
+    {
+        $this->assertOwner($me, $conversation);
+        $everyone = $conversation->activeParticipants()->get();
+
+        DB::transaction(function () use ($conversation) {
+            $conversation->activeParticipants()->update(['left_at' => now(), 'pinned_at' => null]);
+            $conversation->delete();
+        });
+
+        $this->broadcaster->toParticipants($everyone, 'chat.conversation.updated', ['conversation_id' => $conversation->uuid]);
+    }
+
+    /**
      * Leaving as the owner hands the group to the longest-serving admin (or member). The last
      * person out closes the group.
      */
@@ -265,18 +324,29 @@ class GroupService
     }
 
     /**
-     * @return array{token: string, link: string}
+     * The group's invite link. A reset makes a new one (the old stops working at once), lasting
+     * `$expiresInHours` (one of INVITE_EXPIRY_HOURS) or forever when null. An expired link is
+     * replaced automatically the next time an admin opens it.
+     *
+     * @return array{token: string, link: string, expires_at: string|null}
      */
-    public function inviteLink(Model $me, ChatConversation $conversation, bool $reset = false): array
+    public function inviteLink(Model $me, ChatConversation $conversation, bool $reset = false, ?int $expiresInHours = null): array
     {
         $this->assertAdmin($me, $conversation);
         $group = $conversation->group;
 
-        if ($reset || $group->invite_token === null) {
-            $group->update(['invite_token' => Str::random(24)]);
+        if ($reset || $group->invite_token === null || $group->invite_expires_at?->isPast()) {
+            $group->update([
+                'invite_token' => Str::random(24),
+                'invite_expires_at' => $reset && $expiresInHours !== null ? now()->addHours($expiresInHours) : null,
+            ]);
         }
 
-        return ['token' => $group->invite_token, 'link' => 'dorr://chat/join/'.$group->invite_token];
+        return [
+            'token' => $group->invite_token,
+            'link' => 'dorr://chat/join/'.$group->invite_token,
+            'expires_at' => $group->invite_expires_at?->toIso8601String(),
+        ];
     }
 
     /**
@@ -506,6 +576,17 @@ class GroupService
         return $participant;
     }
 
+    private function assertOwner(Model $me, ChatConversation $conversation): ChatParticipant
+    {
+        $participant = $this->assertGroupMember($me, $conversation);
+
+        if ($participant->role !== ParticipantRole::Owner) {
+            throw new ChatException('owner_action_only', 403);
+        }
+
+        return $participant;
+    }
+
     private function activeMember(ChatConversation $conversation, int $participantId): ChatParticipant
     {
         return $conversation->activeParticipants()->whereKey($participantId)->first()
@@ -518,6 +599,10 @@ class GroupService
 
         if ($group === null || $group->conversation === null) {
             throw ChatException::inviteInvalid();
+        }
+
+        if ($group->invite_expires_at?->isPast()) {
+            throw new ChatException('invite_expired', 410);
         }
 
         return $group;
