@@ -60,6 +60,12 @@ a transaction on create, update, and `set-default`.
 
 ---
 
+## Provider countries
+
+A provider supports **many countries** through the `sms_provider_countries` pivot (`sms_provider_id`, `country_id`, `is_active`, unique pair). The admin API accepts `countries: [country ids]` on create/update (each id must exist and be distinct): an absent key leaves the mapping untouched, an empty array clears it, and the provider resource returns `countries` as a list of ids. The admin modal uses a PrimeVue `MultiSelect`. No schema change was needed — the pivot already allowed several countries.
+
+---
+
 ## Usability rules
 
 An account may send only when **all** hold:

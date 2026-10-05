@@ -443,6 +443,53 @@ class SmsModuleTest extends TestCase
      | Provider country mapping
      * ------------------------------------------------------------------ */
 
+    public function test_provider_create_saves_multiple_countries(): void
+    {
+        $this->admin($this->permissions());
+
+        $response = $this->postJson('/api/admin/v1/sms-providers', [
+            'name' => 'Multi Twilio',
+            'key' => 'twilio',
+            'countries' => [$this->egypt->id, $this->saudi->id],
+        ])->assertCreated();
+
+        $response->assertJsonCount(2, 'data.countries');
+        $this->assertEqualsCanonicalizing(
+            [$this->egypt->id, $this->saudi->id],
+            SmsProvider::findOrFail($response->json('data.id'))->countries->pluck('id')->all(),
+        );
+    }
+
+    public function test_provider_update_replaces_countries_and_keeps_them_when_absent(): void
+    {
+        $this->admin($this->permissions());
+
+        $provider = $this->provider('twilio', 'Twilio');
+        $provider->countries()->attach([$this->egypt->id, $this->saudi->id]);
+
+        $this->putJson('/api/admin/v1/sms-providers/'.$provider->id, [
+            'name' => 'Twilio',
+            'countries' => [$this->saudi->id],
+        ])->assertOk()->assertJsonPath('data.countries', [$this->saudi->id]);
+
+        // No `countries` key → mapping untouched.
+        $this->putJson('/api/admin/v1/sms-providers/'.$provider->id, ['name' => 'Twilio 2'])
+            ->assertOk()->assertJsonPath('data.countries', [$this->saudi->id]);
+
+        // Empty array → mapping cleared.
+        $this->putJson('/api/admin/v1/sms-providers/'.$provider->id, ['name' => 'Twilio 2', 'countries' => []])
+            ->assertOk()->assertJsonPath('data.countries', []);
+    }
+
+    public function test_provider_countries_must_exist(): void
+    {
+        $this->admin($this->permissions());
+
+        $this->postJson('/api/admin/v1/sms-providers', [
+            'name' => 'Bad', 'key' => 'twilio', 'countries' => [999999],
+        ])->assertUnprocessable()->assertJsonValidationErrors('countries.0');
+    }
+
     public function test_provider_country_mapping_query(): void
     {
         $this->admin($this->permissions());

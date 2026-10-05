@@ -33,6 +33,8 @@ class SmsProviderRequest extends FormRequest
             'is_active' => ['nullable', 'boolean'],
             'is_available' => ['nullable', 'boolean'],
             'configuration' => ['nullable', 'array'],
+            'countries' => ['nullable', 'array'],
+            'countries.*' => ['integer', 'distinct', Rule::exists('countries', 'id')],
         ];
     }
 

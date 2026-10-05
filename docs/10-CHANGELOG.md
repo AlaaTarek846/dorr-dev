@@ -41,6 +41,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
   - `dorr-vue-frontend.mdc` (Vue/JS files)
 
 ### Changed
+- SMS providers can support several countries: the admin modal uses a PrimeVue `MultiSelect`, `SmsProviderRequest` validates `countries[]`, `SmsProviderService` syncs the `sms_provider_countries` pivot (it was previously never saved) and `SmsProviderResource` returns `countries` and `priority`; covered by 3 new tests in `SmsModuleTest`
 - Android: the system Back button now matches the in-app back — non-Home tabs return to Home, service pages close, and profile sub-screens, personal-data edit pages and the address form step back one level (Home still closes the app)
 - `LocaleResolver` supports dynamically published locales and matches region tags (`fr-CA` → `fr`); language `code` must be 2–3 letters
 - Vue locale switchers use the interface language list and `language.direction` instead of hardcoded `ar`/`en`

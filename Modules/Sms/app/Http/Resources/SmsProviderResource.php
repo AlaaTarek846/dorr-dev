@@ -25,6 +25,8 @@ class SmsProviderResource extends JsonResource
             'test_status' => $this->test_status ?? 'never_tested',
             'test_error' => $this->test_error,
             'last_tested_at' => $this->last_tested_at?->toDateTimeString(),
+            'priority' => (int) $this->priority,
+            'countries' => $this->countries->pluck('id')->values(),
             'capabilities' => $service->capabilities($this->key),
             // Configuration SCHEMA + non-secret values only. Secret VALUES are
             // never exposed, only whether they are set (is_set).
