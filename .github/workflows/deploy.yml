@@ -1,0 +1,108 @@
+name: 🚀 Deploy via SSH
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# لا تشغّل نشرتين في نفس الوقت على نفس السيرفر
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🟢 Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # public/build مش موجود في git، فلازم يتبنى هنا ويترفع للسيرفر
+      - name: 🏗️ Build frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: 📦 Pack build output
+        run: tar -czf build.tar.gz -C public build
+
+      - name: 📤 Upload build to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          port: ${{ secrets.SSH_PORT }}
+          source: build.tar.gz
+          target: ${{ secrets.SSH_APP_DIR }}/deploy-tmp
+
+      - name: 🚀 Release on server
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          passphrase: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          port: ${{ secrets.SSH_PORT }}
+          command_timeout: 20m
+          script_stop: true
+          script: |
+            set -euo pipefail
+
+            APP_DIR="${{ secrets.SSH_APP_DIR }}"
+            PHP_BIN="${{ secrets.SSH_PHP_BIN }}"
+            COMPOSER_BIN="${{ secrets.SSH_COMPOSER_BIN }}"
+            PHP_BIN="${PHP_BIN:-php}"
+            COMPOSER_BIN="${COMPOSER_BIN:-composer}"
+
+            cd "$APP_DIR"
+
+            # لو فشل أي أمر، رجّع الموقع للعمل قبل الخروج
+            trap '"$PHP_BIN" artisan up || true' EXIT
+
+            "$PHP_BIN" artisan down --retry=15 || true
+
+            git fetch origin main
+            git reset --hard origin/main
+
+            # مؤقت: السيرفر مفيهوش ext-sodium. شيل السطر ده بعد تفعيل الامتداد.
+            "$COMPOSER_BIN" install --no-dev --optimize-autoloader --no-interaction --prefer-dist --ignore-platform-req=ext-sodium
+
+            # استبدال مجلد build كوحدة واحدة عشان الموقع ما يشتغلش بملفات نصّها قديم
+            rm -rf public/build.new public/build.old
+            mkdir -p public/build.new
+            tar -xzf deploy-tmp/build.tar.gz -C public/build.new --strip-components=1
+            if [ -d public/build ]; then mv public/build public/build.old; fi
+            mv public/build.new public/build
+            rm -rf public/build.old deploy-tmp/build.tar.gz
+
+            "$PHP_BIN" artisan migrate --force
+
+            [ -L public/storage ] || "$PHP_BIN" artisan storage:link
+
+            "$PHP_BIN" artisan optimize:clear
+            "$PHP_BIN" artisan config:cache
+            "$PHP_BIN" artisan route:cache
+            "$PHP_BIN" artisan view:cache
+            "$PHP_BIN" artisan queue:restart || true
+
+            "$PHP_BIN" artisan up
+            trap - EXIT
+
+      - name: ✅ Health check
+        env:
+          HEALTH_URL: ${{ secrets.APP_HEALTH_URL }}
+        run: |
+          if [ -z "$HEALTH_URL" ]; then echo "skipped — APP_HEALTH_URL not set"; exit 0; fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$HEALTH_URL")
+          echo "health = $code"
+          test "$code" = "200"
