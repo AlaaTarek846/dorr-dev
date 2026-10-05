@@ -177,7 +177,7 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
             .fillMaxWidth()
             .then(
                 if (settingsNight()) Modifier
-                else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+                else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12001B53), spotColor = Color(0x12001B53)),
             )
             .clip(RoundedCornerShape(18.dp))
             .background(settingsCard())

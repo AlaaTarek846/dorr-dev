@@ -167,7 +167,7 @@ internal fun Modifier.settingsSurface(shape: RoundedCornerShape, elevation: andr
     return if (dark) {
         this.clip(shape).background(AccountDark.card).border(1.dp, AccountDark.line, shape)
     } else {
-        this.shadow(elevation, shape, ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
+        this.shadow(elevation, shape, ambientColor = Color(0x12001B53), spotColor = Color(0x12001B53))
             .clip(shape)
             .background(appearanceColor("surface", Color.White, night = false))
     }
@@ -195,7 +195,7 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
                 .size(34.dp)
                 .then(
                     if (dark) Modifier
-                    else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                    else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                 )
                 .clip(CircleShape)
                 .background(settingsCard())

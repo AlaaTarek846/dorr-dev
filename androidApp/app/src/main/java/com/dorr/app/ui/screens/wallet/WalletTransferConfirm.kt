@@ -216,7 +216,7 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
     ) {
         Box(
             Modifier.fillMaxWidth().height(84.dp).background(
-                if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
+                if (walletNight()) Brush.verticalGradient(listOf(Color(0x33001B53), Color.Transparent))
                 else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
             ),
         )
@@ -230,9 +230,9 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
             }
             Spacer(Modifier.height(14.dp))
             Box(contentAlignment = Alignment.Center) {
-                Box(Modifier.size(84.dp).border(3.dp, Color(0x33E50914), CircleShape))
+                Box(Modifier.size(84.dp).border(3.dp, Color(0x33001B53), CircleShape))
                 Box(
-                    Modifier.size(72.dp).shadow(10.dp, CircleShape, ambientColor = Color(0x59E50914), spotColor = Color(0x59E50914)).clip(CircleShape).background(Wa.ButtonBrush),
+                    Modifier.size(72.dp).shadow(10.dp, CircleShape, ambientColor = Color(0x59001B53), spotColor = Color(0x59001B53)).clip(CircleShape).background(Wa.ButtonBrush),
                     contentAlignment = Alignment.Center,
                 ) { Text(initial, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold) }
             }

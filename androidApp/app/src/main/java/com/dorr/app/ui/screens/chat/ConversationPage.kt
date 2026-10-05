@@ -114,6 +114,10 @@ fun ConversationPage(route: ChRoute.Conversation) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember(route.id) { ConversationState(route.id, scope, host, context) }
+    // Opened with a lot unread: offer "✨ Summarise what's new" (one tap — nothing goes to the AI otherwise).
+    val openedUnread = remember(route.id) { host.find(route.id)?.unreadCount ?: route.preview?.unreadCount ?: 0 }
+    var summaryOffered by remember(route.id) { mutableStateOf(openedUnread >= 15) }
+    var summaryOpen by remember { mutableStateOf<Boolean?>(null) } // null = closed; true = unread first
     val listState = rememberLazyListState()
     var viewer by remember { mutableStateOf<Pair<MessageDto, Int>?>(null) }
     var highlight by remember { mutableStateOf<String?>(null) }
@@ -246,9 +250,9 @@ fun ConversationPage(route: ChRoute.Conversation) {
             onRetry = { state.retry(it) },
             onOpenMedia = { m, i ->
                 val a = m.attachments.getOrNull(i)
-                if (a != null && a.mimeType?.startsWith("video/") == true) {
-                    runCatching { context.startActivity(Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(ApiClient.mediaUrl(a.url)), a.mimeType)) }
-                } else viewer = m to i
+                // Videos play inside the app; photos open in the viewer.
+                if (a != null && a.mimeType?.startsWith("video/") == true) ChatViewers.video = a.url
+                else viewer = m to i
             },
             onPayQr = { host.openWalletQr(it) },
             onMessageContact = { phone ->
@@ -268,6 +272,11 @@ fun ConversationPage(route: ChRoute.Conversation) {
             onPay = { payFor = it.dto },
             onDeclineRequest = { state.declineRequest(it) },
             onCancelRequest = { state.cancelRequest(it) },
+            onTranscribe = { state.transcribe(it) },
+            onHideAi = { state.hideAi(it) },
+            isRevealed = { state.revealed.containsKey(it) },
+            // A sensitive message needs my fingerprint / screen lock; blurred media just a tap.
+            onReveal = { m -> if (m.dto.isSensitive) ChatLock.unlock(context) { state.reveal(m.id) } else state.reveal(m.id) },
         )
     }
 
@@ -292,6 +301,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
             }
             BackHandler(searching) { searching = false; searchQuery = "" }
             PinnedBanner(state) { jumpTo(it) }
+            SummarizePill(summaryOffered && ChatAi.summarize) { summaryOffered = false; summaryOpen = true }
             // Someone I haven't saved: "Add" (then they see my stories too).
             c?.let { NotInContactsBanner(it) { fresh -> state.conversation = fresh; host.upsert(fresh) } }
 
@@ -360,6 +370,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
         }
         infoFor?.let { m -> MessageInfoSheet(m) { infoFor = null } }
         votesFor?.let { m -> PollVotesSheet(m) { votesFor = null } }
+        summaryOpen?.let { unreadFirst -> AiSummarySheet(state.id, unreadFirst) { summaryOpen = null } }
         payFor?.let { m -> ChatPaySheet(m, onDismiss = { payFor = null }) { paid -> state.paymentUpdated(paid) } }
         androidx.compose.animation.AnimatedVisibility(
             viewOnceFiles != null,
@@ -450,6 +461,10 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                         c?.isChannel == true -> stringResource(R.string.ch_followers, c.group?.membersCount ?: 0)
                         c?.isGroup == true -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
                         c?.isSelf == true -> stringResource(R.string.ch_note_to_self_sub)
+                        // Their status ("🏖️ On holiday"), with "online" when they are.
+                        statusLine(c?.peer?.status) != null -> statusLine(c?.peer?.status)!! + if (presence?.online == true) " · " + stringResource(R.string.ch_online) else ""
+                        // A business: open or closed now (and online, when it is).
+                        c?.business != null -> businessStatus(c.business) + if (presence?.online == true) " · " + stringResource(R.string.ch_online) else ""
                         presence?.online == true -> stringResource(R.string.ch_online)
                         presence?.lastSeenAt != null -> lastSeenText(presence.lastSeenAt)
                         else -> stringResource(R.string.ch_tap_info)
@@ -469,8 +484,8 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
             }
             GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
             Spacer(Modifier.width(6.dp))
-            // No calls with myself.
-            if (c != null && !c.isRequest && c.canSend && !c.isSelf) {
+            // No calls with myself, nor where calls are switched off (my or their country).
+            if (c != null && !c.isRequest && c.canSend && !c.isSelf && c.canCall != false) {
                 Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
                     GlassIcon(Icons.Rounded.Videocam, size = 38.dp) { startCall(state.id, true, c.title.orEmpty(), c.avatar, peerKey) }
                 }

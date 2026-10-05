@@ -3,9 +3,47 @@
 namespace Modules\AI\Services\Connectors;
 
 use Modules\AI\Models\AiProvider;
+use Modules\AI\Services\Connectors\Contracts\TranscribesAudio;
 
-class GoogleConnector extends AbstractHttpConnector
+class GoogleConnector extends AbstractHttpConnector implements TranscribesAudio
 {
+    /**
+     * Gemini understands audio itself: the clip goes inline with an instruction to write down
+     * exactly what is said, in the language it's said in.
+     */
+    public function transcribe(AiProvider $provider, string $path, string $mime): array
+    {
+        return $this->attempt(function () use ($provider, $path, $mime) {
+            if (! $provider->hasApiKey()) {
+                return $this->failure(__('ai.api_key_missing'));
+            }
+
+            $payload = [
+                'contents' => [[
+                    'role' => 'user',
+                    'parts' => [
+                        ['text' => 'Transcribe this voice message word for word, in the language it is spoken in. Reply with the transcript only, no notes.'],
+                        ['inline_data' => ['mime_type' => $mime, 'data' => base64_encode((string) file_get_contents($path))]],
+                    ],
+                ]],
+                'generationConfig' => ['temperature' => 0],
+            ];
+
+            $model = $provider->model ?: config('ai.providers.google.default_model');
+            $url = $this->baseUrl($provider)."/models/{$model}:generateContent?key=".urlencode((string) $provider->api_key);
+
+            $response = $this->client()->timeout((int) config('ai.transcription_timeout', 60))->post($url, $payload);
+
+            if (! $response->successful()) {
+                return $this->failure($this->errorMessageFromResponse($response));
+            }
+
+            $text = trim((string) $response->json('candidates.0.content.parts.0.text'));
+
+            return $text === '' ? $this->failure(__('ai.empty_reply')) : $this->chatReply($text);
+        });
+    }
+
     protected function providerKey(): string
     {
         return 'google';

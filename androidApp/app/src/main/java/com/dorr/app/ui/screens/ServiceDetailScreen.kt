@@ -210,7 +210,7 @@ private fun ServiceChildDetailRow(
             .fillMaxWidth()
             .then(
                 if (night) Modifier
-                else Modifier.shadow(4.dp, shape, ambientColor = Color(0x10E50914), spotColor = Color(0x10E50914)),
+                else Modifier.shadow(4.dp, shape, ambientColor = Color(0x10001B53), spotColor = Color(0x10001B53)),
             )
             .clip(shape)
             .background(settingsCard())

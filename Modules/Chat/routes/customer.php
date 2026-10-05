@@ -1,8 +1,10 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Chat\Http\Controllers\General\BusinessController;
 use Modules\Chat\Http\Controllers\General\CallController;
 use Modules\Chat\Http\Controllers\General\ChannelController;
+use Modules\Chat\Http\Controllers\General\ChatAiController;
 use Modules\Chat\Http\Controllers\General\ContactController;
 use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\ConversationController;
@@ -12,6 +14,7 @@ use Modules\Chat\Http\Controllers\General\MessageController;
 use Modules\Chat\Http\Controllers\General\MessageExtrasController;
 use Modules\Chat\Http\Controllers\General\PrivacyController;
 use Modules\Chat\Http\Controllers\General\RealtimeConfigController;
+use Modules\Chat\Http\Controllers\General\ScheduledMessageController;
 use Modules\Chat\Http\Controllers\General\StoryController;
 use Modules\Chat\Http\Controllers\General\ThemeReportController;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
@@ -54,11 +57,18 @@ Route::prefix('chat')->group(function () {
     Route::post('messages/forward', [MessageController::class, 'forward'])->middleware('throttle:30,1,chat-forward');
     Route::get('messages/search', [MessageController::class, 'search']);
     Route::get('messages/starred', [MessageController::class, 'starred']);
+    Route::get('messages/read-later', [MessageController::class, 'readLaterList']);
+    Route::get('messages/follow-up', [MessageController::class, 'followUpList']);
+    Route::get('reminders', [MessageController::class, 'reminders']);
     Route::patch('messages/{message}', [MessageController::class, 'update']);
     Route::delete('messages/{message}', [MessageController::class, 'destroy']);
     Route::put('messages/{message}/reaction', [MessageController::class, 'react']);
     Route::get('messages/{message}/reactions', [MessageController::class, 'reactions']);
     Route::put('messages/{message}/star', [MessageController::class, 'star']);
+    Route::put('messages/{message}/read-later', [MessageController::class, 'readLater']);
+    Route::put('messages/{message}/follow-up', [MessageController::class, 'followUp']);
+    Route::put('messages/{message}/reminder', [MessageController::class, 'setReminder'])->middleware('throttle:60,1,chat-reminders');
+    Route::delete('messages/{message}/reminder', [MessageController::class, 'clearReminder']);
     Route::post('messages/{message}/pin', [MessageController::class, 'pin']);
     Route::delete('messages/{message}/pin', [MessageController::class, 'unpin']);
     Route::get('messages/{message}/info', [MessageController::class, 'info']);
@@ -74,6 +84,7 @@ Route::prefix('chat')->group(function () {
 
     // ------------------------------------------------------------ money requests & bill splits
     Route::post('messages/{message}/pay', [MessageExtrasController::class, 'pay'])->middleware([RequiresWalletPin::class, 'throttle:20,1,chat-pay']);
+    Route::post('conversations/{conversation}/send-money', [MessageExtrasController::class, 'sendMoney'])->middleware([RequiresWalletPin::class, 'throttle:20,1,chat-send-money']);
     Route::post('messages/{message}/decline-request', [MessageExtrasController::class, 'declineRequest']);
     Route::post('messages/{message}/cancel-request', [MessageExtrasController::class, 'cancelRequest']);
 
@@ -86,6 +97,8 @@ Route::prefix('chat')->group(function () {
     Route::delete('groups/{conversation}/members/{participant}', [GroupController::class, 'removeMember']);
     Route::patch('groups/{conversation}/members/{participant}/role', [GroupController::class, 'role']);
     Route::post('groups/{conversation}/leave', [GroupController::class, 'leave']);
+    Route::post('groups/{conversation}/owner', [GroupController::class, 'transferOwnership']);
+    Route::delete('groups/{conversation}', [GroupController::class, 'destroy']);
     Route::get('groups/{conversation}/invite', [GroupController::class, 'invite']);
     Route::post('groups/{conversation}/invite/reset', [GroupController::class, 'resetInvite']);
     Route::get('invites/{token}', [GroupController::class, 'previewInvite']);
@@ -97,6 +110,8 @@ Route::prefix('chat')->group(function () {
 
     // ------------------------------------------------------------ stickers & GIFs
     Route::get('stickers', [ExpressionController::class, 'stickers']);
+    Route::post('stickers/mine', [ExpressionController::class, 'storeMine'])->middleware('throttle:30,1,chat-my-stickers');
+    Route::delete('stickers/mine/{sticker}', [ExpressionController::class, 'destroyMine'])->whereNumber('sticker');
     Route::get('gifs', [ExpressionController::class, 'library'])->middleware('throttle:60,1,chat-gifs');
 
     // ------------------------------------------------------------ channels
@@ -122,6 +137,11 @@ Route::prefix('chat')->group(function () {
     // ------------------------------------------------------------ privacy, blocks, presence
     Route::get('privacy', [PrivacyController::class, 'show']);
     Route::patch('privacy', [PrivacyController::class, 'update']);
+    Route::put('status', [PrivacyController::class, 'setStatus']);
+    Route::put('privacy-mode', [PrivacyController::class, 'privacyModeOn']);
+    Route::delete('privacy-mode', [PrivacyController::class, 'privacyModeOff']);
+    Route::get('privacy-mode/summary', [PrivacyController::class, 'privacySummary']);
+    Route::delete('status', [PrivacyController::class, 'clearStatus']);
     Route::get('blocks', [PrivacyController::class, 'blocked']);
     Route::post('blocks', [PrivacyController::class, 'block']);
     Route::post('blocks/remove', [PrivacyController::class, 'unblock']);
@@ -150,6 +170,28 @@ Route::prefix('chat')->group(function () {
     Route::get('themes', [ThemeReportController::class, 'themes']);
     Route::get('report-types', [ThemeReportController::class, 'reportTypes']);
     Route::post('conversations/{conversation}/report', [ThemeReportController::class, 'report'])->middleware('throttle:10,1,chat-report');
+
+    // ------------------------------------------------------------ scheduled messages
+    Route::get('conversations/{conversation}/scheduled', [ScheduledMessageController::class, 'index']);
+    Route::post('conversations/{conversation}/scheduled', [ScheduledMessageController::class, 'store'])->middleware('throttle:30,1,chat-schedule');
+    Route::patch('scheduled/{scheduled}', [ScheduledMessageController::class, 'update']);
+    Route::delete('scheduled/{scheduled}', [ScheduledMessageController::class, 'destroy']);
+    Route::post('scheduled/{scheduled}/send', [ScheduledMessageController::class, 'sendNow']);
+
+    // ------------------------------------------------------------ business tools
+    Route::get('business', [BusinessController::class, 'show']);
+    Route::patch('business', [BusinessController::class, 'update']);
+    Route::get('quick-replies', [BusinessController::class, 'quickReplies']);
+    Route::post('quick-replies', [BusinessController::class, 'storeQuickReply']);
+    Route::patch('quick-replies/{quickReply}', [BusinessController::class, 'updateQuickReply'])->whereNumber('quickReply');
+    Route::delete('quick-replies/{quickReply}', [BusinessController::class, 'destroyQuickReply'])->whereNumber('quickReply');
+
+    // ------------------------------------------------------------ AI (one tap each — nothing goes to the AI by itself)
+    Route::get('ai', [ChatAiController::class, 'capabilities']);
+    Route::post('messages/{message}/translate', [ChatAiController::class, 'translate'])->middleware('throttle:60,1,chat-ai-translate');
+    Route::post('messages/{message}/transcribe', [ChatAiController::class, 'transcribe'])->middleware('throttle:20,1,chat-ai-transcribe');
+    Route::post('conversations/{conversation}/summarize', [ChatAiController::class, 'summarize'])->middleware('throttle:10,1,chat-ai-summary');
+    Route::post('conversations/{conversation}/smart-replies', [ChatAiController::class, 'smartReplies'])->middleware('throttle:20,1,chat-ai-replies');
 
     // ------------------------------------------------------------ calls (LiveKit)
     Route::get('calls', [CallController::class, 'index']);

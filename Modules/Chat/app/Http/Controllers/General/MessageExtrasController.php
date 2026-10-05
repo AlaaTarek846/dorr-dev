@@ -5,6 +5,7 @@ namespace Modules\Chat\Http\Controllers\General;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
+use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Services\LinkPreviewService;
 use Modules\Chat\Services\MessageExtrasService;
@@ -73,6 +74,24 @@ class MessageExtrasController extends Controller
         $me = $request->user();
 
         return ApiResponse::success($this->messages->presentOne($me, $money->pay($me, $message)), __('chat.money_paid'));
+    }
+
+    /**
+     * Send money straight from a one-to-one chat. `uuid` makes it safe to retry.
+     */
+    public function sendMoney(Request $request, ChatConversation $conversation, MoneyRequestService $money)
+    {
+        $data = $request->validate([
+            'amount_minor' => ['required', 'integer', 'min:1'],
+            'note' => ['nullable', 'string', 'max:500'],
+            'uuid' => ['required', 'uuid'],
+            // A money gift: the receipt drawn as a card for the occasion.
+            'gift' => ['nullable', \Illuminate\Validation\Rule::in(\Modules\Chat\Services\MessageService::GIFT_CARDS)],
+        ]);
+        $me = $request->user();
+        $message = $money->sendMoney($me, $conversation, (int) $data['amount_minor'], $data['note'] ?? null, $data['uuid'], $data['gift'] ?? null);
+
+        return ApiResponse::created($this->messages->presentOne($me, $message), __('chat.money_sent'));
     }
 
     public function declineRequest(Request $request, ChatMessage $message, MoneyRequestService $money)

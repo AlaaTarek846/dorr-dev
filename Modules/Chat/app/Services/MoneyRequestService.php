@@ -152,6 +152,45 @@ class MoneyRequestService
     }
 
     /**
+     * "Send money" straight from a one-to-one chat (no request first): a normal wallet transfer to
+     * the other person (PIN checked by RequiresWalletPin), then its receipt posted in the chat.
+     * `$uuid` is the message's id and the transfer's idempotency key at once: a retry after a
+     * dropped connection returns the same transfer and the same message — never a second payment.
+     */
+    public function sendMoney(User $me, ChatConversation $conversation, int $amountMinor, ?string $note, string $uuid, ?string $gift = null): ChatMessage
+    {
+        $participant = $this->conversations->participantOf($me, $conversation, true);
+
+        if ($conversation->isGroup() || $conversation->isSelf()) {
+            throw new ChatException('money_request_direct_only', 422);
+        }
+        if ($conversation->status === \Modules\Chat\Enums\ConversationStatus::Rejected) {
+            throw ChatException::requestRejected();
+        }
+
+        $peer = $conversation->activeParticipants()->where('id', '!=', $participant->id)->first()?->participant();
+        if (! $peer instanceof User) {
+            throw ChatException::userNotFound();
+        }
+        // Blocked either way: no money moves (checked before, not after, the transfer).
+        app(ChatPrivacy::class)->assertReachable($me, $peer);
+
+        $country = currentCountry() ?? throw new ChatException('money_request_closed', 422);
+        $amount = $this->amount($amountMinor);
+
+        $token = $this->recipients->tokenFor($me, $country, $peer);
+        $result = $this->transfers->send($me, $country, $token, $amount, null, 'chatsend:'.$uuid);
+
+        return app(MessageService::class)->send($me, $conversation, [
+            'type' => MessageType::WalletTransfer->value,
+            'wallet_transaction_id' => $result['out']->uuid,
+            'body' => $note !== null && trim($note) !== '' ? trim($note) : null,
+            'uuid' => $uuid,
+            'gift' => $gift,
+        ]);
+    }
+
+    /**
      * "Not paying this one": the request (or my share) is marked declined.
      */
     public function decline(Model $me, ChatMessage $message): ChatMessage

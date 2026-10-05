@@ -69,44 +69,24 @@ class SendMessageRequest extends FormRequest
             'split_shares.*.participant_id' => ['required', 'integer'],
             'split_shares.*.amount_minor' => ['required', 'integer', 'min:1'],
 
-            // GIF (Giphy) / sticker (Giphy, or one of Dorr's packs).
+            // GIF (Giphy) / sticker (Giphy, one of Dorr's packs, or one I made). Only ids: the server
+            // builds the file's address itself — a URL from the client is never trusted.
             'giphy_id' => ['required_if:type,gif', 'nullable', 'string', 'max:64'],
             'sticker_id' => ['nullable', 'integer'],
+            // One of the stickers I made ("My stickers").
+            'my_sticker_id' => ['nullable', 'integer'],
 
             // Photo / video / voice note that opens once.
             'view_once' => ['nullable', 'boolean'],
+            // Gets through the recipient's mute, when they allow it (one-to-one, a few a day).
+            'urgent' => ['nullable', 'boolean'],
+            // Sensitive: hidden in notifications and until the recipient unlocks it.
+            'sensitive' => ['nullable', 'boolean'],
             // Delivered without a notification sound.
             'silent' => ['nullable', 'boolean'],
 
             'wallet_transaction_id' => ['required_if:type,wallet_transfer', 'nullable', 'uuid'],
             'country_code' => ['nullable', 'string', 'size:2'],
-
-            // A poll: at least two options, which the service trims and numbers. Loose values are
-            // cast by pollMeta(), so only real non-strings are rejected.
-            'poll_options' => ['required_if:type,poll', 'nullable', 'array', 'max:12'],
-            'poll_options.*' => ['string', 'max:100', 'nullable'],
-            'poll_multiple' => ['nullable', 'boolean'],
-
-            // Asking for money, or splitting a bill.
-            'amount_minor' => ['required_if:type,money_request', 'nullable', 'integer', 'min:1'],
-            'split_mode' => ['nullable', Rule::in(['equal', 'custom'])],
-            'split_participants' => ['nullable', 'array', 'max:100'],
-            'split_participants.*' => ['integer'],
-            'split_shares' => ['nullable', 'array', 'max:100'],
-            'split_shares.*.participant_id' => ['required', 'integer'],
-            'split_shares.*.amount_minor' => ['required', 'integer', 'min:1'],
-
-            // A GIF / sticker: only its id, so the server builds the file's address itself. A URL
-            // from the client is never trusted.
-            'giphy_id' => ['required_if:type,gif', 'nullable', 'string', 'max:64'],
-            'sticker_id' => ['required_if:type,sticker', 'nullable', 'integer'],
-
-            // A photo or video the recipient may see once, then it is gone.
-            'view_once' => ['nullable', 'boolean'],
-
-            // A location that keeps moving: the sender's own message stays live for this long. The
-            // app offers the same few choices, so only those are accepted.
-            'live_seconds' => ['nullable', 'integer', Rule::in(MessageExtrasService::LIVE_DURATIONS)],
         ];
     }
 

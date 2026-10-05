@@ -364,7 +364,7 @@ private fun FaqRow(
             Icon(
                 Icons.Rounded.KeyboardArrowDown,
                 contentDescription = null,
-                tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFEFA8B4),
+                tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFF8BCA9),
                 modifier = Modifier
                     .size(20.dp)
                     .graphicsLayer { rotationZ = rotation },

@@ -48,6 +48,8 @@ data class UiMessage(
     val progress: Float? = null,
     /** A video's poster made on this phone — shown until the server's copy arrives. */
     val localThumb: File? = null,
+    /** A translation / voice transcript I asked the AI for, shown under the bubble. */
+    val ai: AiNote? = null,
 ) {
     val id: String get() = dto.id
     val isMine: Boolean get() = dto.isMine ?: (dto.sender?.key == myKey())
@@ -93,6 +95,27 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     /** After jumping to an old message (search, pin), newer ones are loaded as you scroll down. */
     var hasMoreAfter by mutableStateOf(false)
     private var loadingNewer = false
+
+    /** Slow mode: when I may send again (epoch ms; 0 = now). Admins never wait. */
+    var slowUntil by mutableStateOf(0L)
+
+    /** Messages I unlocked (sensitive) or uncovered (blurred media) — until they hide again. */
+    val revealed = androidx.compose.runtime.mutableStateMapOf<String, Long>()
+
+    fun reveal(id: String) {
+        val at = System.currentTimeMillis()
+        revealed[id] = at
+        val seconds = com.dorr.app.chat.ChatShield.rehideSeconds
+        // 0 = until I leave the chat (this state goes with it).
+        if (seconds > 0) scope.launch {
+            kotlinx.coroutines.delay(seconds * 1000L)
+            if (revealed[id] == at) revealed.remove(id)
+        }
+    }
+
+    /** My scheduled messages in this chat (waiting or failed), soonest first. */
+    var scheduled by mutableStateOf<List<com.dorr.app.network.ScheduledMessageDto>>(emptyList())
+        private set
 
     /** Group members, for @mention suggestions (loaded on first "@"). */
     var members by mutableStateOf<List<com.dorr.app.network.MemberDto>>(emptyList())
@@ -175,6 +198,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             }
             failed = false
             refreshPinned()
+            refreshScheduled()
             markRead()
         } catch (e: CancellationException) {
             throw e
@@ -238,6 +262,85 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         pinned = runCatching { ApiClient.chat.pinned(chatAuth(), id).data }.getOrNull().orEmpty()
     }
 
+    suspend fun refreshScheduled() {
+        runCatching { ApiClient.chat.scheduled(chatAuth(), id).data }.getOrNull()?.let { scheduled = it }
+    }
+
+    /** Write now, send at [sendAt] (the server sends it, even with this phone off). */
+    suspend fun schedule(body: String, sendAt: java.time.ZonedDateTime, silent: Boolean = false): Boolean = try {
+        val row = ApiClient.chat.schedule(chatAuth(), id, buildMap {
+            put("body", body)
+            put("send_at", sendAt.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            if (silent) put("silent", true)
+        }).data
+        if (row != null) scheduled = (scheduled + row).sortedBy { it.sendAt }
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        false
+    }
+
+    // ------------------------------------------------------------------ AI (each one tap)
+
+    /** Replies the AI suggested (shown as chips above the composer). */
+    var smartReplies by mutableStateOf<List<String>>(emptyList())
+        private set
+    var loadingReplies by mutableStateOf(false)
+        private set
+
+    fun translate(message: UiMessage) = askAi(message, "translation") {
+        ApiClient.chat.translate(chatAuth(), message.id, mapOf("to" to com.dorr.app.network.AppLocale.current)).data?.text
+    }
+
+    fun transcribe(message: UiMessage) = askAi(message, "transcript") {
+        ApiClient.chat.transcribe(chatAuth(), message.id).data?.text
+    }
+
+    fun hideAi(message: UiMessage) = setAi(message.id, null)
+
+    private fun askAi(message: UiMessage, kind: String, call: suspend () -> String?) {
+        setAi(message.id, AiNote(kind, loading = true))
+        scope.launch {
+            try {
+                setAi(message.id, AiNote(kind, text = call()))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                setAi(message.id, AiNote(kind, failed = e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network)))
+            }
+        }
+    }
+
+    private fun setAi(id: String, note: AiNote?) {
+        val index = messages.indexOfFirst { it.id == id }
+        if (index >= 0) messages[index] = messages[index].copy(ai = note, fresh = false)
+    }
+
+    fun loadSmartReplies() {
+        if (loadingReplies) return
+        loadingReplies = true
+        scope.launch {
+            try {
+                smartReplies = ApiClient.chat.smartReplies(chatAuth(), id).data?.replies.orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+            }
+            loadingReplies = false
+        }
+    }
+
+    fun clearSmartReplies() {
+        smartReplies = emptyList()
+    }
+
+    /** Slow mode applies to me here: a group member (not an admin) in a group that has it on. */
+    val slowModeSeconds: Int
+        get() = conversation?.takeIf { it.isGroup && !it.isChannel && !it.isAdmin }?.group?.slowModeSeconds ?: 0
+
     // ------------------------------------------------------------------ sending
 
     fun send(out: Outgoing) {
@@ -270,6 +373,8 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         val stored = com.dorr.app.chat.ChatOutbox.add(uuid, id, out, replyId, optimistic)
         messages.add(UiMessage(optimistic, local = "pending", localFiles = stored.files, fresh = true, localThumb = stored.thumbnail))
         sendTyping(stop = true)
+        // Slow mode: the next one waits (the server counts from this message too).
+        slowModeSeconds.takeIf { it > 0 }?.let { slowUntil = System.currentTimeMillis() + it * 1000L }
         upload(uuid, stored, replyId)
     }
 
@@ -400,6 +505,18 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 val index = messages.indexOfFirst { it.id == uuid }
                 if (index >= 0) messages[index] = messages[index].copy(local = "failed")
                 android.util.Log.w("DorrChat", "send ${out.type} failed", e)
+                // Slow mode (the app didn't know yet — e.g. just switched on): it goes by itself
+                // once the wait is over, and the send button counts down meanwhile.
+                if (failure.errorCode == "chat_slow_mode") {
+                    val wait = (failure.retryAfter ?: slowModeSeconds).coerceAtLeast(1)
+                    slowUntil = System.currentTimeMillis() + wait * 1000L
+                    scope.launch {
+                        kotlinx.coroutines.delay(wait * 1000L + 500)
+                        messages.firstOrNull { it.id == uuid && it.local == "failed" }?.let { retry(it, quiet = true) }
+                    }
+                    if (!quiet) failure.message?.let { host.showToast(it) }
+                    return@launch
+                }
                 // No HTTP answer at all (offline, tunnel down, timeout): it goes again by itself.
                 // A real answer from the server (validation, blocked…) is final — tap to retry.
                 if (e !is retrofit2.HttpException) {
@@ -470,6 +587,50 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         scope.launch { runCatching { ApiClient.chat.star(chatAuth(), message.id, mapOf("starred" to starred)) } }
     }
 
+    fun readLater(message: MessageDto) {
+        val on = !message.isReadLater
+        replaceMessage(message.id, UiMessage(message.copy(isReadLater = on)))
+        scope.launch { runCatching { ApiClient.chat.readLater(chatAuth(), message.id, mapOf("on" to on)) } }
+    }
+
+    fun followUp(message: MessageDto) {
+        val on = !message.isFollowUp
+        replaceMessage(message.id, UiMessage(message.copy(isFollowUp = on)))
+        scope.launch { runCatching { ApiClient.chat.followUp(chatAuth(), message.id, mapOf("on" to on)) } }
+    }
+
+    /** Remind me about this message at [at] (null: take the reminder off). */
+    fun remind(message: MessageDto, at: java.time.ZonedDateTime?) = scope.launch {
+        try {
+            if (at == null) {
+                ApiClient.chat.clearReminder(chatAuth(), message.id)
+                replaceMessage(message.id, UiMessage(message.copy(reminderAt = null)))
+            } else {
+                val iso = at.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                ApiClient.chat.setReminder(chatAuth(), message.id, mapOf("remind_at" to iso))
+                replaceMessage(message.id, UiMessage(message.copy(reminderAt = iso)))
+                host.showToast(context.getString(com.dorr.app.R.string.ch_reminder_set, scheduleLabel(at)))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        }
+    }
+
+    /** "Save to my notes": a copy in my note-to-self chat — a private place of my own, apart from stars. */
+    fun saveToNotes(message: MessageDto, done: String) = scope.launch {
+        try {
+            val notes = ApiClient.chat.openSelf(chatAuth()).data ?: return@launch
+            ApiClient.chat.forward(chatAuth(), mapOf("messages" to listOf(message.id), "conversations" to listOf(notes.id)))
+            host.showToast(done)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        }
+    }
+
     fun pin(message: MessageDto, seconds: Int) = scope.launch {
         try {
             pinned = ApiClient.chat.pin(chatAuth(), message.id, mapOf("duration_seconds" to seconds)).data.orEmpty()
@@ -524,6 +685,8 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     private fun onEvent(event: ChatEvent) {
         if (event.data.str("conversation_id") != id) return
         when (event.name) {
+            // One of my scheduled messages went out, failed, or changed on another device.
+            "chat.scheduled.changed" -> scope.launch { refreshScheduled() }
             "chat.message.sent" -> {
                 val dto = parseMessage(event.data.getAsJsonObject("message")) ?: return
                 val mine = dto.sender?.key == myKey()

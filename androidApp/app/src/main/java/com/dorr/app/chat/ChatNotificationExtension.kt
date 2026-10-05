@@ -17,8 +17,22 @@ class ChatNotificationExtension : INotificationServiceExtension {
     override fun onNotificationReceived(event: INotificationReceivedEvent) {
         val data = event.notification.additionalData ?: return
         // A message sent "without sound": shown as usual, but no sound and no vibration.
+        // Nothing shown / privacy mode: folded into one "N new messages" that names nobody.
+        if (data.optString("type") == "chat" && data.optString("private") == "1") {
+            event.preventDefault()
+            ChatShield.showPrivate(event.context)
+            return
+        }
         if (data.optString("type") == "chat" && data.optString("silent") == "1") {
             event.notification.setExtender { builder -> builder.setSilent(true) }
+            return
+        }
+        // This chat has its own tone (or "none") picked on this phone.
+        if (data.optString("type") == "chat") {
+            val conversationId = data.optString("conversation_uuid")
+            if (conversationId.isNotBlank() && ChatTones.get(event.context, conversationId) != null) {
+                event.notification.setExtender { builder -> builder.also { ChatTones.apply(event.context, conversationId, it) } }
+            }
             return
         }
         if (data.optString("type") != "chat_call") return
