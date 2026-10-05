@@ -203,6 +203,12 @@
     <string name="account_faqs_sub">إجابات سريعة</string>
     <string name="account_contact_us_sub">هاتف واتساب وبريد</string>
     <string name="account_about_sub">الإصدار والمعلومات</string>
+    <string name="account_legal">السياسات والشروط</string>
+    <string name="account_legal_sub">سياسة الخصوصية والشروط والأحكام</string>
+    <string name="account_settings_wallet">المحفظة</string>
+    <string name="account_settings_wallet_sub">الرقم السري والأمان</string>
+    <string name="account_change_pin">تغيير الرقم السري</string>
+    <string name="account_change_pin_sub">تحديث الرقم السري للمحفظة</string>
     <string name="account_privacy_sub">كيف نتعامل مع بياناتك</string>
     <string name="account_terms_sub">القواعد التي تحكم خدماتنا</string>
     <string name="account_logout_sub">الخروج من هذا الجهاز</string>
