@@ -13,6 +13,8 @@ import useValidation from './useValidation';
  * (FAQ question/answer, Privacy Policy content), so form.translations[locale]
  * holds an object of field => value instead of a plain string.
  *
+ * A field can be optional with `required: false`.
+ *
  * The single-field counterpart is useCatalogTranslations, left untouched.
  */
 export default function useCatalogTranslationFields(options = {}) {
@@ -43,17 +45,21 @@ export default function useCatalogTranslationFields(options = {}) {
         const min = field.min ?? 2;
 
         const rules = {
-            required: helpers.withMessage(
-                () => t('validation.required', { field: label }),
-                required,
-            ),
             maxLength: helpers.withMessage(
                 () => t('validation.max.string', { field: label, max }),
                 maxLength(max),
             ),
         };
 
-        if (min > 0) {
+        // "required: false" makes a translated field optional (e.g. a description).
+        if (field.required !== false) {
+            rules.required = helpers.withMessage(
+                () => t('validation.required', { field: label }),
+                required,
+            );
+        }
+
+        if (field.required !== false && min > 0) {
             rules.minLength = helpers.withMessage(
                 () => t('validation.min.string', { field: label, min }),
                 minLength(min),

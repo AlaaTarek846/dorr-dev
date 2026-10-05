@@ -3,18 +3,22 @@
         <WalletPageHeader :title="t('wallet.withdrawals.title')" :total="pagination?.total ?? null" />
 
         <div class="card custom-card">
-            <div class="card-header d-flex align-items-center flex-wrap gap-2 py-3">
-                <button
-                    v-for="s in ['', 'pending', 'approved', 'rejected']"
-                    :key="s || 'all'"
-                    type="button"
-                    class="btn btn-sm"
-                    :class="filters.status === s ? 'btn-primary' : 'btn-light'"
-                    @click="filters.status = s"
-                >
-                    {{ s ? t(`wallet.wstatus.${s}`) : t('wallet.common.all_statuses') }}
-                </button>
-                <button type="button" class="btn btn-sm btn-light ms-auto" @click="fetch(1)"><i class="ri-refresh-line"></i></button>
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                <div class="d-flex flex-wrap align-items-center gap-1 catalog-toolbar-filters">
+                    <button
+                        v-for="s in ['', 'pending', 'approved', 'rejected']"
+                        :key="s || 'all'"
+                        type="button"
+                        class="btn btn-sm catalog-filter-btn"
+                        :class="filters.status === s ? 'catalog-filter-btn--all' : 'catalog-filter-btn--all-idle'"
+                        @click="filters.status = s"
+                    >
+                        {{ s ? t(`wallet.wstatus.${s}`) : t('wallet.common.all_statuses') }}
+                    </button>
+                </div>
+                <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-light" :title="t('wallet.common.refresh')" @click="fetch(1)"><i class="ri-refresh-line"></i></button>
+                </div>
             </div>
 
             <div class="card-body p-0">
@@ -28,25 +32,46 @@
                                 <th>{{ t('wallet.withdrawals.method') }}</th>
                                 <th>{{ t('wallet.common.amount') }}</th>
                                 <th>{{ t('wallet.common.status') }}</th>
-                                <th class="text-end pe-4"></th>
+                                <th class="text-end pe-4">{{ t('wallet.common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading"><td colspan="7" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                            <tr v-else-if="!rows.length"><td colspan="7" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td></tr>
+                            <TableSkeleton v-if="loading" :rows="8" :columns="7" />
+                            <tr v-else-if="!rows.length">
+                                <td colspan="7" class="border-0">
+                                    <div class="text-center py-5">
+                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
+                                            <i class="ri-hand-coin-line fs-2 text-primary"></i>
+                                        </span>
+                                        <p class="fw-semibold mb-1">{{ t('wallet.common.empty_title') }}</p>
+                                        <p class="text-muted mb-0">{{ t('wallet.common.empty') }}</p>
+                                    </div>
+                                </td>
+                            </tr>
                             <template v-else>
-                                <tr v-for="row in rows" :key="row.id" role="button" @click="open(row.id)">
-                                    <td class="ps-4">#{{ row.id }}</td>
+                                <tr v-for="row in rows" :key="row.id" class="crm-contact" @click="open(row.id)">
+                                    <td class="ps-4"><button type="button" class="btn btn-link p-0 fw-semibold text-default" @click.stop="open(row.id)">#{{ row.id }}</button></td>
                                     <td>{{ formatDateTime(row.created_at, locale) }}</td>
                                     <td>
-                                        <div class="fw-semibold">{{ row.owner?.name || `#${row.owner?.id}` }}</div>
-                                        <div class="fs-12 text-muted">{{ row.country_code }}</div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-primary-transparent">
+                                                <i class="ri-user-line text-primary"></i>
+                                            </span>
+                                            <div>
+                                                <button type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click.stop="open(row.id)">
+                                                    {{ row.owner?.name || `#${row.owner?.id}` }}
+                                                </button>
+                                                <span class="d-block text-muted fs-11">{{ row.country_code }}</span>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td>{{ row.method?.display }}</td>
+                                    <td><span class="badge bg-secondary-transparent">{{ row.method?.display }}</span></td>
                                     <td class="fw-semibold">{{ fmtMinor(row.amount_minor, row.currency_code) }}</td>
                                     <td><span class="badge" :class="statusClass(row.status)">{{ t(`wallet.wstatus.${row.status}`) }}</span></td>
                                     <td class="text-end pe-4">
-                                        <button type="button" class="btn btn-sm btn-info-light btn-icon" @click.stop="open(row.id)"><i class="ri-eye-line"></i></button>
+                                        <div class="btn-list justify-content-end">
+                                            <button type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('wallet.common.view')" @click.stop="open(row.id)"><i class="ri-eye-line"></i></button>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
@@ -135,6 +160,7 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
