@@ -36,12 +36,13 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors[f] }"
+                                        :class="classOf(f)"
                                         :placeholder="t('wallet.settings.no_limit')"
-                                        @input="clearError(f)"
+                                        @input="onInput(f)"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf(f)" />
                                 </div>
-                                <div v-if="errors[f]" class="invalid-feedback d-block">{{ errors[f] }}</div>
+                                <div v-if="messageOf(f)" class="invalid-feedback d-block">{{ messageOf(f) }}</div>
                             </div>
                         </div>
 
@@ -71,12 +72,13 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors[f] }"
+                                        :class="classOf(f)"
                                         :placeholder="t('wallet.settings.no_limit')"
-                                        @input="clearError(f)"
+                                        @input="onInput(f)"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf(f)" />
                                 </div>
-                                <div v-if="errors[f]" class="invalid-feedback d-block">{{ errors[f] }}</div>
+                                <div v-if="messageOf(f)" class="invalid-feedback d-block">{{ messageOf(f) }}</div>
                             </div>
                         </div>
 
@@ -93,12 +95,13 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors.transfer_fee_percent }"
+                                        :class="classOf('transfer_fee_percent')"
                                         placeholder="0"
-                                        @input="clearError('transfer_fee_percent')"
+                                        @input="onInput('transfer_fee_percent')"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf('transfer_fee_percent')" />
                                 </div>
-                                <div v-if="errors.transfer_fee_percent" class="invalid-feedback d-block">{{ errors.transfer_fee_percent }}</div>
+                                <div v-if="messageOf('transfer_fee_percent')" class="invalid-feedback d-block">{{ messageOf('transfer_fee_percent') }}</div>
                             </div>
                             <div class="col-md-8">
                                 <label for="ws-fee-payer" class="form-label">{{ t('wallet.settings.transfer_fee_payer') }}</label>
@@ -110,12 +113,12 @@
                                     :options="feePayerOptions"
                                     option-label="label"
                                     option-value="value"
-                                    :invalid="Boolean(errors.transfer_fee_payer)"
+                                    :invalid="invalidOf('transfer_fee_payer')"
                                     append-to="self"
                                     class="w-100"
-                                    @change="clearError('transfer_fee_payer')"
+                                    @change="onInput('transfer_fee_payer')"
                                 />
-                                <div v-if="errors.transfer_fee_payer" class="invalid-feedback d-block">{{ errors.transfer_fee_payer }}</div>
+                                <div v-if="messageOf('transfer_fee_payer')" class="invalid-feedback d-block">{{ messageOf('transfer_fee_payer') }}</div>
                             </div>
                         </div>
 
@@ -133,16 +136,17 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': errors[f] }"
+                                        :class="classOf(f)"
                                         placeholder="0.00"
-                                        @input="clearError(f)"
+                                        @input="onInput(f)"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf(f)" />
                                 </div>
-                                <div v-if="errors[f]" class="invalid-feedback d-block">{{ errors[f] }}</div>
+                                <div v-if="messageOf(f)" class="invalid-feedback d-block">{{ messageOf(f) }}</div>
                             </div>
                         </div>
 
-                        <div v-if="errors.general" class="text-danger mt-3 fs-13">{{ errors.general }}</div>
+                        <div v-if="generalError" class="text-danger mt-3 fs-13">{{ generalError }}</div>
                     </div>
 
                     <div class="modal-footer catalog-modal-footer">
@@ -160,11 +164,15 @@
 </template>
 
 <script setup>
+import useVuelidate from '@vuelidate/core';
 import Select from 'primevue/select';
 import { computed, nextTick, onMounted, onUnmounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import FormFieldFeedback from '../../../../../../../components/ui/FormFieldFeedback.vue';
+import useFormFields from '../../../../../../../composables/useFormFields';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../../composables/useToast';
+import useValidation from '../../../../../../../composables/useValidation';
 import { majorFromMinor, parseMajor } from '../../../../../../../utils/walletMoney';
 
 const props = defineProps({
@@ -186,10 +194,17 @@ const emit = defineEmits(['close', 'saved']);
 
 const { t } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
+const {
+    requiredField,
+    moneyFormat,
+    numberRules,
+    applyApiErrors,
+} = useValidation();
 
 const withdrawalFields = ['min_withdrawal_minor', 'max_withdrawal_minor'];
 const transferFields = ['transfer_max_per_transaction_minor', 'transfer_max_per_day_minor', 'transfer_max_per_month_minor'];
 const debtFields = ['min_allowed_balance_provider_minor', 'min_allowed_balance_user_minor'];
+const moneyFields = [...withdrawalFields, ...transferFields, ...debtFields];
 
 const feePayerOptions = computed(() => [
     { value: 'recipient', label: t('wallet.settings.fee_payer_recipient') },
@@ -198,15 +213,36 @@ const feePayerOptions = computed(() => [
 
 const modalElement = ref(null);
 const submitting = ref(false);
-const errors = reactive({});
+const serverErrors = reactive({});
+const generalError = ref('');
 const form = reactive({
     country_id: null,
     country_code: '',
     transfers_enabled: false,
     transfer_fee_percent: '0',
     transfer_fee_payer: 'recipient',
+    ...Object.fromEntries(moneyFields.map((field) => [field, ''])),
 });
 let modalInstance = null;
+
+const rules = computed(() => ({
+    ...Object.fromEntries(moneyFields.map((field) => [
+        field,
+        { money: moneyFormat(`wallet.settings.${field}`) },
+    ])),
+    transfer_fee_percent: {
+        required: requiredField('wallet.settings.transfer_fee_percent'),
+        ...numberRules('wallet.settings.transfer_fee_percent', { min: 0, max: 100 }),
+    },
+    transfer_fee_payer: { required: requiredField('wallet.settings.transfer_fee_payer') },
+}));
+
+const v$ = useVuelidate(rules, form, { $autoDirty: true });
+const { feedbackOf, invalidOf, classOf, messageOf, onInput } = useFormFields({
+    getV$: () => v$.value,
+    form,
+    serverErrors,
+});
 
 const modalTitle = computed(() => (
     form.country_code
@@ -214,16 +250,13 @@ const modalTitle = computed(() => (
         : t('wallet.settings.edit')
 ));
 
-function clearError(field) {
-    delete errors[field];
-}
-
-function resetErrors() {
-    Object.keys(errors).forEach((key) => delete errors[key]);
+function resetValidation() {
+    applyApiErrors(serverErrors, {});
+    generalError.value = '';
+    v$.value.$reset();
 }
 
 function fillForm(row) {
-    resetErrors();
     Object.assign(form, {
         country_id: row.country_id,
         country_code: row.country_code,
@@ -235,6 +268,7 @@ function fillForm(row) {
     [...withdrawalFields, ...transferFields].forEach((f) => { form[f] = majorFromMinor(row[f]); });
     // Debt limits are stored signed (≤ 0); the form shows them as a positive "debt allowed".
     debtFields.forEach((f) => { form[f] = row[f] ? majorFromMinor(Math.abs(row[f])) : ''; });
+    resetValidation();
 }
 
 function openModal() {
@@ -260,12 +294,9 @@ function onModalHidden() {
 }
 
 async function submit() {
-    resetErrors();
+    generalError.value = '';
 
-    const feePercent = Number(String(form.transfer_fee_percent).replace(',', '.'));
-
-    if (Number.isNaN(feePercent) || feePercent < 0 || feePercent > 100) {
-        errors.transfer_fee_percent = t('wallet.common.invalid_amount');
+    if (! (await v$.value.$validate())) {
         showWarning(t('toast.validation_error'));
 
         return;
@@ -273,29 +304,16 @@ async function submit() {
 
     const payload = {
         transfers_enabled: form.transfers_enabled,
-        transfer_fee_percent: feePercent,
+        transfer_fee_percent: Number(String(form.transfer_fee_percent).replace(',', '.')),
         transfer_fee_payer: form.transfer_fee_payer,
     };
-    let invalid = false;
 
-    [...withdrawalFields, ...transferFields, ...debtFields].forEach((f) => {
+    moneyFields.forEach((f) => {
         const minor = parseMajor(form[f]);
 
-        if (Number.isNaN(minor)) {
-            errors[f] = t('wallet.common.invalid_amount');
-            invalid = true;
-
-            return;
-        }
-
+        // Debt limits are stored signed (<= 0); the form takes them as a positive "debt allowed".
         payload[f] = debtFields.includes(f) ? -(minor ?? 0) : minor;
     });
-
-    if (invalid) {
-        showWarning(t('toast.validation_error'));
-
-        return;
-    }
 
     submitting.value = true;
 
@@ -307,9 +325,7 @@ async function submit() {
         emit('saved');
     } catch (error) {
         if (error.response?.status === 422) {
-            const bag = error.response.data.errors ?? {};
-
-            Object.entries(bag).forEach(([key, messages]) => { errors[key] = messages[0]; });
+            applyApiErrors(serverErrors, error.response.data.errors ?? {});
             showWarning(t('toast.validation_error'));
         } else {
             showError(extractApiErrorMessage(error, t('toast.error')));

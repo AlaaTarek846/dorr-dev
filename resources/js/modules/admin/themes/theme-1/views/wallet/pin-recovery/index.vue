@@ -153,24 +153,33 @@
                             <label class="form-label">{{ t('wallet.withdrawals.reason') }} <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light align-self-start"><i class="ri-file-text-line"></i></span>
-                                <textarea v-model="reason" rows="3" maxlength="500" class="form-control" :class="{ 'is-invalid': errors.rejection_reason }"></textarea>
+                                <textarea
+                                    v-model="review.reason"
+                                    rows="3"
+                                    maxlength="500"
+                                    class="form-control"
+                                    :class="classOf('reason')"
+                                    @input="onInput('reason')"
+                                ></textarea>
                             </div>
-                            <div v-if="errors.rejection_reason" class="invalid-feedback d-block">{{ errors.rejection_reason }}</div>
+                            <div v-if="messageOf('reason')" class="invalid-feedback d-block">{{ messageOf('reason') }}</div>
                         </div>
                         <button type="submit" class="btn btn-danger btn-wave" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.reject') }}</button>
                     </form>
-                    <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
+                    <div v-if="generalError" class="text-danger mt-2 fs-13">{{ generalError }}</div>
                 </WalletSection>
-                <div v-else-if="errors.general" class="text-danger fs-13">{{ errors.general }}</div>
+                <div v-else-if="generalError" class="text-danger fs-13">{{ generalError }}</div>
             </div>
         </WalletModal>
     </div>
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+import useVuelidate from '@vuelidate/core';
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import FormFieldFeedback from '../../../../../../../components/ui/FormFieldFeedback.vue';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletDetailHero from '../../../../../../../components/wallet/WalletDetailHero.vue';
 import WalletInfoTile from '../../../../../../../components/wallet/WalletInfoTile.vue';
@@ -179,13 +188,15 @@ import WalletModal from '../../../../../../../components/wallet/WalletModal.vue'
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
 import useToast from '../../../../../../../composables/useToast';
+import useFormFields from '../../../../../../../composables/useFormFields';
+import useValidation from '../../../../../../../composables/useValidation';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatDateTime } from '../../../../../../../utils/walletMoney';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();
-const { showSuccess } = useToast();
+const { showSuccess, showWarning } = useToast();
 
 // Pending first: that is what a reviewer opens this screen for.
 const { rows, loading, pagination, filters, fetch } = useWalletList('pin-recovery-requests', { defaults: { status: 'pending' } });
@@ -199,9 +210,39 @@ const showModal = ref(false);
 const detail = ref(null);
 const detailLoading = ref(false);
 const mode = ref('approve');
-const reason = ref('');
+const review = reactive({ reason: '' });
 const busy = ref(false);
-const errors = reactive({ rejection_reason: '', general: '' });
+const serverErrors = reactive({});
+const generalError = ref('');
+const { requiredField, minString, maxString, applyApiErrors } = useValidation();
+
+// The reason is only needed (and only validated) while the reject tab is open.
+const reviewRules = computed(() => ({
+    reason: mode.value === 'reject'
+        ? {
+            required: requiredField('wallet.withdrawals.reason'),
+            minLength: minString('wallet.withdrawals.reason', 3),
+            maxLength: maxString('wallet.withdrawals.reason', 500),
+        }
+        : {},
+}));
+
+const v$ = useVuelidate(reviewRules, review, { $autoDirty: true });
+const { feedbackOf, classOf, messageOf, onInput } = useFormFields({
+    getV$: () => v$.value,
+    form: review,
+    serverErrors,
+    serverKeys: { reason: 'rejection_reason' },
+});
+
+function resetReview() {
+    review.reason = '';
+    applyApiErrors(serverErrors, {});
+    generalError.value = '';
+    v$.value.$reset();
+}
+
+watch(mode, resetReview);
 // key -> object URL | null (no image) | undefined (still loading)
 const images = reactive({ original: undefined, new: undefined });
 
@@ -244,9 +285,8 @@ async function open(id) {
     showModal.value = true;
     detail.value = null;
     detailLoading.value = true;
-    reason.value = '';
-    Object.assign(errors, { rejection_reason: '', general: '' });
     mode.value = canApprove.value ? 'approve' : 'reject';
+    resetReview();
     releaseImages();
 
     try {
@@ -267,12 +307,12 @@ function close() {
 function applyErrors(error) {
     const bag = error?.response?.data?.errors ?? {};
 
-    errors.rejection_reason = bag.rejection_reason?.[0] ?? '';
-    errors.general = Object.keys(bag).length ? '' : (error?.response?.data?.message ?? '');
+    applyApiErrors(serverErrors, bag);
+    generalError.value = Object.keys(bag).length ? '' : (error?.response?.data?.message ?? '');
 }
 
 async function approve() {
-    Object.assign(errors, { rejection_reason: '', general: '' });
+    generalError.value = '';
     busy.value = true;
 
     try {
@@ -289,10 +329,10 @@ async function approve() {
 }
 
 async function reject() {
-    Object.assign(errors, { rejection_reason: '', general: '' });
+    generalError.value = '';
 
-    if (reason.value.trim().length < 3) {
-        errors.rejection_reason = t('wallet.withdrawals.reason_required');
+    if (! (await v$.value.$validate())) {
+        showWarning(t('toast.validation_error'));
 
         return;
     }
@@ -301,7 +341,7 @@ async function reject() {
 
     try {
         const { data } = await adminAxios.post(`/api/admin/v1/pin-recovery-requests/${detail.value.id}/reject`, {
-            rejection_reason: reason.value.trim(),
+            rejection_reason: review.reason.trim(),
         });
 
         detail.value = data.data;

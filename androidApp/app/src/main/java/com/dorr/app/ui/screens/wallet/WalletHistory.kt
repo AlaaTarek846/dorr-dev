@@ -105,24 +105,12 @@ fun WalletHistory() {
                 WaEmpty(Icons.Rounded.History, Tone.Gray, stringResource(R.string.wa_history_empty_title), stringResource(R.string.wa_history_empty_text))
             }
             else -> {
-                // Group consecutive rows of the same calendar day under one heading.
-                val groups = mutableListOf<Pair<LocalDate?, MutableList<WalletTransactionDto>>>()
-                rows.forEach { tx ->
-                    val day = dayKey(tx.createdAt)
-                    if (groups.isEmpty() || groups.last().first != day) groups.add(day to mutableListOf(tx)) else groups.last().second.add(tx)
-                }
-                groups.forEach { (_, items) ->
-                    Text(
-                        dayText(items.first().createdAt),
-                        color = Wa.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 4.dp, end = 4.dp, top = 16.dp, bottom = 8.dp),
-                    )
-                    WaCard(Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
-                            items.forEachIndexed { index, tx ->
-                                WaTxRow(tx, host, withDay = true)
-                                if (index < items.lastIndex) WaDivider()
-                            }
+                // The same rows as the wallet's home list: amount with its currency, and the day and time under it.
+                WaCard(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(horizontal = 14.dp, vertical = 4.dp)) {
+                        rows.forEachIndexed { index, tx ->
+                            WaTxRow(tx, host, withDay = false)
+                            if (index < rows.lastIndex) WaDivider()
                         }
                     }
                 }

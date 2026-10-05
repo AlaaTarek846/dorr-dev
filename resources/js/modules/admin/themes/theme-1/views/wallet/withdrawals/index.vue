@@ -145,16 +145,19 @@
                             <label class="form-label">{{ t('wallet.withdrawals.receipt') }} <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light"><i class="ri-attachment-2"></i></span>
-                                <input type="file" class="form-control" :class="{ 'is-invalid': errors.receipt }" accept=".jpg,.jpeg,.png,.pdf" @change="receipt = $event.target.files[0] || null">
+                                <input type="file" class="form-control" :class="classOf('receipt')" accept=".jpg,.jpeg,.png,.pdf" @change="onReceiptChange">
+                                <FormFieldFeedback v-bind="feedbackOf('receipt')" />
                             </div>
-                            <div v-if="errors.receipt" class="invalid-feedback d-block">{{ errors.receipt }}</div>
+                            <div v-if="messageOf('receipt')" class="invalid-feedback d-block">{{ messageOf('receipt') }}</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">{{ t('wallet.common.note') }}</label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light"><i class="ri-chat-1-line"></i></span>
-                                <input v-model="note" type="text" maxlength="500" class="form-control">
+                                <input v-model="review.note" type="text" maxlength="500" class="form-control" :class="classOf('note')" @input="onInput('note')">
+                                <FormFieldFeedback v-bind="feedbackOf('note')" />
                             </div>
+                            <div v-if="messageOf('note')" class="invalid-feedback d-block">{{ messageOf('note') }}</div>
                         </div>
                         <button type="submit" class="btn btn-success btn-wave" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.approve') }}</button>
                     </form>
@@ -164,24 +167,34 @@
                             <label class="form-label">{{ t('wallet.withdrawals.reason') }} <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text bg-light align-self-start"><i class="ri-file-text-line"></i></span>
-                                <textarea v-model="reason" rows="3" maxlength="500" class="form-control" :class="{ 'is-invalid': errors.rejection_reason }"></textarea>
+                                <textarea
+                                    v-model="review.reason"
+                                    rows="3"
+                                    maxlength="500"
+                                    class="form-control"
+                                    :class="classOf('reason')"
+                                    @input="onInput('reason')"
+                                ></textarea>
                             </div>
-                            <div v-if="errors.rejection_reason" class="invalid-feedback d-block">{{ errors.rejection_reason }}</div>
+                            <div v-if="messageOf('reason')" class="invalid-feedback d-block">{{ messageOf('reason') }}</div>
                         </div>
                         <button type="submit" class="btn btn-danger btn-wave" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.reject') }}</button>
                     </form>
-                    <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
+                    <div v-if="generalError" class="text-danger mt-2 fs-13">{{ generalError }}</div>
                 </WalletSection>
-                <div v-else-if="errors.general" class="text-danger fs-13">{{ errors.general }}</div>
+                <div v-else-if="generalError" class="text-danger fs-13">{{ generalError }}</div>
             </div>
         </WalletModal>
     </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue';
+import useVuelidate from '@vuelidate/core';
+import { helpers } from '@vuelidate/validators';
+import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import FormFieldFeedback from '../../../../../../../components/ui/FormFieldFeedback.vue';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletDetailHero from '../../../../../../../components/wallet/WalletDetailHero.vue';
 import WalletInfoTile from '../../../../../../../components/wallet/WalletInfoTile.vue';
@@ -190,13 +203,15 @@ import WalletModal from '../../../../../../../components/wallet/WalletModal.vue'
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
 import useToast from '../../../../../../../composables/useToast';
+import useFormFields from '../../../../../../../composables/useFormFields';
+import useValidation from '../../../../../../../composables/useValidation';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, formatDateTime } from '../../../../../../../utils/walletMoney';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();
-const { showSuccess } = useToast();
+const { showSuccess, showWarning } = useToast();
 
 // Pending first: that is what a reviewer opens this screen for.
 const { rows, loading, pagination, filters, fetch } = useWalletList('withdrawal-requests', { defaults: { status: 'pending' } });
@@ -208,22 +223,61 @@ const showModal = ref(false);
 const detail = ref(null);
 const detailLoading = ref(false);
 const mode = ref('approve');
-const receipt = ref(null);
-const note = ref('');
-const reason = ref('');
+const review = reactive({ receipt: null, note: '', reason: '' });
 const busy = ref(false);
-const errors = reactive({ receipt: '', rejection_reason: '', general: '' });
+const serverErrors = reactive({});
+const generalError = ref('');
+const { requiredField, minString, maxString, applyApiErrors } = useValidation();
+
+// Only the fields of the open tab are validated: approve needs the receipt, reject needs the reason.
+const reviewRules = computed(() => ({
+    receipt: mode.value === 'approve'
+        ? {
+            required: helpers.withMessage(() => t('wallet.withdrawals.receipt_required'), (file) => file instanceof File),
+        }
+        : {},
+    note: { maxLength: maxString('wallet.common.note', 500) },
+    reason: mode.value === 'reject'
+        ? {
+            required: requiredField('wallet.withdrawals.reason'),
+            minLength: minString('wallet.withdrawals.reason', 3),
+            maxLength: maxString('wallet.withdrawals.reason', 500),
+        }
+        : {},
+}));
+
+const v$ = useVuelidate(reviewRules, review, { $autoDirty: true });
+const { feedbackOf, classOf, messageOf, onInput } = useFormFields({
+    getV$: () => v$.value,
+    form: review,
+    serverErrors,
+    serverKeys: { reason: 'rejection_reason' },
+});
+
+function onReceiptChange(event) {
+    review.receipt = event.target.files[0] || null;
+    delete serverErrors.receipt;
+    v$.value.receipt?.$touch?.();
+}
+
+watch(mode, () => {
+    applyApiErrors(serverErrors, {});
+    generalError.value = '';
+    v$.value.$reset();
+});
 
 function statusClass(status) {
     return { pending: 'bg-warning-transparent', approved: 'bg-success-transparent', rejected: 'bg-danger-transparent' }[status] || 'bg-light text-default';
 }
 
 function resetForm() {
-    receipt.value = null;
-    note.value = '';
-    reason.value = '';
-    Object.assign(errors, { receipt: '', rejection_reason: '', general: '' });
+    review.receipt = null;
+    review.note = '';
+    review.reason = '';
+    applyApiErrors(serverErrors, {});
+    generalError.value = '';
     mode.value = canApprove.value ? 'approve' : 'reject';
+    v$.value.$reset();
 }
 
 async function open(id) {
@@ -248,16 +302,15 @@ function close() {
 function applyErrors(error) {
     const bag = error?.response?.data?.errors ?? {};
 
-    errors.receipt = bag.receipt?.[0] ?? '';
-    errors.rejection_reason = bag.rejection_reason?.[0] ?? '';
-    errors.general = Object.keys(bag).length ? '' : (error?.response?.data?.message ?? '');
+    applyApiErrors(serverErrors, bag);
+    generalError.value = Object.keys(bag).length ? '' : (error?.response?.data?.message ?? '');
 }
 
 async function approve() {
-    Object.assign(errors, { receipt: '', rejection_reason: '', general: '' });
+    generalError.value = '';
 
-    if (! receipt.value) {
-        errors.receipt = t('wallet.withdrawals.receipt_required');
+    if (! (await v$.value.$validate())) {
+        showWarning(t('toast.validation_error'));
 
         return;
     }
@@ -267,10 +320,10 @@ async function approve() {
     try {
         const form = new FormData();
 
-        form.append('receipt', receipt.value);
+        form.append('receipt', review.receipt);
 
-        if (note.value) {
-            form.append('note', note.value);
+        if (review.note) {
+            form.append('note', review.note);
         }
 
         const { data } = await adminAxios.post(`/api/admin/v1/withdrawal-requests/${detail.value.id}/approve`, form);
@@ -286,10 +339,10 @@ async function approve() {
 }
 
 async function reject() {
-    Object.assign(errors, { receipt: '', rejection_reason: '', general: '' });
+    generalError.value = '';
 
-    if (reason.value.trim().length < 3) {
-        errors.rejection_reason = t('wallet.withdrawals.reason_required');
+    if (! (await v$.value.$validate())) {
+        showWarning(t('toast.validation_error'));
 
         return;
     }
@@ -298,7 +351,7 @@ async function reject() {
 
     try {
         const { data } = await adminAxios.post(`/api/admin/v1/withdrawal-requests/${detail.value.id}/reject`, {
-            rejection_reason: reason.value.trim(),
+            rejection_reason: review.reason.trim(),
         });
 
         detail.value = data.data;

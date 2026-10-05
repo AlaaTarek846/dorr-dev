@@ -223,6 +223,11 @@ class MobileProfileTest extends TestCase
             ->assertJsonPath('data.avatar', fn ($avatar) => $avatar !== null);
 
         $this->assertSame(1, $user->fresh()->getMedia('avatar')->count());
+        $media = $user->fresh()->getFirstMedia('avatar');
+        if (function_exists('imagewebp')) {
+            $this->assertSame('image/webp', $media?->mime_type);
+            $this->assertNotFalse($media && str_ends_with($media->file_name, '.webp'));
+        }
     }
 
     public function test_delete_avatar_removes_media_and_returns_null_avatar(): void

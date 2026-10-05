@@ -1,5 +1,5 @@
 <template>
-    <section class="wallet-section">
+    <section class="wallet-section" :class="{ 'wallet-section--visible': visible }">
         <header class="wallet-section__header">
             <span v-if="icon" class="wallet-section__icon"><i :class="icon"></i></span>
             <h6 class="wallet-section__title">{{ title }}</h6>
@@ -19,6 +19,8 @@ defineProps({
     title: { type: String, required: true },
     icon: { type: String, default: '' },
     flush: { type: Boolean, default: false },
+    /** Let dropdown panels (PrimeVue Select) overflow the section instead of being clipped. */
+    visible: { type: Boolean, default: false },
 });
 </script>
 
@@ -28,6 +30,10 @@ defineProps({
     border: 1px solid var(--default-border, #e9edf2);
     border-radius: 0.75rem;
     background: var(--custom-white, #fff);
+}
+
+.wallet-section--visible {
+    overflow: visible;
 }
 
 .wallet-section__header {

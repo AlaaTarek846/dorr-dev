@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use App\Support\Media\WebpUploadConverter;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
@@ -69,6 +70,7 @@ class StoryService
 
             if ($file !== null) {
                 config(['media-library.max_file_size' => $settings->max_file_size_mb * 1024 * 1024]);
+                $file = WebpUploadConverter::convert($file);
                 $story->addMedia($file)
                     ->usingFileName(Str::uuid().'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin'))
                     ->toMediaCollection(ChatStory::MEDIA);
