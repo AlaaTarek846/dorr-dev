@@ -307,8 +307,9 @@ fun WalletHost.requestPin(
 }
 
 /**
- * The PIN screen reached from Account → Wallet PIN, outside a wallet visit: same page, its own
- * little host (so the toast and back handling work), leaving straight back to the account menu.
+ * The PIN screen reached from Account → Settings → Wallet → Change PIN, outside a
+ * wallet visit: same page, its own little host (so the toast and back handling work),
+ * leaving straight back to the wallet settings menu.
  */
 @Composable
 fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) {

@@ -16,6 +16,14 @@ class ChatSticker extends Model implements HasMedia
 
     public const IMAGE = 'image';
 
+    /**
+     * @return list<string>
+     */
+    protected function webpSkipCollections(): array
+    {
+        return [self::IMAGE];
+    }
+
     protected $fillable = ['pack_id', 'emoji', 'sort_order'];
 
     public function pack(): BelongsTo
