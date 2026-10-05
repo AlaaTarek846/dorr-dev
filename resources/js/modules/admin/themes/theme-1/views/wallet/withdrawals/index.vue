@@ -84,44 +84,56 @@
 
         <WalletModal :show="showModal" :title="detail ? `#${detail.id} · ${t('wallet.withdrawals.request')}` : ''" @close="close">
             <div v-if="detailLoading" class="text-center py-5"><span class="spinner-border"></span></div>
-            <div v-else-if="detail">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.status') }}</div>
-                        <span class="badge" :class="statusClass(detail.status)">{{ t(`wallet.wstatus.${detail.status}`) }}</span>
+            <div v-else-if="detail" class="d-flex flex-column gap-3">
+                <WalletDetailHero
+                    icon="ri-hand-coin-line"
+                    :label="t('wallet.common.amount')"
+                    :value="fmtMinor(detail.amount_minor, detail.currency_code)"
+                    :subtitle="detail.created_at ? formatDateTime(detail.created_at, locale) : `#${detail.id}`"
+                >
+                    <span class="badge fs-12" :class="statusClass(detail.status)">{{ t(`wallet.wstatus.${detail.status}`) }}</span>
+                </WalletDetailHero>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <WalletInfoTile icon="ri-user-line" :label="t('wallet.common.owner')">
+                            {{ detail.owner?.name }}
+                            <div v-if="detail.owner?.phone" class="fs-12 fw-normal text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
+                        </WalletInfoTile>
                     </div>
-                    <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.owner') }}</div>
-                        <div class="fw-semibold">{{ detail.owner?.name }}</div>
-                        <div class="fs-12 text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.amount') }}</div>
-                        <div class="fw-semibold fs-5">{{ fmtMinor(detail.amount_minor, detail.currency_code) }}</div>
+                    <div class="col-md-6">
+                        <WalletInfoTile icon="ri-secure-payment-line" :label="t('wallet.withdrawals.method')">
+                            {{ detail.method?.display }}
+                        </WalletInfoTile>
                     </div>
                 </div>
 
-                <div class="card bg-light border-0 mb-3">
-                    <div class="card-body py-3">
-                        <h6 class="fw-semibold mb-2"><i class="ri-bank-line me-1"></i>{{ t('wallet.withdrawals.payout_to') }}</h6>
-                        <div v-if="detail.payout_details" class="row g-2 fs-13">
-                            <div v-for="(value, key) in detail.payout_details" :key="key" class="col-md-6">
-                                <span class="text-muted">{{ t(`wallet.payout.${key}`) }}:</span>
-                                <span class="fw-semibold user-select-all ms-1" dir="ltr">{{ value }}</span>
+                <WalletSection :title="t('wallet.withdrawals.payout_to')" icon="ri-bank-line">
+                    <div v-if="detail.payout_details" class="row g-2">
+                        <div v-for="(value, key) in detail.payout_details" :key="key" class="col-md-6">
+                            <div class="d-flex justify-content-between gap-3 border-bottom pb-1 fs-13">
+                                <span class="text-muted">{{ t(`wallet.payout.${key}`) }}</span>
+                                <span class="fw-semibold user-select-all" dir="ltr">{{ value }}</span>
                             </div>
                         </div>
-                        <div v-else class="text-muted">{{ detail.method?.display }}</div>
                     </div>
+                    <div v-else class="text-muted">{{ detail.method?.display }}</div>
+                </WalletSection>
+
+                <div v-if="detail.note" class="alert alert-light border py-2 mb-0">
+                    <i class="ri-chat-1-line me-1 align-middle text-muted"></i>
+                    <span class="text-muted">{{ t('wallet.common.note') }}:</span> {{ detail.note }}
+                </div>
+                <div v-if="detail.rejection_reason" class="alert alert-danger py-2 mb-0">
+                    <i class="ri-close-circle-line me-1 align-middle"></i>{{ detail.rejection_reason }}
+                </div>
+                <div v-if="detail.has_receipt">
+                    <button type="button" class="btn btn-sm btn-outline-primary btn-wave" @click="downloadReceipt">
+                        <i class="ri-download-line me-1"></i>{{ t('wallet.withdrawals.receipt') }}
+                    </button>
                 </div>
 
-                <div v-if="detail.note" class="mb-2"><span class="text-muted">{{ t('wallet.common.note') }}:</span> {{ detail.note }}</div>
-                <div v-if="detail.rejection_reason" class="alert alert-danger py-2">{{ detail.rejection_reason }}</div>
-                <button v-if="detail.has_receipt" type="button" class="btn btn-sm btn-outline-primary mb-2" @click="downloadReceipt">
-                    <i class="ri-download-line me-1"></i>{{ t('wallet.withdrawals.receipt') }}
-                </button>
-
-                <template v-if="detail.status === 'pending'">
-                    <hr>
+                <WalletSection v-if="detail.status === 'pending'" :title="t('wallet.withdrawals.review')" icon="ri-shield-check-line">
                     <ul class="nav nav-tabs mb-3">
                         <li v-if="canApprove" class="nav-item"><button type="button" class="nav-link" :class="{ active: mode === 'approve' }" @click="mode = 'approve'">{{ t('wallet.withdrawals.approve') }}</button></li>
                         <li v-if="canReject" class="nav-item"><button type="button" class="nav-link" :class="{ active: mode === 'reject' }" @click="mode = 'reject'">{{ t('wallet.withdrawals.reject') }}</button></li>
@@ -131,26 +143,36 @@
                         <div class="alert alert-info fs-13">{{ t('wallet.withdrawals.approve_hint') }}</div>
                         <div class="mb-3">
                             <label class="form-label">{{ t('wallet.withdrawals.receipt') }} <span class="text-danger">*</span></label>
-                            <input type="file" class="form-control" :class="{ 'is-invalid': errors.receipt }" accept=".jpg,.jpeg,.png,.pdf" @change="receipt = $event.target.files[0] || null">
-                            <div v-if="errors.receipt" class="invalid-feedback">{{ errors.receipt }}</div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="ri-attachment-2"></i></span>
+                                <input type="file" class="form-control" :class="{ 'is-invalid': errors.receipt }" accept=".jpg,.jpeg,.png,.pdf" @change="receipt = $event.target.files[0] || null">
+                            </div>
+                            <div v-if="errors.receipt" class="invalid-feedback d-block">{{ errors.receipt }}</div>
                         </div>
                         <div class="mb-3">
                             <label class="form-label">{{ t('wallet.common.note') }}</label>
-                            <input v-model="note" type="text" maxlength="500" class="form-control">
+                            <div class="input-group">
+                                <span class="input-group-text bg-light"><i class="ri-chat-1-line"></i></span>
+                                <input v-model="note" type="text" maxlength="500" class="form-control">
+                            </div>
                         </div>
-                        <button type="submit" class="btn btn-success" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.approve') }}</button>
+                        <button type="submit" class="btn btn-success btn-wave" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.approve') }}</button>
                     </form>
 
                     <form v-else-if="mode === 'reject' && canReject" @submit.prevent="reject">
                         <div class="mb-3">
                             <label class="form-label">{{ t('wallet.withdrawals.reason') }} <span class="text-danger">*</span></label>
-                            <textarea v-model="reason" rows="3" maxlength="500" class="form-control" :class="{ 'is-invalid': errors.rejection_reason }"></textarea>
-                            <div v-if="errors.rejection_reason" class="invalid-feedback">{{ errors.rejection_reason }}</div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light align-self-start"><i class="ri-file-text-line"></i></span>
+                                <textarea v-model="reason" rows="3" maxlength="500" class="form-control" :class="{ 'is-invalid': errors.rejection_reason }"></textarea>
+                            </div>
+                            <div v-if="errors.rejection_reason" class="invalid-feedback d-block">{{ errors.rejection_reason }}</div>
                         </div>
-                        <button type="submit" class="btn btn-danger" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.reject') }}</button>
+                        <button type="submit" class="btn btn-danger btn-wave" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.reject') }}</button>
                     </form>
-                </template>
-                <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
+                    <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
+                </WalletSection>
+                <div v-else-if="errors.general" class="text-danger fs-13">{{ errors.general }}</div>
             </div>
         </WalletModal>
     </div>
@@ -161,6 +183,9 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
+import WalletDetailHero from '../../../../../../../components/wallet/WalletDetailHero.vue';
+import WalletInfoTile from '../../../../../../../components/wallet/WalletInfoTile.vue';
+import WalletSection from '../../../../../../../components/wallet/WalletSection.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';

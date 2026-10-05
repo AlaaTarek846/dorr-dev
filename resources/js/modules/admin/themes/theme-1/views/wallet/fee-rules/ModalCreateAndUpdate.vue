@@ -138,6 +138,7 @@
                             <div class="col-md-4">
                                 <label for="rule-country" class="form-label">{{ t('wallet.wallets.country') }}</label>
                                 <Select
+                                    :filter-placeholder="t('search_placeholder')"
                                     id="rule-country"
                                     v-model="form.country_id"
                                     :options="countryChoices"
@@ -154,6 +155,8 @@
                             <div class="col-md-4">
                                 <label for="rule-method" class="form-label">{{ t('wallet.methods.title') }}</label>
                                 <Select
+                                    filter
+                                    :filter-placeholder="t('search_placeholder')"
                                     id="rule-method"
                                     v-model="form.payment_method_id"
                                     :options="methodChoices"
@@ -169,6 +172,8 @@
                             <div class="col-md-4">
                                 <label for="rule-owner" class="form-label">{{ t('wallet.common.owner') }}</label>
                                 <Select
+                                    filter
+                                    :filter-placeholder="t('search_placeholder')"
                                     id="rule-owner"
                                     v-model="form.owner_type"
                                     :options="ownerChoices"

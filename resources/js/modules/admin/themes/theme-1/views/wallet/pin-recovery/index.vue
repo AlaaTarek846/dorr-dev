@@ -88,44 +88,54 @@
 
         <WalletModal :show="showModal" :title="detail ? `#${detail.id} · ${t('wallet.pinrec.request')}` : ''" @close="close">
             <div v-if="detailLoading" class="text-center py-5"><span class="spinner-border"></span></div>
-            <div v-else-if="detail">
-                <div class="row g-3 mb-3">
-                    <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.status') }}</div>
-                        <span class="badge" :class="statusClass(detail.status)">{{ t(`wallet.wstatus.${detail.status}`) }}</span>
+            <div v-else-if="detail" class="d-flex flex-column gap-3">
+                <WalletDetailHero
+                    icon="ri-lock-password-line"
+                    :label="t('wallet.pinrec.request')"
+                    :value="`#${detail.id}`"
+                    :subtitle="detail.created_at ? formatDateTime(detail.created_at, locale) : ''"
+                >
+                    <span class="badge fs-12" :class="statusClass(detail.status)">{{ t(`wallet.wstatus.${detail.status}`) }}</span>
+                </WalletDetailHero>
+
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <WalletInfoTile icon="ri-user-line" :label="t('wallet.common.owner')">
+                            {{ detail.owner?.name }}
+                            <div v-if="detail.owner?.phone" class="fs-12 fw-normal text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
+                        </WalletInfoTile>
                     </div>
-                    <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.owner') }}</div>
-                        <div class="fw-semibold">{{ detail.owner?.name }}</div>
-                        <div class="fs-12 text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
-                    </div>
-                    <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.pinrec.document') }}</div>
-                        <div class="fw-semibold">{{ t(`wallet.pinrec.method.${detail.method}`) }}</div>
+                    <div class="col-md-6">
+                        <WalletInfoTile icon="ri-id-card-line" :label="t('wallet.pinrec.document')">
+                            {{ t(`wallet.pinrec.method.${detail.method}`) }}
+                        </WalletInfoTile>
                     </div>
                 </div>
 
-                <div class="alert py-2" :class="detail.reason === 'security_freeze' ? 'alert-danger' : 'alert-info'">
-                    {{ t(`wallet.pinrec.compare_hint.${detail.reason}`) }}
+                <div class="alert py-2 mb-0" :class="detail.reason === 'security_freeze' ? 'alert-danger' : 'alert-info'">
+                    <i class="ri-information-line me-1 align-middle"></i>{{ t(`wallet.pinrec.compare_hint.${detail.reason}`) }}
                 </div>
 
-                <div class="row g-3 mb-3">
-                    <div v-for="side in sides" :key="side.key" class="col-md-6">
-                        <div class="fw-semibold mb-2">{{ t(`wallet.pinrec.${side.key}.${detail.reason}`) }}</div>
-                        <div class="border rounded d-flex align-items-center justify-content-center bg-light" style="min-height: 240px">
-                            <span v-if="images[side.key] === undefined" class="spinner-border spinner-border-sm"></span>
-                            <span v-else-if="images[side.key] === null" class="text-muted fs-13">{{ t('wallet.pinrec.no_image') }}</span>
-                            <a v-else :href="images[side.key]" target="_blank" rel="noopener">
-                                <img :src="images[side.key]" :alt="t(`wallet.pinrec.${side.key}`)" class="img-fluid rounded" style="max-height: 360px">
-                            </a>
+                <WalletSection :title="t('wallet.pinrec.document')" icon="ri-image-line">
+                    <div class="row g-3">
+                        <div v-for="side in sides" :key="side.key" class="col-md-6">
+                            <div class="fw-semibold fs-13 mb-2">{{ t(`wallet.pinrec.${side.key}.${detail.reason}`) }}</div>
+                            <div class="border rounded-3 d-flex align-items-center justify-content-center bg-light overflow-hidden" style="min-height: 240px">
+                                <span v-if="images[side.key] === undefined" class="spinner-border spinner-border-sm"></span>
+                                <span v-else-if="images[side.key] === null" class="text-muted fs-13"><i class="ri-image-line me-1"></i>{{ t('wallet.pinrec.no_image') }}</span>
+                                <a v-else :href="images[side.key]" target="_blank" rel="noopener">
+                                    <img :src="images[side.key]" :alt="t(`wallet.pinrec.${side.key}`)" class="img-fluid" style="max-height: 360px">
+                                </a>
+                            </div>
                         </div>
                     </div>
+                </WalletSection>
+
+                <div v-if="detail.rejection_reason" class="alert alert-danger py-2 mb-0">
+                    <i class="ri-close-circle-line me-1 align-middle"></i>{{ detail.rejection_reason }}
                 </div>
 
-                <div v-if="detail.rejection_reason" class="alert alert-danger py-2">{{ detail.rejection_reason }}</div>
-
-                <template v-if="detail.status === 'pending'">
-                    <hr>
+                <WalletSection v-if="detail.status === 'pending'" :title="t('wallet.pinrec.review')" icon="ri-shield-check-line">
                     <ul class="nav nav-tabs mb-3">
                         <li v-if="canApprove" class="nav-item"><button type="button" class="nav-link" :class="{ active: mode === 'approve' }" @click="mode = 'approve'">{{ t('wallet.withdrawals.approve') }}</button></li>
                         <li v-if="canReject" class="nav-item"><button type="button" class="nav-link" :class="{ active: mode === 'reject' }" @click="mode = 'reject'">{{ t('wallet.withdrawals.reject') }}</button></li>
@@ -133,7 +143,7 @@
 
                     <div v-if="mode === 'approve' && canApprove">
                         <div class="alert alert-warning fs-13">{{ t('wallet.pinrec.approve_hint') }}</div>
-                        <button type="button" class="btn btn-success" :disabled="busy" @click="approve">
+                        <button type="button" class="btn btn-success btn-wave" :disabled="busy" @click="approve">
                             <span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.approve') }}
                         </button>
                     </div>
@@ -141,13 +151,17 @@
                     <form v-else-if="mode === 'reject' && canReject" @submit.prevent="reject">
                         <div class="mb-3">
                             <label class="form-label">{{ t('wallet.withdrawals.reason') }} <span class="text-danger">*</span></label>
-                            <textarea v-model="reason" rows="3" maxlength="500" class="form-control" :class="{ 'is-invalid': errors.rejection_reason }"></textarea>
-                            <div v-if="errors.rejection_reason" class="invalid-feedback">{{ errors.rejection_reason }}</div>
+                            <div class="input-group">
+                                <span class="input-group-text bg-light align-self-start"><i class="ri-file-text-line"></i></span>
+                                <textarea v-model="reason" rows="3" maxlength="500" class="form-control" :class="{ 'is-invalid': errors.rejection_reason }"></textarea>
+                            </div>
+                            <div v-if="errors.rejection_reason" class="invalid-feedback d-block">{{ errors.rejection_reason }}</div>
                         </div>
-                        <button type="submit" class="btn btn-danger" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.reject') }}</button>
+                        <button type="submit" class="btn btn-danger btn-wave" :disabled="busy"><span v-if="busy" class="spinner-border spinner-border-sm me-1"></span>{{ t('wallet.withdrawals.reject') }}</button>
                     </form>
-                </template>
-                <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
+                    <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
+                </WalletSection>
+                <div v-else-if="errors.general" class="text-danger fs-13">{{ errors.general }}</div>
             </div>
         </WalletModal>
     </div>
@@ -158,6 +172,9 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
+import WalletDetailHero from '../../../../../../../components/wallet/WalletDetailHero.vue';
+import WalletInfoTile from '../../../../../../../components/wallet/WalletInfoTile.vue';
+import WalletSection from '../../../../../../../components/wallet/WalletSection.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
