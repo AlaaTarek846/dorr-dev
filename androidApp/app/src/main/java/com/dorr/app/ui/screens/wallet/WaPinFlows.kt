@@ -77,6 +77,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
+import androidx.compose.runtime.mutableIntStateOf
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.ChangePinRequest
@@ -191,8 +193,8 @@ private fun WaPhotoPicker(photo: PickedPhoto?, onPicked: (PickedPhoto?) -> Unit,
                 .fillMaxWidth()
                 .heightIn(min = 190.dp)
                 .clip(shape)
-                .background(Color.White)
-                .border(1.5.dp, if (photo == null) Color(0xFFFBD2C4) else Wa.Line, shape)
+                .background(Wa.Surface)
+                .border(1.5.dp, if (photo == null) Wa.Red.copy(alpha = 0.35f) else Wa.Line, shape)
                 .clickable { launchPicker() },
             contentAlignment = Alignment.Center,
         ) {
@@ -251,18 +253,10 @@ private fun ColumnScope.WaFormStep(cta: @Composable ColumnScope.() -> Unit, cont
     }
 }
 
-/** Day / month / year boxes → "yyyy-MM-dd", or null when it is not a real date in the past. */
+/** The date of birth, chosen from day / month / year drop-downs (see [WaBirthPicker]). */
 @Composable
 private fun WaBirthFields(day: String, month: String, year: String, onChange: (String, String, String) -> Unit, error: Boolean) {
-    // Digits read left-to-right in every language.
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            val keyboard = KeyboardOptions(keyboardType = KeyboardType.Number)
-            DorrTextField(day, { onChange(it.filter(Char::isDigit).take(2), month, year) }, Modifier.weight(1f), label = stringResource(R.string.wa_rec_day), placeholder = "DD", icon = Icons.Rounded.CalendarToday, keyboardOptions = keyboard, error = error)
-            DorrTextField(month, { onChange(day, it.filter(Char::isDigit).take(2), year) }, Modifier.weight(1f), label = stringResource(R.string.wa_rec_month), placeholder = "MM", keyboardOptions = keyboard, error = error)
-            DorrTextField(year, { onChange(day, month, it.filter(Char::isDigit).take(4)) }, Modifier.weight(1.4f), label = stringResource(R.string.wa_rec_year), placeholder = "YYYY", keyboardOptions = keyboard, error = error)
-        }
-    }
+    WaBirthPicker(day, month, year, onChange, error)
 }
 
 internal fun birthDateOrNull(day: String, month: String, year: String): String? {
@@ -275,18 +269,7 @@ private val EMAIL_SHAPE = Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")
 
 @Composable
 private fun WaCodeField(code: String, onChange: (String) -> Unit, error: Boolean) {
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        DorrTextField(
-            value = code,
-            onValueChange = { onChange(it.filter(Char::isDigit).take(4)) },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-            placeholder = "••••",
-            error = error,
-            minHeight = 58.dp,
-            shape = androidx.compose.foundation.shape.RoundedCornerShape(18.dp),
-            textStyle = androidx.compose.ui.text.TextStyle(fontSize = 26.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 10.sp, textAlign = TextAlign.Center),
-        )
-    }
+    WaOtpBoxes(code, onChange, error)
 }
 
 @Composable
@@ -344,6 +327,14 @@ fun WaPinSetupPage(
     var error by remember { mutableStateOf<String?>(null) }
     var notice by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
+    // Seconds until a new e-mail code may be asked for (the personal-data screens use the same 60).
+    var countdown by remember { mutableIntStateOf(0) }
+    LaunchedEffect(countdown) {
+        if (countdown > 0) {
+            delay(1000)
+            countdown -= 1
+        }
+    }
 
     val shortPassword = stringResource(R.string.wa_rec_password_short)
     val passwordMismatch = stringResource(R.string.wa_rec_password_mismatch)
@@ -389,6 +380,7 @@ fun WaPinSetupPage(
                     RecoveryMethodUi.Email -> ApiClient.wallet.setRecovery(auth, RecoverySetupRequest("email", email = email.trim()), existingPin)
                     else -> ApiClient.wallet.setRecoveryDocument(auth, method.wire.toRequestBody("text/plain".toMediaType()), photo!!.toPart(), existingPin)
                 }
+                if (method == RecoveryMethodUi.Email) countdown = 60
                 step = if (method == RecoveryMethodUi.Email) "code" else if (changing) "saved" else "pin"
             } catch (e: CancellationException) {
                 throw e
@@ -427,6 +419,7 @@ fun WaPinSetupPage(
                 ApiClient.wallet.sendRecoveryEmailCode(walletAuth(), if (changing) true else null)
                 error = null
                 notice = codeSent
+                countdown = 60
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -452,17 +445,20 @@ fun WaPinSetupPage(
             "detail" -> WaFormStep(
                 cta = {
                     WaError(error)
-                    WaButton(stringResource(R.string.wa_continue), { submitDetail() }, loading = busy)
+                    WaButton(stringResource(if (method == RecoveryMethodUi.Email) R.string.pd_send_code else R.string.wa_continue), { submitDetail() }, loading = busy)
                 },
             ) {
+                // The icon and the name of the method on top, the same for every method (password, date of birth, e-mail, photos).
                 WaStepHeader(method.icon, method.tone, stringResource(method.title), "")
                 when (method) {
                     RecoveryMethodUi.Password -> {
-                        DorrTextField(password, { password = it; error = null }, label = stringResource(R.string.wa_rec_password), icon = Icons.Rounded.Lock, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
-                        Spacer(Modifier.height(12.dp))
-                        DorrTextField(passwordAgain, { passwordAgain = it; error = null }, label = stringResource(R.string.wa_rec_password_confirm), icon = Icons.Rounded.LockReset, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
-                        Spacer(Modifier.height(12.dp))
-                        WaNote(stringResource(R.string.wa_rec_password_hint))
+                        // In a card like the date-of-birth and e-mail screens: the two fields, then one line of help.
+                        WaCard(Modifier.fillMaxWidth(), padding = 16.dp) {
+                            DorrTextField(password, { password = it; error = null }, label = stringResource(R.string.wa_rec_password), icon = Icons.Rounded.Lock, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+                            Spacer(Modifier.height(12.dp))
+                            DorrTextField(passwordAgain, { passwordAgain = it; error = null }, label = stringResource(R.string.wa_rec_password_confirm), icon = Icons.Rounded.LockReset, password = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password))
+                            Text(stringResource(R.string.wa_rec_password_hint), color = Wa.Mut, fontSize = 12.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 12.dp, start = 2.dp, end = 2.dp))
+                        }
                     }
                     RecoveryMethodUi.BirthDate -> {
                         WaBirthFields(day, month, year, { d, m, y -> day = d; month = m; year = y; error = null }, error = error != null)
@@ -470,9 +466,15 @@ fun WaPinSetupPage(
                         WaNote(stringResource(R.string.wa_rec_birth_hint))
                     }
                     RecoveryMethodUi.Email -> {
-                        DorrTextField(email, { email = it; error = null }, label = stringResource(R.string.wa_rec_email), icon = Icons.Rounded.Email, placeholder = "name@example.com", keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
-                        Spacer(Modifier.height(12.dp))
-                        WaNote(stringResource(R.string.wa_rec_email_hint))
+                        // The same card as the e-mail screen of the personal data: label, pill field, one line of help.
+                        WaCard(Modifier.fillMaxWidth(), padding = 16.dp) {
+                            Text(stringResource(R.string.wa_rec_email), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, modifier = Modifier.padding(bottom = 10.dp))
+                            WaPillField(
+                                email, { email = it; error = null }, placeholder = "name@example.com", icon = Icons.Rounded.Email,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), error = error != null,
+                            )
+                            Text(stringResource(R.string.wa_rec_email_hint), color = Wa.Mut, fontSize = 12.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 10.dp, start = 2.dp, end = 2.dp))
+                        }
                     }
                     else -> {
                         WaPhotoPicker(photo, { photo = it; error = null }, onUnreadable = { error = photoUnreadable })
@@ -485,13 +487,29 @@ fun WaPinSetupPage(
             "code" -> WaFormStep(
                 cta = {
                     WaError(error)
-                    WaButton(stringResource(R.string.wa_continue), { confirmCode() }, loading = busy, enabled = code.length == 4)
-                    WaButton(stringResource(R.string.wa_rec_code_resend), { resendCode() }, style = WaButtonStyle.Quiet)
+                    WaButton(stringResource(R.string.profile_otp_confirm), { confirmCode() }, loading = busy, enabled = code.length == 4)
                 },
             ) {
-                WaStepHeader(Icons.Rounded.Email, Tone.Green, stringResource(R.string.wa_rec_code_title), stringResource(R.string.wa_rec_code_sub, email.trim()))
-                WaCodeField(code, { code = it; error = null }, error = error != null)
-                if (notice != null) Text(notice.orEmpty(), color = Wa.Green, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 10.dp))
+                WaCard(Modifier.fillMaxWidth(), padding = 18.dp) {
+                    Text(
+                        stringResource(R.string.wa_rec_code_sub, email.trim()),
+                        color = Wa.Mut, fontSize = 13.sp, lineHeight = 22.sp, textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(18.dp))
+                    WaOtpBoxes(code, { code = it; error = null }, error = error != null)
+                    Spacer(Modifier.height(16.dp))
+                    if (countdown > 0) {
+                        Text(stringResource(R.string.profile_otp_timer, countdown), color = Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                    } else {
+                        Text(
+                            stringResource(R.string.profile_otp_resend),
+                            color = Wa.Red, fontSize = 13.5.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().clickable { resendCode() }.padding(vertical = 4.dp),
+                        )
+                    }
+                    if (notice != null) Text(notice.orEmpty(), color = Wa.Green, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+                }
             }
 
             "saved" -> WaStatusColumn {
@@ -881,8 +899,9 @@ fun WaDeviceTrustPage(pin: String, onExit: () -> Unit, onDone: () -> Unit) {
             },
             style = WaButtonStyle.Quiet,
         )
-        (notice ?: error)?.let {
-            Text(it, color = if (error != null) Wa.Danger else Wa.Green, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
+        WaError(error)
+        notice?.takeIf { error == null }?.let {
+            Text(it, color = Wa.Green, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp))
         }
     }
 }

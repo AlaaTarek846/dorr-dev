@@ -69,6 +69,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Help
 import androidx.compose.material.icons.rounded.Info
@@ -130,7 +131,10 @@ import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.appearanceColor
 
 
-private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, TERMS, ADDRESSES, SETTINGS, APPEARANCE, FONT }
+private enum class ProfileSub {
+    NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, WALLET_SETTINGS,
+    PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
+}
 
 private data class MenuEntry(
     val icon: ImageVector,
@@ -155,8 +159,10 @@ fun ProfileScreen(
     // steps (personal data, addresses form, privacy policy) register their own handlers after this one.
     BackHandler(enabled = !isAtRoot) {
         subScreen = when (subScreen) {
-            ProfileSub.NOTIFICATIONS, ProfileSub.WALLET_PIN, ProfileSub.PRIVACY, ProfileSub.TERMS,
-            ProfileSub.APPEARANCE, ProfileSub.FONT -> ProfileSub.SETTINGS
+            ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
+            ProfileSub.LEGAL, ProfileSub.WALLET_SETTINGS -> ProfileSub.SETTINGS
+            ProfileSub.WALLET_PIN -> ProfileSub.WALLET_SETTINGS
+            ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
         }
     }
@@ -226,22 +232,27 @@ fun ProfileScreen(
             ProfileSub.WALLET_PIN -> {
                 val subContext = LocalContext.current
                 WalletPinSettingsScreen(
-                    onBack = { subScreen = ProfileSub.SETTINGS },
+                    onBack = { subScreen = ProfileSub.WALLET_SETTINGS },
                     onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
             }
-            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.SETTINGS })
-            ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
+            ProfileSub.WALLET_SETTINGS -> WalletSettingsMenuScreen(
+                onBack = { subScreen = ProfileSub.SETTINGS },
+                onOpenChangePin = { subScreen = ProfileSub.WALLET_PIN },
+            )
+            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.LEGAL })
+            ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.LEGAL })
+            ProfileSub.LEGAL -> LegalMenuScreen(
+                onBack = { subScreen = ProfileSub.SETTINGS },
+                onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
+                onOpenTerms = { subScreen = ProfileSub.TERMS },
+            )
             ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
-                onLogout = onLogout,
-                onDeleteAccount = ::deleteAccount,
-                isDeleting = isDeleting,
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
-                onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
-                onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
-                onOpenTerms = { subScreen = ProfileSub.TERMS },
+                onOpenWalletSettings = { subScreen = ProfileSub.WALLET_SETTINGS },
+                onOpenLegal = { subScreen = ProfileSub.LEGAL },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
             )
@@ -252,6 +263,9 @@ fun ProfileScreen(
                 onOpenSettings = { subScreen = ProfileSub.SETTINGS },
                 onOpenAddresses = { subScreen = ProfileSub.ADDRESSES },
                 onOpenWallet = onOpenWallet,
+                onLogout = onLogout,
+                onDeleteAccount = ::deleteAccount,
+                isDeleting = isDeleting,
             )
         }
     }
@@ -370,12 +384,17 @@ private fun ProfileMenuScreen(
     onOpenSettings: () -> Unit,
     onOpenAddresses: () -> Unit,
     onOpenWallet: () -> Unit,
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    isDeleting: Boolean,
 ) {
     val context = LocalContext.current
     val comingSoon = stringResource(R.string.services_coming_soon)
     fun toastComingSoon() = Toast.makeText(context, comingSoon, Toast.LENGTH_SHORT).show()
 
     var showFaqSheet by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
 
@@ -386,6 +405,8 @@ private fun ProfileMenuScreen(
         MenuEntry(Icons.Rounded.CreditCard, R.string.account_payments, R.string.account_payments_sub, onClick = ::toastComingSoon),
         MenuEntry(Icons.Rounded.LocalOffer, R.string.account_promo, R.string.account_promo_sub, onClick = ::toastComingSoon),
         MenuEntry(Icons.Rounded.Help, R.string.account_help, R.string.account_help_sub) { showFaqSheet = true },
+        MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true) { showLogoutConfirm = true },
+        MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
     )
 
     LazyColumn(
@@ -567,56 +588,35 @@ private fun ProfileMenuScreen(
     }
 
     if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
+    if (showLogoutConfirm) {
+        ConfirmDialog(
+            icon = Icons.Rounded.Logout,
+            title = stringResource(R.string.account_logout),
+            message = stringResource(R.string.logout_confirm_message),
+            confirmLabel = stringResource(R.string.common_yes),
+            onConfirm = { showLogoutConfirm = false; onLogout() },
+            onDismiss = { showLogoutConfirm = false },
+        )
+    }
+    if (showDeleteConfirm) {
+        ConfirmDialog(
+            icon = Icons.Rounded.DeleteForever,
+            title = stringResource(R.string.account_delete),
+            message = stringResource(R.string.delete_confirm_message),
+            loading = isDeleting,
+            onConfirm = { onDeleteAccount() },
+            onDismiss = { if (!isDeleting) showDeleteConfirm = false },
+        )
+    }
 }
 
 @Composable
-private fun SettingsMenuScreen(
+private fun AccountListScreen(
+    title: String,
     onBack: () -> Unit,
-    onLogout: () -> Unit,
-    onDeleteAccount: () -> Unit,
-    isDeleting: Boolean,
-    onOpenNotifications: () -> Unit,
-    onOpenWalletPin: () -> Unit,
-    onOpenPrivacy: () -> Unit,
-    onOpenTerms: () -> Unit,
-    onOpenAppearance: () -> Unit,
-    onOpenFont: () -> Unit,
+    items: List<MenuEntry>,
 ) {
-    val themeState = LocalThemeState.current
-    val isDark = themeState.isDark ?: isSystemInDarkTheme()
-
-    var showLogoutConfirm by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showFaqSheet by remember { mutableStateOf(false) }
-    var showContactSheet by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
-    var showLanguageDialog by remember { mutableStateOf(false) }
-
-    val menuItems = listOf(
-        MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
-        MenuEntry(Icons.Rounded.Lock, R.string.account_wallet_pin, R.string.account_wallet_pin_sub, onClick = onOpenWalletPin),
-        MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
-        MenuEntry(
-            icon = Icons.Rounded.Palette,
-            label = R.string.appearance_title,
-            subtitle = R.string.appearance_sub,
-            onClick = onOpenAppearance,
-        ),
-        MenuEntry(
-            icon = Icons.Rounded.TextFields,
-            label = R.string.appearance_font,
-            subtitle = R.string.appearance_font_sub,
-            onClick = onOpenFont,
-        ),
-        MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
-        MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
-        MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub) { showAboutDialog = true },
-        MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
-        MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = onOpenTerms),
-        MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true) { showLogoutConfirm = true },
-        MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
-    )
-
+    val isDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(
         modifier = Modifier
@@ -631,7 +631,7 @@ private fun SettingsMenuScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                stringResource(R.string.account_settings),
+                title,
                 color = settingsAccent(),
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
@@ -666,7 +666,7 @@ private fun SettingsMenuScreen(
                 .padding(horizontal = 14.dp),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
-            itemsIndexed(menuItems) { index, entry ->
+            itemsIndexed(items) { index, entry ->
                 var visible by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { visible = true }
                 AnimatedVisibility(
@@ -679,33 +679,72 @@ private fun SettingsMenuScreen(
             }
         }
     }
+}
 
-    if (showLogoutConfirm) {
-        ConfirmDialog(
-            icon = Icons.Rounded.Logout,
-            title = stringResource(R.string.account_logout),
-            message = stringResource(R.string.logout_confirm_message),
-            confirmLabel = stringResource(R.string.common_yes),
-            onConfirm = { showLogoutConfirm = false; onLogout() },
-            onDismiss = { showLogoutConfirm = false },
-        )
-    }
-    if (showDeleteConfirm) {
-        ConfirmDialog(
-            icon = Icons.Rounded.DeleteForever,
-            title = stringResource(R.string.account_delete),
-            message = stringResource(R.string.delete_confirm_message),
-            loading = isDeleting,
-            // The dialog stays open showing a spinner until the call resolves; on
-            // success the whole profile screen goes away with it.
-            onConfirm = { onDeleteAccount() },
-            onDismiss = { if (!isDeleting) showDeleteConfirm = false },
-        )
-    }
+@Composable
+private fun SettingsMenuScreen(
+    onBack: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenWalletSettings: () -> Unit,
+    onOpenLegal: () -> Unit,
+    onOpenAppearance: () -> Unit,
+    onOpenFont: () -> Unit,
+) {
+    var showFaqSheet by remember { mutableStateOf(false) }
+    var showContactSheet by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+
+    AccountListScreen(
+        title = stringResource(R.string.account_settings),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
+            MenuEntry(Icons.Rounded.AccountBalanceWallet, R.string.account_settings_wallet, R.string.account_settings_wallet_sub, onClick = onOpenWalletSettings),
+            MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
+            MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = onOpenAppearance),
+            MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = onOpenFont),
+            MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
+            MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
+            MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub) { showAboutDialog = true },
+            MenuEntry(Icons.Rounded.Policy, R.string.account_legal, R.string.account_legal_sub, onClick = onOpenLegal),
+        ),
+    )
+
     if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
     if (showContactSheet) ContactUsSheet(onDismiss = { showContactSheet = false })
     if (showAboutDialog) AboutDialog(onDismiss = { showAboutDialog = false })
     if (showLanguageDialog) LanguageDialog(onDismiss = { showLanguageDialog = false })
+}
+
+@Composable
+private fun LegalMenuScreen(
+    onBack: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
+) {
+    AccountListScreen(
+        title = stringResource(R.string.account_legal),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
+            MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = onOpenTerms),
+        ),
+    )
+}
+
+@Composable
+private fun WalletSettingsMenuScreen(
+    onBack: () -> Unit,
+    onOpenChangePin: () -> Unit,
+) {
+    AccountListScreen(
+        title = stringResource(R.string.account_settings_wallet),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.Lock, R.string.account_change_pin, R.string.account_change_pin_sub, onClick = onOpenChangePin),
+        ),
+    )
 }
 
 @Composable

@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-09-30  
+**Last updated:** 2026-10-05  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -53,7 +53,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
-- **Chat phases 2 and 3 (2026-10-04, `docs/chat-tasks.md`):** group slow mode, banned words and invite links that expire; business tools (quick replies, opening hours, welcome / away auto-replies — `config('chat.business_participants')`); scheduled messages (`chat:send-scheduled` every minute — **needs the scheduler**); three notification privacy levels (`notification_privacy`); calls off per country (`calls_disabled_countries`); AI in the chat on a tap (translate, voice to text, summary, suggested replies — `Services\ChatAiService`, admin switch `ai_enabled`; the AI module gained speech to text for OpenAI, Groq and Google). Plus "make a sticker from my photo" (`stickers/mine`, ML Kit on Android) and the logo's navy `#001B53` / orange `#FA7552` as the app's colours. Migrations `2026_10_04_100000`–`100700`. Tests: `ChatModerationTest`, `ChatBusinessTest`, `ChatScheduledTest`, `ChatAiTest`, `ChatEssentialsTest`.
+- **WebP uploads (2026-10-05):** JPEG/PNG stored as WebP in place (`App\Support\Media\WebpUploadConverter` via `HasMediaTrait` plus chat attachments/stories). Stickers, GIF, SVG, fonts, and translation JSON stay as uploaded.
+
+ group slow mode, banned words and invite links that expire; business tools (quick replies, opening hours, welcome / away auto-replies — `config('chat.business_participants')`); scheduled messages (`chat:send-scheduled` every minute — **needs the scheduler**); three notification privacy levels (`notification_privacy`); calls off per country (`calls_disabled_countries`); AI in the chat on a tap (translate, voice to text, summary, suggested replies — `Services\ChatAiService`, admin switch `ai_enabled`; the AI module gained speech to text for OpenAI, Groq and Google). Plus "make a sticker from my photo" (`stickers/mine`, ML Kit on Android) and the logo's navy `#001B53` / orange `#FA7552` as the app's colours. Migrations `2026_10_04_100000`–`100700`. Tests: `ChatModerationTest`, `ChatBusinessTest`, `ChatScheduledTest`, `ChatAiTest`, `ChatEssentialsTest`.
 
 - **Interface translation management (2026-09-30, ADR-011):** Admin → Languages → Translations. New languages (e.g. `fr`) get backend / Vue / Android JSON groups via export → translate → import (draft) → publish. `ar`/`en` untouched and remain the bundled sources (`en` = base + fallback). Backend and Vue load published locales at runtime. Migration `2026_09_30_120000_create_translation_files_table`. Config `config/translations.php`.
 - **Dynamic Android translations (2026-10-01, ADR-011):** the Android app lists languages from `GET /api/general/v1/translations/languages?platform=android` and downloads `GET /api/general/v1/translations/{code}/android` when a non-bundled language is chosen (ar/en stay bundled; `en` = fallback). One language file on the device (`filesDir/translations/{code}.json`), served by `ui/locale/DynamicResources.kt`; direction saved with it for offline cold starts; newer `android_version` downloaded on launch / when the language dialog opens; a language no longer offered falls back to `en`. The XML ZIP export still exists. Not covered: strings built outside Compose (`chat/CallNotifications.kt`, `chat/LiveLocationService.kt`) stay English for downloaded languages.

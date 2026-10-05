@@ -18,6 +18,14 @@ class ChatStickerPack extends Model implements HasMedia
 
     public const COVER = 'cover';
 
+    /**
+     * @return list<string>
+     */
+    protected function webpSkipCollections(): array
+    {
+        return [self::COVER];
+    }
+
     protected $fillable = ['sort_order', 'status'];
 
     protected function casts(): array

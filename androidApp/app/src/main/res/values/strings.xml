@@ -203,6 +203,12 @@
     <string name="account_faqs_sub">Quick answers</string>
     <string name="account_contact_us_sub">Phone, WhatsApp and email</string>
     <string name="account_about_sub">Version and information</string>
+    <string name="account_legal">Policies &amp; Terms</string>
+    <string name="account_legal_sub">Privacy Policy and Terms &amp; Conditions</string>
+    <string name="account_settings_wallet">Wallet</string>
+    <string name="account_settings_wallet_sub">PIN and security</string>
+    <string name="account_change_pin">Change PIN</string>
+    <string name="account_change_pin_sub">Update your wallet PIN</string>
     <string name="account_privacy_sub">How we handle your data</string>
     <string name="account_terms_sub">The rules that govern our services</string>
     <string name="account_logout_sub">Leave this device</string>

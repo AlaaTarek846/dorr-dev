@@ -216,23 +216,23 @@ private fun RecipientCard(who: TransferRecipientDto, modifier: Modifier = Modifi
     ) {
         Box(
             Modifier.fillMaxWidth().height(84.dp).background(
-                if (walletNight()) Brush.verticalGradient(listOf(Color(0x33001B53), Color.Transparent))
+                if (walletNight()) Brush.verticalGradient(listOf(Wa.Red.copy(alpha = 0.2f), Color.Transparent))
                 else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
             ),
         )
         Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(
-                Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFE5F6EC)).padding(horizontal = 12.dp, vertical = 5.dp),
+                Modifier.clip(RoundedCornerShape(999.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 5.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Icon(Icons.Rounded.Shield, null, tint = Color(0xFF15803D), modifier = Modifier.size(15.dp))
-                Text(stringResource(R.string.wa_verify_badge), color = Color(0xFF15803D), fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
+                Icon(Icons.Rounded.Shield, null, tint = Wa.Red, modifier = Modifier.size(15.dp))
+                Text(stringResource(R.string.wa_verify_badge), color = Wa.Red, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
             }
             Spacer(Modifier.height(14.dp))
             Box(contentAlignment = Alignment.Center) {
-                Box(Modifier.size(84.dp).border(3.dp, Color(0x33001B53), CircleShape))
+                Box(Modifier.size(84.dp).border(3.dp, Wa.Red.copy(alpha = 0.2f), CircleShape))
                 Box(
-                    Modifier.size(72.dp).shadow(10.dp, CircleShape, ambientColor = Color(0x59001B53), spotColor = Color(0x59001B53)).clip(CircleShape).background(Wa.ButtonBrush),
+                    Modifier.size(72.dp).shadow(10.dp, CircleShape, ambientColor = Wa.Red.copy(alpha = 0.35f), spotColor = Wa.Red.copy(alpha = 0.35f)).clip(CircleShape).background(Wa.ButtonBrush),
                     contentAlignment = Alignment.Center,
                 ) { Text(initial, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.ExtraBold) }
             }
