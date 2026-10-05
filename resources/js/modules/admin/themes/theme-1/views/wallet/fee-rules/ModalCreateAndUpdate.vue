@@ -31,8 +31,8 @@
                             @update:active-locale="activeLocale = $event"
                         />
 
-                        <div v-if="translationsGroupMessage" class="alert alert-danger py-2 px-3 mb-3">
-                            {{ translationsGroupMessage }}
+                        <div v-if="translationsServerMessage" class="alert alert-danger py-2 px-3 mb-3">
+                            {{ translationsServerMessage }}
                         </div>
 
                         <template v-if="form.translations[activeLocale]">
@@ -121,12 +121,13 @@
                                         step="0.01"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': serverErrors.percent_confirmation?.[0] }"
-                                        @input="clearError('percent_confirmation')"
+                                        :class="classOf('percent_confirmation')"
+                                        @input="onInput('percent_confirmation')"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf('percent_confirmation')" />
                                 </div>
-                                <div v-if="serverErrors.percent_confirmation?.[0]" class="invalid-feedback d-block">
-                                    {{ serverErrors.percent_confirmation[0] }}
+                                <div v-if="messageOf('percent_confirmation')" class="invalid-feedback d-block">
+                                    {{ messageOf('percent_confirmation') }}
                                 </div>
                             </div>
 
@@ -197,11 +198,12 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': serverErrors.min_amount_minor?.[0] }"
-                                        @input="clearError('min_amount_minor')"
+                                        :class="classOf('min_amount')"
+                                        @input="onInput('min_amount')"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf('min_amount')" />
                                 </div>
-                                <div v-if="serverErrors.min_amount_minor?.[0]" class="invalid-feedback d-block">{{ serverErrors.min_amount_minor[0] }}</div>
+                                <div v-if="messageOf('min_amount')" class="invalid-feedback d-block">{{ messageOf('min_amount') }}</div>
                             </div>
 
                             <div class="col-md-4">
@@ -218,11 +220,12 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': serverErrors.max_amount_minor?.[0] }"
-                                        @input="clearError('max_amount_minor')"
+                                        :class="classOf('max_amount')"
+                                        @input="onInput('max_amount')"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf('max_amount')" />
                                 </div>
-                                <div v-if="serverErrors.max_amount_minor?.[0]" class="invalid-feedback d-block">{{ serverErrors.max_amount_minor[0] }}</div>
+                                <div v-if="messageOf('max_amount')" class="invalid-feedback d-block">{{ messageOf('max_amount') }}</div>
                             </div>
 
                             <div class="col-md-4">
@@ -236,16 +239,17 @@
                                         inputmode="decimal"
                                         dir="ltr"
                                         class="form-control"
-                                        :class="{ 'is-invalid': serverErrors.budget_total_minor?.[0] }"
-                                        @input="clearError('budget_total_minor')"
+                                        :class="classOf('budget_total')"
+                                        @input="onInput('budget_total')"
                                     >
+                                    <FormFieldFeedback v-bind="feedbackOf('budget_total')" />
                                 </div>
-                                <div v-if="serverErrors.budget_total_minor?.[0]" class="invalid-feedback d-block">{{ serverErrors.budget_total_minor[0] }}</div>
+                                <div v-if="messageOf('budget_total')" class="invalid-feedback d-block">{{ messageOf('budget_total') }}</div>
                             </div>
 
                             <div class="col-md-6">
                                 <label for="rule-starts-at" class="form-label">{{ t('wallet.rules.starts_at') }}</label>
-                                <AdminDatePicker v-model="form.starts_at" input-id="rule-starts-at" show-time class="w-100" />
+                                <AdminDatePicker v-model="form.starts_at" input-id="rule-starts-at" show-time class="w-100" @update:model-value="onInput('ends_at')" />
                             </div>
 
                             <div class="col-md-6">
@@ -254,27 +258,31 @@
                                     v-model="form.ends_at"
                                     input-id="rule-ends-at"
                                     show-time
-                                    :invalid="Boolean(serverErrors.ends_at?.[0])"
+                                    :invalid="invalidOf('ends_at')"
                                     class="w-100"
-                                    @update:model-value="clearError('ends_at')"
+                                    @update:model-value="onInput('ends_at')"
                                 />
-                                <div v-if="serverErrors.ends_at?.[0]" class="invalid-feedback d-block">{{ serverErrors.ends_at[0] }}</div>
+                                <div v-if="messageOf('ends_at')" class="invalid-feedback d-block">{{ messageOf('ends_at') }}</div>
                             </div>
 
                             <div class="col-md-4">
                                 <label for="rule-max-uses" class="form-label">{{ t('wallet.rules.max_uses') }}</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="ri-repeat-line"></i></span>
-                                    <input id="rule-max-uses" v-model.number="form.max_uses_per_owner" type="number" min="1" class="form-control">
+                                    <input id="rule-max-uses" v-model.number="form.max_uses_per_owner" type="number" min="1" class="form-control" :class="classOf('max_uses_per_owner')" @input="onInput('max_uses_per_owner')">
+                                    <FormFieldFeedback v-bind="feedbackOf('max_uses_per_owner')" />
                                 </div>
+                                <div v-if="messageOf('max_uses_per_owner')" class="invalid-feedback d-block">{{ messageOf('max_uses_per_owner') }}</div>
                             </div>
 
                             <div class="col-md-4">
                                 <label for="rule-priority" class="form-label">{{ t('wallet.rules.priority') }}</label>
                                 <div class="input-group">
                                     <span class="input-group-text bg-light"><i class="ri-hashtag"></i></span>
-                                    <input id="rule-priority" v-model.number="form.priority" type="number" min="0" class="form-control">
+                                    <input id="rule-priority" v-model.number="form.priority" type="number" min="0" max="65535" class="form-control" :class="classOf('priority')" @input="onInput('priority')">
+                                    <FormFieldFeedback v-bind="feedbackOf('priority')" />
                                 </div>
+                                <div v-if="messageOf('priority')" class="invalid-feedback d-block">{{ messageOf('priority') }}</div>
                             </div>
 
                             <div class="col-md-4">
@@ -316,6 +324,7 @@ import adminAxios from '../../../../../../../api/adminAxios';
 import CatalogTranslationTabs from '../../../../../../../components/catalog/CatalogTranslationTabs.vue';
 import AdminDatePicker from '../../../../../../../components/ui/AdminDatePicker.vue';
 import FormFieldFeedback from '../../../../../../../components/ui/FormFieldFeedback.vue';
+import useFormFields from '../../../../../../../composables/useFormFields';
 import useCatalogTranslationFields from '../../../../../../../composables/useCatalogTranslationFields';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../../composables/useToast';
 import useValidation from '../../../../../../../composables/useValidation';
@@ -345,7 +354,13 @@ const emit = defineEmits(['close', 'saved']);
 
 const { t } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
-const { requiredField, applyApiErrors, fieldFeedback } = useValidation();
+const {
+    requiredField,
+    moneyFormat,
+    numberRules,
+    applyApiErrors,
+    fieldFeedback,
+} = useValidation();
 
 const modalElement = ref(null);
 const submitting = ref(false);
@@ -383,7 +398,6 @@ const {
     ensureLanguagesLoaded,
     translationTabFeedback,
     translationTabClass,
-    translationsGroupMessage,
     fieldFeedbackFor,
     fieldInputClass,
     fieldMessage,
@@ -404,10 +418,28 @@ const {
 
 const rules = computed(() => ({
     translations: translationRules.value,
-    percent: { required: requiredField('wallet.rules.percent') },
+    percent: {
+        required: requiredField('wallet.rules.percent'),
+        ...numberRules('wallet.rules.percent', { min: -100, max: 100 }),
+    },
+    min_amount: { money: moneyFormat('wallet.rules.min_amount') },
+    max_amount: { money: moneyFormat('wallet.rules.max_amount') },
+    budget_total: { money: moneyFormat('wallet.rules.budget_total') },
+    max_uses_per_owner: numberRules('wallet.rules.max_uses', { min: 1, integerOnly: true }),
+    priority: numberRules('wallet.rules.priority', { min: 0, max: 65535, integerOnly: true }),
 }));
 
 v$ = useVuelidate(rules, form, { $autoDirty: true });
+
+// Only a server-side problem with the translations as a whole is shown as a banner; field errors stay under their fields.
+const translationsServerMessage = computed(() => serverErrors.translations?.[0] ?? null);
+
+const { feedbackOf, invalidOf, classOf, messageOf, onInput } = useFormFields({
+    getV$: () => v$.value,
+    form,
+    serverErrors,
+    serverKeys: { min_amount: 'min_amount_minor', max_amount: 'max_amount_minor', budget_total: 'budget_total_minor' },
+});
 
 const countryChoices = computed(() => countries.value.map((c) => ({ value: c.id, label: c.name || c.code })));
 const methodChoices = computed(() => methods.value.map((m) => ({ value: m.id, label: m.name || m.code })));
@@ -520,17 +552,11 @@ function fillForm(record) {
     resetValidation();
 }
 
-function moneyField(text, key) {
-    const minor = parseMajor(text);
+function buildPayload() {
+    const min = parseMajor(form.min_amount);
+    const max = parseMajor(form.max_amount);
+    const budget = parseMajor(form.budget_total);
 
-    if (Number.isNaN(minor)) {
-        serverErrors[key] = [t('wallet.common.invalid_amount')];
-    }
-
-    return minor;
-}
-
-function buildPayload(min, max, budget) {
     return {
         percent: form.percent === '' ? null : Number(form.percent),
         percent_confirmation: form.percent_confirmation === '' ? null : Number(form.percent_confirmation),
@@ -575,9 +601,7 @@ function onModalHidden() {
 }
 
 async function submit() {
-    v$.value.$touch();
-
-    if (v$.value.$invalid) {
+    if (! (await v$.value.$validate())) {
         focusInvalidTranslationTab();
         showWarning(t('toast.validation_error'));
 
@@ -585,23 +609,12 @@ async function submit() {
     }
 
     applyApiErrors(serverErrors, {});
-
-    const min = moneyField(form.min_amount, 'min_amount_minor');
-    const max = moneyField(form.max_amount, 'max_amount_minor');
-    const budget = moneyField(form.budget_total, 'budget_total_minor');
-
-    if (Object.keys(serverErrors).length) {
-        showWarning(t('toast.validation_error'));
-
-        return;
-    }
-
     submitting.value = true;
 
     try {
         const isUpdate = isEdit.value && props.record?.id;
         const url = isUpdate ? `${props.resourceUri}/${props.record.id}` : props.resourceUri;
-        const response = await adminAxios[isUpdate ? 'put' : 'post'](url, buildPayload(min, max, budget));
+        const response = await adminAxios[isUpdate ? 'put' : 'post'](url, buildPayload());
 
         showSuccess(extractApiMessage(response, t('wallet.rules.saved')));
         closeModal();

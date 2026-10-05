@@ -50,8 +50,8 @@
                                 @update:active-locale="activeLocale = $event"
                             />
 
-                            <div v-if="translationsGroupMessage" class="alert alert-danger py-2 px-3 mb-3">
-                                {{ translationsGroupMessage }}
+                            <div v-if="translationsServerMessage" class="alert alert-danger py-2 px-3 mb-3">
+                                {{ translationsServerMessage }}
                             </div>
 
                             <template v-if="form.translations[activeLocale]">
@@ -144,8 +144,12 @@
                                             type="number"
                                             min="0"
                                             class="form-control"
+                                            :class="classOf('sort_order')"
+                                            @input="onInput('sort_order')"
                                         >
+                                        <FormFieldFeedback v-bind="feedbackOf('sort_order')" />
                                     </div>
+                                    <div v-if="messageOf('sort_order')" class="invalid-feedback d-block">{{ messageOf('sort_order') }}</div>
                                 </div>
 
                                 <div class="col-md-6">
@@ -239,6 +243,8 @@
                                             v-model="form.credentials[field]"
                                             :type="isSecret(field) ? 'password' : 'text'"
                                             class="form-control"
+                                            :class="{ 'is-invalid': invalidOf('credentials') && ! isEdit }"
+                                            @input="onInput('credentials')"
                                             dir="ltr"
                                             autocomplete="off"
                                             :placeholder="isEdit ? '••••••••' : ''"
@@ -246,8 +252,8 @@
                                     </div>
                                 </div>
                             </div>
-                            <div v-if="serverErrors.credentials?.[0]" class="invalid-feedback d-block mt-2">
-                                {{ serverErrors.credentials[0] }}
+                            <div v-if="messageOf('credentials')" class="invalid-feedback d-block mt-2">
+                                {{ messageOf('credentials') }}
                             </div>
                         </div>
 
@@ -281,6 +287,7 @@
                                                     v-model="countryState[c.id].min"
                                                     :disabled="!countryState[c.id].enabled"
                                                     type="text"
+                                                    inputmode="decimal"
                                                     class="form-control form-control-sm"
                                                     dir="ltr"
                                                     style="max-width: 110px;"
@@ -292,6 +299,7 @@
                                                     v-model="countryState[c.id].max"
                                                     :disabled="!countryState[c.id].enabled"
                                                     type="text"
+                                                    inputmode="decimal"
                                                     class="form-control form-control-sm"
                                                     dir="ltr"
                                                     style="max-width: 110px;"
@@ -344,6 +352,7 @@ import adminAxios from '../../../../../../../api/adminAxios';
 import CatalogTranslationTabs from '../../../../../../../components/catalog/CatalogTranslationTabs.vue';
 import FlagImage from '../../../../../../../components/ui/FlagImage.vue';
 import FormFieldFeedback from '../../../../../../../components/ui/FormFieldFeedback.vue';
+import useFormFields from '../../../../../../../composables/useFormFields';
 import useCatalogTranslationFields from '../../../../../../../composables/useCatalogTranslationFields';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../../composables/useToast';
 import useValidation from '../../../../../../../composables/useValidation';
@@ -373,7 +382,7 @@ const emit = defineEmits(['close', 'saved']);
 
 const { t } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
-const { stringFieldRules, applyApiErrors, fieldFeedback } = useValidation();
+const { stringFieldRules, numberRules, applyApiErrors, fieldFeedback } = useValidation();
 
 const modalElement = ref(null);
 const submitting = ref(false);
@@ -422,7 +431,6 @@ const {
     ensureLanguagesLoaded,
     translationTabFeedback,
     translationTabClass,
-    translationsGroupMessage,
     fieldFeedbackFor,
     fieldInputClass,
     fieldMessage,
@@ -444,9 +452,19 @@ const {
 const rules = computed(() => ({
     translations: translationRules.value,
     code: stringFieldRules('wallet.methods.code', 64),
+    sort_order: numberRules('wallet.methods.sort_order', { min: 0, integerOnly: true }),
 }));
 
 v$ = useVuelidate(rules, form, { $autoDirty: true });
+
+// Only a server-side problem with the translations as a whole is shown as a banner; field errors stay under their fields.
+const translationsServerMessage = computed(() => serverErrors.translations?.[0] ?? null);
+
+const { feedbackOf, invalidOf, classOf, messageOf, onInput } = useFormFields({
+    getV$: () => v$.value,
+    form,
+    serverErrors,
+});
 
 const credentialFields = computed(() => CREDENTIALS[form.gateway] ?? []);
 const showCredentials = computed(() => form.type === 'online' && credentialFields.value.length > 0);
@@ -630,9 +648,7 @@ function onModalHidden() {
 }
 
 async function submit() {
-    v$.value.$touch();
-
-    if (v$.value.$invalid) {
+    if (! (await v$.value.$validate())) {
         focusInvalidTranslationTab();
         tab.value = 'general';
         showWarning(t('toast.validation_error'));
