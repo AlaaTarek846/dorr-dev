@@ -6,6 +6,8 @@ return [
     'method_not_allowed' => 'طريقة الطلب غير مسموح بها.',
     'unauthenticated' => 'يجب تسجيل الدخول أولاً.',
     'unauthorized' => 'ليس لديك صلاحية للوصول لهذه البيانات.',
+    'support_ticket_created' => 'تم إرسال طلب الدعم.',
+    'support_message_sent' => 'تم إرسال الرسالة.',
     'conflict' => 'تعذر إكمال الطلب بسبب تعارض في البيانات.',
     'server_error' => 'حدث خطأ غير متوقع في السيرفر.',
     'already_authenticated' => 'أنت مسجّل الدخول بالفعل.',

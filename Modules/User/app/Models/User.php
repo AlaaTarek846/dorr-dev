@@ -76,6 +76,16 @@ class User extends Authenticatable implements HasMedia
         return $this->hasMany(Address::class);
     }
 
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
+    public function supportMessages(): HasMany
+    {
+        return $this->hasMany(SupportMessage::class);
+    }
+
     public function mobileAppearance(): HasOne
     {
         return $this->hasOne(UserMobileAppearance::class);
