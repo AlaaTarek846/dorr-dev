@@ -555,6 +555,8 @@
         "currency_placeholder": "اختر العملة",
         "flag": "العلم",
         "flag_placeholder": "اختر العلم",
+        "services": "الخدمات",
+        "services_placeholder": "اختر خدمات هذه الدولة",
         "is_default": "دولة افتراضية",
         "delete_title": "حذف الدولة",
         "delete_selected_title": "حذف الدول المحددة",

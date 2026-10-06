@@ -609,12 +609,7 @@ private fun AddressesTopHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = settingsAccent(),
-        )
+        SettingsScreenTitle(title, Modifier.weight(1f))
 
         Box(
             modifier = Modifier

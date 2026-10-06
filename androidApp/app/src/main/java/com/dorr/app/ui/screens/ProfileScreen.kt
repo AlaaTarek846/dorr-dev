@@ -16,10 +16,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.Paid
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.ui.draw.drawBehind
@@ -66,7 +64,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Policy
@@ -79,7 +79,9 @@ import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -115,10 +117,15 @@ import com.dorr.app.ui.screens.profile.AppearanceFontScreen
 import com.dorr.app.ui.screens.profile.AppearanceScreen
 import com.dorr.app.ui.screens.profile.ContactUsSheet
 import com.dorr.app.ui.screens.profile.FaqSheet
+import com.dorr.app.ui.screens.profile.InviteFriendsScreen
 import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
+import com.dorr.app.ui.screens.profile.RateAppScreen
+import com.dorr.app.ui.screens.profile.SupportChatScreen
+import com.dorr.app.ui.screens.profile.SupportTicketScreen
 import com.dorr.app.ui.screens.profile.PersonalDataScreen
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
 import com.dorr.app.ui.screens.profile.TermsConditionsScreen
+import com.dorr.app.ui.screens.profile.SettingsScreenTitle
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
@@ -134,6 +141,7 @@ import com.dorr.app.ui.theme.appearanceColor
 private enum class ProfileSub {
     NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, WALLET_SETTINGS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
+    INVITE, RATE, SUPPORT, TICKET, SUPPORT_CHAT,
 }
 
 private data class MenuEntry(
@@ -153,6 +161,8 @@ fun ProfileScreen(
     onAccountDeleted: () -> Unit = {},
 ) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
+    var supportChatTicketId by remember { mutableStateOf<Int?>(null) }
+    var supportChatTicketTitle by remember { mutableStateOf<String?>(null) }
     val isAtRoot = subScreen == ProfileSub.NONE
 
     // System back = the same step as each sub-screen's own back arrow. Sub-screens with inner
@@ -161,6 +171,9 @@ fun ProfileScreen(
         subScreen = when (subScreen) {
             ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
             ProfileSub.LEGAL, ProfileSub.WALLET_SETTINGS -> ProfileSub.SETTINGS
+            ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
+            ProfileSub.TICKET -> ProfileSub.SUPPORT
+            ProfileSub.SUPPORT_CHAT -> if (supportChatTicketId != null) ProfileSub.TICKET else ProfileSub.SUPPORT
             ProfileSub.WALLET_PIN -> ProfileSub.WALLET_SETTINGS
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
@@ -255,6 +268,34 @@ fun ProfileScreen(
                 onOpenLegal = { subScreen = ProfileSub.LEGAL },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
+                onDeleteAccount = ::deleteAccount,
+                isDeleting = isDeleting,
+            )
+            ProfileSub.INVITE -> InviteFriendsScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.RATE -> RateAppScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.SUPPORT -> SupportMenuScreen(
+                onBack = { subScreen = ProfileSub.NONE },
+                onOpenChat = {
+                    supportChatTicketId = null
+                    supportChatTicketTitle = null
+                    subScreen = ProfileSub.SUPPORT_CHAT
+                },
+                onOpenTicket = { subScreen = ProfileSub.TICKET },
+            )
+            ProfileSub.TICKET -> SupportTicketScreen(
+                onBack = { subScreen = ProfileSub.SUPPORT },
+                onOpenChat = { ticket ->
+                    supportChatTicketId = ticket.id
+                    supportChatTicketTitle = ticket.title
+                    subScreen = ProfileSub.SUPPORT_CHAT
+                },
+            )
+            ProfileSub.SUPPORT_CHAT -> SupportChatScreen(
+                onBack = {
+                    subScreen = if (supportChatTicketId != null) ProfileSub.TICKET else ProfileSub.SUPPORT
+                },
+                ticketId = supportChatTicketId,
+                ticketTitle = supportChatTicketTitle,
             )
             ProfileSub.APPEARANCE -> AppearanceScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.FONT -> AppearanceFontScreen(onBack = { subScreen = ProfileSub.SETTINGS })
@@ -262,10 +303,11 @@ fun ProfileScreen(
                 onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
                 onOpenSettings = { subScreen = ProfileSub.SETTINGS },
                 onOpenAddresses = { subScreen = ProfileSub.ADDRESSES },
+                onOpenInvite = { subScreen = ProfileSub.INVITE },
+                onOpenRate = { subScreen = ProfileSub.RATE },
+                onOpenSupport = { subScreen = ProfileSub.SUPPORT },
                 onOpenWallet = onOpenWallet,
                 onLogout = onLogout,
-                onDeleteAccount = ::deleteAccount,
-                isDeleting = isDeleting,
             )
         }
     }
@@ -383,18 +425,13 @@ private fun ProfileMenuScreen(
     onOpenPersonalData: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAddresses: () -> Unit,
+    onOpenInvite: () -> Unit,
+    onOpenRate: () -> Unit,
+    onOpenSupport: () -> Unit,
     onOpenWallet: () -> Unit,
     onLogout: () -> Unit,
-    onDeleteAccount: () -> Unit,
-    isDeleting: Boolean,
 ) {
-    val context = LocalContext.current
-    val comingSoon = stringResource(R.string.services_coming_soon)
-    fun toastComingSoon() = Toast.makeText(context, comingSoon, Toast.LENGTH_SHORT).show()
-
-    var showFaqSheet by remember { mutableStateOf(false) }
     var showLogoutConfirm by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
 
@@ -402,11 +439,10 @@ private fun ProfileMenuScreen(
         MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = onOpenSettings),
         MenuEntry(Icons.Rounded.LocationOn, R.string.account_places, R.string.account_places_sub, onClick = onOpenAddresses),
-        MenuEntry(Icons.Rounded.CreditCard, R.string.account_payments, R.string.account_payments_sub, onClick = ::toastComingSoon),
-        MenuEntry(Icons.Rounded.LocalOffer, R.string.account_promo, R.string.account_promo_sub, onClick = ::toastComingSoon),
-        MenuEntry(Icons.Rounded.Help, R.string.account_help, R.string.account_help_sub) { showFaqSheet = true },
+        MenuEntry(Icons.Rounded.Share, R.string.invite_title, R.string.invite_sub, onClick = onOpenInvite),
+        MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = onOpenRate),
+        MenuEntry(Icons.Rounded.SupportAgent, R.string.support_title, R.string.support_sub, onClick = onOpenSupport),
         MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true) { showLogoutConfirm = true },
-        MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
     )
 
     LazyColumn(
@@ -423,11 +459,8 @@ private fun ProfileMenuScreen(
                     .padding(top = 14.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
+                SettingsScreenTitle(
                     stringResource(R.string.account_title),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (dark) AccountDark.accent else settingsAccent(),
                     modifier = Modifier.weight(1f),
                 )
                 Box(
@@ -587,7 +620,6 @@ private fun ProfileMenuScreen(
         }
     }
 
-    if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
     if (showLogoutConfirm) {
         ConfirmDialog(
             icon = Icons.Rounded.Logout,
@@ -596,16 +628,6 @@ private fun ProfileMenuScreen(
             confirmLabel = stringResource(R.string.common_yes),
             onConfirm = { showLogoutConfirm = false; onLogout() },
             onDismiss = { showLogoutConfirm = false },
-        )
-    }
-    if (showDeleteConfirm) {
-        ConfirmDialog(
-            icon = Icons.Rounded.DeleteForever,
-            title = stringResource(R.string.account_delete),
-            message = stringResource(R.string.delete_confirm_message),
-            loading = isDeleting,
-            onConfirm = { onDeleteAccount() },
-            onDismiss = { if (!isDeleting) showDeleteConfirm = false },
         )
     }
 }
@@ -627,16 +649,10 @@ private fun AccountListScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp)
-                .padding(top = 14.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            .padding(top = 14.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                title,
-                color = settingsAccent(),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.weight(1f),
-            )
+            SettingsScreenTitle(title, Modifier.weight(1f))
             Box(
                 modifier = Modifier
                     .size(34.dp)
@@ -689,11 +705,13 @@ private fun SettingsMenuScreen(
     onOpenLegal: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenFont: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    isDeleting: Boolean,
 ) {
-    var showFaqSheet by remember { mutableStateOf(false) }
     var showContactSheet by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showLanguageDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
 
     AccountListScreen(
         title = stringResource(R.string.account_settings),
@@ -704,17 +722,45 @@ private fun SettingsMenuScreen(
             MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
             MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = onOpenAppearance),
             MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = onOpenFont),
-            MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
             MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
             MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub) { showAboutDialog = true },
             MenuEntry(Icons.Rounded.Policy, R.string.account_legal, R.string.account_legal_sub, onClick = onOpenLegal),
+            MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
         ),
     )
 
-    if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
     if (showContactSheet) ContactUsSheet(onDismiss = { showContactSheet = false })
     if (showAboutDialog) AboutDialog(onDismiss = { showAboutDialog = false })
     if (showLanguageDialog) LanguageDialog(onDismiss = { showLanguageDialog = false })
+    if (showDeleteConfirm) {
+        ConfirmDialog(
+            icon = Icons.Rounded.DeleteForever,
+            title = stringResource(R.string.account_delete),
+            message = stringResource(R.string.delete_confirm_message),
+            loading = isDeleting,
+            onConfirm = { onDeleteAccount() },
+            onDismiss = { if (!isDeleting) showDeleteConfirm = false },
+        )
+    }
+}
+
+@Composable
+private fun SupportMenuScreen(
+    onBack: () -> Unit,
+    onOpenChat: () -> Unit,
+    onOpenTicket: () -> Unit,
+) {
+    var showFaqSheet by remember { mutableStateOf(false) }
+    AccountListScreen(
+        title = stringResource(R.string.support_title),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.Chat, R.string.support_live_chat, R.string.support_live_chat_sub, onClick = onOpenChat),
+            MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = onOpenTicket),
+            MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
+        ),
+    )
+    if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
 }
 
 @Composable
