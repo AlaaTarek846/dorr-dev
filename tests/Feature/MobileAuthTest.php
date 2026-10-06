@@ -298,6 +298,50 @@ class MobileAuthTest extends TestCase
         $this->assertSame(0, $user->tokens()->count());
     }
 
+    public function test_each_sign_in_saves_the_country_it_came_from_saudi_when_unknown(): void
+    {
+        $egypt = Country::create([
+            'code' => 'EG', 'code_alpha3' => 'EGY', 'dial_code' => '+20', 'phone_starts_with' => '1', 'phone_length' => 10,
+            'is_default' => false, 'flag_id' => Flag::query()->value('id'), 'currency_id' => Currency::create(['code' => 'EGP', 'symbol' => 'EGP'])->id, 'status' => true,
+        ]);
+        $saudi = Country::query()->where('code', 'SA')->value('id');
+        $user = User::query()->create(['phone' => '+966501234567', 'status' => UserStatus::Active]);
+        $code = fn () => $user->verificationCodes()->create(['type' => VerificationType::Phone->value, 'code' => '1234', 'expires_at' => now()->addMinutes(10), 'attempts' => 0]);
+
+        // Signed in from Egypt (Cloudflare tells us).
+        $code();
+        $this->postJson('/api/mobile/v1/auth/verify', $this->payload('1234'), ['CF-IPCountry' => 'EG'])->assertOk();
+        $this->assertSame($egypt->id, $user->fresh()->logged_in_country_id);
+
+        // A country we don't have: Saudi Arabia.
+        $code();
+        $this->postJson('/api/mobile/v1/auth/verify', $this->payload('1234'), ['CF-IPCountry' => 'FR'])->assertOk();
+        $this->assertSame($saudi, $user->fresh()->logged_in_country_id);
+
+        // And the app's country follows the sign-in, not the phone's.
+        $user->forceFill(['logged_in_country_id' => $egypt->id])->save();
+        $token = $user->createToken('mobile-app')->plainTextToken;
+        $this->getJson('/api/mobile/v1/wallet', $this->bearerHeaders($token))->assertOk()->assertJsonPath('data.currency_code', 'EGP');
+    }
+
+    public function test_logout_forgets_this_phones_push_id(): void
+    {
+        $user = User::query()->create([
+            'phone' => '+966501234567',
+            'phone_verified_at' => now(),
+            'status' => UserStatus::Active,
+        ]);
+        foreach (['this-phone', 'other-phone'] as $id) {
+            \App\Models\NotificationDevice::query()->create(['owner_type' => $user->getMorphClass(), 'owner_id' => $user->id, 'player_id' => $id, 'platform' => 'android']);
+        }
+
+        $token = $user->createToken('mobile-app')->plainTextToken;
+        $this->postJson('/api/mobile/v1/auth/logout', ['player_id' => 'this-phone'], $this->bearerHeaders($token))->assertOk();
+
+        // No more messages or calls ring on the signed-out phone; the other phone keeps them.
+        $this->assertSame(['other-phone'], $user->notificationDevices()->pluck('player_id')->all());
+    }
+
     private function bearerHeaders(string $token): array
     {
         return ['Authorization' => 'Bearer '.$token];

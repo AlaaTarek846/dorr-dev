@@ -7,6 +7,10 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Chat\Enums\ConversationStatus;
+use Modules\Chat\Enums\ConversationType;
+use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatDorrStory;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatBlock;
 use Modules\Chat\Models\ChatContact;
@@ -44,6 +48,19 @@ class StoryService
     {
         $settings = $this->assertEnabled();
         $type = $data['type'];
+        $public = (bool) ($data['public'] ?? false);
+
+        // Public (home page): only while the admin allows them, and up to the free count running.
+        if ($public) {
+            if (! $settings->publicStoriesEnabled()) {
+                throw new ChatException('public_stories_disabled', 403);
+            }
+            $running = ChatStory::query()->active()->where('is_public', true)
+                ->where('owner_type', ParticipantType::aliasFor($owner))->where('owner_id', $owner->getKey())->count();
+            if ($running >= $settings->publicStoriesFree()) {
+                throw new ChatException('public_story_limit', 422, ['max' => $settings->publicStoriesFree()], ['max' => $settings->publicStoriesFree()]);
+            }
+        }
 
         if ($type === 'text' && trim((string) ($data['body'] ?? '')) === '') {
             throw ChatException::emptyMessage();
@@ -55,7 +72,7 @@ class StoryService
             throw ChatException::storyVideoTooLong($settings->story_video_max_seconds);
         }
 
-        return DB::transaction(function () use ($owner, $data, $type, $file, $settings) {
+        return DB::transaction(function () use ($owner, $data, $type, $file, $settings, $public) {
             $story = ChatStory::query()->create([
                 'owner_type' => ParticipantType::aliasFor($owner),
                 'owner_id' => $owner->getKey(),
@@ -64,6 +81,7 @@ class StoryService
                 'style' => $type === 'text' ? ($data['style'] ?? null) : null,
                 'duration_ms' => $type === 'video' ? ($data['duration_ms'] ?? null) : null,
                 'allow_replies' => (bool) ($data['allow_replies'] ?? true),
+                'is_public' => $public,
                 'expires_at' => now()->addHours($settings->story_duration_hours),
             ]);
 
@@ -218,6 +236,180 @@ class StoryService
         usort($out['muted'], $order);
 
         return $out;
+    }
+
+    /**
+     * The home page's circles (docs/remaining_chat.md ج.1): my public stories, Dorr's own stories,
+     * then everyone's public stories — the ones I haven't watched first, the most watched and
+     * reacted-to first among them; the ones I've seen go to the back. People whose stories I muted
+     * and anyone blocked either way are left out. Nobody's phone number shows here unless we
+     * already talk (they're saved, or a chat between us was accepted).
+     *
+     * @return array<string, mixed>
+     */
+    public function publicFeed(Model $viewer): array
+    {
+        $settings = $this->assertEnabled();
+        $viewerType = ParticipantType::aliasFor($viewer);
+        $viewerId = (int) $viewer->getKey();
+        $mineKey = ParticipantType::key($viewer);
+        $mine = ChatStory::query()->active()->where('is_public', true)->where('owner_type', $viewerType)->where('owner_id', $viewerId)->with('media')->orderBy('created_at')->get();
+
+        $out = [
+            'enabled' => $settings->publicStoriesEnabled(),
+            'quota' => ['free' => $settings->publicStoriesFree(), 'used' => $mine->count()],
+            'mine' => null,
+            'dorr' => $this->dorrGroup($viewer),
+            'people' => [],
+        ];
+
+        if ($mine->isNotEmpty()) {
+            $counts = $this->viewCounts($mine);
+            $out['mine'] = [
+                'owner' => $this->directory->profile($viewer, $viewerType, $viewerId),
+                'stories' => $mine->map(fn (ChatStory $s) => $this->present($s, null, true, $counts))->values()->all(),
+                'all_seen' => true,
+                'last_at' => $mine->last()->created_at?->toIso8601String(),
+                'block_screenshots' => false,
+            ];
+        }
+
+        if (! $settings->publicStoriesEnabled()) {
+            return $out;
+        }
+
+        $muted = DB::table('chat_story_mutes')->where('owner_type', $viewerType)->where('owner_id', $viewerId)
+            ->get()->map(fn ($m) => $m->muted_type.':'.$m->muted_id)->flip();
+
+        $stories = ChatStory::query()->active()->where('is_public', true)
+            ->where(fn ($q) => $q->where('owner_type', '!=', $viewerType)->orWhere('owner_id', '!=', $viewerId))
+            ->whereIn('owner_type', config('chat.enabled_participants', []))
+            ->with('media')->orderBy('created_at')->limit(1000)->get()
+            ->reject(fn (ChatStory $s) => isset($muted[$s->ownerKey()]) || $this->blockedBetween($viewer, $s));
+
+        if ($stories->isEmpty()) {
+            return $out;
+        }
+
+        $views = ChatStoryView::query()->whereIn('story_id', $stories->pluck('id'))
+            ->where('viewer_type', $viewerType)->where('viewer_id', $viewerId)->get()->keyBy('story_id');
+        $counts = $this->viewCounts($stories);
+        $this->directory->prime($viewer, $stories->map(fn ($s) => [$s->owner_type, $s->owner_id]));
+        $talking = $this->acceptedChatsWith($viewer);
+
+        foreach ($stories->groupBy(fn (ChatStory $s) => $s->ownerKey()) as $ownerKey => $list) {
+            [$type, $id] = explode(':', $ownerKey, 2);
+            $owner = $this->directory->profile($viewer, $type, $id);
+            if ($owner === null || ($owner['is_deleted'] ?? false)) {
+                continue;
+            }
+            // Strangers see a name and a photo, never the number — until we're talking.
+            if (! ($owner['is_contact'] ?? false) && ! isset($talking[$ownerKey])) {
+                $owner['phone'] = null;
+                $owner['name'] = $owner['account_name'] ?? $owner['name'];
+            }
+            $items = $list->map(fn (ChatStory $s) => $this->present($s, $views->get($s->id), false, []))->values()->all();
+            $out['people'][] = [
+                'owner' => $owner,
+                'stories' => $items,
+                'all_seen' => collect($items)->every(fn ($i) => $i['seen']),
+                'last_at' => $list->last()->created_at?->toIso8601String(),
+                'block_screenshots' => (bool) ($this->directory->privacyOf($ownerKey)?->block_screenshots ?? false),
+                // How much it was watched and answered — the order among the ones I haven't seen.
+                'score' => $list->sum(fn ($s) => ($counts[$s->id]['views'] ?? 0) + 3 * ($counts[$s->id]['reactions'] ?? 0)),
+            ];
+        }
+
+        usort($out['people'], fn ($a, $b) => $a['all_seen'] !== $b['all_seen']
+            ? ($a['all_seen'] <=> $b['all_seen'])
+            : ($a['all_seen'] ? strcmp((string) $b['last_at'], (string) $a['last_at']) : [$b['score'], $b['last_at']] <=> [$a['score'], $a['last_at']]));
+        $out['people'] = array_slice($out['people'], 0, 150);
+
+        return $out;
+    }
+
+    /**
+     * Dorr's own stories as one circle, shaped like anyone's (`owner.type` = "dorr"), or null.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function dorrGroup(Model $viewer): ?array
+    {
+        $stories = ChatDorrStory::query()->showing()->with('media')->orderBy('sort_order')->orderBy('id')->get();
+
+        if ($stories->isEmpty()) {
+            return null;
+        }
+
+        $seen = DB::table('chat_dorr_story_views')->whereIn('dorr_story_id', $stories->pluck('id'))
+            ->where('viewer_type', ParticipantType::aliasFor($viewer))->where('viewer_id', $viewer->getKey())
+            ->pluck('dorr_story_id')->flip();
+
+        $items = $stories->map(function (ChatDorrStory $s) use ($seen) {
+            $media = $s->getFirstMedia(ChatDorrStory::MEDIA);
+
+            return [
+                'id' => $s->uuid,
+                'type' => $s->type,
+                'body' => $s->body,
+                'style' => $s->style,
+                'media' => $media === null ? null : ['url' => $media->getUrl(), 'mime_type' => $media->mime_type],
+                'duration_ms' => $s->duration_ms,
+                'allow_replies' => false,
+                'is_mine' => false,
+                'is_dorr' => true,
+                'link_url' => $s->link_url,
+                'link_label' => $s->link_label,
+                'seen' => isset($seen[$s->id]),
+                'my_reaction' => null,
+                'views' => null,
+                'reactions' => null,
+                'created_at' => ($s->starts_at ?? $s->created_at)?->toIso8601String(),
+                'expires_at' => $s->ends_at?->toIso8601String(),
+            ];
+        })->values()->all();
+
+        return [
+            'owner' => ['type' => 'dorr', 'id' => 0, 'key' => 'dorr', 'name' => __('chat.dorr_stories_name'), 'phone' => null, 'avatar' => null, 'is_contact' => false, 'is_me' => false, 'is_deleted' => false],
+            'stories' => $items,
+            'all_seen' => collect($items)->every(fn ($i) => $i['seen']),
+            'last_at' => $stories->max(fn ($s) => $s->starts_at ?? $s->created_at)?->toIso8601String(),
+            'block_screenshots' => false,
+        ];
+    }
+
+    /** I watched one of Dorr's stories (once per person; it counts). */
+    public function viewDorr(Model $viewer, ChatDorrStory $story): void
+    {
+        if (! $story->isShowing()) {
+            throw ChatException::storyNotFound();
+        }
+
+        $inserted = DB::table('chat_dorr_story_views')->insertOrIgnore([
+            'dorr_story_id' => $story->id, 'viewer_type' => ParticipantType::aliasFor($viewer), 'viewer_id' => $viewer->getKey(),
+            'created_at' => now(), 'updated_at' => now(),
+        ]);
+
+        if ($inserted > 0) {
+            $story->increment('views_count');
+        }
+    }
+
+    /**
+     * The people I already talk with — an accepted direct chat between us: "user:7" => true.
+     *
+     * @return array<string, bool>
+     */
+    private function acceptedChatsWith(Model $viewer): array
+    {
+        $mine = ChatParticipant::query()->of($viewer)->pluck('conversation_id');
+
+        return ChatParticipant::query()->whereIn('conversation_id', $mine)
+            ->whereHas('conversation', fn ($q) => $q->where('type', ConversationType::Direct->value)->where('status', ConversationStatus::Accepted->value))
+            ->where(fn ($q) => $q->where('participant_type', '!=', ParticipantType::aliasFor($viewer))->orWhere('participant_id', '!=', $viewer->getKey()))
+            ->get(['participant_type', 'participant_id'])
+            ->mapWithKeys(fn ($p) => [$p->participant_type.':'.$p->participant_id => true])
+            ->all();
     }
 
     /**
@@ -408,6 +600,7 @@ class StoryService
             ],
             'duration_ms' => $s->duration_ms,
             'allow_replies' => $s->allow_replies,
+            'is_public' => (bool) $s->is_public,
             'is_mine' => $isMine,
             'seen' => $isMine || $myView !== null,
             'my_reaction' => $myView?->reaction,
@@ -479,8 +672,9 @@ class StoryService
             return;
         }
 
-        $isRecipient = DB::table('chat_story_recipients')
-            ->where(['story_id' => $story->id, 'participant_type' => $type, 'participant_id' => $viewer->getKey()])->exists();
+        $isRecipient = ($story->is_public && ChatSetting::current()->publicStoriesEnabled())
+            || DB::table('chat_story_recipients')
+                ->where(['story_id' => $story->id, 'participant_type' => $type, 'participant_id' => $viewer->getKey()])->exists();
 
         if (! $isRecipient || $this->blockedBetween($viewer, $story)) {
             throw ChatException::storyNotFound();

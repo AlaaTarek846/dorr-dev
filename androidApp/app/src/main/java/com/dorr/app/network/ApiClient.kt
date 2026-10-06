@@ -56,6 +56,8 @@ object ApiClient {
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
                 .header("X-Device-Id", DeviceId.current)
+                // The recipient-time scheduling of greeting cards (spec 164) needs my zone.
+                .header("X-Timezone", java.util.TimeZone.getDefault().id)
                 .build()
             chain.proceed(request)
         }
@@ -87,6 +89,12 @@ object ApiClient {
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
+    val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
+    val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
+    val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
+    val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
+    val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 

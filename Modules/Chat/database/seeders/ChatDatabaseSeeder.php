@@ -15,6 +15,9 @@ class ChatDatabaseSeeder extends Seeder
 {
     public function run(): void
     {
+        // The occasions catalog (DORR Moments).
+        $this->call(ChatMomentsSeeder::class);
+
         if (! ChatReportType::query()->exists()) {
             $reasons = [
                 ['Spam or advertising', 'رسايل مزعجة أو إعلانات'],

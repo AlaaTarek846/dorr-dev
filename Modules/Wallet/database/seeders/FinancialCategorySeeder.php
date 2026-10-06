@@ -64,6 +64,12 @@ class FinancialCategorySeeder extends Seeder
                 'name' => ['en' => 'Withdrawal Processing Cost', 'ar' => 'تكلفة معالجة السحب'],
             ],
             [
+                // Everything paid on the one payment screen (Checkout): merchant portals, channel verification…
+                'slug' => 'service_revenue',
+                'type' => FinancialEntryType::Income,
+                'name' => ['en' => 'Services & Subscriptions', 'ar' => 'الخدمات والاشتراكات'],
+            ],
+            [
                 'slug' => 'manual_adjustment_income',
                 'type' => FinancialEntryType::Income,
                 'name' => ['en' => 'Manual Adjustment (Credit)', 'ar' => 'تسوية يدوية (إضافة)'],

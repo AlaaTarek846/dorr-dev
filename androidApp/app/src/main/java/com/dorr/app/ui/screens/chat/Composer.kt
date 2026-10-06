@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import androidx.compose.material.icons.rounded.Redeem
+import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.EmojiEmotions
@@ -255,6 +257,13 @@ fun Composer(state: ConversationState) {
             text = reply
             state.clearSmartReplies()
             haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+
+        // --------------------------------------------------------------- ✓ fix spelling (on a tap, spec 36)
+        ProofreadBar(text, enabled = !recorder.recording) { text = it }
+        // A reply picked from "understand this message" lands here to edit and send.
+        LaunchedEffect(state.composerInsert) {
+            state.composerInsert?.let { text = it; state.composerInsert = null }
         }
 
         // --------------------------------------------------------------- @mention suggestions
@@ -653,6 +662,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
     var sendMoneyOpen by remember { mutableStateOf(false) }
+    // A greeting card (DORR Moments) in this chat.
+    var cardOpen by remember { mutableStateOf(false) }
     val isGroup = state.conversation?.isGroup == true
     // Sending money goes to one other person: not in a group, a channel, or my own notes.
     val canSendMoney = !isGroup && state.conversation?.isSelf != true && state.conversation != null
@@ -715,6 +726,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             listOf(Color(0xFF34D399), Color(0xFF047857)),
         ) { moneyOpen = true },
         if (canSendMoney) AttachItem(Icons.Rounded.Payments, R.string.ch_attach_send_money, listOf(Color(0xFF10B981), Color(0xFF047857))) { sendMoneyOpen = true } else null,
+        if (isChannel) null else AttachItem(Icons.Rounded.Redeem, R.string.mo_attach_card, listOf(Color(0xFFF472B6), Color(0xFF8B5CF6))) { cardOpen = true },
         AttachItem(Icons.Rounded.ReceiptLong, R.string.ch_attach_transfer, listOf(Ch.Red, Ch.RedDeep)) { onPickTransfer() },
         AttachItem(Icons.Rounded.QrCode2, R.string.ch_attach_wallet_qr, listOf(Color(0xFFFBBF24), Color(0xFFD97706))) {
             onDismiss()
@@ -785,6 +797,15 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     if (sendMoneyOpen) {
         SendMoneySheet(state.id, state.conversation?.title.orEmpty(), onDismiss = { sendMoneyOpen = false; onDismiss() }) { sent ->
             state.replaceMessage(sent.id, UiMessage(sent))
+        }
+        return
+    }
+    if (cardOpen) {
+        com.dorr.app.ui.screens.moments.MomentCardSheet(
+            conversationId = state.id, peerName = state.conversation?.title, canGift = canSendMoney,
+            onDismiss = { cardOpen = false; onDismiss() },
+        ) { sent ->
+            if (sent != null) state.replaceMessage(sent.id, UiMessage(sent)) else host.scope.launch { state.refreshScheduled() }
         }
         return
     }

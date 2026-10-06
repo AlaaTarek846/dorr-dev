@@ -243,4 +243,26 @@
     <string name="wa_pin_locked_sub">محاولات خاطئة كثيرة. تقدر تحاول تاني بعد ما العداد يخلص.</string>
     <string name="wa_rec_photo_take">التقط صورة</string>
     <string name="wa_rec_photo_retake">أعد التقاط الصورة</string>
+    <!-- The one payment screen (Checkout). -->
+    <string name="wa_checkout_title">الدفع</string>
+    <string name="wa_checkout_pin_sub">اكتب الرقم السري للدفع</string>
+    <string name="wa_checkout_total">الإجمالي</string>
+    <string name="wa_checkout_from_wallet">ادفع من محفظتك</string>
+    <string name="wa_checkout_wallet">محفظة دُر</string>
+    <string name="wa_checkout_balance">الرصيد %1$s %2$s</string>
+    <string name="wa_checkout_short">ناقص %1$s %2$s</string>
+    <string name="wa_checkout_top_up">اشحن</string>
+    <string name="wa_checkout_other_ways">أو ادفع بـ</string>
+    <string name="wa_checkout_charged">هيتخصم %1$s %2$s</string>
+    <string name="wa_checkout_method_cant">مش بتقبل المبلغ ده</string>
+    <string name="wa_checkout_fee_note">شامل رسوم دفع %1$s %2$s.</string>
+    <string name="wa_checkout_waiting_text">كمّل الدفع في صفحة الدفع. الصفحة دي بتتحدث لوحدها، وتقدر تقفلها كمان: العملية بتكمل أول ما الدفع يتم.</string>
+    <string name="wa_checkout_later">اقفل، هكمّل بعدين</string>
+    <string name="wa_checkout_paid_title">تم الدفع</string>
+    <string name="wa_checkout_package">الباقة</string>
+    <string name="wa_checkout_paid_with">طريقة الدفع</string>
+    <string name="wa_checkout_paid_card">بطاقة / صفحة الدفع</string>
+    <string name="wa_checkout_expired_title">صفحة الدفع انتهت</string>
+    <string name="wa_checkout_failed_title">الدفع ماكملش</string>
+    <string name="wa_checkout_failed_in_wallet">فلوسك وصلت محفظتك بس الدفع ماكملش. جرّب تاني من المحفظة.</string>
 </resources>

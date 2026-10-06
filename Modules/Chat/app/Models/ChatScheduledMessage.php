@@ -11,8 +11,10 @@ use Modules\Chat\Support\ParticipantType;
 /**
  * A text message written now and sent at `send_at` by `chat:send-scheduled`.
  */
-class ChatScheduledMessage extends Model
+class ChatScheduledMessage extends Model implements \Spatie\MediaLibrary\HasMedia
 {
+    use \App\Traits\HasMediaTrait;
+
     public const PENDING = 'pending';
 
     public const SENT = 'sent';
@@ -25,6 +27,9 @@ class ChatScheduledMessage extends Model
         'owner_type',
         'owner_id',
         'body',
+        'type',
+        'meta',
+        'timezone',
         'is_silent',
         'send_at',
         'status',
@@ -36,6 +41,7 @@ class ChatScheduledMessage extends Model
     {
         return [
             'is_silent' => 'boolean',
+            'meta' => 'array',
             'send_at' => 'datetime',
         ];
     }
@@ -73,6 +79,9 @@ class ChatScheduledMessage extends Model
             'body' => $this->body,
             'is_silent' => (bool) $this->is_silent,
             'send_at' => $this->send_at?->toIso8601String(),
+            'type' => $this->type ?? 'text',
+            'meta' => $this->meta,
+            'timezone' => $this->timezone,
             'status' => $this->status,
             'error_code' => $this->error_code,
             'created_at' => $this->created_at?->toIso8601String(),

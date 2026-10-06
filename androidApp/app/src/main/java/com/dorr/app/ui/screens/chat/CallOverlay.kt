@@ -188,6 +188,10 @@ private fun CallScreen() {
             }
         } else if (remote != null && phase == CallPhase.Active) {
             key(remote.track) { VideoSurface(remote, Modifier.fillMaxSize()) }
+        } else if (local != null && phase != CallPhase.Ended) {
+            // Calling, connecting, or their camera is off: my own camera fills the screen (like
+            // WhatsApp), so it's plain the camera did open.
+            key(local.track) { VideoSurface(local, Modifier.fillMaxSize()) }
         } else {
             AnimatedBackdrop()
         }
@@ -219,7 +223,7 @@ private fun CallScreen() {
         }
 
         // ------------------------------------------------------------ my camera (drag it anywhere, it snaps to a corner)
-        if (local != null && phase == CallPhase.Active && !grouped) LocalPreview(local)
+        if (local != null && remote != null && phase == CallPhase.Active && !grouped) LocalPreview(local)
 
         // ------------------------------------------------------------ controls
         Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 36.dp)) {
@@ -337,13 +341,21 @@ private fun IncomingControls(onDecline: () -> Unit, onAccept: () -> Unit) {
 
 @Composable
 private fun ActiveControls(video: Boolean) {
+    val context = LocalContext.current
+    val cameraAsk = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) CallController.toggleCamera()
+        else android.widget.Toast.makeText(context, context.getString(R.string.ch_call_camera_denied), android.widget.Toast.LENGTH_SHORT).show()
+    }
     Row(
         Modifier.clip(RoundedCornerShape(36.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 18.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         ToggleAction(if (CallController.micOn) Icons.Rounded.Mic else Icons.Rounded.MicOff, !CallController.micOn) { CallController.toggleMic() }
         ToggleAction(Icons.Rounded.VolumeUp, CallController.speakerOn) { CallController.toggleSpeaker() }
-        ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn) { CallController.toggleCamera() }
+        ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn) {
+            if (!CallController.cameraOn && !CallController.cameraAllowed()) cameraAsk.launch(Manifest.permission.CAMERA)
+            else CallController.toggleCamera()
+        }
         if (CallController.cameraOn) ToggleAction(Icons.Rounded.Cameraswitch, false) { CallController.flipCamera() }
         RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
     }

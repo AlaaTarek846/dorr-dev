@@ -15,11 +15,12 @@ class ChatStory extends Model implements HasMedia
 
     public const MEDIA = 'story';
 
-    protected $fillable = ['uuid', 'owner_type', 'owner_id', 'type', 'body', 'style', 'duration_ms', 'allow_replies', 'expires_at'];
+    protected $fillable = ['uuid', 'owner_type', 'owner_id', 'type', 'body', 'style', 'duration_ms', 'allow_replies', 'is_public', 'expires_at'];
 
     protected function casts(): array
     {
         return [
+            'is_public' => 'boolean',
             'style' => 'array',
             'duration_ms' => 'integer',
             'allow_replies' => 'boolean',

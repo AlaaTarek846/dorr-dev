@@ -46,6 +46,13 @@ class ConversationResource extends JsonResource
         $active = $conversation->participants->whereNull('left_at');
         $peer = $isGroup ? null : $active->first(fn (ChatParticipant $p) => $p->id !== $me->id);
         $peerProfile = $peer !== null ? $directory->profile($this->viewer, $peer->participant_type, $peer->participant_id) : null;
+        // A message request I sent to someone I don't have saved (from a public story, say): their
+        // number shows once they accept it (docs/remaining_chat.md ج.1).
+        if ($peerProfile !== null && ! ($peerProfile['is_contact'] ?? false)
+            && $conversation->status !== \Modules\Chat\Enums\ConversationStatus::Accepted
+            && $conversation->created_by_type === $me->participant_type && (int) $conversation->created_by_id === (int) $me->participant_id) {
+            $peerProfile['phone'] = null;
+        }
         $isSelf = $conversation->isSelf();
         $selfProfile = $isSelf ? $directory->profile($this->viewer, $me->participant_type, $me->participant_id) : null;
 
@@ -88,6 +95,9 @@ class ConversationResource extends JsonResource
                 // Channels: the @handle and whether anyone can find it in "Discover".
                 'handle' => $group->handle,
                 'is_public' => (bool) $group->is_public,
+                // Channels: the ✔ (verified by Dorr, or a paid verification running) and the category.
+                'is_verified' => $conversation->isChannel() && $group->isVerified(),
+                'category' => $conversation->isChannel() ? $group->category?->loadMissing(['translations', 'media'])->brief() : null,
             ],
             'my_role' => $me->role->value,
             'is_member' => $me->isActive(),
@@ -100,6 +110,10 @@ class ConversationResource extends JsonResource
             'is_pinned' => $me->pinned_at !== null,
             'is_archived' => $me->is_archived,
             'is_locked' => $me->is_locked,
+            // A separate PIN for this chat (spec 25) — asked instead of the fingerprint.
+            'has_lock_pin' => $me->lock_pin_hash !== null,
+            // My privacy circle for it (only I know).
+            'circle' => $me->privacy_circle_id ? (fn ($c) => $c ? ['id' => $c->uuid, 'name' => $c->name, 'shown_name' => $c->shownName(), 'emoji' => $c->emoji, 'locked' => $c->locked, 'hide_from_list' => $c->hide_from_list] : null)($me->privacyCircle) : null,
             'is_muted' => $me->isMuted(),
             'muted_until' => $me->muted_until?->toIso8601String(),
             'disappearing_seconds' => $conversation->disappearing_seconds,
@@ -149,7 +163,8 @@ class ConversationResource extends JsonResource
             'id' => $message->uuid,
             'type' => $message->type->value,
             // A sensitive message never shows in the list.
-            'body' => $gone || $message->is_sensitive ? null : Str::limit((string) $message->body, 120),
+            'body' => $gone || $message->is_sensitive || ($message->type === \Modules\Chat\Enums\MessageType::MomentCard && data_get($message->meta, 'card.reveal_at') && \Illuminate\Support\Carbon::parse(data_get($message->meta, 'card.reveal_at'))->isFuture())
+                ? null : Str::limit((string) $message->body, 120),
             'is_sensitive' => (bool) $message->is_sensitive,
             'sender' => $context->profile($message->sender_type, $message->sender_id),
             'is_mine' => $context->isMine($message),

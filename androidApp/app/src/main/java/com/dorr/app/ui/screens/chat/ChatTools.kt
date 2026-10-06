@@ -95,6 +95,25 @@ object ChatLock {
 
     fun lock() {
         unlocked = false
+        unlockedCircles.clear()
+        ChatPinLock.unlocked.clear()
+    }
+
+    /** Circles open each with their own unlock (spec 102): opening one never opens the others. */
+    private val unlockedCircles = mutableSetOf<String>()
+
+    fun unlockCircle(context: Context, id: String, onSuccess: () -> Unit) {
+        if (id in unlockedCircles) {
+            onSuccess()
+            return
+        }
+        val wasUnlocked = unlocked
+        unlocked = false
+        unlock(context) {
+            unlockedCircles += id
+            unlocked = wasUnlocked
+            onSuccess()
+        }
     }
 
     fun unlock(context: Context, onSuccess: () -> Unit) {

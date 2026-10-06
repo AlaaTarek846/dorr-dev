@@ -34,6 +34,15 @@ class ChatPushNotifier
         // An urgent message (the recipient allowed it) gets through a mute.
         $recipients = $recipients->reject(fn (ChatParticipant $p) => $p->isMuted() && ! $message->is_urgent)->values();
 
+        // Smart quiet (spec 115): in someone's quiet time a message that isn't urgent makes no
+        // notification — it's counted for the summary sent when the quiet time ends.
+        if (! $message->is_urgent && $recipients->isNotEmpty()) {
+            $quiet = $this->inQuietTime($recipients, $conversation);
+            if ($quiet !== []) {
+                $recipients = $recipients->reject(fn (ChatParticipant $p) => isset($quiet[$p->participant_type.':'.$p->participant_id]))->values();
+            }
+        }
+
         if ($recipients->isEmpty()) {
             return;
         }
@@ -57,19 +66,158 @@ class ChatPushNotifier
         // Three audiences at most: the name and the text · the name and "New message" · "Dorr",
         // "New message". A locked chat never shows anything.
         $levels = $this->privacyLevels($recipients);
-        $level = function (ChatParticipant $p) use ($levels, $message) {
+        $circles = \Modules\Chat\Models\ChatPrivacyCircle::query()->whereIn('id', $recipients->pluck('privacy_circle_id')->filter()->unique())->get()->keyBy('id');
+        $level = function (ChatParticipant $p) use ($levels, $message, $circles) {
             $chosen = $p->is_locked ? 'none' : ($levels[$p->participant_type.':'.$p->participant_id] ?? 'all');
 
             // A sensitive message never shows its content, whatever the recipient chose.
-            return $chosen === 'all' && $message->is_sensitive ? 'name' : $chosen;
+            $chosen = $chosen === 'all' && $message->is_sensitive ? 'name' : $chosen;
+
+            // My circle for this chat (spec 98–103): its own level, the stricter of the two wins;
+            // "circle" (P2) shows the circle's (stand-in) name instead of the person.
+            $circle = $p->privacy_circle_id ? $circles->get($p->privacy_circle_id) : null;
+            if ($circle !== null) {
+                $chosen = \Modules\Chat\Models\ChatPrivacyCircle::stricter($chosen, $circle->disclosure);
+                if ($chosen === 'circle') {
+                    return 'circle:'.$circle->id;
+                }
+            }
+
+            return $chosen === 'circle' ? 'name' : $chosen;
         };
         $groups = $recipients->groupBy($level);
 
         $this->send($groups->get('all', collect()), ['en' => $title], $this->previewInEveryLanguage($message), $data);
         $this->send($groups->get('name', collect()), ['en' => $title], $this->inEveryLanguage('chat.push.new_message_body'), $data);
+        // P2: "New message — Friends" (the circle's stand-in name when it has one), nobody named.
+        foreach ($groups as $key => $rows) {
+            if (str_starts_with((string) $key, 'circle:')) {
+                $circle = $circles->get((int) substr($key, 7));
+                $this->send($rows, ['en' => $circle->shownName()], $this->inEveryLanguage('chat.push.new_message_body'), $data + ['circle' => $circle->uuid]);
+            }
+        }
         // Nothing shown (or privacy mode on): `private = 1` lets the phone fold them into one
         // "N new messages" notification that names nobody (spec 104).
         $this->send($groups->get('none', collect()), $this->inEveryLanguage('chat.push.new_message_title'), $this->inEveryLanguage('chat.push.new_message_body'), $data + ['private' => '1']);
+        // P4: no notification at all — the phone only updates its counter.
+        $this->send($groups->get('hidden', collect()), $this->inEveryLanguage('chat.push.new_message_title'), $this->inEveryLanguage('chat.push.new_message_body'), $data + ['private' => '1', 'hidden' => '1']);
+    }
+
+    /**
+     * Who among these is in their quiet time for this chat — and counts the message for them.
+     *
+     * @param  Collection<int, ChatParticipant>  $recipients
+     * @return array<string, true>
+     */
+    private function inQuietTime(Collection $recipients, ChatConversation $conversation): array
+    {
+        $quiet = [];
+
+        ChatPrivacySetting::query()->whereNotNull('quiet_schedule')
+            ->where(function ($q) use ($recipients) {
+                foreach ($recipients->groupBy('participant_type') as $type => $rows) {
+                    $q->orWhere(fn ($q) => $q->where('owner_type', $type)->whereIn('owner_id', $rows->pluck('participant_id')));
+                }
+            })
+            ->get()
+            ->each(function (ChatPrivacySetting $s) use (&$quiet, $conversation) {
+                if (! $s->quietOn() || (($s->quiet_scope ?: 'all') === 'groups' && ! $conversation->isGroup())) {
+                    return;
+                }
+                $quiet[$s->owner_type.':'.$s->owner_id] = true;
+
+                $row = DB::table('chat_quiet_digests')->where('owner_type', $s->owner_type)->where('owner_id', $s->owner_id)->first();
+                $chats = array_values(array_unique([...(json_decode((string) ($row->conversation_ids ?? '[]'), true) ?: []), $conversation->uuid]));
+                DB::table('chat_quiet_digests')->updateOrInsert(
+                    ['owner_type' => $s->owner_type, 'owner_id' => $s->owner_id],
+                    ['messages_count' => ($row->messages_count ?? 0) + 1, 'conversation_ids' => json_encode($chats), 'updated_at' => now(), 'created_at' => $row->created_at ?? now()],
+                );
+            });
+
+        return $quiet;
+    }
+
+    /** "Ahmed invited you to sign a card for Sara" (spec 163). */
+    public function collabInvite(string $organiser, string $title, \Illuminate\Support\Collection $members, string $cardId): void
+    {
+        $contents = [];
+        foreach (LocaleResolver::supported() as $locale) {
+            $contents[$locale] = __('chat.push.collab_invite_body', ['name' => $organiser, 'title' => $title], $locale);
+        }
+
+        $this->send($members->map(fn ($m) => (object) ['participant_type' => $m->member_type, 'participant_id' => $m->member_id]), $this->inEveryLanguage('chat.push.collab_invite_title'), $contents, ['type' => 'chat', 'event' => 'chat.collab.invited', 'card_id' => $cardId]);
+    }
+
+    /**
+     * "🎂 Sara's birthday — tomorrow" (my own date, DORR Moments): N days before and on the day.
+     * Tapping it opens Moments, where the card for that person is one tap away.
+     */
+    public function momentReminder(\Illuminate\Database\Eloquent\Model $owner, \Modules\Chat\Models\ChatPersonalMoment $moment, int $daysLeft): void
+    {
+        $emoji = MomentService::PERSONAL_LOOKS[$moment->kind]['emoji'] ?? '✨';
+        $headings = [];
+        $contents = [];
+        foreach (LocaleResolver::supported() as $locale) {
+            $headings[$locale] = $emoji.' '.$moment->title;
+            $contents[$locale] = match (true) {
+                $daysLeft === 0 => __('chat.push.moment_today', [], $locale),
+                $daysLeft === 1 => __('chat.push.moment_tomorrow', [], $locale),
+                default => __('chat.push.moment_in_days', ['days' => $daysLeft], $locale),
+            };
+        }
+
+        $this->send(
+            collect([(object) ['participant_type' => ParticipantType::aliasFor($owner), 'participant_id' => $owner->getKey()]]),
+            $headings,
+            $contents,
+            ['type' => 'moments', 'event' => 'chat.moment.reminder', 'personal_id' => $moment->uuid, 'days_left' => (string) $daysLeft],
+        );
+    }
+
+    /**
+     * "📅 Dentist — in 30 minutes" (DORR Calendar, spec 204). The time is shown where I am now.
+     */
+    public function calendarReminder(\Modules\Chat\Models\ChatCalendarItem $item, \Illuminate\Database\Eloquent\Model $owner, int $minutesLeft): void
+    {
+        $zone = in_array($owner->timezone ?? '', timezone_identifiers_list(), true) ? $owner->timezone : (string) config('app.timezone', 'UTC');
+        $contents = [];
+        foreach (LocaleResolver::supported() as $locale) {
+            $contents[$locale] = match (true) {
+                $item->all_day => __('chat.push.calendar_all_day', [], $locale),
+                $minutesLeft <= 1 => __('chat.push.calendar_now', [], $locale),
+                $minutesLeft < 120 => __('chat.push.calendar_in_minutes', ['minutes' => $minutesLeft], $locale),
+                default => __('chat.push.calendar_at', ['time' => $item->starts_at->setTimezone($zone)->format('H:i'), 'date' => $item->starts_at->setTimezone($zone)->format('d/m')], $locale),
+            }.($item->location ? ' · '.$item->location : '');
+        }
+
+        $this->send(
+            collect([(object) ['participant_type' => $item->owner_type, 'participant_id' => $item->owner_id]]),
+            array_fill_keys(LocaleResolver::supported(), '📅 '.$item->title),
+            $contents,
+            ['type' => 'calendar', 'event' => 'chat.calendar.reminder', 'item_id' => $item->uuid],
+        );
+    }
+
+    /** "✅ Call the plumber" — one of my tasks whose time came (spec 38). */
+    public function taskDue(\Modules\Chat\Models\ChatTask $task): void
+    {
+        $this->send(
+            collect([(object) ['participant_type' => $task->owner_type, 'participant_id' => $task->owner_id]]),
+            $this->inEveryLanguage('chat.push.task_title'),
+            ['en' => $task->text],
+            ['type' => 'tasks', 'event' => 'chat.task.due', 'task_id' => $task->uuid],
+        );
+    }
+
+    /** "While it was quiet: 12 messages in 4 chats" — once the quiet time is over. */
+    public function quietDigest(string $ownerType, int $ownerId, int $messages, int $chats): void
+    {
+        $contents = [];
+        foreach (LocaleResolver::supported() as $locale) {
+            $contents[$locale] = __('chat.push.quiet_digest_body', ['messages' => $messages, 'chats' => $chats], $locale);
+        }
+
+        $this->send(collect([(object) ['participant_type' => $ownerType, 'participant_id' => $ownerId]]), $this->inEveryLanguage('chat.push.quiet_digest_title'), $contents, ['type' => 'chat', 'event' => 'chat.quiet.digest']);
     }
 
     /**
@@ -196,6 +344,11 @@ class ChatPushNotifier
     {
         if ($message->type === MessageType::Text) {
             return ['en' => Str::limit(self::plain((string) $message->body), 180)];
+        }
+
+        // A surprise card shows nothing but that it's a surprise.
+        if ($message->type === MessageType::MomentCard && data_get($message->meta, 'card.reveal_at') && \Illuminate\Support\Carbon::parse(data_get($message->meta, 'card.reveal_at'))->isFuture()) {
+            return $this->inEveryLanguage('chat.preview.moment_card_sealed');
         }
 
         // A view-once photo never shows its caption in a notification; a live location says it's live.

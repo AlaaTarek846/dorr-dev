@@ -243,4 +243,26 @@
     <string name="wa_pin_locked_sub">Too many wrong attempts. You can try again once the countdown ends.</string>
     <string name="wa_rec_photo_take">Take a photo</string>
     <string name="wa_rec_photo_retake">Retake photo</string>
+    <!-- The one payment screen (Checkout). -->
+    <string name="wa_checkout_title">Checkout</string>
+    <string name="wa_checkout_pin_sub">Enter your PIN to pay</string>
+    <string name="wa_checkout_total">Total</string>
+    <string name="wa_checkout_from_wallet">Pay from your wallet</string>
+    <string name="wa_checkout_wallet">Dorr wallet</string>
+    <string name="wa_checkout_balance">Balance %1$s %2$s</string>
+    <string name="wa_checkout_short">%1$s %2$s more needed</string>
+    <string name="wa_checkout_top_up">Top up</string>
+    <string name="wa_checkout_other_ways">Or pay with</string>
+    <string name="wa_checkout_charged">%1$s %2$s will be charged</string>
+    <string name="wa_checkout_method_cant">Can\'t take this amount</string>
+    <string name="wa_checkout_fee_note">Includes a %1$s %2$s payment fee.</string>
+    <string name="wa_checkout_waiting_text">Finish the payment on the payment page. This page updates by itself — you can also leave, it\'s completed as soon as the payment goes through.</string>
+    <string name="wa_checkout_later">Close, I\'ll finish later</string>
+    <string name="wa_checkout_paid_title">Paid</string>
+    <string name="wa_checkout_package">Package</string>
+    <string name="wa_checkout_paid_with">Paid with</string>
+    <string name="wa_checkout_paid_card">Card / payment page</string>
+    <string name="wa_checkout_expired_title">This payment page expired</string>
+    <string name="wa_checkout_failed_title">Payment not completed</string>
+    <string name="wa_checkout_failed_in_wallet">Your money arrived in your wallet but couldn\'t complete this payment. Try again from your wallet.</string>
 </resources>

@@ -38,6 +38,7 @@ interface ChatApi {
         @Query("search") search: String? = null,
         @Query("folder") folder: Int? = null,
         @Query("page") page: Int = 1,
+        @Query("circle") circle: String? = null,
         @Query("per_page") perPage: Int = 30,
     ): ConversationListEnvelope
 
@@ -288,10 +289,26 @@ interface ChatApi {
     suspend fun rejectJoin(@Header("Authorization") auth: String, @Path("id") id: String, @Path("request") request: Int): ApiEnvelope<List<JoinRequestDto>>
 
     @GET("mobile/v1/chat/conversations/{id}/messages/search")
-    suspend fun searchIn(@Header("Authorization") auth: String, @Path("id") id: String, @Query("q") q: String): ApiEnvelope<List<MessageDto>>
+    suspend fun searchIn(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("q") q: String?,
+        /** Only some kinds (spec 21): text, image, video, voice, document, link, location, poll, contact, sticker, money. */
+        @Query("types[]") types: List<String>? = null,
+    ): ApiEnvelope<List<MessageDto>>
 
     @GET("mobile/v1/chat/conversations/{id}/gallery")
-    suspend fun gallery(@Header("Authorization") auth: String, @Path("id") id: String, @Query("kind") kind: String, @Query("before") before: String? = null): ApiEnvelope<GalleryPageDto>
+    suspend fun gallery(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @Query("kind") kind: String,
+        @Query("before") before: String? = null,
+        /** Photos from that day back (spec 17); files by kind, size, or biggest first (18). */
+        @Query("date") date: String? = null,
+        @Query("file_kind") fileKind: String? = null,
+        @Query("min_size") minSize: Long? = null,
+        @Query("sort") sort: String? = null,
+    ): ApiEnvelope<GalleryPageDto>
 
     // ------------------------------------------------------------------ groups
 
@@ -493,6 +510,12 @@ interface ChatApi {
     @POST("mobile/v1/chat/stories/{id}/view")
     suspend fun viewStory(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
 
+    @GET("mobile/v1/chat/stories/public")
+    suspend fun publicStories(@Header("Authorization") auth: String): ApiEnvelope<PublicStoryFeedDto>
+
+    @POST("mobile/v1/chat/stories/dorr/{id}/view")
+    suspend fun viewDorrStory(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
     @PUT("mobile/v1/chat/stories/{id}/reaction")
     suspend fun reactStory(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String?>): ApiEnvelope<JsonElement?>
 
@@ -548,6 +571,9 @@ data class RealtimeConfigDto(
 data class FolderDto(
     val id: Int,
     val name: String,
+    /** The chip's colour and emoji (spec 1). */
+    val color: String? = null,
+    val emoji: String? = null,
     @SerializedName("sort_order") val sortOrder: Int = 0,
     @SerializedName("conversations_count") val conversationsCount: Int = 0,
     @SerializedName("conversation_ids") val conversationIds: List<String> = emptyList(),
@@ -567,6 +593,8 @@ data class ProfileDto(
     val key: String,
     val name: String?,
     @SerializedName("account_name") val accountName: String? = null,
+    /** Their @username (spec 81). */
+    val username: String? = null,
     val phone: String? = null,
     val avatar: String? = null,
     @SerializedName("is_contact") val isContact: Boolean = false,
@@ -610,6 +638,9 @@ data class GroupInfoDto(
     @SerializedName("slow_mode_seconds") val slowModeSeconds: Int = 0,
     /** Admins only (null for members): words a member's message may not contain. */
     @SerializedName("banned_words") val bannedWords: List<String>? = null,
+    /** Channels: the ✔ and the category. */
+    @SerializedName("is_verified") val isVerified: Boolean = false,
+    val category: CategoryDto? = null,
 )
 
 data class StickerDto(
@@ -656,6 +687,9 @@ data class ChannelCardDto(
     @SerializedName("followers_count") val followersCount: Int,
     @SerializedName("is_following") val isFollowing: Boolean,
     @SerializedName("last_post_at") val lastPostAt: String?,
+    /** The ✔: verified by Dorr, or a paid verification still running. */
+    @SerializedName("is_verified") val isVerified: Boolean = false,
+    val category: CategoryDto? = null,
 )
 
 data class LastMessageDto(
@@ -695,6 +729,12 @@ data class ConversationDto(
     @SerializedName("is_pinned") val isPinned: Boolean,
     @SerializedName("is_archived") val isArchived: Boolean,
     @SerializedName("is_locked") val isLocked: Boolean,
+    /** A separate PIN for this chat (spec 25), asked instead of the phone's lock. */
+    @SerializedName("has_lock_pin") val hasLockPin: Boolean = false,
+    /** In the priority inbox: why it's there — mention · urgent · owed · direct (spec 114). */
+    val priority: List<String>? = null,
+    /** My privacy circle for this chat (spec 98) — only I know. */
+    val circle: ConversationCircleDto? = null,
     @SerializedName("is_muted") val isMuted: Boolean,
     @SerializedName("disappearing_seconds") val disappearingSeconds: Int?,
     val theme: ConversationThemeDto? = null,
@@ -795,6 +835,9 @@ data class MessageDto(
     @SerializedName("is_mine") val isMine: Boolean?,
     val status: String?,
     @SerializedName("reply_to") val replyTo: ReplyPreviewDto?,
+    /** Threads (spec 122): under a message, its replies; on a reply, the message it hangs from. */
+    val thread: ThreadInfoDto? = null,
+    @SerializedName("thread_root") val threadRoot: String? = null,
     @SerializedName("is_forwarded") val isForwarded: Boolean = false,
     @SerializedName("forwarded_many_times") val forwardedManyTimes: Boolean = false,
     val mentions: List<ProfileDto> = emptyList(),
@@ -805,6 +848,8 @@ data class MessageDto(
     @SerializedName("is_starred") val isStarred: Boolean = false,
     /** On my "read later" list. */
     @SerializedName("is_read_later") val isReadLater: Boolean = false,
+    /** A surprise greeting card (spec 165) not opened yet: no words, no files until `meta.card.reveal_at`. */
+    val sealed: Boolean = false,
     /** On my "needs a reply" list. */
     @SerializedName("is_follow_up") val isFollowUp: Boolean = false,
     /** When I asked to be reminded about it (ISO), or null. */
@@ -963,6 +1008,8 @@ data class PrivacyDto(
     @SerializedName("notification_preview") val notificationPreview: Boolean,
     /** What a chat notification shows: all (name and text) · name · none. */
     @SerializedName("notification_privacy") val notificationPrivacy: String? = null,
+    /** Smart quiet (spec 115). */
+    val quiet: QuietDto? = null,
     /** Who may send me an urgent message (it gets through my mute). */
     @SerializedName("who_can_urgent") val whoCanUrgent: String? = null,
     val status: MyStatusDto? = null,
@@ -1002,6 +1049,19 @@ data class AiCapabilitiesDto(
     val summarize: Boolean = false,
     @SerializedName("smart_replies") val smartReplies: Boolean = false,
     val transcribe: Boolean = false,
+    val ask: Boolean = false,
+    val commitments: Boolean = false,
+    // DORR AI tools (spec 31, 36–42, 46, 48, 49).
+    val assistant: Boolean = false,
+    val proofread: Boolean = false,
+    val understand: Boolean = false,
+    val simplify: Boolean = false,
+    val tasks: Boolean = false,
+    val notes: Boolean = false,
+    val dates: Boolean = false,
+    val important: Boolean = false,
+    @SerializedName("related_files") val relatedFiles: Boolean = false,
+    val today: Boolean = false,
 )
 
 data class AiTextDto(val text: String, val to: String? = null)
@@ -1079,7 +1139,24 @@ data class StoryDto(
     val reactions: Int?,
     @SerializedName("created_at") val createdAt: String?,
     @SerializedName("expires_at") val expiresAt: String?,
+    /** On the home page for everyone. */
+    @SerializedName("is_public") val isPublic: Boolean = false,
+    /** One of Dorr's own stories (home page): no replies, maybe an "Open" link. */
+    @SerializedName("is_dorr") val isDorr: Boolean = false,
+    @SerializedName("link_url") val linkUrl: String? = null,
+    @SerializedName("link_label") val linkLabel: String? = null,
 )
+
+/** The home page's circles: mine, Dorr's own, then everyone's public stories (unseen + most watched first). */
+data class PublicStoryFeedDto(
+    val enabled: Boolean = true,
+    val quota: StoryQuotaDto? = null,
+    val mine: StoryGroupDto? = null,
+    val dorr: StoryGroupDto? = null,
+    val people: List<StoryGroupDto> = emptyList(),
+)
+
+data class StoryQuotaDto(val free: Int, val used: Int)
 
 data class StoryGroupDto(
     val owner: ProfileDto?,
@@ -1098,3 +1175,16 @@ data class StoryPrivacyDto(val audience: String, val except: List<ProfileDto> = 
 data class JoinDto(val url: String, val room: String, val token: String)
 
 data class CallSessionDto(val call: CallDto, val join: JoinDto?)
+
+data class ConversationCircleDto(
+    val id: String,
+    val name: String,
+    @SerializedName("shown_name") val shownName: String,
+    val emoji: String? = null,
+    val locked: Boolean = false,
+    @SerializedName("hide_from_list") val hideFromList: Boolean = true,
+)
+
+data class ThreadInfoDto(val count: Int, @SerializedName("last_at") val lastAt: String? = null)
+
+data class QuietDto(val on: Boolean = false, val schedule: PrivacyScheduleDto? = null, val scope: String = "all")

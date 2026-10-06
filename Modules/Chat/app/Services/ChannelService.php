@@ -11,6 +11,7 @@ use Modules\Chat\Enums\ConversationStatus;
 use Modules\Chat\Enums\ConversationType;
 use Modules\Chat\Enums\ParticipantRole;
 use Modules\Chat\Exceptions\ChatException;
+use Modules\Chat\Models\ChatCategory;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
 use Modules\Chat\Models\ChatParticipant;
@@ -33,11 +34,12 @@ class ChannelService
         private readonly MessageService $messages,
     ) {}
 
-    public function create(Model $me, string $name, ?string $description, ?string $handle, bool $isPublic, ?UploadedFile $avatar = null): ChatParticipant
+    public function create(Model $me, string $name, ?string $description, ?string $handle, bool $isPublic, ?UploadedFile $avatar = null, ?int $categoryId = null): ChatParticipant
     {
         $handle = $this->cleanHandle($handle);
+        $this->assertCategory($categoryId);
 
-        return DB::transaction(function () use ($me, $name, $description, $handle, $isPublic, $avatar) {
+        return DB::transaction(function () use ($me, $name, $description, $handle, $isPublic, $avatar, $categoryId) {
             $conversation = ChatConversation::query()->create([
                 'type' => ConversationType::Channel,
                 'status' => ConversationStatus::Accepted,
@@ -51,6 +53,7 @@ class ChannelService
                 'description' => $description,
                 'handle' => $handle,
                 'is_public' => $isPublic,
+                'category_id' => $categoryId,
                 'invite_token' => Str::random(24),
                 'only_admins_send' => true,
                 'only_admins_edit_info' => true,
@@ -78,10 +81,74 @@ class ChannelService
     }
 
     /**
-     * Public channels to follow: by name or @handle, the biggest first, each with its follower
-     * count and whether I already follow it.
+     * The category (admins): one of the admin's list, or `null` for none.
      */
-    public function discover(Model $me, ?string $search, int $perPage = 20): LengthAwarePaginator
+    public function setCategory(Model $me, ChatConversation $conversation, ?int $categoryId): void
+    {
+        $this->assertChannelAdmin($me, $conversation);
+        $this->assertCategory($categoryId);
+        $conversation->group->update(['category_id' => $categoryId]);
+    }
+
+    /**
+     * Public channels to follow: by name or @handle (and a category), the biggest first, each with
+     * its follower count and whether I already follow it.
+     */
+    public function discover(Model $me, ?string $search, int $perPage = 20, ?int $categoryId = null): LengthAwarePaginator
+    {
+        return $this->publicChannels($search, $categoryId)->paginate($perPage);
+    }
+
+    /**
+     * The channels directory: public channels grouped by category (the admin's order, "other"
+     * last), the most followed first in each, a handful per category ("see all" pages through
+     * discover?category_id=).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function directory(Model $me, ?string $search, int $perCategory = 10): array
+    {
+        $categories = ChatCategory::query()->active()->with(['translations', 'media'])->orderBy('sort_order')->orderBy('id')->get();
+        $groups = [];
+
+        foreach ($categories as $category) {
+            $rows = $this->publicChannels($search, $category->id)->limit($perCategory)->get();
+            if ($rows->isNotEmpty()) {
+                $groups[] = ['category' => $category->brief(), 'channels' => $rows->map(fn ($c) => $this->present($me, $c))->all()];
+            }
+        }
+
+        $rest = $this->publicChannels($search, null)
+            ->whereHas('group', fn ($q) => $q->where(fn ($q) => $q->whereNull('category_id')->orWhereNotIn('category_id', $categories->pluck('id'))))
+            ->limit($perCategory)->get();
+        if ($rest->isNotEmpty()) {
+            $groups[] = ['category' => null, 'channels' => $rest->map(fn ($c) => $this->present($me, $c))->all()];
+        }
+
+        return $groups;
+    }
+
+    /**
+     * Where a channel's verification stands, and the packages it can be bought with here.
+     *
+     * @return array<string, mixed>
+     */
+    public function verification(Model $me, ChatConversation $conversation, \App\Models\Country $country): array
+    {
+        $this->assertChannelAdmin($me, $conversation);
+        $group = $conversation->group;
+        $packages = app(ChatPackageService::class);
+
+        return [
+            'is_verified' => $group->isVerified(),
+            'verified_until' => $group->verified_until?->toIso8601String(),
+            'verified_by_admin' => (bool) $group->verified_by_admin,
+            'packages' => $packages->forCountry(\Modules\Chat\Models\ChatPackage::KIND_CHANNEL_VERIFICATION, $country)->values(),
+            'history' => $packages->history('channel', $group->id)->values(),
+        ];
+    }
+
+    private function publicChannels(?string $search, ?int $categoryId): \Illuminate\Database\Eloquent\Builder
     {
         $search = trim((string) $search);
         $like = '%'.str_replace(['%', '_'], ['\%', '\_'], ltrim($search, '@')).'%';
@@ -89,11 +156,18 @@ class ChannelService
         return ChatConversation::query()
             ->where('type', ConversationType::Channel->value)
             ->whereHas('group', fn ($q) => $q->where('is_public', true)
+                ->when($categoryId, fn ($q, $id) => $q->where('category_id', $id))
                 ->when($search !== '', fn ($q) => $q->where(fn ($q) => $q->where('name', 'like', $like)->orWhere('handle', 'like', $like))))
-            ->with('group.media')
+            ->with(['group.media', 'group.category.translations', 'group.category.media'])
             ->withCount(['participants as followers_count' => fn ($q) => $q->whereNull('left_at')])
-            ->orderByDesc('followers_count')->orderByDesc('last_message_at')
-            ->paginate($perPage);
+            ->orderByDesc('followers_count')->orderByDesc('last_message_at');
+    }
+
+    private function assertCategory(?int $categoryId): void
+    {
+        if ($categoryId !== null && ! ChatCategory::query()->active()->whereKey($categoryId)->exists()) {
+            throw new ChatException('category_not_found', 422);
+        }
     }
 
     /**
@@ -112,6 +186,8 @@ class ChannelService
             'avatar' => $group?->avatarUrl(),
             'handle' => $group?->handle,
             'is_public' => (bool) $group?->is_public,
+            'is_verified' => (bool) $group?->isVerified(),
+            'category' => $group?->category?->brief(),
             'followers_count' => (int) ($channel->followers_count ?? $channel->activeParticipants()->count()),
             'is_following' => $channel->activeParticipants()->of($me)->exists(),
             'last_post_at' => $channel->last_message_at?->toIso8601String(),
@@ -125,7 +201,7 @@ class ChannelService
     {
         $channel = ChatConversation::query()->where('type', ConversationType::Channel->value)
             ->where(fn ($q) => $q->where('uuid', $idOrHandle)->orWhereHas('group', fn ($g) => $g->where('handle', ltrim($idOrHandle, '@'))))
-            ->with('group.media')->first();
+            ->with(['group.media', 'group.category.translations', 'group.category.media'])->first();
 
         $following = $channel?->activeParticipants()->of($me)->exists();
 

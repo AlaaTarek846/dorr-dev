@@ -206,7 +206,10 @@ class CallService
 
             if ($call->status === CallStatus::Ringing) {
                 if ($row->id === $call->initiator_participant_id) {
-                    $this->finish($call, CallStatus::Cancelled);
+                    // The caller's app gives up once it rang out: that's a missed call, not a
+                    // cancelled one (and it no longer waits for chat:expire-calls to run).
+                    $rangOut = $call->created_at->lte(now()->subSeconds((int) config('chat.call_ring_timeout_seconds', 45)));
+                    $this->finish($call, $rangOut ? CallStatus::Missed : CallStatus::Cancelled);
                 }
 
                 return;

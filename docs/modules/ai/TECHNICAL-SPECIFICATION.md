@@ -14,6 +14,22 @@ AiProviderController → AiProviderService → AiProviderRepository
 - `OpenAiConnector`, `AnthropicConnector`, `GoogleConnector`, `GroqConnector`
 - Shared concern: `SendsOpenAiCompatibleChat`
 
+## Safety layer (spec 350–362)
+
+`Modules/AI/app/Safety/` — enforced by the system, never left to the model:
+
+| Step | Who | What |
+|---|---|---|
+| 1. Classify | `RiskClassifier::classify($request, $provider)` | A separate, short call that answers JSON only `{domain, specific}`, plus fixed keyword rules (Arabic and English; phrases weigh more than single words). The rules decide alone when the call fails; a "specific" signal from the rules counts when both agree on the domain |
+| 2. Instruct | `SafetyPolicyEngine::instruct()` | One more system message: general information with its source; for a personal case no final ruling / fatwa / legal opinion / diagnosis / treatment; structural design = concept only; production code = "not tested"; never "if needed"-style wording; never its own disclaimer |
+| 3. Finish | `SafetyPolicyEngine::finish()` | Removes softeners ("if needed", "عند الحاجة"…) from clauses about consulting / checking / testing, drops the model's own copy of the fixed sentence, and returns `safety {domain, specific, disclaimer, notice}` |
+
+Domains: `religion`, `law`, `medicine` (HIGH STAKES: the disclaimer always; the referral when specific), `engineering` (the referral when it touches structure, wiring or plumbing), `code` (the "not tested + code review" notice when it's for production, money, security or real user data). The texts live in `lang/{ar,en}/ai.php` `safety.*` — the Arabic ones are the spec's approved wording, word for word.
+
+Applied to: the AI chat (`AiChatService`), and in DORR Chat to every free answer (`ChatAiService::askSafely`: ask about the chat, the assistant, understand a message). Conversions of the person's own content (translate, transcribe, proofread, summarise, simplify) add no advice and are not classified.
+
+**Not built yet (NEEDS-DECISION):** `AnswerVerifier` / `CitationValidator` (spec 362) — sources are requested from the model but not validated, and no numeric accuracy threshold exists.
+
 ## AiGateway
 
 Routes chat requests to configured default (or selected) provider connector.

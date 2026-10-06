@@ -11,6 +11,7 @@ use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiMessage;
 use Modules\AI\Repositories\AiConversationRepository;
 use Modules\AI\Repositories\AiProviderRepository;
+use Modules\AI\Safety\SafetyPolicyEngine;
 use Modules\User\Models\User;
 
 class AiChatService
@@ -19,6 +20,7 @@ class AiChatService
         protected AiConversationRepository $conversations,
         protected AiProviderRepository $providers,
         protected AiGateway $gateway,
+        protected SafetyPolicyEngine $safety,
     ) {}
 
     public function listConversations(User $user): JsonResponse
@@ -94,12 +96,15 @@ class AiChatService
         $conversation->provider_key = $provider->key;
         $conversation->save();
 
+        // Classified first, answered under its rules, and the approved texts added by the system
+        // (spec 350–362) — the plain text carries them too, for any screen without the card.
         $history = $this->buildHistory($conversation, $user);
-        $result = $this->gateway->chat($provider, $history);
+        $result = $this->safety->answer($provider, $history, $content);
 
         $assistantMessage = $conversation->messages()->create([
             'role' => AiMessage::ROLE_ASSISTANT,
-            'content' => $result['success'] ? $result['content'] : $result['message'],
+            'content' => $result['success'] ? SafetyPolicyEngine::withNotice((string) $result['text'], $result['safety']) : $result['message'],
+            'safety' => $result['success'] ? $result['safety'] : null,
             'provider_key' => $provider->key,
             'model' => $provider->model,
             'is_error' => ! $result['success'],

@@ -324,7 +324,7 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/auth/verify` | `guest:user_api` | Verify OTP → marks phone verified, issues bearer token |
 | POST | `/auth/resend` | `guest:user_api` | Resend OTP (cooldown enforced) |
 | GET | `/auth/me` | `auth:user_api` + `ensure-phone-verified` | Current user |
-| POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token |
+| POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token. Optional `player_id`: that phone stops getting pushes |
 | POST | `/profile/phone/request` | `auth:user_api` + `ensure-phone-verified` | Change phone step 1: validate new number, cache it, send OTP to it |
 | POST | `/profile/phone/confirm` | `auth:user_api` + `ensure-phone-verified` | Change phone step 2: verify `code` → swap number, re-mark verified |
 | PUT | `/profile/identity` | `auth:user_api` + `ensure-phone-verified` | Update `name` + `gender` (`male`/`female`) directly |

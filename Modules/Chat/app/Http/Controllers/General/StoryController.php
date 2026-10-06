@@ -37,6 +37,8 @@ class StoryController extends Controller
             'style.align' => ['nullable', Rule::in(['start', 'center', 'end'])],
             'duration_ms' => ['nullable', 'integer', 'min:0'],
             'allow_replies' => ['nullable', 'boolean'],
+            // On the home page for everyone (one free each — chat_settings.public_stories_free).
+            'public' => ['nullable', 'boolean'],
             'file' => [
                 'nullable', 'file', 'max:'.$maxKb,
                 $request->input('type') === 'video' ? 'mimes:mp4,mov,3gp,mkv,webm' : 'mimes:jpeg,jpg,png,webp,gif,heic,heif',
@@ -46,6 +48,20 @@ class StoryController extends Controller
         $story = $this->stories->create($request->user(), $data, $request->file('file'));
 
         return ApiResponse::created(['id' => $story->uuid, 'expires_at' => $story->expires_at?->toIso8601String()], __('api.created'));
+    }
+
+    /** GET stories/public — the home page's circles. */
+    public function publicFeed(Request $request)
+    {
+        return ApiResponse::success($this->stories->publicFeed($request->user()), __('api.retrieved'));
+    }
+
+    /** POST stories/dorr/{uuid}/view */
+    public function viewDorr(Request $request, string $story)
+    {
+        $this->stories->viewDorr($request->user(), \Modules\Chat\Models\ChatDorrStory::query()->where('uuid', $story)->firstOrFail());
+
+        return ApiResponse::success(null, __('api.updated'));
     }
 
     public function destroy(Request $request, ChatStory $story)

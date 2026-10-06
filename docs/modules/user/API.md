@@ -93,7 +93,7 @@ Responses:
   was previously soft-deleted and `deleted_at` was set back to `null` on this successful verify.
 - `POST /auth/resend` → `{ masked_phone, resend_cooldown_seconds }`
 - `GET /auth/me` → `UserResource`
-- `POST /auth/logout` → `{}`
+- `POST /auth/logout` `{ player_id? }` → `{}` (the given OneSignal player id is unlinked from the account, so the signed-out phone gets no more messages or calls)
 - `POST /profile/phone/request` → `{ masked_phone, resend_cooldown_seconds }`
 - `POST /profile/phone/confirm` → `UserResource` (number swapped, re-verified)
 - `PUT /profile/identity` (`name`, `gender: male|female`) → `UserResource`

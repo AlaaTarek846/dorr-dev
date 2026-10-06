@@ -175,6 +175,29 @@ interface WalletApi {
         @Path("uuid") uuid: String,
     ): ApiEnvelope<TopupPaymentDto>
 
+    /** The one payment screen: the server prices `{purpose, reference}` and answers what can pay it. */
+    @POST("mobile/v1/wallet/checkouts")
+    suspend fun createCheckout(
+        @Header("Authorization") authorization: String,
+        @Body body: CheckoutCreateRequest,
+    ): ApiEnvelope<CheckoutDto>
+
+    @GET("mobile/v1/wallet/checkouts/{uuid}")
+    suspend fun checkout(
+        @Header("Authorization") authorization: String,
+        @Path("uuid") uuid: String,
+    ): ApiEnvelope<CheckoutDto>
+
+    /** From the wallet, or handed to a gateway (then it settles by itself once the gateway confirms). */
+    @POST("mobile/v1/wallet/checkouts/{uuid}/pay")
+    suspend fun payCheckout(
+        @Header("Authorization") authorization: String,
+        @Header("X-Wallet-Pin") pin: String,
+        @Header("Idempotency-Key") idempotencyKey: String?,
+        @Path("uuid") uuid: String,
+        @Body body: CheckoutPayRequest,
+    ): ApiEnvelope<CheckoutDto>
+
     /** URPay only: submits the OTP the customer received by SMS. */
     @POST("mobile/v1/wallet/topups/{uuid}/confirm")
     suspend fun confirmTopup(
@@ -374,4 +397,47 @@ data class TopupPaymentDto(
     @SerializedName("bonus_minor") val bonusMinor: Long,
     @SerializedName("redirect_url") val redirectUrl: String?,
     @SerializedName("requires_otp") val requiresOtp: Boolean,
+)
+
+data class CheckoutCreateRequest(val purpose: String, val reference: Map<String, Any?>)
+
+data class CheckoutPayRequest(
+    /** "wallet" or "gateway". */
+    val method: String,
+    @SerializedName("payment_method_id") val paymentMethodId: Int? = null,
+)
+
+data class CheckoutDto(
+    val id: String,
+    val purpose: String,
+    val title: String,
+    val subtitle: String? = null,
+    @SerializedName("amount_minor") val amountMinor: Long,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    /** pending / paid / failed / expired */
+    val status: String,
+    @SerializedName("paid_via") val paidVia: String? = null,
+    @SerializedName("failure_reason") val failureReason: String? = null,
+    val wallet: CheckoutWalletDto,
+    @SerializedName("payment_methods") val paymentMethods: List<CheckoutMethodDto> = emptyList(),
+    /** The gateway top-up it was handed to, if any. */
+    val payment: TopupPaymentDto? = null,
+)
+
+data class CheckoutWalletDto(
+    @SerializedName("available_minor") val availableMinor: Long,
+    val enough: Boolean,
+    @SerializedName("shortfall_minor") val shortfallMinor: Long,
+)
+
+data class CheckoutMethodDto(
+    val id: Int,
+    val code: String,
+    val gateway: String,
+    val name: String? = null,
+    @SerializedName("logo_url") val logoUrl: String? = null,
+    @SerializedName("coming_soon") val comingSoon: Boolean = false,
+    /** What this method would actually charge (a top-up fee included); null when it can't take this amount. */
+    @SerializedName("charge_minor") val chargeMinor: Long? = null,
+    val available: Boolean = false,
 )
