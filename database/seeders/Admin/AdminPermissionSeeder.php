@@ -317,6 +317,7 @@ class AdminPermissionSeeder extends Seeder
 
     public function run(): void
     {
+        $this->call(AdminSeeder::class);
         $this->truncatePermissionModels(Permission::class, Role::class);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();

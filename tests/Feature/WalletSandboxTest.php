@@ -72,6 +72,66 @@ class WalletSandboxTest extends TestCase
         return (int) Wallet::query()->where('owner_type', 'provider')->where('owner_id', $this->me->id)->value('withdrawable_minor');
     }
 
+    public function test_the_checkout_page_uses_the_app_theme_colours_from_the_query_string(): void
+    {
+        $reference = $this->reference($this->startTopup(5000, 'key-theme-'.uniqid()));
+
+        $this->get("/api/wallet/sandbox/{$reference}?primary=0a7e8c&bg=0b1220&surface=111a2b&ink=ffffff")
+            ->assertOk()
+            ->assertSee('--primary: #0a7e8c;', false)
+            ->assertSee('--primary-rgb: 10, 126, 140;', false)
+            ->assertSee('--bg: #0b1220;', false)
+            ->assertSee('--ink: #ffffff;', false)
+            // Colours that were not sent keep the default palette.
+            ->assertSee('--mut: #6b7280;', false);
+    }
+
+    public function test_the_checkout_page_ignores_anything_that_is_not_a_hex_colour(): void
+    {
+        $reference = $this->reference($this->startTopup(5000, 'key-theme-'.uniqid()));
+
+        $this->get("/api/wallet/sandbox/{$reference}?primary=red;}body{display:none&bg=zzzzzz&ink=12345")
+            ->assertOk()
+            ->assertSee('--primary: #e50914;', false)
+            ->assertSee('--bg: #ffffff;', false)
+            ->assertSee('--ink: #111928;', false)
+            ->assertDontSee('display:none', false);
+    }
+
+    public function test_the_theme_colours_follow_the_flow_from_checkout_to_the_result_page(): void
+    {
+        $payment = $this->startTopup(5000, 'key-theme-flow');
+        $reference = $this->reference($payment);
+
+        // The approve/decline form keeps the colours...
+        $this->get("/api/wallet/sandbox/{$reference}?primary=0a7e8c&bg=0b1220")
+            ->assertOk()
+            ->assertSee('primary=0a7e8c', false);
+
+        // ...the decision carries them to the callback...
+        $location = $this->post("/api/wallet/sandbox/{$reference}?primary=0a7e8c&bg=0b1220&ink=zzzzzz", ['result' => 'approve'])
+            ->assertRedirect()->headers->get('Location');
+        $this->assertStringContainsString('primary=0a7e8c', $location);
+        $this->assertStringContainsString('bg=0b1220', $location);
+        $this->assertStringNotContainsString('ink=', $location, 'an invalid colour is not passed on');
+
+        // ...and the result page is drawn with them.
+        $this->get($location)
+            ->assertOk()
+            ->assertSee('--primary: #0a7e8c;', false)
+            ->assertSee('--bg: #0b1220;', false);
+    }
+
+    public function test_the_result_page_keeps_the_default_palette_without_theme_params(): void
+    {
+        $payment = $this->startTopup(5000, 'key-theme-default');
+
+        $this->get($this->decide($this->reference($payment), 'approve'))
+            ->assertOk()
+            ->assertSee('--primary: #e50914;', false)
+            ->assertSee('--bg: #ffffff;', false);
+    }
+
     public function test_the_seeder_offers_the_sandbox_method_in_local_and_testing(): void
     {
         $this->assertTrue($this->method->status);

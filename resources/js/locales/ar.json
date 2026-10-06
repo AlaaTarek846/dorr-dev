@@ -11,6 +11,7 @@
     "select_language": "اختر اللغة",
     "save_changes": "حفظ التغييرات",
     "close": "إغلاق",
+    "search_placeholder": "بحث...",
     "remove": "إزالة",
     "signing_in": "جاري تسجيل الدخول...",
     "yes": "نعم",
@@ -973,6 +974,15 @@
     "wallet": {
         "common": {
             "showing": "عرض {from} إلى {to} من {total}",
+            "clear_search": "مسح البحث",
+            "bucket_required": "اختر نوع الرصيد.",
+            "empty_title": "لا توجد سجلات بعد",
+            "date_from": "من تاريخ",
+            "date_to": "إلى تاريخ",
+            "refresh": "تحديث",
+            "view": "عرض",
+            "delete": "حذف",
+            "actions": "الإجراءات",
             "empty": "لا توجد سجلات.",
             "date": "التاريخ",
             "owner": "المالك",
@@ -1073,6 +1083,7 @@
             "reason": "السبب (إجباري)",
             "reason_required": "السبب المكتوب إجباري (3 أحرف على الأقل).",
             "choose_bucket": "اختر نوع الرصيد",
+            "empty_title": "لا توجد محافظ بعد",
             "apply_adjustment": "تنفيذ التسوية",
             "adjusted": "تم تسجيل التسوية.",
             "adjust_hint": "التصحيح صف جديد في الكشف منسوب لك، مع قيد دخل/مصروف مقابل. اختر نوع الرصيد بعناية: المبلغ \"للخدمات فقط\" لا يمكن سحبه أبداً."
@@ -1081,6 +1092,7 @@
             "title": "طلبات السحب",
             "method": "وسيلة السحب",
             "request": "طلب سحب",
+            "review": "مراجعة الطلب",
             "payout_to": "التحويل إلى",
             "receipt": "إيصال التحويل",
             "approve": "موافقة",
@@ -1095,6 +1107,7 @@
         "pinrec": {
             "title": "طلبات استرجاع الرقم السري",
             "request": "طلب استرجاع الرقم السري",
+            "review": "مراجعة الطلب",
             "document": "المستند",
             "reason_column": "النوع",
             "reason": {
@@ -1156,7 +1169,14 @@
             "max": "أقصى مبلغ",
             "saved": "تم حفظ طريقة الدفع.",
             "deleted": "تم حذف طريقة الدفع.",
-            "confirm_delete": "حذف \"{name}\"؟"
+            "confirm_delete": "هل أنت متأكد من حذف طريقة الدفع هذه؟",
+            "name_placeholder": "اسم طريقة الدفع",
+            "description_placeholder": "وصف مختصر (اختياري)",
+            "code_placeholder": "مثال: myfatoorah_card",
+            "saving": "جارٍ الحفظ...",
+            "delete_title": "حذف طريقة الدفع",
+            "delete_selected_title": "حذف طرق الدفع المحددة",
+            "confirm_delete_selected": "هل أنت متأكد من حذف طرق الدفع المحددة؟"
         },
         "rules": {
             "title": "الرسوم والهدايا",
@@ -1188,7 +1208,13 @@
             "max_uses": "أقصى استخدام لكل مستخدم",
             "saved": "تم حفظ القاعدة.",
             "deleted": "تم حذف القاعدة.",
-            "confirm_delete": "حذف \"{name}\"؟"
+            "name_placeholder": "اسم القاعدة",
+            "description_placeholder": "وصف مختصر (اختياري)",
+            "saving": "جارٍ الحفظ...",
+            "delete_title": "حذف القاعدة",
+            "confirm_delete": "هل أنت متأكد من حذف هذه القاعدة؟",
+            "delete_selected_title": "حذف القواعد المحددة",
+            "confirm_delete_selected": "هل أنت متأكد من حذف القواعد المحددة؟"
         },
         "settings": {
             "title": "إعدادات المحفظة",
@@ -1221,6 +1247,7 @@
             "min_allowed_balance_provider_minor": "الدين المسموح للمزوّد",
             "min_allowed_balance_user_minor": "الدين المسموح للمستخدم",
             "saved": "تم حفظ الإعدادات.",
+            "saving": "جارٍ الحفظ...",
             "search": "ابحث بكود الدولة…"
         }
     },

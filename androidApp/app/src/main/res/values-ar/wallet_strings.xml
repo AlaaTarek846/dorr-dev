@@ -11,7 +11,7 @@
     <string name="wa_action_topup">شحن</string>
     <string name="wa_action_transfer">تحويل</string>
     <string name="wa_action_history">الكشف</string>
-    <string name="wa_action_pin">الرقم السري</string>
+    <string name="wa_action_pin">الإعدادات</string>
     <string name="wa_recent">آخر الحركات</string>
     <string name="wa_view_all">عرض الكل</string>
     <string name="wa_no_tx">لا توجد حركات بعد</string>
@@ -60,6 +60,17 @@
     <string name="wa_pin_confirm_sub">أعد إدخال نفس الأرقام</string>
     <string name="wa_pin_mismatch">الرقمان غير متطابقين. حاول من جديد.</string>
     <string name="wa_pin_page_title">الرقم السري للمحفظة</string>
+    <string name="wa_security_title">الإعدادات</string>
+    <string name="wa_security_intro">رقمك السري بيحمي كل عملية دفع وتحويل. من هنا تتحكم فيه، وفي طريقة استرجاعه، وفي فتح المحفظة بالبصمة.</string>
+    <string name="wa_pin_menu_pin_title">الرقم السري للمحفظة</string>
+    <string name="wa_pin_menu_pin_sub">غيّر الرقم اللي بتأكد بيه عمليات الدفع والتحويل</string>
+    <string name="wa_pin_menu_recovery_sub">اختر طريقة استرجاع رقمك السري لو نسيته</string>
+    <string name="wa_biometric_menu_title">فتح المحفظة بالبصمة والوجه</string>
+    <string name="wa_biometric_menu_sub">افتح المحفظة بشكل أسرع على هذا الجهاز</string>
+    <string name="wa_on">مفعّل</string>
+    <string name="wa_off">متوقف</string>
+    <string name="wa_not_available">غير متاح</string>
+    <string name="wa_biometric_unavailable">الفتح بالبصمة أو الوجه غير متاح على هذا الجهاز. أضف بصمة أو وجهاً من إعدادات الهاتف أولاً.</string>
     <string name="wa_pin_current_title">أدخل رقمك السري الحالي</string>
     <string name="wa_pin_current_sub">للتحقق من هويتك</string>
     <string name="wa_pin_new_title">اختر رقماً سرياً جديداً</string>
@@ -172,6 +183,8 @@
     <string name="wa_rec_password_short">كلمة المرور يجب ألا تقل عن 6 أحرف.</string>
     <string name="wa_rec_password_mismatch">كلمتا المرور غير متطابقتين.</string>
     <string name="wa_rec_birth_hint">أدخل تاريخ ميلادك. سيُطلب منك إن نسيت الرقم السري.</string>
+    <string name="wa_rec_birth_label">تاريخ ميلادك</string>
+    <string name="wa_rec_birth_pick">اختر تاريخ ميلادك</string>
     <string name="wa_rec_day">اليوم</string>
     <string name="wa_rec_month">الشهر</string>
     <string name="wa_rec_year">السنة</string>

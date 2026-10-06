@@ -11,6 +11,7 @@
     "select_language": "Select Language",
     "save_changes": "Save changes",
     "close": "Close",
+    "search_placeholder": "Search...",
     "remove": "Remove",
     "signing_in": "Signing In...",
     "yes": "Yes",
@@ -973,6 +974,15 @@
     "wallet": {
         "common": {
             "showing": "Showing {from} to {to} of {total}",
+            "clear_search": "Clear search",
+            "bucket_required": "Choose a balance type.",
+            "empty_title": "No records yet",
+            "date_from": "From date",
+            "date_to": "To date",
+            "refresh": "Refresh",
+            "view": "View",
+            "delete": "Delete",
+            "actions": "Actions",
             "empty": "No records found.",
             "date": "Date",
             "owner": "Owner",
@@ -1073,6 +1083,7 @@
             "reason": "Reason (required)",
             "reason_required": "A written reason is required (at least 3 characters).",
             "choose_bucket": "Choose a balance type",
+            "empty_title": "No wallets yet",
             "apply_adjustment": "Apply adjustment",
             "adjusted": "Adjustment recorded.",
             "adjust_hint": "A correction is a new ledger row attributed to you, with a matching income/expense entry. Choose the balance type on purpose: spend-only money can never be withdrawn."
@@ -1081,6 +1092,7 @@
             "title": "Withdrawal requests",
             "method": "Payout method",
             "request": "Withdrawal request",
+            "review": "Review request",
             "payout_to": "Pay out to",
             "receipt": "Transfer receipt",
             "approve": "Approve",
@@ -1095,6 +1107,7 @@
         "pinrec": {
             "title": "PIN recovery requests",
             "request": "PIN recovery request",
+            "review": "Review request",
             "document": "Document",
             "reason_column": "Type",
             "reason": {
@@ -1156,7 +1169,14 @@
             "max": "Max amount",
             "saved": "Payment method saved.",
             "deleted": "Payment method deleted.",
-            "confirm_delete": "Delete \"{name}\"?"
+            "confirm_delete": "Are you sure you want to delete this payment method?",
+            "name_placeholder": "Payment method name",
+            "description_placeholder": "Short description (optional)",
+            "code_placeholder": "e.g. myfatoorah_card",
+            "saving": "Saving...",
+            "delete_title": "Delete payment method",
+            "delete_selected_title": "Delete selected payment methods",
+            "confirm_delete_selected": "Are you sure you want to delete the selected payment methods?"
         },
         "rules": {
             "title": "Fees & bonuses",
@@ -1188,7 +1208,13 @@
             "max_uses": "Max uses per user",
             "saved": "Rule saved.",
             "deleted": "Rule deleted.",
-            "confirm_delete": "Delete \"{name}\"?"
+            "name_placeholder": "Rule name",
+            "description_placeholder": "Short description (optional)",
+            "saving": "Saving...",
+            "delete_title": "Delete rule",
+            "confirm_delete": "Are you sure you want to delete this rule?",
+            "delete_selected_title": "Delete selected rules",
+            "confirm_delete_selected": "Are you sure you want to delete the selected rules?"
         },
         "settings": {
             "title": "Wallet settings",
@@ -1221,6 +1247,7 @@
             "min_allowed_balance_provider_minor": "Provider debt allowed",
             "min_allowed_balance_user_minor": "User debt allowed",
             "saved": "Settings saved.",
+            "saving": "Saving...",
             "search": "Search country code…"
         }
     },

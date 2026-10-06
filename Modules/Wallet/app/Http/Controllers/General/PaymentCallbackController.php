@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Modules\Wallet\Enums\PaymentTransactionStatus;
 use Modules\Wallet\Services\PaymentCallbackService;
+use Modules\Wallet\Support\PageTheme;
 
 /**
  * Where the gateway sends the customer's browser back. Public on purpose (no
@@ -29,6 +30,6 @@ class PaymentCallbackController extends Controller
             default => 'failed',
         };
 
-        return response()->view('wallet::payment-result', ['state' => $state]);
+        return response()->view('wallet::payment-result', ['state' => $state, 'theme' => PageTheme::fromRequest($request)]);
     }
 }

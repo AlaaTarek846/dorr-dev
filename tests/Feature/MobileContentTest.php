@@ -104,8 +104,16 @@ class MobileContentTest extends TestCase
 
         $this->getJson('/api/mobile/v1/legal-pages?type=privacy', ['X-Locale' => 'en'])
             ->assertOk()
-            ->assertJsonPath('data.content', 'General policy')
-            ->assertJsonPath('data.service_id', null);
+            ->assertJsonPath('data', ['content' => 'General policy']);
+    }
+
+    public function test_legal_pages_endpoint_returns_only_the_content_in_the_request_locale(): void
+    {
+        $this->makeLegalPage(['type' => 'privacy', 'service_id' => null, 'status' => true], 'General policy');
+
+        $this->getJson('/api/mobile/v1/legal-pages?type=privacy', ['X-Locale' => 'ar'])
+            ->assertOk()
+            ->assertJsonPath('data', ['content' => 'ar:General policy']);
     }
 
     public function test_legal_pages_endpoint_returns_the_service_specific_page(): void
@@ -125,8 +133,7 @@ class MobileContentTest extends TestCase
 
         $this->getJson('/api/mobile/v1/legal-pages?type=term', ['X-Locale' => 'en'])
             ->assertOk()
-            ->assertJsonPath('data.content', 'Terms')
-            ->assertJsonPath('data.type', 'term');
+            ->assertJsonPath('data.content', 'Terms');
     }
 
     public function test_legal_pages_endpoint_prefers_the_first_general_page(): void

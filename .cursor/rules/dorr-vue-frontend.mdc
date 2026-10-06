@@ -17,6 +17,14 @@ Full guide: `docs/16-STYLEGUIDE.md`
 
 Never mix axios clients or token keys (`admin_token` vs `user_token`).
 
+## Admin page look & feel
+
+Match the reference pages `views/country`, `views/user`, `views/profile` (theme-1). Full rules: `docs/modules/admin/UI-PATTERNS.md`.
+
+## Select / multiselect / date / time
+
+Always PrimeVue (`primevue/select`, `primevue/multiselect`, `primevue/datepicker`); no native `<select>` or `<input type="date|time|datetime-local">` in admin pages. Details in `docs/modules/admin/UI-PATTERNS.md` §4.
+
 ## Admin CRUD pages
 
 Reuse `composables/crudStructure.js` + entity composable (`useCountries`, etc.) + Pinia count store.

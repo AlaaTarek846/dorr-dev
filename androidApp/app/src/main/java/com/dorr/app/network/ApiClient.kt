@@ -29,6 +29,7 @@ private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOS
 // otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
 
 private const val LOCAL_MEDIA_HOST = "dorr.test"
+// private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
 
 object ApiClient {
     /** Shared with the image loader so media requests get the same dev Host header. */

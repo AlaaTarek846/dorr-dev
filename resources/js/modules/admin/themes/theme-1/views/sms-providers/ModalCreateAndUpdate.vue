@@ -54,6 +54,7 @@
                                 <span class="text-danger">*</span>
                             </label>
                             <Select
+                                :filter-placeholder="t('search_placeholder')"
                                 id="sms-provider-key"
                                 v-model="form.key"
                                 :options="types"
@@ -97,32 +98,22 @@
                                 <label for="sms-provider-countries" class="form-label">
                                     {{ t('sms.providers.countries') }}
                                 </label>
-                                <Select
+                                <MultiSelect
                                     id="sms-provider-countries"
-                                    v-model="form.country_id"
+                                    v-model="form.countries"
                                     :options="countries"
                                     option-label="name"
                                     option-value="id"
                                     filter
-                                    filter-fields="['name', 'code', 'dial_code']"
+                                    :filter-fields="['name', 'code', 'dial_code']"
+                                    :filter-placeholder="t('search_placeholder')"
+                                    display="chip"
                                     :placeholder="t('sms.providers.countries_placeholder')"
                                     :loading="loadingCountries"
                                     :disabled="loadingCountries"
                                     append-to="self"
                                     class="w-100 countries-select"
                                 >
-                                    <template #value="{ value, placeholder }">
-                                        <div v-if="countryById(value)" class="d-flex align-items-center gap-2">
-                                            <FlagImage
-                                                :code="resolveCountryFlagCode(countryById(value))"
-                                                :size="40"
-                                                :width="20"
-                                                :height="15"
-                                            />
-                                            <span class="text-truncate">{{ countryById(value)?.name || countryById(value)?.code }}</span>
-                                        </div>
-                                        <span v-else>{{ placeholder }}</span>
-                                    </template>
                                     <template #option="{ option }">
                                         <div class="d-flex align-items-center gap-2">
                                             <FlagImage
@@ -135,7 +126,7 @@
                                             <span class="text-muted fs-12">{{ option.dial_code }}</span>
                                         </div>
                                     </template>
-                                </Select>
+                                </MultiSelect>
                             </div>
                         </div>
 
@@ -155,6 +146,8 @@
 
                                     <template v-if="field.options?.length">
                                         <Select
+                                            filter
+                                            :filter-placeholder="t('search_placeholder')"
                                             :id="`sms-provider-field-${field.key}`"
                                             v-model="form.configuration[field.key]"
                                             :options="field.options"
@@ -265,6 +258,7 @@
 
 <script setup>
 import useVuelidate from '@vuelidate/core';
+import MultiSelect from 'primevue/multiselect';
 import Select from 'primevue/select';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
@@ -318,7 +312,7 @@ const form = reactive({
     name: '',
     key: '',
     priority: 1,
-    country_id: null,
+    countries: [],
     configuration: {},
     is_active: true,
     is_available: true,
@@ -378,10 +372,6 @@ async function loadCountries() {
     } finally {
         loadingCountries.value = false;
     }
-}
-
-function countryById(id) {
-    return countries.value.find((country) => Number(country.id) === Number(id)) ?? null;
 }
 
 const selectedType = computed(() => types.value.find((type) => type.value === form.key) ?? null);
@@ -583,7 +573,7 @@ function resetForm() {
     form.name = '';
     form.key = '';
     form.priority = 1;
-    form.country_id = null;
+    form.countries = [];
     clearConfigurationObject();
     form.is_active = true;
     form.is_available = true;
@@ -595,7 +585,7 @@ function fillForm(record) {
     form.name = record?.name ?? '';
     form.key = record?.key ?? '';
     form.priority = record?.priority ?? 1;
-    form.country_id = Array.isArray(record?.countries) ? (record.countries[0] ?? null) : null;
+    form.countries = Array.isArray(record?.countries) ? record.countries.map(Number) : [];
     form.is_active = Boolean(record?.is_active ?? true);
     form.is_available = Boolean(record?.is_available ?? true);
 
@@ -635,7 +625,7 @@ function buildPayload() {
         name: form.name.trim(),
         key: form.key,
         priority: form.priority,
-        countries: form.country_id ? [form.country_id] : [],
+        countries: form.countries,
         configuration: buildConfiguration(),
         is_active: form.is_active,
         is_available: form.is_available,

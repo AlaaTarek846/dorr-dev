@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use App\Support\Media\WebpUploadConverter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -261,7 +262,9 @@ class MessageService
 
             // The video's poster frame (sent by the app, only meaningful for a video).
             if (($thumbnail = $data['thumbnail_file'] ?? null) instanceof UploadedFile && $type === MessageType::Video) {
-                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.jpg')->toMediaCollection(ChatMessage::THUMBNAIL);
+                $thumbnail = WebpUploadConverter::convert($thumbnail);
+                $extension = strtolower($thumbnail->getClientOriginalExtension() ?: $thumbnail->extension() ?: 'jpg');
+                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection(ChatMessage::THUMBNAIL);
             }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
@@ -1149,6 +1152,7 @@ class MessageService
         config(['media-library.max_file_size' => ChatSetting::current()->max_file_size_mb * 1024 * 1024]);
 
         foreach (array_values($files) as $i => $file) {
+            $file = WebpUploadConverter::convert($file);
             $message->addMedia($file)
                 ->usingFileName(Str::uuid().'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin'))
                 ->usingName($file->getClientOriginalName())

@@ -67,8 +67,7 @@ returns the active legal page of that type for the service, or the general one w
 service is given (`data` is `null` when none exists). Service-linked
 rows stay admin-only — the mobile app only ever sees the general ones. Both are
 localized through the `locale` middleware (`X-Locale` header, `?lang=`, or
-`Accept-Language`) and shape their payloads with the shared `FaqResource` /
-`LegalPageResource`.
+`Accept-Language`) and shape their payloads (`FaqResource` for FAQs; legal pages return just `{ content }`).
 
 Request payload (otp / verify / resend): `dial_code` (e.g. `+966`), `phone` (local
 digits); verify also sends `code` (6 digits). The user is matched/stored by the
@@ -108,7 +107,7 @@ Responses:
 - `POST /profile/email/request` → `{ masked_email, resend_cooldown_seconds }`
 - `POST /profile/email/confirm` → `UserResource` (address swapped, verified)
 - `GET /faqs` → `FaqResource[]` (active general FAQs only, no pagination)
-- `GET /legal-pages` → `LegalPageResource` for the requested type/service, or `null` when none is published
+- `GET /legal-pages` → `{ content }` only (the page text in the request locale, falling back to an available language), or `null` when none is published
 
 Phone/email changes are two-step: nothing on the user row changes until the
 `confirm` call verifies the code. The pending value lives in Cache with the OTP
