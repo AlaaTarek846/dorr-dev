@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('new_phone')->comment('الرقم الجديد — لسه مش مؤكّد');
             $table->string('code')->comment('رمز OTP على الرقم الجديد');
             $table->unsignedTinyInteger('attempts')->default(0);
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
         });
 
@@ -36,7 +36,7 @@ return new class extends Migration
             $table->string('old_phone');
             $table->string('new_phone');
             $table->string('ip_address')->nullable();
-            $table->timestamp('changed_at');
+            $table->timestamp('changed_at')->nullable();
             $table->timestamps();
 
             $table->index(['user_id', 'changed_at']);

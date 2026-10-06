@@ -22,7 +22,7 @@ return new class extends Migration
             $table->text('image')->nullable();
             $table->string('site_name', 150)->nullable();
             $table->boolean('failed')->default(false)->comment('nothing usable — no card');
-            $table->timestamp('fetched_at');
+            $table->timestamp('fetched_at')->nullable();
             $table->timestamps();
         });
 

@@ -19,8 +19,8 @@ return new class extends Migration
             $table->unsignedBigInteger('owner_id');
             $table->foreignId('country_id')->constrained('countries')->restrictOnDelete();
             $table->foreignId('beneficiary_user_id')->constrained('users')->restrictOnDelete();
-            $table->timestamp('first_added_at');
-            $table->timestamp('last_used_at');
+            $table->timestamp('first_added_at')->nullable();
+            $table->timestamp('last_used_at')->nullable();
             $table->timestamps();
 
             $table->unique(['owner_type', 'owner_id', 'country_id', 'beneficiary_user_id'], 'wallet_beneficiaries_unique');
