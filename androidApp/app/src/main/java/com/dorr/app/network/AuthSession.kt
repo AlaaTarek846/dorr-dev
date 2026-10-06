@@ -76,6 +76,7 @@ object AuthSession {
         user = null
         prefs?.edit()?.clear()?.apply()
         AppearanceStore.clearUser()
+        WalletCountry.forget()
     }
 
     private fun persist() {

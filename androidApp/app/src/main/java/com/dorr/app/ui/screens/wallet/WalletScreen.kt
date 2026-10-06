@@ -67,6 +67,8 @@ import androidx.compose.runtime.rememberUpdatedState
  */
 @Composable
 fun WalletScreen(onExit: () -> Unit) {
+    // Which of my wallets (countries) the screens work on — chosen on the wallet home.
+    com.dorr.app.network.WalletCountry.load(androidx.compose.ui.platform.LocalContext.current)
     val currentOnExit by rememberUpdatedState(onExit)
     val scope = rememberCoroutineScope()
     val host = remember { WalletHost(scope, onExit = { currentOnExit() }) }
@@ -168,7 +170,7 @@ internal fun WaToastHost(host: WalletHost) {
 @Composable
 private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = context as? androidx.fragment.app.FragmentActivity
+    val activity = context.findFragmentActivity()
     val networkError = stringResource(R.string.wa_error_network)
     val enterTitle = stringResource(R.string.wa_gate_enter_title)
     val enterSub = stringResource(R.string.wa_gate_enter_sub)

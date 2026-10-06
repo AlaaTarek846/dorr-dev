@@ -18,7 +18,7 @@
     <string name="wa_no_tx_hint">ابدأ بشحن محفظتك وستظهر عملياتك هنا.</string>
     <string name="wa_topup_now">اشحن الآن</string>
     <string name="wa_other_wallets">محافظ في دول أخرى</string>
-    <string name="wa_other_wallets_note">لا يمكن استخدام هذه الأرصدة في دولتك الحالية.</string>
+    <string name="wa_other_wallets_note">دوس على محفظة عشان تستخدمها: رقمها والـ QR والتحويل لدولتها.</string>
     <string name="wa_load_failed">تعذّر تحميل المحفظة</string>
     <string name="wa_retry">حاول مرة أخرى</string>
     <string name="wa_error_generic">حدث خطأ. حاول مرة أخرى.</string>

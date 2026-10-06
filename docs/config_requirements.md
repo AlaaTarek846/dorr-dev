@@ -135,7 +135,7 @@
 | **storage link** | الصور والفويس والحالات بتتعرض من `public/storage`، ومن غيره بيرجع 403 | `php artisan storage:link` (مرة واحدة على كل سيرفر) |
 | **config cache** | Apache على ويندوز، وأي استضافة كتير الطلبات، بيضيّع `.env` مع الطلبات المتزامنة | `php artisan config:cache` بعد أي تعديل في `.env` |
 | **Cron (الـ scheduler)** | **الرسائل المجدولة والتذكيرات وملخص الهدوء** (`chat:send-scheduled` و`chat:send-reminders` و`chat:quiet-digest` كل دقيقة، و`chat:moment-reminders` (تذكير التواريخ الشخصية) كل 10 دقايق، و`chat:task-reminders` (ميعاد المهام) و`chat:calendar-reminders` (تذكيرات التقويم) كل دقيقة، ومن غيره عمرهم ما هيتبعتوا)، وانتهاء المكالمات اللي محدش رد عليها (كل دقيقة)، ومسح الرسائل اللي بتختفي والحالات المنتهية (كل ساعة)، ومطابقة المحافظ (كل ساعة). محلياً: `php artisan schedule:work` | `* * * * * php /path/artisan schedule:run` — **متاح في cPanel على الاستضافة المشتركة** |
-| **Queue worker** | إيميلات التحقق متبعتة على queue (`QUEUE_CONNECTION=database`) | VPS: `php artisan queue:work` شغال دايماً. استضافة مشتركة: cron كل دقيقة `php artisan queue:work --stop-when-empty` |
+| **Queue worker** | الإيميلات العادية متبعتة على queue (`QUEUE_CONNECTION=database`). أكواد التحقق واسترجاع PIN المحفظة بقت بتتبعت فورًا من غير queue (2026-10-11)، بس لازم إعدادات SMTP في `.env` تكون صح | VPS: `php artisan queue:work` شغال دايماً. استضافة مشتركة: cron كل دقيقة `php artisan queue:work --stop-when-empty` |
 | **TRUSTED_PROXIES** | IP المستخدم الحقيقي ورا Cloudflare / nginx / ngrok | `127.0.0.1,::1` محلياً، و`*` ورا Cloudflare أو load balancer |
 | **APP_URL** | روابط الملفات والوسائط | الدومين الحقيقي بـ `https://` |
 | **composer dump-autoload** | بعد سحب موديول جديد في `Modules/*` | `composer dump-autoload` |
@@ -160,7 +160,7 @@
 | الأمر | ليه |
 |---|---|
 | `php artisan schedule:work` | بديل الـ cron محلياً. من غيره الرسايل المجدولة مش هتتبعت، والمكالمات اللي محدش رد عليها مش هتبقى "فائتة" |
-| `php artisan queue:work` | إيميلات التحقق |
+| `php artisan queue:work` | الإيميلات اللي على الـ queue (الأكواد بتتبعت فورًا) |
 | `php artisan test` | الاختبارات. **مش** `composer test`، لأن Composer بيقطعها بعد 300 ثانية والاختبارات كلها بتاخد أكتر من كده. الاختبارات بتشتغل على SQLite في الذاكرة بس، و`tests/TestCase.php` بيرفض يشغلها على أي داتا بيز تانية |
 
 ## الأندرويد

@@ -52,7 +52,10 @@ object ApiClient {
             }
         }
         .addInterceptor { chain ->
+            // My chosen wallet (another country's wallet of mine) — on wallet requests only.
+            val walletCountry = WalletCountry.headerFor(chain.request().url.encodedPath)
             val request = chain.request().newBuilder()
+                .apply { if (walletCountry != null) header("X-Country", walletCountry) }
                 .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)

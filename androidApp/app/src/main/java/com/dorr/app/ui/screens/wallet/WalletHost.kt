@@ -129,7 +129,11 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit, start: WaRou
     /** Balance + wallet number for the request's country; the wallet is created on first look. */
     suspend fun refreshBalance(): Boolean {
         val fresh = runCatching { ApiClient.wallet.balance(walletAuth()).data }.getOrNull()
-        if (fresh != null) balance = fresh
+        if (fresh != null) {
+            // No wallet chosen: the server opened the one of where I am.
+            if (com.dorr.app.network.WalletCountry.selected == null) com.dorr.app.network.WalletCountry.learnHere(fresh.countryCode)
+            balance = fresh
+        }
         return fresh != null
     }
 }

@@ -18,7 +18,7 @@
     <string name="wa_no_tx_hint">Top up your wallet and your transactions will show here.</string>
     <string name="wa_topup_now">Top up now</string>
     <string name="wa_other_wallets">Wallets in other countries</string>
-    <string name="wa_other_wallets_note">These balances can\'t be used in your current country.</string>
+    <string name="wa_other_wallets_note">Tap a wallet to use it here (its number, QR and transfers to its own country).</string>
     <string name="wa_load_failed">Couldn\'t load your wallet</string>
     <string name="wa_retry">Try again</string>
     <string name="wa_error_generic">Something went wrong. Please try again.</string>

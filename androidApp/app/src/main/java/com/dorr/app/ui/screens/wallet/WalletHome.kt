@@ -127,7 +127,8 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
         }
     }
 
-    LaunchedEffect(collectReconnectTick()) { load() }
+    // Reloads on reconnect and when I switch to another of my wallets.
+    LaunchedEffect(collectReconnectTick(), com.dorr.app.network.WalletCountry.selected) { load() }
     LaunchedEffect(loading) {
         if (loading) {
             while (true) { spin.snapTo(0f); spin.animateTo(360f, tween(800, easing = LinearEasing)) }
@@ -144,6 +145,9 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
         },
     ) {
         val balance = host.balance
+
+        // Which wallet (country) I'm using — a tap shows my other wallets.
+        if (balance != null) WalletPickerCard(balance, Modifier.padding(bottom = 12.dp).waRise(0))
 
         Box(Modifier.waRise(0)) {
             if (balance != null) {
@@ -168,8 +172,22 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
                     Icon(Icons.Rounded.Public, null, tint = Wa.Ink, modifier = Modifier.size(16.dp))
                     Text(stringResource(R.string.wa_other_wallets), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
                 }
+                val context = LocalContext.current
                 others.forEach { other ->
-                    WaKeyValue(other.countryCode.orEmpty(), money(other.totalMinor) + " " + other.currencyCode.orEmpty(), ltr = true)
+                    // A tap switches to that wallet: its number, QR and transfers (to its own country).
+                    Row(
+                        Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(14.dp)).background(Wa.Field)
+                            .clickable { com.dorr.app.network.WalletCountry.select(context, other.countryCode) }.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        WalletFlag(other.countryCode)
+                        Spacer(Modifier.width(10.dp))
+                        Text(countryName(other.countryCode), color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            Text(money(other.totalMinor) + " " + other.currencyCode.orEmpty(), color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Wa.Soft, modifier = Modifier.size(18.dp))
+                    }
                 }
                 Text(stringResource(R.string.wa_other_wallets_note), color = Wa.Mut, fontSize = 11.5.sp, lineHeight = 20.sp)
             }

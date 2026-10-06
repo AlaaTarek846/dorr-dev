@@ -582,6 +582,9 @@ fun WaForgotPinPage(status: PinStatusDto?, onExit: () -> Unit, onDone: () -> Uni
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var sent by remember { mutableStateOf(false) }
+    // The e-mail code: sent ✓, or why not (a cooldown, the mail server) — never silently.
+    var codeNotice by remember { mutableStateOf<String?>(null) }
+    val codeSentText = stringResource(R.string.wa_rec_code_sent)
 
     val birthInvalid = stringResource(R.string.wa_rec_birth_invalid)
     val photoRequired = stringResource(R.string.wa_rec_photo_required)
@@ -599,11 +602,24 @@ fun WaForgotPinPage(status: PinStatusDto?, onExit: () -> Unit, onDone: () -> Uni
     }
     BackHandler { back() }
 
+    suspend fun sendCode() {
+        try {
+            ApiClient.wallet.sendRecoveryEmailCode(walletAuth())
+            codeNotice = codeSentText
+            error = null
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            codeNotice = null
+            error = e.apiFailure().message ?: networkError
+        }
+    }
+
     // E-mail: a fresh code goes out as soon as this screen opens.
     LaunchedEffect(method) {
         if (method == RecoveryMethodUi.Email && !sent) {
             sent = true
-            runCatching { ApiClient.wallet.sendRecoveryEmailCode(walletAuth()) }
+            sendCode()
         }
     }
 
@@ -690,7 +706,8 @@ fun WaForgotPinPage(status: PinStatusDto?, onExit: () -> Unit, onDone: () -> Uni
                     RecoveryMethodUi.BirthDate -> WaBirthFields(day, month, year, { d, m, y -> day = d; month = m; year = y; error = null }, error = error != null)
                     else -> {
                         WaCodeField(code, { code = it; error = null }, error = error != null)
-                        WaButton(stringResource(R.string.wa_rec_code_resend), { scope.launch { runCatching { ApiClient.wallet.sendRecoveryEmailCode(walletAuth()) } } }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(top = 8.dp))
+                        codeNotice?.let { WaNote(it, modifier = Modifier.padding(top = 10.dp)) }
+                        WaButton(stringResource(R.string.wa_rec_code_resend), { scope.launch { sendCode() } }, style = WaButtonStyle.Quiet, modifier = Modifier.padding(top = 8.dp))
                     }
                 }
             }
