@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wa_wallet_of">محفظة %1$s</string>
+    <string name="wa_wallet_here_sub">مكانك الحالي · %1$s</string>
+    <string name="wa_wallet_away">إنت دلوقتي في %1$s</string>
+    <string name="wa_wallet_change">غيّر</string>
+    <string name="wa_wallet_away_note">إنت بتستخدم محفظتك في %1$s: التحويل منها لأرقام ومحافظ %1$s بس، وبيظهر رقمها والـ QR بتاعها.</string>
+    <string name="wa_wallet_pick_title">محافظي</string>
+    <string name="wa_wallet_pick_sub">محفظة لكل دولة. اختار اللي تستخدمها: تحوّل منها، أو تستقبل فيها، أو تعرض رقمها.</string>
+    <string name="wa_wallet_new">لسه ماتفتحتش</string>
+    <string name="wa_wallet_you_are_here">إنت هنا</string>
+    <string name="wa_wallet_rule">كل محفظة بتحوّل لمحافظ دولتها بس، وبعملتها.</string>
+</resources>

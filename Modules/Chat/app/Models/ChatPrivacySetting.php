@@ -27,6 +27,8 @@ class ChatPrivacySetting extends Model
         'privacy_mode_until',
         'privacy_mode_started_at',
         'privacy_schedule',
+        'quiet_schedule',
+        'quiet_scope',
         'qr_token',
         'last_seen_at',
     ];
@@ -57,7 +59,26 @@ class ChatPrivacySetting extends Model
             return true;
         }
 
-        $schedule = $this->privacy_schedule;
+        return self::inWindow($this->privacy_schedule, $at);
+    }
+
+    /**
+     * Smart quiet (spec 115): inside my quiet times right now — messages that aren't urgent wait
+     * for the summary instead of notifying.
+     */
+    public function quietOn(?\Carbon\CarbonInterface $at = null): bool
+    {
+        return self::inWindow($this->quiet_schedule, $at ?? now());
+    }
+
+    /**
+     * A daily window `{from, to, days[], timezone}` (in its own time zone; 22:00–07:00 runs past
+     * midnight). Shared by the privacy schedule and smart quiet.
+     *
+     * @param  array<string, mixed>|null  $schedule
+     */
+    public static function inWindow(?array $schedule, \Carbon\CarbonInterface $at): bool
+    {
         if (empty($schedule['from']) || empty($schedule['to'])) {
             return false;
         }
@@ -90,6 +111,7 @@ class ChatPrivacySetting extends Model
             'privacy_mode_until' => 'datetime',
             'privacy_mode_started_at' => 'datetime',
             'privacy_schedule' => 'array',
+            'quiet_schedule' => 'array',
             'read_receipts' => 'boolean',
             'block_screenshots' => 'boolean',
             'last_seen_at' => 'datetime',

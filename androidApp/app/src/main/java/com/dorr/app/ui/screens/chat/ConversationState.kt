@@ -84,6 +84,12 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     var failed by mutableStateOf(false)
 
     var replyTo by mutableStateOf<MessageDto?>(null)
+    /** "✨ Ask about this" from a message: the messages the question is about (spec 125). */
+    var askAbout by mutableStateOf<List<String>?>(null)
+    /** A DORR AI tool opened on one message: understand · simplify · tasks · remind (spec 37, 38, 42, 46). */
+    var aiTool by mutableStateOf<Pair<String, MessageDto>?>(null)
+    /** Text for the composer (a reply I picked from an AI suggestion). */
+    var composerInsert by mutableStateOf<String?>(null)
     var editing by mutableStateOf<MessageDto?>(null)
     var focused by mutableStateOf<UiMessage?>(null)
     var pinned by mutableStateOf<List<MessageDto>>(emptyList())
@@ -581,10 +587,15 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         return ReactionsDto(summary, newEmoji, summary.sumOf { it.count })
     }
 
-    fun star(message: MessageDto) {
+    /** Star (into one of my favourites folders, spec 24) or unstar. */
+    fun star(message: MessageDto, folderId: Int? = null) {
         val starred = !message.isStarred
         replaceMessage(message.id, UiMessage(message.copy(isStarred = starred)))
-        scope.launch { runCatching { ApiClient.chat.star(chatAuth(), message.id, mapOf("starred" to starred)) } }
+        scope.launch {
+            runCatching {
+                ApiClient.more.star(chatAuth(), message.id, com.google.gson.JsonObject().apply { addProperty("starred", starred); folderId?.let { addProperty("folder_id", it) } })
+            }
+        }
     }
 
     fun readLater(message: MessageDto) {
@@ -689,6 +700,15 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             "chat.scheduled.changed" -> scope.launch { refreshScheduled() }
             "chat.message.sent" -> {
                 val dto = parseMessage(event.data.getAsJsonObject("message")) ?: return
+                // A reply in a thread: it stays in the thread; its message counts one more.
+                if (dto.threadRoot != null) {
+                    val i = messages.indexOfFirst { it.dto.id == dto.threadRoot }
+                    if (i >= 0) {
+                        val root = messages[i]
+                        messages[i] = root.copy(dto = root.dto.copy(thread = com.dorr.app.network.ThreadInfoDto((root.dto.thread?.count ?: 0) + 1, dto.createdAt)))
+                    }
+                    return
+                }
                 val mine = dto.sender?.key == myKey()
                 val fixed = dto.copy(isMine = mine, status = if (mine) "sent" else null)
                 if (messages.any { it.id == dto.id }) {
@@ -791,6 +811,27 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
 
     private fun parseMessage(json: JsonObject?): MessageDto? = json?.let { runCatching { gson.fromJson(it, MessageDto::class.java) }.getOrNull() }
 
+    /** Fetch one message again (a surprise card opening at its time) and swap it in place. */
+    suspend fun refreshOne(messageId: String) {
+        val page = runCatching { ApiClient.chat.messages(chatAuth(), id, around = messageId).data }.getOrNull() ?: return
+        page.messages.firstOrNull { it.id == messageId }?.let { fresh ->
+            val index = messages.indexOfFirst { it.id == messageId }
+            if (index >= 0) messages[index] = messages[index].copy(dto = fresh, fresh = true)
+        }
+    }
+
+    /** A short note from these messages, saved into "Notes (you)" (spec 39). */
+    fun aiNote(messageIds: List<String>, done: String) = scope.launch {
+        try {
+            ApiClient.aiTools.note(chatAuth(), id, com.google.gson.JsonObject().apply { add("messages", com.google.gson.Gson().toJsonTree(messageIds)) })
+            host.showToast(done)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        }
+    }
+
     fun replaceMessage(id: String, message: UiMessage) {
         val index = messages.indexOfFirst { it.id == id }
         if (index >= 0) messages[index] = message.copy(fresh = false) else messages.add(message)
@@ -810,9 +851,11 @@ internal fun compressImage(context: Context, file: LocalFile): LocalFile {
         val longest = maxOf(bounds.outWidth, bounds.outHeight)
         if (longest <= 0) return file
         var sample = 1
-        while (longest / (sample * 2) >= 1600) sample *= 2
+        // Lighter on a slow connection, sharper on Wi-Fi — or what I chose (spec 13).
+        val (maxSide, quality) = ChatPrefs.photoBudget(context)
+        while (longest / (sample * 2) >= maxSide) sample *= 2
         val decoded = android.graphics.BitmapFactory.decodeFile(file.file.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return file
-        val scale = (1600f / maxOf(decoded.width, decoded.height)).coerceAtMost(1f)
+        val scale = (maxSide.toFloat() / maxOf(decoded.width, decoded.height)).coerceAtMost(1f)
         var bitmap = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(decoded, (decoded.width * scale).toInt(), (decoded.height * scale).toInt(), true) else decoded
         val rotation = when (android.media.ExifInterface(file.file.absolutePath).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL)) {
             android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
@@ -824,7 +867,7 @@ internal fun compressImage(context: Context, file: LocalFile): LocalFile {
             bitmap = android.graphics.Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, android.graphics.Matrix().apply { postRotate(rotation) }, true)
         }
         val out = File(context.cacheDir.resolve("chat-out").apply { mkdirs() }, UUID.randomUUID().toString() + ".jpg")
-        out.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, it) }
+        out.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, it) }
         if (out.length() in 1 until file.file.length()) LocalFile(out, "image/jpeg", file.name.substringBeforeLast('.') + ".jpg") else file
     }.getOrDefault(file)
 }

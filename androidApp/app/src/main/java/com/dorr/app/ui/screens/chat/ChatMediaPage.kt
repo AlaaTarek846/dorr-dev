@@ -112,13 +112,24 @@ fun ChatMediaPage(route: ChRoute.Media) {
     var viewer by remember { mutableStateOf<Pair<MessageDto, Int>?>(null) }
 
     fun feedOf(t: MediaTab) = feeds.getOrPut(t.key) { MediaFeed() }
+    // Photos from a day back; files by kind / size (spec 17, 18).
+    var date by remember { mutableStateOf<String?>(null) }
+    var fileKind by remember { mutableStateOf<String?>(null) }
+    var bigOnly by remember { mutableStateOf(false) }
+    var bySize by remember { mutableStateOf(false) }
 
     fun loadMore(t: MediaTab) {
         val feed = feedOf(t)
         if (feed.loading || !feed.hasMore) return
         feed.loading = true
         scope.launch {
-            val page = runCatching { ApiClient.chat.gallery(chatAuth(), route.id, t.kind, before = feed.items.lastOrNull()?.id).data }.getOrNull()
+            val files = t.key == "docs"
+            val page = runCatching {
+                ApiClient.chat.gallery(
+                    chatAuth(), route.id, t.kind, before = feed.items.lastOrNull()?.id,
+                    date = date.takeIf { t.key == "media" }, fileKind = fileKind.takeIf { files }, minSize = if (files && bigOnly) 10L * 1024 * 1024 else null, sort = if (files && bySize) "size" else null,
+                ).data
+            }.getOrNull()
             if (page != null) {
                 feed.items = feed.items + page.messages.filter { m -> feed.items.none { it.id == m.id } }
                 feed.hasMore = page.hasMore
@@ -130,6 +141,10 @@ fun ChatMediaPage(route: ChRoute.Media) {
         }
     }
     LaunchedEffect(tab) { if (!feedOf(tab).loaded) loadMore(tab) }
+    fun refilter(t: MediaTab) {
+        feeds.remove(t.key)
+        loadMore(t)
+    }
 
     val showInChat: (MessageDto) -> Unit = { m -> host.showInChat(route.id, m.id) }
     androidx.activity.compose.BackHandler(viewer != null) { viewer = null }
@@ -138,6 +153,10 @@ fun ChatMediaPage(route: ChRoute.Media) {
         ChPage(stringResource(R.string.ch_media_title), onBack = { host.pop() }) {
             Column(Modifier.fillMaxSize()) {
                 MediaTabsRow(tab, counts = MediaTabs.associate { it.key to feeds[it.key]?.takeIf { f -> f.loaded }?.items?.size }) { tab = it }
+                if (tab.key == "media" || tab.key == "docs") MediaFilterRow(
+                    files = tab.key == "docs", date = date, fileKind = fileKind, bigOnly = bigOnly, bySize = bySize,
+                    onDate = { date = it; refilter(tab) }, onKind = { fileKind = it; refilter(tab) }, onBig = { bigOnly = it; refilter(tab) }, onSize = { bySize = it; refilter(tab) },
+                )
                 AnimatedContent(targetState = tab, label = "mediaTab", transitionSpec = {
                     val forward = MediaTabs.indexOf(targetState) > MediaTabs.indexOf(initialState)
                     (fadeIn() + slideInHorizontally { if (forward) it / 6 else -it / 6 }) togetherWith fadeOut()

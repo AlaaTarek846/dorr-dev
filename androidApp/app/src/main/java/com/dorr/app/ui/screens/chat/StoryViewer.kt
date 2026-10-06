@@ -227,7 +227,7 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
     // Mark seen as soon as it shows.
     LaunchedEffect(story.id, active) {
         if (active && !story.isMine && !story.seen) {
-            runCatching { ApiClient.chat.viewStory(chatAuth(), story.id) }
+            runCatching { if (story.isDorr) ApiClient.chat.viewDorrStory(chatAuth(), story.id) else ApiClient.chat.viewStory(chatAuth(), story.id) }
             stories[index] = story.copy(seen = true)
         }
     }
@@ -295,13 +295,13 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 38.dp)
+                    if (story.isDorr) DorrAvatar(38.dp) else ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 38.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(if (story.isMine) stringResource(R.string.st_my_status) else owner?.name.orEmpty(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                         Text(timeAgo(story.createdAt), color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
                     }
-                    Box {
+                    if (!story.isDorr) Box {
                         Icon(Icons.Rounded.MoreVert, null, tint = Color.White, modifier = Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }.padding(8.dp))
                         DropdownMenu(menu, onDismissRequest = { menu = false }, containerColor = Color.White, shape = RoundedCornerShape(16.dp)) {
                             if (story.isMine) {
@@ -356,6 +356,9 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
                             Text((story.views ?: 0).toString(), color = Color.White, fontWeight = FontWeight.ExtraBold)
                         }
                     }
+                } else if (story.isDorr) {
+                    // Dorr's own story: its "Open" button, if it has a link.
+                    story.linkUrl?.let { url -> DorrLinkButton(story.linkLabel, url) }
                 } else if (story.allowReplies) {
                     ReplyBar(
                         onFocus = { typing = it },

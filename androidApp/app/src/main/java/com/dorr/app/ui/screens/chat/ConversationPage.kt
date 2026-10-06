@@ -45,6 +45,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.Close
@@ -118,6 +119,10 @@ fun ConversationPage(route: ChRoute.Conversation) {
     val openedUnread = remember(route.id) { host.find(route.id)?.unreadCount ?: route.preview?.unreadCount ?: 0 }
     var summaryOffered by remember(route.id) { mutableStateOf(openedUnread >= 15) }
     var summaryOpen by remember { mutableStateOf<Boolean?>(null) } // null = closed; true = unread first
+    var aiMenu by remember { mutableStateOf(false) }
+    var commitmentsOpen by remember { mutableStateOf(false) }
+    // DORR AI tools on the whole chat (spec 31, 40, 41, 48).
+    var aiPanel by remember { mutableStateOf<String?>(null) }
     val listState = rememberLazyListState()
     var viewer by remember { mutableStateOf<Pair<MessageDto, Int>?>(null) }
     var highlight by remember { mutableStateOf<String?>(null) }
@@ -128,6 +133,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
     // A view-once file, opened this one time (closing the viewer is final).
     var viewOnceFiles by remember { mutableStateOf<List<com.dorr.app.network.AttachmentDto>?>(null) }
     val c = state.conversation ?: route.preview
+    val noteSaved = stringResource(R.string.ct_note_saved)
 
     BackHandler(state.focused != null || viewer != null) {
         if (viewer != null) viewer = null else state.focused = null
@@ -197,13 +203,16 @@ fun ConversationPage(route: ChRoute.Conversation) {
     var searching by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<MessageDto>?>(null) }
-    LaunchedEffect(searchQuery) {
-        if (searchQuery.trim().length < 2) {
+    // Only some kinds of message (spec 21) — with or without words.
+    var searchKinds by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(searchQuery, searchKinds) {
+        val q = searchQuery.trim()
+        if (q.length < 2 && searchKinds.isEmpty()) {
             searchResults = null
             return@LaunchedEffect
         }
         kotlinx.coroutines.delay(300)
-        searchResults = runCatching { ApiClient.chat.searchIn(chatAuth(), route.id, searchQuery.trim()).data }.getOrNull().orEmpty()
+        searchResults = runCatching { ApiClient.chat.searchIn(chatAuth(), route.id, q.takeIf { it.length >= 2 }, searchKinds.toList().takeIf { it.isNotEmpty() }).data }.getOrNull().orEmpty()
     }
     // Keep the newest message in view when I send / when I'm already at the bottom.
     LaunchedEffect(state.messages.size) {
@@ -247,6 +256,8 @@ fun ConversationPage(route: ChRoute.Conversation) {
             onReply = { state.replyTo = it; state.editing = null },
             onLongPress = { state.focused = it },
             onJumpTo = { jumpTo(it) },
+            onOpenThread = { host.push(ChRoute.Thread(it.conversationId, it.id)) },
+            onOpenSealed = { host.scope.launch { state.refreshOne(it.id) } },
             onRetry = { state.retry(it) },
             onOpenMedia = { m, i ->
                 val a = m.attachments.getOrNull(i)
@@ -283,7 +294,14 @@ fun ConversationPage(route: ChRoute.Conversation) {
     val blurred by animateFloatAsState(if (state.focused != null) 14f else 0f, tween(260), label = "blur")
 
     // A locked chat stays behind the phone's lock (fingerprint / face / PIN) until it's passed.
-    if (c?.isLocked == true && !ChatLock.unlocked) {
+    if (c?.isLocked == true && c.hasLockPin && route.id !in ChatPinLock.unlocked) {
+        // This chat's own PIN (spec 25), not the phone's lock.
+        var opened by remember { mutableStateOf(false) }
+        if (!opened) {
+            PinGate(route.id, c.title.orEmpty()) { opened = true }
+            return
+        }
+    } else if (c?.isLocked == true && !ChatLock.unlocked) {
         LockedGate(onUnlocked = {})
         return
     }
@@ -297,9 +315,12 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 (fadeIn(tween(220)) + slideInVertically { -it / 3 }) togetherWith (fadeOut(tween(150)) + slideOutVertically { -it / 3 })
             }) { isSearching ->
                 if (isSearching) ConversationSearchBar(searchQuery, onChange = { searchQuery = it }) { searching = false; searchQuery = "" }
-                else ConversationHeader(c, state, onSearch = { searching = true })
+                else ConversationHeader(c, state, onSearch = { searching = true }, onAi = { aiMenu = true })
             }
-            BackHandler(searching) { searching = false; searchQuery = "" }
+            BackHandler(searching) { searching = false; searchQuery = ""; searchKinds = emptySet() }
+            androidx.compose.animation.AnimatedVisibility(searching) {
+                SearchKindChips(searchKinds) { k -> searchKinds = if (k in searchKinds) searchKinds - k else searchKinds + k }
+            }
             PinnedBanner(state) { jumpTo(it) }
             SummarizePill(summaryOffered && ChatAi.summarize) { summaryOffered = false; summaryOpen = true }
             // Someone I haven't saved: "Add" (then they see my stories too).
@@ -371,6 +392,40 @@ fun ConversationPage(route: ChRoute.Conversation) {
         infoFor?.let { m -> MessageInfoSheet(m) { infoFor = null } }
         votesFor?.let { m -> PollVotesSheet(m) { votesFor = null } }
         summaryOpen?.let { unreadFirst -> AiSummarySheet(state.id, unreadFirst) { summaryOpen = null } }
+        if (aiMenu) ChoiceSheet(
+            stringResource(R.string.ch_ai_menu),
+            listOfNotNull(
+                if (ChatAi.summarize) stringResource(R.string.ch_ai_summary) to { summaryOpen = false; Unit } else null,
+                if (ChatAi.ask) stringResource(R.string.ch_ai_ask) to { state.askAbout = emptyList(); Unit } else null,
+                if (ChatAi.commitments) stringResource(R.string.ch_ai_commitments) to { commitmentsOpen = true; Unit } else null,
+                if (ChatAi.assistant) stringResource(R.string.ct_assistant) to { aiPanel = "assistant"; Unit } else null,
+                if (ChatAi.important) stringResource(R.string.ct_important_here) to { aiPanel = "important"; Unit } else null,
+                if (ChatAi.dates) stringResource(R.string.ct_dates) to { aiPanel = "dates"; Unit } else null,
+                if (ChatAi.relatedFiles) stringResource(R.string.ct_files) to { aiPanel = "files"; Unit } else null,
+            ),
+            subtitle = stringResource(R.string.ch_ai_privacy_note),
+            onDismiss = { aiMenu = false },
+        )
+        state.askAbout?.let { ids -> AiAskSheet(state.id, ids, onDismiss = { state.askAbout = null }) { jumpTo(it) } }
+        if (commitmentsOpen) AiCommitmentsSheet(state.id, onDismiss = { commitmentsOpen = false }) { jumpTo(it) }
+        when (aiPanel) {
+            "assistant" -> AiAssistantSheet(state.id, null, onDismiss = { aiPanel = null }, onJump = { jumpTo(it) }, onUse = { state.composerInsert = it })
+            "important" -> AiImportantSheet(state.id, onDismiss = { aiPanel = null }) { _, m -> jumpTo(m) }
+            "dates" -> AiDatesSheet(state.id, onDismiss = { aiPanel = null }) { jumpTo(it) }
+            "files" -> AiRelatedFilesSheet(state.id, onDismiss = { aiPanel = null }) { jumpTo(it) }
+        }
+        state.aiTool?.let { (kind, m) ->
+            val closeTool = { state.aiTool = null }
+            when (kind) {
+                "understand" -> AiUnderstandSheet(
+                    m, onDismiss = closeTool, onReply = { state.composerInsert = it },
+                    onRemind = { state.aiTool = "remind" to m }, onTasks = { state.aiTool = "tasks" to m }, onNote = { state.aiNote(listOf(m.id), noteSaved) },
+                )
+                "simplify" -> AiSimplifySheet(m, onDismiss = closeTool)
+                "tasks" -> AiTasksFromSheet(m, onDismiss = closeTool)
+                "remind" -> ScheduleSheet(onDismiss = closeTool) { at -> state.remind(m, at); state.aiTool = null }
+            }
+        }
         payFor?.let { m -> ChatPaySheet(m, onDismiss = { payFor = null }) { paid -> state.paymentUpdated(paid) } }
         androidx.compose.animation.AnimatedVisibility(
             viewOnceFiles != null,
@@ -432,7 +487,7 @@ private fun SearchResults(query: String, results: List<MessageDto>, onPick: (Str
 }
 
 @Composable
-private fun ConversationHeader(c: ConversationDto?, state: ConversationState, onSearch: () -> Unit) {
+private fun ConversationHeader(c: ConversationDto?, state: ConversationState, onSearch: () -> Unit, onAi: () -> Unit = {}) {
     val host = LocalChat.current
     val peerKey = c?.peer?.key
     val presence = peerKey?.let { host.presence[it] } ?: c?.presence
@@ -481,6 +536,11 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                         }
                     }
                 }
+            }
+            // AI about this chat, on a tap: summary, a question, commitments (spec 124–126).
+            if (ChatAi.summarize || ChatAi.ask || ChatAi.commitments) {
+                GlassIcon(Icons.Rounded.AutoAwesome, size = 38.dp, onClick = onAi)
+                Spacer(Modifier.width(6.dp))
             }
             GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
             Spacer(Modifier.width(6.dp))

@@ -33,6 +33,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Pin
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.AlternateEmail
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Block
@@ -154,6 +159,10 @@ fun ChatInfoPage(id: String) {
                         Spacer(Modifier.height(12.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(conversation?.title.orEmpty(), color = Color.White, fontSize = 23.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center)
+                            if (conversation?.isChannel == true && conversation.group?.isVerified == true) {
+                                Spacer(Modifier.width(6.dp))
+                                VerifiedBadge(22.dp, tint = Color.White)
+                            }
                             val g = conversation?.group
                             if (g != null && conversation.isMember && (conversation.isAdmin || !g.onlyAdminsEditInfo)) {
                                 Spacer(Modifier.width(8.dp))
@@ -270,6 +279,10 @@ fun ChatInfoPage(id: String) {
                         }
                     }
                     ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_lock_chat), conversation.isLocked) { update(mapOf("locked" to it)) }
+                    // Its own PIN instead of the phone's lock (spec 25).
+                    SettingRow(Icons.Rounded.Pin, stringResource(R.string.cp_pin_title), value = stringResource(if (conversation.hasLockPin) R.string.cp_on else R.string.ch_off)) { sheet = "pin" }
+                    // The money in this chat (spec 66).
+                    if (!conversation.isGroup && conversation.isSelf != true) SettingRow(Icons.Rounded.Payments, stringResource(R.string.cp_money)) { sheet = "money" }
                     ToggleRow(Icons.Rounded.VisibilityOff, stringResource(R.string.ch_hide_in_safe_view), id in com.dorr.app.chat.ChatShield.safeHidden, subtitle = stringResource(R.string.ch_hide_in_safe_view_sub)) {
                         com.dorr.app.chat.ChatShield.toggleSafeHidden(context, id)
                     }
@@ -285,11 +298,17 @@ fun ChatInfoPage(id: String) {
                 if (conversation.isAdmin) item {
                     Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
                         SettingRow(Icons.Rounded.Link, stringResource(R.string.ch_invite_link)) { sheet = "invite" }
+                        if (!conversation.isChannel) SettingRow(Icons.Rounded.Gavel, stringResource(R.string.ch_decisions)) { host.push(ChRoute.Decisions(id, true)) }
                         val g = conversation.group!!
                         if (conversation.isChannel) {
                             // A channel: public (in Discover) or link-only, and its @handle.
                             GroupToggle(stringResource(R.string.ch_channel_public), g.isPublic) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("is_public" to it)).data }.getOrNull()?.let { c = it } } }
                             SettingRow(Icons.Rounded.AlternateEmail, stringResource(R.string.ch_channel_handle), value = g.handle?.let { "@$it" }) { sheet = "handle" }
+                            SettingRow(Icons.Rounded.Category, stringResource(R.string.ch_channel_category), value = g.category?.name ?: stringResource(R.string.ch_channel_category_none)) { sheet = "category" }
+                            // The owner buys the ✔ (like WhatsApp's Meta Verified).
+                            if (conversation.myRole == "owner") {
+                                SettingRow(Icons.Rounded.Verified, stringResource(R.string.ch_channel_verify), value = stringResource(if (g.isVerified) R.string.ch_verified else R.string.ch_not_verified)) { sheet = "verify" }
+                            }
                         } else {
                             GroupToggle(stringResource(R.string.ch_only_admins_send), g.onlyAdminsSend) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_send" to it)).data }.getOrNull()?.let { c = it } } }
                             GroupToggle(stringResource(R.string.ch_only_admins_add), g.onlyAdminsAddMembers) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("only_admins_add_members" to it)).data }.getOrNull()?.let { c = it } } }
@@ -399,6 +418,8 @@ fun ChatInfoPage(id: String) {
             stringResource(R.string.ch_tone_default) to { com.dorr.app.chat.ChatTones.set(context, id, null); tone = null; Unit },
         ), subtitle = stringResource(R.string.ch_tone_sub), onDismiss = { sheet = null })
         "summary" -> AiSummarySheet(id, unreadFirst = false) { sheet = null }
+        "pin" -> c?.let { conv -> ChatPinSheet(id, conv.hasLockPin, onDismiss = { sheet = null }) { has -> c = conv.copy(hasLockPin = has, isLocked = conv.isLocked || has).also { host.upsert(it) } } }
+        "money" -> ChatMoneySheet(id, onDismiss = { sheet = null }) { m -> host.showInChat(id, m) }
         "banned" -> c?.let { current -> BannedWordsSheet(current, onDismiss = { sheet = null }) { saved -> c = saved; host.upsert(saved) } }
         "slow" -> ChoiceSheet(stringResource(R.string.ch_slow_mode), SlowModeSteps.map { seconds ->
             (if (seconds == (c?.group?.slowModeSeconds ?: 0)) "✓  " else "") + slowModeLabel(seconds) to {
@@ -407,6 +428,21 @@ fun ChatInfoPage(id: String) {
             }
         }, subtitle = stringResource(R.string.ch_slow_mode_sub), onDismiss = { sheet = null })
         "inviteChannel" -> c?.let { current -> ChannelInviteSheet(current) { sheet = null } }
+        "category" -> {
+            var categories by remember { mutableStateOf<List<com.dorr.app.network.CategoryDto>?>(null) }
+            LaunchedEffect(Unit) { categories = runCatching { ApiClient.discover.categories(chatAuth()).data }.getOrNull().orEmpty() }
+            val current = c?.group?.category?.id
+            val none = stringResource(R.string.ch_channel_category_none)
+            categories?.let { list ->
+                ChoiceSheet(stringResource(R.string.ch_channel_category), (listOf<Pair<Int?, String>>(null to none) + list.map { it.id to it.name.orEmpty() }).map { (catId, label) ->
+                    (if (catId == current) "✓  " else "") + label to {
+                        scope.launch { runCatching { ApiClient.discover.channelCategory(chatAuth(), id, mapOf("category_id" to catId)).data }.getOrNull()?.let { c = it; host.upsert(it) } }
+                        Unit
+                    }
+                }, onDismiss = { sheet = null })
+            }
+        }
+        "verify" -> ChannelVerificationSheet(id, onDismiss = { sheet = null }) { scope.launch { reload() } }
         "theme" -> c?.let { current ->
             ThemePickerSheet(current, onDismiss = { sheet = null }) { saved ->
                 c = saved

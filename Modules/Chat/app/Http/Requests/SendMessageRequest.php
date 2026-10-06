@@ -30,6 +30,8 @@ class SendMessageRequest extends FormRequest
             'uuid' => ['nullable', 'uuid'],
             'body' => ['nullable', 'string', 'max:65000'],
             'reply_to' => ['nullable', 'uuid'],
+            // A reply in the thread under this message (spec 122).
+            'thread' => ['nullable', 'uuid'],
             'mentions' => ['nullable', 'array', 'max:100'],
             'mentions.*' => ['integer'],
 

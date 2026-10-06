@@ -15,9 +15,20 @@ import com.onesignal.notifications.INotificationServiceExtension
  */
 class ChatNotificationExtension : INotificationServiceExtension {
     override fun onNotificationReceived(event: INotificationReceivedEvent) {
+        // Nobody signed in on this phone (logged out, or a push sent before the server forgot this
+        // phone): nothing is shown — no message, no ringing.
+        if (!com.dorr.app.network.AuthSession.isSignedIn(event.context)) {
+            event.preventDefault()
+            return
+        }
         val data = event.notification.additionalData ?: return
         // A message sent "without sound": shown as usual, but no sound and no vibration.
         // Nothing shown / privacy mode: folded into one "N new messages" that names nobody.
+        // P4 (a circle that shows nothing): no notification at all — the app's counter updates on its own.
+        if (data.optString("type") == "chat" && data.optString("hidden") == "1") {
+            event.preventDefault()
+            return
+        }
         if (data.optString("type") == "chat" && data.optString("private") == "1") {
             event.preventDefault()
             ChatShield.showPrivate(event.context)

@@ -310,7 +310,7 @@ private fun WaChangePinPage(night: Boolean, onBack: () -> Unit, onForgot: () -> 
 private fun WaBiometricPage(night: Boolean, onBack: () -> Unit) {
     val host = LocalWallet.current
     val context = LocalContext.current
-    val activity = context as? FragmentActivity
+    val activity = context.findFragmentActivity()
     val networkError = stringResource(R.string.wa_error_network)
     val setupFailed = stringResource(R.string.wa_biometric_setup_failed)
     val available = remember { WaBiometric.isAvailable(context) }
@@ -345,6 +345,7 @@ private fun WaBiometricPage(night: Boolean, onBack: () -> Unit) {
                     }
                     verifying = false
                     if (activity == null) {
+                        host.showToast(setupFailed)
                         return@WaPinPad PadResult.Ok
                     }
                     WaBiometric.enable(activity, pin) { ok ->

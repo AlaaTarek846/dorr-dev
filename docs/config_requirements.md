@@ -123,6 +123,7 @@
 ## 14. تحديد الدولة بالـ IP
 
 - مجاني ومن غير مفتاح: لو Cloudflare مستخدم بياخد `CF-IPCountry`، وإلا ipwho.is، وإلا ip-api.com.
+- **من 2026-10-05:** الدولة بتتحدد **مرة واحدة مع كل تسجيل دخول** وتتحفظ في `users.logged_in_country_id`، ولو مش موجودة أو مقفولة بتبقى السعودية (SA). المحفظة وطرق الدفع والأسعار كلها ماشية عليها (`CountryResolver`).
 - **للإنتاج:** الخدمات المجانية ليها حد للطلبات، وip-api.com لغير الاستخدام التجاري. **NEEDS-DECISION:** نستخدم Cloudflare أو MaxMind GeoLite2 (مجاني بحساب، وقاعدة بيانات على السيرفر).
 
 ---
@@ -133,8 +134,8 @@
 |---|---|---|
 | **storage link** | الصور والفويس والحالات بتتعرض من `public/storage`، ومن غيره بيرجع 403 | `php artisan storage:link` (مرة واحدة على كل سيرفر) |
 | **config cache** | Apache على ويندوز، وأي استضافة كتير الطلبات، بيضيّع `.env` مع الطلبات المتزامنة | `php artisan config:cache` بعد أي تعديل في `.env` |
-| **Cron (الـ scheduler)** | **الرسائل المجدولة والتذكيرات** (`chat:send-scheduled` و`chat:send-reminders` كل دقيقة، ومن غيره عمرهم ما هيتبعتوا)، وانتهاء المكالمات اللي محدش رد عليها (كل دقيقة)، ومسح الرسائل اللي بتختفي والحالات المنتهية (كل ساعة)، ومطابقة المحافظ (كل ساعة). محلياً: `php artisan schedule:work` | `* * * * * php /path/artisan schedule:run` — **متاح في cPanel على الاستضافة المشتركة** |
-| **Queue worker** | إيميلات التحقق متبعتة على queue (`QUEUE_CONNECTION=database`) | VPS: `php artisan queue:work` شغال دايماً. استضافة مشتركة: cron كل دقيقة `php artisan queue:work --stop-when-empty` |
+| **Cron (الـ scheduler)** | **الرسائل المجدولة والتذكيرات وملخص الهدوء** (`chat:send-scheduled` و`chat:send-reminders` و`chat:quiet-digest` كل دقيقة، و`chat:moment-reminders` (تذكير التواريخ الشخصية) كل 10 دقايق، و`chat:task-reminders` (ميعاد المهام) و`chat:calendar-reminders` (تذكيرات التقويم) كل دقيقة، ومن غيره عمرهم ما هيتبعتوا)، وانتهاء المكالمات اللي محدش رد عليها (كل دقيقة)، ومسح الرسائل اللي بتختفي والحالات المنتهية (كل ساعة)، ومطابقة المحافظ (كل ساعة). محلياً: `php artisan schedule:work` | `* * * * * php /path/artisan schedule:run` — **متاح في cPanel على الاستضافة المشتركة** |
+| **Queue worker** | الإيميلات العادية متبعتة على queue (`QUEUE_CONNECTION=database`). أكواد التحقق واسترجاع PIN المحفظة بقت بتتبعت فورًا من غير queue (2026-10-11)، بس لازم إعدادات SMTP في `.env` تكون صح | VPS: `php artisan queue:work` شغال دايماً. استضافة مشتركة: cron كل دقيقة `php artisan queue:work --stop-when-empty` |
 | **TRUSTED_PROXIES** | IP المستخدم الحقيقي ورا Cloudflare / nginx / ngrok | `127.0.0.1,::1` محلياً، و`*` ورا Cloudflare أو load balancer |
 | **APP_URL** | روابط الملفات والوسائط | الدومين الحقيقي بـ `https://` |
 | **composer dump-autoload** | بعد سحب موديول جديد في `Modules/*` | `composer dump-autoload` |
@@ -146,9 +147,9 @@
 | # | الأمر | إمتى | ليه |
 |---|---|---|---|
 | 1 | `composer install` ثم `composer dump-autoload` | بعد أي سحب فيه موديول جديد في `Modules/*` أو تغيير في `composer.json` | من غيره Laravel مايعرفش كلاسات الموديول الجديد، و`optimize:clear` نفسه بيقع (حصلت مع موديول SMS) |
-| 2 | `php artisan migrate` | بعد أي سحب فيه migrations جديدة | آخرهم بتوع الشات `2026_10_04_100000` لـ `100700`: ألوان الهوية، وملصقاتي، والإشراف على الجروبات، والبيزنس، والجدولة، وشكل الإشعار، والمكالمات لكل دولة، و`ai_enabled` |
+| 2 | `php artisan migrate` | بعد أي سحب فيه migrations جديدة | آخرهم: `2026_10_05_100000` (`users.logged_in_country_id`)، و`100100` (`checkouts` + تصنيف الدفتر `service_revenue`)، و`100200` (التصنيفات، والباقات، وبوابات التجار، وتوثيق القنوات)، و`100300` (الاستوريهات العامة واستوريهات دُر)، و`2026_10_06_100000`–`100400` (قوائم البث، والدواير، والـ Threads، والقرارات، والهدوء الذكي)، و`2026_10_07_100000` (المناسبات: الكتالوج، والتواريخ، والتفضيلات، و**بيزرع الـ 70 مناسبة لوحده**)، و`100100` (`users.timezone` وكروت المناسبات المجدولة)، و`100200` (الكروت الجماعية والكبسولات)، و`100300` (تذكير التواريخ الشخصية)، و`2026_10_08_100000` في موديول الـ AI (`ai_messages.safety`) وفي الشات (`chat_tasks`)، و`2026_10_09_100000` (التقويم: `chat_calendar_items` و`chat_calendar_preferences` و`chat_settings.calendar_enabled`)، و`2026_10_10_100000` (ألوان الفولدرات، ومجلدات المفضلة، ونصوص الفويس، وPIN المحادثة، و`users.chat_username`، وغرفة القرار) |
 | 3 | `php artisan db:seed --class="Modules\Chat\Database\Seeders\ChatDatabaseSeeder"` | أول مرة على أي سيرفر | أسباب البلاغات والثيمات الافتراضية. مابيعملش حاجة لو الجداول فيها بيانات |
-| 4 | `php artisan db:seed --class="Database\Seeders\Admin\AdminPermissionSeeder"` | أول مرة، وبعد أي صلاحية جديدة | صلاحيات الشات (`chat-settings`، `chat-themes`، `chat-report-types`، `chat-stickers`، `chat-reports`). **وبعده لازم تدي الأدوار الصلاحيات الجديدة من لوحة الأدمن**، وإلا الصفحات مش هتظهر غير للسوبر أدمن |
+| 4 | `php artisan db:seed --class="Database\Seeders\Admin\AdminPermissionSeeder"` | أول مرة، وبعد أي صلاحية جديدة | صلاحيات الشات (`chat-settings`، `chat-themes`، `chat-report-types`، `chat-stickers`، `chat-reports`، والجداد: `chat-categories`، `chat-packages`، `chat-portals`، `chat-channels`، `chat-dorr-stories`، `chat-moments`). **وبعده لازم تدي الأدوار الصلاحيات الجديدة من لوحة الأدمن**، وإلا الصفحات مش هتظهر غير للسوبر أدمن |
 | 5 | `php artisan optimize:clear` ثم `php artisan config:cache` | بعد أي سحب، وبعد أي تعديل في `.env` | يمسح الكاش القديم (إعدادات، routes، views) ويبني الإعدادات من جديد |
 | 6 | `php artisan cache:forget chat.settings` | لو إعدادات الشات باينة قديمة | إعدادات الشات متخزنة في الكاش على طول. الـ migrations الجديدة بتمسحها لوحدها، والأمر ده للاحتياط |
 | 7 | `npm run build` | بعد أي تعديل في الواجهة (Vue أو ملفات الترجمة) أو مفاتيح `VITE_*` | لوحة الأدمن وشات الويب بيتبنوا من الملفات دي |
@@ -159,7 +160,7 @@
 | الأمر | ليه |
 |---|---|
 | `php artisan schedule:work` | بديل الـ cron محلياً. من غيره الرسايل المجدولة مش هتتبعت، والمكالمات اللي محدش رد عليها مش هتبقى "فائتة" |
-| `php artisan queue:work` | إيميلات التحقق |
+| `php artisan queue:work` | الإيميلات اللي على الـ queue (الأكواد بتتبعت فورًا) |
 | `php artisan test` | الاختبارات. **مش** `composer test`، لأن Composer بيقطعها بعد 300 ثانية والاختبارات كلها بتاخد أكتر من كده. الاختبارات بتشتغل على SQLite في الذاكرة بس، و`tests/TestCase.php` بيرفض يشغلها على أي داتا بيز تانية |
 
 ## الأندرويد

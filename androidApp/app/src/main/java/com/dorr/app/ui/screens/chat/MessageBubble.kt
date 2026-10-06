@@ -132,9 +132,13 @@ class BubbleActions(
     /** AI: turn a voice message into text / hide a translation or transcript. */
     val onTranscribe: (UiMessage) -> Unit = {},
     val onHideAi: (UiMessage) -> Unit = {},
+    /** Threads (spec 122): the "N replies" chip under a message. */
+    val onOpenThread: (MessageDto) -> Unit = {},
     /** Sensitive messages / blurred media: shown yet? And unlock / uncover one. */
     val isRevealed: (String) -> Boolean = { true },
     val onReveal: (UiMessage) -> Unit = {},
+    /** A surprise greeting card whose time came: fetch it again, opened. */
+    val onOpenSealed: (UiMessage) -> Unit = {},
 )
 
 /**
@@ -240,7 +244,7 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
     // Cards that bring their own background (wallet cards, the green money request).
     // A sticker floats on the wallpaper: no bubble, no shadow.
     val bare = dto.type == "sticker" && !dto.isDeleted
-    val isCard = (dto.type in setOf("wallet_transfer", "wallet_qr", "money_request") || bare) && !dto.isDeleted
+    val isCard = (dto.type in setOf("wallet_transfer", "wallet_qr", "money_request", "moment_card") || bare) && !dto.isDeleted
     val media = dto.type in setOf("image", "video") && !dto.isDeleted
     val haptic = LocalHapticFeedback.current
 
@@ -287,6 +291,7 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
             }
         }
         Reactions(dto, mine)
+        dto.thread?.takeIf { it.count > 0 }?.let { t -> ThreadChip(t.count, mine) { actions.onOpenThread(dto) } }
         AnimatedVisibility(m.local == "failed", enter = fadeIn() + scaleIn()) {
             Row(Modifier.padding(top = 3.dp, end = 4.dp).clickable { actions.onRetry(m) }, verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.ErrorOutline, null, tint = FailedRed, modifier = Modifier.size(14.dp))
@@ -396,6 +401,10 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
             Footer(m, mine, overlay = false)
         }
         "poll" -> PollCard(m, mine, onVote = { actions.onVote(m, it) }, onShowVotes = { actions.onShowVotes(dto) }) { Footer(m, mine, overlay = false) }
+        // A greeting card (DORR Moments): the occasion's look, words, voices, photos, a gift.
+        "moment_card" -> com.dorr.app.ui.screens.moments.MomentCardBubble(
+            dto, mine, onOpenSealed = { actions.onOpenSealed(m) }, onOpenPhoto = { actions.onOpenMedia(dto, it) },
+        ) { Footer(m, mine, overlay = true) }
         "location" -> if (dto.liveLocation != null) {
             LiveLocationCard(dto.meta, dto.liveLocation, mine, onStop = { actions.onStopLive(m) }) { Footer(m, mine, overlay = true) }
         } else LocationCard(dto.meta, m, mine)
@@ -514,7 +523,8 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
     Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp, bottom = 7.dp)) {
         androidx.compose.foundation.text.ClickableText(
             text = annotated,
-            style = androidx.compose.ui.text.TextStyle(color = color, fontSize = if (onlyEmoji) 38.sp else 15.5.sp, lineHeight = if (onlyEmoji) 44.sp else 21.sp, fontFamily = com.dorr.app.ui.theme.CairoFontFamily),
+            // My text size (spec 6).
+            style = androidx.compose.ui.text.TextStyle(color = color, fontSize = if (onlyEmoji) 38.sp else (15.5f * ChatPrefs.fontScale).sp, lineHeight = if (onlyEmoji) 44.sp else (21f * ChatPrefs.fontScale).sp, fontFamily = com.dorr.app.ui.theme.CairoFontFamily),
             modifier = Modifier.padding(end = 62.dp, bottom = 2.dp),
             onClick = { offset ->
                 annotated.getStringAnnotations("url", offset, offset).firstOrNull()?.let { a ->

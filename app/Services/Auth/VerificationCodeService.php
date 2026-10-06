@@ -32,7 +32,9 @@ class VerificationCodeService
         ]);
 
         if ($type === VerificationType::Email || $type === VerificationType::WalletRecovery) {
-            Mail::to($destination)->send(new VerificationCodeMail($code, $authenticatable));
+            // Right away, not through the queue: a code that expires in minutes can't wait for a worker
+            // (and a mail failure then reaches the caller instead of dying in a job).
+            Mail::to($destination)->sendNow(new VerificationCodeMail($code, $authenticatable));
         }
 
         $this->markResent($authenticatable, $type);

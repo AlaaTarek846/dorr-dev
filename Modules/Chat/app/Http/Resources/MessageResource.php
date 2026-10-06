@@ -33,15 +33,19 @@ class MessageResource extends JsonResource
         $m = $this->resource;
         $ctx = $this->context;
         $gone = $m->isGone();
+        // A surprise card (spec 165): until its time, the recipient gets only its look and title.
+        $sealed = $m->type === MessageType::MomentCard && ! $ctx->isMine($m)
+            && ($at = data_get($m->meta, 'card.reveal_at')) !== null && \Illuminate\Support\Carbon::parse($at)->isFuture();
 
         return [
             'id' => $m->uuid,
             'conversation_id' => $ctx->conversation->uuid,
             'type' => $m->type->value,
-            'body' => $gone ? null : $m->body,
+            'body' => $gone || $sealed ? null : $m->body,
             'meta' => $gone ? null : $m->meta,
+            'sealed' => $sealed,
             // View-once files are never listed: the recipient gets them once from POST messages/{m}/open.
-            'attachments' => $gone || $m->view_once ? [] : $this->attachments($m),
+            'attachments' => $gone || $m->view_once || $sealed ? [] : $this->attachments($m),
             'view_once' => $m->view_once,
             'is_silent' => $m->is_silent,
             // Mine: someone opened it · Theirs: I already opened it (it can't be opened again).
@@ -66,6 +70,10 @@ class MessageResource extends JsonResource
             'delete_until' => $ctx->isMine($m) && ! $gone ? $this->deadline($m, ChatSetting::current()->delete_for_everyone_window_minutes) : null,
             'status' => $ctx->statusOf($m),
             'reply_to' => $this->replyPreview($m),
+            // Threads (spec 122): under a message, how many replies and the last one's time; on a
+            // reply, the message it hangs from.
+            'thread' => $m->thread_replies_count > 0 ? ['count' => $m->thread_replies_count, 'last_at' => $m->thread_last_at?->toIso8601String()] : null,
+            'thread_root' => $m->thread_id ? $m->threadRoot?->uuid : null,
             'is_forwarded' => $m->is_forwarded,
             'forwarded_many_times' => $m->forward_score >= 4,
             'mentions' => array_values(array_filter(array_map(fn ($pid) => $ctx->profileOfParticipant((int) $pid), (array) $m->mentions))),

@@ -139,6 +139,7 @@ class UserRegistrationController extends Controller
         $this->flowTokens->revoke($request->validated('flow_token'));
         $user->tokens()->delete();
 
+        app(\App\Services\General\LoginCountry::class)->remember($user);
         $token = $user->createToken('user-api')->plainTextToken;
 
         return ApiResponse::success([

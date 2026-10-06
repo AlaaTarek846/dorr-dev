@@ -48,6 +48,12 @@ return [
         'eligibility_settings_missing' => 'This service is not available in your country yet.',
         'withdrawal_pending_exists' => 'You already have a withdrawal request under review.',
         'withdrawal_method_unavailable' => 'This withdrawal method is not available.',
+        'checkout_unknown_purpose' => 'This can\'t be paid for here.',
+        'checkout_not_found' => 'Not found.',
+        'checkout_not_pending' => 'This was already paid or closed.',
+        'checkout_expired' => 'This payment page expired. Please start again.',
+        'checkout_insufficient_balance' => 'Your wallet balance isn\'t enough. Top up or pay another way.',
+        'checkout_gateway_pending' => 'A payment for this is already in progress.',
         'withdrawal_not_pending' => 'This withdrawal request was already reviewed.',
         'withdrawal_not_found' => 'Not found.',
         'withdrawal_no_receipt' => 'There is no receipt for this request.',
@@ -66,6 +72,7 @@ return [
         'reversal' => 'Reversal (:reason)',
         'manual_adjustment' => 'Manual adjustment (:reason)',
         'transfer_fee' => 'Transfer fee',
+        'service_payment' => ':title',
     ],
 
     // Statement row labels (wallet_transactions.type).
