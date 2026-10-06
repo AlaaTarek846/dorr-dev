@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\General\MobileRatingController;
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\Mobile\AddressController;
 use Modules\User\Http\Controllers\Mobile\FaqController;
@@ -30,7 +31,6 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::post('phone/change', [PhoneChangeController::class, 'start'])->middleware('throttle:5,1,phone-change');
         Route::post('phone/change/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
 
-
         // Same guarded flow as phone/change — the profile screen's older paths must not bypass it.
         Route::post('profile/phone/request', [PhoneChangeController::class, 'start'])->middleware('throttle:5,1,phone-change');
         Route::post('profile/phone/confirm', [PhoneChangeController::class, 'confirm'])->middleware('throttle:10,1,phone-change-confirm');
@@ -52,6 +52,9 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::match(['put', 'patch'], 'addresses/{id}', [AddressController::class, 'update']);
         Route::delete('addresses/{id}', [AddressController::class, 'destroy']);
         Route::patch('addresses/{id}/set-default', [AddressController::class, 'setDefault']);
+
+        Route::get('ratings/mine', [MobileRatingController::class, 'mine']);
+        Route::post('ratings', [MobileRatingController::class, 'store'])->middleware('throttle:10,1');
 
         Route::get('appearance', [MobileAppearanceController::class, 'show']);
         Route::put('appearance', [MobileAppearanceController::class, 'update']);

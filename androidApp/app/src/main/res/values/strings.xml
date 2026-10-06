@@ -468,4 +468,6 @@
     <string name="support_ticket_sent">Your support request was sent.</string>
     <string name="support_ticket_need_fields">Please add a title and a description</string>
     <string name="support_ticket_failed">Could not send the request</string>
+    <string name="rate_already">You already rated the app. Thank you!</string>
+    <string name="rate_failed">Could not send your rating, try again</string>
 </resources>

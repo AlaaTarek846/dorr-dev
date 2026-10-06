@@ -109,6 +109,7 @@ object ApiClient {
     }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
     val support: SupportApi by lazy { retrofit.create(SupportApi::class.java) }
+    val ratings: RatingApi by lazy { retrofit.create(RatingApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 
@@ -129,5 +130,7 @@ object ApiClient {
             ?.let { if (it.startsWith("/")) "$scheme://$LOCAL_MEDIA_HOST$it" else it }
             ?.replace("http://$LOCAL_MEDIA_HOST", "$scheme://$BASE_HOST")
             ?.replace("https://$LOCAL_MEDIA_HOST", "$scheme://$BASE_HOST")
+            // `php artisan serve` / a default APP_URL builds loopback URLs, which a phone can never reach.
+            ?.replace(Regex("""^https?://(127[.]0[.]0[.]1|localhost)(:[0-9]+)?"""), "$scheme://$BASE_HOST")
     }
 }

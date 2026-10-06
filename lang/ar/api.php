@@ -7,6 +7,8 @@ return [
     'unauthenticated' => 'يجب تسجيل الدخول أولاً.',
     'unauthorized' => 'ليس لديك صلاحية للوصول لهذه البيانات.',
     'support_ticket_created' => 'تم إرسال طلب الدعم.',
+    'rating_saved' => 'شكراً لتقييمك.',
+    'rating_already_submitted' => 'سبق أن قيّمت هذا.',
     'support_message_sent' => 'تم إرسال الرسالة.',
     'conflict' => 'تعذر إكمال الطلب بسبب تعارض في البيانات.',
     'server_error' => 'حدث خطأ غير متوقع في السيرفر.',

@@ -77,7 +77,7 @@ fun WalletScreen(onExit: () -> Unit) {
     }
     var unlocked by remember { mutableStateOf(false) }
 
-    CompositionLocalProvider(LocalWallet provides host) {
+    CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         Box(Modifier.fillMaxSize().background(Wa.Bg)) {
             if (!unlocked) {
                 BackHandler { currentOnExit() }
@@ -335,7 +335,7 @@ fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) 
     SideEffect {
         host.onExit = { currentOnBack() }
     }
-    CompositionLocalProvider(LocalWallet provides host) {
+    CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         BackHandler { currentOnBack() }
         Box(Modifier.fillMaxSize()) {
             WalletPinSettings()

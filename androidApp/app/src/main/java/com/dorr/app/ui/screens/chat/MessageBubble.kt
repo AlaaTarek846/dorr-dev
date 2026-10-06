@@ -428,7 +428,7 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
 @Composable
 private fun StoryQuote(meta: JsonObject?, mine: Boolean) {
     val context = LocalContext.current
-    val style = meta?.getAsJsonObject("style")
+    val style = meta?.get("style")?.takeIf { it.isJsonObject }?.asJsonObject // JSON null (an image story has no style) is not an object
     val text = meta?.str("text")
     val thumb = meta?.str("thumbnail")
     Row(

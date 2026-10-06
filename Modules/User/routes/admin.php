@@ -9,4 +9,5 @@ Route::middleware(['locale', 'auth:admin_api'])->prefix('admin/v1')->group(funct
     Route::delete('users/{user}/force', [UserController::class, 'forceDestroy']);
     Route::patch('users/{user}/status', [UserController::class, 'changeStatus']);
     Route::apiResource('users', UserController::class);
+
 });

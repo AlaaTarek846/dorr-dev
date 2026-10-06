@@ -139,3 +139,6 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit, start: WaRou
 }
 
 val LocalWallet = staticCompositionLocalOf<WalletHost> { error("WalletHost missing — wrap wallet pages in WalletScreen") }
+
+/** Same host, but null outside the wallet (the portals, moments and calendar pages reuse the wallet widgets). */
+val LocalWalletOrNull = staticCompositionLocalOf<WalletHost?> { null }

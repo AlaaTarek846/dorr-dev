@@ -468,4 +468,6 @@
     <string name="support_ticket_sent">تم إرسال طلب الدعم.</string>
     <string name="support_ticket_need_fields">أضف العنوان والوصف</string>
     <string name="support_ticket_failed">تعذّر إرسال الطلب</string>
+    <string name="rate_already">لقد قيّمت التطبيق من قبل. شكراً لك!</string>
+    <string name="rate_failed">تعذّر إرسال التقييم، حاول مرة أخرى</string>
 </resources>

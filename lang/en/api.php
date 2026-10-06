@@ -7,6 +7,8 @@ return [
     'unauthenticated' => 'You must be logged in first.',
     'unauthorized' => 'You do not have permission to access this data.',
     'support_ticket_created' => 'Your support request was sent.',
+    'rating_saved' => 'Thank you for your rating.',
+    'rating_already_submitted' => 'You have already rated this.',
     'support_message_sent' => 'Message sent.',
     'conflict' => 'The request could not be completed due to a conflict.',
     'server_error' => 'An unexpected server error occurred.',

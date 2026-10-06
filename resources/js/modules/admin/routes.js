@@ -104,6 +104,12 @@ export default [
                 meta: { middleware: [auth], permission: 'users.view' },
             },
             {
+                path: 'ratings',
+                name: 'admin.ratings.index',
+                component: page('rating/index'),
+                meta: { middleware: [auth], permission: 'ratings.view' },
+            },
+            {
                 path: 'employees',
                 name: 'admin.employees.index',
                 component: page('employee/index'),
