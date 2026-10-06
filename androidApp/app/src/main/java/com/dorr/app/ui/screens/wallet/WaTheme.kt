@@ -322,9 +322,12 @@ fun WaNote(text: String, modifier: Modifier = Modifier, icon: ImageVector = Icon
  */
 @Composable
 fun WaError(message: String?, @Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier) {
-    val host = LocalWallet.current
+    // Outside the wallet there is no toast host: fall back to the system toast instead of crashing.
+    val host = LocalWalletOrNull.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(message) {
-        if (!message.isNullOrBlank()) host.showError(message)
+        if (message.isNullOrBlank()) return@LaunchedEffect
+        if (host != null) host.showError(message) else android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 

@@ -344,6 +344,8 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Open a support ticket (`title`, `body`, optional `image` jpeg/jpg/png/webp ≤ 4MB). Returns `{ id, title, body, status, created_at }` (201) |
 | GET | `/support-chats?ticket_id=` | `auth:user_api` + `ensure-phone-verified` | Own support chat messages (omit `ticket_id` for general live chat; pass a ticket id for that ticket's thread). `{ id, ticket_id, sender, body, created_at }` |
 | POST | `/support-chats` | `auth:user_api` + `ensure-phone-verified` | Send a support chat message (`body`, optional `ticket_id`). `sender` is always `user` (201) |
+| GET | `/ratings/mine` | `auth:user_api` + `ensure-phone-verified` | `{ rated, rating }` for the app (optional `rateable_type` `service`/`provider` + `rateable_id`) |
+| POST | `/ratings` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Save a rating (`stars` 1–5 in 0.25 steps, optional `comment` ≤ 500, optional `rateable_*`). 201 `{ id, stars, comment, type, prompt_store_review, ... }`; duplicate → 422 |
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.

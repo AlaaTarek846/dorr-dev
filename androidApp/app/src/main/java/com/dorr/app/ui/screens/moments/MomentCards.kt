@@ -591,7 +591,7 @@ internal fun CardFace(look: CardLookDto, modifier: Modifier = Modifier, effects:
  */
 @Composable
 fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, onOpenPhoto: (Int) -> Unit, footer: @Composable () -> Unit) {
-    val card = dto.meta?.getAsJsonObject("card")
+    val card = dto.meta?.get("card")?.takeIf { it.isJsonObject }?.asJsonObject
     val look = remember(card) { card?.let { runCatching { Gson().fromJson(it, CardLookDto::class.java) }.getOrNull() } ?: CardLookDto() }
     val revealAt = card?.get("reveal_at")?.takeIf { it.isJsonPrimitive }?.asString?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }
 
