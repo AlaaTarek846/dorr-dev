@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\TranslationPlatform;
 use App\Http\Controllers\General\CountryController;
 use App\Http\Controllers\General\CurrencyController;
 use App\Http\Controllers\General\DashboardThemeController;
@@ -10,9 +11,9 @@ use App\Http\Controllers\General\LegalPageController;
 use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
+use App\Http\Controllers\General\RatingController;
 use App\Http\Controllers\General\ServiceCategoryController;
 use App\Http\Controllers\General\TranslationController;
-use App\Enums\TranslationPlatform;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -26,6 +27,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('auth:admin_api')->group(function () {
+    // Ratings from the mobile app: read and remove only.
+    Route::post('ratings/delete-multiple', [RatingController::class, 'deleteMultiple']);
+    Route::apiResource('ratings', RatingController::class)->only(['index', 'show', 'destroy']);
+
     Route::get('platform-settings', [PlatformSettingController::class, 'show']);
     Route::post('platform-settings', [PlatformSettingController::class, 'update']);
 

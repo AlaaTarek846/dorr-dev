@@ -192,6 +192,31 @@
                                 />
                             </div>
 
+                            <div class="col-12">
+                                <label for="country-services" class="form-label">
+                                    {{ t('countries.services') }}
+                                </label>
+                                <MultiSelect
+                                    id="country-services"
+                                    v-model="form.service_ids"
+                                    :options="serviceOptions"
+                                    option-label="name"
+                                    option-value="id"
+                                    :placeholder="t('countries.services_placeholder')"
+                                    display="chip"
+                                    filter
+                                    :loading="servicesLoading"
+                                    :max-selected-labels="3"
+                                    append-to="body"
+                                    class="w-100"
+                                    :class="{ 'p-invalid': serverErrors.service_ids?.[0] || serverErrors['service_ids.0']?.[0] }"
+                                    @update:model-value="onFieldInput('service_ids')"
+                                />
+                                <div v-if="serverErrors.service_ids?.[0] || serverErrors['service_ids.0']?.[0]" class="invalid-feedback d-block">
+                                    {{ serverErrors.service_ids?.[0] || serverErrors['service_ids.0']?.[0] }}
+                                </div>
+                            </div>
+
                             <div class="col-md-6">
                                 <label class="form-label d-block mb-2">{{ t('countries.is_default') }}</label>
                                 <div
@@ -239,6 +264,7 @@
 <script setup>
 import useVuelidate from '@vuelidate/core';
 import { helpers, integer, maxValue, minValue } from '@vuelidate/validators';
+import MultiSelect from 'primevue/multiselect';
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
@@ -304,8 +330,12 @@ const form = reactive({
     currency_id: null,
     is_default: false,
     status: true,
+    service_ids: [],
     translations: {},
 });
+
+const serviceOptions = ref([]);
+const servicesLoading = ref(false);
 
 const {
     activeLocale,
@@ -467,6 +497,7 @@ function resetForm() {
     form.currency_id = null;
     form.is_default = false;
     form.status = true;
+    form.service_ids = [];
     resetTranslations();
     resetValidation();
 }
@@ -481,6 +512,9 @@ function fillForm(record) {
     form.currency_id = record?.currency_id ?? record?.currency?.id ?? null;
     form.is_default = Boolean(record?.is_default ?? false);
     form.status = Boolean(record?.status ?? true);
+    form.service_ids = Array.isArray(record?.service_ids)
+        ? record.service_ids.map((id) => Number(id))
+        : [];
     fillTranslations(record);
     resetValidation();
 }
@@ -498,6 +532,7 @@ function buildPayload() {
         currency_id: form.currency_id,
         is_default: form.is_default,
         status: form.status,
+        service_ids: form.service_ids,
         translations: buildTranslationsPayload(),
     };
 }
@@ -562,6 +597,25 @@ async function submit() {
     }
 }
 
+async function loadServiceOptions() {
+    if (serviceOptions.value.length || servicesLoading.value) {
+        return;
+    }
+
+    servicesLoading.value = true;
+
+    try {
+        const { data } = await adminAxios.get('/api/admin/v1/service-categories/dropdown', {
+            params: { assignable_for_countries: 1 },
+        });
+        serviceOptions.value = data?.data ?? [];
+    } catch {
+        serviceOptions.value = [];
+    } finally {
+        servicesLoading.value = false;
+    }
+}
+
 setupCatalogModalWatcher({
     props,
     fillForm,
@@ -569,7 +623,10 @@ setupCatalogModalWatcher({
     openModal,
     closeModal,
     resourceUri: props.resourceUri,
-    onOpen: ensureLanguagesLoaded,
+    onOpen: async () => {
+        await ensureLanguagesLoaded();
+        await loadServiceOptions();
+    },
 });
 
 onMounted(async () => {

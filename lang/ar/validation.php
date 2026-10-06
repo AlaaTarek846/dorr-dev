@@ -21,6 +21,7 @@ return [
     'confirmed' => 'تأكيد حقل :attribute غير متطابق.',
     'email' => 'يجب أن يكون حقل :attribute بريداً إلكترونياً صالحاً.',
     'enum' => 'القيمة المحددة في :attribute غير صالحة.',
+    'multiple_of' => 'يجب أن يكون حقل :attribute من مضاعفات :value.',
     'min' => [
         'array' => 'يجب أن يحتوي حقل :attribute على :min عناصر على الأقل.',
         'file' => 'يجب ألا يقل حقل :attribute عن :min كيلوبايت.',
@@ -119,6 +120,8 @@ return [
         'decimal_places' => 'الخانات العشرية',
         'exchange_rate' => 'سعر الصرف',
         'status' => 'الحالة',
+        'service_ids' => 'الخدمات',
+        'service_ids.*' => 'الخدمة',
         'service_category_ids' => 'الخدمات',
         'service_category_ids.*' => 'الخدمة',
         'service_category_id' => 'فئة الخدمة',

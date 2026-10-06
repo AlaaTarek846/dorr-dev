@@ -108,6 +108,8 @@ dependencies {
     // "Make a sticker from my photo": the subject is cut out of its background on the phone.
     // Unbundled — Google Play services downloads the model, so the APK stays small.
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+    // Google Play In-App Review (shown after a 4–5 star rating; a no-op until the app is on Play)
+    implementation("com.google.android.play:review-ktx:2.0.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

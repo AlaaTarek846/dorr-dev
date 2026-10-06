@@ -29,7 +29,7 @@ Native Kotlin app for end users. It talks to the Laravel backend through `/api/m
 | `ui/screens/` | Home, Services, ServiceDetail, Profile, Notifications, Login, Otp, Onboarding, Splash |
 | `ui/screens/chat/` | Chat list, conversation, info, stories, themes, calls overlay, money cards |
 | `ui/screens/wallet/` | Home, history, transfer, top-up, QR, PIN flows, biometric |
-| `ui/screens/profile/` | Personal data, addresses, appearance and font, notifications, FAQ, privacy policy, contact us |
+| `ui/screens/profile/` | Personal data, addresses, appearance and font, notifications, FAQ, privacy policy, contact us, invite friends, rate app, support ticket |
 | `ui/components/` | Shared pieces: `DorrTextField`, `HtmlText`, `ServicesSection`, `HeroBannerSlider`, … |
 | `ui/theme/` | Colors, typography, `Appearance` tokens, app-wide admin-chosen font (`AppFont`) |
 | `chat/` | Realtime, push, call controller, voice/video tools, live location service |
@@ -43,7 +43,8 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **401:** `ApiClient` clears `AuthSession` and routes to Login, remembering the page to return to. Only when a Bearer token was sent.
 - **First launch:** Splash → 3-step onboarding once (`onboarding_completed`), then Login or Home.
 - **Appearance:** `GET/PUT mobile/v1/appearance` (dark mode, primary/secondary colors, font). Before login the built-in palette is used.
-- **Content:** FAQ from `mobile/v1/faqs`, policy text from `mobile/v1/legal-pages?type=privacy|term&service_id=`, rendered with `HtmlText`. Services from `general/v1/services`.
+- **Rating:** `RateAppScreen` ↔ `RatingApi` (`mobile/v1/ratings/mine`, `POST mobile/v1/ratings`); 4–5 stars launch Google Play In-App Review (no-op until the app is published on Play).
+- **Content:** FAQ from `mobile/v1/faqs`, policy text from `mobile/v1/legal-pages?type=privacy|term&service_id=`, rendered with `HtmlText`. Services from `general/v1/services`. Support tickets via `GET/POST mobile/v1/support-tickets`. Support live chat via `GET/POST mobile/v1/support-chats`.
 - **Headers sent on every request:** `Accept: application/json`, `X-Locale`, `X-Device-Id`.
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 

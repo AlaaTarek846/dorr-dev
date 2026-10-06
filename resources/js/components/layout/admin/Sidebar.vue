@@ -116,10 +116,17 @@
                             <span class="category-name">{{ t('sidebar.users') }}</span>
                         </li>
 
-                        <li class="slide">
+                        <li v-if="can('users.view')" class="slide">
                             <router-link :to="{ name: 'admin.users.index' }" class="side-menu__item">
                                 <i class="ri-group-line side-menu__icon"></i>
                                 <span class="side-menu__label">{{ t('users.title') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-if="can('ratings.view')" class="slide">
+                            <router-link :to="{ name: 'admin.ratings.index' }" class="side-menu__item">
+                                <i class="ri-star-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('ratings.title') }}</span>
                             </router-link>
                         </li>
                     </template>
@@ -315,7 +322,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && can('users.view'),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view')),
 );
 
 /**

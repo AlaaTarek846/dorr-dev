@@ -60,6 +60,11 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/profile/email/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmEmailChange |
 | GET | `/faqs` | public | FaqController::index |
 | GET | `/legal-pages` | public | LegalPageController::show |
+| GET | `/support-tickets` | auth:user_api + ensure-phone-verified | SupportTicketController::index |
+| GET | `/support-chats` | auth:user_api + ensure-phone-verified | SupportChatController::index |
+| POST | `/support-chats` | auth:user_api + ensure-phone-verified | SupportChatController::store |
+| GET | `/ratings/mine` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::mine |
+| POST | `/ratings` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::store |
 
 Public catalog content for the app: `/faqs` returns every **active general** FAQ
 (`faqs.service_id IS NULL`) ordered by `sort_order`, then `id`; `/legal-pages?type=privacy|term&service_id=` (`type` required, `service_id` optional)

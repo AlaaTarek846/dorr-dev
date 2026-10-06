@@ -8,6 +8,7 @@ use App\Models\Concerns\HasNotificationDevices;
 use App\Models\Concerns\HasSocialAccounts;
 use App\Models\Concerns\HasVerificationCodes;
 use App\Models\Country;
+use App\Models\Rating;
 use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
 use App\Traits\SendsPhoneOtp;
@@ -16,6 +17,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -74,6 +76,21 @@ class User extends Authenticatable implements HasMedia
     public function addresses(): HasMany
     {
         return $this->hasMany(Address::class);
+    }
+
+    public function ratings(): MorphMany
+    {
+        return $this->morphMany(Rating::class, 'author');
+    }
+
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
+    public function supportMessages(): HasMany
+    {
+        return $this->hasMany(SupportMessage::class);
     }
 
     public function mobileAppearance(): HasOne

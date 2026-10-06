@@ -138,12 +138,9 @@ fun FaqSheet(onDismiss: () -> Unit) {
                     ) {
                         PinkIcon(Icons.Rounded.Help)
                         Spacer(Modifier.width(10.dp))
-                        Text(
+                        SettingsScreenTitle(
                             stringResource(R.string.faq_title),
-                            color = settingsAccent(),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.weight(1f),
+                            Modifier.weight(1f),
                         )
                         Box(
                             modifier = Modifier
