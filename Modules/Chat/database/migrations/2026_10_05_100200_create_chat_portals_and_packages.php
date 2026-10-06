@@ -119,8 +119,8 @@ return new class extends Migration
             $table->unsignedBigInteger('owner_id');
             $table->unsignedBigInteger('amount_minor');
             $table->foreignId('currency_id')->nullable()->constrained('currencies')->nullOnDelete();
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->timestamp('starts_at')->nullable();
+            $table->timestamp('ends_at')->nullable();
             $table->timestamps();
             $table->index(['subject_type', 'subject_id']);
         });

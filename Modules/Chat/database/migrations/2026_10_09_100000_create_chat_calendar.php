@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('title', 160);
             $table->string('note', 1000)->nullable();
             $table->string('location', 200)->nullable();
-            $table->timestamp('starts_at')->comment('UTC instant; all-day: the date at 00:00 in `timezone`');
+            $table->timestamp('starts_at')->nullable()->comment('UTC instant; all-day: the date at 00:00 in `timezone`');
             $table->timestamp('ends_at')->nullable();
             $table->boolean('all_day')->default(false);
             $table->date('date')->nullable()->comment('all-day items: the day itself');
