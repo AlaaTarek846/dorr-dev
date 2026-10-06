@@ -1418,14 +1418,7 @@ private fun PdHeader(title: String, onBack: () -> Unit) {
             .padding(top = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            title,
-            color = settingsAccent(),
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Start,
-        )
+        SettingsScreenTitle(title, Modifier.weight(1f))
         Box(
             modifier = Modifier
                 .size(34.dp)

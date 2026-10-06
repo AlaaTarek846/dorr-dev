@@ -108,6 +108,7 @@ object ApiClient {
         retrofit.create(MobileAppearanceDefaultsApi::class.java)
     }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+    val support: SupportApi by lazy { retrofit.create(SupportApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 

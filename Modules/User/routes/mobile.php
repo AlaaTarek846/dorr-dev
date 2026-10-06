@@ -7,6 +7,8 @@ use Modules\User\Http\Controllers\Mobile\LegalPageController;
 use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
+use Modules\User\Http\Controllers\Mobile\SupportChatController;
+use Modules\User\Http\Controllers\Mobile\SupportTicketController;
 use Modules\User\Http\Controllers\PhoneChangeController;
 
 Route::middleware('locale')->prefix('mobile/v1')->group(function () {
@@ -38,6 +40,11 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::post('profile/email/request', [MobileProfileController::class, 'requestEmailChange']);
         Route::post('profile/email/confirm', [MobileProfileController::class, 'confirmEmailChange']);
         Route::delete('profile/account', [MobileProfileController::class, 'deleteAccount']);
+
+        Route::get('support-tickets', [SupportTicketController::class, 'index']);
+        Route::post('support-tickets', [SupportTicketController::class, 'store']);
+        Route::get('support-chats', [SupportChatController::class, 'index']);
+        Route::post('support-chats', [SupportChatController::class, 'store']);
 
         Route::get('addresses', [AddressController::class, 'index']);
         Route::post('addresses', [AddressController::class, 'store']);

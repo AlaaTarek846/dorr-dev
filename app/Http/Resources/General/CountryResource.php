@@ -35,6 +35,9 @@ class CountryResource extends JsonResource
                 'code' => $this->currency?->code,
                 'symbol' => $this->currency?->symbol,
             ]),
+            'service_ids' => $this->relationLoaded('serviceCategories')
+                ? $this->serviceCategories->pluck('id')->map(fn ($id) => (int) $id)->values()->all()
+                : [],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
             'deleted_at' => $this->deleted_at?->toISOString(),

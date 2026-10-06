@@ -59,7 +59,34 @@ personal_access_tokens (Sanctum)
 | country_id | FK → countries, nullable |
 | remember_token, timestamps | |
 
-**Relationships:** `belongsTo` Country; morphMany SocialAccount, VerificationCode; HasRoles (Spatie).
+**Relationships:** `belongsTo` Country; morphMany SocialAccount, VerificationCode; HasRoles (Spatie); `hasMany` SupportTicket.
+
+### `support_tickets`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| user_id | FK → users, cascade on delete |
+| title | string |
+| body | text |
+| image_path | nullable, public disk `support-tickets/{userId}` |
+| status | default `open` |
+| timestamps | |
+
+Created from the Android app via `POST /api/mobile/v1/support-tickets`. **NEEDS-DECISION:** admin list / reply UI is not built yet.
+
+### `support_messages`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| user_id | FK → users, cascade on delete |
+| support_ticket_id | nullable FK → support_tickets (null = general live chat) |
+| sender | `user` or `support` |
+| body | text |
+| timestamps | |
+
+Mobile: `GET/POST /api/mobile/v1/support-chats`. Users can only send as `user`. **NEEDS-DECISION:** admin/agent replies.
 
 ### `admins`
 
@@ -103,6 +130,7 @@ personal_access_tokens (Sanctum)
 
 - `countries`: code, code_alpha3, dial_code, phone_starts_with, phone_length, is_default, status, flag_id, currency_id, timestamps
 - `country_translations`: country_id, locale, name
+- `country_service_category`: pivot (country_id, service_category_id unique) — which marketplace services an admin assigned to that country (dashboard only; public `/services` is unfiltered)
 
 **Delete block:** admins relation blocks country delete.
 

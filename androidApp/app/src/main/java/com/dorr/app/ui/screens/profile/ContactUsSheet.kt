@@ -79,7 +79,10 @@ fun ContactUsSheet(onDismiss: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                     PinkIcon(Icons.Rounded.Call)
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.contact_title), color = settingsAccent(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    SettingsScreenTitle(
+                        stringResource(R.string.contact_title),
+                        Modifier.weight(1f),
+                    )
                 }
                 ContactTile(Icons.Rounded.Call, stringResource(R.string.contact_phone), CONTACT_PHONE, rtl) {
                     tryStart(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$CONTACT_PHONE")))
