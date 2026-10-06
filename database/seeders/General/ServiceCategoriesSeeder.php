@@ -3,8 +3,10 @@
 namespace Database\Seeders\General;
 
 use App\Enums\ServiceAudience;
+use App\Models\Country;
 use App\Models\ServiceCategory;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class ServiceCategoriesSeeder extends Seeder
 {
@@ -80,6 +82,40 @@ class ServiceCategoriesSeeder extends Seeder
             $category->save();
 
             $this->syncServiceCategoryTranslations($category, $row['name']);
+        }
+
+        $this->attachAssignableServicesToCountries();
+    }
+
+    /**
+     * Existing countries keep every marketplace leaf so the dashboard starts
+     * filled; a new country from the admin form starts with whatever was picked.
+     */
+    protected function attachAssignableServicesToCountries(): void
+    {
+        $serviceIds = ServiceCategory::assignableForCountries()->pluck('id');
+        $countryIds = Country::query()->pluck('id');
+
+        if ($serviceIds->isEmpty() || $countryIds->isEmpty()) {
+            return;
+        }
+
+        $now = now();
+        $rows = [];
+
+        foreach ($countryIds as $countryId) {
+            foreach ($serviceIds as $serviceId) {
+                $rows[] = [
+                    'country_id' => $countryId,
+                    'service_category_id' => $serviceId,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ];
+            }
+        }
+
+        foreach (array_chunk($rows, 500) as $chunk) {
+            DB::table('country_service_category')->insertOrIgnore($chunk);
         }
     }
 

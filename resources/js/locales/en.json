@@ -555,6 +555,8 @@
         "currency_placeholder": "Select currency",
         "flag": "Flag",
         "flag_placeholder": "Select flag",
+        "services": "Services",
+        "services_placeholder": "Select services for this country",
         "is_default": "Default Country",
         "delete_title": "Delete Country",
         "delete_selected_title": "Delete Selected Countries",

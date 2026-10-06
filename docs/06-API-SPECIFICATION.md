@@ -165,6 +165,8 @@ Applies to: **flags**, **languages**, **currencies**, **countries**, **service-c
 
 Catalog create/update requires `translations[]` with `locale` + `name` for all storable languages.
 
+Country create/update accepts optional `service_ids[]` (leaf `service_categories` except admin-only modules). Omitted on update keeps the current assignment; `[]` clears it. The public `GET /api/general/v1/services` list is not filtered by this pivot.
+
 ### Authenticated — Interface Translations `/api/admin/v1/languages/{language}/translations`
 
 Translation files for new interface languages (e.g. `fr`). `ar` / `en` are the bundled sources and are
@@ -338,6 +340,10 @@ the phone does not exist yet, then sends a fixed demo OTP
 | PATCH | `/addresses/{id}/set-default` | `auth:user_api` + `ensure-phone-verified` | Pin/unpin default (`is_default: bool`) |
 | POST | `/profile/email/request` | `auth:user_api` + `ensure-phone-verified` | Change email step 1: validate, cache, mail OTP to the new address |
 | POST | `/profile/email/confirm` | `auth:user_api` + `ensure-phone-verified` | Change email step 2: verify `code` → swap address, mark verified |
+| GET | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Own tickets, newest first, paginated (`page`/`per_page`, `all=1` for all). `{ id, title, body, status, created_at }` |
+| POST | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Open a support ticket (`title`, `body`, optional `image` jpeg/jpg/png/webp ≤ 4MB). Returns `{ id, title, body, status, created_at }` (201) |
+| GET | `/support-chats?ticket_id=` | `auth:user_api` + `ensure-phone-verified` | Own support chat messages (omit `ticket_id` for general live chat; pass a ticket id for that ticket's thread). `{ id, ticket_id, sender, body, created_at }` |
+| POST | `/support-chats` | `auth:user_api` + `ensure-phone-verified` | Send a support chat message (`body`, optional `ticket_id`). `sender` is always `user` (201) |
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.

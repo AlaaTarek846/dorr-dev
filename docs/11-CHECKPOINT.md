@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-05  
+**Last updated:** 2026-10-06  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -53,6 +53,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android Settings — invite / rate / support (2026-10-06):** Settings now has Share with friends, Rate the app, and Support & help (dedicated support live chat via `GET/POST /api/mobile/v1/support-chats`, ticket list + create form, FAQ sheet). Migration `2026_10_06_100000` (tickets) and `2026_10_06_120000` (support messages). **NEEDS-DECISION:** admin ticket inbox and agent chat replies.
+- **Country services (2026-10-06):** Admin country create/edit assigns leaf `service_categories` via `country_service_category`. Empty assignment means none; seeding attaches current marketplace leaves to existing countries. Public `/api/general/v1/services` is not filtered.
 - **WebP uploads (2026-10-05):** JPEG/PNG stored as WebP in place (`App\Support\Media\WebpUploadConverter` via `HasMediaTrait` plus chat attachments/stories). Stickers, GIF, SVG, fonts, and translation JSON stay as uploaded.
 
  group slow mode, banned words and invite links that expire; business tools (quick replies, opening hours, welcome / away auto-replies — `config('chat.business_participants')`); scheduled messages (`chat:send-scheduled` every minute — **needs the scheduler**); three notification privacy levels (`notification_privacy`); calls off per country (`calls_disabled_countries`); AI in the chat on a tap (translate, voice to text, summary, suggested replies — `Services\ChatAiService`, admin switch `ai_enabled`; the AI module gained speech to text for OpenAI, Groq and Google). Plus "make a sticker from my photo" (`stickers/mine`, ML Kit on Android) and the logo's navy `#001B53` / orange `#FA7552` as the app's colours. Migrations `2026_10_04_100000`–`100700`. Tests: `ChatModerationTest`, `ChatBusinessTest`, `ChatScheduledTest`, `ChatAiTest`, `ChatEssentialsTest`.
