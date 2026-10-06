@@ -71,9 +71,25 @@ class User extends Authenticatable implements HasMedia
         return $this->belongsTo(Country::class);
     }
 
+    /** Where the last sign-in came from (App\Services\General\LoginCountry). */
+    public function loggedInCountry(): BelongsTo
+    {
+        return $this->belongsTo(Country::class, 'logged_in_country_id');
+    }
+
     public function addresses(): HasMany
     {
         return $this->hasMany(Address::class);
+    }
+
+    public function supportTickets(): HasMany
+    {
+        return $this->hasMany(SupportTicket::class);
+    }
+
+    public function supportMessages(): HasMany
+    {
+        return $this->hasMany(SupportMessage::class);
     }
 
     public function mobileAppearance(): HasOne

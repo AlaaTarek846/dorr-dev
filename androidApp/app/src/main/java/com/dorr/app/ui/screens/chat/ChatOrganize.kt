@@ -258,6 +258,10 @@ fun ChatActionsSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
             FolderPickerSheet(conversation) { sub = null; onDismiss() }
             return
         }
+        "circle" -> {
+            CirclePickerSheet(conversation) { sub = null; onDismiss() }
+            return
+        }
         "mute" -> {
             ChoiceSheet(stringResource(R.string.ch_mute_notifications), listOf(
                 stringResource(R.string.ch_mute_8h) to { settings(mapOf("mute" to "8h")); Unit },
@@ -309,6 +313,7 @@ fun ChatActionsSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
                 settings(mapOf("archived" to !conversation.isArchived), leavesList = true)
             }
             ActionRow(4, Icons.Rounded.Folder, Color(0xFF10B981), stringResource(R.string.ch_add_to_folder)) { sub = "folder" }
+            ActionRow(4, Icons.Rounded.Lock, Color(0xFFDB2777), conversation.circle?.let { stringResource(R.string.ch_circle_in, it.name) } ?: stringResource(R.string.ch_circle_add)) { sub = "circle" }
             ActionRow(5, if (conversation.isLocked) Icons.Rounded.LockOpen else Icons.Rounded.Lock, Color(0xFF334155), stringResource(if (conversation.isLocked) R.string.ch_unlock_chat else R.string.ch_lock_chat)) {
                 settings(mapOf("locked" to !conversation.isLocked), leavesList = true)
             }

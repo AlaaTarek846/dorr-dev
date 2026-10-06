@@ -109,6 +109,8 @@ return [
         'decimal_places' => 'decimal places',
         'exchange_rate' => 'exchange rate',
         'status' => 'status',
+        'service_ids' => 'services',
+        'service_ids.*' => 'service',
         'service_category_ids' => 'services',
         'service_category_ids.*' => 'service',
         'service_category_id' => 'service category',

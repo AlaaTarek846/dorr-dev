@@ -17,6 +17,8 @@ class AiMessageResource extends JsonResource
             'role' => $this->role,
             'content' => $this->content,
             'is_error' => (bool) $this->is_error,
+            // DORR AI safety (spec 350–362): the class and the approved texts, for the alert card.
+            'safety' => $this->safety,
             'model' => $this->model,
             'created_at' => $this->created_at?->toISOString(),
         ];

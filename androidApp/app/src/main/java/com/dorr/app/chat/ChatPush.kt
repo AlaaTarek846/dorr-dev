@@ -23,6 +23,12 @@ import kotlinx.coroutines.launch
 sealed interface ChatDeepLink {
     data class Conversation(val id: String) : ChatDeepLink
     data class Call(val id: String, val conversationId: String?) : ChatDeepLink
+    /** DORR Moments: a reminder of one of my own dates (or a group card invite). */
+    data object Moments : ChatDeepLink
+    /** One of my tasks is due (spec 38). */
+    data object Tasks : ChatDeepLink
+    /** A DORR Calendar reminder (spec 204). */
+    data object Calendar : ChatDeepLink
 }
 
 /**
@@ -73,6 +79,15 @@ object ChatPush {
         _deepLink.value = null
     }
 
+    /** Open something from outside the chat (the calendar's "open the chat"). */
+    fun open(link: ChatDeepLink) {
+        _deepLink.value = link
+    }
+
+    /** This phone's push id — sent with the logout so the server stops pushing to it. */
+    fun currentId(): String? =
+        if (!initialised) null else runCatching { OneSignal.User.pushSubscription.id }.getOrNull()?.takeIf { it.isNotBlank() }
+
     fun signedOut() {
         registeredId = null
         runCatching { if (initialised) OneSignal.logout() }
@@ -110,6 +125,9 @@ object ChatPush {
                         data.optString("type") == "chat_call" && data.optString("call_id").isNotBlank() ->
                             ChatDeepLink.Call(data.optString("call_id"), conversation)
                         conversation != null -> ChatDeepLink.Conversation(conversation)
+                        data.optString("type") == "tasks" -> ChatDeepLink.Tasks
+                        data.optString("type") == "calendar" -> ChatDeepLink.Calendar
+                        data.optString("type") == "moments" || data.optString("event") == "chat.collab.invited" -> ChatDeepLink.Moments
                         else -> null
                     }
                 }

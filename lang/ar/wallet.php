@@ -47,6 +47,12 @@ return [
         'eligibility_settings_missing' => 'هذه الخدمة غير متاحة في دولتك بعد.',
         'withdrawal_pending_exists' => 'لديك طلب سحب قيد المراجعة بالفعل.',
         'withdrawal_method_unavailable' => 'وسيلة السحب هذه غير متاحة.',
+        'checkout_unknown_purpose' => 'لا يمكن الدفع لهذا هنا.',
+        'checkout_not_found' => 'غير موجود.',
+        'checkout_not_pending' => 'تم الدفع أو الإغلاق بالفعل.',
+        'checkout_expired' => 'انتهت صلاحية صفحة الدفع. ابدأ من جديد.',
+        'checkout_insufficient_balance' => 'رصيد المحفظة غير كافٍ. اشحن المحفظة أو ادفع بطريقة أخرى.',
+        'checkout_gateway_pending' => 'هناك عملية دفع جارية لهذا بالفعل.',
         'withdrawal_not_pending' => 'تمت مراجعة طلب السحب هذا من قبل.',
         'withdrawal_not_found' => 'غير موجود.',
         'withdrawal_no_receipt' => 'لا يوجد إيصال لهذا الطلب.',
@@ -64,6 +70,7 @@ return [
         'reversal' => 'عكس عملية (:reason)',
         'manual_adjustment' => 'تسوية يدوية (:reason)',
         'transfer_fee' => 'رسوم التحويل',
+        'service_payment' => ':title',
     ],
 
     'types' => [

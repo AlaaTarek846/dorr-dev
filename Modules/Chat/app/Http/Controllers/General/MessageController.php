@@ -26,15 +26,18 @@ class MessageController extends Controller
             'after' => ['nullable', 'uuid'],
             'around' => ['nullable', 'uuid'],
             'limit' => ['nullable', 'integer', 'min:1', 'max:100'],
+            // A thread's replies instead of the timeline (spec 122).
+            'thread' => ['nullable', 'uuid'],
         ]);
 
-        $page = $this->messages->page($request->user(), $conversation, $data, (int) ($data['limit'] ?? 50));
+        $me = $request->user();
+        $page = $this->messages->page($me, $conversation, $data, (int) ($data['limit'] ?? 50));
 
         return ApiResponse::success([
             'messages' => $this->messages->present($page['messages'], $page['context']),
             'has_more_before' => $page['has_more_before'],
             'has_more_after' => $page['has_more_after'],
-        ], __('api.retrieved'));
+        ] + (! empty($data['thread']) ? ['root' => $this->messages->presentOne($me, $this->messages->findInConversation($conversation, $data['thread']))] : []), __('api.retrieved'));
     }
 
     public function store(SendMessageRequest $request, ChatConversation $conversation)
@@ -98,8 +101,8 @@ class MessageController extends Controller
 
     public function star(Request $request, ChatMessage $message)
     {
-        $data = $request->validate(['starred' => ['required', 'boolean']]);
-        $this->messages->star($request->user(), $message, (bool) $data['starred']);
+        $data = $request->validate(['starred' => ['required', 'boolean'], 'folder_id' => ['nullable', 'integer']]);
+        $this->messages->star($request->user(), $message, (bool) $data['starred'], isset($data['folder_id']) ? (int) $data['folder_id'] : null);
 
         return ApiResponse::success(['is_starred' => (bool) $data['starred']], __('api.updated'));
     }
@@ -158,7 +161,9 @@ class MessageController extends Controller
 
     public function starred(Request $request, ?ChatConversation $conversation = null)
     {
-        return ApiResponse::success($this->messages->starred($request->user(), $conversation), __('api.retrieved'));
+        $folder = $request->query('folder');
+
+        return ApiResponse::success($this->messages->starred($request->user(), $conversation, $folder === 'none' ? 'none' : (is_numeric($folder) ? (int) $folder : null)), __('api.retrieved'));
     }
 
     public function pin(Request $request, ChatMessage $message)
@@ -188,9 +193,13 @@ class MessageController extends Controller
 
     public function search(Request $request, ?ChatConversation $conversation = null)
     {
-        $data = $request->validate(['q' => ['required', 'string', 'min:2', 'max:100']]);
+        $data = $request->validate([
+            'q' => ['required_without:types', 'nullable', 'string', 'min:2', 'max:100'],
+            'types' => ['nullable', 'array'],
+            'types.*' => [Rule::in(['text', 'image', 'video', 'voice', 'document', 'link', 'location', 'poll', 'contact', 'sticker', 'money'])],
+        ]);
 
-        return ApiResponse::success($this->messages->search($request->user(), $data['q'], $conversation), __('api.retrieved'));
+        return ApiResponse::success($this->messages->search($request->user(), $data['q'] ?? null, $conversation, $data['types'] ?? []), __('api.retrieved'));
     }
 
     public function gallery(Request $request, ChatConversation $conversation)
@@ -198,9 +207,14 @@ class MessageController extends Controller
         $data = $request->validate([
             'kind' => ['required', Rule::in(['media', 'documents', 'audio', 'links', 'locations'])],
             'before' => ['nullable', 'uuid'],
+            'date' => ['nullable', 'date_format:Y-m-d'],
+            'file_kind' => ['nullable', Rule::in(['pdf', 'word', 'excel', 'slides', 'archive', 'other'])],
+            'min_size' => ['nullable', 'integer', 'min:0'],
+            'max_size' => ['nullable', 'integer', 'min:0'],
+            'sort' => ['nullable', Rule::in(['date', 'size'])],
         ]);
 
-        $page = $this->messages->gallery($request->user(), $conversation, $data['kind'], $data['before'] ?? null);
+        $page = $this->messages->gallery($request->user(), $conversation, $data['kind'], $data['before'] ?? null, 60, $data);
 
         return ApiResponse::success([
             'messages' => $this->messages->present($page['messages'], $page['context']),

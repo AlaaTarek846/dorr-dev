@@ -47,6 +47,12 @@ class ChatSettingController extends Controller implements HasMiddleware
             'story_video_max_seconds' => ['sometimes', 'integer', 'min:5', 'max:600'],
             'max_call_participants' => ['sometimes', 'integer', 'min:2', 'max:100'],
             'stories_enabled' => ['sometimes', 'boolean'],
+            // Public stories on the home page: on/off, and how many one person may have running for free.
+            'public_stories_enabled' => ['sometimes', 'boolean'],
+            'public_stories_free' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            // DORR Moments: occasions, greeting cards, effects — off without touching the chat.
+            'moments_enabled' => ['sometimes', 'boolean'],
+            'calendar_enabled' => ['sometimes', 'boolean'],
             'calls_enabled' => ['sometimes', 'boolean'],
             // Countries where calls are off (internet calls need a licence in some places).
             'calls_disabled_countries' => ['sometimes', 'nullable', 'array'],

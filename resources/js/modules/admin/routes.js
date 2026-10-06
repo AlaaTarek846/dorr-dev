@@ -213,6 +213,42 @@ export default [
                 meta: { middleware: [auth], permission: 'chat-stickers.view' },
             },
             {
+                path: 'chat/moments',
+                name: 'admin.chat.moments',
+                component: page('chat/moments/index'),
+                meta: { middleware: [auth], permission: 'chat-moments.view' },
+            },
+            {
+                path: 'chat/dorr-stories',
+                name: 'admin.chat.dorr-stories',
+                component: page('chat/dorr-stories/index'),
+                meta: { middleware: [auth], permission: 'chat-dorr-stories.view' },
+            },
+            {
+                path: 'chat/categories',
+                name: 'admin.chat.categories',
+                component: page('chat/categories/index'),
+                meta: { middleware: [auth], permission: 'chat-categories.view' },
+            },
+            {
+                path: 'chat/packages',
+                name: 'admin.chat.packages',
+                component: page('chat/packages/index'),
+                meta: { middleware: [auth], permission: 'chat-packages.view' },
+            },
+            {
+                path: 'chat/portals',
+                name: 'admin.chat.portals',
+                component: page('chat/portals/index'),
+                meta: { middleware: [auth], permission: 'chat-portals.view' },
+            },
+            {
+                path: 'chat/channels',
+                name: 'admin.chat.channels',
+                component: page('chat/channels/index'),
+                meta: { middleware: [auth], permission: 'chat-channels.view' },
+            },
+            {
                 path: 'chat/reports',
                 name: 'admin.chat.reports',
                 component: page('chat/reports/index'),

@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Wallet\Http\Controllers\General\AvailablePaymentMethodController;
+use Modules\Wallet\Http\Controllers\General\CheckoutController;
 use Modules\Wallet\Http\Controllers\General\DeviceTrustController;
 use Modules\Wallet\Http\Controllers\General\TopupController;
 use Modules\Wallet\Http\Controllers\General\WalletBalanceController;
@@ -35,6 +36,10 @@ Route::post('wallet/pin/recover', [WalletRecoveryController::class, 'recover'])-
 Route::post('wallet/pin/unfreeze', [WalletRecoveryController::class, 'unfreeze'])->middleware('throttle:10,1,pin-recovery');
 
 Route::post('wallet/topups/quote', [TopupController::class, 'quote']);
+
+// The one payment screen for every paid thing in the app (docs/remaining_chat.md ج.0).
+Route::post('wallet/checkouts', [CheckoutController::class, 'store']);
+Route::get('wallet/checkouts/{uuid}', [CheckoutController::class, 'show']);
 Route::get('wallet/topups/{uuid}', [TopupController::class, 'show']);
 
 // Unlocks the wallet screens. A PIN that was reset to 0000 still passes here (the answer says `must_change`), so the app can ask for a new one.
@@ -44,6 +49,7 @@ Route::post('wallet/pin/verify', [WalletPinController::class, 'verify'])->middle
 Route::middleware(RequiresWalletPin::class)->group(function () {
     Route::post('wallet/topups', [TopupController::class, 'store']);
     Route::post('wallet/topups/{uuid}/confirm', [TopupController::class, 'confirm']);
+    Route::post('wallet/checkouts/{uuid}/pay', [CheckoutController::class, 'pay']);
 
     // A device pin/verify just reported as untrusted proves the phone on file is reachable from it.
     Route::post('wallet/device/verify-code', [DeviceTrustController::class, 'sendCode'])->middleware('throttle:5,1,device-trust');

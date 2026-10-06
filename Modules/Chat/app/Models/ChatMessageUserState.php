@@ -12,7 +12,7 @@ class ChatMessageUserState extends Model
 {
     public $timestamps = false;
 
-    protected $fillable = ['message_id', 'participant_id', 'starred_at', 'read_later_at', 'follow_up_at', 'deleted_at', 'opened_at'];
+    protected $fillable = ['message_id', 'participant_id', 'starred_at', 'star_folder_id', 'read_later_at', 'follow_up_at', 'deleted_at', 'opened_at'];
 
     protected function casts(): array
     {

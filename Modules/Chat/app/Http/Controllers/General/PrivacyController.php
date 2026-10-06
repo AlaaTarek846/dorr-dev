@@ -187,6 +187,8 @@ class PrivacyController extends Controller
             'read_receipts' => (bool) ($s->read_receipts ?? true),
             'block_screenshots' => (bool) $s->block_screenshots,
             'notification_privacy' => $s->notification_privacy ?: 'all',
+            // Smart quiet: on now, my quiet times, and which chats it covers.
+            'quiet' => ['on' => $s->quietOn(), 'schedule' => $s->quiet_schedule, 'scope' => $s->quiet_scope ?: 'all'],
             // Older apps read the on / off switch.
             'notification_preview' => ($s->notification_privacy ?: 'all') === 'all',
         ];

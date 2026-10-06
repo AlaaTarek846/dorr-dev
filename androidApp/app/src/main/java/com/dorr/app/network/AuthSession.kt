@@ -64,11 +64,19 @@ object AuthSession {
         }
     }
 
+    /** Read-only check, safe from a push service before (or without) [attach] — never bumps [sessionVersion]. */
+    fun isSignedIn(context: Context): Boolean {
+        if (prefs != null) return isAuthenticated
+        return !context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getString(KEY_TOKEN, null).isNullOrBlank()
+    }
+
     fun clear() {
         token = null
         user = null
         prefs?.edit()?.clear()?.apply()
         AppearanceStore.clearUser()
+        WalletCountry.forget()
     }
 
     private fun persist() {

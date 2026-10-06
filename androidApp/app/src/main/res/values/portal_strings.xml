@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merchant portals (docs/remaining_chat.md ج.3). -->
+<resources>
+    <string name="pt_title">Merchant portals</string>
+    <string name="pt_mine">My portals</string>
+    <string name="pt_search">Search shops and websites</string>
+    <string name="pt_all">All</string>
+    <string name="pt_other">More</string>
+    <string name="pt_hero">Your shop in front of everyone</string>
+    <string name="pt_hero_sub">Add your website as a portal, everyone on Dorr sees it here.</string>
+    <string name="pt_add_short">Add yours</string>
+    <string name="pt_add_mine">Add my portal</string>
+    <string name="pt_add_new">Add a portal</string>
+    <string name="pt_empty_title">No portals yet</string>
+    <string name="pt_no_results">Nothing matches your search</string>
+    <string name="pt_empty_text">Be the first: add your website and choose how long it shows here.</string>
+    <string name="pt_views">%1$s views</string>
+    <string name="pt_mine_empty">You have no portals yet</string>
+    <string name="pt_mine_empty_text">Add your website, then pick a package to show it on the portals page.</string>
+    <string name="pt_edit">Edit</string>
+    <string name="pt_publish">Show on the page</string>
+    <string name="pt_renew">Renew</string>
+    <string name="pt_disabled">Switched off by Dorr</string>
+    <string name="pt_listed_until">On the page until %1$s</string>
+    <string name="pt_not_listed">Not on the page — pick a package</string>
+    <string name="pt_delete">Delete</string>
+    <string name="pt_delete_title">Delete this portal?</string>
+    <string name="pt_delete_text">\"%1$s\" will be removed. Time already paid for isn\'t refunded.</string>
+    <string name="pt_logo">Logo</string>
+    <string name="pt_website">Website link</string>
+    <string name="pt_category">Category</string>
+    <string name="pt_name_desc">Name and description</string>
+    <string name="pt_name">Portal name</string>
+    <string name="pt_description">Description</string>
+    <string name="pt_translate">Translate to the other languages</string>
+    <string name="pt_translate_note">Write it in one language and let the AI fill the other tabs — you can edit them before saving.</string>
+    <string name="pt_save">Save portal</string>
+    <string name="pt_plans_title">Show it on the page</string>
+    <string name="pt_plans_sub">Pick how long your portal shows to everyone</string>
+    <string name="pt_continue_to_pay">Continue to payment</string>
+    <string name="pt_renew_note">It\'s on the page until %1$s — a renewal starts after that, no days lost.</string>
+    <string name="pt_no_plans">No packages here yet</string>
+    <string name="pt_no_plans_text">Packages for your country aren\'t available yet.</string>
+    <string name="pt_circle">Portals</string>
+    <plurals name="pt_weeks">
+        <item quantity="one">%d week</item>
+        <item quantity="other">%d weeks</item>
+    </plurals>
+    <plurals name="pt_months">
+        <item quantity="one">%d month</item>
+        <item quantity="other">%d months</item>
+    </plurals>
+    <plurals name="pt_years">
+        <item quantity="one">%d year</item>
+        <item quantity="other">%d years</item>
+    </plurals>
+</resources>

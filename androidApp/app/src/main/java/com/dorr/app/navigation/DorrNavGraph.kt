@@ -103,6 +103,9 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
 
     fun logout() {
         val token = AuthSession.token
+        val pushId = com.dorr.app.chat.ChatPush.currentId()
+        // A call still ringing or connected ends with the account.
+        com.dorr.app.chat.CallController.signedOut()
         // Another person may sign in on this phone: drop the chat's cache, live connection and push id.
         com.dorr.app.chat.ChatRealtime.stop()
         com.dorr.app.chat.ChatPush.signedOut()
@@ -120,7 +123,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         if (!token.isNullOrBlank()) {
             scope.launch {
                 runCatching {
-                    ApiClient.mobileAuth.logout("Bearer $token")
+                    ApiClient.mobileAuth.logout("Bearer $token", com.dorr.app.network.LogoutRequest(pushId))
                 }
             }
         }

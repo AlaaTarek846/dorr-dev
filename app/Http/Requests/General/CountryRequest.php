@@ -3,6 +3,7 @@
 namespace App\Http\Requests\General;
 
 use App\Http\Requests\Concerns\HasCatalogRules;
+use App\Models\ServiceCategory;
 use App\Repositories\General\LanguageRepository;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -47,6 +48,8 @@ class CountryRequest extends FormRequest
             'status' => ['nullable', 'boolean'],
             'flag_id' => ['required', 'integer', 'exists:flags,id'],
             'currency_id' => ['required', 'integer', 'exists:currencies,id'],
+            'service_ids' => ['sometimes', 'array'],
+            'service_ids.*' => ['integer', $this->assignableServiceIdRule()],
         ];
     }
 
@@ -78,6 +81,8 @@ class CountryRequest extends FormRequest
             'flag_id' => __('validation.attributes.flag_id'),
             'currency_id' => __('validation.attributes.currency_id'),
             'status' => __('validation.attributes.status'),
+            'service_ids' => __('validation.attributes.service_ids'),
+            'service_ids.*' => __('validation.attributes.service_ids.*'),
             'translations' => __('validation.attributes.translations'),
             'translations.*.locale' => __('validation.attributes.translations.*.locale'),
             'translations.*.name' => __('validation.attributes.translations.*.name'),
@@ -101,5 +106,26 @@ class CountryRequest extends FormRequest
                 'max' => 2,
             ]),
         ];
+    }
+
+    protected function assignableServiceIdRule(): mixed
+    {
+        $parentIds = ServiceCategory::query()
+            ->whereNotNull('parent_id')
+            ->pluck('parent_id')
+            ->unique()
+            ->all();
+
+        return Rule::exists('service_categories', 'id')->where(function ($query) use ($parentIds): void {
+            $query->where('status', true)->whereNull('deleted_at')
+                ->where(function ($inner) {
+                    $inner->whereNull('module_name')
+                        ->orWhereNotIn('module_name', ServiceCategory::ADMIN_ONLY_MODULES);
+                });
+
+            if ($parentIds !== []) {
+                $query->whereNotIn('id', $parentIds);
+            }
+        });
     }
 }

@@ -50,6 +50,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -61,6 +62,15 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Verified
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.TextFields
+import androidx.compose.material.icons.rounded.PriorityHigh
+import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Redeem
+import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.AlternateEmail
@@ -128,6 +138,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -301,6 +312,9 @@ fun ChatListPage() {
                 // Safe View: the chats I marked stay out of the list while it's on.
                 val rows = (searchResults ?: host.conversations).let { all ->
                     if (com.dorr.app.chat.ChatShield.safeView) all.filterNot { it.id in com.dorr.app.chat.ChatShield.safeHidden } else all
+                }.let { all ->
+                    // A circle that hides its chats keeps them out of everything but the circle itself.
+                    if (host.filter.startsWith("circle:")) all else all.filterNot { it.circle?.hideFromList == true }
                 }
                 when {
                     !host.listLoaded -> SkeletonRows()
@@ -426,15 +440,30 @@ private fun ListMenu() {
     var statusSheet by remember { mutableStateOf(false) }
     if (themeSheet) ThemeSheet { themeSheet = false }
     if (statusSheet) StatusSheet { statusSheet = false }
+    var todayOpen by remember { mutableStateOf(false) }
+    var comfort by remember { mutableStateOf(false) }
+    if (comfort) ChatComfortSheet { comfort = false }
+    var importantOpen by remember { mutableStateOf(false) }
+    val openAt: (String, String) -> Unit = { c, m -> host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) }
+    if (todayOpen) AiTodaySheet(onDismiss = { todayOpen = false }, onOpen = openAt)
+    if (importantOpen) AiImportantSheet(null, onDismiss = { importantOpen = false }, onOpen = openAt)
     Box {
         GlassIcon(Icons.Rounded.MoreVert) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(18.dp), containerColor = Ch.Surface) {
             MenuItem(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr)) { open = false; host.push(ChRoute.MyQr) }
+            // DORR AI across my chats (spec 41, 49) and my tasks (38).
+            // "What I missed" (spec 123), the privacy center (127), reading comfort (6, 13).
+            MenuItem(Icons.Rounded.History, stringResource(R.string.cp_catch_up)) { open = false; host.push(ChRoute.CatchUp) }
+            if (ChatAi.today) MenuItem(Icons.Rounded.AutoAwesome, stringResource(R.string.ct_today)) { open = false; todayOpen = true }
+            if (ChatAi.important) MenuItem(Icons.Rounded.PriorityHigh, stringResource(R.string.ct_important)) { open = false; importantOpen = true }
+            MenuItem(Icons.Rounded.TaskAlt, stringResource(R.string.ct_tasks)) { open = false; host.push(ChRoute.Tasks) }
             MenuItem(Icons.Rounded.Star, stringResource(R.string.ch_starred_title)) { open = false; host.push(ChRoute.Starred) }
             MenuItem(Icons.Rounded.BookmarkAdd, stringResource(R.string.ch_follow_ups_title)) { open = false; host.push(ChRoute.ReadLater) }
             MenuItem(Icons.Rounded.Mood, stringResource(R.string.ch_status_title)) { open = false; statusSheet = true }
             MenuItem(Icons.Rounded.Call, stringResource(R.string.ch_calls_title)) { open = false; host.push(ChRoute.Calls) }
             MenuItem(Icons.Rounded.Shield, stringResource(R.string.ch_privacy_title)) { open = false; host.push(ChRoute.Privacy) }
+            MenuItem(Icons.Rounded.Security, stringResource(R.string.cp_privacy_center)) { open = false; host.push(ChRoute.PrivacyCenter) }
+            MenuItem(Icons.Rounded.TextFields, stringResource(R.string.cp_comfort)) { open = false; comfort = true }
             MenuItem(Icons.Rounded.Storefront, stringResource(R.string.ch_business_title)) { open = false; host.push(ChRoute.Business) }
             MenuItem(Icons.Rounded.Lock, stringResource(R.string.ch_locked_chats)) {
                 open = false
@@ -466,15 +495,22 @@ private fun FilterChips() {
     var creating by remember { mutableStateOf(false) }
     var managing by remember { mutableStateOf<com.dorr.app.network.FolderDto?>(null) }
     var renaming by remember { mutableStateOf<com.dorr.app.network.FolderDto?>(null) }
-    LaunchedEffect(Unit) { host.refreshFolders() }
+    LaunchedEffect(Unit) { host.refreshFolders(); host.refreshCircles() }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var editingCircle by remember { mutableStateOf<com.dorr.app.network.CircleDto?>(null) }
+    var lookFor by remember { mutableStateOf<com.dorr.app.network.FolderDto?>(null) }
 
     val options = listOf(
         "all" to stringResource(R.string.ch_filter_all),
         "unread" to stringResource(R.string.ch_filter_unread),
+        // What needs me first (spec 114).
+        "priority" to stringResource(R.string.cp_priority),
         "groups" to stringResource(R.string.ch_filter_groups),
         "channels" to stringResource(R.string.ch_filter_channels),
         "archived" to stringResource(R.string.ch_filter_archived),
-    ) + host.folders.map { "folder:${it.id}" to it.name }
+    ) + host.folders.map { "folder:${it.id}" to listOfNotNull(it.emoji, it.name).joinToString(" ") } +
+        // Circles show their stand-in name; a locked one opens with the phone's lock (spec 101–103).
+        host.circles.map { "circle:${it.id}" to listOfNotNull(it.emoji, it.shownName, if (it.locked) "🔒" else null, if (it.unread > 0) "(${it.unread})" else null).joinToString(" ") }
 
     // Each chip owns its look: red gradient + white text when selected, white + grey text otherwise,
     // cross-fading with a small spring "pop" — no measured sliding pill that can drift out of place.
@@ -495,9 +531,21 @@ private fun FilterChips() {
                     .height(38.dp)
                     .shadow(if (active) 8.dp else 1.dp, RoundedCornerShape(19.dp), spotColor = if (active) Ch.Red.copy(alpha = 0.4f) else Color.Black.copy(alpha = 0.08f))
                     .clip(RoundedCornerShape(19.dp))
-                    .background(Ch.Surface)
-                    .background(Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep)), alpha = fill)
-                    .combinedClickable(onClick = { host.filter = key }, onLongClick = { if (folder != null) managing = folder })
+                    .background(lookColor(folder?.color)?.copy(alpha = 0.12f)?.compositeOver(Ch.Surface) ?: Ch.Surface)
+                    .background(lookColor(folder?.color)?.let { Brush.horizontalGradient(listOf(it, it)) } ?: Brush.horizontalGradient(listOf(Ch.Red, Ch.RedDeep)), alpha = fill)
+                    .combinedClickable(
+                        onClick = {
+                            val circle = host.circles.firstOrNull { "circle:${it.id}" == key }
+                            if (circle?.locked == true && host.filter != key) ChatLock.unlockCircle(context, circle.id) { host.filter = key } else host.filter = key
+                        },
+                        onLongClick = {
+                            val circle = host.circles.firstOrNull { "circle:${it.id}" == key }
+                            when {
+                                folder != null -> managing = folder
+                                circle != null -> if (circle.locked) ChatLock.unlockCircle(context, circle.id) { editingCircle = circle } else editingCircle = circle
+                            }
+                        },
+                    )
                     .padding(horizontal = 18.dp),
                 contentAlignment = Alignment.Center,
             ) {
@@ -518,12 +566,14 @@ private fun FilterChips() {
                 .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
         }
     }
+    editingCircle?.let { c -> CircleEditorSheet(c, onDismiss = { editingCircle = null }) {} }
     managing?.let { f ->
         ChoiceSheet(
             title = f.name,
             options = listOf(
                 stringResource(R.string.ch_folder_edit_chats) to { host.fillingFolder = f },
                 stringResource(R.string.ch_rename_folder) to { renaming = f },
+                stringResource(R.string.cp_folder_look) to { lookFor = f },
                 stringResource(R.string.ch_delete_folder) to {
                     host.scope.launch {
                         runCatching { ApiClient.chat.deleteFolder(chatAuth(), f.id) }
@@ -535,6 +585,12 @@ private fun FilterChips() {
             ),
             onDismiss = { managing = null },
         )
+    }
+    lookFor?.let { f ->
+        FolderLookSheet(f, onDismiss = { lookFor = null }) { updated ->
+            val index = host.folders.indexOfFirst { it.id == updated.id }
+            if (index >= 0) host.folders[index] = updated
+        }
     }
     renaming?.let { f ->
         TextInputSheet(stringResource(R.string.ch_rename_folder), initial = f.name, action = stringResource(R.string.ch_save), onDismiss = { renaming = null }) { name ->
@@ -614,7 +670,7 @@ private fun SwipeRow(conversation: ConversationDto, modifier: Modifier, content:
             val bg by animateColorAsState(if (pin) Color(0xFFF59E0B) else Color(0xFF6B7280), label = "swipeBg")
             val iconScale by animateFloatAsState(if (state.progress > 0.25f && state.progress < 1f) 1.15f else 0.8f, spring(dampingRatio = 0.4f), label = "swipeIcon")
             Box(
-                Modifier.fillMaxSize().padding(horizontal = 14.dp, vertical = 3.dp).clip(RoundedCornerShape(22.dp)).background(bg).padding(horizontal = 26.dp),
+                Modifier.fillMaxSize().background(bg).padding(horizontal = 26.dp),
                 contentAlignment = if (pin) Alignment.CenterStart else Alignment.CenterEnd,
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
@@ -629,6 +685,14 @@ private fun SwipeRow(conversation: ConversationDto, modifier: Modifier, content:
     ) { content() }
 }
 
+/**
+ * One chat in the list, laid out in three clean columns:
+ *  - the avatar (with the online dot);
+ *  - the name (and its lock / ✔ / why-it's-a-priority marks) over the last message;
+ *  - a fixed column on the far end (the left in Arabic): the time on top, and under it the
+ *    mention mark, mute / pin icons and the unread count — always lined up, whatever the name's length.
+ * Flat rows with a thin divider (inset past the avatar); a pinned chat sits on a light tint.
+ */
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> Unit = {}, onClick: () -> Unit) {
@@ -638,37 +702,47 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
     val online = peerKey != null && (host.presence[peerKey]?.online ?: false)
     val activity = host.activity(c.id)
     val unread = c.unreadCount > 0 || c.markedUnread
+    val compact = ChatPrefs.compactList
+    val avatar = if (compact) 46.dp else 54.dp
 
-    Row(
+    Column(
         Modifier
             .fillMaxWidth()
             .chStagger(index)
-            .padding(horizontal = 14.dp, vertical = 3.dp)
-            .clip(RoundedCornerShape(22.dp))
             // Opaque on purpose: the swipe actions live behind the row.
-            .background(Ch.Surface)
-            .combinedClickable(onClick = onClick, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() })
-            .padding(horizontal = 12.dp, vertical = 11.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .background(Ch.Bg)
+            .background(if (c.isPinned) Ch.Red.copy(alpha = 0.045f) else Color.Transparent)
+            .combinedClickable(onClick = onClick, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() }),
     ) {
-        ChAvatar(c.avatar, c.title, peerKey ?: c.id, size = 54.dp, isGroup = c.isGroup, online = online)
-        Spacer(Modifier.width(12.dp))
-        Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    c.title.orEmpty(), color = Ch.Ink, fontSize = 15.5.sp,
-                    fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
-                )
-                if (c.isLocked) Icon(Icons.Rounded.Lock, null, tint = Ch.Soft, modifier = Modifier.padding(start = 4.dp).size(13.dp))
-                Spacer(Modifier.weight(1f))
-                Text(listTime(c.lastMessageAt), color = if (unread) Ch.Red else Ch.Soft, fontSize = 11.5.sp, fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal)
-            }
-            Spacer(Modifier.height(3.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            Modifier.fillMaxWidth().padding(start = 16.dp, end = 14.dp, top = if (compact) 7.dp else 11.dp, bottom = if (compact) 7.dp else 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            ChAvatar(c.avatar, c.title, peerKey ?: c.id, size = avatar, isGroup = c.isGroup, online = online)
+            Spacer(Modifier.width(12.dp))
+
+            // ---------------------------------------------------------------- name over message
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        c.title.orEmpty(), color = Ch.Ink, fontSize = if (compact) 15.sp else 16.sp,
+                        fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.Bold,
+                        maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (c.group?.isVerified == true) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF0EA5E9), modifier = Modifier.padding(start = 4.dp).size(15.dp))
+                    if (c.isLocked) Icon(Icons.Rounded.Lock, null, tint = Ch.Soft, modifier = Modifier.padding(start = 4.dp).size(13.dp))
+                    c.priority?.firstOrNull()?.let { why ->
+                        Text(
+                            stringResource(when (why) { "mention" -> R.string.cp_why_mention; "urgent" -> R.string.cp_why_urgent; "owed" -> R.string.cp_why_owed; else -> R.string.cp_why_direct }),
+                            color = Ch.Red, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                            modifier = Modifier.padding(start = 6.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.1f)).padding(horizontal = 7.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(if (compact) 1.dp else 3.dp))
                 AnimatedContent(targetState = activity.firstOrNull(), label = "preview", transitionSpec = {
                     (slideInVertically { it / 2 } + fadeIn()) togetherWith (slideOutVertically { -it / 2 } + fadeOut())
-                }, modifier = Modifier.weight(1f)) { act ->
+                }) { act ->
                     if (act != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(stringResource(if (act.state == "recording") R.string.ch_recording else R.string.ch_typing), color = Ch.Red, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold)
@@ -676,38 +750,54 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
                             TypingDots(dot = 4.dp)
                         }
                     } else {
-                        LastMessagePreview(c)
+                        LastMessagePreview(c, strong = unread)
                     }
                 }
-                Spacer(Modifier.width(6.dp))
-                if (c.hasUnreadMention) MentionMark()
-                if (c.isMuted) Icon(Icons.Rounded.NotificationsOff, null, tint = Ch.Soft, modifier = Modifier.padding(horizontal = 2.dp).size(16.dp))
-                if (c.isPinned) Icon(Icons.Rounded.PushPin, null, tint = Ch.Soft, modifier = Modifier.padding(horizontal = 2.dp).size(15.dp).rotate(35f))
-                AnimatedVisibility(unread, enter = scaleIn(spring(dampingRatio = 0.4f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
-                    if (c.unreadCount > 0) ChBadge(c.unreadCount, muted = c.isMuted, modifier = Modifier.padding(start = 4.dp))
-                    else Box(Modifier.padding(start = 6.dp).size(12.dp).background(Ch.Red, CircleShape))
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            // ---------------------------------------------------------------- time + marks (far end)
+            Column(Modifier.widthIn(min = 44.dp), horizontalAlignment = Alignment.End) {
+                Text(
+                    listTime(c.lastMessageAt), color = if (unread) Ch.Red else Ch.Soft, fontSize = 12.sp,
+                    fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium, maxLines = 1,
+                )
+                Spacer(Modifier.height(if (compact) 3.dp else 6.dp))
+                Row(Modifier.height(22.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    if (c.isPinned) Icon(Icons.Rounded.PushPin, null, tint = Ch.Soft, modifier = Modifier.size(15.dp).rotate(35f))
+                    if (c.isMuted) Icon(Icons.Rounded.NotificationsOff, null, tint = Ch.Soft, modifier = Modifier.size(15.dp))
+                    if (c.hasUnreadMention) MentionMark()
+                    AnimatedVisibility(unread, enter = scaleIn(spring(dampingRatio = 0.4f)) + fadeIn(), exit = scaleOut() + fadeOut()) {
+                        if (c.unreadCount > 0) ChBadge(c.unreadCount, muted = c.isMuted)
+                        else Box(Modifier.size(12.dp).background(Ch.Red, CircleShape))
+                    }
                 }
             }
         }
+        // A thin divider from past the avatar to the edge.
+        Box(Modifier.fillMaxWidth().padding(start = 16.dp + avatar + 12.dp).height(0.6.dp).background(Ch.Line))
     }
 }
 
 @Composable
 private fun MentionMark() {
-    Box(Modifier.padding(horizontal = 2.dp).size(20.dp).background(Ch.Mention, CircleShape), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(20.dp).background(Ch.Mention, CircleShape), contentAlignment = Alignment.Center) {
         Icon(Icons.Rounded.AlternateEmail, null, tint = Color.White, modifier = Modifier.size(13.dp))
     }
 }
 
 @Composable
-private fun LastMessagePreview(c: ConversationDto) {
+private fun LastMessagePreview(c: ConversationDto, strong: Boolean = false) {
+    // Unread: the message reads darker, so the eye finds it.
+    val tone = if (strong) Ch.Ink.copy(alpha = 0.78f) else Ch.Mut
     val last = c.lastMessage
     // Something I typed here and didn't send: "Draft: …" in red, like WhatsApp.
     val draft = com.dorr.app.chat.ChatStore.drafts[c.id]
     Row(verticalAlignment = Alignment.CenterVertically) {
         if (draft != null) {
             Text(stringResource(R.string.ch_draft) + " ", color = Ch.Red, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(plainChatText(draft).replace('\n', ' '), color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(plainChatText(draft).replace('\n', ' '), color = tone, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             return@Row
         }
         if (last == null) {
@@ -717,13 +807,13 @@ private fun LastMessagePreview(c: ConversationDto) {
                     c.isGroup -> stringResource(R.string.ch_members, c.group?.membersCount ?: 0)
                     else -> ""
                 },
-                color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1,
+                color = tone, fontSize = 14.sp, maxLines = 1,
             )
             return@Row
         }
         // Safe View, or a sensitive message: no preview at all.
         if (com.dorr.app.chat.ChatShield.safeView || last.isSensitive) {
-            Text(stringResource(if (last.isSensitive) R.string.ch_sensitive else R.string.ch_safe_view_hidden), color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1)
+            Text(stringResource(if (last.isSensitive) R.string.ch_sensitive else R.string.ch_safe_view_hidden), color = tone, fontSize = 14.sp, maxLines = 1)
             return@Row
         }
         if (last.isMine && last.system == null && !last.isDeleted) {
@@ -745,7 +835,7 @@ private fun LastMessagePreview(c: ConversationDto) {
                 !last.body.isNullOrBlank() -> plainChatText(last.body)
                 else -> label
             },
-            color = Ch.Mut, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+            color = tone, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
             fontStyle = if (last.isDeleted) androidx.compose.ui.text.font.FontStyle.Italic else null,
         )
     }
@@ -768,6 +858,7 @@ internal fun previewOf(type: String, deleted: Boolean): Pair<ImageVector?, Strin
     type == "sticker" -> Icons.Rounded.StickyNote2 to stringResource(R.string.ch_sticker)
     type == "money_request" -> Icons.Rounded.Payments to stringResource(R.string.ch_money_request)
     type == "bill_split" -> Icons.Rounded.Payments to stringResource(R.string.ch_split_title)
+    type == "moment_card" -> Icons.Rounded.Redeem to stringResource(R.string.mo_card_preview)
     else -> null to ""
 }
 

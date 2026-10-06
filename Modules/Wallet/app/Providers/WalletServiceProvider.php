@@ -8,6 +8,7 @@ use Nwidart\Modules\Support\ModuleServiceProvider;
 use Modules\Wallet\Console\ExpireStalePayments;
 use Modules\Wallet\Console\ReconcileWallets;
 use Modules\Wallet\Observers\WalletSettingObserver;
+use Modules\Wallet\Support\Payments\CheckoutPurposes;
 
 class WalletServiceProvider extends ModuleServiceProvider
 {
@@ -40,6 +41,14 @@ class WalletServiceProvider extends ModuleServiceProvider
         EventServiceProvider::class,
         RouteServiceProvider::class,
     ];
+
+    public function register(): void
+    {
+        parent::register();
+
+        // What the payment screen sells — each module registers its own purposes in boot().
+        $this->app->singleton(CheckoutPurposes::class);
+    }
 
     public function boot(): void
     {

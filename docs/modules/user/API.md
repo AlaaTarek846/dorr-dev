@@ -60,6 +60,9 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/profile/email/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmEmailChange |
 | GET | `/faqs` | public | FaqController::index |
 | GET | `/legal-pages` | public | LegalPageController::show |
+| GET | `/support-tickets` | auth:user_api + ensure-phone-verified | SupportTicketController::index |
+| GET | `/support-chats` | auth:user_api + ensure-phone-verified | SupportChatController::index |
+| POST | `/support-chats` | auth:user_api + ensure-phone-verified | SupportChatController::store |
 
 Public catalog content for the app: `/faqs` returns every **active general** FAQ
 (`faqs.service_id IS NULL`) ordered by `sort_order`, then `id`; `/legal-pages?type=privacy|term&service_id=` (`type` required, `service_id` optional)
@@ -92,7 +95,7 @@ Responses:
   was previously soft-deleted and `deleted_at` was set back to `null` on this successful verify.
 - `POST /auth/resend` → `{ masked_phone, resend_cooldown_seconds }`
 - `GET /auth/me` → `UserResource`
-- `POST /auth/logout` → `{}`
+- `POST /auth/logout` `{ player_id? }` → `{}` (the given OneSignal player id is unlinked from the account, so the signed-out phone gets no more messages or calls)
 - `POST /profile/phone/request` → `{ masked_phone, resend_cooldown_seconds }`
 - `POST /profile/phone/confirm` → `UserResource` (number swapped, re-verified)
 - `PUT /profile/identity` (`name`, `gender: male|female`) → `UserResource`

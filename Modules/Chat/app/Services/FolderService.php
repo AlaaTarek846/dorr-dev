@@ -42,7 +42,7 @@ class FolderService
     public function update(Model $me, ChatFolder $folder, array $data): ChatFolder
     {
         $this->assertOwned($me, $folder);
-        $folder->update(array_intersect_key($data, array_flip(['name', 'sort_order'])));
+        $folder->update(array_intersect_key($data, array_flip(['name', 'sort_order', 'color', 'emoji'])));
 
         return $folder;
     }

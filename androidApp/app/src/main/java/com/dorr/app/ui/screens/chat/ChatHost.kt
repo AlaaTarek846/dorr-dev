@@ -46,6 +46,20 @@ sealed interface ChRoute {
     /** Write a text story, or caption a picked photo / video (`media`). */
     data class StoryComposer(val media: String? = null) : ChRoute
     data object StoryPrivacy : ChRoute
+    /** A thread under one message (spec 122). */
+    data class Thread(val conversationId: String, val rootId: String) : ChRoute
+    /** A group's decisions log (spec 120). */
+    data class Decisions(val conversationId: String, val isAdmin: Boolean) : ChRoute
+    data object Broadcasts : ChRoute
+    data class Broadcast(val id: String) : ChRoute
+    /** My tasks (spec 38). */
+    data object Tasks : ChRoute
+    /** "What I missed" (spec 123). */
+    data object CatchUp : ChRoute
+    /** Every privacy choice in one place (spec 127). */
+    data object PrivacyCenter : ChRoute
+    /** A group decision's room (spec 153). */
+    data class DecisionRoom(val id: String) : ChRoute
 }
 
 /** The full-screen story viewer: which people's stories it pages through, and where it starts. */
@@ -87,7 +101,15 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     /** A story being uploaded — the "my status" ring spins meanwhile. */
     var storyUploading by mutableStateOf(false)
 
+    /**
+     * The home page's host (HomeStories): stories posted from it are public, and "refresh" reloads
+     * the home page's circles instead of the chat's stories bar.
+     */
+    var publicMode = false
+    var onRefreshStories: (suspend () -> Unit)? = null
+
     suspend fun refreshStories() {
+        onRefreshStories?.let { it(); return }
         runCatching { ApiClient.chat.stories(chatAuth()).data }.getOrNull()?.let { stories = it }
     }
 
@@ -152,6 +174,16 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     /** My folders (the extra chips after All / Unread / Groups / Archived). */
     val folders = mutableStateListOf<com.dorr.app.network.FolderDto>()
 
+    /** My privacy circles (spec 98) — chips next to the folders; "circle:{id}" as the filter. */
+    val circles = mutableStateListOf<com.dorr.app.network.CircleDto>()
+
+    suspend fun refreshCircles() {
+        runCatching { ApiClient.organize.circles(chatAuth()).data }.getOrNull()?.let {
+            circles.clear()
+            circles.addAll(it)
+        }
+    }
+
     /** The folder whose chats are being picked (FolderChatsSheet), if any. */
     var fillingFolder by mutableStateOf<com.dorr.app.network.FolderDto?>(null)
 
@@ -174,10 +206,12 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
         try {
             // "folder:12" is one of my folders; everything else is a server filter.
             val folderId = filter.removePrefix("folder:").takeIf { filter.startsWith("folder:") }?.toIntOrNull()
+            val circleId = filter.removePrefix("circle:").takeIf { filter.startsWith("circle:") }
             val page = ApiClient.chat.conversations(
                 chatAuth(),
-                filter = filter.takeIf { it != "all" && folderId == null },
+                filter = filter.takeIf { it != "all" && folderId == null && circleId == null },
                 folder = folderId,
+                circle = circleId,
                 perPage = 50,
             )
             conversations.clear()

@@ -6,6 +6,7 @@ use App\Models\Concerns\HasTranslations;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -52,6 +53,12 @@ class Country extends Model
     public function currency(): BelongsTo
     {
         return $this->belongsTo(Currency::class);
+    }
+
+    public function serviceCategories(): BelongsToMany
+    {
+        return $this->belongsToMany(ServiceCategory::class, 'country_service_category')
+            ->withTimestamps();
     }
 
     public function admins(): HasMany

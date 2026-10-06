@@ -86,6 +86,8 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
 
     // Which AI tools the server offers (the ✨ buttons only show for those).
     LaunchedEffect(Unit) { ChatAi.load() }
+    // My reading and upload choices (spec 6, 13).
+    ChatPrefs.load(androidx.compose.ui.platform.LocalContext.current)
 
     // This phone's privacy: settings, the private-notification count, the recent-apps snapshot,
     // and "while you were private" once a timed privacy mode has ended.
@@ -112,6 +114,11 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             if (link is com.dorr.app.chat.ChatDeepLink.Conversation) {
                 if ((host.current as? ChRoute.Conversation)?.id != link.id) host.push(ChRoute.Conversation(link.id))
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+            // A task whose time came (spec 38): my tasks.
+            if (link == com.dorr.app.chat.ChatDeepLink.Tasks) {
+                if (host.current != ChRoute.Tasks) host.push(ChRoute.Tasks)
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
         }
@@ -186,6 +193,14 @@ private fun ChatPages(host: ChatHost) {
             ChRoute.Calls -> CallsPage()
             is ChRoute.StoryComposer -> StoryComposerPage(route.media)
             ChRoute.StoryPrivacy -> StoryPrivacyPage()
+            is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
+            is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
+            ChRoute.Broadcasts -> BroadcastsPage()
+            is ChRoute.Broadcast -> BroadcastPage(route.id)
+            ChRoute.Tasks -> TasksPage()
+            ChRoute.CatchUp -> CatchUpPage()
+            ChRoute.PrivacyCenter -> PrivacyCenterPage()
+            is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
         }
     }
 }
@@ -209,7 +224,7 @@ private fun OfflineBanner() {
 }
 
 @Composable
-private fun ChatToast(host: ChatHost) {
+internal fun ChatToast(host: ChatHost) {
     val message = host.toast
     var last by remember { mutableStateOf("") }
     if (message != null) last = message

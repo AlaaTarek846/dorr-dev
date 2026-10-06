@@ -103,6 +103,7 @@ internal fun PrivacyShieldCards(privacy: PrivacyDto, onChanged: (PrivacyDto) -> 
     var durations by remember { mutableStateOf(false) }
     var schedule by remember { mutableStateOf(false) }
     var rehide by remember { mutableStateOf(false) }
+    var quiet by remember { mutableStateOf(false) }
     val mode = privacy.privacyMode
     val networkError = stringResource(R.string.ch_error_network)
 
@@ -132,6 +133,11 @@ internal fun PrivacyShieldCards(privacy: PrivacyDto, onChanged: (PrivacyDto) -> 
             Icons.Rounded.Bedtime, stringResource(R.string.ch_privacy_schedule),
             value = mode?.schedule?.let { "${it.from} – ${it.to}" } ?: stringResource(R.string.ch_off),
         ) { schedule = true }
+        // Smart quiet (spec 115): not-urgent messages wait for one summary.
+        SettingRow(
+            Icons.Rounded.Bedtime, stringResource(R.string.ch_quiet),
+            value = privacy.quiet?.schedule?.let { "${it.from} – ${it.to}" } ?: stringResource(R.string.ch_off),
+        ) { quiet = true }
     }
     Card {
         ToggleRow(Icons.Rounded.Lock, stringResource(R.string.ch_safe_view), ChatShield.safeView, subtitle = stringResource(R.string.ch_safe_view_sub)) { ChatShield.setSafeView(context, it) }
@@ -157,6 +163,7 @@ internal fun PrivacyShieldCards(privacy: PrivacyDto, onChanged: (PrivacyDto) -> 
         onDismiss = { durations = false },
     )
     if (schedule) PrivacyScheduleSheet(privacy, onDismiss = { schedule = false }) { body -> call { ApiClient.chat.updatePrivacyJson(chatAuth(), body).data?.let(onChanged) } }
+    if (quiet) PrivacyScheduleSheet(privacy, onDismiss = { quiet = false }, quiet = true) { body -> call { ApiClient.chat.updatePrivacyJson(chatAuth(), body).data?.let(onChanged) } }
     if (rehide) ChoiceSheet(
         stringResource(R.string.ch_rehide),
         listOf(0, 30, 60, 300).map { s -> ((if (s == ChatShield.rehideSeconds) "✓  " else "") + rehideLabel(s)) to { ChatShield.setRehideSeconds(context, s); Unit } },
@@ -176,8 +183,11 @@ private fun durationLabel(minutes: Int): String = if (minutes < 60) stringResour
 /** Privacy mode every day between two times, on the days I pick (spec 112). */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, onSave: (JsonObject) -> Unit) {
-    val current = privacy.privacyMode?.schedule
+private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, quiet: Boolean = false, onSave: (JsonObject) -> Unit) {
+    // The same sheet sets the privacy schedule (spec 112) and smart quiet (115).
+    val current = if (quiet) privacy.quiet?.schedule else privacy.privacyMode?.schedule
+    val key = if (quiet) "quiet_schedule" else "privacy_schedule"
+    var groupsOnly by remember { mutableStateOf(privacy.quiet?.scope == "groups") }
     var from by remember { mutableStateOf(current?.from ?: "22:00") }
     var to by remember { mutableStateOf(current?.to ?: "07:00") }
     val days = remember { mutableStateListOf<Int>().apply { addAll(current?.days ?: (0..6).toList()) } }
@@ -185,8 +195,8 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, onS
 
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
-            Text(stringResource(R.string.ch_privacy_schedule), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.ch_privacy_schedule_sub), color = Ch.Mut, fontSize = 13.sp)
+            Text(stringResource(if (quiet) R.string.ch_quiet else R.string.ch_privacy_schedule), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(if (quiet) R.string.ch_quiet_sub else R.string.ch_privacy_schedule_sub), color = Ch.Mut, fontSize = 13.sp)
             Spacer(Modifier.height(14.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TimeBox(stringResource(R.string.ch_from), from, Modifier.weight(1f)) { picking = true }
@@ -203,10 +213,15 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, onS
                     }
                 }
             }
+            if (quiet) {
+                Spacer(Modifier.height(8.dp))
+                ToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.ch_quiet_groups_only), groupsOnly) { groupsOnly = it }
+            }
             Spacer(Modifier.height(18.dp))
             ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = days.isNotEmpty()) {
                 onSave(JsonObject().apply {
-                    add("privacy_schedule", JsonObject().apply {
+                    if (quiet) addProperty("quiet_scope", if (groupsOnly) "groups" else "all")
+                    add(key, JsonObject().apply {
                         addProperty("from", from)
                         addProperty("to", to)
                         add("days", JsonArray().apply { days.sorted().forEach { add(it) } })
@@ -221,7 +236,7 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, onS
                     stringResource(R.string.ch_privacy_schedule_off), color = Ch.Danger, fontWeight = FontWeight.Bold,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable {
-                        onSave(JsonObject().apply { add("privacy_schedule", JsonNull.INSTANCE) })
+                        onSave(JsonObject().apply { add(key, JsonNull.INSTANCE) })
                         onDismiss()
                     }.padding(12.dp),
                 )

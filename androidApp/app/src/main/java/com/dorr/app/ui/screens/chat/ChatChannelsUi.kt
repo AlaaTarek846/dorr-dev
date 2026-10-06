@@ -106,11 +106,31 @@ fun ChannelsPage() {
     val host = LocalChat.current
     var query by remember { mutableStateOf("") }
     var list by remember { mutableStateOf<List<ChannelCardDto>?>(null) }
+    /** Nothing typed, no category picked: the directory, grouped by category (most followed first). */
+    var groups by remember { mutableStateOf<List<com.dorr.app.network.ChannelGroupDto>?>(null) }
+    var categories by remember { mutableStateOf<List<com.dorr.app.network.CategoryDto>>(emptyList()) }
+    var category by remember { mutableStateOf<Int?>(null) }
     var creating by remember { mutableStateOf(false) }
     var previewing by remember { mutableStateOf<ChannelCardDto?>(null) }
-    LaunchedEffect(query) {
+    LaunchedEffect(Unit) { categories = runCatching { ApiClient.discover.categories(chatAuth()).data }.getOrNull().orEmpty() }
+    LaunchedEffect(query, category) {
         if (query.isNotEmpty()) delay(300)
-        list = runCatching { ApiClient.chat.discoverChannels(chatAuth(), query.trim().ifEmpty { null }).data }.getOrNull().orEmpty()
+        val q = query.trim().ifEmpty { null }
+        val picked = category
+        when {
+            picked != null -> { groups = null; list = runCatching { ApiClient.discover.channelsIn(chatAuth(), picked, q).data }.getOrNull().orEmpty() }
+            q == null -> {
+                val directory = runCatching { ApiClient.discover.channelDirectory(chatAuth()).data }.getOrNull()
+                groups = directory
+                list = if (directory == null) runCatching { ApiClient.chat.discoverChannels(chatAuth(), null).data }.getOrNull().orEmpty() else directory.flatMap { it.channels }
+            }
+            else -> { groups = null; list = runCatching { ApiClient.chat.discoverChannels(chatAuth(), q).data }.getOrNull().orEmpty() }
+        }
+    }
+    val followChanged: (ChannelCardDto, Boolean) -> Unit = { channel, followed ->
+        val bump: (ChannelCardDto) -> ChannelCardDto = { if (it.id == channel.id) it.copy(isFollowing = followed, followersCount = it.followersCount + if (followed) 1 else -1) else it }
+        list = list?.map(bump)
+        groups = groups?.map { g -> g.copy(channels = g.channels.map(bump)) }
     }
 
     ChPage(stringResource(R.string.ch_channels), onBack = { host.pop() }) {
@@ -119,17 +139,25 @@ fun ChannelsPage() {
             item {
                 ChField(query, { query = it.take(60) }, stringResource(R.string.ch_channels_search), icon = Icons.Rounded.Search, clearable = true)
             }
+            if (categories.isNotEmpty()) item {
+                ChCategoryChips(categories, category, stringResource(R.string.ch_all)) { category = it }
+            }
             val items = list
+            val grouped = groups
             when {
                 items == null -> items(4) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().height(76.dp), RoundedCornerShape(20.dp)) }
                 items.isEmpty() -> item {
                     Text(stringResource(R.string.ch_channels_none), color = Ch.Mut, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(30.dp))
                 }
+                grouped != null -> grouped.forEach { group ->
+                    item(key = "cat-" + (group.category?.id ?: 0)) { ChCategoryHeader(group.category) }
+                    itemsIndexed(group.channels, key = { _, c -> "g${group.category?.id ?: 0}-" + c.id }) { i, channel ->
+                        ChannelRow(channel, i, onOpen = { if (channel.isFollowing) host.push(ChRoute.Conversation(channel.id)) else previewing = channel }) { followed -> followChanged(channel, followed) }
+                    }
+                }
                 else -> itemsIndexed(items, key = { _, c -> c.id }) { i, channel ->
                     // Followed: straight in. Not yet: its card first, with "Follow".
-                    ChannelRow(channel, i, onOpen = { if (channel.isFollowing) host.push(ChRoute.Conversation(channel.id)) else previewing = channel }) { followed ->
-                        list = list?.map { if (it.id == channel.id) it.copy(isFollowing = followed, followersCount = it.followersCount + if (followed) 1 else -1) else it }
-                    }
+                    ChannelRow(channel, i, onOpen = { if (channel.isFollowing) host.push(ChRoute.Conversation(channel.id)) else previewing = channel }) { followed -> followChanged(channel, followed) }
                 }
             }
         }
@@ -139,7 +167,7 @@ fun ChannelsPage() {
         ChannelPreviewSheet(channel, onDismiss = { previewing = null }) { followed ->
             previewing = null
             host.upsert(followed)
-            list = list?.map { if (it.id == channel.id) it.copy(isFollowing = true, followersCount = it.followersCount + 1) else it }
+            followChanged(channel, true)
             host.push(ChRoute.Conversation(followed.id, followed))
         }
     }
@@ -190,9 +218,12 @@ private fun ChannelRow(channel: ChannelCardDto, index: Int, onOpen: () -> Unit, 
         ChAvatar(channel.avatar, channel.name, channel.id, size = 52.dp, isGroup = true)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(channel.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(channel.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (channel.isVerified) { Spacer(Modifier.width(4.dp)); VerifiedBadge(16.dp) }
+            }
             Text(
-                listOfNotNull(channel.handle?.let { "@$it" }, stringResource(R.string.ch_followers, channel.followersCount)).joinToString("  ·  "),
+                listOfNotNull(channel.handle?.let { "@$it" }, stringResource(R.string.ch_followers, channel.followersCount), channel.category?.name).joinToString("  ·  "),
                 color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1,
             )
             channel.description?.takeIf { it.isNotBlank() }?.let { Text(it, color = Ch.Soft, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
@@ -281,6 +312,9 @@ private fun ChannelPreviewSheet(channel: ChannelCardDto, onDismiss: () -> Unit, 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Unit) {
+    var categories by remember { mutableStateOf<List<com.dorr.app.network.CategoryDto>>(emptyList()) }
+    var category by remember { mutableStateOf<Int?>(null) }
+    LaunchedEffect(Unit) { categories = runCatching { ApiClient.discover.categories(chatAuth()).data }.getOrNull().orEmpty() }
     val context = LocalContext.current
     val host = LocalChat.current
     var name by remember { mutableStateOf("") }
@@ -315,6 +349,10 @@ fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Un
                 handle = it.lowercase().filter { c -> c.isLetterOrDigit() || c == '_' }.take(32)
             }
             if (!handleOk) Text(stringResource(R.string.ch_channel_handle_rule), color = Ch.Danger, fontSize = 12.sp, modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 4.dp))
+            if (categories.isNotEmpty()) {
+                Text(stringResource(R.string.ch_channel_category), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth().padding(start = 6.dp, top = 12.dp, bottom = 6.dp))
+                ChCategoryChips(categories, category, stringResource(R.string.ch_channel_category_none)) { category = it }
+            }
 
             // Public / link-only, as two cards.
             Row(Modifier.fillMaxWidth().padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -343,6 +381,7 @@ fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Un
                             "is_public" to (if (isPublic) "1" else "0").toRequestBody(text),
                         )
                         if (handle.isNotEmpty()) fields["handle"] = handle.toRequestBody(text)
+                        category?.let { fields["category_id"] = it.toString().toRequestBody(text) }
                         val part = photo?.let { copyToCache(context, it, "avatar.jpg") }?.let { compressImage(context, it) }?.let { f ->
                             MultipartBody.Part.createFormData("avatar", f.name, f.file.asRequestBody(f.mime.toMediaTypeOrNull()))
                         }

@@ -180,7 +180,10 @@ class ServiceCategoryRepository extends TranslatableRepository
             ->with(['translations', 'translation'])
             ->where('status', true);
 
-        if (request()->query('parent_id') === 'null') {
+        if (filter_var(request()->query('assignable_for_countries'), FILTER_VALIDATE_BOOLEAN)) {
+            $query = ServiceCategory::assignableForCountries()
+                ->with(['translations', 'translation']);
+        } elseif (request()->query('parent_id') === 'null') {
             $query->whereNull('parent_id');
         }
 

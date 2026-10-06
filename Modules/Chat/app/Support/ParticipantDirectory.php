@@ -98,6 +98,8 @@ class ParticipantDirectory
             'key' => $key,
             'name' => $contact?->name ?: ($account->name ?? null),
             'account_name' => $account->name ?? null,
+            // A @username lets people find them without a phone number (spec 81).
+            'username' => $account->chat_username ?? null,
             'phone' => $account->phone ?? null,
             'avatar' => $isMe || $this->mayView($key, $viewerKey, 'profile_photo') ? $this->avatarOf($account) : null,
             'is_contact' => $contact !== null,

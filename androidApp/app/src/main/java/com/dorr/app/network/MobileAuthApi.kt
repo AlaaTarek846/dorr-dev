@@ -26,9 +26,12 @@ interface MobileAuthApi {
     @GET("mobile/v1/auth/me")
     suspend fun me(@Header("Authorization") authorization: String): ApiEnvelope<UserDto>
 
-    /** POST /api/mobile/v1/auth/logout — revoke the current bearer token. */
+    /** POST /api/mobile/v1/auth/logout — revoke the current bearer token (and forget this phone's push id). */
     @POST("mobile/v1/auth/logout")
-    suspend fun logout(@Header("Authorization") authorization: String): ApiEnvelope<Any?>
+    suspend fun logout(
+        @Header("Authorization") authorization: String,
+        @Body body: LogoutRequest = LogoutRequest(),
+    ): ApiEnvelope<Any?>
 
     /**
      * A code goes to the *new* number. Behind the wallet PIN once one exists — a first attempt
@@ -52,3 +55,5 @@ interface MobileAuthApi {
 data class PhoneChangeCodeRequest(val code: String)
 
 data class PhoneChangedDto(val phone: String)
+
+data class LogoutRequest(@com.google.gson.annotations.SerializedName("player_id") val playerId: String? = null)

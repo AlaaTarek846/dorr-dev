@@ -9,6 +9,8 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
+use Modules\AI\Safety\RiskAssessment;
+use Modules\AI\Safety\SafetyPolicyEngine;
 use Modules\AI\Services\AiGateway;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Exceptions\ChatException;
@@ -17,6 +19,7 @@ use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Support\ParticipantDirectory;
+use Throwable;
 
 /**
  * AI inside the chat, through the AI module's provider (docs/chat-tasks.md, phase 3): translate a
@@ -50,6 +53,7 @@ class ChatAiService
         private readonly MessageService $messages,
         private readonly AiProviderRepository $providers,
         private readonly AiGateway $gateway,
+        private readonly SafetyPolicyEngine $safety,
     ) {}
 
     /**
@@ -63,7 +67,12 @@ class ChatAiService
         $chat = $on && $this->providers->resolveActiveForChat() !== null;
         $audio = $on && $this->providers->resolveForTranscription() !== null;
 
-        return ['enabled' => $chat || $audio, 'translate' => $chat, 'summarize' => $chat, 'smart_replies' => $chat, 'transcribe' => $audio];
+        return [
+            'enabled' => $chat || $audio, 'translate' => $chat, 'summarize' => $chat, 'smart_replies' => $chat, 'transcribe' => $audio, 'ask' => $chat, 'commitments' => $chat,
+            // DORR AI tools (spec 31, 36–42, 46, 48, 49).
+            'assistant' => $chat, 'proofread' => $chat, 'understand' => $chat, 'simplify' => $chat, 'tasks' => $chat, 'notes' => $chat,
+            'dates' => $chat, 'important' => $chat, 'related_files' => $chat, 'today' => $chat,
+        ];
     }
 
     // ---------------------------------------------------------------- translate
@@ -89,6 +98,49 @@ class ChatAiService
         ]));
 
         return ['text' => $translated, 'to' => $to];
+    }
+
+    /**
+     * A few short fields (a portal's name and description…) from one language into others, in
+     * one call. Unknown codes are skipped; a field the model drops comes back empty.
+     *
+     * @param  array<string, string>  $fields  field => text, in `$from`
+     * @param  list<string>  $to
+     * @return array<string, array<string, string>> locale => field => text
+     */
+    public function translateFields(array $fields, string $from, array $to): array
+    {
+        $to = array_values(array_filter($to, fn ($code) => isset(self::LANGUAGES[$code]) && $code !== $from));
+        $fields = array_filter(array_map(fn ($v) => trim((string) $v), $fields), fn ($v) => $v !== '');
+
+        if ($to === [] || $fields === []) {
+            return [];
+        }
+
+        $targets = implode(', ', array_map(fn ($code) => $code.' ('.self::LANGUAGES[$code].')', $to));
+        $source = self::LANGUAGES[$from] ?? 'the original language';
+
+        $raw = $this->ask([
+            ['role' => 'system', 'content' => 'You translate short business texts (a shop\'s name and description) from '.$source.' into: '.$targets.'. '
+                .'Brand names, links, numbers and emojis stay as they are; a name that is a brand is transliterated only if that is how it is written in that language. '
+                .'Reply with JSON only: {"<language code>": {"<field>": "<translation>"}} with the same fields you were given.'],
+            ['role' => 'user', 'content' => json_encode($fields, JSON_UNESCAPED_UNICODE)],
+        ]);
+
+        $json = json_decode(trim((string) preg_replace('/^```(?:json)?|```$/m', '', $raw)), true);
+
+        if (! is_array($json)) {
+            throw new ChatException('ai_failed', 502);
+        }
+
+        $out = [];
+        foreach ($to as $code) {
+            foreach (array_keys($fields) as $field) {
+                $out[$code][$field] = is_string($json[$code][$field] ?? null) ? trim($json[$code][$field]) : '';
+            }
+        }
+
+        return $out;
     }
 
     // ---------------------------------------------------------------- voice to text
@@ -117,6 +169,12 @@ class ChatAiService
 
             return $this->answer($provider, $this->gateway->transcribe($provider, $media->getPath(), (string) $media->mime_type));
         });
+        // Kept for me, so searching my chats finds what was said (spec 20).
+        $participant = $this->conversations->participantOf($me, $message->conversation);
+        \Illuminate\Support\Facades\DB::table('chat_message_transcripts')->updateOrInsert(
+            ['message_id' => $message->id, 'participant_id' => $participant->id],
+            ['text' => $text, 'updated_at' => now(), 'created_at' => now()],
+        );
 
         return ['text' => $text];
     }
@@ -150,6 +208,192 @@ class ChatAiService
         ]));
 
         return ['text' => $text, 'messages' => $lines->count()];
+    }
+
+    // ---------------------------------------------------------------- ask about the chat (spec 125)
+
+    /**
+     * A question about the chat — about the messages I picked, or the latest ones — answered only
+     * from them, with the messages the answer rests on (to jump back to). Only the chosen
+     * messages go to the AI (AT-PRIV-11).
+     *
+     * @param  list<string>|null  $messageIds  the messages I picked (null = the latest)
+     * @return array{answer: string, safety: ?array<string, mixed>, references: list<array<string, mixed>>, messages: int}
+     */
+    public function askAbout(Model $me, ChatConversation $conversation, string $question, ?array $messageIds): array
+    {
+        $participant = $this->conversations->participantOf($me, $conversation);
+        [$numbered, $lines] = $this->numbered($me, $participant, $conversation, $messageIds);
+        $language = self::LANGUAGES[app()->getLocale()] ?? 'English';
+
+        // A free answer: classified and answered under the DORR AI rules (spec 350–362).
+        $safe = $this->askSafely([
+            ['role' => 'system', 'content' => "You answer a question about a chat, for the person called \"Me\" in it, in {$language}. "
+                .'Use only the numbered messages given — if they do not hold the answer, say so plainly. Never invent anything. '
+                .'Reply with JSON only: {"answer": "<short answer>", "refs": [<numbers of the messages the answer is based on>]}.'],
+            ['role' => 'user', 'content' => $lines->implode("\n")."\n\nQuestion: ".Str::limit(trim($question), 500)],
+        ], $question);
+
+        $json = $this->json($safe['raw']);
+        $answer = is_string($json['answer'] ?? null) ? $this->safety->finish($json['answer'], $safe['risk'])['text'] : $safe['text'];
+
+        return [
+            'answer' => $answer,
+            'safety' => $safe['safety'],
+            'references' => $this->references($me, $numbered, (array) ($json['refs'] ?? [])),
+            'messages' => $numbered->count(),
+        ];
+    }
+
+    // ---------------------------------------------------------------- commitments (spec 126)
+
+    /**
+     * Promises and tasks in the chat ("I'll send the file tomorrow", "can you call the bank?"), as
+     * suggestions only: nothing happens until I confirm one (the app then sets a reminder on its
+     * message). `timezone` reads "tomorrow at 5" in my own time.
+     *
+     * @param  list<string>|null  $messageIds
+     * @return array{commitments: list<array<string, mixed>>, messages: int}
+     */
+    public function commitments(Model $me, ChatConversation $conversation, ?array $messageIds, string $timezone): array
+    {
+        $participant = $this->conversations->participantOf($me, $conversation);
+        [$numbered, $lines] = $this->numbered($me, $participant, $conversation, $messageIds);
+        $now = now()->setTimezone($timezone)->format('Y-m-d H:i (l)');
+
+        $raw = $this->ask([
+            ['role' => 'system', 'content' => 'You find commitments in a chat: things someone promised to do, or was asked to do and agreed to. '
+                .'"Me" is the person you help. It is now '.$now.' in their time zone. '
+                .'Reply with a JSON array only (empty if there are none), each item: '
+                .'{"text": "<the task, short, in the chat\'s language>", "owner": "me" | "<the other person\'s name>", "due": "YYYY-MM-DD HH:MM" or null, "ref": <number of the message it comes from>}. '
+                .'Only what the chat really says; never invent a date.'],
+            ['role' => 'user', 'content' => $lines->implode("\n")],
+        ]);
+
+        $items = $this->json($raw);
+        $items = array_is_list($items) ? $items : ($items['commitments'] ?? []);
+        $out = [];
+
+        foreach (array_slice((array) $items, 0, 20) as $item) {
+            if (! is_array($item) || ! is_string($item['text'] ?? null) || trim($item['text']) === '') {
+                continue;
+            }
+            $message = $numbered->get((int) ($item['ref'] ?? 0));
+            $due = null;
+            if (is_string($item['due'] ?? null) && $item['due'] !== '') {
+                try {
+                    $due = \Illuminate\Support\Carbon::parse($item['due'], $timezone)->utc();
+                } catch (Throwable) {
+                    $due = null;
+                }
+            }
+            $owner = is_string($item['owner'] ?? null) ? trim($item['owner']) : '';
+            $out[] = [
+                'text' => Str::limit(trim($item['text']), 200),
+                'owner' => strtolower($owner) === 'me' ? null : ($owner ?: null),
+                'is_mine' => strtolower($owner) === 'me',
+                'due_at' => $due?->isFuture() ? $due->toIso8601String() : null,
+                'message_id' => $message?->uuid,
+            ];
+        }
+
+        return ['commitments' => $out, 'messages' => $numbered->count()];
+    }
+
+    /**
+     * The messages the AI may read, numbered 1…n: the ones I picked (only those), or the latest.
+     *
+     * @param  list<string>|null  $messageIds
+     * @return array{0: Collection<int, ChatMessage>, 1: Collection<int, string>}
+     */
+    public function numbered(Model $me, ChatParticipant $participant, ChatConversation $conversation, ?array $messageIds): array
+    {
+        $rows = $this->messages->visibleTo($participant, $conversation->messages()->getQuery())
+            ->whereNotNull('sender_type')->whereNull('deleted_for_everyone_at')->where('view_once', false)
+            ->when($messageIds !== null, fn ($q) => $q->whereIn('uuid', array_slice($messageIds, 0, 200)))
+            ->orderByDesc('id')->limit(self::SUMMARY_MESSAGES)->get()->reverse()->values();
+
+        if ($rows->isEmpty()) {
+            throw new ChatException('ai_nothing_to_summarize', 422);
+        }
+
+        $directory = app(ParticipantDirectory::class);
+        $directory->prime($me, $rows->map(fn ($m) => [$m->sender_type, $m->sender_id]));
+        $numbered = collect();
+        $lines = collect();
+        $chars = 0;
+
+        foreach ($rows as $i => $m) {
+            $who = $m->isFrom($participant->participant_type, (int) $participant->participant_id)
+                ? 'Me'
+                : ($directory->profile($me, $m->sender_type, $m->sender_id)['name'] ?? '?');
+            $what = trim(ChatPushNotifier::plain((string) $m->body)) ?: '['.$m->type->value.']';
+            $line = '['.($i + 1).'] '.$m->created_at?->format('Y-m-d H:i').' '.$who.': '.Str::limit($what, 600);
+            $chars += mb_strlen($line);
+            if ($chars > self::SUMMARY_CHARS) {
+                break;
+            }
+            $numbered->put($i + 1, $m);
+            $lines->push($line);
+        }
+
+        return [$numbered, $lines];
+    }
+
+    /**
+     * @param  Collection<int, ChatMessage>  $numbered
+     * @param  array<int, mixed>  $refs
+     * @return list<array<string, mixed>>
+     */
+    public function references(Model $me, Collection $numbered, array $refs): array
+    {
+        $directory = app(ParticipantDirectory::class);
+
+        return collect($refs)->map(fn ($n) => $numbered->get((int) $n))->filter()->unique('id')->take(10)
+            ->map(fn (ChatMessage $m) => [
+                'id' => $m->uuid,
+                'sender' => $directory->profile($me, $m->sender_type, $m->sender_id)['name'] ?? null,
+                'excerpt' => Str::limit(trim(ChatPushNotifier::plain((string) $m->body)) ?: '['.$m->type->value.']', 140),
+                'created_at' => $m->created_at?->toIso8601String(),
+            ])->values()->all();
+    }
+
+    /**
+     * The model's JSON (it sometimes wraps it in ``` fences or adds a word around it).
+     *
+     * @return array<mixed>
+     */
+    public function json(string $raw): array
+    {
+        $clean = trim((string) preg_replace('/^```(?:json)?|```$/m', '', $raw));
+        $decoded = json_decode($clean, true);
+        if (! is_array($decoded)) {
+            $start = strcspn($clean, '[{');
+            $decoded = json_decode(substr($clean, $start), true);
+        }
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    // ---------------------------------------------------------------- greetings (spec 161)
+
+    /**
+     * Three greetings for an occasion, by relation and tone (and dialect), in the request's
+     * language — to edit before sending. Nothing about the chat is read.
+     *
+     * @return array{greetings: list<string>}
+     */
+    public function greetings(string $occasion, string $relation, string $tone, ?string $name, ?string $dialect): array
+    {
+        $language = self::LANGUAGES[app()->getLocale()] ?? 'English';
+        $raw = $this->ask([
+            ['role' => 'system', 'content' => "You write short greeting-card messages in {$language}".($dialect ? " ({$dialect} dialect)" : '').'. '
+                .'Write 3 different greetings for the occasion, for the given relationship and tone, each under 40 words, warm and natural, no hashtags. '
+                .'Reply with a JSON array of 3 strings and nothing else.'],
+            ['role' => 'user', 'content' => json_encode(['occasion' => $occasion, 'relationship' => $relation, 'tone' => $tone, 'name' => $name], JSON_UNESCAPED_UNICODE)],
+        ]);
+
+        return ['greetings' => self::parseReplies($raw)];
     }
 
     // ---------------------------------------------------------------- smart replies
@@ -204,7 +448,7 @@ class ChatAiService
      *
      * @return Collection<int, string>
      */
-    private function transcript(Model $me, ChatParticipant $participant, ChatConversation $conversation, int $limit, ?int $afterId = null): Collection
+    public function transcript(Model $me, ChatParticipant $participant, ChatConversation $conversation, int $limit, ?int $afterId = null): Collection
     {
         $rows = $this->messages->visibleTo($participant, $conversation->messages()->getQuery())
             ->whereNotNull('sender_type')->whereNull('deleted_for_everyone_at')->where('view_once', false)
@@ -240,7 +484,7 @@ class ChatAiService
      * A message I'm allowed to send to the AI: in a chat I'm in, visible to me, not deleted, not
      * view-once.
      */
-    private function readable(Model $me, ChatMessage $message): void
+    public function readable(Model $me, ChatMessage $message): void
     {
         $participant = $this->conversations->participantOf($me, $message->conversation);
         $visible = $this->messages->visibleTo($participant, ChatMessage::query()->whereKey($message->id))->exists();
@@ -257,13 +501,38 @@ class ChatAiService
     /**
      * @param  list<array{role: string, content: string}>  $messages
      */
-    private function ask(array $messages): string
+    public function ask(array $messages): string
     {
         if (! ChatSetting::current()->aiEnabled() || ($provider = $this->providers->resolveActiveForChat()) === null) {
             throw new ChatException('ai_unavailable', 503);
         }
 
         return $this->answer($provider, $this->gateway->chat($provider, $messages));
+    }
+
+    /**
+     * A free answer under the DORR AI rules (spec 350–362): the request is classified first, its
+     * rules go in as instructions, and the approved texts come back separately in `safety` (for
+     * the alert card). `raw` is the model's own reply (for JSON answers).
+     *
+     * @param  list<array{role: string, content: string}>  $messages
+     * @return array{text: string, raw: string, safety: ?array<string, mixed>, risk: RiskAssessment}
+     */
+    public function askSafely(array $messages, string $request): array
+    {
+        if (! ChatSetting::current()->aiEnabled() || ($provider = $this->providers->resolveActiveForChat()) === null) {
+            throw new ChatException('ai_unavailable', 503);
+        }
+
+        $risk = $this->safety->classify($request, $provider);
+        $raw = $this->answer($provider, $this->gateway->chat($provider, $this->safety->instruct($messages, $risk)));
+
+        return ['raw' => $raw, 'risk' => $risk] + $this->safety->finish($raw, $risk);
+    }
+
+    public function safety(): SafetyPolicyEngine
+    {
+        return $this->safety;
     }
 
     /**

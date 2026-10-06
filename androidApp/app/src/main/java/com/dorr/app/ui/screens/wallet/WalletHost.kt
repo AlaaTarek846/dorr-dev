@@ -25,6 +25,12 @@ sealed interface WaRoute {
     data object Scanner : WaRoute
     data object History : WaRoute
     data object PinSettings : WaRoute
+
+    /** The payment screen (CheckoutScreen) — its state rides in the route so a top-up and back keeps it. */
+    data class Checkout(val state: CheckoutState) : WaRoute
+
+    /** Top up a given amount (what's missing on the payment screen). */
+    data class TopupAmount(val minor: Long) : WaRoute
 }
 
 /** Bottom sheets that float over any wallet page. */
@@ -61,7 +67,7 @@ internal val PIN_ERROR_CODES = setOf("wallet_pin_invalid", "wallet_pin_locked", 
  * module-level `state`/`stack`.
  */
 @Stable
-class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
+class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit, start: WaRoute = WaRoute.Home) {
     var balance by mutableStateOf<WalletBalanceDto?>(null)
     var hideBalance by mutableStateOf(false)
     var sheet by mutableStateOf<WaSheet?>(null)
@@ -72,7 +78,7 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
     /** The total the hero card last counted up to, so the next count starts from there. */
     var shownTotal: Long = 0L
 
-    val stack = mutableStateListOf<WaRoute>(WaRoute.Home)
+    val stack = mutableStateListOf(start)
     val current: WaRoute get() = stack.last()
 
     /** True when the last move was a push, so pages slide in from the trailing side and back the other way. */
@@ -123,7 +129,11 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
     /** Balance + wallet number for the request's country; the wallet is created on first look. */
     suspend fun refreshBalance(): Boolean {
         val fresh = runCatching { ApiClient.wallet.balance(walletAuth()).data }.getOrNull()
-        if (fresh != null) balance = fresh
+        if (fresh != null) {
+            // No wallet chosen: the server opened the one of where I am.
+            if (com.dorr.app.network.WalletCountry.selected == null) com.dorr.app.network.WalletCountry.learnHere(fresh.countryCode)
+            balance = fresh
+        }
         return fresh != null
     }
 }

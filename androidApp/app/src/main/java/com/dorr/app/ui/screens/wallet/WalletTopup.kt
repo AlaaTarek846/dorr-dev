@@ -90,7 +90,7 @@ import java.util.UUID
 
 private val QUICK_AMOUNTS = listOf(50, 100, 200, 500)
 
-private fun methodLook(gateway: String): Pair<ImageVector, Tone> = when (gateway) {
+internal fun methodLook(gateway: String): Pair<ImageVector, Tone> = when (gateway) {
     "myfatoorah" -> Icons.Rounded.CreditCard to Tone.Blue
     "arb" -> Icons.Rounded.AccountBalance to Tone.Green
     "urpay" -> Icons.Rounded.Phone to Tone.Pink
@@ -451,7 +451,7 @@ internal fun TopupStage(
 
 
 @Composable
-private fun OtpField(value: String, onChange: (String) -> Unit) {
+internal fun OtpField(value: String, onChange: (String) -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         BasicTextField(
             value = value, onValueChange = onChange, singleLine = true,
@@ -475,7 +475,7 @@ private fun OtpField(value: String, onChange: (String) -> Unit) {
 /** The fake bank (sandbox) inside the phone, like an in-app browser sliding up over the page. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun GatewayLayer(url: String?, onClose: () -> Unit) {
+internal fun GatewayLayer(url: String?, onClose: () -> Unit) {
     var last by remember { mutableStateOf("") }
     if (url != null) last = url
 

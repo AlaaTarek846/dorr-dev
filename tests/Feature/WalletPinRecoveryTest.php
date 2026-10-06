@@ -84,7 +84,7 @@ class WalletPinRecoveryTest extends TestCase
     private function mailedCode(): string
     {
         $code = null;
-        Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
+        Mail::assertSent(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
             $code = $mail->code;
 
             return true;
@@ -204,6 +204,41 @@ class WalletPinRecoveryTest extends TestCase
     }
 
     // ------------------------------------------------------------------ e-mail
+
+    /**
+     * The code goes out right away — never into the queue, where it waited for a worker that isn't
+     * running (so "send code" did nothing at all), and a mail failure is reported, not lost in a job.
+     */
+    public function test_the_email_code_is_sent_right_away_without_a_queue_worker(): void
+    {
+        config(['queue.default' => 'database']);
+        \Illuminate\Support\Facades\Queue::fake();
+
+        $this->postJson(self::BASE.'/recovery', ['method' => 'email', 'email' => 'alice@example.com'], $this->headers())->assertOk();
+        Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('alice@example.com'));
+        Mail::assertNothingQueued();
+        \Illuminate\Support\Facades\Queue::assertNothingPushed();
+
+        // Forgot the PIN later: a fresh code, straight away too.
+        $this->confirmEmailWithMailedCode();
+        $this->postJson(self::BASE, ['pin' => '1234', 'pin_confirmation' => '1234'], $this->headers())->assertCreated();
+        $this->travel(2)->minutes();
+        $this->postJson(self::BASE.'/recovery/email-code', [], $this->headers())->assertOk();
+        Mail::assertSent(VerificationCodeMail::class, 2);
+        $this->postJson(self::BASE.'/recover', ['code' => $this->latestCode(), 'pin' => '5678', 'pin_confirmation' => '5678'], $this->headers())->assertOk();
+    }
+
+    private function latestCode(): string
+    {
+        $codes = [];
+        Mail::assertSent(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$codes) {
+            $codes[] = $mail->code;
+
+            return true;
+        });
+
+        return (string) end($codes);
+    }
 
     public function test_an_email_method_needs_the_four_digit_code_before_a_pin_can_be_created(): void
     {
@@ -491,7 +526,7 @@ class WalletPinRecoveryTest extends TestCase
             ->assertJsonPath('data.recovery.method', 'password')
             ->assertJsonPath('data.recovery.ready', true)
             ->assertJsonPath('data.recovery.pending_email', fn ($v) => $v !== null && str_contains($v, '@'));
-        Mail::assertQueued(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('new@example.com'));
+        Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('new@example.com'));
 
         // abandoned halfway: the password still recovers the PIN
         $this->postJson(self::BASE.'/recover', ['password' => 'secret123', 'pin' => '4444', 'pin_confirmation' => '4444'], $this->headers())->assertOk();
