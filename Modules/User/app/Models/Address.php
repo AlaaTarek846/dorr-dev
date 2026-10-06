@@ -11,6 +11,8 @@ class Address extends Model
 {
     use SoftDeletes;
 
+    protected $table = 'user_addresses';
+
     /**
      * @var list<string>
      */

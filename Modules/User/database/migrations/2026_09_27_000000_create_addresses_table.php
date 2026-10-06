@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('addresses', function (Blueprint $table) {
+        Schema::create('user_addresses', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete()->comment('صاحب العنوان');
             $table->enum('type', ['home', 'work', 'other'])->comment('المنزل / العمل / أخرى');
