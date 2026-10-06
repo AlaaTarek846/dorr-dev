@@ -36,6 +36,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Reply
@@ -234,7 +235,9 @@ private fun ToolButton(icon: ImageVector?, label: String?, modifier: Modifier = 
 private fun PostOptions(allowReplies: Boolean, onToggleReplies: () -> Unit) {
     val host = LocalChat.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Pill(Icons.Rounded.Shield, stringResource(R.string.st_privacy)) { host.push(ChRoute.StoryPrivacy) }
+        // From the home page it's public — everyone sees it; from the chat, my usual audience.
+        if (host.publicMode) Pill(Icons.Rounded.Public, stringResource(R.string.st_public_everyone)) {}
+        else Pill(Icons.Rounded.Shield, stringResource(R.string.st_privacy)) { host.push(ChRoute.StoryPrivacy) }
         Pill(Icons.Rounded.Reply, stringResource(if (allowReplies) R.string.st_allow_replies else R.string.st_replies_off), active = allowReplies, onClick = onToggleReplies)
     }
 }
@@ -270,7 +273,8 @@ internal fun ChatHost.postStory(fields: Map<String, String>, file: LocalFile?, n
     storyUploading = true
     scope.launch {
         try {
-            val parts = fields.mapValues { (_, v) -> v.toRequestBody("text/plain".toMediaTypeOrNull()) as RequestBody }
+            val all = if (publicMode) fields + ("public" to "1") else fields
+            val parts = all.mapValues { (_, v) -> v.toRequestBody("text/plain".toMediaTypeOrNull()) as RequestBody }
             val filePart = file?.let { MultipartBody.Part.createFormData("file", it.name, it.file.asRequestBody(it.mime.toMediaTypeOrNull())) }
             ApiClient.chat.postStory(chatAuth(), parts, filePart)
             refreshStories()

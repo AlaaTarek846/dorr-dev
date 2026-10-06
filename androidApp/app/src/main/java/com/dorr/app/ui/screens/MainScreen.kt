@@ -115,6 +115,11 @@ fun MainScreen(
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
+    var portalsOpen by rememberSaveable { mutableStateOf(false) }
+    var momentsOpen by rememberSaveable { mutableStateOf(false) }
+    var calendarOpen by rememberSaveable { mutableStateOf(false) }
+    // Public stories on the home page — their own small chat host (viewer + composer).
+    val homeStories = com.dorr.app.ui.screens.chat.rememberHomeStories()
     var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
         serviceDetail = service to color
@@ -125,7 +130,18 @@ fun MainScreen(
         com.dorr.app.chat.ChatPush.requestPermission()
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             when (link) {
-                is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; chatOpen = true }
+                com.dorr.app.chat.ChatDeepLink.Tasks -> { walletOpen = false; chatOpen = true }
+                com.dorr.app.chat.ChatDeepLink.Calendar -> {
+                    walletOpen = false
+                    calendarOpen = true
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
+                com.dorr.app.chat.ChatDeepLink.Moments -> {
+                    walletOpen = false
+                    momentsOpen = true
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
                 is com.dorr.app.chat.ChatDeepLink.Call -> {
                     com.dorr.app.chat.CallController.loadIncoming(link.id)
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
@@ -243,6 +259,10 @@ fun MainScreen(
                         onOpenServices = onOpenServices,
                         onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
+                        onOpenPortals = { portalsOpen = true },
+                        homeStories = homeStories,
+                        onOpenMoments = { momentsOpen = true },
+                        onOpenCalendar = { calendarOpen = true },
                     )
                     1 -> ServicesScreen(
                         onBack = { currentTab = 0 },
@@ -295,6 +315,39 @@ fun MainScreen(
             onOpenChild = { child -> serviceDetail = child.toServiceDto() to color },
         )
     }
+
+    // Merchant portals, opened from the home page's circles.
+    AnimatedVisibility(
+        visible = portalsOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.portals.PortalsScreen(onExit = { portalsOpen = false })
+    }
+
+    // DORR Moments: occasions, my own dates, preferences.
+    AnimatedVisibility(
+        visible = momentsOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.moments.MomentsScreen(onExit = { momentsOpen = false })
+    }
+
+    // DORR Calendar & DORR Today: my appointments, occasions, tasks and reminders.
+    AnimatedVisibility(
+        visible = calendarOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.calendar.CalendarScreen(onExit = { calendarOpen = false }, onOpenMoments = { calendarOpen = false; momentsOpen = true })
+    }
+
+    // A public story being watched or written (from the home page's circles).
+    com.dorr.app.ui.screens.chat.HomeStoriesLayer(homeStories)
+
+    // The one payment screen, over whatever opened it.
+    com.dorr.app.ui.screens.wallet.CheckoutOverlay()
 
     // A call can ring over anything (it's the only chat screen that takes the whole display).
     com.dorr.app.ui.screens.chat.CallOverlay()

@@ -15,8 +15,11 @@ use RuntimeException;
  * IP is spoofable and must never be trusted to *gate* anything, only to
  * guess a sensible default):
  *   1. Explicit choice (X-Country header or ?country= query param).
- *   2. The authenticated user's/provider's own country_id — deliberately
- *      NOT admins, who work across countries rather than being scoped to one.
+ *   2. The authenticated user's/provider's own country — for a user, the
+ *      country of their last sign-in (`logged_in_country_id`, saved once per
+ *      sign-in by LoginCountry, so no IP lookup per request), then their
+ *      country_id. Deliberately NOT admins, who work across countries rather
+ *      than being scoped to one.
  *   3. IP-based best guess, via the existing getCountryCodeByIp() helper
  *      (app/Support/helpers.php — already has its own cache/timeout/fallback).
  *   4. countries.is_default — never a hardcoded literal.
@@ -50,14 +53,16 @@ class CountryResolver
         foreach (['user_api', 'provider_api'] as $guard) {
             $owner = auth($guard)->user();
 
-            if ($owner?->country_id === null) {
-                continue;
-            }
+            foreach ([$owner?->logged_in_country_id ?? null, $owner?->country_id] as $countryId) {
+                if ($countryId === null) {
+                    continue;
+                }
 
-            $country = Country::query()->where('status', true)->find($owner->country_id);
+                $country = Country::query()->where('status', true)->find($countryId);
 
-            if ($country !== null) {
-                return $country;
+                if ($country !== null) {
+                    return $country;
+                }
             }
         }
 

@@ -147,8 +147,19 @@ fun WalletTransfer() {
     val scope = rememberCoroutineScope()
     val balance = host.balance
     val networkError = stringResource(R.string.wa_error_network)
+    // The wallet's own country (not my phone number's): where I am, or another wallet of mine I chose.
     val uc = AuthSession.user?.country
-    val resolved = uc?.let { userCountry ->
+    val fromWallet = balance?.countryCode?.let { code ->
+        CountryDto(
+            id = 0, code = code, name = "",
+            dialCode = balance.dialCode ?: "",
+            phoneLength = balance.phoneLength,
+            phoneStartsWith = balance.phoneStartsWith,
+            isDefault = false,
+            flag = FlagDto(id = 0, code = code.lowercase()),
+        )
+    }
+    val resolved = fromWallet ?: uc?.let { userCountry ->
         CountryDto(
             id = 0, code = userCountry.code ?: "", name = "",
             dialCode = userCountry.dialCode ?: "",
@@ -240,6 +251,8 @@ fun WalletTransfer() {
             WaCtaHint(stringResource(R.string.wa_transfer_review_hint), Icons.Rounded.Shield)
         },
     ) {
+        // Which wallet sends (a tap switches to another of mine), then what that means.
+        balance?.let { WalletPickerCard(it, Modifier.padding(bottom = 10.dp).waRise(0)) }
         // Country banner.
         WaCard(Modifier.fillMaxWidth().waRise(0), padding = 12.dp) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {

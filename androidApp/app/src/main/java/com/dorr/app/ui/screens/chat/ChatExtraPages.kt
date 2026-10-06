@@ -169,30 +169,8 @@ private fun AudienceRow(icon: ImageVector, title: String, value: String, onClick
 
 @Composable
 fun StarredPage() {
-    val host = LocalChat.current
-    var list by remember { mutableStateOf<List<MessageDto>?>(null) }
-    LaunchedEffect(Unit) { list = runCatching { ApiClient.chat.starred(chatAuth()).data }.getOrNull().orEmpty() }
-
-    ChPage(stringResource(R.string.ch_starred_title), onBack = { host.pop() }) {
-        val items = list
-        when {
-            items == null -> Box(Modifier.fillMaxSize()) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().padding(16.dp).height(200.dp)) }
-            items.isEmpty() -> ChEmptyState(Icons.Rounded.Star, stringResource(R.string.ch_starred_title), stringResource(R.string.ch_no_starred), animated = true)
-            else -> LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
-                itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
-                    Column(Modifier.fillMaxWidth().chStagger(i).clickable { host.push(ChRoute.Conversation(m.conversationId)) }.padding(vertical = 6.dp)) {
-                        Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                            ChAvatar(m.sender?.avatar, m.sender?.name, m.sender?.key, size = 26.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (m.sender?.isMe == true) stringResource(R.string.ch_you) else m.sender?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            Text(listTime(m.createdAt), color = Ch.Soft, fontSize = 11.5.sp)
-                        }
-                        MessageRow(UiMessage(m), firstInRun = true, lastInRun = true, isGroup = false, actions = BubbleActions({}, {}, {}, {}, { _, _ -> }, { host.openWalletQr(it) }, {}))
-                    }
-                }
-            }
-        }
-    }
+    // Favourites with my own folders (spec 24).
+    FavouritesPage()
 }
 
 // =============================================================================== calls

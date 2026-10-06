@@ -67,6 +67,8 @@ import androidx.compose.runtime.rememberUpdatedState
  */
 @Composable
 fun WalletScreen(onExit: () -> Unit) {
+    // Which of my wallets (countries) the screens work on — chosen on the wallet home.
+    com.dorr.app.network.WalletCountry.load(androidx.compose.ui.platform.LocalContext.current)
     val currentOnExit by rememberUpdatedState(onExit)
     val scope = rememberCoroutineScope()
     val host = remember { WalletHost(scope, onExit = { currentOnExit() }) }
@@ -75,7 +77,7 @@ fun WalletScreen(onExit: () -> Unit) {
     }
     var unlocked by remember { mutableStateOf(false) }
 
-    CompositionLocalProvider(LocalWallet provides host) {
+    CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         Box(Modifier.fillMaxSize().background(Wa.Bg)) {
             if (!unlocked) {
                 BackHandler { currentOnExit() }
@@ -89,7 +91,7 @@ fun WalletScreen(onExit: () -> Unit) {
                         .onSuccess { who -> who?.let { host.push(WaRoute.TransferConfirm(it)) } }
                         .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
                 }
-                WalletPages(host)
+                WalletPagesFor(host)
                 WaSheetHost(host)
             }
             // Outside the lock check: a wrong PIN at the gate is reported the same way.
@@ -99,7 +101,7 @@ fun WalletScreen(onExit: () -> Unit) {
 }
 
 @Composable
-private fun WalletPages(host: WalletHost) {
+internal fun WalletPagesFor(host: WalletHost) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // Pages come in from the "next" edge of the reading direction and leave towards the other one.
     val sign = if (rtl) -1 else 1
@@ -123,12 +125,14 @@ private fun WalletPages(host: WalletHost) {
             WaRoute.Scanner -> WalletScanner()
             WaRoute.History -> WalletHistory()
             WaRoute.PinSettings -> WalletPinSettings()
+            is WaRoute.Checkout -> WalletCheckout(route.state)
+            is WaRoute.TopupAmount -> WalletTopup(initialAmount = minorToInput(route.minor))
         }
     }
 }
 
 @Composable
-private fun WaToastHost(host: WalletHost) {
+internal fun WaToastHost(host: WalletHost) {
     val message = host.toast
     var last by remember { mutableStateOf("") }
     var lastIsError by remember { mutableStateOf(false) }
@@ -166,7 +170,7 @@ private fun WaToastHost(host: WalletHost) {
 @Composable
 private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = context as? androidx.fragment.app.FragmentActivity
+    val activity = context.findFragmentActivity()
     val networkError = stringResource(R.string.wa_error_network)
     val enterTitle = stringResource(R.string.wa_gate_enter_title)
     val enterSub = stringResource(R.string.wa_gate_enter_sub)
@@ -331,11 +335,19 @@ fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) 
     SideEffect {
         host.onExit = { currentOnBack() }
     }
-    CompositionLocalProvider(LocalWallet provides host) {
+    CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         BackHandler { currentOnBack() }
         Box(Modifier.fillMaxSize()) {
             WalletPinSettings()
             WaToastHost(host)
         }
     }
+}
+
+/** "30" for 3000, "12.5" for 1250 — how a top-up amount is typed (parseAmountToMinor reads it back). */
+internal fun minorToInput(minor: Long): String {
+    if (minor <= 0) return ""
+    val whole = minor / 100
+    val cents = minor % 100
+    return if (cents == 0L) whole.toString() else "$whole." + cents.toString().padStart(2, '0').trimEnd('0')
 }

@@ -102,6 +102,34 @@ class ConversationService
             $query->where(fn (Builder $q) => $q->where('unread_count', '>', 0)->orWhere('marked_unread', true));
         }
 
+        // Priority inbox (spec 114): what needs me first — a mention, an urgent message, a reply I
+        // owe, then someone writing to me directly; muted chats only for a mention or an urgent one.
+        if ($filter === 'priority') {
+            $urgent = fn ($q) => $q->select(DB::raw(1))->from('chat_messages as pm')->whereColumn('pm.conversation_id', 'chat_participants.conversation_id')
+                ->where('pm.is_urgent', true)->whereRaw('pm.id > COALESCE(chat_participants.last_read_message_id, 0)')
+                ->whereNull('pm.deleted_for_everyone_at');
+            $owed = fn ($q) => $q->select(DB::raw(1))->from('chat_message_user_states as ps')->whereColumn('ps.participant_id', 'chat_participants.id')->whereNotNull('ps.follow_up_at');
+            $query->where(fn (Builder $q) => $q->where('has_unread_mention', true)->orWhereExists($urgent)->orWhereExists($owed)
+                ->orWhere(fn (Builder $q) => $q->where('unread_count', '>', 0)
+                    ->where(fn (Builder $q) => $q->whereNull('muted_until')->orWhere('muted_until', '<', now()))
+                    ->whereHas('conversation', fn (Builder $c) => $c->where('type', ConversationType::Direct->value))));
+            $query->orderByDesc('has_unread_mention')->orderByRaw('EXISTS ('.DB::table('chat_messages as pm2')->selectRaw('1')
+                ->whereColumn('pm2.conversation_id', 'chat_participants.conversation_id')->where('pm2.is_urgent', true)
+                ->whereRaw('pm2.id > COALESCE(chat_participants.last_read_message_id, 0)')->toRawSql().') DESC');
+        }
+
+        // Privacy circles (spec 101): a circle's chats are listed inside it; the ones whose circle
+        // hides them stay out of the main list, its filters and its search.
+        if (! empty($filters['circle'])) {
+            $circle = \Modules\Chat\Models\ChatPrivacyCircle::query()->ownedBy($me)->where('uuid', $filters['circle'])->first() ?? throw new ChatException('circle_not_found', 404);
+            $query->where('privacy_circle_id', $circle->id);
+        } elseif (! in_array($filter, ['requests', 'locked', 'archived'], true)) {
+            $hidden = \Modules\Chat\Models\ChatPrivacyCircle::query()->ownedBy($me)->where('hide_from_list', true)->pluck('id');
+            if ($hidden->isNotEmpty()) {
+                $query->where(fn (Builder $q) => $q->whereNull('privacy_circle_id')->orWhereNotIn('privacy_circle_id', $hidden));
+            }
+        }
+
         if (! empty($filters['folder'])) {
             $folder = ChatFolder::query()->ownedBy($me)->findOrFail((int) $filters['folder']);
             $query->whereIn('conversation_id', $folder->conversations()->pluck('chat_conversations.id'));

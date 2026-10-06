@@ -218,6 +218,30 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'update'],
             ],
+            'chat-categories' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-portals' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-channels' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-dorr-stories' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-moments' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
             'withdrawal-requests' => [
                 'module_name' => 'general_services',
                 'actions' => [

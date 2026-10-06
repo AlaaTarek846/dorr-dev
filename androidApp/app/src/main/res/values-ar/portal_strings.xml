@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Merchant portals (docs/remaining_chat.md ج.3). -->
+<resources>
+    <string name="pt_title">بوابات التجار</string>
+    <string name="pt_mine">بواباتي</string>
+    <string name="pt_search">ابحث عن متاجر ومواقع</string>
+    <string name="pt_all">الكل</string>
+    <string name="pt_other">أخرى</string>
+    <string name="pt_hero">متجرك قدام الكل</string>
+    <string name="pt_hero_sub">ضيف موقعك كبوابة، وكل مستخدمين دُر هيشوفوه هنا.</string>
+    <string name="pt_add_short">ضيف بوابتك</string>
+    <string name="pt_add_mine">ضيف بوابتي</string>
+    <string name="pt_add_new">إضافة بوابة</string>
+    <string name="pt_empty_title">مفيش بوابات لسه</string>
+    <string name="pt_no_results">مفيش نتايج للبحث ده</string>
+    <string name="pt_empty_text">خليك الأول: ضيف موقعك واختار مدة ظهوره هنا.</string>
+    <string name="pt_views">%1$s مشاهدة</string>
+    <string name="pt_mine_empty">معندكش بوابات لسه</string>
+    <string name="pt_mine_empty_text">ضيف موقعك، وبعدين اختار باقة عشان يظهر في صفحة البوابات.</string>
+    <string name="pt_edit">تعديل</string>
+    <string name="pt_publish">اظهر في الصفحة</string>
+    <string name="pt_renew">جدّد</string>
+    <string name="pt_disabled">متوقفة من دُر</string>
+    <string name="pt_listed_until">ظاهرة لحد %1$s</string>
+    <string name="pt_not_listed">مش ظاهرة — اختار باقة</string>
+    <string name="pt_delete">حذف</string>
+    <string name="pt_delete_title">تحذف البوابة دي؟</string>
+    <string name="pt_delete_text">\"%1$s\" هتتشال. المدة المدفوعة مش بترجع.</string>
+    <string name="pt_logo">اللوجو</string>
+    <string name="pt_website">لينك الموقع</string>
+    <string name="pt_category">التصنيف</string>
+    <string name="pt_name_desc">الاسم والوصف</string>
+    <string name="pt_name">اسم البوابة</string>
+    <string name="pt_description">الوصف</string>
+    <string name="pt_translate">ترجم لباقي اللغات</string>
+    <string name="pt_translate_note">اكتب بلغة واحدة وسيب الذكاء الاصطناعي يملا باقي التابات، وتقدر تعدّلها قبل الحفظ.</string>
+    <string name="pt_save">حفظ البوابة</string>
+    <string name="pt_plans_title">اظهر في الصفحة</string>
+    <string name="pt_plans_sub">اختار مدة ظهور بوابتك للكل</string>
+    <string name="pt_continue_to_pay">كمّل للدفع</string>
+    <string name="pt_renew_note">ظاهرة لحد %1$s — التجديد بيبدأ بعدها، من غير ما تخسر أيام.</string>
+    <string name="pt_no_plans">مفيش باقات هنا لسه</string>
+    <string name="pt_no_plans_text">الباقات الخاصة بدولتك لسه مش متاحة.</string>
+    <string name="pt_circle">البوابات</string>
+    <plurals name="pt_weeks">
+        <item quantity="one">أسبوع</item>
+        <item quantity="zero">%d أسابيع</item>
+        <item quantity="two">أسبوعين</item>
+        <item quantity="few">%d أسابيع</item>
+        <item quantity="many">%d أسابيع</item>
+        <item quantity="other">%d أسابيع</item>
+    </plurals>
+    <plurals name="pt_months">
+        <item quantity="one">شهر</item>
+        <item quantity="zero">%d شهور</item>
+        <item quantity="two">شهرين</item>
+        <item quantity="few">%d شهور</item>
+        <item quantity="many">%d شهور</item>
+        <item quantity="other">%d شهور</item>
+    </plurals>
+    <plurals name="pt_years">
+        <item quantity="one">سنة</item>
+        <item quantity="zero">%d سنين</item>
+        <item quantity="two">سنتين</item>
+        <item quantity="few">%d سنين</item>
+        <item quantity="many">%d سنين</item>
+        <item quantity="other">%d سنين</item>
+    </plurals>
+</resources>

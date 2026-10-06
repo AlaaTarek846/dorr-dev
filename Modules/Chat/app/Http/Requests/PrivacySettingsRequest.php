@@ -52,6 +52,14 @@ class PrivacySettingsRequest extends FormRequest
             'privacy_schedule.days' => ['sometimes', 'array'],
             'privacy_schedule.days.*' => ['integer', 'between:0,6'],
             'privacy_schedule.timezone' => ['sometimes', 'timezone:all'],
+            // Smart quiet (spec 115): same shape; scope = every chat or groups only.
+            'quiet_schedule' => ['sometimes', 'nullable', 'array'],
+            'quiet_schedule.from' => ['required_with:quiet_schedule', 'date_format:H:i'],
+            'quiet_schedule.to' => ['required_with:quiet_schedule', 'date_format:H:i'],
+            'quiet_schedule.days' => ['sometimes', 'array'],
+            'quiet_schedule.days.*' => ['integer', 'between:0,6'],
+            'quiet_schedule.timezone' => ['sometimes', 'timezone:all'],
+            'quiet_scope' => ['sometimes', \Illuminate\Validation\Rule::in(['all', 'groups'])],
             'read_receipts' => ['sometimes', 'boolean'],
             'block_screenshots' => ['sometimes', 'boolean'],
             // What a chat push shows: all (name and text) · name (name, "New message") · none.

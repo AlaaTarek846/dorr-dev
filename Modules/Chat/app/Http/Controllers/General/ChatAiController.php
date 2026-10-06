@@ -43,6 +43,30 @@ class ChatAiController extends Controller
         return ApiResponse::success($this->ai->summarize($request->user(), $conversation, (bool) ($data['unread_only'] ?? false)), __('api.retrieved'));
     }
 
+    /** POST conversations/{c}/ask — `{question, messages?[]}` (spec 125). */
+    public function ask(Request $request, ChatConversation $conversation)
+    {
+        $data = $request->validate([
+            'question' => ['required', 'string', 'max:500'],
+            'messages' => ['nullable', 'array', 'max:200'],
+            'messages.*' => ['uuid'],
+        ]);
+
+        return ApiResponse::success($this->ai->askAbout($request->user(), $conversation, $data['question'], $data['messages'] ?? null), __('api.retrieved'));
+    }
+
+    /** POST conversations/{c}/commitments — `{messages?[], timezone?}` (spec 126): suggestions only. */
+    public function commitments(Request $request, ChatConversation $conversation)
+    {
+        $data = $request->validate([
+            'messages' => ['nullable', 'array', 'max:200'],
+            'messages.*' => ['uuid'],
+            'timezone' => ['nullable', 'timezone:all'],
+        ]);
+
+        return ApiResponse::success($this->ai->commitments($request->user(), $conversation, $data['messages'] ?? null, $data['timezone'] ?? 'UTC'), __('api.retrieved'));
+    }
+
     public function smartReplies(Request $request, ChatConversation $conversation)
     {
         return ApiResponse::success($this->ai->smartReplies($request->user(), $conversation), __('api.retrieved'));

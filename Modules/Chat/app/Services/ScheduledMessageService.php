@@ -46,7 +46,7 @@ class ScheduledMessageService
             ->orderBy('send_at')->with('conversation')->get()->map->present()->all();
     }
 
-    public function schedule(Model $me, ChatConversation $conversation, string $body, CarbonInterface $sendAt, bool $silent = false): ChatScheduledMessage
+    public function schedule(Model $me, ChatConversation $conversation, string $body, CarbonInterface $sendAt, bool $silent = false, string $type = 'text', ?array $meta = null, ?string $timezone = null): ChatScheduledMessage
     {
         $participant = $this->conversations->participantOf($me, $conversation, true);
 
@@ -68,6 +68,9 @@ class ScheduledMessageService
             'owner_type' => ParticipantType::aliasFor($me),
             'owner_id' => $me->getKey(),
             'body' => trim($body),
+            'type' => $type,
+            'meta' => $meta,
+            'timezone' => $timezone,
             'is_silent' => $silent,
             'send_at' => $sendAt,
             'status' => ChatScheduledMessage::PENDING,
@@ -165,11 +168,14 @@ class ScheduledMessageService
             }
 
             $message = $this->messages->send($owner, $conversation, [
-                'type' => 'text',
+                'type' => $row->type ?: 'text',
                 'body' => $row->body,
                 'uuid' => $row->uuid,
                 'silent' => $row->is_silent,
-            ]);
+            ] + ($row->type && $row->type !== 'text' ? ['meta_raw' => $row->meta, 'copy_media_from' => $row] : []));
+            if ($row->type && $row->type !== 'text') {
+                $row->clearMediaCollection(\Modules\Chat\Models\ChatMessage::ATTACHMENTS);
+            }
 
             $row->update(['status' => ChatScheduledMessage::SENT, 'message_id' => $message->id, 'error_code' => null]);
             $this->changed($row, removed: true);

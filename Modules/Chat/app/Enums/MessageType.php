@@ -26,6 +26,8 @@ enum MessageType: string
     case WalletQr = 'wallet_qr';
     case StoryReply = 'story_reply';
     case Call = 'call';
+    /** A greeting card (DORR Moments): the occasion's look, words, voice, photos, a gift, maybe a surprise. */
+    case MomentCard = 'moment_card';
     case System = 'system';
 
     /**

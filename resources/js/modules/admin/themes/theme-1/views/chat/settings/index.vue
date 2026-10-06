@@ -112,6 +112,32 @@ const sections = [
         ],
     },
     {
+        // Public stories on the app's home page: on/off, and how many one person may have running for free.
+        key: 'public_stories',
+        icon: 'ri-earth-line',
+        toggle: 'public_stories_enabled',
+        note: true,
+        fields: [
+            { key: 'public_stories_free', min: 0, max: 20, hint: true },
+        ],
+    },
+    {
+        // DORR Moments: occasions, greeting cards and their effects (the chat keeps working when off).
+        key: 'moments',
+        icon: 'ri-cake-2-line',
+        toggle: 'moments_enabled',
+        note: true,
+        fields: [],
+    },
+    {
+        // DORR Calendar & DORR Today: appointments, today's page and their reminders (the chat keeps working when off).
+        key: 'calendar',
+        icon: 'ri-calendar-event-line',
+        toggle: 'calendar_enabled',
+        note: true,
+        fields: [],
+    },
+    {
         key: 'calls',
         icon: 'ri-phone-line',
         toggle: 'calls_enabled',

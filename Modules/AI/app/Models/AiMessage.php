@@ -24,6 +24,7 @@ class AiMessage extends Model
         'model',
         'tokens_used',
         'is_error',
+        'safety',
     ];
 
     /**
@@ -34,6 +35,7 @@ class AiMessage extends Model
         return [
             'tokens_used' => 'integer',
             'is_error' => 'boolean',
+            'safety' => 'array',
         ];
     }
 

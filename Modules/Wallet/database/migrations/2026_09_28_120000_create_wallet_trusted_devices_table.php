@@ -19,8 +19,8 @@ return new class extends Migration
             $table->string('owner_type')->comment('alias المالك (user/provider)');
             $table->unsignedBigInteger('owner_id');
             $table->string('device_id');
-            $table->timestamp('trusted_at');
-            $table->timestamp('last_seen_at');
+            $table->timestamp('trusted_at')->nullable();
+            $table->timestamp('last_seen_at')->nullable();
             $table->timestamps();
 
             $table->unique(['owner_type', 'owner_id', 'device_id'], 'wallet_trusted_devices_unique');

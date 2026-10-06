@@ -26,6 +26,10 @@ class ChatSetting extends Model
         'story_video_max_seconds',
         'max_call_participants',
         'stories_enabled',
+        'public_stories_enabled',
+        'public_stories_free',
+        'moments_enabled',
+        'calendar_enabled',
         'calls_enabled',
         'calls_disabled_countries',
         'ai_enabled',
@@ -46,6 +50,10 @@ class ChatSetting extends Model
             'story_video_max_seconds' => 'integer',
             'max_call_participants' => 'integer',
             'stories_enabled' => 'boolean',
+            'public_stories_enabled' => 'boolean',
+            'public_stories_free' => 'integer',
+            'moments_enabled' => 'boolean',
+            'calendar_enabled' => 'boolean',
             'calls_enabled' => 'boolean',
             'calls_disabled_countries' => 'array',
             'ai_enabled' => 'boolean',
@@ -78,6 +86,17 @@ class ChatSetting extends Model
     public function aiEnabled(): bool
     {
         return $this->ai_enabled ?? true;
+    }
+
+    /** Public stories on the home page — on, with one free each, unless the admin changed it (a copy cached before the columns existed has neither). */
+    public function publicStoriesEnabled(): bool
+    {
+        return (bool) $this->stories_enabled && ($this->public_stories_enabled ?? true);
+    }
+
+    public function publicStoriesFree(): int
+    {
+        return (int) ($this->public_stories_free ?? 1);
     }
 
     public static function current(): self

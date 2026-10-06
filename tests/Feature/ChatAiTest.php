@@ -196,6 +196,47 @@ class ChatAiTest extends TestCase
      *
      * @param  array<string, mixed>  $data
      */
+    public function test_a_question_about_the_messages_i_picked_answers_with_references_and_sends_only_those(): void
+    {
+        $chat = $this->direct($this->bob, $this->alice);
+        $this->send($this->bob, $chat, ['type' => 'text', 'body' => 'My salary is private'])->assertCreated();
+        $where = $this->send($this->bob, $chat, ['type' => 'text', 'body' => 'Meet at the station'])->json('data.id');
+        $when = $this->send($this->bob, $chat, ['type' => 'text', 'body' => 'Friday at five'])->json('data.id');
+
+        $this->reply = '{"answer": "At the station on Friday at five.", "refs": [1, 2]}';
+        $this->as($this->alice);
+        $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/ask", ['question' => 'Where and when do we meet?', 'messages' => [$where, $when]], $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.answer', 'At the station on Friday at five.')
+            ->assertJsonPath('data.references.0.id', $where)
+            ->assertJsonPath('data.references.1.id', $when)
+            ->assertJsonPath('data.messages', 2);
+
+        // AT-PRIV-11: only the picked messages went to the AI.
+        Http::assertSent(fn ($r) => str_contains($r->url(), 'chat/completions') && str_contains(json_encode($r->data()), 'Meet at the station'));
+        Http::assertNotSent(fn ($r) => str_contains(json_encode($r->data()), 'salary'));
+    }
+
+    public function test_commitments_are_suggestions_with_their_time_and_nothing_is_set_on_its_own(): void
+    {
+        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-06 09:00', 'UTC'));
+        $chat = $this->direct($this->bob, $this->alice);
+        $promise = $this->send($this->alice, $chat, ['type' => 'text', 'body' => 'I will send you the contract on Thursday at 5 pm'])->json('data.id');
+
+        $this->reply = '```json'."\n".'[{"text": "Send Bob the contract", "owner": "me", "due": "2026-10-08 17:00", "ref": 1}]'."\n".'```';
+        $this->as($this->alice);
+        $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/commitments", ['timezone' => 'Asia/Riyadh'], $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.commitments.0.text', 'Send Bob the contract')
+            ->assertJsonPath('data.commitments.0.is_mine', true)
+            ->assertJsonPath('data.commitments.0.message_id', $promise)
+            // 17:00 in Riyadh is 14:00 UTC.
+            ->assertJsonPath('data.commitments.0.due_at', '2026-10-08T14:00:00+00:00');
+
+        $this->assertDatabaseCount('chat_message_reminders', 0);
+        $this->getJson('/api/mobile/v1/chat/ai', $this->headers())->assertJsonPath('data.ask', true)->assertJsonPath('data.commitments', true);
+    }
+
     private function provider(string $key, array $data): void
     {
         AiProvider::query()->where('key', $key)->firstOrFail()->update($data);

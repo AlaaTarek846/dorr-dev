@@ -380,6 +380,12 @@ const showWalletSection = computed(() => walletItems.some((item) => can(item.per
 const chatAdminItems = [
     { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
+    { route: 'admin.chat.moments', permission: 'chat-moments.view', icon: 'ri-cake-2-line', label: 'chat.moments.title' },
+    { route: 'admin.chat.dorr-stories', permission: 'chat-dorr-stories.view', icon: 'ri-donut-chart-line', label: 'chat.dorr_stories.title' },
+    { route: 'admin.chat.channels', permission: 'chat-channels.view', icon: 'ri-verified-badge-line', label: 'chat.channels.title' },
+    { route: 'admin.chat.portals', permission: 'chat-portals.view', icon: 'ri-store-2-line', label: 'chat.portals.title' },
+    { route: 'admin.chat.packages', permission: 'chat-packages.view', icon: 'ri-vip-crown-2-line', label: 'chat.packages.title' },
+    { route: 'admin.chat.categories', permission: 'chat-categories.view', icon: 'ri-price-tag-3-line', label: 'chat.categories.title' },
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
     { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },

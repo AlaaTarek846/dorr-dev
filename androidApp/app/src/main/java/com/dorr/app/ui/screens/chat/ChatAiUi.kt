@@ -79,6 +79,18 @@ object ChatAi {
     val transcribe get() = caps?.transcribe == true
     val summarize get() = caps?.summarize == true
     val smartReplies get() = caps?.smartReplies == true
+    val ask get() = caps?.ask == true
+    val commitments get() = caps?.commitments == true
+    val assistant get() = caps?.assistant == true
+    val proofread get() = caps?.proofread == true
+    val understand get() = caps?.understand == true
+    val simplify get() = caps?.simplify == true
+    val tasks get() = caps?.tasks == true
+    val notes get() = caps?.notes == true
+    val dates get() = caps?.dates == true
+    val important get() = caps?.important == true
+    val relatedFiles get() = caps?.relatedFiles == true
+    val today get() = caps?.today == true
 }
 
 /** A translation or a voice transcript shown under a message (only for me, only when I asked). */
@@ -115,7 +127,7 @@ internal fun AiNotePanel(note: AiNote, mine: Boolean, onHide: () -> Unit) {
 
 /** Three soft lines that breathe while the AI works. */
 @Composable
-private fun AiShimmer(ink: Color) {
+internal fun AiShimmer(ink: Color) {
     val t = rememberInfiniteTransition(label = "aiShimmer")
     val a by t.animateFloat(0.25f, 0.6f, infiniteRepeatable(tween(700), RepeatMode.Reverse), label = "aiAlpha")
     Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {

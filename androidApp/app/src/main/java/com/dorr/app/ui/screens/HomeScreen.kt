@@ -72,6 +72,10 @@ fun HomeScreen(
     onOpenServices: () -> Unit,
     onOpenService: (ServiceDto, Color) -> Unit,
     onOpenChat: () -> Unit = {},
+    onOpenPortals: () -> Unit = {},
+    homeStories: com.dorr.app.ui.screens.chat.HomeStoriesState? = null,
+    onOpenMoments: () -> Unit = {},
+    onOpenCalendar: () -> Unit = {},
 ) {
     Box(Modifier.fillMaxSize()) {
     PinkBackdrop(Modifier.matchParentSize())
@@ -84,7 +88,14 @@ fun HomeScreen(
                 onOpenChat = onOpenChat,
             )
         }
-        item { Spacer(Modifier.height(14.dp)) }
+        item { Spacer(Modifier.height(10.dp)) }
+        // Like the chat's stories bar: the merchant portals circle (then public stories, ج.1).
+        homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
+        item { Spacer(Modifier.height(10.dp)) }
+        // DORR Today (spec 202): my day — what's on and what's next; a tap opens the calendar.
+        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        // DORR Moments: the occasion that's on (or the next one soon) — from the server's catalog.
+        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item {
             HeroBannerSlider(
                 slides = listOf(

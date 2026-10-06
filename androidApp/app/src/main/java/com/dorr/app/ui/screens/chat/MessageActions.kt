@@ -32,6 +32,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Reply
+import androidx.compose.material.icons.rounded.Psychology
+import androidx.compose.material.icons.rounded.ShortText
+import androidx.compose.material.icons.rounded.TaskAlt
+import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Redeem
+import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Gavel
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.ContentCopy
@@ -95,11 +104,15 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
     val context = LocalContext.current
     val host = LocalChat.current
     val copied = stringResource(R.string.ch_copied)
+    val decisionMade = stringResource(R.string.ch_decision_made)
     val savedToNotes = stringResource(R.string.ch_saved_to_notes)
     var reminding by remember { mutableStateOf(false) }
+    val noteSaved = stringResource(R.string.ct_note_saved)
     var confirmDelete by remember { mutableStateOf(false) }
     var pinPicker by remember { mutableStateOf(false) }
     var forward by remember { mutableStateOf(false) }
+    var capsule by remember { mutableStateOf(false) }
+    var starInto by remember { mutableStateOf(false) }
     var allEmoji by remember { mutableStateOf(false) }
 
     val appear = remember { Animatable(0f) }
@@ -165,20 +178,42 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                     .background(Ch.Surface),
             ) {
                 ActionRow(Icons.AutoMirrored.Rounded.Reply, stringResource(R.string.ch_reply)) { state.replyTo = dto; close() }
+                // A side discussion under this message (spec 122).
+                if (dto.type !in setOf("system", "call") && !dto.isDeleted && dto.threadRoot == null) ActionRow(Icons.Rounded.Forum, stringResource(R.string.ch_thread_reply)) {
+                    close()
+                    host.push(ChRoute.Thread(dto.conversationId, dto.id))
+                }
+                // In a group: put it to a vote, for the decisions log (spec 119–120).
+                if (state.conversation?.type == "group" && dto.type !in setOf("system", "call", "poll") && !dto.isDeleted) ActionRow(Icons.Rounded.Gavel, stringResource(R.string.ch_make_decision)) {
+                    close()
+                    host.makeDecision(dto, decisionMade)
+                }
                 if (!dto.body.isNullOrBlank()) ActionRow(Icons.Rounded.ContentCopy, stringResource(R.string.ch_copy)) {
                     (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("message", dto.body))
                     host.showToast(copied)
                     close()
                 }
                 if (canForward) ActionRow(Icons.Rounded.Forward, stringResource(R.string.ch_forward)) { forward = true }
+                // AI, on a tap: a question about this message (spec 125).
+                if (ChatAi.ask && !dto.body.isNullOrBlank() && !dto.viewOnce && dto.type != "system") {
+                    ActionRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_ask_this)) { state.askAbout = listOf(dto.id); close() }
+                }
+                // DORR AI tools on this message (spec 37–39, 42, 46) — each one tap, suggestions only.
+                val aiText = !dto.body.isNullOrBlank() && !dto.viewOnce && !dto.sealed && dto.type != "system"
+                if (aiText && !focused.isMine && ChatAi.understand) ActionRow(Icons.Rounded.Psychology, stringResource(R.string.ct_understand)) { state.aiTool = "understand" to dto; close() }
+                if (aiText && ChatAi.simplify && dto.body.orEmpty().length > 220) ActionRow(Icons.Rounded.ShortText, stringResource(R.string.ct_simplify)) { state.aiTool = "simplify" to dto; close() }
+                if (aiText && ChatAi.tasks) ActionRow(Icons.Rounded.TaskAlt, stringResource(R.string.ct_make_tasks)) { state.aiTool = "tasks" to dto; close() }
+                if (aiText && ChatAi.notes) ActionRow(Icons.Rounded.Description, stringResource(R.string.ct_make_note)) { state.aiNote(listOf(dto.id), noteSaved); close() }
                 // AI, on a tap: translate the text (never a view-once message).
                 if (ChatAi.translate && !dto.body.isNullOrBlank() && !dto.viewOnce && dto.type != "system") {
                     ActionRow(Icons.Rounded.Translate, stringResource(R.string.ch_ai_translate)) { state.translate(focused); close() }
                 }
-                ActionRow(if (dto.isStarred) Icons.Rounded.Star else Icons.Rounded.StarBorder, stringResource(if (dto.isStarred) R.string.ch_unstar else R.string.ch_star)) { state.star(dto); close() }
+                ActionRow(if (dto.isStarred) Icons.Rounded.Star else Icons.Rounded.StarBorder, stringResource(if (dto.isStarred) R.string.ch_unstar else R.string.ch_star)) { if (dto.isStarred) { state.star(dto); close() } else starInto = true }
                 // Set it aside to come back to, or keep a copy in my own notes.
                 if (dto.type != "system") ActionRow(Icons.Rounded.BookmarkAdd, stringResource(if (dto.isReadLater) R.string.ch_read_later_done else R.string.ch_read_later)) { state.readLater(dto); close() }
                 if (canForward && !dto.viewOnce && state.conversation?.isSelf != true) ActionRow(Icons.Rounded.NoteAdd, stringResource(R.string.ch_save_to_notes)) { state.saveToNotes(dto, savedToNotes); close() }
+                // DORR Moments capsules: keep a copy of it in an album for an occasion.
+                if (!dto.viewOnce && !dto.sealed && dto.type !in setOf("system", "call")) ActionRow(Icons.Rounded.Inventory2, stringResource(R.string.mo_capsule_keep)) { capsule = true }
                 // Someone else's message I owe an answer to; a reminder at a time I pick.
                 if (!focused.isMine && dto.type != "system") ActionRow(Icons.Rounded.Flag, stringResource(if (dto.isFollowUp) R.string.ch_needs_reply_done else R.string.ch_needs_reply)) { state.followUp(dto); close() }
                 if (dto.type != "system") ActionRow(Icons.Rounded.Alarm, stringResource(if (dto.reminderAt != null) R.string.ch_reminder_remove else R.string.ch_reminder)) {
@@ -221,6 +256,8 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
     if (forward) ForwardSheet(exclude = state.id, onDismiss = { forward = false; close() }) { targets ->
         state.forward(dto, targets) { ok -> if (ok) host.showToast(context.getString(R.string.ch_forwarded_done)) }
     }
+    if (capsule) com.dorr.app.ui.screens.moments.CapsulePickerSheet(dto.id) { capsule = false; close() }
+    if (starInto) StarFolderSheet(onDismiss = { starInto = false; close() }) { folder -> state.star(dto, folder) }
     if (allEmoji) EmojiSheet(onDismiss = { allEmoji = false }) { emoji ->
         allEmoji = false
         state.react(dto, emoji)

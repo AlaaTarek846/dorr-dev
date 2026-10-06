@@ -1,8 +1,10 @@
 package com.dorr.app.chat
 
+import android.Manifest
 import android.content.Context
-import android.media.AudioManager
+import android.content.pm.PackageManager
 import android.util.Log
+import androidx.core.content.ContextCompat
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -14,7 +16,9 @@ import com.dorr.app.network.JoinDto
 import com.dorr.app.network.ProfileDto
 import com.dorr.app.network.apiFailure
 import com.google.gson.Gson
+import com.twilio.audioswitch.AudioDevice
 import io.livekit.android.LiveKit
+import io.livekit.android.audio.AudioSwitchHandler
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
@@ -54,6 +58,12 @@ data class CallMember(
  */
 object CallController {
     private const val TAG = "CallController"
+
+    /** A little past the server's ring time (chat.call_ring_timeout_seconds = 45). */
+    private const val RING_TIMEOUT_MS = 50_000L
+    private const val CONNECT_TIMEOUT_MS = 25_000L
+    private const val ALONE_TIMEOUT_MS = 20_000L
+    private const val POLL_MS = 5_000L
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
     private val gson = Gson()
 
@@ -66,7 +76,9 @@ object CallController {
      * ringing notification disappears as soon as the call is answered, declined or over.
      */
     private fun updatePhase(next: CallPhase?) {
+        val changed = phase != next
         phase = next
+        if (changed) watch(next)
         val ctx = appContext ?: return
         when (next) {
             CallPhase.Incoming -> if (ChatRealtime.inForeground) Ringer.startIncoming(ctx)
@@ -107,6 +119,8 @@ object CallController {
         private set
     private var appContext: Context? = null
     private var roomJob: Job? = null
+    private var watchJob: Job? = null
+    private var aloneJob: Job? = null
 
     fun attach(context: Context) {
         appContext = context.applicationContext
@@ -214,13 +228,22 @@ object CallController {
 
     fun toggleMic() {
         micOn = !micOn
-        scope.launch { runCatching { room?.localParticipant?.setMicrophoneEnabled(micOn) }; refreshVideos() }
+        scope.launch {
+            applyMic()
+            refreshVideos()
+        }
     }
 
+    /** Whether this phone may use the camera — the overlay asks for it before turning it on. */
+    fun cameraAllowed(): Boolean = appContext?.let {
+        ContextCompat.checkSelfPermission(it, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+    } ?: false
+
     fun toggleCamera() {
+        if (!cameraOn && !cameraAllowed()) return
         cameraOn = !cameraOn
         scope.launch {
-            runCatching { room?.localParticipant?.setCameraEnabled(cameraOn) }
+            applyCamera()
             refreshVideos()
         }
     }
@@ -235,6 +258,15 @@ object CallController {
         applySpeaker()
     }
 
+    /** The account signed out on this phone: whatever call there is ends with it. */
+    fun signedOut() {
+        when (phase) {
+            CallPhase.Incoming -> decline()
+            CallPhase.Outgoing, CallPhase.Connecting, CallPhase.Active -> hangUp()
+            else -> Unit
+        }
+    }
+
     // ------------------------------------------------------------------ LiveKit
 
     private suspend fun connect(join: JoinDto) {
@@ -247,26 +279,61 @@ object CallController {
                     is RoomEvent.TrackSubscribed, is RoomEvent.TrackUnsubscribed, is RoomEvent.TrackMuted, is RoomEvent.TrackUnmuted,
                     is RoomEvent.ParticipantConnected, is RoomEvent.ParticipantDisconnected,
                     is RoomEvent.ActiveSpeakersChanged -> refreshVideos()
-                    is RoomEvent.Disconnected -> if (phase == CallPhase.Active) end(localOnly = true)
+                    // The room dropped us (network gone for good, kicked, room closed): the call is
+                    // over in every phase, not only once it was answered.
+                    is RoomEvent.Disconnected -> if (phase != null && phase != CallPhase.Ended) hangUp()
                     else -> Unit
                 }
+                if (event is RoomEvent.ParticipantConnected || event is RoomEvent.ParticipantDisconnected) watchAlone()
             }
         }
         try {
             r.connect(join.url, join.token)
-            r.localParticipant.setMicrophoneEnabled(micOn)
-            if (isVideo && cameraOn) r.localParticipant.setCameraEnabled(true)
-            applySpeaker()
-            // The caller is in the room already but still "Calling…" until someone answers.
-            if (phase != CallPhase.Outgoing) {
-                updatePhase(CallPhase.Active)
-                connectedAt = System.currentTimeMillis()
-            }
-            refreshVideos()
         } catch (e: Exception) {
             Log.w(TAG, "LiveKit connect failed", e)
             error = e.message
             hangUp()
+            return
+        }
+        // The microphone and the camera each fail on their own (no permission, camera busy…)
+        // without taking the whole call down — the buttons then show what really happened.
+        applyMic()
+        if (isVideo && cameraOn) applyCamera()
+        applySpeaker()
+        // The caller is in the room already but still "Calling…" until someone answers.
+        if (phase != CallPhase.Outgoing) {
+            updatePhase(CallPhase.Active)
+            connectedAt = System.currentTimeMillis()
+        }
+        refreshVideos()
+    }
+
+    /** Mute / unmute for real, and check it took: the publication itself is muted as a fallback. */
+    private suspend fun applyMic() {
+        val me = room?.localParticipant ?: return
+        val want = micOn
+        try {
+            me.setMicrophoneEnabled(want)
+            if (me.isMicrophoneEnabled() != want) me.getTrackPublication(Track.Source.MICROPHONE)?.muted = !want
+        } catch (e: Exception) {
+            Log.w(TAG, "Microphone ${if (want) "on" else "off"} failed", e)
+            runCatching { me.getTrackPublication(Track.Source.MICROPHONE)?.muted = !want }
+        }
+        micOn = me.isMicrophoneEnabled()
+    }
+
+    private suspend fun applyCamera() {
+        val me = room?.localParticipant ?: return
+        if (cameraOn && !cameraAllowed()) {
+            cameraOn = false
+            return
+        }
+        try {
+            me.setCameraEnabled(cameraOn)
+        } catch (e: Exception) {
+            Log.w(TAG, "Camera ${if (cameraOn) "on" else "off"} failed", e)
+            cameraOn = false
+            runCatching { me.setCameraEnabled(false) }
         }
     }
 
@@ -301,17 +368,105 @@ object CallController {
 
     private fun keyOf(p: Participant): String = p.identity?.value ?: p.sid.value
 
+    /**
+     * LiveKit routes the call's audio itself (AudioSwitch): setting the AudioManager by hand is
+     * undone by it, so the device is picked through it — the loudspeaker, or else a headset when
+     * one is plugged in / paired, or else the earpiece. Its device list fills in a moment after
+     * the room connects, so the choice is retried briefly.
+     */
     private fun applySpeaker() {
-        val audio = appContext?.getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
-        runCatching {
-            audio.mode = AudioManager.MODE_IN_COMMUNICATION
-            @Suppress("DEPRECATION")
-            audio.isSpeakerphoneOn = speakerOn
+        val want = speakerOn
+        scope.launch {
+            repeat(10) {
+                if (selectAudioDevice(want)) return@launch
+                delay(300)
+            }
+        }
+    }
+
+    private fun selectAudioDevice(speaker: Boolean): Boolean {
+        val handler = room?.audioHandler as? AudioSwitchHandler ?: return false
+        val devices = handler.availableAudioDevices
+        val target = if (speaker) {
+            devices.firstOrNull { it is AudioDevice.Speakerphone }
+        } else {
+            devices.firstOrNull { it is AudioDevice.BluetoothHeadset }
+                ?: devices.firstOrNull { it is AudioDevice.WiredHeadset }
+                ?: devices.firstOrNull { it is AudioDevice.Earpiece }
+        } ?: return false
+        return runCatching {
+            if (handler.selectedAudioDevice != target) handler.selectDevice(target)
+            true
+        }.onFailure { Log.w(TAG, "Audio route failed", it) }.getOrDefault(false)
+    }
+
+    // ------------------------------------------------------------------ never stuck
+
+    /**
+     * A call can't hang in a ringing or connecting state: the server is asked every few seconds
+     * (a missed real-time event — screen off, network blip — would leave the page up forever),
+     * and each phase has its own limit.
+     */
+    private fun watch(next: CallPhase?) {
+        watchJob?.cancel()
+        if (next != CallPhase.Incoming && next != CallPhase.Outgoing && next != CallPhase.Connecting) return
+        val limit = when (next) {
+            CallPhase.Connecting -> CONNECT_TIMEOUT_MS
+            else -> RING_TIMEOUT_MS
+        }
+        watchJob = scope.launch {
+            val started = System.currentTimeMillis()
+            while (isActive && phase == next) {
+                delay(POLL_MS)
+                if (phase != next) return@launch
+                val id = call?.id
+                val status = id?.let { runCatching { ApiClient.chat.call(auth(), it).data?.status }.getOrNull() }
+                if (phase != next) return@launch
+                when {
+                    status != null && status != "ringing" && status != "ongoing" -> {
+                        end(localOnly = true)
+                        return@launch
+                    }
+                    // Answered while we missed the event: the caller is in the room already.
+                    status == "ongoing" && next == CallPhase.Outgoing && room != null -> {
+                        updatePhase(CallPhase.Active)
+                        if (connectedAt == null) connectedAt = System.currentTimeMillis()
+                        return@launch
+                    }
+                }
+                if (System.currentTimeMillis() - started >= limit) {
+                    when (next) {
+                        CallPhase.Incoming -> end(localOnly = true) // it rang out; the caller's side closes it
+                        CallPhase.Connecting -> {
+                            error = appContext?.getString(com.dorr.app.R.string.ch_call_failed)
+                            hangUp()
+                        }
+                        else -> hangUp() // nobody answered
+                    }
+                    return@launch
+                }
+            }
+        }
+    }
+
+    /**
+     * A one-to-one call whose other side vanished from the room (app killed, phone off) without
+     * hanging up: after a grace period for them to come back, the call is over.
+     */
+    private fun watchAlone() {
+        aloneJob?.cancel()
+        val r = room ?: return
+        if (phase != CallPhase.Active || call?.conversationType == "group" || r.remoteParticipants.isNotEmpty()) return
+        aloneJob = scope.launch {
+            delay(ALONE_TIMEOUT_MS)
+            if (phase == CallPhase.Active && room === r && r.remoteParticipants.isEmpty()) hangUp()
         }
     }
 
     private fun end(localOnly: Boolean) {
         updatePhase(CallPhase.Ended)
+        watchJob?.cancel()
+        aloneJob?.cancel()
         roomJob?.cancel()
         runCatching { room?.disconnect() }
         runCatching { room?.release() }

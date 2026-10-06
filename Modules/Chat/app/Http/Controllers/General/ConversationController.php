@@ -26,15 +26,18 @@ class ConversationController extends Controller
     public function index(Request $request)
     {
         $filters = $request->validate([
-            'filter' => ['nullable', Rule::in(['all', 'unread', 'groups', 'channels', 'direct', 'archived', 'locked', 'requests'])],
+            'filter' => ['nullable', Rule::in(['all', 'unread', 'priority', 'groups', 'channels', 'direct', 'archived', 'locked', 'requests'])],
             'folder' => ['nullable', 'integer'],
+            'circle' => ['nullable', 'string', 'max:64'],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
         $me = $request->user();
         $page = $this->conversations->list($me, $filters, (int) ($filters['per_page'] ?? 20));
-        $data = $page->getCollection()->map(fn (ChatParticipant $p) => new ConversationResource($p, $me))->values();
+        // The priority inbox says why each chat is there (spec 114).
+        $reasons = ($filters['filter'] ?? null) === 'priority' ? app(\Modules\Chat\Services\ChatOverviewService::class)->priorityReasons($page->getCollection()) : [];
+        $data = $page->getCollection()->map(fn (ChatParticipant $p) => new ConversationResource($p, $me, isset($reasons[$p->id]) ? ['priority' => $reasons[$p->id]] : []))->values();
 
         return ApiResponse::success($data, __('api.retrieved'), 200, ApiPaginator::meta($page), [
             'requests_count' => $this->conversations->requestsCount($me),
