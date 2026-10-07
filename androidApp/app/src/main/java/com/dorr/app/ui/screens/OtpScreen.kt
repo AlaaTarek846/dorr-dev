@@ -90,6 +90,7 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.VerifyOtpRequest
+import com.dorr.app.network.ReferralTracker
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
@@ -155,6 +156,7 @@ fun OtpScreen(
                 AuthSession.token = data?.token
                 AuthSession.user = data?.user
                 isSuccess = true
+                ReferralTracker.submitPending()
                 delay(300)
                 onVerified()
             }.onFailure {

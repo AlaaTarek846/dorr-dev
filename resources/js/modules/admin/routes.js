@@ -116,6 +116,18 @@ export default [
                 meta: { middleware: [auth], permission: 'ratings.view' },
             },
             {
+                path: 'referral-codes',
+                name: 'admin.referral-codes.index',
+                component: page('referral-code/index'),
+                meta: { middleware: [auth], permission: 'referral-codes.view' },
+            },
+            {
+                path: 'referrals',
+                name: 'admin.referrals.index',
+                component: page('referral/index'),
+                meta: { middleware: [auth], permission: 'referrals.view' },
+            },
+            {
                 path: 'employees',
                 name: 'admin.employees.index',
                 component: page('employee/index'),

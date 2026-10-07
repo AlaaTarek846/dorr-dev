@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\General\MobileRatingController;
+use App\Http\Controllers\General\MobileReferralController;
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\Mobile\AddressController;
 use Modules\User\Http\Controllers\Mobile\FaqController;
@@ -56,6 +57,9 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
 
         Route::get('ratings/mine', [MobileRatingController::class, 'mine']);
         Route::post('ratings', [MobileRatingController::class, 'store'])->middleware('throttle:10,1');
+
+        Route::get('referrals/my-code', [MobileReferralController::class, 'myCode']);
+        Route::post('referrals/track', [MobileReferralController::class, 'track'])->middleware('throttle:10,1');
 
         Route::get('appearance', [MobileAppearanceController::class, 'show']);
         Route::put('appearance', [MobileAppearanceController::class, 'update']);

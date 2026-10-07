@@ -21,15 +21,14 @@ import java.net.UnknownHostException
  * The local dev host (LOCAL_MEDIA_HOST) is what Laravel builds absolute media URLs with, so those
  * get rewritten to the reachable host below.
  */
-// Set per developer in androidApp/local.properties (dorr.apiHost / dorr.apiScheme) — see app/build.gradle.kts.
-private const val BASE_HOST = com.dorr.app.BuildConfig.API_HOST
-private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOST/api/"
-// NOTE (LAN): a Wi-Fi IP as dorr.apiHost must be this PC's current IP (check `ipconfig`) AND be
-// listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
-// otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
+// Dev backend: this ngrok tunnel (https). To switch to LAN/emulator, put dorr.apiHost /
+// dorr.apiScheme in androidApp/local.properties and restore BASE_HOST from BuildConfig.
+// ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test
+private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
+private const val BASE_HOST = NGROK_HOST
+private const val BASE_URL = "https://$BASE_HOST/api/"
 
 private const val LOCAL_MEDIA_HOST = "dorr.test"
-// private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
 
 object ApiClient {
     /** Shared with the image loader so media requests get the same dev Host header. */
@@ -110,6 +109,7 @@ object ApiClient {
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
     val support: SupportApi by lazy { retrofit.create(SupportApi::class.java) }
     val ratings: RatingApi by lazy { retrofit.create(RatingApi::class.java) }
+    val referrals: ReferralApi by lazy { retrofit.create(ReferralApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 

@@ -424,6 +424,8 @@
     <string name="invite_copied">تم نسخ رمز الدعوة</string>
     <string name="invite_share_now">شارك الرمز الآن</string>
     <string name="invite_share_body">انضم إليّ على دُر. استخدم رمز الدعوة %1$s\n%2$s</string>
+    <string name="invite_code_failed">تعذر تحميل رمز الدعوة. تأكد من الاتصال ثم أعد المحاولة.</string>
+    <string name="invite_code_retry">إعادة المحاولة</string>
     <string name="rate_title">تقييم التطبيق</string>
     <string name="rate_sub">نجوم وتعليق</string>
     <string name="rate_headline">كيف تجربتك مع دُر؟</string>

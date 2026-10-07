@@ -284,6 +284,19 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
+            'referral-codes' => [
+                'module_name' => 'system_users',
+                'actions' => [
+                    'view',
+                    'change-status',
+                ],
+            ],
+            'referrals' => [
+                'module_name' => 'system_users',
+                'actions' => [
+                    'view',
+                ],
+            ],
             'users' => [
                 'module_name' => 'system_users',
                 'actions' => [

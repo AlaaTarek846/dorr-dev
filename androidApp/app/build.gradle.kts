@@ -30,7 +30,7 @@ android {
         }
         // A build for a given server overrides it on the command line, leaving local.properties alone:
         //   gradlew assembleDebug -Pdorr.apiHost=dorr-app.com -Pdorr.apiScheme=https
-        val apiHost = (findProperty("dorr.apiHost") as String?) ?: local.getProperty("dorr.apiHost", "exploring-molasses-pretended.ngrok-free.dev")
+        val apiHost = (findProperty("dorr.apiHost") as String?) ?: local.getProperty("dorr.apiHost", "unafraid-occupy-geography.ngrok-free.dev")
         val apiScheme = (findProperty("dorr.apiScheme") as String?) ?: local.getProperty("dorr.apiScheme", "https")
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
@@ -114,6 +114,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
     // Google Play In-App Review (shown after a 4–5 star rating; a no-op until the app is on Play)
     implementation("com.google.android.play:review-ktx:2.0.2")
+    // Play Install Referrer (no-op until the app is published; same API as share/copy today)
+    implementation("com.android.installreferrer:installreferrer:2.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
