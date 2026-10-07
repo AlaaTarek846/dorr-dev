@@ -5,7 +5,7 @@ namespace Modules\Wallet\Support;
 use Illuminate\Http\Request;
 
 /**
- * The colours of the small server-rendered wallet pages (the sandbox bank checkout and the payment
+ * The colours (and the language, `lang`) of the small server-rendered wallet pages (the sandbox bank checkout and the payment
  * result page). The Android app opens them in a WebView and passes its own theme colours in the query
  * string — `?primary=0a7e8c&bg=0b1220...` — so the pages look like part of the app.
  *
@@ -63,6 +63,13 @@ final class PageTheme
             if ($value !== null) {
                 $query[$key] = $value;
             }
+        }
+
+        // The app's own language (the WebView does not send it), picked up by the `locale` middleware.
+        $lang = strtolower(trim((string) $request->query('lang')));
+
+        if (preg_match('/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/', $lang) === 1) {
+            $query['lang'] = $lang;
         }
 
         return $query;

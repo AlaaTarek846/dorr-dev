@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material3.DropdownMenu
@@ -36,16 +37,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -167,121 +171,135 @@ internal fun WaOtpBoxes(value: String, onChange: (String) -> Unit, error: Boolea
     }
 }
 
-/** One drop-down in the date picker: a small label, a pill showing the choice, and the list under it. */
+/**
+ * One typed number of the date (day, month or year): a small label over a pill, digits only, centred.
+ * Turns red as soon as what is typed cannot be right; [onFull] fires when the box is full so the caret can move on.
+ */
 @Composable
-private fun WaDropdownPill(
+private fun WaDateBox(
     label: String,
     value: String,
     placeholder: String,
-    options: List<String>,
-    display: (String) -> String,
-    error: Boolean,
+    maxLength: Int,
+    invalid: Boolean,
+    imeAction: ImeAction,
     modifier: Modifier = Modifier,
-    onSelect: (String) -> Unit,
+    onChange: (String) -> Unit,
 ) {
-    var open by remember { mutableStateOf(false) }
+    var focused by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
     val shape = RoundedCornerShape(16.dp)
     Column(modifier) {
         Text(label, color = Wa.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp, start = 2.dp))
-        Box {
-            Row(
-                Modifier
-                    .fillMaxWidth()
-                    .height(50.dp)
-                    .clip(shape)
-                    .background(Wa.Field)
-                    .border(1.dp, if (error) Wa.Danger else if (open) Wa.Red else Wa.Line, shape)
-                    .clickable { open = true }
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    if (value.isEmpty()) placeholder else display(value),
-                    color = if (value.isEmpty()) Wa.Soft else Wa.Ink,
-                    fontSize = 14.5.sp,
-                    fontWeight = if (value.isEmpty()) FontWeight.Normal else FontWeight.Bold,
-                    maxLines = 1,
-                    modifier = Modifier.weight(1f),
-                )
-                Icon(Icons.Rounded.KeyboardArrowDown, null, tint = Wa.Red, modifier = Modifier.size(20.dp))
-            }
-            DropdownMenu(
-                expanded = open,
-                onDismissRequest = { open = false },
-                modifier = Modifier.heightIn(max = 280.dp),
-                containerColor = Wa.Surface,
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                display(option),
-                                color = if (option == value) Wa.Red else Wa.Ink,
-                                fontWeight = if (option == value) FontWeight.ExtraBold else FontWeight.Medium,
-                            )
-                        },
-                        onClick = {
-                            onSelect(option)
-                            open = false
-                        },
-                    )
-                }
-            }
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clip(shape)
+                .background(Wa.Field)
+                .border(1.5.dp, if (invalid) Wa.Danger else if (focused) Wa.Red else Wa.Line, shape)
+                .padding(horizontal = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            BasicTextField(
+                value = value,
+                onValueChange = { raw ->
+                    val digits = raw.filter(Char::isDigit).take(maxLength)
+                    onChange(digits)
+                    // A full day or month hands the caret to the next box, like typing a date on paper.
+                    if (digits.length == maxLength && value.length < maxLength && imeAction == ImeAction.Next) focusManager.moveFocus(FocusDirection.Next)
+                },
+                singleLine = true,
+                textStyle = TextStyle(fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, color = if (invalid) Wa.Danger else Wa.Ink, textAlign = TextAlign.Center),
+                cursorBrush = SolidColor(Wa.Red),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = imeAction),
+                keyboardActions = KeyboardActions(onNext = { focusManager.moveFocus(FocusDirection.Next) }, onDone = { focusManager.clearFocus() }),
+                modifier = Modifier.fillMaxWidth().onFocusChanged { focused = it.isFocused },
+                decorationBox = { inner ->
+                    Box(contentAlignment = Alignment.Center) {
+                        if (value.isEmpty()) Text(placeholder, color = Wa.Soft, fontSize = 17.sp, fontWeight = FontWeight.Medium)
+                        inner()
+                    }
+                },
+            )
         }
     }
 }
 
-/** Day / month / year drop-downs with the chosen date shown in full above them. [day] etc. are plain numbers ("5", "9", "1990"). */
+/** What is wrong with the date typed so far, or null while it can still become a valid one. */
+private enum class BirthProblem { Day, Month, Year, Future }
+
+private fun birthProblem(day: String, month: String, year: String): BirthProblem? {
+    val m = month.toIntOrNull()
+    val y = year.toIntOrNull()
+    if (month.isNotEmpty() && (m == null || m > 12 || (month.length == 2 && m == 0))) return BirthProblem.Month
+    // A year is judged once all four digits are there (typing "19" on the way to 1990 is fine).
+    if (year.length == 4 && y != null && y < 1900) return BirthProblem.Year
+    if (year.length == 4 && y != null && y > LocalDate.now().year) return BirthProblem.Future
+    val d = day.toIntOrNull()
+    if (day.isNotEmpty() && (d == null || d > 31 || (day.length == 2 && d == 0))) return BirthProblem.Day
+    // Only a real month (1..12) can say how long the month is; a lone "0" is still on its way to 05, 09...
+    if (d != null && m != null && m in 1..12) {
+        val max = YearMonth.of(y?.takeIf { year.length == 4 } ?: 2000, m).lengthOfMonth()
+        if (d > max) return BirthProblem.Day
+    }
+    if (birthDateOrNull(day, month, year) == null && day.isNotEmpty() && month.isNotEmpty() && year.length == 4) {
+        // Complete, a real calendar date, but not in the past.
+        return BirthProblem.Future
+    }
+    return null
+}
+
+/**
+ * The date of birth typed as day / month / year (numbers only), with the chosen date shown in full above the
+ * boxes and a short message under them as soon as something cannot be right. [day] etc. are plain numbers ("5", "9", "1990").
+ */
 @Composable
 internal fun WaBirthPicker(day: String, month: String, year: String, onChange: (String, String, String) -> Unit, error: Boolean) {
     val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
     val monthNames = remember(locale) { (1..12).map { Month.of(it).getDisplayName(java.time.format.TextStyle.FULL, locale) } }
-    val years = remember { ((LocalDate.now().year - 1) downTo 1920).map { it.toString() } }
-    val monthOptions = remember { (1..12).map { it.toString() } }
-
-    val monthNumber = month.toIntOrNull()
-    val yearNumber = year.toIntOrNull()
-    // How many days the chosen month has (29 for February until a year says otherwise).
-    val daysInMonth = when {
-        monthNumber == null -> 31
-        yearNumber != null -> YearMonth.of(yearNumber, monthNumber).lengthOfMonth()
-        else -> YearMonth.of(2000, monthNumber).lengthOfMonth()
-    }
-    val days = remember(daysInMonth) { (1..daysInMonth).map { it.toString() } }
-
-    fun changed(d: String, m: String, y: String) {
-        val max = m.toIntOrNull()?.let { mm -> y.toIntOrNull()?.let { YearMonth.of(it, mm).lengthOfMonth() } ?: YearMonth.of(2000, mm).lengthOfMonth() } ?: 31
-        // A day that the new month does not have (31 → February) falls back to its last day.
-        onChange(if ((d.toIntOrNull() ?: 0) > max) max.toString() else d, m, y)
-    }
-
-    val complete = day.isNotEmpty() && monthNumber != null && year.isNotEmpty()
-    val preview = if (complete) "$day ${monthNames[monthNumber!! - 1]} $year" else stringResource(R.string.wa_rec_birth_pick)
+    val problem = birthProblem(day, month, year)
+    val complete = birthDateOrNull(day, month, year) != null
+    val preview = if (complete) "${day.toInt()} ${monthNames[month.toInt() - 1]} $year" else stringResource(R.string.wa_rec_birth_pick)
 
     WaCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(stringResource(R.string.wa_rec_birth_label), color = Wa.Mut, fontSize = 12.sp)
-                Text(
-                    preview,
-                    color = if (complete) Wa.Ink else Wa.Soft,
-                    fontSize = 17.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
+        Column {
+            Text(stringResource(R.string.wa_rec_birth_label), color = Wa.Mut, fontSize = 12.sp)
+            Text(
+                preview,
+                color = if (complete) Wa.Ink else Wa.Soft,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                modifier = Modifier.padding(top = 2.dp),
+            )
         }
         Spacer(Modifier.height(16.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            WaDropdownPill(
-                stringResource(R.string.wa_rec_day), day, "—", days, { it }, error, Modifier.weight(0.8f),
-            ) { changed(it, month, year) }
-            WaDropdownPill(
-                stringResource(R.string.wa_rec_month), month, "—", monthOptions, { monthNames[it.toInt() - 1] }, error, Modifier.weight(1.5f),
-            ) { changed(day, it, year) }
-            WaDropdownPill(
-                stringResource(R.string.wa_rec_year), year, "—", years, { it }, error, Modifier.weight(1f),
-            ) { changed(day, month, it) }
+        // Dates are typed left to right in every language: day, month, year.
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                WaDateBox(
+                    stringResource(R.string.wa_rec_day), day, "DD", 2,
+                    problem == BirthProblem.Day, ImeAction.Next, Modifier.weight(1f),
+                ) { onChange(it, month, year) }
+                WaDateBox(
+                    stringResource(R.string.wa_rec_month), month, "MM", 2,
+                    problem == BirthProblem.Month, ImeAction.Next, Modifier.weight(1f),
+                ) { onChange(day, it, year) }
+                WaDateBox(
+                    stringResource(R.string.wa_rec_year), year, "YYYY", 4,
+                    problem == BirthProblem.Year || problem == BirthProblem.Future, ImeAction.Done, Modifier.weight(1.4f),
+                ) { onChange(day, month, it) }
+            }
+        }
+        val message = when (problem) {
+            BirthProblem.Day -> R.string.wa_rec_birth_bad_day
+            BirthProblem.Month -> R.string.wa_rec_birth_bad_month
+            BirthProblem.Year -> R.string.wa_rec_birth_bad_year
+            BirthProblem.Future -> R.string.wa_rec_birth_future
+            null -> if (error) R.string.wa_rec_birth_invalid else null
+        }
+        if (message != null) {
+            Text(stringResource(message), color = Wa.Danger, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 10.dp, start = 2.dp))
         }
     }
 }

@@ -231,3 +231,30 @@ private fun Context.forLocale(code: String, downloaded: Map<String, Any>?): Cont
         override fun getAssets() = localized.assets
     }
 }
+
+/**
+ * [ModalBottomSheet] content is composed in its own window, which — like a [Dialog] — keeps the Activity's
+ * default [Context]: `stringResource` would read `values/` (English) and country names would follow the phone's
+ * language, not the app's. Capture the locale-aware locals from the caller and re-provide them inside the sheet.
+ */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@Composable
+fun LocaleAwareBottomSheet(
+    onDismissRequest: () -> Unit,
+    containerColor: androidx.compose.ui.graphics.Color,
+    shape: androidx.compose.ui.graphics.Shape,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val layoutDirection = LocalLayoutDirection.current
+    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismissRequest, containerColor = containerColor, shape = shape) {
+        CompositionLocalProvider(
+            LocalContext provides context,
+            LocalConfiguration provides configuration,
+            LocalLayoutDirection provides layoutDirection,
+        ) {
+            content()
+        }
+    }
+}

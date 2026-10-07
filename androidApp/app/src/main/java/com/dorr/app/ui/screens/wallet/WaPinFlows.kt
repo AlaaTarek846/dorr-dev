@@ -253,7 +253,7 @@ private fun ColumnScope.WaFormStep(cta: @Composable ColumnScope.() -> Unit, cont
     }
 }
 
-/** The date of birth, chosen from day / month / year drop-downs (see [WaBirthPicker]). */
+/** The date of birth, typed as day / month / year (see [WaBirthPicker]). */
 @Composable
 private fun WaBirthFields(day: String, month: String, year: String, onChange: (String, String, String) -> Unit, error: Boolean) {
     WaBirthPicker(day, month, year, onChange, error)

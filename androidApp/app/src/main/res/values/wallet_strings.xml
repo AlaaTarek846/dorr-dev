@@ -60,7 +60,7 @@
     <string name="wa_pin_confirm_sub">Enter the same digits again</string>
     <string name="wa_pin_mismatch">The two PINs don\'t match. Try again.</string>
     <string name="wa_pin_page_title">Wallet PIN</string>
-    <string name="wa_security_title">Settings</string>
+    <string name="wa_security_title">Wallet settings</string>
     <string name="wa_security_intro">Your PIN protects every payment and transfer. Manage it, how you can recover it, and fingerprint unlock from here.</string>
     <string name="wa_pin_menu_pin_title">Wallet PIN</string>
     <string name="wa_pin_menu_pin_sub">Change the PIN that confirms your payments and transfers</string>
@@ -120,7 +120,6 @@
     <string name="wa_back_to_wallet">Back to wallet</string>
     <string name="wa_transfer_title">Transfer</string>
     <string name="wa_transfer_banner_title">Transfers inside %1$s only</string>
-    <string name="wa_transfer_banner_text">Your wallet is in %1$s, so money can only go to %2$s numbers and wallets.</string>
     <string name="wa_scan_cta_title">Scan a QR code</string>
     <string name="wa_scan_cta_text">The fastest way — point the camera at the recipient\'s wallet code</string>
     <string name="wa_or_manual">or enter the details</string>
@@ -184,7 +183,7 @@
     <string name="wa_rec_password_mismatch">The two passwords don\'t match.</string>
     <string name="wa_rec_birth_hint">Enter your date of birth. You\'ll be asked for it if you forget your PIN.</string>
     <string name="wa_rec_birth_label">Your date of birth</string>
-    <string name="wa_rec_birth_pick">Pick your date of birth</string>
+    <string name="wa_rec_birth_pick">Type your date of birth</string>
     <string name="wa_rec_day">Day</string>
     <string name="wa_rec_month">Month</string>
     <string name="wa_rec_year">Year</string>
@@ -278,4 +277,8 @@
     <string name="wa_checkout_expired_title">This payment page expired</string>
     <string name="wa_checkout_failed_title">Payment not completed</string>
     <string name="wa_checkout_failed_in_wallet">Your money arrived in your wallet but couldn\'t complete this payment. Try again from your wallet.</string>
+    <string name="wa_rec_birth_bad_day">That day does not exist in this month</string>
+    <string name="wa_rec_birth_bad_month">The month is a number from 1 to 12</string>
+    <string name="wa_rec_birth_bad_year">Enter a real year, from 1900</string>
+    <string name="wa_rec_birth_future">The date of birth must be in the past</string>
 </resources>

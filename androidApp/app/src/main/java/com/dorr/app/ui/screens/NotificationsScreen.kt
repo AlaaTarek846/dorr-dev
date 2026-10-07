@@ -214,21 +214,14 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
             .padding(14.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(if (item.unread) (if (night) AccountDark.accent else settingsAccent()) else Color.Transparent, CircleShape),
-            )
-            Spacer(Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
-            }
+        // Unread is shown by the tinted card and the bold title; no dot above the icon.
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {

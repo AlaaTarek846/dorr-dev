@@ -92,6 +92,16 @@ return [
         'reversal' => 'Reversal',
     ],
 
+    'sandbox_page' => [
+        'title' => 'Test payment gateway',
+        'badge' => 'SANDBOX — no real money is charged',
+        'heading' => 'Test payment gateway',
+        'missing' => 'This test payment session has expired or no longer exists. Go back to the app and start a new top-up.',
+        'settled' => 'This payment was already settled.',
+        'approve' => 'Approve payment',
+        'decline' => 'Decline',
+        'dev_only' => 'For development and demos only.',
+    ],
     'payment_page' => [
         'success' => 'Payment received. You can close this page and return to the app.',
         'failed' => 'The payment was not completed. You can close this page and try again.',
