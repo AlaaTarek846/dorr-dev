@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="wa_wallet_of">Wallet: %1$s</string>
-    <string name="wa_wallet_here_sub">Where you are now · %1$s</string>
     <string name="wa_wallet_away">You are in %1$s now</string>
     <string name="wa_wallet_change">Change</string>
     <string name="wa_wallet_away_note">You are using your %1$s wallet: money goes from it to %1$s numbers and wallets only, and it shows its own number and QR.</string>

@@ -122,6 +122,29 @@ class WalletSandboxTest extends TestCase
             ->assertSee('--bg: #0b1220;', false);
     }
 
+    public function test_the_app_language_follows_the_flow_so_every_page_is_in_it(): void
+    {
+        $payment = $this->startTopup(5000, 'key-lang-flow');
+        $reference = $this->reference($payment);
+
+        // The checkout page is in the app's language, not the phone's...
+        $this->get("/api/wallet/sandbox/{$reference}?lang=ar")
+            ->assertOk()
+            ->assertSee('dir="rtl"', false)
+            ->assertSee(__('wallet.sandbox_page.approve', [], 'ar'))
+            ->assertDontSee(__('wallet.sandbox_page.approve', [], 'en'));
+        $this->get("/api/wallet/sandbox/{$reference}?lang=en")->assertSee(__('wallet.sandbox_page.approve', [], 'en'));
+
+        // ...the decision carries it on (and drops anything that is not a language code)...
+        $location = $this->post("/api/wallet/sandbox/{$reference}?lang=ar", ['result' => 'approve'])->assertRedirect()->headers->get('Location');
+        $this->assertStringContainsString('lang=ar', $location);
+        $junk = $this->post("/api/wallet/sandbox/{$reference}?lang=%3Cscript%3E", ['result' => 'approve'])->assertRedirect()->headers->get('Location');
+        $this->assertStringNotContainsString('lang=', $junk);
+
+        // ...and the result page speaks it.
+        $this->get($location)->assertOk()->assertSee(__('wallet.payment_page.success', [], 'ar'));
+    }
+
     public function test_the_result_page_keeps_the_default_palette_without_theme_params(): void
     {
         $payment = $this->startTopup(5000, 'key-theme-default');

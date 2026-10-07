@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Sandbox payment</title>
+    <title>{{ __('wallet.sandbox_page.title') }}</title>
     <style>
         @include('wallet::partials.theme-vars', ['theme' => $theme])
         * { box-sizing: border-box; }
@@ -27,26 +27,26 @@
 </head>
 <body>
 <div class="card">
-    <span class="badge">SANDBOX — لا يتم خصم أي مبلغ حقيقي</span>
+    <span class="badge">{{ __('wallet.sandbox_page.badge') }}</span>
     <div class="lock"><svg viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg></div>
-    <h1>{{ app()->getLocale() === 'ar' ? 'بوابة الدفع التجريبية' : 'Test payment gateway' }}</h1>
+    <h1>{{ __('wallet.sandbox_page.heading') }}</h1>
     @unless ($missing)
         <p class="amount">{{ $amount }} <small>{{ $currency }}</small></p>
     @endunless
     <div class="ref">{{ $reference }}</div>
 
     @if ($missing)
-        <p class="note">{{ app()->getLocale() === 'ar' ? 'انتهت صلاحية جلسة الدفع التجريبية هذه أو لم تعد موجودة. ارجع للتطبيق وابدأ عملية شحن جديدة.' : 'This test payment session has expired or no longer exists. Go back to the app and start a new top-up.' }}</p>
+        <p class="note">{{ __('wallet.sandbox_page.missing') }}</p>
     @elseif ($settled)
-        <p class="note">{{ app()->getLocale() === 'ar' ? 'تمت معالجة هذه العملية بالفعل.' : 'This payment was already settled.' }}</p>
+        <p class="note">{{ __('wallet.sandbox_page.settled') }}</p>
     @else
         <form method="POST" action="{{ route('api.wallet.sandbox.decide', ['reference' => $reference] + ($themeQuery ?? [])) }}">
-            <button class="approve" name="result" value="approve">{{ app()->getLocale() === 'ar' ? 'تأكيد الدفع' : 'Approve payment' }}</button>
-            <button class="decline" name="result" value="decline">{{ app()->getLocale() === 'ar' ? 'رفض العملية' : 'Decline' }}</button>
+            <button class="approve" name="result" value="approve">{{ __('wallet.sandbox_page.approve') }}</button>
+            <button class="decline" name="result" value="decline">{{ __('wallet.sandbox_page.decline') }}</button>
         </form>
     @endif
 
-    <p class="note">{{ app()->getLocale() === 'ar' ? 'هذه صفحة للتجربة فقط وتظهر في بيئة التطوير.' : 'For development and demos only.' }}</p>
+    <p class="note">{{ __('wallet.sandbox_page.dev_only') }}</p>
 </div>
 </body>
 </html>

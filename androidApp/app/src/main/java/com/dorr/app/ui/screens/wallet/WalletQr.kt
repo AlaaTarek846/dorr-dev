@@ -270,6 +270,12 @@ fun WalletScanner() {
     }
 
     WaPage(title = stringResource(R.string.wa_scan_title), onBack = { host.pop() }) {
+        // The sentence that used to sit under "Scan a QR code" on the transfer form.
+        Text(
+            stringResource(R.string.wa_scan_cta_text),
+            color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 21.sp,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).waRise(0),
+        )
         Viewfinder(busy, Modifier.waRise(0))
         Text(
             stringResource(if (busy) R.string.wa_scan_checking else R.string.wa_scan_hint),
