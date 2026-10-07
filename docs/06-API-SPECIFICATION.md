@@ -348,6 +348,8 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/support-tickets/{id}/messages` | `auth:user_api` + `ensure-phone-verified`, `throttle:30,1` | Write in the ticket: `body` and/or `image`. 422 while the ticket is resolved / closed |
 | GET | `/ratings/mine` | `auth:user_api` + `ensure-phone-verified` | `{ rated, rating }` for the app (optional `rateable_type` `service`/`provider` + `rateable_id`) |
 | POST | `/ratings` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Save a rating (`stars` 1–5 in 0.25 steps, optional `comment` ≤ 500, optional `rateable_*`). 201 `{ id, stars, comment, type, prompt_store_review, ... }`; duplicate → 422 |
+| GET | `/referrals/my-code` | `auth:user_api` + `ensure-phone-verified` | Mint or return the caller's active `DORRFC-` code; `{ code, is_active, applied }` |
+| POST | `/referrals/track` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Body `{ referral_code }` only. 201 first save, 200 identical retry; 422 invalid / inactive / self / already applied |
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.

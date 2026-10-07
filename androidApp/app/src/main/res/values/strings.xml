@@ -424,6 +424,8 @@
     <string name="invite_copied">Invite code copied</string>
     <string name="invite_share_now">Share now</string>
     <string name="invite_share_body">Join me on Dorr. Use my invite code %1$s\n%2$s</string>
+    <string name="invite_code_failed">Could not load your invite code. Check the connection and try again.</string>
+    <string name="invite_code_retry">Try again</string>
     <string name="rate_title">Rate the app</string>
     <string name="rate_sub">Stars and a short comment</string>
     <string name="rate_headline">How is Dorr for you?</string>

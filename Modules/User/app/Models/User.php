@@ -5,6 +5,7 @@ namespace Modules\User\Models;
 use App\Enums\Gender;
 use App\Enums\UserStatus;
 use App\Models\Concerns\HasNotificationDevices;
+use App\Models\Concerns\HasReferralCode;
 use App\Models\Concerns\HasSocialAccounts;
 use App\Models\Concerns\HasVerificationCodes;
 use App\Models\Country;
@@ -29,7 +30,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements HasMedia
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, HasMediaTrait, HasNotificationDevices, HasRoles, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
+    use HasApiTokens, HasFactory, HasMediaTrait, HasNotificationDevices, HasReferralCode, HasRoles, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SendsPhoneOtp, SoftDeletes;
 
     /**
      * @var list<string>

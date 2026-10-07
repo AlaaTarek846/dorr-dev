@@ -71,6 +71,8 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | PATCH | `/api/admin/v1/support-tickets/{id}/status` | admin_api, `support-tickets.change-status` | SupportTicketController::status |
 | GET | `/ratings/mine` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::mine |
 | POST | `/ratings` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::store |
+| GET | `/referrals/my-code` | auth:user_api + ensure-phone-verified | GeneralMobileReferralController::myCode |
+| POST | `/referrals/track` | auth:user_api + ensure-phone-verified | GeneralMobileReferralController::track |
 
 Public catalog content for the app: `/faqs` returns every **active general** FAQ
 (`faqs.service_id IS NULL`) ordered by `sort_order`, then `id`; `/legal-pages?type=privacy|term&service_id=` (`type` required, `service_id` optional)
