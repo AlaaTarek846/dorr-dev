@@ -1,6 +1,19 @@
 package com.dorr.app.ui.screens.wallet
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.sp
 import androidx.compose.material.icons.automirrored.rounded.List
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AccountBalance
@@ -68,3 +81,32 @@ internal fun money(minor: Long): String = formatMinor(minor, null)
 /** "12345678901" → "123 4567 8901". */
 internal fun groupWalletNumber(digits: String): String =
     if (digits.length == 11) "${digits.substring(0, 3)} ${digits.substring(3, 7)} ${digits.substring(7)}" else digits
+
+/**
+ * One line of text that shrinks (a point at a time, down to [minSize]) until it fits the width it is given,
+ * instead of being cut off — a wallet number must always be read in full, whatever the screen or font size.
+ */
+@Composable
+internal fun WaFitText(
+    text: String,
+    color: Color,
+    maxSize: TextUnit,
+    modifier: Modifier = Modifier,
+    minSize: TextUnit = 12.sp,
+    fontWeight: FontWeight = FontWeight.ExtraBold,
+    letterSpacing: TextUnit = TextUnit.Unspecified,
+) {
+    var size by remember(text, maxSize) { mutableStateOf(maxSize) }
+    Text(
+        text,
+        color = color,
+        fontSize = size,
+        fontWeight = fontWeight,
+        letterSpacing = letterSpacing,
+        maxLines = 1,
+        softWrap = false,
+        overflow = TextOverflow.Clip,
+        modifier = modifier,
+        onTextLayout = { layout -> if (layout.didOverflowWidth && size.value > minSize.value) size = (size.value - 1f).sp },
+    )
+}
