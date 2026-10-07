@@ -16,7 +16,7 @@ return new class extends Migration
             $table->morphs('authenticatable');
             $table->string('type')->comment('phone / email');
             $table->string('code')->comment('رمز OTP');
-            $table->timestamp('expires_at')->comment('وقت انتهاء الكود');
+            $table->timestamp('expires_at')->nullable()->comment('وقت انتهاء الكود');
             $table->timestamp('verified_at')->nullable()->comment('وقت التحقق');
             $table->unsignedInteger('attempts')->default(0)->comment('عدد المحاولات');
             $table->timestamps();

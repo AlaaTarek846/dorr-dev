@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.OnboardingStore
+import com.dorr.app.network.ReferralTracker
 import com.dorr.app.ui.screens.LoginScreen
 import com.dorr.app.ui.screens.MainScreen
 import com.dorr.app.ui.screens.NotificationsScreen
@@ -103,10 +105,14 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
 
     fun logout() {
         val token = AuthSession.token
+        val pushId = com.dorr.app.chat.ChatPush.currentId()
+        // A call still ringing or connected ends with the account.
+        com.dorr.app.chat.CallController.signedOut()
         // Another person may sign in on this phone: drop the chat's cache, live connection and push id.
         com.dorr.app.chat.ChatRealtime.stop()
         com.dorr.app.chat.ChatPush.signedOut()
         com.dorr.app.chat.ChatStore.clear()
+        com.dorr.app.chat.ChatOutbox.clear(context)
         com.dorr.app.chat.LiveLocationSharing.stopAll(context)
         appearance.clear()
         AuthSession.clear()
@@ -119,7 +125,7 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
         if (!token.isNullOrBlank()) {
             scope.launch {
                 runCatching {
-                    ApiClient.mobileAuth.logout("Bearer $token")
+                    ApiClient.mobileAuth.logout("Bearer $token", com.dorr.app.network.LogoutRequest(pushId))
                 }
             }
         }
@@ -246,6 +252,9 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(Routes.MAIN) {
+            LaunchedEffect(AuthSession.token) {
+                ReferralTracker.submitPending()
+            }
             MainScreen(
                 initialTab = lastMainTab,
                 initialWalletOpen = lastWalletOpen,

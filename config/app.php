@@ -68,6 +68,12 @@ return [
     'timezone' => 'UTC',
 
     /*
+    | Proxies whose X-Forwarded-For is trusted for the caller's IP (App\Http\Middleware\TrustProxies):
+    | "*" for any, or a comma list of IPs/CIDRs ("127.0.0.1,::1" for ngrok locally); empty = none.
+    */
+    'trusted_proxies' => env('TRUSTED_PROXIES', ''),
+
+    /*
     |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------

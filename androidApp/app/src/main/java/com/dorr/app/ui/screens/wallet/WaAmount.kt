@@ -60,7 +60,7 @@ fun WaAmountEntry(
 ) {
     var focused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
-    val glow by animateColorAsState(if (focused) Color(0x59E50914) else Color.Transparent, label = "glow")
+    val glow by animateColorAsState(if (focused) Wa.Red.copy(alpha = 0.35f) else Color.Transparent, label = "glow")
     val chosen = parseAmountToMinor(amountText)
 
     if (autoFocus) LaunchedEffect(Unit) { delay(350); runCatching { focusRequester.requestFocus() } }
@@ -68,7 +68,7 @@ fun WaAmountEntry(
     Column(
         modifier
             .fillMaxWidth()
-            .shadow(if (focused) 16.dp else 10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = if (focused) Color(0x40E50914) else Color(0x26111928))
+            .shadow(if (focused) 16.dp else 10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = if (focused) Wa.Red.copy(alpha = 0.25f) else Color(0x26111928))
             .clip(Wa.CardShape)
             .background(Wa.Surface)
             .border(2.dp, glow, Wa.CardShape)

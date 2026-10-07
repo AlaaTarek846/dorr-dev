@@ -4,7 +4,7 @@ namespace Modules\Wallet\Support;
 
 /**
  * How another person's name is shown before/after a transfer: the first letter
- * of each word, the rest hidden — "سارة أحمد محمد" → "س*** أ*** م***". Enough to
+ * of each word, the rest hidden — "سامر أحمد محمد" → "س*** أ*** م***". Enough to
  * recognise who you are paying, not enough to harvest names.
  */
 class MaskedName

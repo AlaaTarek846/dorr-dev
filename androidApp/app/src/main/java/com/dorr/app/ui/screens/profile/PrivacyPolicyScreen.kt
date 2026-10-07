@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.CircularProgressIndicator
@@ -40,6 +41,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -48,16 +50,47 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.text.HtmlCompat
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
-import com.dorr.app.network.PrivacyPolicyDto
+import com.dorr.app.network.LegalPageDto
 import com.dorr.app.ui.theme.AppColors
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private const val PRIVACY_EXIT_ANIM_MS = 260
+private const val LEGAL_EXIT_ANIM_MS = 260
 
 @Composable
 fun PrivacyPolicyScreen(onBack: () -> Unit) {
-    var policy by remember { mutableStateOf<PrivacyPolicyDto?>(null) }
+    LegalContentScreen(
+        legalType = "privacy",
+        headerRes = R.string.account_privacy,
+        titleRes = R.string.privacy_head,
+        emptyRes = R.string.privacy_empty,
+        icon = Icons.Rounded.Shield,
+        onBack = onBack,
+    )
+}
+
+@Composable
+fun TermsConditionsScreen(onBack: () -> Unit) {
+    LegalContentScreen(
+        legalType = "term",
+        headerRes = R.string.account_terms,
+        titleRes = R.string.terms_head,
+        emptyRes = R.string.terms_empty,
+        icon = Icons.Rounded.Description,
+        onBack = onBack,
+    )
+}
+
+@Composable
+private fun LegalContentScreen(
+    legalType: String,
+    headerRes: Int,
+    titleRes: Int,
+    emptyRes: Int,
+    icon: ImageVector,
+    onBack: () -> Unit,
+) {
+    var policy by remember { mutableStateOf<LegalPageDto?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isExiting by remember { mutableStateOf(false) }
@@ -65,15 +98,15 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
 
     val exitProgress by animateFloatAsState(
         targetValue = if (isExiting) 1f else 0f,
-        animationSpec = tween(PRIVACY_EXIT_ANIM_MS, easing = FastOutSlowInEasing),
-        label = "privacyPolicyExit",
+        animationSpec = tween(LEGAL_EXIT_ANIM_MS, easing = FastOutSlowInEasing),
+        label = "legalContentExit",
     )
 
     fun handleBack() {
         if (isExiting) return
         isExiting = true
         scope.launch {
-            delay(PRIVACY_EXIT_ANIM_MS.toLong())
+            delay(LEGAL_EXIT_ANIM_MS.toLong())
             onBack()
         }
     }
@@ -85,7 +118,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
             isLoading = true
             errorMessage = null
             try {
-                val response = ApiClient.content.getPrivacyPolicy()
+                val response = ApiClient.content.getLegalPage(type = legalType)
                 policy = response.data
             } catch (e: Exception) {
                 errorMessage = e.message
@@ -109,7 +142,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
     ) {
         PinkBackdrop(Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize()) {
-            SubHeader(stringResource(R.string.account_privacy)) { handleBack() }
+            SubHeader(stringResource(headerRes)) { handleBack() }
 
             Box(
                 modifier = Modifier
@@ -195,10 +228,10 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                                 .padding(16.dp),
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                PinkIcon(Icons.Rounded.Shield)
+                                PinkIcon(icon)
                                 Spacer(Modifier.width(10.dp))
                                 Text(
-                                    stringResource(R.string.privacy_head),
+                                    stringResource(titleRes),
                                     color = settingsAccent(),
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.ExtraBold,
@@ -209,7 +242,7 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
 
                             if (rawContent.isNullOrBlank()) {
                                 Text(
-                                    stringResource(R.string.privacy_empty),
+                                    stringResource(emptyRes),
                                     fontSize = 13.sp,
                                     lineHeight = 24.sp,
                                     color = if (settingsNight()) settingsMut() else AppColors.textSecondary,

@@ -11,32 +11,23 @@ import java.net.NoRouteToHostException
 import java.net.UnknownHostException
 
 /**
- * Bug fix (2026-09-29): the ngrok tunnel forwards requests with
- * --host-header=dorr.test, but this project's Laragon folder used to be
- * named dorr-dev (vhost dorr-dev.test) - a mismatched Host header, so
- * Apache/Laravel resolved every phone request to a DIFFERENT, unrelated
- * project+database than the one this codebase and the web admin panel
- * both point at. Every write the phone made (chat messages, AI
- * requests, orders, ...) landed in that other database, and every
- * admin screen reading from the real database looked permanently
- * empty. Fixed by renaming the project folder itself to `dorr` (vhost
- * dorr.test) to match what the ngrok tunnel already sends - not by
- * changing the host header - so LOCAL_MEDIA_HOST stays dorr.test.
+ * Which backend this build talks to is each developer's own setting, in androidApp/local.properties
+ * (not committed — so merges never swap it again):
+ *
+ *   dorr.apiHost=my-tunnel.ngrok-free.dev   dorr.apiScheme=https   (ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test)
+ *   dorr.apiHost=192.168.1.3                dorr.apiScheme=http    (phone + PC on the same Wi-Fi; the IP from `ipconfig`,
+ *                                                                  listed as a ServerAlias in Apache — cleartext is allowed by the manifest)
+ *   dorr.apiHost=10.0.2.2                   dorr.apiScheme=http    (Android emulator)
+ *
+ * The local dev host (LOCAL_MEDIA_HOST) is what Laravel builds absolute media URLs with, so those
+ * get rewritten to the reachable host below.
  */
-private const val LAN_HOST = "192.168.1.5"
-private const val EMULATOR_HOST = "10.0.2.2"
+// Dev backend: this ngrok tunnel (https). To switch to LAN/emulator, put dorr.apiHost /
+// dorr.apiScheme in androidApp/local.properties and restore BASE_HOST from BuildConfig.
+// ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test
 private const val NGROK_HOST = "zane-metazoal-max.ngrok-free.dev"
-
-/** Emulator: [EMULATOR_HOST] · Phone on Wi‑Fi: [LAN_HOST] · Remote: [NGROK_HOST] */
 private const val BASE_HOST = NGROK_HOST
-
-private fun apiBaseUrl(host: String): String =
-    if (host == NGROK_HOST) "https://$host/api/" else "http://$host/api/"
-
-private val BASE_URL = apiBaseUrl(BASE_HOST)
-// NOTE: BASE_HOST must be this PC's current Wi-Fi IP (check `ipconfig`) AND be
-// listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
-// otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
+private const val BASE_URL = "https://$BASE_HOST/api/"
 
 private const val LOCAL_MEDIA_HOST = "dorr.test"
 
@@ -83,11 +74,16 @@ object ApiClient {
             }
         }
         .addInterceptor { chain ->
+            // My chosen wallet (another country's wallet of mine) — on wallet requests only.
+            val walletCountry = WalletCountry.headerFor(chain.request().url.encodedPath)
             val request = chain.request().newBuilder()
+                .apply { if (walletCountry != null) header("X-Country", walletCountry) }
                 .header("ngrok-skip-browser-warning", "1")
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
                 .header("X-Device-Id", DeviceId.current)
+                // The recipient-time scheduling of greeting cards (spec 164) needs my zone.
+                .header("X-Timezone", java.util.TimeZone.getDefault().id)
                 .build()
             chain.proceed(request)
         }
@@ -121,6 +117,12 @@ object ApiClient {
     val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
     val aiChat: AiChatApi by lazy { retrofit.create(AiChatApi::class.java) }
     val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
+    val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
+    val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
+    val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
+    val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
+    val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
+    val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */
 
@@ -130,6 +132,9 @@ object ApiClient {
         retrofit.create(MobileAppearanceDefaultsApi::class.java)
     }
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
+    val support: SupportApi by lazy { retrofit.create(SupportApi::class.java) }
+    val ratings: RatingApi by lazy { retrofit.create(RatingApi::class.java) }
+    val referrals: ReferralApi by lazy { retrofit.create(ReferralApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 
@@ -150,5 +155,7 @@ object ApiClient {
             ?.let { if (it.startsWith("/")) "$scheme://$LOCAL_MEDIA_HOST$it" else it }
             ?.replace("http://$LOCAL_MEDIA_HOST", "$scheme://$BASE_HOST")
             ?.replace("https://$LOCAL_MEDIA_HOST", "$scheme://$BASE_HOST")
+            // `php artisan serve` / a default APP_URL builds loopback URLs, which a phone can never reach.
+            ?.replace(Regex("""^https?://(127[.]0[.]0[.]1|localhost)(:[0-9]+)?"""), "$scheme://$BASE_HOST")
     }
 }

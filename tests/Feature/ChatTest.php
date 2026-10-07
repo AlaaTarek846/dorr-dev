@@ -603,6 +603,25 @@ class ChatTest extends TestCase
         $this->getJson("/api/mobile/v1/chat/calls/{$callId}", $this->headers())->assertOk()->assertJsonPath('data.status', 'missed');
     }
 
+    public function test_the_caller_giving_up_after_the_ring_time_is_a_missed_call_not_a_cancelled_one(): void
+    {
+        config(['chat.livekit.url' => 'wss://x', 'chat.livekit.api_key' => 'k', 'chat.livekit.api_secret' => 's']);
+        $this->saveContact($this->bob, $this->alice);
+        $conversation = $this->openDirect($this->alice, $this->bob);
+
+        $this->as($this->alice);
+        $start = fn () => $this->postJson("/api/mobile/v1/chat/conversations/{$conversation['id']}/calls", ['type' => 'audio'], $this->headers())->json('data.call.id');
+
+        // Hung up while it rang: cancelled.
+        $first = $start();
+        $this->postJson("/api/mobile/v1/chat/calls/{$first}/leave", [], $this->headers())->assertOk()->assertJsonPath('data.call.status', 'cancelled');
+
+        // The app's ring timer ran out (cron may not have run yet): missed.
+        $second = $start();
+        $this->travel(50)->seconds();
+        $this->postJson("/api/mobile/v1/chat/calls/{$second}/leave", [], $this->headers())->assertOk()->assertJsonPath('data.call.status', 'missed');
+    }
+
     // ================================================================ helpers
 
     private function makeUser(string $name, string $phone): User

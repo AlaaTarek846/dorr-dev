@@ -1,5 +1,6 @@
 package com.dorr.app.network
 
+import com.google.gson.JsonElement
 import com.google.gson.JsonParser
 import com.google.gson.annotations.SerializedName
 
@@ -45,19 +46,28 @@ data class ApiFailure(
     val httpStatus: Int?,
     /** `data.locked_until` on a `wallet_pin_locked` (423) answer — an ISO-8601 instant. */
     val lockedUntil: String? = null,
+    /** `data.retry_after` (seconds) on a `chat_slow_mode` (429) answer. */
+    val retryAfter: Int? = null,
 )
 
+/**
+ * Reads an error answer without ever throwing: the envelope's `data` is `[]` on most errors (an
+ * empty PHP array), `errors` may be missing or not a map — reading those as objects used to crash
+ * the app on every refused request (e.g. "delete for everyone" after the time limit).
+ */
 fun Throwable.apiFailure(): ApiFailure {
     if (this !is retrofit2.HttpException) return ApiFailure(null, null, null)
-    val raw = response()?.errorBody()?.string()
-    val root = raw?.let { runCatching { JsonParser.parseString(it).asJsonObject }.getOrNull() }
-    val firstError = root?.get("errors")?.takeIf { it.isJsonObject }?.asJsonObject
-        ?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
-    val message = firstError ?: root?.get("message")?.takeIf { !it.isJsonNull }?.asString
-    val errorCode = root?.get("error_code")?.takeIf { !it.isJsonNull }?.asString
-    val lockedUntil = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
-        ?.get("locked_until")?.takeIf { !it.isJsonNull }?.asString
-    return ApiFailure(message, errorCode, code(), lockedUntil)
+    val raw = runCatching { response()?.errorBody()?.string() }.getOrNull()
+    val root = raw?.let { runCatching { JsonParser.parseString(it) }.getOrNull() }?.takeIf { it.isJsonObject }?.asJsonObject
+    fun JsonElement?.text(): String? = this?.takeIf { it.isJsonPrimitive }?.asString
+    val firstError = root?.get("errors")?.takeIf { it.isJsonObject }?.asJsonObject?.entrySet()?.firstOrNull()?.value
+        ?.let { if (it.isJsonArray) it.asJsonArray.firstOrNull() else it }.text()
+    val message = firstError ?: root?.get("message").text()
+    val errorCode = root?.get("error_code").text()
+    val data = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+    val lockedUntil = data?.get("locked_until").text()
+    val retryAfter = data?.get("retry_after")?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
+    return ApiFailure(message, errorCode, code(), lockedUntil, retryAfter)
 }
 
 data class CountryDto(
@@ -88,6 +98,8 @@ data class LanguageDto(
     val name: String,
     val direction: String,
     val flag: FlagDto? = null,
+    /** Version of the downloadable Android strings; null for the bundled ar/en. */
+    @SerializedName("android_version") val androidVersion: String? = null,
 )
 
 data class OtpRequest(

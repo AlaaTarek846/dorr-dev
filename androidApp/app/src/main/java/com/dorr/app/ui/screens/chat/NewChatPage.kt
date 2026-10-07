@@ -63,6 +63,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Bookmark
 import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.QrCode2
@@ -154,6 +155,18 @@ internal fun ChatHost.openChatWith(profile: ProfileDto) {
     }
 }
 
+/** Opens my "note to self" chat (created on first use). */
+internal fun ChatHost.openNoteToSelf() {
+    scope.launch {
+        try {
+            val conversation = ApiClient.chat.openSelf(chatAuth()).data ?: return@launch
+            replace(ChRoute.Conversation(conversation.id, conversation))
+        } catch (e: Exception) {
+            e.apiFailure().message?.let { showToast(it) }
+        }
+    }
+}
+
 // =============================================================================== new chat
 
 @Composable
@@ -229,6 +242,8 @@ fun NewChatPage() {
 
     val digits = query.filter { it.isDigit() || it == '+' }
     val looksLikeNumber = digits.length >= 8 && digits.length >= query.trim().length - 2
+    // "@name" — someone's username (spec 81), found without their number.
+    val looksLikeUsername = query.trim().startsWith("@") && query.trim().length >= 4
     fun matches(name: String, phone: String) = query.isBlank() || name.contains(query, true) || phone.filter { it.isDigit() }.contains(digits.filter { it.isDigit() }.ifEmpty { "~" })
     val all = contacts.orEmpty()
     val onDorr = all.filter { it.isRegistered && matches(it.name, it.phone) }
@@ -240,10 +255,16 @@ fun NewChatPage() {
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
             item {
                 ChField(query, { query = it; lookupError = null }, stringResource(R.string.ch_find_by_number), icon = Icons.Rounded.Search, clearable = !looksLikeNumber, trailing = {
-                    AnimatedVisibility(looksLikeNumber, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
+                    AnimatedVisibility(looksLikeNumber || looksLikeUsername, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
                         Text(
                             stringResource(R.string.ch_find), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red).clickable { byPhone = query }.padding(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red).clickable {
+                                if (looksLikeUsername) host.scope.launch {
+                                    runCatching { ApiClient.more.byUsername(chatAuth(), query.trim()).data }
+                                        .onSuccess { p -> p?.let { host.openChatWith(it) } }
+                                        .onFailure { lookupError = it.apiFailure().message }
+                                } else byPhone = query
+                            }.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
                     }
                 })
@@ -261,6 +282,24 @@ fun NewChatPage() {
                     ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 3, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
                 }
             }
+            // Broadcast lists: one message, each person gets it in our own chat (like WhatsApp).
+            item {
+                Row(
+                    Modifier.fillMaxWidth().chStagger(4).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
+                        .clickable { host.push(ChRoute.Broadcasts) }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Campaign, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ch_broadcasts), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text(stringResource(R.string.ch_broadcast_hint), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
+                }
+            }
             // Channels: discover, follow, or start one.
             item {
                 Row(
@@ -275,6 +314,24 @@ fun NewChatPage() {
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.ch_channels), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                         Text(stringResource(R.string.ch_channels_hero_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
+                }
+            }
+            // Note to self: notes, links and files I keep for myself, on all my devices.
+            item {
+                Row(
+                    Modifier.fillMaxWidth().chStagger(5).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
+                        .clickable { host.openNoteToSelf() }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.TintBrush), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Bookmark, null, tint = Ch.Red, modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ch_note_to_self), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text(stringResource(R.string.ch_note_to_self_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
                     }
                     Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
                 }
@@ -333,7 +390,7 @@ internal fun InviteSheet(entry: ContactEntry, contactCountry: String?, onDismiss
                 ChAvatar(null, entry.name, entry.phone, size = 46.dp)
                 Spacer(Modifier.width(12.dp))
                 Column {
-                    Text(stringResource(R.string.ch_invite_title, entry.name.ifBlank { entry.phone }), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                    Text(stringResource(R.string.ch_invite_title, entry.name.ifBlank { ltrNumber(entry.phone) }), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
                     Text(text, color = Ch.Mut, fontSize = 12.5.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
             }
@@ -422,9 +479,9 @@ private fun InviteRow(entry: ContactEntry, index: Int, onInvite: () -> Unit) {
         ChAvatar(null, entry.name, entry.phone, size = 42.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(entry.name.ifBlank { entry.phone }, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(entry.name.ifBlank { ltrNumber(entry.phone) }, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                Text(entry.phone, color = Ch.Mut, fontSize = 12.sp)
+                Text(ltrNumber(entry.phone), color = Ch.Mut, fontSize = 12.sp)
             }
         }
         Text(
@@ -477,7 +534,7 @@ private fun ContactRow(contact: ContactDto, index: Int, trailing: (@Composable (
         Column(Modifier.weight(1f)) {
             Text(contact.name, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalLayoutDirection provides androidx.compose.ui.unit.LayoutDirection.Ltr) {
-                Text(contact.phone, color = Ch.Mut, fontSize = 12.5.sp)
+                Text(ltrNumber(contact.phone), color = Ch.Mut, fontSize = 12.5.sp)
             }
         }
         trailing?.invoke()

@@ -117,6 +117,23 @@ class MobileProfileController extends Controller
     }
 
     /**
+     * Remove the avatar (file and media row). Idempotent: a user without an
+     * avatar gets the same success response.
+     */
+    public function deleteAvatar(Request $request): JsonResponse
+    {
+        /** @var User $user */
+        $user = $request->user('user_api');
+
+        $user->clearMediaCollection('avatar');
+
+        return ApiResponse::success(
+            new UserResource($this->freshUser($user)),
+            __('api.deleted'),
+        );
+    }
+
+    /**
      * Step 1 of the email change: validate the new address, remember it, and
      * mail an OTP to it. Nothing on the user row changes until confirm.
      */

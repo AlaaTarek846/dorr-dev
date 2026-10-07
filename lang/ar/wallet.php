@@ -47,6 +47,12 @@ return [
         'eligibility_settings_missing' => 'هذه الخدمة غير متاحة في دولتك بعد.',
         'withdrawal_pending_exists' => 'لديك طلب سحب قيد المراجعة بالفعل.',
         'withdrawal_method_unavailable' => 'وسيلة السحب هذه غير متاحة.',
+        'checkout_unknown_purpose' => 'لا يمكن الدفع لهذا هنا.',
+        'checkout_not_found' => 'غير موجود.',
+        'checkout_not_pending' => 'تم الدفع أو الإغلاق بالفعل.',
+        'checkout_expired' => 'انتهت صلاحية صفحة الدفع. ابدأ من جديد.',
+        'checkout_insufficient_balance' => 'رصيد المحفظة غير كافٍ. اشحن المحفظة أو ادفع بطريقة أخرى.',
+        'checkout_gateway_pending' => 'هناك عملية دفع جارية لهذا بالفعل.',
         'withdrawal_not_pending' => 'تمت مراجعة طلب السحب هذا من قبل.',
         'withdrawal_not_found' => 'غير موجود.',
         'withdrawal_no_receipt' => 'لا يوجد إيصال لهذا الطلب.',
@@ -64,6 +70,7 @@ return [
         'reversal' => 'عكس عملية (:reason)',
         'manual_adjustment' => 'تسوية يدوية (:reason)',
         'transfer_fee' => 'رسوم التحويل',
+        'service_payment' => ':title',
     ],
 
     'types' => [
@@ -82,6 +89,16 @@ return [
         'reversal' => 'عكس عملية',
     ],
 
+    'sandbox_page' => [
+        'title' => 'بوابة الدفع التجريبية',
+        'badge' => 'تجريبي — لا يتم خصم أي مبلغ حقيقي',
+        'heading' => 'بوابة الدفع التجريبية',
+        'missing' => 'انتهت صلاحية جلسة الدفع التجريبية هذه أو لم تعد موجودة. ارجع للتطبيق وابدأ عملية شحن جديدة.',
+        'settled' => 'تمت معالجة هذه العملية بالفعل.',
+        'approve' => 'تأكيد الدفع',
+        'decline' => 'رفض العملية',
+        'dev_only' => 'هذه صفحة للتجربة فقط وتظهر في بيئة التطوير.',
+    ],
     'payment_page' => [
         'success' => 'تم استلام الدفع. يمكنك إغلاق هذه الصفحة والعودة للتطبيق.',
         'failed' => 'لم تكتمل عملية الدفع. يمكنك إغلاق هذه الصفحة والمحاولة مرة أخرى.',

@@ -15,6 +15,7 @@ use Modules\Chat\Support\ParticipantType;
 class ChatParticipant extends Model
 {
     protected $fillable = [
+        'privacy_circle_id',
         'conversation_id',
         'participant_type',
         'participant_id',
@@ -30,6 +31,9 @@ class ChatParticipant extends Model
         'pinned_at',
         'is_archived',
         'is_locked',
+        'lock_pin_hash',
+        'lock_pin_failures',
+        'lock_pin_until',
         'muted_until',
         'cleared_before_message_id',
         'is_deleted',
@@ -51,6 +55,7 @@ class ChatParticipant extends Model
             'has_unread_mention' => 'boolean',
             'is_archived' => 'boolean',
             'is_locked' => 'boolean',
+            'lock_pin_until' => 'datetime',
             'is_deleted' => 'boolean',
             'custom_theme' => 'array',
         ];
@@ -99,5 +104,11 @@ class ChatParticipant extends Model
     {
         return $this->participant_type === ParticipantType::aliasFor($account)
             && (int) $this->participant_id === (int) $account->getKey();
+    }
+
+    /** My privacy circle for this chat (spec 98). */
+    public function privacyCircle(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ChatPrivacyCircle::class, 'privacy_circle_id');
     }
 }

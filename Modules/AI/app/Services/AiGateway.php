@@ -10,6 +10,7 @@ use Modules\AI\Models\AiProviderLog;
 use Modules\AI\Models\AiRequest;
 use Modules\AI\Services\Connectors\AnthropicConnector;
 use Modules\AI\Services\Connectors\Contracts\AiConnector;
+use Modules\AI\Services\Connectors\Contracts\TranscribesAudio;
 use Modules\AI\Services\Connectors\GoogleConnector;
 use Modules\AI\Services\Connectors\GroqConnector;
 use Modules\AI\Services\Connectors\OpenAiConnector;
@@ -455,6 +456,27 @@ class AiGateway
         } catch (\Throwable) {
             // Audit logging must never take down a live chat request.
         }
+    }
+
+    /**
+     * Speech to text, for providers that take audio (OpenAI, Groq, Google — not Anthropic).
+     *
+     * @return array{success: bool, message: string, content: ?string}
+     */
+    public function transcribe(AiProvider $provider, string $path, string $mime): array
+    {
+        $connector = $this->connectorFor($provider);
+
+        if (! $connector instanceof TranscribesAudio) {
+            return ['success' => false, 'message' => __('ai.transcription_unsupported'), 'content' => null];
+        }
+
+        return $connector->transcribe($provider, $path, $mime);
+    }
+
+    public function canTranscribe(AiProvider $provider): bool
+    {
+        return $this->connectorFor($provider) instanceof TranscribesAudio;
     }
 
     protected function connectorFor(AiProvider $provider): AiConnector

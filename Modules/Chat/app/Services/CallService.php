@@ -57,11 +57,19 @@ class CallService
         if (! $settings->calls_enabled) {
             throw ChatException::callsDisabled();
         }
+        // Switched off in my country (internet calls need a licence in some places).
+        if (! $settings->callsAllowedFor($me)) {
+            throw new ChatException('calls_unavailable_country', 403);
+        }
 
         $mine = $this->conversations->participantOf($me, $conversation, true);
 
         if ($conversation->isChannel()) {
             throw new ChatException('channel_no_calls', 422);
+        }
+
+        if ($conversation->isSelf()) {
+            throw new ChatException('self_no_calls', 422);
         }
 
         if ($conversation->status !== ConversationStatus::Accepted) {
@@ -81,11 +89,17 @@ class CallService
         $others = $conversation->activeParticipants()->where('id', '!=', $mine->id)->get();
 
         if ($conversation->isGroup()) {
+            // Members in a country where calls are off simply aren't rung.
+            $others = $others->filter(fn (ChatParticipant $p) => $settings->callsAllowedFor($p->participant()))->values();
+
             if ($others->count() + 1 > $settings->max_call_participants) {
                 throw ChatException::callTooManyParticipants($settings->max_call_participants);
             }
         } else {
             $peer = $others->first()?->participant() ?? throw ChatException::userNotFound();
+            if (! $settings->callsAllowedFor($peer)) {
+                throw new ChatException('calls_unavailable_peer_country', 403);
+            }
             $this->privacy->assertCanCall($me, $peer);
         }
 
@@ -130,6 +144,9 @@ class CallService
 
         if ($call->status->isFinal()) {
             throw ChatException::callNotActive();
+        }
+        if (! ChatSetting::current()->callsAllowedFor($me)) {
+            throw new ChatException('calls_unavailable_country', 403);
         }
 
         $join = DB::transaction(function () use ($me, $call, $row, $callRow) {
@@ -189,7 +206,10 @@ class CallService
 
             if ($call->status === CallStatus::Ringing) {
                 if ($row->id === $call->initiator_participant_id) {
-                    $this->finish($call, CallStatus::Cancelled);
+                    // The caller's app gives up once it rang out: that's a missed call, not a
+                    // cancelled one (and it no longer waits for chat:expire-calls to run).
+                    $rangOut = $call->created_at->lte(now()->subSeconds((int) config('chat.call_ring_timeout_seconds', 45)));
+                    $this->finish($call, $rangOut ? CallStatus::Missed : CallStatus::Cancelled);
                 }
 
                 return;

@@ -28,11 +28,17 @@ class ChatMessage extends Model implements HasMedia
         'body',
         'meta',
         'reply_to_id',
+        'thread_id',
+        'thread_replies_count',
+        'thread_last_at',
         'is_forwarded',
         'forward_score',
         'mentions',
         'has_link',
         'view_once',
+        'is_silent',
+        'is_urgent',
+        'is_sensitive',
         'edited_at',
         'deleted_for_everyone_at',
         'expires_at',
@@ -42,12 +48,17 @@ class ChatMessage extends Model implements HasMedia
     {
         return [
             'type' => MessageType::class,
+            'thread_replies_count' => 'integer',
+            'thread_last_at' => 'datetime',
             'meta' => 'array',
             'mentions' => 'array',
             'is_forwarded' => 'boolean',
             'forward_score' => 'integer',
             'has_link' => 'boolean',
             'view_once' => 'boolean',
+            'is_silent' => 'boolean',
+            'is_urgent' => 'boolean',
+            'is_sensitive' => 'boolean',
             'edited_at' => 'datetime',
             'deleted_for_everyone_at' => 'datetime',
             'expires_at' => 'datetime',
@@ -112,5 +123,11 @@ class ChatMessage extends Model implements HasMedia
     public function isFrom(string $type, int $id): bool
     {
         return $this->sender_type === $type && (int) $this->sender_id === $id;
+    }
+
+    /** The message this one replies to in a thread (spec 122). */
+    public function threadRoot(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(self::class, 'thread_id');
     }
 }

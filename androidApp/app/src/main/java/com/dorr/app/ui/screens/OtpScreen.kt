@@ -79,6 +79,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -88,6 +90,7 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.OtpRequest
 import com.dorr.app.network.VerifyOtpRequest
+import com.dorr.app.network.ReferralTracker
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
@@ -153,6 +156,7 @@ fun OtpScreen(
                 AuthSession.token = data?.token
                 AuthSession.user = data?.user
                 isSuccess = true
+                ReferralTracker.submitPending()
                 delay(300)
                 onVerified()
             }.onFailure {
@@ -374,8 +378,8 @@ fun OtpScreen(
                         .shadow(
                             elevation = 8.dp,
                             shape = buttonShape,
-                            ambientColor = Color(0x38E50914),
-                            spotColor = Color(0x38E50914),
+                            ambientColor = Color(0x38001B53),
+                            spotColor = Color(0x38001B53),
                         ),
                 ) {
                     if (isVerifying) {
@@ -416,7 +420,7 @@ fun OtpScreen(
                                 .padding(top = 16.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
-                                .border(1.dp, if (night) AccountDark.accent else Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
+                                .border(1.dp, if (night) AccountDark.accent else Color(0xFFFBC8B7), RoundedCornerShape(12.dp))
                                 .padding(horizontal = 14.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
@@ -429,7 +433,7 @@ fun OtpScreen(
                             Spacer(Modifier.width(10.dp))
                             Text(
                                 text = message,
-                                color = if (night) AccountDark.accent else Color(0xFF991B1B),
+                                color = if (night) AccountDark.accent else Color(0xFF001B53),
                                 style = MaterialTheme.typography.bodySmall,
                                 fontWeight = FontWeight.Medium,
                                 modifier = Modifier.weight(1f),
@@ -455,6 +459,8 @@ fun OtpScreen(
     }
 }
 
+private const val OTP_MARKER = "​"
+
 @Composable
 private fun DigitBox(
     value: String,
@@ -469,7 +475,7 @@ private fun DigitBox(
     val scope = rememberCoroutineScope()
 
     val night = settingsNight()
-    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.line else Color(0xFFF3C4CC)
+    val boxBorderColor = overrideBorderColor ?: if (isFocused) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.line else Color(0xFFFBD2C4)
 
     Surface(
         modifier = Modifier
@@ -488,9 +494,18 @@ private fun DigitBox(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center,
         ) {
+            // A soft keyboard sends no key event for Backspace on an empty field, so the box always
+            // holds an invisible marker: deleting it is how an "empty" box learns Backspace was pressed.
+            val shown = OTP_MARKER + value
             BasicTextField(
-                value = value,
-                onValueChange = { new ->
+                value = TextFieldValue(shown, TextRange(shown.length)),
+                onValueChange = { typed ->
+                    val new = typed.text
+                    if (!new.startsWith(OTP_MARKER)) {
+                        // Marker deleted → Backspace: clear this digit, or step back from an empty box.
+                        if (value.isEmpty()) onBackspaceOnEmpty() else onValueChange("")
+                        return@BasicTextField
+                    }
                     val digit = new.filter(Char::isDigit).takeLast(1)
                     onValueChange(digit)
                     if (digit.isNotEmpty()) {

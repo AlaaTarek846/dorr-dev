@@ -11,6 +11,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import com.dorr.app.chat.ChatEvent
 import com.dorr.app.chat.ChatRealtime
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.apiFailure
 import com.dorr.app.network.ConversationDto
 import com.dorr.app.network.LastMessageDto
 import com.dorr.app.network.PresenceDto
@@ -27,6 +28,8 @@ sealed interface ChRoute {
     data object List : ChRoute
     data class Conversation(val id: String, val preview: ConversationDto? = null) : ChRoute
     data class Info(val id: String) : ChRoute
+    /** Everything shared in a chat: photos & videos, files, links, voice — [tab] opens on one of them. */
+    data class Media(val id: String, val tab: String = "media") : ChRoute
     data object NewChat : ChRoute
     /** Find and follow public channels. */
     data object Channels : ChRoute
@@ -34,11 +37,29 @@ sealed interface ChRoute {
     data class NewGroup(val addTo: String? = null) : ChRoute
     data object MyQr : ChRoute
     data object Privacy : ChRoute
+    /** My business tools: opening hours, welcome / away messages, quick replies. */
+    data object Business : ChRoute
     data object Starred : ChRoute
+    /** Messages I set aside to read later. */
+    data object ReadLater : ChRoute
     data object Calls : ChRoute
     /** Write a text story, or caption a picked photo / video (`media`). */
     data class StoryComposer(val media: String? = null) : ChRoute
     data object StoryPrivacy : ChRoute
+    /** A thread under one message (spec 122). */
+    data class Thread(val conversationId: String, val rootId: String) : ChRoute
+    /** A group's decisions log (spec 120). */
+    data class Decisions(val conversationId: String, val isAdmin: Boolean) : ChRoute
+    data object Broadcasts : ChRoute
+    data class Broadcast(val id: String) : ChRoute
+    /** My tasks (spec 38). */
+    data object Tasks : ChRoute
+    /** "What I missed" (spec 123). */
+    data object CatchUp : ChRoute
+    /** Every privacy choice in one place (spec 127). */
+    data object PrivacyCenter : ChRoute
+    /** A group decision's room (spec 153). */
+    data class DecisionRoom(val id: String) : ChRoute
 }
 
 /** The full-screen story viewer: which people's stories it pages through, and where it starts. */
@@ -80,7 +101,15 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     /** A story being uploaded — the "my status" ring spins meanwhile. */
     var storyUploading by mutableStateOf(false)
 
+    /**
+     * The home page's host (HomeStories): stories posted from it are public, and "refresh" reloads
+     * the home page's circles instead of the chat's stories bar.
+     */
+    var publicMode = false
+    var onRefreshStories: (suspend () -> Unit)? = null
+
     suspend fun refreshStories() {
+        onRefreshStories?.let { it(); return }
         runCatching { ApiClient.chat.stories(chatAuth()).data }.getOrNull()?.let { stories = it }
     }
 
@@ -113,6 +142,24 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
         stack[stack.lastIndex] = route
     }
 
+    /** A message the conversation page should scroll to and flash once it's open (conversation id → message id). */
+    var focusRequest by mutableStateOf<Pair<String, String>?>(null)
+
+    /**
+     * "Show in chat" (media page, starred…): back to that conversation if it's already open under
+     * this page — no second copy of it — or open it; then it scrolls to the message.
+     */
+    fun showInChat(conversationId: String, messageId: String) {
+        focusRequest = conversationId to messageId
+        val open = stack.indexOfLast { it is ChRoute.Conversation && it.id == conversationId }
+        if (open >= 0) {
+            forward = false
+            while (stack.lastIndex > open) stack.removeAt(stack.lastIndex)
+        } else {
+            push(ChRoute.Conversation(conversationId))
+        }
+    }
+
     fun showToast(message: String) {
         toast = message
         toastJob?.cancel()
@@ -126,6 +173,19 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     /** My folders (the extra chips after All / Unread / Groups / Archived). */
     val folders = mutableStateListOf<com.dorr.app.network.FolderDto>()
+
+    /** My privacy circles (spec 98) — chips next to the folders; "circle:{id}" as the filter. */
+    val circles = mutableStateListOf<com.dorr.app.network.CircleDto>()
+
+    suspend fun refreshCircles() {
+        runCatching { ApiClient.organize.circles(chatAuth()).data }.getOrNull()?.let {
+            circles.clear()
+            circles.addAll(it)
+        }
+    }
+
+    /** The folder whose chats are being picked (FolderChatsSheet), if any. */
+    var fillingFolder by mutableStateOf<com.dorr.app.network.FolderDto?>(null)
 
     suspend fun refreshFolders() {
         runCatching { ApiClient.chat.folders(chatAuth()).data }.getOrNull()?.let {
@@ -146,10 +206,12 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
         try {
             // "folder:12" is one of my folders; everything else is a server filter.
             val folderId = filter.removePrefix("folder:").takeIf { filter.startsWith("folder:") }?.toIntOrNull()
+            val circleId = filter.removePrefix("circle:").takeIf { filter.startsWith("circle:") }
             val page = ApiClient.chat.conversations(
                 chatAuth(),
-                filter = filter.takeIf { it != "all" && folderId == null },
+                filter = filter.takeIf { it != "all" && folderId == null && circleId == null },
                 folder = folderId,
+                circle = circleId,
                 perPage = 50,
             )
             conversations.clear()
@@ -234,6 +296,7 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
                 if (senderKey != null) clearActivity(id, senderKey)
             }
             "chat.message.deleted", "chat.message.updated", "chat.conversation.updated" -> conversationId?.let { id -> scope.launch { reload(id) } }
+            "chat.reminder.due" -> showToast("⏰ " + (data.str("note") ?: find(conversationId.orEmpty())?.title.orEmpty()))
             "chat.receipt" -> conversationId?.let { id ->
                 val c = find(id) ?: return
                 val last = c.lastMessage ?: return
@@ -303,9 +366,16 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     fun activity(conversationId: String): List<Activity> = activity[conversationId].orEmpty()
 
     suspend fun reload(id: String) {
-        runCatching { ApiClient.chat.conversation(chatAuth(), id).data }.getOrNull()?.let { fresh ->
-            val wasListed = find(id) != null || fresh.lastMessage != null || fresh.isGroup
-            if (wasListed) upsert(fresh)
+        try {
+            ApiClient.chat.conversation(chatAuth(), id).data?.let { fresh ->
+                val wasListed = find(id) != null || fresh.lastMessage != null || fresh.isGroup
+                if (wasListed) upsert(fresh)
+            }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            // Gone (the owner deleted the group / channel for everyone): off the list.
+            if (e.apiFailure().httpStatus == 404) remove(id)
         }
     }
 

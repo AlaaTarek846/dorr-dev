@@ -11,10 +11,41 @@ import com.onesignal.notifications.INotificationServiceExtension
  *    (full-screen page, looping ringtone, Answer / Decline).
  *  - A missed / cancelled call stops that ringing and lets the "missed call" notification show.
  *  - While the app is open, the in-app ringing screen already handles the call, so no notification.
+ *  - A message the sender sent "without sound" shows silently (no sound, no vibration).
  */
 class ChatNotificationExtension : INotificationServiceExtension {
     override fun onNotificationReceived(event: INotificationReceivedEvent) {
+        // Nobody signed in on this phone (logged out, or a push sent before the server forgot this
+        // phone): nothing is shown — no message, no ringing.
+        if (!com.dorr.app.network.AuthSession.isSignedIn(event.context)) {
+            event.preventDefault()
+            return
+        }
         val data = event.notification.additionalData ?: return
+        // A message sent "without sound": shown as usual, but no sound and no vibration.
+        // Nothing shown / privacy mode: folded into one "N new messages" that names nobody.
+        // P4 (a circle that shows nothing): no notification at all — the app's counter updates on its own.
+        if (data.optString("type") == "chat" && data.optString("hidden") == "1") {
+            event.preventDefault()
+            return
+        }
+        if (data.optString("type") == "chat" && data.optString("private") == "1") {
+            event.preventDefault()
+            ChatShield.showPrivate(event.context)
+            return
+        }
+        if (data.optString("type") == "chat" && data.optString("silent") == "1") {
+            event.notification.setExtender { builder -> builder.setSilent(true) }
+            return
+        }
+        // This chat has its own tone (or "none") picked on this phone.
+        if (data.optString("type") == "chat") {
+            val conversationId = data.optString("conversation_uuid")
+            if (conversationId.isNotBlank() && ChatTones.get(event.context, conversationId) != null) {
+                event.notification.setExtender { builder -> builder.also { ChatTones.apply(event.context, conversationId, it) } }
+            }
+            return
+        }
         if (data.optString("type") != "chat_call") return
 
         val callId = data.optString("call_id")

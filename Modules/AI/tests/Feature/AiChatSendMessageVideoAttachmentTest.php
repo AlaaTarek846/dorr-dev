@@ -8,7 +8,10 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Config;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiPlan;
+use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
+use Modules\AI\Safety\RiskAssessment;
+use Modules\AI\Safety\RiskClassifier;
 use Modules\AI\Services\AiChatService;
 use Modules\AI\Services\AiGateway;
 use Modules\User\Models\User;
@@ -44,6 +47,22 @@ use Tests\TestCase;
 class AiChatSendMessageVideoAttachmentTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // This test pins the exact AiGateway::chat() calls of one turn, so the DORR AI safety
+        // classifier keeps to its keyword rules here instead of making its own model call
+        // (that path is covered by tests/Feature/AiSafetyTest).
+        $this->app->instance(RiskClassifier::class, new class($this->app->make(AiGateway::class)) extends RiskClassifier
+        {
+            public function classify(string $request, ?AiProvider $provider = null): RiskAssessment
+            {
+                return $this->byRules($request);
+            }
+        });
+    }
 
     protected function makeOwner(): User
     {

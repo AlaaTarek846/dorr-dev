@@ -10,6 +10,9 @@ return [
     */
     'request_timeout' => (int) env('AI_REQUEST_TIMEOUT', 20),
 
+    // Speech to text takes longer than a chat reply (a minute-long voice message).
+    'transcription_timeout' => (int) env('AI_TRANSCRIPTION_TIMEOUT', 60),
+
     /*
     |--------------------------------------------------------------------------
     | AI website builder
@@ -563,6 +566,7 @@ return [
             'name' => 'OpenAI (ChatGPT)',
             'base_url' => env('AI_OPENAI_BASE_URL', 'https://api.openai.com/v1'),
             'default_model' => 'gpt-4o-mini',
+            'transcription_model' => env('AI_OPENAI_TRANSCRIPTION_MODEL', 'whisper-1'),
             'models' => [
                 'gpt-4o',
                 'gpt-4o-mini',
@@ -673,6 +677,7 @@ return [
             'name' => 'Groq',
             'base_url' => env('AI_GROQ_BASE_URL', 'https://api.groq.com/openai/v1'),
             'default_model' => 'openai/gpt-oss-120b',
+            'transcription_model' => env('AI_GROQ_TRANSCRIPTION_MODEL', 'whisper-large-v3-turbo'),
             'models' => [
                 'openai/gpt-oss-120b',
                 'openai/gpt-oss-20b',

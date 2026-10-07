@@ -49,6 +49,8 @@ use Modules\AI\Services\Retrieval\AiContextBuilder;
 use Modules\AI\Services\Retrieval\AiRetrievalEngine;
 use Modules\AI\Services\Retrieval\AiRetrievalQuery;
 use Modules\AI\Services\Retrieval\AiRetrievalQueryAnalyzer;
+use Modules\AI\Safety\SafetyPolicyEngine;
+use Modules\User\Models\User;
 
 class AiChatService
 {
@@ -118,6 +120,7 @@ class AiChatService
         protected AiIntentRouterService $intentRouter,
         protected AiMediaQuotaService $mediaQuota,
         protected AiVideoGenerationService $videoGeneration,
+        protected SafetyPolicyEngine $safety,
     ) {}
 
     public function listConversations(Authenticatable $owner): JsonResponse
@@ -825,6 +828,11 @@ class AiChatService
 
         $history = $this->buildHistory($conversation, $owner, $userMessage, $outgoingContent, $attachmentResource, $citations, $domainGuidance, $imagePayload, $documentText, $imageActionUnavailable, $fileOutputRequested, $imageUnviewable, $voiceMessageUntranscribed, $voiceReplyUnavailable, $webSearchUnavailable, $fileContext, $documentUnviewable);
 
+        // DORR AI safety (spec 350–362): classified first and answered under its rules; the
+        // approved texts are added by the system after the reply (see SafetyPolicyEngine).
+        $risk = $this->safety->classify($outgoingContent, $candidates[0]['provider'] ?? null);
+        $history = $this->safety->instruct($history, $risk);
+
         [$result, $usedProvider, $usedModel, $verification] = $this->generateVerifiedReply($candidates, $routing['fallback_enabled'], $history, $aiRequest, $outgoingContent, $webSearchMatched);
 
         $conversation->provider_key = $usedProvider->key;
@@ -923,6 +931,15 @@ class AiChatService
             }
         }
 
+        // The plain text carries the approved texts too, for any screen without the safety card.
+        $safety = null;
+
+        if ($result['success']) {
+            $finished = $this->safety->finish((string) $replyContent, $risk);
+            $safety = $finished['safety'];
+            $replyContent = SafetyPolicyEngine::withNotice($finished['text'], $safety);
+        }
+
         // No connector currently reports back real token usage, so this is
         // a deliberately rough estimate (~4 chars/token) purely for cost
         // visibility on the admin usage screens - flagged as "estimated".
@@ -950,6 +967,7 @@ class AiChatService
         $assistantMessage = $this->createSequencedMessage($conversation, [
             'role' => AiMessage::ROLE_ASSISTANT,
             'content' => $replyContent,
+            'safety' => $safety,
             'provider_key' => $usedProvider->key,
             'model' => $usedModel,
             'tokens_used' => $outputTokens,

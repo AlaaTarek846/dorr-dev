@@ -69,6 +69,8 @@ Professional documentation system for developers and AI assistants:
 | [12-TESTING.md](./docs/12-TESTING.md) | Testing guide |
 | [13-SECURITY.md](./docs/13-SECURITY.md) | Security |
 | [14-DEPLOYMENT.md](./docs/14-DEPLOYMENT.md) | Deployment |
+| [config_requirements.md](./docs/config_requirements.md) | Every external service and key to obtain (Pusher, OneSignal, LiveKit, Giphy, SMS, payments…) and whether it runs on shared hosting |
+| [remaining_chat.md](./docs/remaining_chat.md) | Chat spec v5 (items 1–207 + AI rules) against what's built: done / partial / remaining, what depends on other systems, and the suggested order |
 | [15-CONTRIBUTING.md](./docs/15-CONTRIBUTING.md) | Contributing |
 | [16-STYLEGUIDE.md](./docs/16-STYLEGUIDE.md) | Coding standards |
 | [AI-INSTRUCTIONS.md](./docs/AI-INSTRUCTIONS.md) | **AI assistants — read first** |
@@ -83,6 +85,7 @@ Professional documentation system for developers and AI assistants:
 | AI | [docs/modules/ai/README.md](./docs/modules/ai/README.md) |
 | Provider | [docs/modules/provider/README.md](./docs/modules/provider/README.md) |
 | SMS | [docs/modules/sms/README.md](./docs/modules/sms/README.md) |
+| Android app | [docs/modules/android/README.md](./docs/modules/android/README.md) |
 
 ---
 

@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use App\Models\Faq;
 use App\Models\Flag;
 use App\Models\Language;
-use App\Models\PrivacyPolicy;
+use App\Models\LegalPage;
 use App\Models\ServiceCategory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -46,7 +46,7 @@ class RichTextSanitizationTest extends TestCase
         ]);
 
         $permissions = [
-            'privacy-policy.list', 'privacy-policy.create', 'privacy-policy.update',
+            'legal-page.list', 'legal-page.create', 'legal-page.update',
             'faqs.list', 'faqs.create',
         ];
 
@@ -63,12 +63,12 @@ class RichTextSanitizationTest extends TestCase
      * @param  array<int, string>  $arabic
      * @param  array<int, string>  $english
      */
-    private function policyPayload(array $arabic, array $english, array $overrides = []): array
+    private function pagePayload(array $arabic, array $english, array $overrides = []): array
     {
         return array_merge([
+            'type' => 'privacy',
             'service_id' => null,
             'status' => true,
-            'sort_order' => 0,
             'translations' => [
                 ['locale' => 'ar', 'content' => $arabic[0]],
                 ['locale' => 'en', 'content' => $english[0]],
@@ -76,11 +76,11 @@ class RichTextSanitizationTest extends TestCase
         ], $overrides);
     }
 
-    private function createPolicy(array $arabic, array $english, array $overrides = [])
+    private function createPage(array $arabic, array $english, array $overrides = [])
     {
         return $this->postJson(
-            '/api/admin/v1/privacy-policies',
-            $this->policyPayload($arabic, $english, $overrides)
+            '/api/admin/v1/legal-pages',
+            $this->pagePayload($arabic, $english, $overrides)
         );
     }
 
@@ -90,28 +90,28 @@ class RichTextSanitizationTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(
+        $this->createPage(
             ['<p>سياسة <strong>خاصة</strong> و<u>رابط</u></p>'],
             ['<h2>Title</h2><ul><li>One</li><li>Two</li></ul>']
         )->assertCreated();
 
-        $policy = PrivacyPolicy::firstOrFail();
+        $page = LegalPage::firstOrFail();
 
-        $this->assertStringContainsString('<strong>خاصة</strong>', $policy->translations[0]->content);
-        $this->assertStringContainsString('<h2>Title</h2>', $policy->translations[1]->content);
-        $this->assertStringContainsString('<li>One</li>', $policy->translations[1]->content);
+        $this->assertStringContainsString('<strong>خاصة</strong>', $page->translations[0]->content);
+        $this->assertStringContainsString('<h2>Title</h2>', $page->translations[1]->content);
+        $this->assertStringContainsString('<li>One</li>', $page->translations[1]->content);
     }
 
     public function test_it_keeps_links_images_and_alignment(): void
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(
+        $this->createPage(
             ['<p><a href="https://example.com/ar">الشروط</a></p>'],
             ['<p style="text-align: center"><img src="https://example.com/a.png">Centered</p>']
         )->assertCreated();
 
-        $translations = PrivacyPolicy::firstOrFail()->translations;
+        $translations = LegalPage::firstOrFail()->translations;
 
         $this->assertStringContainsString('href="https://example.com/ar"', $translations[0]->content);
         $this->assertStringContainsString('src="https://example.com/a.png"', $translations[1]->content);
@@ -127,12 +127,12 @@ class RichTextSanitizationTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(
+        $this->createPage(
             ['<p onclick="steal()">نص آمن</p><script>alert("xss")</script>'],
             ['<p onmouseover="x()">Safe text</p><iframe src="https://evil.test"></iframe>']
         )->assertCreated();
 
-        $translations = PrivacyPolicy::firstOrFail()->translations;
+        $translations = LegalPage::firstOrFail()->translations;
 
         foreach ($translations as $translation) {
             $this->assertStringNotContainsString('onclick', $translation->content);
@@ -149,12 +149,12 @@ class RichTextSanitizationTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(
+        $this->createPage(
             ['<p><a href="javascript:alert(1)">اضغط</a></p>'],
             ['<p><a href="https://example.com">ok</a></p>']
         )->assertCreated();
 
-        $translations = PrivacyPolicy::firstOrFail()->translations;
+        $translations = LegalPage::firstOrFail()->translations;
 
         $this->assertStringNotContainsString('javascript:', $translations[0]->content);
         $this->assertStringContainsString('اضغط', $translations[0]->content);
@@ -165,12 +165,12 @@ class RichTextSanitizationTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(
+        $this->createPage(
             ['<p style="background: url(javascript:alert(1))">نص</p>'],
             ['<p style="color: red">Colored</p>']
         )->assertCreated();
 
-        $translations = PrivacyPolicy::firstOrFail()->translations;
+        $translations = LegalPage::firstOrFail()->translations;
 
         $this->assertStringNotContainsString('javascript', $translations[0]->content);
         $this->assertStringNotContainsString('style', $translations[1]->content);
@@ -182,21 +182,21 @@ class RichTextSanitizationTest extends TestCase
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(['<p></p>'], ['<p><br></p>'])
+        $this->createPage(['<p></p>'], ['<p><br></p>'])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['translations.0.content', 'translations.1.content']);
 
-        $this->assertDatabaseCount('privacy_policies', 0);
+        $this->assertDatabaseCount('legal_pages', 0);
     }
 
     public function test_markup_only_content_is_rejected(): void
     {
         $this->actingAsAdmin();
 
-        $this->createPolicy(['<p>&nbsp;</p>'], ['<p>  </p>'])
+        $this->createPage(['<p>&nbsp;</p>'], ['<p>  </p>'])
             ->assertStatus(422);
 
-        $this->assertDatabaseCount('privacy_policies', 0);
+        $this->assertDatabaseCount('legal_pages', 0);
     }
 
     public function test_content_still_validates_with_a_service_relation(): void
@@ -207,10 +207,10 @@ class RichTextSanitizationTest extends TestCase
             'module_name' => 'general_services', 'status' => true, 'sort_order' => 0,
         ]);
 
-        $this->createPolicy(['<p>نص</p>'], ['<p>text</p>'], ['service_id' => $service->id])
+        $this->createPage(['<p>نص</p>'], ['<p>text</p>'], ['service_id' => $service->id])
             ->assertCreated();
 
-        $this->assertSame($service->id, PrivacyPolicy::firstOrFail()->service_id);
+        $this->assertSame($service->id, LegalPage::firstOrFail()->service_id);
     }
 
     // ------------------------------------------------------------- faq answer

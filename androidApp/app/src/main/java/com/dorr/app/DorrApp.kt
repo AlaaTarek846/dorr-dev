@@ -14,10 +14,15 @@ class DorrApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         AuthSession.attach(this)
+        com.dorr.app.network.ReferralStore.attach(this)
+        com.dorr.app.network.ReferralInstallReferrer.capture(this)
         DeviceId.attach(this)
         OnboardingStore.attach(this)
         com.dorr.app.chat.ChatStore.attach(this)
         com.dorr.app.chat.VoicePlayer.attach(this)
+        // Messages sent offline (even before the app was closed) go as soon as there's a connection.
+        com.dorr.app.chat.ChatOutbox.attach(this)
+        com.dorr.app.chat.ChatOutbox.resume(this)
         // Push first: a notification tapped while the app was closed must find the listener ready.
         com.dorr.app.chat.ChatPush.attach(this)
         // Calls ring over any screen, so the call state machine listens from app start.

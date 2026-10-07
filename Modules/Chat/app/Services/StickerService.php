@@ -2,12 +2,16 @@
 
 namespace Modules\Chat\Services;
 
+use App\Support\LocaleResolver;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatSticker;
 use Modules\Chat\Models\ChatStickerPack;
+use Modules\Chat\Models\ChatUserSticker;
+use Modules\Chat\Support\ParticipantType;
+use Illuminate\Database\Eloquent\Model;
 
 /**
  * Dorr's own sticker packs (the admin makes them): the list people pick from, the admin's
@@ -52,6 +56,79 @@ class StickerService
         }
 
         return ['source' => 'pack', 'kind' => 'sticker'] + $sticker->present();
+    }
+
+    // ---------------------------------------------------------------- my stickers
+
+    /** How many stickers one person can keep in "My stickers". */
+    public const MINE_LIMIT = 200;
+
+    /**
+     * The stickers I made, newest first.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function mine(Model $me): array
+    {
+        return ChatUserSticker::query()
+            ->where('owner_type', ParticipantType::aliasFor($me))->where('owner_id', $me->getKey())
+            ->with('media')->latest('id')->get()
+            ->map(fn (ChatUserSticker $s) => $s->present())->values()->all();
+    }
+
+    /**
+     * Keep a sticker I made from a photo (the app cuts it out and sends a 512×512 transparent image).
+     *
+     * @return array<string, mixed>
+     */
+    public function addMine(Model $me, UploadedFile $image, ?string $emoji = null): array
+    {
+        $type = ParticipantType::aliasFor($me);
+        $count = ChatUserSticker::query()->where('owner_type', $type)->where('owner_id', $me->getKey())->count();
+        if ($count >= self::MINE_LIMIT) {
+            throw new ChatException('my_stickers_full', 422, ['limit' => self::MINE_LIMIT]);
+        }
+
+        $sticker = ChatUserSticker::query()->create(['owner_type' => $type, 'owner_id' => $me->getKey(), 'emoji' => $emoji]);
+        [$width, $height] = @getimagesize($image->getRealPath()) ?: [null, null];
+        $sticker->addMedia($image)->usingFileName('sticker.'.strtolower($image->getClientOriginalExtension() ?: 'webp'))
+            ->withCustomProperties(['width' => $width, 'height' => $height])
+            ->toMediaCollection(ChatUserSticker::IMAGE);
+
+        return $sticker->load('media')->present();
+    }
+
+    /**
+     * Take one out of "My stickers" — hidden, not erased: chats that have it keep showing it.
+     */
+    public function removeMine(Model $me, int $id): void
+    {
+        $this->ownSticker($me, $id)->delete();
+    }
+
+    /**
+     * What a message with one of my stickers stores.
+     *
+     * @return array<string, mixed>
+     */
+    public function myMeta(Model $me, int $id): array
+    {
+        $sticker = $this->ownSticker($me, $id)->load('media');
+        if ($sticker->imageUrl() === null) {
+            throw new ChatException('sticker_not_found', 422);
+        }
+
+        return ['source' => 'mine', 'kind' => 'sticker'] + $sticker->present();
+    }
+
+    private function ownSticker(Model $me, int $id): ChatUserSticker
+    {
+        $sticker = ChatUserSticker::query()->find($id);
+        if ($sticker === null || ! $sticker->isOwnedBy(ParticipantType::aliasFor($me), (int) $me->getKey())) {
+            throw new ChatException('sticker_not_found', 422);
+        }
+
+        return $sticker;
     }
 
     // ---------------------------------------------------------------- admin
@@ -126,7 +203,7 @@ class StickerService
      */
     public function flush(): void
     {
-        foreach (['ar', 'en'] as $locale) {
+        foreach (LocaleResolver::supported() as $locale) {
             Cache::forget(self::CACHE_KEY.'.'.$locale);
         }
     }

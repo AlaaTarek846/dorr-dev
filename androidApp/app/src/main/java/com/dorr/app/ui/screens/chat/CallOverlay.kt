@@ -188,6 +188,10 @@ private fun CallScreen() {
             }
         } else if (remote != null && phase == CallPhase.Active) {
             key(remote.track) { VideoSurface(remote, Modifier.fillMaxSize()) }
+        } else if (local != null && phase != CallPhase.Ended) {
+            // Calling, connecting, or their camera is off: my own camera fills the screen (like
+            // WhatsApp), so it's plain the camera did open.
+            key(local.track) { VideoSurface(local, Modifier.fillMaxSize()) }
         } else {
             AnimatedBackdrop()
         }
@@ -219,7 +223,7 @@ private fun CallScreen() {
         }
 
         // ------------------------------------------------------------ my camera (drag it anywhere, it snaps to a corner)
-        if (local != null && phase == CallPhase.Active && !grouped) LocalPreview(local)
+        if (local != null && remote != null && phase == CallPhase.Active && !grouped) LocalPreview(local)
 
         // ------------------------------------------------------------ controls
         Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 36.dp)) {
@@ -302,7 +306,7 @@ private fun AnimatedBackdrop() {
     val a by t.animateFloat(0f, 1f, infiniteRepeatable(tween(7000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "a")
     val b by t.animateFloat(1f, 0f, infiniteRepeatable(tween(9000, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "b")
     Canvas(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF3B0206), Color(0xFF120203), Color.Black)))) {
-        drawCircle(Brush.radialGradient(listOf(Color(0x66E50914), Color.Transparent), center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f), radius = size.width * 0.8f), radius = size.width * 0.8f, center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f))
+        drawCircle(Brush.radialGradient(listOf(Color(0x66001B53), Color.Transparent), center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f), radius = size.width * 0.8f), radius = size.width * 0.8f, center = Offset(size.width * (0.2f + 0.5f * a), size.height * 0.25f))
         drawCircle(Brush.radialGradient(listOf(Color(0x44FF8A4C), Color.Transparent), center = Offset(size.width * (0.8f - 0.4f * b), size.height * 0.75f), radius = size.width * 0.7f), radius = size.width * 0.7f, center = Offset(size.width * (0.8f - 0.4f * b), size.height * 0.75f))
     }
 }
@@ -337,13 +341,21 @@ private fun IncomingControls(onDecline: () -> Unit, onAccept: () -> Unit) {
 
 @Composable
 private fun ActiveControls(video: Boolean) {
+    val context = LocalContext.current
+    val cameraAsk = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) CallController.toggleCamera()
+        else android.widget.Toast.makeText(context, context.getString(R.string.ch_call_camera_denied), android.widget.Toast.LENGTH_SHORT).show()
+    }
     Row(
         Modifier.clip(RoundedCornerShape(36.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 18.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         ToggleAction(if (CallController.micOn) Icons.Rounded.Mic else Icons.Rounded.MicOff, !CallController.micOn) { CallController.toggleMic() }
         ToggleAction(Icons.Rounded.VolumeUp, CallController.speakerOn) { CallController.toggleSpeaker() }
-        ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn) { CallController.toggleCamera() }
+        ToggleAction(if (CallController.cameraOn) Icons.Rounded.Videocam else Icons.Rounded.VideocamOff, CallController.cameraOn) {
+            if (!CallController.cameraOn && !CallController.cameraAllowed()) cameraAsk.launch(Manifest.permission.CAMERA)
+            else CallController.toggleCamera()
+        }
         if (CallController.cameraOn) ToggleAction(Icons.Rounded.Cameraswitch, false) { CallController.flipCamera() }
         RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
     }

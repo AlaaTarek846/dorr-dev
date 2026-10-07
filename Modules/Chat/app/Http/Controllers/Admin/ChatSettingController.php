@@ -47,8 +47,23 @@ class ChatSettingController extends Controller implements HasMiddleware
             'story_video_max_seconds' => ['sometimes', 'integer', 'min:5', 'max:600'],
             'max_call_participants' => ['sometimes', 'integer', 'min:2', 'max:100'],
             'stories_enabled' => ['sometimes', 'boolean'],
+            // Public stories on the home page: on/off, and how many one person may have running for free.
+            'public_stories_enabled' => ['sometimes', 'boolean'],
+            'public_stories_free' => ['sometimes', 'integer', 'min:0', 'max:20'],
+            // DORR Moments: occasions, greeting cards, effects — off without touching the chat.
+            'moments_enabled' => ['sometimes', 'boolean'],
+            'calendar_enabled' => ['sometimes', 'boolean'],
             'calls_enabled' => ['sometimes', 'boolean'],
+            // Countries where calls are off (internet calls need a licence in some places).
+            'calls_disabled_countries' => ['sometimes', 'nullable', 'array'],
+            'calls_disabled_countries.*' => ['integer', 'distinct', 'exists:countries,id'],
+            // AI in the chat: translate, voice to text, summary, suggested replies.
+            'ai_enabled' => ['sometimes', 'boolean'],
         ]);
+
+        if (array_key_exists('calls_disabled_countries', $data)) {
+            $data['calls_disabled_countries'] = array_values(array_map('intval', $data['calls_disabled_countries'] ?? [])) ?: null;
+        }
 
         $setting = ChatSetting::query()->firstOrCreate([]);
         $setting->update($data);
@@ -61,6 +76,6 @@ class ChatSettingController extends Controller implements HasMiddleware
      */
     private function present(ChatSetting $setting): array
     {
-        return $setting->only((new ChatSetting)->getFillable());
+        return ['calls_disabled_countries' => array_values($setting->calls_disabled_countries ?? [])] + $setting->only((new ChatSetting)->getFillable());
     }
 }

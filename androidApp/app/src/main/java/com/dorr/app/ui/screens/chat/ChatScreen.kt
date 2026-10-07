@@ -84,6 +84,31 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
         Ch.palette = palette
     }
 
+    // Which AI tools the server offers (the ✨ buttons only show for those).
+    LaunchedEffect(Unit) { ChatAi.load() }
+    // My reading and upload choices (spec 6, 13).
+    ChatPrefs.load(androidx.compose.ui.platform.LocalContext.current)
+
+    // This phone's privacy: settings, the private-notification count, the recent-apps snapshot,
+    // and "while you were private" once a timed privacy mode has ended.
+    val shieldContext = androidx.compose.ui.platform.LocalContext.current
+    var privateSummary by remember { mutableStateOf<com.dorr.app.network.PrivacySummaryDto?>(null) }
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatShield.load(shieldContext)
+        com.dorr.app.chat.ChatShield.clearPrivate(shieldContext)
+        val started = com.dorr.app.chat.ChatShield.privacyStartedAt(shieldContext)
+        if (started > 0) {
+            val mode = runCatching { com.dorr.app.network.ApiClient.chat.privacy(chatAuth()).data?.privacyMode }.getOrNull()
+            if (mode != null && !mode.on) {
+                val from = java.time.Instant.ofEpochMilli(started).toString()
+                privateSummary = runCatching { com.dorr.app.network.ApiClient.chat.privacySummary(chatAuth(), from).data }.getOrNull()
+                com.dorr.app.chat.ChatShield.setPrivacyStartedAt(shieldContext, 0)
+                com.dorr.app.chat.ChatShield.setSafeView(shieldContext, false)
+            }
+        }
+    }
+    HideFromRecents()
+
     // A notification tapped for a conversation: open it on top of whatever chat page is showing.
     LaunchedEffect(Unit) {
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
@@ -91,8 +116,19 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
                 if ((host.current as? ChRoute.Conversation)?.id != link.id) host.push(ChRoute.Conversation(link.id))
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
+            // A task whose time came (spec 38): my tasks.
+            if (link == com.dorr.app.chat.ChatDeepLink.Tasks) {
+                if (host.current != ChRoute.Tasks) host.push(ChRoute.Tasks)
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
         }
     }
+
+    // Inside a chat — anything past the chat list — the app's tab bar steps away, so the
+    // conversation (its wallpaper and the composer) has the whole screen.
+    val immersive = host.current !is ChRoute.List
+    SideEffect { com.dorr.app.chat.ChatStore.immersive = immersive }
+    androidx.compose.runtime.DisposableEffect(Unit) { onDispose { com.dorr.app.chat.ChatStore.immersive = false } }
 
     CompositionLocalProvider(LocalChat provides host) {
         Box(Modifier.fillMaxSize().background(Ch.Bg)) {
@@ -105,6 +141,9 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             // otherwise sit on the composer / the last row.
             Box(Modifier.fillMaxSize().padding(bottom = 12.dp)) { ChatPages(host) }
             StoryViewerOverlay()
+            // A video played / a PDF read inside the app.
+            ChatViewersHost()
+            privateSummary?.let { PrivacySummaryDialog(it) { privateSummary = null } }
             OfflineBanner()
             ChatToast(host)
             // A group invite link was tapped: preview + "Join" / "Ask to join".
@@ -142,15 +181,26 @@ private fun ChatPages(host: ChatHost) {
             ChRoute.List -> ChatListPage()
             is ChRoute.Conversation -> ConversationPage(route)
             is ChRoute.Info -> ChatInfoPage(route.id)
+            is ChRoute.Media -> ChatMediaPage(route)
             ChRoute.NewChat -> NewChatPage()
             ChRoute.Channels -> ChannelsPage()
             is ChRoute.NewGroup -> NewGroupPage(route.addTo)
             ChRoute.MyQr -> MyQrPage()
             ChRoute.Privacy -> PrivacyPage()
+            ChRoute.Business -> BusinessPage()
             ChRoute.Starred -> StarredPage()
+            ChRoute.ReadLater -> FollowUpsPage()
             ChRoute.Calls -> CallsPage()
             is ChRoute.StoryComposer -> StoryComposerPage(route.media)
             ChRoute.StoryPrivacy -> StoryPrivacyPage()
+            is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
+            is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
+            ChRoute.Broadcasts -> BroadcastsPage()
+            is ChRoute.Broadcast -> BroadcastPage(route.id)
+            ChRoute.Tasks -> TasksPage()
+            ChRoute.CatchUp -> CatchUpPage()
+            ChRoute.PrivacyCenter -> PrivacyCenterPage()
+            is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
         }
     }
 }
@@ -174,7 +224,7 @@ private fun OfflineBanner() {
 }
 
 @Composable
-private fun ChatToast(host: ChatHost) {
+internal fun ChatToast(host: ChatHost) {
     val message = host.toast
     var last by remember { mutableStateOf("") }
     if (message != null) last = message

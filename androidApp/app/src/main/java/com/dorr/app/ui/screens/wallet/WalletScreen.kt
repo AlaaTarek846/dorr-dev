@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Fingerprint
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Warning
@@ -40,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -65,6 +67,8 @@ import androidx.compose.runtime.rememberUpdatedState
  */
 @Composable
 fun WalletScreen(onExit: () -> Unit) {
+    // Which of my wallets (countries) the screens work on — chosen on the wallet home.
+    com.dorr.app.network.WalletCountry.load(androidx.compose.ui.platform.LocalContext.current)
     val currentOnExit by rememberUpdatedState(onExit)
     val scope = rememberCoroutineScope()
     val host = remember { WalletHost(scope, onExit = { currentOnExit() }) }
@@ -73,7 +77,7 @@ fun WalletScreen(onExit: () -> Unit) {
     }
     var unlocked by remember { mutableStateOf(false) }
 
-    CompositionLocalProvider(LocalWallet provides host) {
+    CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         Box(Modifier.fillMaxSize().background(Wa.Bg)) {
             if (!unlocked) {
                 BackHandler { currentOnExit() }
@@ -87,16 +91,17 @@ fun WalletScreen(onExit: () -> Unit) {
                         .onSuccess { who -> who?.let { host.push(WaRoute.TransferConfirm(it)) } }
                         .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
                 }
-                WalletPages(host)
+                WalletPagesFor(host)
                 WaSheetHost(host)
-                WaToastHost(host)
             }
+            // Outside the lock check: a wrong PIN at the gate is reported the same way.
+            WaToastHost(host)
         }
     }
 }
 
 @Composable
-private fun WalletPages(host: WalletHost) {
+internal fun WalletPagesFor(host: WalletHost) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     // Pages come in from the "next" edge of the reading direction and leave towards the other one.
     val sign = if (rtl) -1 else 1
@@ -120,28 +125,39 @@ private fun WalletPages(host: WalletHost) {
             WaRoute.Scanner -> WalletScanner()
             WaRoute.History -> WalletHistory()
             WaRoute.PinSettings -> WalletPinSettings()
+            is WaRoute.Checkout -> WalletCheckout(route.state)
+            is WaRoute.TopupAmount -> WalletTopup(initialAmount = minorToInput(route.minor))
         }
     }
 }
 
 @Composable
-private fun WaToastHost(host: WalletHost) {
+internal fun WaToastHost(host: WalletHost) {
     val message = host.toast
     var last by remember { mutableStateOf("") }
-    if (message != null) last = message
-    Box(Modifier.fillMaxSize().padding(bottom = 26.dp), contentAlignment = Alignment.BottomCenter) {
+    var lastIsError by remember { mutableStateOf(false) }
+    if (message != null) {
+        last = message
+        lastIsError = host.toastError
+    }
+    // A notification at the top, over everything (the PIN gate included), so it never hides the keypad or the buttons.
+    Box(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(
             visible = message != null,
-            enter = slideInVertically(tween(300)) { it / 2 } + fadeIn(tween(250)),
-            exit = slideOutVertically(tween(250)) { it / 2 } + fadeOut(tween(200)),
+            enter = slideInVertically(tween(300)) { -it } + fadeIn(tween(250)),
+            exit = slideOutVertically(tween(250)) { -it } + fadeOut(tween(200)),
         ) {
             Row(
-                Modifier.clip(RoundedCornerShape(16.dp)).background(Color(0xFF111928)).padding(horizontal = 18.dp, vertical = 11.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier
+                    .shadow(12.dp, RoundedCornerShape(16.dp), ambientColor = Color(0x33111928), spotColor = Color(0x44111928))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (lastIsError) Wa.Danger else Color(0xFF111928))
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                Text(last, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Icon(if (lastIsError) Icons.Rounded.ErrorOutline else Icons.Rounded.CheckCircle, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                Text(last, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, lineHeight = 20.sp, modifier = Modifier.weight(1f, fill = false))
             }
         }
     }
@@ -154,7 +170,7 @@ private fun WaToastHost(host: WalletHost) {
 @Composable
 private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    val activity = context as? androidx.fragment.app.FragmentActivity
+    val activity = context.findFragmentActivity()
     val networkError = stringResource(R.string.wa_error_network)
     val enterTitle = stringResource(R.string.wa_gate_enter_title)
     val enterSub = stringResource(R.string.wa_gate_enter_sub)
@@ -198,7 +214,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
         resetPin != null -> WaForcePinChangePage(resetPin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
         untrustedDevicePin != null -> WaDeviceTrustPage(untrustedDevicePin.orEmpty(), onExit = onCancel, onDone = onUnlocked)
         forgot -> WaForgotPinPage(current, onExit = { forgot = false }, onDone = { forgot = false; attempt++ })
-        else -> WaPage(title = stringResource(R.string.wa_wallet), onBack = onCancel, scroll = false) {
+        else -> WaPage(title = stringResource(R.string.wa_my_wallet), onBack = onCancel, scroll = false) {
             when {
                 failed != null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     WaEmpty(
@@ -242,6 +258,28 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                         return PadResult.Ok
                     }
 
+                    // The stored PIN, opened by the fingerprint / face prompt. A PIN that no longer matches the
+                    // server's is dropped, rather than failing silently on every future attempt.
+                    fun unlockWithBiometric() {
+                        if (activity == null) return
+                        WaBiometric.unlock(activity) { pin ->
+                            if (pin == null) return@unlock
+                            scope.launch {
+                                if (completeWithPin(pin) is PadResult.Error) WaBiometric.disable(context)
+                            }
+                        }
+                    }
+
+                    // Opening the wallet shows the prompt at once (once per visit; a cancel leaves the PIN pad and the button).
+                    var autoPrompted by remember { mutableStateOf(false) }
+                    val lockedNow = (current.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: 0L) > System.currentTimeMillis()
+                    LaunchedEffect(Unit) {
+                        if (!autoPrompted && !lockedNow && activity != null && WaBiometric.isEnabled(context)) {
+                            autoPrompted = true
+                            unlockWithBiometric()
+                        }
+                    }
+
                     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                         WaPinPad(
                             title = enterTitle,
@@ -253,18 +291,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                         if (activity != null && WaBiometric.isEnabled(context)) {
                             WaButton(
                                 stringResource(R.string.wa_biometric_unlock_button),
-                                {
-                                    WaBiometric.unlock(activity) { pin ->
-                                        if (pin == null) return@unlock
-                                        scope.launch {
-                                            if (completeWithPin(pin) is PadResult.Error) {
-                                                // The stored PIN no longer matches the server's — drop it
-                                                // rather than fail silently on every future attempt.
-                                                WaBiometric.disable(context)
-                                            }
-                                        }
-                                    }
-                                },
+                                ::unlockWithBiometric,
                                 style = WaButtonStyle.Ghost,
                                 icon = Icons.Rounded.Fingerprint,
                             )
@@ -307,8 +334,9 @@ fun WalletHost.requestPin(
 }
 
 /**
- * The PIN screen reached from Account → Wallet PIN, outside a wallet visit: same page, its own
- * little host (so the toast and back handling work), leaving straight back to the account menu.
+ * The PIN screen reached from Account → Settings → Wallet → Change PIN, outside a
+ * wallet visit: same page, its own little host (so the toast and back handling work),
+ * leaving straight back to the wallet settings menu.
  */
 @Composable
 fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) {
@@ -318,11 +346,19 @@ fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) 
     SideEffect {
         host.onExit = { currentOnBack() }
     }
-    CompositionLocalProvider(LocalWallet provides host) {
+    CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         BackHandler { currentOnBack() }
         Box(Modifier.fillMaxSize()) {
             WalletPinSettings()
             WaToastHost(host)
         }
     }
+}
+
+/** "30" for 3000, "12.5" for 1250 — how a top-up amount is typed (parseAmountToMinor reads it back). */
+internal fun minorToInput(minor: Long): String {
+    if (minor <= 0) return ""
+    val whole = minor / 100
+    val cents = minor % 100
+    return if (cents == 0L) whole.toString() else "$whole." + cents.toString().padStart(2, '0').trimEnd('0')
 }

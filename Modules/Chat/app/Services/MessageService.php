@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use App\Support\Media\WebpUploadConverter;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
@@ -20,6 +21,7 @@ use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatPinnedMessage;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Support\BannedWords;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
@@ -33,6 +35,12 @@ use Modules\Chat\Support\ParticipantType;
  */
 class MessageService
 {
+    /** Card designs for a money gift (spec 65). */
+    public const GIFT_CARDS = ['general', 'birthday', 'eid', 'ramadan', 'wedding', 'newborn', 'graduation', 'congrats', 'thanks'];
+
+    /** How many urgent messages one person may send another in 24 hours (spec 117). */
+    public const URGENT_PER_DAY = 3;
+
     public function __construct(
         private readonly ConversationService $conversations,
         private readonly ChatPrivacy $privacy,
@@ -52,7 +60,9 @@ class MessageService
     public function page(Model $me, ChatConversation $conversation, array $cursor, int $limit = 50): array
     {
         $participant = $this->conversations->participantOf($me, $conversation);
-        $base = fn () => $this->visibleTo($participant, $conversation->messages()->getQuery());
+        $root = ! empty($cursor['thread']) ? $this->findInConversation($conversation, $cursor['thread']) : null;
+        $base = fn () => $this->visibleTo($participant, $conversation->messages()->getQuery())
+            ->when($root, fn (Builder $q, $r) => $q->where('chat_messages.thread_id', $r->id), fn (Builder $q) => $q->whereNull('chat_messages.thread_id'));
 
         if (! empty($cursor['around'])) {
             $pivot = $this->findInConversation($conversation, $cursor['around']);
@@ -71,7 +81,7 @@ class MessageService
             $messages = $query->get()->reverse()->values();
         }
 
-        $messages->load(['media', 'reactions', 'replyTo.media']);
+        $messages->load(['media', 'reactions', 'replyTo.media', 'threadRoot']);
 
         $first = $messages->first();
         $last = $messages->last();
@@ -153,13 +163,17 @@ class MessageService
         $body = isset($data['body']) ? trim((string) $data['body']) : null;
         $body = $body === '' ? null : $body;
 
-        /** @var ChatMessage|null $copyFrom a forwarded message whose files are copied over */
-        $copyFrom = $data['copy_media_from'] ?? null;
-        $hasFiles = $files !== [] || ($copyFrom !== null && $copyFrom->getMedia(ChatMessage::ATTACHMENTS)->isNotEmpty());
+        // Files copied over: a forwarded message's, a scheduled card's, or several (a group card's
+        // contributions, in order).
+        $copyFrom = array_values(array_filter(is_array($data['copy_media_from'] ?? null) ? $data['copy_media_from'] : [$data['copy_media_from'] ?? null]));
+        $hasFiles = $files !== [] || collect($copyFrom)->contains(fn ($source) => $source->getMedia(ChatMessage::ATTACHMENTS)->isNotEmpty());
 
-        if ($body === null && ! $hasFiles && $meta === null) {
+        if ($body === null && ! $hasFiles && $meta === null && $type !== MessageType::MomentCard) {
             throw ChatException::emptyMessage();
         }
+
+        // The text, and a poll's options too.
+        $this->assertNoBannedWords($participant, $conversation, trim($body.' '.implode("\n", array_column((array) data_get($meta, 'options', []), 'text'))));
 
         if ($type->hasAttachments() && ! $hasFiles) {
             throw new ChatException('attachment_required', 422);
@@ -168,6 +182,19 @@ class MessageService
         $replyTo = ! empty($data['reply_to']) ? $this->findInConversation($conversation, $data['reply_to']) : null;
         if ($replyTo?->isGone()) {
             $replyTo = null;
+        }
+
+        // A thread hangs from a real message of this chat, one level deep (a reply in a thread
+        // continues the same thread).
+        $threadRoot = null;
+        if (! empty($data['thread'])) {
+            $threadRoot = $this->findInConversation($conversation, $data['thread']);
+            if ($threadRoot->thread_id !== null) {
+                $threadRoot = ChatMessage::query()->findOrFail($threadRoot->thread_id);
+            }
+            if ($threadRoot->isGone() || $threadRoot->type === MessageType::System) {
+                throw new ChatException('thread_unavailable', 422);
+            }
         }
 
         $mentions = $conversation->isGroup() ? $this->validMentions($conversation, (array) ($data['mentions'] ?? [])) : [];
@@ -181,7 +208,12 @@ class MessageService
             throw new ChatException('view_once_not_allowed', 422);
         }
 
-        $message = DB::transaction(function () use ($me, $participant, $conversation, $type, $body, $meta, $files, $replyTo, $mentions, $data, $copyFrom, $viewOnce) {
+        $urgent = ! empty($data['urgent']);
+        if ($urgent) {
+            $this->assertMayBeUrgent($me, $participant, $conversation);
+        }
+
+        $message = DB::transaction(function () use ($me, $participant, $conversation, $type, $body, $meta, $files, $replyTo, $mentions, $data, $copyFrom, $viewOnce, $urgent, $threadRoot) {
             // Replying to a request accepts it (you clearly want to talk).
             if ($conversation->status === ConversationStatus::Pending && ! $this->startedBy($conversation, $participant)) {
                 $conversation->status = ConversationStatus::Accepted;
@@ -196,29 +228,47 @@ class MessageService
                 'body' => $body,
                 'meta' => $meta,
                 'reply_to_id' => $replyTo?->id,
+                'thread_id' => $threadRoot?->id,
                 'is_forwarded' => (bool) ($data['is_forwarded'] ?? false),
                 'forward_score' => (int) ($data['forward_score'] ?? 0),
                 'mentions' => $mentions ?: null,
                 'has_link' => $body !== null && (bool) preg_match('~(https?://|www\.)\S+~i', $body),
                 'view_once' => $viewOnce,
+                'is_silent' => ! empty($data['silent']),
+                'is_urgent' => $urgent,
+                // Sensitive: never in a notification; the recipient's app hides it until unlocked.
+                'is_sensitive' => ! empty($data['sensitive']),
                 'expires_at' => $conversation->disappearing_seconds ? now()->addSeconds($conversation->disappearing_seconds) : null,
             ]);
 
+            if ($threadRoot !== null) {
+                ChatMessage::query()->whereKey($threadRoot->id)->update([
+                    'thread_replies_count' => DB::raw('thread_replies_count + 1'),
+                    'thread_last_at' => now(),
+                ]);
+            }
+
             $this->attach($message, $files);
 
-            foreach ($copyFrom?->getMedia(ChatMessage::ATTACHMENTS) ?? [] as $media) {
-                $media->copy($message, ChatMessage::ATTACHMENTS);
+            $order = count($files);
+            foreach ($copyFrom as $source) {
+                foreach ($source->getMedia(ChatMessage::ATTACHMENTS) as $media) {
+                    $media->copy($message, ChatMessage::ATTACHMENTS)->forceFill(['order_column' => ++$order])->save();
+                }
             }
-            foreach ($copyFrom?->getMedia(ChatMessage::THUMBNAIL) ?? [] as $media) {
+            foreach (($copyFrom[0] ?? null)?->getMedia(ChatMessage::THUMBNAIL) ?? [] as $media) {
                 $media->copy($message, ChatMessage::THUMBNAIL);
             }
 
             // The video's poster frame (sent by the app, only meaningful for a video).
             if (($thumbnail = $data['thumbnail_file'] ?? null) instanceof UploadedFile && $type === MessageType::Video) {
-                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.jpg')->toMediaCollection(ChatMessage::THUMBNAIL);
+                $thumbnail = WebpUploadConverter::convert($thumbnail);
+                $extension = strtolower($thumbnail->getClientOriginalExtension() ?: $thumbnail->extension() ?: 'jpg');
+                $message->addMedia($thumbnail)->usingFileName(Str::uuid().'.'.$extension)->toMediaCollection(ChatMessage::THUMBNAIL);
             }
 
             $this->afterNewMessage($conversation, $message, $participant, $mentions);
+            $this->answeredFollowUps($conversation, $participant, $message, $replyTo);
 
             $senderName = app(ParticipantDirectory::class)->profile($me, $participant->participant_type, $participant->participant_id)['account_name'] ?? '';
             $others = $conversation->activeParticipants()->where('id', '!=', $participant->id)->get();
@@ -228,6 +278,15 @@ class MessageService
         });
 
         $this->previewLinkLater($message);
+
+        // A business on the other side may answer by itself (welcome / away). Never fails the send.
+        if (! $conversation->isGroup() && ! $conversation->isSelf()) {
+            try {
+                app(BusinessService::class)->answer($conversation, $message, $participant);
+            } catch (\Throwable $e) {
+                report($e);
+            }
+        }
 
         return $message;
     }
@@ -251,6 +310,34 @@ class MessageService
     public function rebroadcast(ChatMessage $message): void
     {
         $this->broadcast($message->conversation, $message, 'chat.message.updated');
+    }
+
+    /**
+     * A business's automatic reply (welcome / away), sent as the business. Unlike a reply typed by
+     * hand it doesn't accept a message request, doesn't mark the customer's message as read, and
+     * is labelled `meta.auto_reply` so the apps can show "Automatic reply".
+     */
+    public function autoReply(ChatConversation $conversation, ChatParticipant $business, string $body, string $kind): ChatMessage
+    {
+        return DB::transaction(function () use ($conversation, $business, $body, $kind) {
+            $message = ChatMessage::query()->create([
+                'conversation_id' => $conversation->id,
+                'sender_type' => $business->participant_type,
+                'sender_id' => $business->participant_id,
+                'type' => MessageType::Text,
+                'body' => $body,
+                'meta' => ['auto_reply' => $kind],
+                'has_link' => (bool) preg_match('~(https?://|www\.)\S+~i', $body),
+                'expires_at' => $conversation->disappearing_seconds ? now()->addSeconds($conversation->disappearing_seconds) : null,
+            ]);
+
+            $this->afterNewMessage($conversation, $message, $business, [], senderReads: false);
+
+            $name = app(ParticipantDirectory::class)->profile($business->participant(), $business->participant_type, $business->participant_id)['account_name'] ?? '';
+            $this->push->message($conversation, $message, (string) $name, $conversation->activeParticipants()->where('id', '!=', $business->id)->get());
+
+            return $message;
+        });
     }
 
     /**
@@ -278,7 +365,7 @@ class MessageService
      *
      * @param  list<int>  $mentions  participant ids
      */
-    public function afterNewMessage(ChatConversation $conversation, ChatMessage $message, ?ChatParticipant $sender, array $mentions): void
+    public function afterNewMessage(ChatConversation $conversation, ChatMessage $message, ?ChatParticipant $sender, array $mentions, bool $senderReads = true): void
     {
         $conversation->forceFill(['last_message_id' => $message->id, 'last_message_at' => $message->created_at])->save();
 
@@ -291,8 +378,11 @@ class MessageService
                 ChatParticipant::query()->whereIn('id', $mentions)->where('conversation_id', $conversation->id)->update(['has_unread_mention' => true]);
             }
 
-            // My own message counts as read (and delivered) by me.
-            $sender->update(['last_read_message_id' => $message->id, 'last_delivered_message_id' => $message->id, 'last_read_at' => now(), 'unread_count' => 0, 'marked_unread' => false, 'has_unread_mention' => false, 'is_deleted' => false]);
+            // My own message counts as read (and delivered) by me — except an automatic reply:
+            // the business hasn't read the customer's message just because the reply went out.
+            if ($senderReads) {
+                $sender->update(['last_read_message_id' => $message->id, 'last_delivered_message_id' => $message->id, 'last_read_at' => now(), 'unread_count' => 0, 'marked_unread' => false, 'has_unread_mention' => false, 'is_deleted' => false]);
+            }
         } else {
             (clone $others)->update(['is_deleted' => false]);
         }
@@ -327,6 +417,9 @@ class MessageService
         if ($body === '' && $message->type === MessageType::Text) {
             throw ChatException::emptyMessage();
         }
+
+        // Editing can't sneak a banned word past the filter.
+        $this->assertNoBannedWords($participant, $message->conversation, $body);
 
         $message->update([
             'body' => $body === '' ? null : $body,
@@ -499,14 +592,143 @@ class MessageService
         ])->all();
     }
 
-    public function star(Model $me, ChatMessage $message, bool $starred): void
+    public function star(Model $me, ChatMessage $message, bool $starred, ?int $folderId = null): void
+    {
+        $participant = $this->conversations->participantOf($me, $message->conversation);
+        // A favourites folder of mine (spec 24), or none ("Favourites").
+        if ($folderId !== null && ! \Modules\Chat\Models\ChatStarFolder::query()->ownedBy($me)->whereKey($folderId)->exists()) {
+            throw new ChatException('star_folder_not_found', 404);
+        }
+
+        ChatMessageUserState::query()->updateOrCreate(
+            ['message_id' => $message->id, 'participant_id' => $participant->id],
+            ['starred_at' => $starred ? now() : null, 'star_folder_id' => $starred ? $folderId : null],
+        );
+    }
+
+    /**
+     * "Read later": set a message aside for me (or take it off the list once done).
+     */
+    public function readLater(Model $me, ChatMessage $message, bool $on): void
     {
         $participant = $this->conversations->participantOf($me, $message->conversation);
 
         ChatMessageUserState::query()->updateOrCreate(
             ['message_id' => $message->id, 'participant_id' => $participant->id],
-            ['starred_at' => $starred ? now() : null],
+            ['read_later_at' => $on ? now() : null],
         );
+    }
+
+    /**
+     * My "read later" list across every chat, oldest first (the order I set them aside).
+     *
+     * @return list<MessageResource>
+     */
+    public function readLaterList(Model $me): array
+    {
+        $states = ChatMessageUserState::query()
+            ->whereIn('participant_id', ChatParticipant::query()->of($me)->pluck('id'))
+            ->whereNotNull('read_later_at')->whereNull('deleted_at')
+            ->oldest('read_later_at')->limit(200)->with('message.conversation')->get();
+
+        return $states->map(function (ChatMessageUserState $state) use ($me) {
+            $message = $state->message;
+
+            return $message === null || $message->isGone() ? null : $this->presentOne($me, $message);
+        })->filter()->values()->all();
+    }
+
+    /**
+     * "Needs a reply" (spec 118): a message I keep on a follow-up list until I answer it — or
+     * take it off by hand.
+     */
+    public function followUp(Model $me, ChatMessage $message, bool $on): void
+    {
+        $participant = $this->conversations->participantOf($me, $message->conversation);
+
+        ChatMessageUserState::query()->updateOrCreate(
+            ['message_id' => $message->id, 'participant_id' => $participant->id],
+            ['follow_up_at' => $on ? now() : null],
+        );
+    }
+
+    /**
+     * What came in while I was private (spec 113): messages from others in my chats since
+     * `$from`, and how many chats they were in.
+     *
+     * @return array{messages: int, conversations: int, from: string}
+     */
+    public function receivedSince(Model $me, \Carbon\CarbonInterface $from): array
+    {
+        $mine = ChatParticipant::query()->of($me)->whereNull('left_at')->get(['id', 'conversation_id', 'participant_type', 'participant_id']);
+        $rows = ChatMessage::query()
+            ->whereIn('conversation_id', $mine->pluck('conversation_id'))
+            ->where('created_at', '>=', $from)->whereNotNull('sender_type')
+            ->where(fn ($q) => $q->where('sender_type', '!=', ParticipantType::aliasFor($me))->orWhere('sender_id', '!=', $me->getKey()))
+            ->get(['id', 'conversation_id']);
+
+        return ['messages' => $rows->count(), 'conversations' => $rows->pluck('conversation_id')->unique()->count(), 'from' => $from->toIso8601String()];
+    }
+
+    /**
+     * Messages still waiting for my answer, oldest first.
+     *
+     * @return list<MessageResource>
+     */
+    public function followUpList(Model $me): array
+    {
+        $states = ChatMessageUserState::query()
+            ->whereIn('participant_id', ChatParticipant::query()->of($me)->pluck('id'))
+            ->whereNotNull('follow_up_at')->whereNull('deleted_at')
+            ->oldest('follow_up_at')->limit(200)->with('message.conversation')->get();
+
+        return $states->map(function (ChatMessageUserState $state) use ($me) {
+            $message = $state->message;
+
+            return $message === null || $message->isGone() ? null : $this->presentOne($me, $message);
+        })->filter()->values()->all();
+    }
+
+    /**
+     * I answered: in a one-to-one chat anything I send answers what came before it; in a group
+     * only a reply to that message does.
+     */
+    private function answeredFollowUps(ChatConversation $conversation, ChatParticipant $participant, ChatMessage $message, ?ChatMessage $replyTo): void
+    {
+        $answered = $conversation->isGroup()
+            ? ($replyTo ? [$replyTo->id] : [])
+            : ChatMessage::query()->where('conversation_id', $conversation->id)->where('id', '<', $message->id)->select('id');
+
+        if ($answered === []) {
+            return;
+        }
+
+        ChatMessageUserState::query()->where('participant_id', $participant->id)->whereNotNull('follow_up_at')
+            ->whereIn('message_id', $answered)->update(['follow_up_at' => null]);
+    }
+
+    /**
+     * Urgent (spec 116–117): one-to-one only, the recipient must allow it (`who_can_urgent`), and
+     * at most URGENT_PER_DAY in 24 hours to the same person.
+     */
+    private function assertMayBeUrgent(Model $me, ChatParticipant $participant, ChatConversation $conversation): void
+    {
+        if ($conversation->isGroup() || $conversation->isSelf()) {
+            throw new ChatException('urgent_direct_only', 422);
+        }
+
+        $peer = $conversation->activeParticipants()->where('id', '!=', $participant->id)->first()?->participant();
+        if ($peer === null || ! $this->privacy->canSendUrgent($me, $peer)) {
+            throw new ChatException('urgent_not_allowed', 403);
+        }
+
+        $sent = ChatMessage::query()->where('conversation_id', $conversation->id)
+            ->where('sender_type', $participant->participant_type)->where('sender_id', $participant->participant_id)
+            ->where('is_urgent', true)->where('created_at', '>=', now()->subDay())->count();
+
+        if ($sent >= self::URGENT_PER_DAY) {
+            throw new ChatException('urgent_quota', 429, ['max' => self::URGENT_PER_DAY]);
+        }
     }
 
     /**
@@ -514,11 +736,14 @@ class MessageService
      *
      * @return array<string, mixed>
      */
-    public function starred(Model $me, ?ChatConversation $conversation = null): array
+    public function starred(Model $me, ?ChatConversation $conversation = null, int|string|null $folder = null): array
     {
         $states = ChatMessageUserState::query()
             ->whereIn('participant_id', ChatParticipant::query()->of($me)->when($conversation, fn ($q) => $q->where('conversation_id', $conversation->id))->pluck('id'))
             ->whereNotNull('starred_at')->whereNull('deleted_at')
+            // One favourites folder, or "none" = the ones in no folder.
+            ->when($folder === 'none', fn ($q) => $q->whereNull('star_folder_id'))
+            ->when(is_int($folder), fn ($q) => $q->where('star_folder_id', $folder))
             ->latest('starred_at')->limit(200)->with('message.conversation')->get();
 
         return $states->map(function (ChatMessageUserState $state) use ($me) {
@@ -640,15 +865,22 @@ class MessageService
      *
      * @return list<MessageResource>
      */
-    public function search(Model $me, string $term, ?ChatConversation $conversation = null): array
+    public function search(Model $me, ?string $term, ?ChatConversation $conversation = null, array $types = []): array
     {
-        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], trim($term)).'%';
+        $term = trim((string) $term);
+        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $term).'%';
         $participants = ChatParticipant::query()->of($me)->when($conversation, fn ($q) => $q->where('conversation_id', $conversation->id))->get();
         $results = collect();
 
         foreach ($participants as $participant) {
             $found = $this->visibleTo($participant, ChatMessage::query()->where('conversation_id', $participant->conversation_id))
-                ->whereNull('deleted_for_everyone_at')->where('body', 'like', $like)
+                ->whereNull('deleted_for_everyone_at')
+                // The words — or, in a voice message I turned into text, what was said (spec 20).
+                ->when($term !== '', fn ($q) => $q->where(fn ($q) => $q->where('body', 'like', $like)->orWhereExists(fn ($t) => $t->select(DB::raw(1))->from('chat_message_transcripts')
+                    ->whereColumn('chat_message_transcripts.message_id', 'chat_messages.id')->where('chat_message_transcripts.participant_id', $participant->id)->where('chat_message_transcripts.text', 'like', $like))))
+                // Only some kinds (spec 21): photos, videos, voice, files, links, places, polls…
+                ->when($types !== [], fn ($q) => $q->where(fn ($q) => $this->whereTypes($q, $types)))
+                ->where('view_once', false)
                 ->orderByDesc('id')->limit(50)->get();
 
             if ($found->isNotEmpty()) {
@@ -667,7 +899,37 @@ class MessageService
      *
      * @return array{messages: Collection<int, ChatMessage>, context: MessageViewContext, has_more: bool}
      */
-    public function gallery(Model $me, ChatConversation $conversation, string $kind, ?string $before, int $limit = 60): array
+    /**
+     * The kinds of message a search can be narrowed to (spec 21).
+     *
+     * @param  list<string>  $types
+     */
+    private function whereTypes(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder $q, array $types): void
+    {
+        $map = [
+            'text' => [MessageType::Text->value], 'image' => [MessageType::Image->value], 'video' => [MessageType::Video->value],
+            'voice' => [MessageType::Voice->value, MessageType::Audio->value], 'document' => [MessageType::Document->value],
+            'location' => [MessageType::Location->value], 'poll' => [MessageType::Poll->value], 'contact' => [MessageType::Contact->value],
+            'sticker' => [MessageType::Sticker->value, MessageType::Gif->value],
+            'money' => [MessageType::WalletTransfer->value, MessageType::MoneyRequest->value, MessageType::BillSplit->value],
+        ];
+        $values = collect($types)->flatMap(fn ($t) => $map[$t] ?? [])->unique()->values()->all();
+        if ($values !== []) {
+            $q->whereIn('type', $values);
+        }
+        if (in_array('link', $types, true)) {
+            $q->orWhere('has_link', true);
+        }
+    }
+
+    /**
+     * The chat's gallery tabs. `filters` (spec 17, 18): `date` (Y-m-d — from that day back),
+     * `file_kind` (pdf · word · excel · slides · archive · other), `min_size` / `max_size` (bytes),
+     * `sort` = size (biggest first, one page).
+     *
+     * @param  array<string, mixed>  $filters
+     */
+    public function gallery(Model $me, ChatConversation $conversation, string $kind, ?string $before, int $limit = 60, array $filters = []): array
     {
         $participant = $this->conversations->participantOf($me, $conversation);
 
@@ -675,6 +937,40 @@ class MessageService
             ->whereNull('deleted_for_everyone_at')
             ->where('view_once', false)
             ->when($before, fn ($q) => $q->where('id', '<', $this->findInConversation($conversation, $before)->id));
+
+        if (! empty($filters['date'])) {
+            $query->where('created_at', '<', \Carbon\CarbonImmutable::parse($filters['date'])->addDay()->startOfDay());
+        }
+        $media = function (\Closure $where) use ($query) {
+            $query->whereHas('media', fn ($m) => $m->where('collection_name', ChatMessage::ATTACHMENTS)->where($where));
+        };
+        if (! empty($filters['min_size'])) {
+            $media(fn ($m) => $m->where('size', '>=', (int) $filters['min_size']));
+        }
+        if (! empty($filters['max_size'])) {
+            $media(fn ($m) => $m->where('size', '<=', (int) $filters['max_size']));
+        }
+        if (! empty($filters['file_kind'])) {
+            // By type and by extension (a phone may not know a file's type).
+            $kinds = [
+                'pdf' => [['application/pdf'], ['pdf']],
+                'word' => [['%word%', '%msword%', '%opendocument.text%', '%rtf%'], ['doc', 'docx', 'odt', 'rtf']],
+                'excel' => [['%sheet%', '%excel%', '%csv%'], ['xls', 'xlsx', 'ods', 'csv']],
+                'slides' => [['%presentation%', '%powerpoint%'], ['ppt', 'pptx', 'odp', 'key']],
+                'archive' => [['%zip%', '%rar%', '%7z%', '%x-tar%', '%gzip%'], ['zip', 'rar', '7z', 'tar', 'gz']],
+            ];
+            $matches = fn ($m, array $kind) => $m->where(function ($m) use ($kind) {
+                foreach ($kind[0] as $mime) {
+                    $m->orWhere('mime_type', 'like', $mime);
+                }
+                foreach ($kind[1] as $ext) {
+                    $m->orWhere('file_name', 'like', '%.'.$ext);
+                }
+            });
+            $media(fn ($m) => $filters['file_kind'] === 'other'
+                ? collect($kinds)->each(fn ($kind) => $m->whereNot(fn ($n) => $matches($n, $kind)))
+                : $matches($m, $kinds[$filters['file_kind']]));
+        }
 
         match ($kind) {
             'media' => $query->whereIn('type', [MessageType::Image->value, MessageType::Video->value]),
@@ -685,8 +981,14 @@ class MessageService
             default => throw new ChatException('invalid_gallery', 422),
         };
 
+        if (($filters['sort'] ?? null) === 'size') {
+            // Biggest first — one page, no paging.
+            $query->orderByDesc(\Spatie\MediaLibrary\MediaCollections\Models\Media::query()->select('size')->whereColumn('model_id', 'chat_messages.id')
+                ->where('model_type', (new ChatMessage)->getMorphClass())->where('collection_name', ChatMessage::ATTACHMENTS)->orderByDesc('size')->limit(1));
+            $limit = 200;
+        }
         $messages = $query->orderByDesc('id')->limit($limit + 1)->get();
-        $hasMore = $messages->count() > $limit;
+        $hasMore = ($filters['sort'] ?? null) !== 'size' && $messages->count() > $limit;
         $messages = $messages->take($limit)->values();
         $messages->load(['media', 'reactions']);
 
@@ -713,6 +1015,13 @@ class MessageService
                 throw ChatException::adminsOnly();
             }
 
+            $this->assertNotTooSoon($participant, $conversation);
+
+            return;
+        }
+
+        // Note to self: nobody else to be blocked by.
+        if ($conversation->isSelf()) {
             return;
         }
 
@@ -724,6 +1033,49 @@ class MessageService
 
         // Blocked either way = the chat is closed until someone unblocks.
         $this->privacy->assertReachable($me, $peer);
+    }
+
+    /**
+     * Slow mode: a member waits `slow_mode_seconds` after their last message (admins never wait).
+     * The wait left comes back in `retry_after` so the app can count it down.
+     */
+    private function assertNotTooSoon(ChatParticipant $participant, ChatConversation $conversation): void
+    {
+        $seconds = (int) $conversation->group?->slow_mode_seconds;
+
+        if ($seconds <= 0 || $participant->isAdmin()) {
+            return;
+        }
+
+        $last = ChatMessage::query()
+            ->where('conversation_id', $conversation->id)
+            ->where('sender_type', $participant->participant_type)->where('sender_id', $participant->participant_id)
+            ->latest('id')->value('created_at');
+
+        if ($last === null) {
+            return;
+        }
+
+        $wait = $seconds - (int) floor(\Illuminate\Support\Carbon::parse($last)->diffInSeconds(now(), true));
+
+        if ($wait > 0) {
+            throw new ChatException('slow_mode', 429, ['seconds' => $wait], ['retry_after' => $wait]);
+        }
+    }
+
+    /**
+     * A group's banned words: a member's text (or caption) containing one isn't sent. Admins are
+     * exempt — they moderate, and may need to quote what they're removing.
+     */
+    private function assertNoBannedWords(ChatParticipant $participant, ChatConversation $conversation, ?string $body): void
+    {
+        if (! $conversation->isGroup() || $participant->isAdmin()) {
+            return;
+        }
+
+        if (BannedWords::firstIn($body, $conversation->group?->banned_words) !== null) {
+            throw new ChatException('banned_word', 422);
+        }
     }
 
     private function startedBy(ChatConversation $conversation, ChatParticipant $participant): bool
@@ -762,9 +1114,11 @@ class MessageService
             ],
             // Looked up by id on the server: a message can only show real library media.
             MessageType::Gif => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'gif'),
-            MessageType::Sticker => ! empty($data['sticker_id'])
-                ? app(StickerService::class)->meta((int) $data['sticker_id'])
-                : app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
+            MessageType::Sticker => match (true) {
+                ! empty($data['my_sticker_id']) => app(StickerService::class)->myMeta($me, (int) $data['my_sticker_id']),
+                ! empty($data['sticker_id']) => app(StickerService::class)->meta((int) $data['sticker_id']),
+                default => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
+            },
             MessageType::Poll => MessageExtrasService::pollMeta((array) ($data['poll_options'] ?? []), (bool) ($data['poll_multiple'] ?? false)),
             MessageType::Contact => [
                 'name' => (string) $data['contact_name'],
@@ -775,7 +1129,9 @@ class MessageService
                 'waveform' => isset($data['waveform']) ? array_map('intval', (array) $data['waveform']) : null,
             ], fn ($v) => $v !== null) ?: null,
             MessageType::Video => isset($data['duration_ms']) ? ['duration_ms' => (int) $data['duration_ms']] : null,
-            MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id']),
+            MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id'])
+                // A money gift: the same receipt, drawn as a card for the occasion.
+                + (in_array($data['gift'] ?? null, self::GIFT_CARDS, true) ? ['gift' => $data['gift']] : []),
             MessageType::WalletQr => $this->walletShare->walletQr($me, $data['country_code'] ?? null),
             // Built by StoryService::reply() from the real story — never from the client.
             MessageType::StoryReply => $data['story_meta'] ?? throw new ChatException('story_not_found', 404),
@@ -796,6 +1152,7 @@ class MessageService
         config(['media-library.max_file_size' => ChatSetting::current()->max_file_size_mb * 1024 * 1024]);
 
         foreach (array_values($files) as $i => $file) {
+            $file = WebpUploadConverter::convert($file);
             $message->addMedia($file)
                 ->usingFileName(Str::uuid().'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin'))
                 ->usingName($file->getClientOriginalName())

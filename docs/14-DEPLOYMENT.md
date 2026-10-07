@@ -55,6 +55,23 @@ php artisan serve
 
 **Note:** Laragon users may use virtual host (e.g., `dorr.test`) — adjust `APP_URL` accordingly.
 
+### Laragon / Apache on Windows: always run `php artisan config:cache`
+
+Apache on Windows (`mpm_winnt`) serves requests on threads, and reading `.env` per request is not thread-safe there. Two requests at the same moment (the mobile chat sends "stopped typing" and the message together) can lose the environment. One of them then runs as `production` on the default `sqlite` database and answers 500. In the log this shows as `production.ERROR: Database file at path [...database.sqlite] does not exist`. The fix is to cache the config, so `.env` isn't read per request:
+
+```bash
+php artisan config:cache      # again after every .env change
+```
+
+Code must read settings through `config()`, never `env()` outside `config/` (a cached config makes `env()` return null). Tests are unaffected: `phpunit.xml` points `APP_CONFIG_CACHE` at a file that doesn't exist, so they always load fresh config on the in-memory database. For that reason `composer test` no longer runs `config:clear`. As a last line of defence, `tests/TestCase.php` refuses to start (before the first query) unless the app is on the in-memory SQLite and booted from this project's folder. On 2026-10-03, a test run from a second checkout that shared this `vendor` folder booted this project with its cached config and `RefreshDatabase` wiped the dev database. It was restored from the MySQL binary log (`mysqlbinlog --rewrite-db … --stop-position`). Never point tests at a real database, and never share `vendor` between checkouts.
+
+### Phone over ngrok / LAN
+
+- `TRUSTED_PROXIES=127.0.0.1,::1` in `.env` (ngrok connects from this machine), so the server sees the phone's real IP (`App\Http\Middleware\TrustProxies` → `config('app.trusted_proxies')`).
+- The Android app's backend host is per developer, set in `androidApp/local.properties` (not committed): `dorr.apiHost=<your-tunnel>.ngrok-free.dev` and `dorr.apiScheme=https` (`http` for a LAN IP).
+- Uploaded files (chat photos, voice notes, stories) are served through `public/storage`. If it is missing, every media URL answers 403 and voice notes and stories don't play: run `php artisan storage:link` once per machine.
+- After pulling a new module (`Modules/*`), run `composer dump-autoload`, or every request fails with `Class "Modules\…\Providers\…ServiceProvider" not found`.
+
 ---
 
 ## Environment Configuration

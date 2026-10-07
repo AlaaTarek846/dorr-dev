@@ -6,6 +6,7 @@ use App\Enums\UserStatus;
 use App\Enums\VerificationType;
 use App\Http\Controllers\Controller;
 use App\Services\Auth\VerificationCodeService;
+use App\Services\General\ReferralCodeService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
@@ -127,6 +128,8 @@ class MobileAuthController extends Controller
 
         $user->tokens()->delete();
 
+        app(\App\Services\General\LoginCountry::class)->remember($user);
+        app(ReferralCodeService::class)->codeFor($user);
         $token = $user->createToken(self::TOKEN_NAME)->plainTextToken;
 
         return ApiResponse::success([
@@ -176,7 +179,16 @@ class MobileAuthController extends Controller
 
     public function logout(): JsonResponse
     {
-        request()->user('user_api')?->currentAccessToken()?->delete();
+        $user = request()->user('user_api');
+
+        // The phone's push id stops pointing at this account, or the next person on this phone
+        // would still get its messages and calls.
+        $playerId = request()->input('player_id');
+        if ($user && is_string($playerId) && $playerId !== '') {
+            $user->notificationDevices()->where('player_id', $playerId)->delete();
+        }
+
+        $user?->currentAccessToken()?->delete();
 
         return ApiResponse::success([], __('api.logout_success'));
     }

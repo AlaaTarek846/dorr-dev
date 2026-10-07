@@ -1,0 +1,29 @@
+# Hosting whose document root is the project folder (not public/): everything is served from
+# public/, and nothing else in the project (.env, composer.json, storage, vendor…) can be read.
+# The proper fix is still to point the domain's document root at public/.
+
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Keep the Authorization header (the apps' Bearer tokens).
+    RewriteCond %{HTTP:Authorization} .
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
+    # Hidden files anywhere (.env, .git, .htaccess…) — refused. Let's Encrypt's
+    # .well-known stays reachable.
+    RewriteRule (^|/)\.(?!well-known/) - [F,L]
+
+    # Everything else is answered from public/ (Laravel's own .htaccess takes it from there).
+    RewriteCond %{REQUEST_URI} !^/public/
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>
+
+# Even if mod_rewrite is off: no hidden files and no project files.
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^(artisan|composer\.(json|lock)|package(-lock)?\.json|phpunit\.xml|vite\.config\.js|.*\.(md|log|sql|sh|yml|yaml))$">
+    Require all denied
+</FilesMatch>

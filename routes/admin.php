@@ -1,16 +1,21 @@
 <?php
 
+use App\Enums\TranslationPlatform;
 use App\Http\Controllers\General\CountryController;
 use App\Http\Controllers\General\CurrencyController;
 use App\Http\Controllers\General\DashboardThemeController;
 use App\Http\Controllers\General\FaqController;
 use App\Http\Controllers\General\FlagController;
 use App\Http\Controllers\General\LanguageController;
+use App\Http\Controllers\General\LegalPageController;
 use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
-use App\Http\Controllers\General\PrivacyPolicyController;
+use App\Http\Controllers\General\RatingController;
+use App\Http\Controllers\General\ReferralCodeController;
+use App\Http\Controllers\General\ReferralController;
 use App\Http\Controllers\General\ServiceCategoryController;
+use App\Http\Controllers\General\TranslationController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -24,6 +29,14 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('auth:admin_api')->group(function () {
+    // Ratings from the mobile app: read and remove only.
+    Route::post('ratings/delete-multiple', [RatingController::class, 'deleteMultiple']);
+    Route::apiResource('ratings', RatingController::class)->only(['index', 'show', 'destroy']);
+
+    Route::patch('referral-codes/{referral_code}/status', [ReferralCodeController::class, 'changeStatus']);
+    Route::apiResource('referral-codes', ReferralCodeController::class)->only(['index', 'show']);
+    Route::apiResource('referrals', ReferralController::class)->only(['index', 'show']);
+
     Route::get('platform-settings', [PlatformSettingController::class, 'show']);
     Route::post('platform-settings', [PlatformSettingController::class, 'update']);
 
@@ -45,6 +58,24 @@ Route::middleware('auth:admin_api')->group(function () {
     Route::get('faqs/ordered', [FaqController::class, 'ordered']);
     Route::put('faqs/reorder', [FaqController::class, 'reorder']);
 
+    Route::prefix('languages/{language}/translations')
+        ->whereNumber('language')
+        ->group(function () {
+            Route::get('/', [TranslationController::class, 'index']);
+            Route::get('android/export', [TranslationController::class, 'exportAndroid']);
+
+            Route::prefix('{platform}/{group}')
+                ->whereIn('platform', TranslationPlatform::values())
+                ->where(['group' => '[a-z_]+'])
+                ->group(function () {
+                    Route::get('export', [TranslationController::class, 'export']);
+                    Route::post('validate', [TranslationController::class, 'validateFile']);
+                    Route::post('import', [TranslationController::class, 'import']);
+                    Route::post('publish', [TranslationController::class, 'publish']);
+                    Route::delete('draft', [TranslationController::class, 'discardDraft']);
+                });
+        });
+
     Route::post('dashboard-themes/delete-multiple', [DashboardThemeController::class, 'deleteMultiple']);
     Route::post('dashboard-themes/{dashboard_theme}/restore', [DashboardThemeController::class, 'restore']);
     Route::delete('dashboard-themes/{dashboard_theme}/force', [DashboardThemeController::class, 'forceDestroy']);
@@ -58,7 +89,7 @@ Route::middleware('auth:admin_api')->group(function () {
         ['countries', CountryController::class, 'country'],
         ['service-categories', ServiceCategoryController::class, 'service_category'],
         ['faqs', FaqController::class, 'faq'],
-        ['privacy-policies', PrivacyPolicyController::class, 'privacy_policy'],
+        ['legal-pages', LegalPageController::class, 'legal_page'],
     ] as [$uri, $controller, $parameter]) {
         if ($uri !== 'languages') {
             Route::get("{$uri}/dropdown", [$controller, 'dropdown']);

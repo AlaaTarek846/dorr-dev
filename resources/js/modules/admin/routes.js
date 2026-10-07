@@ -398,6 +398,30 @@ export default [
                 meta: { middleware: [auth], permission: 'users.view' },
             },
             {
+                path: 'support-tickets',
+                name: 'admin.support-tickets.index',
+                component: page('support/index'),
+                meta: { middleware: [auth], permission: 'support-tickets.view' },
+            },
+            {
+                path: 'ratings',
+                name: 'admin.ratings.index',
+                component: page('rating/index'),
+                meta: { middleware: [auth], permission: 'ratings.view' },
+            },
+            {
+                path: 'referral-codes',
+                name: 'admin.referral-codes.index',
+                component: page('referral-code/index'),
+                meta: { middleware: [auth], permission: 'referral-codes.view' },
+            },
+            {
+                path: 'referrals',
+                name: 'admin.referrals.index',
+                component: page('referral/index'),
+                meta: { middleware: [auth], permission: 'referrals.view' },
+            },
+            {
                 path: 'employees',
                 name: 'admin.employees.index',
                 component: page('employee/index'),
@@ -422,10 +446,10 @@ export default [
                 meta: { middleware: [auth], permission: 'faqs.view' },
             },
             {
-                path: 'privacy-policies',
-                name: 'admin.privacy-policies.index',
-                component: page('privacy-policy/index'),
-                meta: { middleware: [auth], permission: 'privacy-policy.view' },
+                path: 'legal-pages',
+                name: 'admin.legal-pages.index',
+                component: page('legal-page/index'),
+                meta: { middleware: [auth], permission: 'legal-page.view' },
             },
             {
                 // No permission: every admin has their own notifications.
@@ -505,6 +529,42 @@ export default [
                 name: 'admin.chat.stickers',
                 component: page('chat/stickers/index'),
                 meta: { middleware: [auth], permission: 'chat-stickers.view' },
+            },
+            {
+                path: 'chat/moments',
+                name: 'admin.chat.moments',
+                component: page('chat/moments/index'),
+                meta: { middleware: [auth], permission: 'chat-moments.view' },
+            },
+            {
+                path: 'chat/dorr-stories',
+                name: 'admin.chat.dorr-stories',
+                component: page('chat/dorr-stories/index'),
+                meta: { middleware: [auth], permission: 'chat-dorr-stories.view' },
+            },
+            {
+                path: 'chat/categories',
+                name: 'admin.chat.categories',
+                component: page('chat/categories/index'),
+                meta: { middleware: [auth], permission: 'chat-categories.view' },
+            },
+            {
+                path: 'chat/packages',
+                name: 'admin.chat.packages',
+                component: page('chat/packages/index'),
+                meta: { middleware: [auth], permission: 'chat-packages.view' },
+            },
+            {
+                path: 'chat/portals',
+                name: 'admin.chat.portals',
+                component: page('chat/portals/index'),
+                meta: { middleware: [auth], permission: 'chat-portals.view' },
+            },
+            {
+                path: 'chat/channels',
+                name: 'admin.chat.channels',
+                component: page('chat/channels/index'),
+                meta: { middleware: [auth], permission: 'chat-channels.view' },
             },
             {
                 path: 'chat/reports',

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -42,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -106,6 +108,7 @@ fun WaPinPad(
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
+    val host = LocalWallet.current
     val night = dark || walletNight()
 
     // Ticks the countdown while locked; clears itself when time is up — never fires a request on its own.
@@ -138,7 +141,7 @@ fun WaPinPad(
             busy = false
             when (result) {
                 is PadResult.Error -> {
-                    error = result.message
+                    if (result.message.isNotBlank()) host.showError(result.message)
                     value = ""
                     bad = true
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -184,10 +187,10 @@ fun WaPinPad(
                 .padding(horizontal = 8.dp)
                 .then(
                     if (night) Modifier
-                    else Modifier.shadow(12.dp, cardShape, ambientColor = Color(0x1AE50914), spotColor = Color(0x24E50914)),
+                    else Modifier.shadow(12.dp, cardShape, ambientColor = Wa.Red.copy(alpha = 0.1f), spotColor = Wa.Red.copy(alpha = 0.14f)),
                 )
                 .clip(cardShape)
-                .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Color.White)
+                .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Wa.Surface)
                 .then(if (night) Modifier.border(1.dp, com.dorr.app.ui.screens.AccountDark.line, cardShape) else Modifier)
                 .padding(horizontal = 16.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -215,7 +218,7 @@ fun WaPinPad(
                     )
                 }
             }
-            Text(error, color = Wa.Danger, fontSize = 12.5.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 22.dp).padding(top = 6.dp))
+            Spacer(Modifier.height(14.dp))
         }
 
         Spacer(Modifier.weight(0.25f))
@@ -286,15 +289,14 @@ private fun PadKey(key: String, modifier: Modifier = Modifier, dark: Boolean = f
     val pressScale by rememberPressScale(source, 0.9f)
     val isDelete = key == "del"
     val keyShape = RoundedCornerShape(18.dp)
+    // Lighter than the card it sits on, so the key stays a visible box on the page and inside the PIN sheet alike.
+    val keyDark = Color.White.copy(alpha = 0.08f).compositeOver(com.dorr.app.ui.screens.AccountDark.card)
     Box(
         modifier
             .scale(pressScale)
-            .then(
-                if (isDelete || dark) Modifier
-                else Modifier.shadow(6.dp, keyShape, ambientColor = Color(0x14E50914), spotColor = Color(0x1AE50914)),
-            )
             .clip(keyShape)
-            .background(if (isDelete) Color.Transparent else if (dark) com.dorr.app.ui.screens.AccountDark.card else Color.White)
+            // Every digit is a filled rounded box that stands out from the page; the delete key is only its icon.
+            .background(if (isDelete) Color.Transparent else if (dark) keyDark else Wa.Field)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

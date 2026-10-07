@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
@@ -15,10 +16,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.material.icons.outlined.Paid
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.ui.draw.drawBehind
@@ -30,7 +29,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import coil.compose.AsyncImage
 import com.dorr.app.network.LanguageDto
@@ -66,8 +64,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Build
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Chat
 import androidx.compose.material.icons.rounded.ChevronRight
+import androidx.compose.material.icons.rounded.ConfirmationNumber
+import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Policy
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Help
 import androidx.compose.material.icons.rounded.Info
@@ -77,7 +79,9 @@ import androidx.compose.material.icons.rounded.Logout
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -106,28 +110,38 @@ import com.dorr.app.network.AuthSession
 import com.dorr.app.network.UserDto
 import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.locale.LocalAppLanguage
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import kotlinx.coroutines.launch
 import com.dorr.app.ui.screens.profile.AddressesScreen
 import com.dorr.app.ui.screens.profile.AppearanceFontScreen
 import com.dorr.app.ui.screens.profile.AppearanceScreen
 import com.dorr.app.ui.screens.profile.ContactUsSheet
 import com.dorr.app.ui.screens.profile.FaqSheet
+import com.dorr.app.ui.screens.profile.InviteFriendsScreen
 import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
+import com.dorr.app.ui.screens.profile.RateAppScreen
+import com.dorr.app.ui.screens.profile.SupportChatScreen
+import com.dorr.app.ui.screens.profile.SupportTicketScreen
 import com.dorr.app.ui.screens.profile.PersonalDataScreen
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.TermsConditionsScreen
+import com.dorr.app.ui.screens.profile.SettingsScreenTitle
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
-import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.appearanceColor
 
 
-private enum class ProfileSub { NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, PRIVACY, ADDRESSES, SETTINGS, APPEARANCE, FONT }
+private enum class ProfileSub {
+    NONE, PERSONAL_DATA, NOTIFICATIONS,
+    PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
+    INVITE, RATE, SUPPORT, TICKET,
+}
 
 private data class MenuEntry(
     val icon: ImageVector,
@@ -146,7 +160,33 @@ fun ProfileScreen(
     onAccountDeleted: () -> Unit = {},
 ) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
+    // A tapped support notification: open that ticket.
+    var openTicketId by remember { mutableStateOf<Int?>(null) }
     val isAtRoot = subScreen == ProfileSub.NONE
+
+    // A tapped support notification (a reply, a status change) lands on that ticket.
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatPush.deepLink.collect { link ->
+            if (link is com.dorr.app.chat.ChatDeepLink.Support) {
+                openTicketId = link.ticketId
+                subScreen = ProfileSub.TICKET
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+        }
+    }
+
+    // System back = the same step as each sub-screen's own back arrow. Sub-screens with inner
+    // steps (personal data, addresses form, privacy policy) register their own handlers after this one.
+    BackHandler(enabled = !isAtRoot) {
+        subScreen = when (subScreen) {
+            ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
+            ProfileSub.LEGAL -> ProfileSub.SETTINGS
+            ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
+            ProfileSub.TICKET -> ProfileSub.SUPPORT
+            ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
+            else -> ProfileSub.NONE
+        }
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var isDeleting by remember { mutableStateOf(false) }
@@ -210,25 +250,33 @@ fun ProfileScreen(
                 )
             }
             ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
-            ProfileSub.WALLET_PIN -> {
-                val subContext = LocalContext.current
-                WalletPinSettingsScreen(
-                    onBack = { subScreen = ProfileSub.SETTINGS },
-                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
-                )
-            }
-            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.SETTINGS })
+            ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.LEGAL })
+            ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.LEGAL })
+            ProfileSub.LEGAL -> LegalMenuScreen(
+                onBack = { subScreen = ProfileSub.SETTINGS },
+                onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
+                onOpenTerms = { subScreen = ProfileSub.TERMS },
+            )
             ProfileSub.ADDRESSES -> AddressesScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
-                onLogout = onLogout,
-                onDeleteAccount = ::deleteAccount,
-                isDeleting = isDeleting,
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
-                onOpenWalletPin = { subScreen = ProfileSub.WALLET_PIN },
-                onOpenPrivacy = { subScreen = ProfileSub.PRIVACY },
+                onOpenLegal = { subScreen = ProfileSub.LEGAL },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
+                onDeleteAccount = ::deleteAccount,
+                isDeleting = isDeleting,
+            )
+            ProfileSub.INVITE -> InviteFriendsScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.RATE -> RateAppScreen(onBack = { subScreen = ProfileSub.NONE })
+            ProfileSub.SUPPORT -> SupportMenuScreen(
+                onBack = { subScreen = ProfileSub.NONE },
+                onOpenTicket = { subScreen = ProfileSub.TICKET },
+            )
+            ProfileSub.TICKET -> SupportTicketScreen(
+                onBack = { subScreen = ProfileSub.SUPPORT },
+                openTicketId = openTicketId,
+                onTicketOpened = { openTicketId = null },
             )
             ProfileSub.APPEARANCE -> AppearanceScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.FONT -> AppearanceFontScreen(onBack = { subScreen = ProfileSub.SETTINGS })
@@ -236,7 +284,11 @@ fun ProfileScreen(
                 onOpenPersonalData = { subScreen = ProfileSub.PERSONAL_DATA },
                 onOpenSettings = { subScreen = ProfileSub.SETTINGS },
                 onOpenAddresses = { subScreen = ProfileSub.ADDRESSES },
+                onOpenInvite = { subScreen = ProfileSub.INVITE },
+                onOpenRate = { subScreen = ProfileSub.RATE },
+                onOpenSupport = { subScreen = ProfileSub.SUPPORT },
                 onOpenWallet = onOpenWallet,
+                onLogout = onLogout,
             )
         }
     }
@@ -250,7 +302,7 @@ internal object AccountDark {
     private val fallbackLine = Color(0xFF2C313A)
     private val fallbackInk = Color(0xFFF4F5F7)
     private val fallbackMut = Color(0xFF9AA1AC)
-    private val fallbackAccent = Color(0xFFFF4D57)
+    private val fallbackAccent = Color(0xFFFA7552)
     private val fallbackChevron = Color(0xFF8B93A0)
 
     val bg: Color @Composable get() = appearanceColor("background", fallbackBg, night = true)
@@ -354,13 +406,13 @@ private fun ProfileMenuScreen(
     onOpenPersonalData: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenAddresses: () -> Unit,
+    onOpenInvite: () -> Unit,
+    onOpenRate: () -> Unit,
+    onOpenSupport: () -> Unit,
     onOpenWallet: () -> Unit,
+    onLogout: () -> Unit,
 ) {
-    val context = LocalContext.current
-    val comingSoon = stringResource(R.string.services_coming_soon)
-    fun toastComingSoon() = Toast.makeText(context, comingSoon, Toast.LENGTH_SHORT).show()
-
-    var showFaqSheet by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
 
@@ -368,9 +420,10 @@ private fun ProfileMenuScreen(
         MenuEntry(Icons.Rounded.Person, R.string.account_personal_data, R.string.account_personal_data_sub, onClick = onOpenPersonalData),
         MenuEntry(Icons.Rounded.Settings, R.string.account_settings, R.string.account_settings_sub, onClick = onOpenSettings),
         MenuEntry(Icons.Rounded.LocationOn, R.string.account_places, R.string.account_places_sub, onClick = onOpenAddresses),
-        MenuEntry(Icons.Rounded.CreditCard, R.string.account_payments, R.string.account_payments_sub, onClick = ::toastComingSoon),
-        MenuEntry(Icons.Rounded.LocalOffer, R.string.account_promo, R.string.account_promo_sub, onClick = ::toastComingSoon),
-        MenuEntry(Icons.Rounded.Help, R.string.account_help, R.string.account_help_sub) { showFaqSheet = true },
+        MenuEntry(Icons.Rounded.Share, R.string.invite_title, R.string.invite_sub, onClick = onOpenInvite),
+        MenuEntry(Icons.Rounded.Star, R.string.rate_title, R.string.rate_sub, onClick = onOpenRate),
+        MenuEntry(Icons.Rounded.SupportAgent, R.string.support_title, R.string.support_sub, onClick = onOpenSupport),
+        MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true) { showLogoutConfirm = true },
     )
 
     LazyColumn(
@@ -387,11 +440,8 @@ private fun ProfileMenuScreen(
                     .padding(top = 14.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
+                SettingsScreenTitle(
                     stringResource(R.string.account_title),
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = if (dark) AccountDark.accent else settingsAccent(),
                     modifier = Modifier.weight(1f),
                 )
                 Box(
@@ -399,7 +449,7 @@ private fun ProfileMenuScreen(
                         .size(34.dp)
                         .then(
                             if (dark) Modifier
-                            else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                            else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                         )
                         .clip(CircleShape)
                         .background(settingsCard())
@@ -551,55 +601,25 @@ private fun ProfileMenuScreen(
         }
     }
 
-    if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
+    if (showLogoutConfirm) {
+        ConfirmDialog(
+            icon = Icons.Rounded.Logout,
+            title = stringResource(R.string.account_logout),
+            message = stringResource(R.string.logout_confirm_message),
+            confirmLabel = stringResource(R.string.common_yes),
+            onConfirm = { showLogoutConfirm = false; onLogout() },
+            onDismiss = { showLogoutConfirm = false },
+        )
+    }
 }
 
 @Composable
-private fun SettingsMenuScreen(
+private fun AccountListScreen(
+    title: String,
     onBack: () -> Unit,
-    onLogout: () -> Unit,
-    onDeleteAccount: () -> Unit,
-    isDeleting: Boolean,
-    onOpenNotifications: () -> Unit,
-    onOpenWalletPin: () -> Unit,
-    onOpenPrivacy: () -> Unit,
-    onOpenAppearance: () -> Unit,
-    onOpenFont: () -> Unit,
+    items: List<MenuEntry>,
 ) {
-    val themeState = LocalThemeState.current
-    val isDark = themeState.isDark ?: isSystemInDarkTheme()
-
-    var showLogoutConfirm by remember { mutableStateOf(false) }
-    var showDeleteConfirm by remember { mutableStateOf(false) }
-    var showFaqSheet by remember { mutableStateOf(false) }
-    var showContactSheet by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
-    var showLanguageDialog by remember { mutableStateOf(false) }
-
-    val menuItems = listOf(
-        MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
-        MenuEntry(Icons.Rounded.Lock, R.string.account_wallet_pin, R.string.account_wallet_pin_sub, onClick = onOpenWalletPin),
-        MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
-        MenuEntry(
-            icon = Icons.Rounded.Palette,
-            label = R.string.appearance_title,
-            subtitle = R.string.appearance_sub,
-            onClick = onOpenAppearance,
-        ),
-        MenuEntry(
-            icon = Icons.Rounded.TextFields,
-            label = R.string.appearance_font,
-            subtitle = R.string.appearance_font_sub,
-            onClick = onOpenFont,
-        ),
-        MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
-        MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
-        MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub) { showAboutDialog = true },
-        MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
-        MenuEntry(Icons.Rounded.Logout, R.string.account_logout, R.string.account_logout_sub, danger = true) { showLogoutConfirm = true },
-        MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
-    )
-
+    val isDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Column(
         modifier = Modifier
@@ -610,22 +630,16 @@ private fun SettingsMenuScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 14.dp)
-                .padding(top = 14.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+            .padding(top = 14.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                stringResource(R.string.account_settings),
-                color = settingsAccent(),
-                fontSize = 22.sp,
-                fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.weight(1f),
-            )
+            SettingsScreenTitle(title, Modifier.weight(1f))
             Box(
                 modifier = Modifier
                     .size(34.dp)
                     .then(
                         if (isDark) Modifier
-                        else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                        else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                     )
                     .clip(CircleShape)
                     .background(settingsCard())
@@ -649,7 +663,7 @@ private fun SettingsMenuScreen(
                 .padding(horizontal = 14.dp),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
-            itemsIndexed(menuItems) { index, entry ->
+            itemsIndexed(items) { index, entry ->
                 var visible by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { visible = true }
                 AnimatedVisibility(
@@ -662,32 +676,84 @@ private fun SettingsMenuScreen(
             }
         }
     }
+}
 
-    if (showLogoutConfirm) {
-        ConfirmDialog(
-            icon = Icons.Rounded.Logout,
-            title = stringResource(R.string.account_logout),
-            message = stringResource(R.string.logout_confirm_message),
-            onConfirm = { showLogoutConfirm = false; onLogout() },
-            onDismiss = { showLogoutConfirm = false },
-        )
-    }
+@Composable
+private fun SettingsMenuScreen(
+    onBack: () -> Unit,
+    onOpenNotifications: () -> Unit,
+    onOpenLegal: () -> Unit,
+    onOpenAppearance: () -> Unit,
+    onOpenFont: () -> Unit,
+    onDeleteAccount: () -> Unit,
+    isDeleting: Boolean,
+) {
+    var showContactSheet by remember { mutableStateOf(false) }
+    var showAboutDialog by remember { mutableStateOf(false) }
+    var showLanguageDialog by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+
+    AccountListScreen(
+        title = stringResource(R.string.account_settings),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
+            MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
+            MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = onOpenAppearance),
+            MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = onOpenFont),
+            MenuEntry(Icons.Rounded.Call, R.string.account_contact_us, R.string.account_contact_us_sub) { showContactSheet = true },
+            MenuEntry(Icons.Rounded.Info, R.string.account_about, R.string.account_about_sub) { showAboutDialog = true },
+            MenuEntry(Icons.Rounded.Policy, R.string.account_legal, R.string.account_legal_sub, onClick = onOpenLegal),
+            MenuEntry(Icons.Rounded.DeleteForever, R.string.account_delete, R.string.account_delete_sub, danger = true) { showDeleteConfirm = true },
+        ),
+    )
+
+    if (showContactSheet) ContactUsSheet(onDismiss = { showContactSheet = false })
+    if (showAboutDialog) AboutDialog(onDismiss = { showAboutDialog = false })
+    if (showLanguageDialog) LanguageDialog(onDismiss = { showLanguageDialog = false })
     if (showDeleteConfirm) {
         ConfirmDialog(
             icon = Icons.Rounded.DeleteForever,
             title = stringResource(R.string.account_delete),
             message = stringResource(R.string.delete_confirm_message),
             loading = isDeleting,
-            // The dialog stays open showing a spinner until the call resolves; on
-            // success the whole profile screen goes away with it.
             onConfirm = { onDeleteAccount() },
             onDismiss = { if (!isDeleting) showDeleteConfirm = false },
         )
     }
+}
+
+@Composable
+private fun SupportMenuScreen(
+    onBack: () -> Unit,
+    onOpenTicket: () -> Unit,
+) {
+    var showFaqSheet by remember { mutableStateOf(false) }
+    AccountListScreen(
+        title = stringResource(R.string.support_title),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = onOpenTicket),
+            MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
+        ),
+    )
     if (showFaqSheet) FaqSheet(onDismiss = { showFaqSheet = false })
-    if (showContactSheet) ContactUsSheet(onDismiss = { showContactSheet = false })
-    if (showAboutDialog) AboutDialog(onDismiss = { showAboutDialog = false })
-    if (showLanguageDialog) LanguageDialog(onDismiss = { showLanguageDialog = false })
+}
+
+@Composable
+private fun LegalMenuScreen(
+    onBack: () -> Unit,
+    onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
+) {
+    AccountListScreen(
+        title = stringResource(R.string.account_legal),
+        onBack = onBack,
+        items = listOf(
+            MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
+            MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = onOpenTerms),
+        ),
+    )
 }
 
 @Composable
@@ -923,16 +989,17 @@ private fun SettingsToggle(on: Boolean, dark: Boolean = false) {
 }
 
 @Composable
-private fun ConfirmDialog(
+internal fun ConfirmDialog(
     icon: ImageVector,
     title: String,
     message: String,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
     loading: Boolean = false,
+    confirmLabel: String = stringResource(R.string.addr_yes),
 ) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = { if (!loading) onDismiss() },
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -948,7 +1015,7 @@ private fun ConfirmDialog(
                     .padding(horizontal = 24.dp)
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
-                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24E50914), spotColor = Color(0x24E50914))
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(
                         interactionSource = remember { MutableInteractionSource() },
@@ -967,7 +1034,7 @@ private fun ConfirmDialog(
                             .size(56.dp)
                             .then(
                                 if (dark) Modifier
-                                else Modifier.shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1AE50914), spotColor = Color(0x1AE50914)),
+                                else Modifier.shadow(8.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x1A001B53), spotColor = Color(0x1A001B53)),
                             )
                             .clip(RoundedCornerShape(18.dp))
                             .background(settingsCard())
@@ -1001,7 +1068,7 @@ private fun ConfirmDialog(
                             modifier = Modifier
                                 .weight(1f)
                                 .height(46.dp)
-                                .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                                .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                                 .clip(RoundedCornerShape(14.dp))
                                 .background(
                                     if (loading) settingsAccent().copy(alpha = 0.6f) else settingsAccent(),
@@ -1025,7 +1092,7 @@ private fun ConfirmDialog(
                                     )
                                 }
                             } else {
-                                Text(stringResource(R.string.addr_yes), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                                Text(confirmLabel, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                             }
                         }
                         Box(
@@ -1055,7 +1122,7 @@ private fun ConfirmDialog(
 @Composable
 private fun AboutDialog(onDismiss: () -> Unit) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -1071,7 +1138,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                     .padding(horizontal = 24.dp)
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
-                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24E50914), spotColor = Color(0x24E50914))
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
                     .clip(RoundedCornerShape(20.dp))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
             ) {
@@ -1105,7 +1172,7 @@ private fun AboutDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
-                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                             .clip(RoundedCornerShape(14.dp))
                             .background(settingsAccent())
                             .clickable(onClick = onDismiss),
@@ -1127,14 +1194,20 @@ private fun AboutDialog(onDismiss: () -> Unit) {
 private fun LanguageDialog(onDismiss: () -> Unit) {
     val dark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val appLanguage = LocalAppLanguage.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val downloadFailed = stringResource(R.string.language_download_failed)
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
+    // Code of the language whose strings are being downloaded; the other choices wait for it.
+    var downloading by remember { mutableStateOf<String?>(null) }
     val reconnectTick = collectReconnectTick()
     LaunchedEffect(reconnectTick) {
         languages = runCatching { ApiClient.languages.list().data.orEmpty() }.getOrDefault(emptyList())
         loading = false
+        appLanguage.syncWith(context, languages)
     }
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -1151,7 +1224,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                     .widthIn(max = 300.dp)
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(20.dp))
-                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24E50914), spotColor = Color(0x24E50914))
+                    .shadow(16.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x24001B53), spotColor = Color(0x24001B53))
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = {}),
             ) {
                 PinkBackdrop(Modifier.matchParentSize())
@@ -1187,8 +1260,18 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                                     name = language.name,
                                     flag = languageFlagCode(language),
                                     selected = code == appLanguage.code.lowercase(),
-                                    onClick = { appLanguage.set(code) },
+                                    onClick = {
+                                        if (downloading == null && code != appLanguage.code.lowercase()) {
+                                            scope.launch {
+                                                downloading = code
+                                                val switched = appLanguage.choose(context, code)
+                                                downloading = null
+                                                if (!switched) Toast.makeText(context, downloadFailed, Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    },
                                     dark = dark,
+                                    loading = downloading == code,
                                 )
                             }
                         }
@@ -1197,7 +1280,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(44.dp)
-                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                            .shadow(8.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                             .clip(RoundedCornerShape(14.dp))
                             .background(settingsAccent())
                             .clickable(onClick = onDismiss),
@@ -1212,7 +1295,14 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun LanguageOption(name: String, flag: String, selected: Boolean, onClick: () -> Unit, dark: Boolean = false) {
+private fun LanguageOption(
+    name: String,
+    flag: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    dark: Boolean = false,
+    loading: Boolean = false,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1246,14 +1336,22 @@ private fun LanguageOption(name: String, flag: String, selected: Boolean, onClic
         }
         Spacer(Modifier.width(10.dp))
         Text(name, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f))
-        Box(
-            modifier = Modifier
-                .size(18.dp)
-                .border(2.dp, if (selected) settingsAccent() else if (dark) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(settingsAccent()))
+        if (loading) {
+            CircularProgressIndicator(
+                color = settingsAccent(),
+                strokeWidth = 2.dp,
+                modifier = Modifier.size(18.dp),
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .border(2.dp, if (selected) settingsAccent() else if (dark) AccountDark.chevron else Color(0xFFF8BCA9), CircleShape),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(settingsAccent()))
+                }
             }
         }
     }

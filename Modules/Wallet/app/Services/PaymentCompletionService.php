@@ -154,6 +154,10 @@ class PaymentCompletionService
 
         $this->notifier->topupPaid($payment);
 
+        // A top-up started from the payment screen pays what it was for, right now (resolved
+        // lazily: CheckoutService itself depends on the top-up service that depends on this one).
+        app(CheckoutService::class)->settleFromTopup($payment);
+
         return $payment;
     }
 

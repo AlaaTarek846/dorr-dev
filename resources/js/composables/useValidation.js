@@ -1,5 +1,7 @@
-import { helpers, maxLength, minLength, required } from '@vuelidate/validators';
+import { helpers, integer, maxLength, maxValue, minLength, minValue, required } from '@vuelidate/validators';
 import { useI18n } from 'vue-i18n';
+
+const MONEY_PATTERN = /^\d+([.,]\d{1,2})?$/;
 
 const DEFAULT_LOCALES = {
     en: 'flags.lang_en',
@@ -48,6 +50,33 @@ export default function useValidation() {
             () => t('validation.min.string', { field: t(fieldKey, labelParams), min }),
             minLength(min),
         );
+    }
+
+    /** Money typed in major units ("12.5" or "12,5"): digits with up to 2 decimals. Same regex rule kind as the slug fields. */
+    function moneyFormat(fieldKey) {
+        return helpers.withMessage(
+            () => t('validation.regex', { field: t(fieldKey) }),
+            helpers.regex(MONEY_PATTERN),
+        );
+    }
+
+    /** integer / minValue / maxValue rules with the standard messages (same kinds as the country phone length). */
+    function numberRules(fieldKey, { min = null, max = null, integerOnly = false } = {}) {
+        const rules = {};
+
+        if (integerOnly) {
+            rules.integer = helpers.withMessage(() => t('validation.integer', { field: t(fieldKey) }), integer);
+        }
+
+        if (min !== null) {
+            rules.minValue = helpers.withMessage(() => t('validation.min.numeric', { field: t(fieldKey), min }), minValue(min));
+        }
+
+        if (max !== null) {
+            rules.maxValue = helpers.withMessage(() => t('validation.max.numeric', { field: t(fieldKey), max }), maxValue(max));
+        }
+
+        return rules;
     }
 
     function digitsBetween(fieldKey, min, max, { optional = false } = {}) {
@@ -216,6 +245,8 @@ export default function useValidation() {
         maxString,
         minString,
         digitsBetween,
+        moneyFormat,
+        numberRules,
         minArray,
         translationNameRuleWithLabel,
         catalogTranslationRulesFromLanguages,

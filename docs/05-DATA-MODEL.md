@@ -59,7 +59,79 @@ personal_access_tokens (Sanctum)
 | country_id | FK → countries, nullable |
 | remember_token, timestamps | |
 
-**Relationships:** `belongsTo` Country; morphMany SocialAccount, VerificationCode; HasRoles (Spatie).
+**Relationships:** `belongsTo` Country; morphMany SocialAccount, VerificationCode; HasRoles (Spatie); `hasMany` SupportTicket.
+
+### `support_tickets`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| user_id | FK → users, cascade on delete |
+| title | string |
+| body | text |
+| image_path | nullable, public disk `support-tickets/{userId}` |
+| status | default `open` |
+| timestamps | |
+
+`status` is `opened` / `reopened` / `resolved` / `closed` (`SupportTicketStatus`); `admin_id` (nullable FK → admins) is the agent who took it; `last_message_at` orders the lists. Opened from the Android app via `POST /api/mobile/v1/support-tickets`; the dashboard answers and moves the status (`support-tickets.*` permissions, module `system_users`). The history of status moves is in `support_ticket_activities` (`support_ticket_id`, `admin_id` nullable, `actor` user|support, `status`, timestamps).
+
+### `ratings`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| author_type, author_id | morph (the user who rated) |
+| rateable_type, rateable_id | nullable morph; null = the app itself. Allowed aliases: `service` (ServiceCategory), `provider` |
+| unique_key | char(64) unique — sha256 of author + target, prevents duplicate ratings (NULL morphs cannot be unique) |
+| stars | decimal(3,2), 1–5 in 0.25 steps |
+| type | `feedback` (< 4) or `review` (≥ 4) |
+| comment | nullable text |
+| timestamps | |
+
+Admin: view/delete only (`ratings.*` permissions, module `system_users`).
+
+### `referral_codes`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| code | unique, format `DORRFC-` + 6 A–Z/0–9 |
+| referrable_type, referrable_id | owner alias (`user` / `provider`; later `driver`) — not a class name, not `Relation::morphMap()` |
+| is_active | bool; deactivating does not delete history |
+| timestamps | |
+
+One active code per owner is created on first `GET /api/mobile/v1/referrals/my-code`.
+
+### `referrals`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| referrer_type, referrer_id | owner of the code used |
+| referred_type, referred_id | unique pair — one referral per referred entity |
+| referral_code_id | FK → referral_codes, restrict on delete |
+| status | `registered` / `completed` / `cancelled` |
+| registered_at, completed_at, cancelled_at | nullable |
+| timestamps | |
+
+Mobile: `GET/POST /api/mobile/v1/referrals/*`. Admin: `/api/admin/v1/referral-codes*`, `/api/admin/v1/referrals*` (`referral-codes.view|change-status`, `referrals.view`).
+
+Completion (wallet rewards) is a later hook — v1 stores `registered` only.
+
+### `support_messages`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| user_id | FK → users, cascade on delete (the customer of the ticket) |
+| admin_id | nullable FK → admins (the agent who wrote it) |
+| support_ticket_id | FK → support_tickets |
+| sender | `user` or `support` |
+| body | nullable text (a message can be a photo only) |
+| image_path | nullable, public disk |
+| timestamps | |
+
+Mobile: `GET/POST /api/mobile/v1/support-tickets/{id}/messages`; dashboard: `GET/POST /api/admin/v1/support-tickets/{id}/messages`. Live on the Pusher channels via `SupportRealtimeEvent`. The old general (ticket-less) chat no longer exists.
 
 ### `admins`
 
@@ -87,6 +159,13 @@ personal_access_tokens (Sanctum)
 - `languages`: code, direction (TextDirection), status, stores_translation, is_default_dashboard, is_default_website, flag_id, timestamps
 - `language_translations`: language_id, locale, name
 
+### `translation_files`
+
+- Interface translation file metadata per language: language_id (FK cascade), platform (`backend`/`vue`/`android`), group, status (`draft` = pending draft exists, `published`), checksum (sha256 of the draft), version, published_at, created_by / updated_by (FK `admins`, null on delete), timestamps
+- Unique `(language_id, platform, group)`
+- File contents live in Spatie media collections `draft` and `published` (single file each, disk `config('translations.disk')`, default private `local`); no file paths stored on the row
+- `ar` / `en` never get rows — they stay in `lang/*` and `resources/js/locales/*.json`
+
 ### `currencies` + `currency_translations`
 
 - `currencies`: code, symbol, exchange_rate, is_default, status, timestamps
@@ -96,6 +175,7 @@ personal_access_tokens (Sanctum)
 
 - `countries`: code, code_alpha3, dial_code, phone_starts_with, phone_length, is_default, status, flag_id, currency_id, timestamps
 - `country_translations`: country_id, locale, name
+- `country_service_category`: pivot (country_id, service_category_id unique) — which marketplace services an admin assigned to that country (dashboard only; public `/services` is unfiltered)
 
 **Delete block:** admins relation blocks country delete.
 

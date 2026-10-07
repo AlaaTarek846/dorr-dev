@@ -15,7 +15,7 @@ Fields include: key, api_key, model, enabled, is_default, live_models_cache
 Migration: `Modules/AI/database/migrations/2026_09_16_150000_create_ai_conversations_table.php`
 
 - `ai_conversations`: user_id, title, timestamps
-- `ai_messages`: conversation_id, role, content, metadata, timestamps
+- `ai_messages`: conversation_id, role, content, metadata, `safety` (json, 2026-10-08: the answer's class and the approved texts added to it), timestamps
 
 ## Relationships
 

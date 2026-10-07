@@ -7,6 +7,7 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Services\MoneyRequestService;
 use Modules\Chat\Support\MessageViewContext;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
@@ -32,16 +33,21 @@ class MessageResource extends JsonResource
         $m = $this->resource;
         $ctx = $this->context;
         $gone = $m->isGone();
+        // A surprise card (spec 165): until its time, the recipient gets only its look and title.
+        $sealed = $m->type === MessageType::MomentCard && ! $ctx->isMine($m)
+            && ($at = data_get($m->meta, 'card.reveal_at')) !== null && \Illuminate\Support\Carbon::parse($at)->isFuture();
 
         return [
             'id' => $m->uuid,
             'conversation_id' => $ctx->conversation->uuid,
             'type' => $m->type->value,
-            'body' => $gone ? null : $m->body,
+            'body' => $gone || $sealed ? null : $m->body,
             'meta' => $gone ? null : $m->meta,
+            'sealed' => $sealed,
             // View-once files are never listed: the recipient gets them once from POST messages/{m}/open.
-            'attachments' => $gone || $m->view_once ? [] : $this->attachments($m),
+            'attachments' => $gone || $m->view_once || $sealed ? [] : $this->attachments($m),
             'view_once' => $m->view_once,
+            'is_silent' => $m->is_silent,
             // Mine: someone opened it · Theirs: I already opened it (it can't be opened again).
             'view_once_opened' => $m->view_once
                 ? ($ctx->isMine($m) ? ($ctx->openedByOthers[$m->id] ?? 0) > 0 : isset($ctx->openedByMe[$m->id]))
@@ -57,8 +63,17 @@ class MessageResource extends JsonResource
                 : null,
             'sender' => $ctx->profile($m->sender_type, $m->sender_id),
             'is_mine' => $ctx->isMine($m),
+            // My own message: until when I may still edit it / delete it for everyone (null = no
+            // more), so the app only offers what the server will accept. Same rules as MessageService.
+            'edit_until' => $ctx->isMine($m) && ! $gone && in_array($m->type, [MessageType::Text, MessageType::Image, MessageType::Video, MessageType::Document], true)
+                ? $this->deadline($m, ChatSetting::current()->edit_window_minutes) : null,
+            'delete_until' => $ctx->isMine($m) && ! $gone ? $this->deadline($m, ChatSetting::current()->delete_for_everyone_window_minutes) : null,
             'status' => $ctx->statusOf($m),
             'reply_to' => $this->replyPreview($m),
+            // Threads (spec 122): under a message, how many replies and the last one's time; on a
+            // reply, the message it hangs from.
+            'thread' => $m->thread_replies_count > 0 ? ['count' => $m->thread_replies_count, 'last_at' => $m->thread_last_at?->toIso8601String()] : null,
+            'thread_root' => $m->thread_id ? $m->threadRoot?->uuid : null,
             'is_forwarded' => $m->is_forwarded,
             'forwarded_many_times' => $m->forward_score >= 4,
             'mentions' => array_values(array_filter(array_map(fn ($pid) => $ctx->profileOfParticipant((int) $pid), (array) $m->mentions))),
@@ -68,6 +83,11 @@ class MessageResource extends JsonResource
             'expires_at' => $m->expires_at?->toIso8601String(),
             'reactions' => $this->reactions($m),
             'is_starred' => isset($ctx->starred[$m->id]),
+            'is_read_later' => isset($ctx->readLater[$m->id]),
+            'is_follow_up' => isset($ctx->followUp[$m->id]),
+            'reminder_at' => $ctx->reminders[$m->id] ?? null,
+            'is_urgent' => (bool) $m->is_urgent,
+            'is_sensitive' => (bool) $m->is_sensitive,
             'system' => $m->sender_type === null ? $this->system($m) : null,
             'created_at' => $m->created_at?->toIso8601String(),
             'edited_at' => $m->edited_at?->toIso8601String(),
@@ -219,7 +239,17 @@ class MessageResource extends JsonResource
                 'actor' => $person($meta['actor'] ?? null)['name'] ?? '',
                 'targets' => implode('، ', array_map(fn ($p) => $p['name'] ?? '', array_filter(array_map($person, (array) ($meta['targets'] ?? []))))),
                 'name' => $meta['name'] ?? '',
+                // Slow mode: "one message every 30 seconds".
+                'duration' => isset($meta['seconds']) ? __('chat.durations.'.(int) $meta['seconds']) : '',
             ]),
         ];
+    }
+
+    /** The ISO time a window closes, or null when it already has. */
+    private function deadline(ChatMessage $m, int $minutes): ?string
+    {
+        $until = $m->created_at?->copy()->addMinutes($minutes);
+
+        return $until !== null && $until->isFuture() ? $until->toIso8601String() : null;
     }
 }

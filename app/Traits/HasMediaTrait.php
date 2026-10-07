@@ -3,6 +3,7 @@
 namespace App\Traits;
 
 use App\Support\Media\MediaStoragePath;
+use App\Support\Media\WebpUploadConverter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\InteractsWithMedia;
@@ -107,10 +108,24 @@ trait HasMediaTrait
     }
 
     /**
+     * Collections that must keep the original format (animated stickers, SVG-like assets).
+     *
+     * @return list<string>
+     */
+    protected function webpSkipCollections(): array
+    {
+        return [];
+    }
+
+    /**
      * @return \Spatie\MediaLibrary\MediaCollections\FileAdder<$this>
      */
     protected function addUploadedMedia(UploadedFile $file, string $collection, int|string|null $suffix = null): \Spatie\MediaLibrary\MediaCollections\FileAdder
     {
+        if (! in_array($collection, $this->webpSkipCollections(), true)) {
+            $file = WebpUploadConverter::convert($file);
+        }
+
         return $this->addMedia($file)
             ->usingFileName($this->mediaStorageFileName($file, $collection, $suffix));
     }

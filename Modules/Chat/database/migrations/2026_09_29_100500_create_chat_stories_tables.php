@@ -23,7 +23,7 @@ return new class extends Migration
             $table->json('style')->nullable()->comment('text stories: background gradient, font, alignment');
             $table->unsignedInteger('duration_ms')->nullable()->comment('video length');
             $table->boolean('allow_replies')->default(true);
-            $table->timestamp('expires_at')->index();
+            $table->timestamp('expires_at')->nullable()->index();
             $table->timestamps();
 
             $table->index(['owner_type', 'owner_id', 'expires_at'], 'chat_stories_owner_index');
@@ -43,7 +43,7 @@ return new class extends Migration
             $table->foreignId('story_id')->constrained('chat_stories')->cascadeOnDelete();
             $table->string('viewer_type', 32);
             $table->unsignedBigInteger('viewer_id');
-            $table->timestamp('viewed_at');
+            $table->timestamp('viewed_at')->nullable();
             $table->string('reaction', 32)->nullable();
             // Viewer has read receipts off: they saw it, but the owner isn't told (like WhatsApp).
             $table->boolean('hidden')->default(false);

@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -77,8 +78,8 @@ import com.dorr.app.ui.theme.appearanceColor
  */
 object Wa {
     val Red: Color @Composable get() = com.dorr.app.ui.screens.profile.settingsAccent()
-    val RedDark = Color(0xFFB30710)
-    val RedBright = Color(0xFFF2202C)
+    val RedDark = Color(0xFF00113A)
+    val RedBright = Color(0xFF1E3A7B)
     val Ink: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.ink else appearanceColor("textPrimary", Color(0xFF111928), night = false)
     val Mut: Color @Composable get() = if (walletNight()) com.dorr.app.ui.screens.AccountDark.mut else appearanceColor("textSecondary", Color(0xFF6B7280), night = false)
     val Soft: Color @Composable get() = if (walletNight()) Color(0xFF8B93A0) else appearanceColor("textMuted", Color(0xFF9CA3AF), night = false)
@@ -115,7 +116,7 @@ internal fun walletNight(): Boolean = LocalThemeState.current.isDark ?: isSystem
 
 /** The tinted icon wells (background + glyph colour) — `tone-*` in the preview. */
 enum class Tone(val bg: Color, val fg: Color) {
-    Red(Color(0xFFFDE8EC), Color(0xFFE50914)),
+    Red(Color(0xFFFFEEE8), Color(0xFF001B53)),
     Green(Color(0xFFE5F6EC), Color(0xFF16A34A)),
     Amber(Color(0xFFFEF1DC), Color(0xFFD97706)),
     Pink(Color(0xFFFCE7F3), Color(0xFFDB2777)),
@@ -186,10 +187,11 @@ fun WaCard(modifier: Modifier = Modifier, padding: Dp = 0.dp, content: @Composab
 
 @Composable
 fun WaIconWell(icon: ImageVector, tone: Tone, size: Dp = 44.dp, iconSize: Dp = 22.dp, modifier: Modifier = Modifier) {
-    val night = walletNight() && tone == Tone.Red
+    val night = walletNight()
     val brand = Wa.Red
-    val well = if (night) com.dorr.app.ui.screens.AccountDark.well else if (tone == Tone.Red) brand.copy(alpha = 0.14f) else tone.bg
-    val glyph = if (night) com.dorr.app.ui.screens.AccountDark.accent else if (tone == Tone.Red) brand else tone.fg
+    // Every icon well takes the app's colours — the tone only says what the icon means, never its colour.
+    val well = if (night) com.dorr.app.ui.screens.AccountDark.well else brand.copy(alpha = 0.14f)
+    val glyph = if (night) com.dorr.app.ui.screens.AccountDark.accent else brand
     Box(
         modifier.size(size).clip(RoundedCornerShape(size * 0.34f)).background(well),
         contentAlignment = Alignment.Center,
@@ -211,12 +213,35 @@ fun WaCircleButton(
         modifier
             .size(38.dp)
             .scale(scale)
-            .shadow(6.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x2EE50914))
+            .shadow(6.dp, CircleShape, ambientColor = Wa.Red.copy(alpha = 0.12f), spotColor = Wa.Red.copy(alpha = 0.18f))
             .clip(CircleShape)
             .background(background)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(20.dp)) }
+}
+
+/** Round button drawn as a thin ring in the brand colour (the wallet header on the home page). */
+@Composable
+fun WaOutlineCircleButton(
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    tint: Color = Wa.Red,
+    contentDescription: String? = null,
+    iconModifier: Modifier = Modifier,
+) {
+    val source = remember { MutableInteractionSource() }
+    val scale by rememberPressScale(source, 0.9f)
+    Box(
+        modifier
+            .size(40.dp)
+            .scale(scale)
+            .clip(CircleShape)
+            .border(1.dp, tint.copy(alpha = 0.45f), CircleShape)
+            .clickable(interactionSource = source, indication = null, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, contentDescription, tint = tint, modifier = iconModifier.size(20.dp)) }
 }
 
 enum class WaButtonStyle { Primary, Ghost, Quiet }
@@ -243,13 +268,13 @@ fun WaButton(
 
     val decorated = when (style) {
         WaButtonStyle.Primary -> base
-            .shadow(if (enabled) 14.dp else 0.dp, Wa.ButtonShape, ambientColor = Color(0x59E50914), spotColor = Color(0x8CE50914))
+            .shadow(if (enabled) 14.dp else 0.dp, Wa.ButtonShape, ambientColor = Wa.Red.copy(alpha = 0.35f), spotColor = Wa.Red.copy(alpha = 0.55f))
             .clip(Wa.ButtonShape)
             .background(if (enabled) Wa.ButtonBrush else Brush.linearGradient(listOf(Color(0xFF9CA3AF), Color(0xFF9CA3AF))))
         WaButtonStyle.Ghost -> base
-            .shadow(8.dp, Wa.ButtonShape, ambientColor = Color(0x14111928), spotColor = Color(0x1F111928))
             .clip(Wa.ButtonShape)
             .background(Wa.Surface)
+            .border(1.dp, Wa.Red.copy(alpha = 0.4f), Wa.ButtonShape)
         WaButtonStyle.Quiet -> base.clip(Wa.ButtonShape)
     }
     val contentColor = when (style) {
@@ -291,22 +316,18 @@ fun WaNote(text: String, modifier: Modifier = Modifier, icon: ImageVector = Icon
     }
 }
 
-/** Red inline error that shakes once when it appears (`wa-err`). */
+/**
+ * Reports an error as a notification (the wallet toast, in red) instead of drawing text inside the page.
+ * Call it where the message used to be shown: it shows each new message once and draws nothing.
+ */
 @Composable
-fun WaError(message: String?, modifier: Modifier = Modifier) {
-    if (message.isNullOrBlank()) return
-    val shake = remember(message) { Animatable(0f) }
+fun WaError(message: String?, @Suppress("UNUSED_PARAMETER") modifier: Modifier = Modifier) {
+    // Outside the wallet there is no toast host: fall back to the system toast instead of crashing.
+    val host = LocalWalletOrNull.current
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(message) {
-        shake.snapTo(0f)
-        repeat(3) { shake.animateTo(1f, tween(70)); shake.animateTo(-1f, tween(70)) }
-        shake.animateTo(0f, tween(60))
-    }
-    Row(
-        modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 6.dp).graphicsLayer { translationX = shake.value * 5.dp.toPx() },
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
-    ) {
-        Icon(Icons.Rounded.Warning, null, tint = Wa.Danger, modifier = Modifier.padding(top = 2.dp).size(16.dp))
-        Text(message, color = Wa.Danger, fontSize = 13.sp, lineHeight = 21.sp)
+        if (message.isNullOrBlank()) return@LaunchedEffect
+        if (host != null) host.showError(message) else android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
     }
 }
 
@@ -357,8 +378,8 @@ fun WaGlassChip(text: String, icon: ImageVector, modifier: Modifier = Modifier, 
 
 /** Section title row (`wa-sec`). */
 @Composable
-fun WaSectionTitle(title: String, modifier: Modifier = Modifier, trailing: (@Composable RowScope.() -> Unit)? = null) {
-    Row(modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = 22.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+fun WaSectionTitle(title: String, modifier: Modifier = Modifier, topPadding: Dp = 22.dp, trailing: (@Composable RowScope.() -> Unit)? = null) {
+    Row(modifier.fillMaxWidth().padding(start = 2.dp, end = 2.dp, top = topPadding, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Wa.Ink, modifier = Modifier.weight(1f))
         trailing?.invoke(this)
     }
@@ -377,6 +398,8 @@ fun WaPage(
     cta: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: Boolean = true,
     dark: Boolean = false,
+    /** Ring-style round buttons and a larger title (the wallet home). */
+    outlined: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val night = dark || walletNight()
@@ -398,18 +421,25 @@ fun WaPage(
                 Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, color = Wa.Red, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(title, color = Wa.Red, fontSize = if (outlined) 28.sp else 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     actions()
-                    Box(
+                    if (outlined) {
+                        WaOutlineCircleButton(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            onBack,
+                            contentDescription = stringResource(R.string.common_back),
+                            iconModifier = Modifier.graphicsLayer { scaleX = -1f },
+                        )
+                    } else Box(
                         Modifier
                             .size(34.dp)
                             .then(
                                 if (night) Modifier
-                                else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                                else Modifier.shadow(6.dp, CircleShape, ambientColor = Wa.Red.copy(alpha = 0.08f), spotColor = Wa.Red.copy(alpha = 0.08f)),
                             )
                             .clip(CircleShape)
-                            .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Color.White)
+                            .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Wa.Surface)
                             .clickable(onClick = onBack),
                         contentAlignment = Alignment.Center,
                     ) {
@@ -452,8 +482,21 @@ fun WaCtaHint(text: String, icon: ImageVector) {
 }
 
 @Composable
-fun WaKeyValue(label: String, value: String, modifier: Modifier = Modifier, bold: Boolean = false, valueColor: Color = Wa.Ink, ltr: Boolean = false) {
-    Row(modifier.fillMaxWidth().padding(vertical = 11.dp), verticalAlignment = Alignment.CenterVertically) {
+fun WaKeyValue(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    bold: Boolean = false,
+    valueColor: Color = Wa.Ink,
+    ltr: Boolean = false,
+    /** Optional icon shown in a small brand-tinted well before the label. */
+    icon: ImageVector? = null,
+) {
+    Row(modifier.fillMaxWidth().padding(vertical = if (icon != null) 9.dp else 11.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (icon != null) {
+            WaIconWell(icon, Tone.Red, size = 34.dp, iconSize = 18.dp)
+            Spacer(Modifier.width(12.dp))
+        }
         Text(label, color = Wa.Mut, fontSize = 13.5.sp, modifier = Modifier.weight(1f))
         // Amounts read left-to-right ("− 1.00 SAR") even inside an Arabic layout, like the preview's dir="ltr".
         val direction = if (ltr) androidx.compose.ui.unit.LayoutDirection.Ltr else LocalLayoutDirection.current

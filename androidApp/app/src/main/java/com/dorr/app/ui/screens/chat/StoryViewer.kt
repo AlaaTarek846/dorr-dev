@@ -227,13 +227,21 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
     // Mark seen as soon as it shows.
     LaunchedEffect(story.id, active) {
         if (active && !story.isMine && !story.seen) {
-            runCatching { ApiClient.chat.viewStory(chatAuth(), story.id) }
+            runCatching { if (story.isDorr) ApiClient.chat.viewDorrStory(chatAuth(), story.id) else ApiClient.chat.viewStory(chatAuth(), story.id) }
             stories[index] = story.copy(seen = true)
         }
     }
 
     // The progress bar drives the timing: photo / text for a few seconds, video for its length.
+    // A new story starts its bar from zero *here*, before animating: a separate snapTo(0) in its
+    // own effect ran right after this one and cancelled the animation, so the bar stood still
+    // (on opening, and after every automatic move to the next story) until the screen was touched.
+    var progressFor by remember(group) { mutableStateOf<String?>(null) }
     LaunchedEffect(story.id, active, holding, videoMs) {
+        if (progressFor != story.id) {
+            progressFor = story.id
+            progress.snapTo(0f)
+        }
         if (!active || holding) return@LaunchedEffect
         val total = if (story.type == "video") (videoMs ?: story.durationMs ?: 15_000L) else PHOTO_MS
         if (story.type == "video" && videoMs == null) return@LaunchedEffect // wait for the video to start
@@ -241,10 +249,8 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
         progress.animateTo(1f, tween(remaining.toInt(), easing = LinearEasing))
         next()
     }
-    LaunchedEffect(story.id) {
-        progress.snapTo(0f)
-        videoMs = null
-    }
+    // A new video reports its own length again.
+    LaunchedEffect(story.id) { videoMs = null }
 
     Box(Modifier.fillMaxSize()) {
         // ------------------------------------------------------------ the story itself
@@ -289,13 +295,13 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 38.dp)
+                    if (story.isDorr) DorrAvatar(38.dp) else ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 38.dp)
                     Spacer(Modifier.width(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text(if (story.isMine) stringResource(R.string.st_my_status) else owner?.name.orEmpty(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                         Text(timeAgo(story.createdAt), color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp)
                     }
-                    Box {
+                    if (!story.isDorr) Box {
                         Icon(Icons.Rounded.MoreVert, null, tint = Color.White, modifier = Modifier.size(40.dp).clip(CircleShape).clickable { menu = true }.padding(8.dp))
                         DropdownMenu(menu, onDismissRequest = { menu = false }, containerColor = Color.White, shape = RoundedCornerShape(16.dp)) {
                             if (story.isMine) {
@@ -350,6 +356,9 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
                             Text((story.views ?: 0).toString(), color = Color.White, fontWeight = FontWeight.ExtraBold)
                         }
                     }
+                } else if (story.isDorr) {
+                    // Dorr's own story: its "Open" button, if it has a link.
+                    story.linkUrl?.let { url -> DorrLinkButton(story.linkLabel, url) }
                 } else if (story.allowReplies) {
                     ReplyBar(
                         onFocus = { typing = it },

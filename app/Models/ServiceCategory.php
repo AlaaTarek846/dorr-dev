@@ -9,6 +9,7 @@ use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Spatie\MediaLibrary\HasMedia;
@@ -49,6 +50,32 @@ class ServiceCategory extends Model implements HasMedia
         ];
     }
 
+    /**
+     * Catalog modules that belong to the admin dashboard, not a country marketplace.
+     *
+     * @var list<string>
+     */
+    public const ADMIN_ONLY_MODULES = [
+        'general_services',
+        'system_users',
+        'admin',
+        'admin_permission',
+    ];
+
+    /**
+     * Active leaf categories an admin can attach to a country.
+     */
+    public static function assignableForCountries(): Builder
+    {
+        return static::query()
+            ->where('status', true)
+            ->whereDoesntHave('children')
+            ->where(function (Builder $query) {
+                $query->whereNull('module_name')
+                    ->orWhereNotIn('module_name', self::ADMIN_ONLY_MODULES);
+            });
+    }
+
     public function translations(): HasMany
     {
         return $this->hasMany(ServiceCategoryTranslation::class);
@@ -67,6 +94,12 @@ class ServiceCategory extends Model implements HasMedia
     public function children(): HasMany
     {
         return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function countries(): BelongsToMany
+    {
+        return $this->belongsToMany(Country::class, 'country_service_category')
+            ->withTimestamps();
     }
 
     public function translatedDescription(): ?string

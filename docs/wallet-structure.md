@@ -537,3 +537,27 @@ withdrawal_requests ──> hold_id ──> wallet_holds
 <!-- سيب المكان ده لأي تعديل على البنية بعد النقاش. -->
 
 -
+
+---
+
+## 13. شاشة الدفع الموحّدة: `checkouts` (2026-10-05)
+
+جدول واحد لكل حاجة بتتدفع في التطبيق (ظهور بوابة تاجر، توثيق قناة، وبعدين أي خدمة). التفاصيل في `docs/remaining_chat.md` ج.0.
+
+| العمود | ملاحظة |
+|---|---|
+| `uuid`، `owner_type`/`owner_id`، `country_id`، `currency_id` | زي `payment_transactions` |
+| `purpose` + `reference` (JSON) | الغرض المسجّل (`CheckoutPurposes::register`) والحاجة اللي بتتشترى. **السيرفر هو اللي بيسعّر**، التطبيق مش بيبعت سعر |
+| `title`، `subtitle`، `amount_minor` | لقطة وقت الإنشاء |
+| `status` | `pending` / `paid` / `failed` / `expired` |
+| `paid_via` | `wallet` / `gateway` |
+| `payment_transaction_id` | الشحن اللي اتعمل ليها لو الدفع ببوابة |
+| `wallet_operation_id` | الـ `operation_id` المشترك لصفوف الخصم |
+
+- **من المحفظة** (`POST wallet/checkouts/{uuid}/pay` `{method: wallet}` + PIN): بيتخصم `spend_only` الأول وبعدين `withdrawable` (الفصل 10)، بنوع `service_payment`، وبيتسجل دخل `service_revenue` في الدفتر.
+- **ببوابة دفع** (`{method: gateway, payment_method_id}` + PIN + `Idempotency-Key`):
+  - بيبدأ شحن بالسعر، ولو فيه رسوم شحن بيتزوّد المبلغ بحيث الصافي يغطي السعر.
+  - أول ما البوابة تأكد (`PaymentCompletionService` ← `CheckoutService::settleFromTopup`)، نفس الفلوس بتدفع الـ checkout حتى لو التطبيق مقفول.
+  - لو ده فشل، الفلوس بتفضل في المحفظة والـ checkout بيبقى `failed` بالسبب.
+- **الانتهاء:** صفحة مادفعتش في 60 دقيقة بتبقى `expired`، ما عدا اللي اتسلّمت لبوابة، دي بتكمل لما البوابة تأكد.
+- **الأخطاء:** `checkout_insufficient_balance` (مع `shortfall_minor`)، و`checkout_not_pending`، و`checkout_expired`، و`checkout_gateway_pending`، و`checkout_unknown_purpose`.

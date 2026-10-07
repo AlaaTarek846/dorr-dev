@@ -26,4 +26,6 @@ Middleware: `locale`, `auth:user_api`
 | DELETE | `/conversations/{conversation}` | Delete |
 | POST | `/conversations/{conversation}/messages` | Send message |
 
+**Safety (spec 350–362):** every assistant message carries `safety` — `null`, or `{domain: religion|law|medicine|engineering|code, specific, disclaimer, notice}` — and its `content` ends with the same approved texts (for screens without the alert card). See [TECHNICAL-SPECIFICATION.md](TECHNICAL-SPECIFICATION.md#safety-layer-spec-350362).
+
 Full spec: [../../06-API-SPECIFICATION.md](../../06-API-SPECIFICATION.md)

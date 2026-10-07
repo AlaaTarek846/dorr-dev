@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -18,6 +20,20 @@ android {
         targetSdk = 34
         versionCode = 2
         versionName = "1.0.1"
+
+        // The backend each developer's phone talks to (their own ngrok tunnel / LAN IP), from
+        // local.properties (not committed) so merges never swap it:
+        //   dorr.apiHost=my-tunnel.ngrok-free.dev
+        //   dorr.apiScheme=https        (http for a LAN IP)
+        val local = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+        }
+        // A build for a given server overrides it on the command line, leaving local.properties alone:
+        //   gradlew assembleDebug -Pdorr.apiHost=dorr-app.com -Pdorr.apiScheme=https
+        val apiHost = (findProperty("dorr.apiHost") as String?) ?: local.getProperty("dorr.apiHost", "unafraid-occupy-geography.ngrok-free.dev")
+        val apiScheme = (findProperty("dorr.apiScheme") as String?) ?: local.getProperty("dorr.apiScheme", "https")
+        buildConfigField("String", "API_HOST", "\"$apiHost\"")
+        buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
     }
 
     buildTypes {
@@ -38,10 +54,20 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
+    }
+
+    // ar/en ship in every install: languages downloaded at runtime fall back to the bundled
+    // English, and an App Bundle split would drop the locale the device isn't set to.
+    bundle {
+        language {
+            enableSplit = false
+        }
     }
 }
 
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     val composeBom = platform("androidx.compose:compose-bom:2024.09.03")
     implementation(composeBom)
 
@@ -92,8 +118,17 @@ dependencies {
     implementation("com.onesignal:OneSignal:5.1.6")
     // Chat videos are re-encoded on the phone before upload (720p H.264) — Google's own transcoder.
     implementation("androidx.media3:media3-transformer:1.4.1")
+    // The chat outbox: messages sent offline go in the background once there's a connection.
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.media3:media3-effect:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
+    // "Make a sticker from my photo": the subject is cut out of its background on the phone.
+    // Unbundled — Google Play services downloads the model, so the APK stays small.
+    implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
+    // Google Play In-App Review (shown after a 4–5 star rating; a no-op until the app is on Play)
+    implementation("com.google.android.play:review-ktx:2.0.2")
+    // Play Install Referrer (no-op until the app is published; same API as share/copy today)
+    implementation("com.android.installreferrer:installreferrer:2.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

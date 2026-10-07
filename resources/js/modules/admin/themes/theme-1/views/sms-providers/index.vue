@@ -253,6 +253,8 @@
                             <div class="d-flex align-items-center gap-2 ms-md-auto">
                                 <label class="text-muted fs-13 mb-0" for="sms-providers-per-page">{{ t('sms.providers.per_page') }}</label>
                                 <Select
+                                    filter
+                                    :filter-placeholder="t('search_placeholder')"
                                     id="sms-providers-per-page"
                                     v-model="perPage"
                                     :options="perPageOptions"

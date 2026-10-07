@@ -26,7 +26,13 @@ class ChatSetting extends Model
         'story_video_max_seconds',
         'max_call_participants',
         'stories_enabled',
+        'public_stories_enabled',
+        'public_stories_free',
+        'moments_enabled',
+        'calendar_enabled',
         'calls_enabled',
+        'calls_disabled_countries',
+        'ai_enabled',
     ];
 
     protected function casts(): array
@@ -44,13 +50,53 @@ class ChatSetting extends Model
             'story_video_max_seconds' => 'integer',
             'max_call_participants' => 'integer',
             'stories_enabled' => 'boolean',
+            'public_stories_enabled' => 'boolean',
+            'public_stories_free' => 'integer',
+            'moments_enabled' => 'boolean',
+            'calendar_enabled' => 'boolean',
             'calls_enabled' => 'boolean',
+            'calls_disabled_countries' => 'array',
+            'ai_enabled' => 'boolean',
         ];
     }
 
     protected static function booted(): void
     {
         static::saved(fn () => Cache::forget(self::CACHE_KEY));
+    }
+
+    /**
+     * Calls are off for everyone, or in this account's country (VoIP needs a licence in some places).
+     */
+    public function callsAllowedFor(?Model $account): bool
+    {
+        if (! $this->calls_enabled) {
+            return false;
+        }
+
+        $country = $account?->getAttribute('country_id');
+
+        return $country === null || ! in_array((int) $country, array_map('intval', $this->calls_disabled_countries ?? []), true);
+    }
+
+    /**
+     * AI in the chat. On unless the admin switched it off (a copy cached before the column
+     * existed has no value — that means on, the column's default).
+     */
+    public function aiEnabled(): bool
+    {
+        return $this->ai_enabled ?? true;
+    }
+
+    /** Public stories on the home page — on, with one free each, unless the admin changed it (a copy cached before the columns existed has neither). */
+    public function publicStoriesEnabled(): bool
+    {
+        return (bool) $this->stories_enabled && ($this->public_stories_enabled ?? true);
+    }
+
+    public function publicStoriesFree(): int
+    {
+        return (int) ($this->public_stories_free ?? 1);
     }
 
     public static function current(): self

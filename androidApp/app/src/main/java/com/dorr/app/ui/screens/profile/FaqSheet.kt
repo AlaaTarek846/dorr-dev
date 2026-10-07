@@ -54,7 +54,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import androidx.compose.ui.window.DialogProperties
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
@@ -100,7 +100,7 @@ fun FaqSheet(onDismiss: () -> Unit) {
         }
     }
 
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -138,12 +138,9 @@ fun FaqSheet(onDismiss: () -> Unit) {
                     ) {
                         PinkIcon(Icons.Rounded.Help)
                         Spacer(Modifier.width(10.dp))
-                        Text(
+                        SettingsScreenTitle(
                             stringResource(R.string.faq_title),
-                            color = settingsAccent(),
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            modifier = Modifier.weight(1f),
+                            Modifier.weight(1f),
                         )
                         Box(
                             modifier = Modifier
@@ -364,7 +361,7 @@ private fun FaqRow(
             Icon(
                 Icons.Rounded.KeyboardArrowDown,
                 contentDescription = null,
-                tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFEFA8B4),
+                tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFF8BCA9),
                 modifier = Modifier
                     .size(20.dp)
                     .graphicsLayer { rotationZ = rotation },

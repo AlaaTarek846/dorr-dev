@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.profile
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -189,6 +190,9 @@ fun AddressesScreen(onBack: () -> Unit) {
     var adding by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<SavedAddress?>(null) }
     var saving by remember { mutableStateOf(false) }
+
+    // Back from the add/edit form returns to the list, like the form's own back arrow.
+    BackHandler(enabled = adding || editing != null) { adding = false; editing = null }
 
     LaunchedEffect(query) {
         delay(400)
@@ -486,10 +490,11 @@ fun AddressesScreen(onBack: () -> Unit) {
  * cancel next to it. Follows the screen's night mode like every other card.
  */
 @Composable
-private fun DeleteAddressDialog(
+internal fun DeleteAddressDialog(
     name: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    title: String = stringResource(R.string.addr_delete_ask),
 ) {
     val night = settingsNight()
     val red = settingsAccent()
@@ -521,7 +526,7 @@ private fun DeleteAddressDialog(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                stringResource(R.string.addr_delete_ask),
+                title,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = red,
@@ -604,12 +609,7 @@ private fun AddressesTopHeader(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            text = title,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = settingsAccent(),
-        )
+        SettingsScreenTitle(title, Modifier.weight(1f))
 
         Box(
             modifier = Modifier

@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Cache;
 use Modules\Wallet\Enums\PaymentTransactionStatus;
 use Modules\Wallet\Models\PaymentTransaction;
 use Modules\Wallet\Services\Gateways\SandboxGateway;
+use Modules\Wallet\Support\PageTheme;
 
 /**
  * The fake bank's checkout page (development/demo only — 404 unless
@@ -18,14 +19,14 @@ use Modules\Wallet\Services\Gateways\SandboxGateway;
  */
 class SandboxCheckoutController extends Controller
 {
-    public function show(string $reference)
+    public function show(Request $request, string $reference)
     {
         abort_unless(config('wallet.sandbox_enabled'), 404);
 
         $state = $this->state($reference);
 
         if ($state === null) {
-            return $this->missing($reference);
+            return $this->missing($reference, PageTheme::fromRequest($request));
         }
 
         return response()->view('wallet::sandbox-checkout', [
@@ -34,6 +35,8 @@ class SandboxCheckoutController extends Controller
             'amount' => number_format($state['amount_minor'] / 100, 2),
             'currency' => $state['currency'],
             'settled' => $state['status'] !== 'pending',
+            'theme' => PageTheme::fromRequest($request),
+            'themeQuery' => PageTheme::passThrough($request),
         ]);
     }
 
@@ -44,7 +47,7 @@ class SandboxCheckoutController extends Controller
         $state = $this->state($reference);
 
         if ($state === null) {
-            return $this->missing($reference);
+            return $this->missing($reference, PageTheme::fromRequest($request));
         }
 
         $result = $request->validate(['result' => ['required', 'in:approve,decline']])['result'];
@@ -54,13 +57,14 @@ class SandboxCheckoutController extends Controller
             Cache::put(SandboxGateway::stateKey($reference), $state, now()->addMinutes(60));
         }
 
-        return redirect()->away($state['return_url'].'?'.http_build_query(['reference' => $reference]));
+        // The colours travel on to the result page, so the whole flow stays in the app's look.
+        return redirect()->away($state['return_url'].'?'.http_build_query(['reference' => $reference] + PageTheme::passThrough($request)));
     }
 
     /**
      * An unknown / long-gone payment gets a page a person can read, not a raw JSON 404 inside an iframe.
      */
-    private function missing(string $reference)
+    private function missing(string $reference, array $theme)
     {
         return response()->view('wallet::sandbox-checkout', [
             'reference' => $reference,
@@ -68,6 +72,7 @@ class SandboxCheckoutController extends Controller
             'amount' => '',
             'currency' => '',
             'settled' => false,
+            'theme' => $theme,
         ], 404);
     }
 

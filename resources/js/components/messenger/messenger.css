@@ -138,6 +138,12 @@
 .mx-text a { color: inherit; text-decoration: underline; }
 .mx-mention { font-weight: 800; color: #f59e0b; }
 .mx-row.mine .mx-mention { color: #fff; text-decoration: underline; }
+.mx-code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .92em; padding: 1px 5px; border-radius: 6px; background: rgba(0, 0, 0, .07); }
+.mx-row.mine .mx-code { background: rgba(255, 255, 255, .2); }
+.mx-code-block { display: block; white-space: pre-wrap; padding: 8px 10px; margin: 4px 0; direction: ltr; text-align: left; }
+/* "- " / "1. " list lines with a hanging indent, "> " quotes behind a bar. */
+.mx-li { padding-inline-start: 1.2em; text-indent: -1.2em; }
+.mx-quote { border-inline-start: 3px solid currentColor; padding-inline-start: 8px; margin: 2px 0; opacity: .75; font-style: italic; }
 
 .mx-meta { float: inline-end; margin-top: -14px; margin-inline-start: 8px; font-size: 11px; opacity: .72; white-space: nowrap; position: relative; top: 6px; display: inline-flex; align-items: center; gap: 2px; }
 .mx-tick { font-size: 15px; }

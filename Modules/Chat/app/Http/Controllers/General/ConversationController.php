@@ -26,15 +26,18 @@ class ConversationController extends Controller
     public function index(Request $request)
     {
         $filters = $request->validate([
-            'filter' => ['nullable', Rule::in(['all', 'unread', 'groups', 'channels', 'direct', 'archived', 'locked', 'requests'])],
+            'filter' => ['nullable', Rule::in(['all', 'unread', 'priority', 'groups', 'channels', 'direct', 'archived', 'locked', 'requests'])],
             'folder' => ['nullable', 'integer'],
+            'circle' => ['nullable', 'string', 'max:64'],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
         ]);
 
         $me = $request->user();
         $page = $this->conversations->list($me, $filters, (int) ($filters['per_page'] ?? 20));
-        $data = $page->getCollection()->map(fn (ChatParticipant $p) => new ConversationResource($p, $me))->values();
+        // The priority inbox says why each chat is there (spec 114).
+        $reasons = ($filters['filter'] ?? null) === 'priority' ? app(\Modules\Chat\Services\ChatOverviewService::class)->priorityReasons($page->getCollection()) : [];
+        $data = $page->getCollection()->map(fn (ChatParticipant $p) => new ConversationResource($p, $me, isset($reasons[$p->id]) ? ['priority' => $reasons[$p->id]] : []))->values();
 
         return ApiResponse::success($data, __('api.retrieved'), 200, ApiPaginator::meta($page), [
             'requests_count' => $this->conversations->requestsCount($me),
@@ -60,6 +63,27 @@ class ConversationController extends Controller
         $me = $request->user();
 
         return ApiResponse::success($this->conversations->resource($me, $this->conversations->openDirect($me, $other)), __('api.retrieved'));
+    }
+
+    /**
+     * My "note to self" chat (created on first use).
+     */
+    public function self(Request $request)
+    {
+        $me = $request->user();
+
+        return ApiResponse::success($this->conversations->resource($me, $this->conversations->openSelf($me)), __('api.retrieved'));
+    }
+
+    /**
+     * My own wallpaper for this chat (only I see it).
+     */
+    public function wallpaper(Request $request, ChatConversation $conversation)
+    {
+        $request->validate(['image' => ['required', 'image', 'mimes:jpeg,jpg,png,webp', 'max:8192']]);
+        $me = $request->user();
+
+        return ApiResponse::success($this->conversations->resource($me, $this->conversations->setWallpaper($me, $conversation, $request->file('image'))), __('api.updated'));
     }
 
     public function show(Request $request, ChatConversation $conversation)

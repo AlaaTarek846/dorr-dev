@@ -19,6 +19,7 @@ use Modules\Chat\Models\ChatFolder;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatMessageReceipt;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 
@@ -101,6 +102,34 @@ class ConversationService
             $query->where(fn (Builder $q) => $q->where('unread_count', '>', 0)->orWhere('marked_unread', true));
         }
 
+        // Priority inbox (spec 114): what needs me first — a mention, an urgent message, a reply I
+        // owe, then someone writing to me directly; muted chats only for a mention or an urgent one.
+        if ($filter === 'priority') {
+            $urgent = fn ($q) => $q->select(DB::raw(1))->from('chat_messages as pm')->whereColumn('pm.conversation_id', 'chat_participants.conversation_id')
+                ->where('pm.is_urgent', true)->whereRaw('pm.id > COALESCE(chat_participants.last_read_message_id, 0)')
+                ->whereNull('pm.deleted_for_everyone_at');
+            $owed = fn ($q) => $q->select(DB::raw(1))->from('chat_message_user_states as ps')->whereColumn('ps.participant_id', 'chat_participants.id')->whereNotNull('ps.follow_up_at');
+            $query->where(fn (Builder $q) => $q->where('has_unread_mention', true)->orWhereExists($urgent)->orWhereExists($owed)
+                ->orWhere(fn (Builder $q) => $q->where('unread_count', '>', 0)
+                    ->where(fn (Builder $q) => $q->whereNull('muted_until')->orWhere('muted_until', '<', now()))
+                    ->whereHas('conversation', fn (Builder $c) => $c->where('type', ConversationType::Direct->value))));
+            $query->orderByDesc('has_unread_mention')->orderByRaw('EXISTS ('.DB::table('chat_messages as pm2')->selectRaw('1')
+                ->whereColumn('pm2.conversation_id', 'chat_participants.conversation_id')->where('pm2.is_urgent', true)
+                ->whereRaw('pm2.id > COALESCE(chat_participants.last_read_message_id, 0)')->toRawSql().') DESC');
+        }
+
+        // Privacy circles (spec 101): a circle's chats are listed inside it; the ones whose circle
+        // hides them stay out of the main list, its filters and its search.
+        if (! empty($filters['circle'])) {
+            $circle = \Modules\Chat\Models\ChatPrivacyCircle::query()->ownedBy($me)->where('uuid', $filters['circle'])->first() ?? throw new ChatException('circle_not_found', 404);
+            $query->where('privacy_circle_id', $circle->id);
+        } elseif (! in_array($filter, ['requests', 'locked', 'archived'], true)) {
+            $hidden = \Modules\Chat\Models\ChatPrivacyCircle::query()->ownedBy($me)->where('hide_from_list', true)->pluck('id');
+            if ($hidden->isNotEmpty()) {
+                $query->where(fn (Builder $q) => $q->whereNull('privacy_circle_id')->orWhereNotIn('privacy_circle_id', $hidden));
+            }
+        }
+
         if (! empty($filters['folder'])) {
             $folder = ChatFolder::query()->ownedBy($me)->findOrFail((int) $filters['folder']);
             $query->whereIn('conversation_id', $folder->conversations()->pluck('chat_conversations.id'));
@@ -150,7 +179,10 @@ class ConversationService
     public function show(Model $me, ChatConversation $conversation): ConversationResource
     {
         $participant = $this->participantOf($me, $conversation);
-        $extra = [];
+        $settings = ChatSetting::current();
+        // Calls: on for the platform and in my country (and, one-to-one, in theirs). No calls in
+        // a channel or with myself.
+        $extra = ['can_call' => ! $conversation->isChannel() && ! $conversation->isSelf() && $settings->callsAllowedFor($me)];
 
         if (! $conversation->isGroup()) {
             $peerRow = $conversation->participants()->where('id', '!=', $participant->id)->first();
@@ -162,6 +194,9 @@ class ConversationService
                     'blocked_me' => $this->privacy->hasBlocked($peer, $me),
                     'presence' => app(PresenceService::class)->presenceFor($me, $peer),
                     'block_screenshots' => (bool) $this->privacy->peek($peer)->block_screenshots,
+                    'can_call' => $extra['can_call'] && $settings->callsAllowedFor($peer),
+                    // A business's opening hours and whether it's open now (null if none set).
+                    'business' => app(BusinessService::class)->publicProfile($peer),
                 ];
             }
         }
@@ -253,6 +288,36 @@ class ConversationService
             $this->addParticipant($conversation, $other, ParticipantRole::Member);
 
             return $mine;
+        });
+    }
+
+    /**
+     * My "note to self" chat: notes, links and files I keep for myself — synced to every device,
+     * never notified, nobody else in it. Created on first use, the same one afterwards.
+     */
+    public function openSelf(Model $me): ChatParticipant
+    {
+        $key = 'self|'.ParticipantType::key($me);
+
+        $existing = ChatConversation::query()->withTrashed()->where('direct_key', $key)->first();
+        if ($existing !== null) {
+            if ($existing->trashed()) {
+                $existing->restore();
+            }
+
+            return $this->participantOf($me, $existing);
+        }
+
+        return DB::transaction(function () use ($me, $key) {
+            $conversation = ChatConversation::query()->create([
+                'type' => ConversationType::Direct,
+                'status' => ConversationStatus::Accepted,
+                'direct_key' => $key,
+                'created_by_type' => ParticipantType::aliasFor($me),
+                'created_by_id' => $me->getKey(),
+            ]);
+
+            return $this->addParticipant($conversation, $me, ParticipantRole::Member);
         });
     }
 
@@ -496,10 +561,22 @@ class ConversationService
             $changes['theme_id'] = $data['theme_id'];
         }
         if (array_key_exists('custom_theme', $data)) {
-            $changes['custom_theme'] = $data['custom_theme'];
+            $changes['custom_theme'] = app(ChatThemeService::class)->mergeCustom($participant, $data['custom_theme']);
         }
 
         $participant->update($changes);
+
+        return $participant;
+    }
+
+    /**
+     * My own wallpaper for this chat (only I see it): replaces the previous one; the rest of my
+     * custom look (colours, dim) stays.
+     */
+    public function setWallpaper(Model $me, ChatConversation $conversation, \Illuminate\Http\UploadedFile $image): ChatParticipant
+    {
+        $participant = $this->participantOf($me, $conversation);
+        $participant->update(['custom_theme' => app(ChatThemeService::class)->storeWallpaper($participant, $image)]);
 
         return $participant;
     }

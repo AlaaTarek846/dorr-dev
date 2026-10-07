@@ -157,4 +157,16 @@ return [
     'site_hosting_started' => 'Hosting started. Your website is live.',
     'site_published' => 'Published. Visitors now see this version.',
     'site_hosting_renewed' => 'Hosting renewed.',
+    'transcription_unsupported' => "This AI provider can't turn speech into text.",
+    // DORR AI safety (spec 350–362): approved, fixed texts — added by the system, never reworded by a model.
+    'safety' => [
+        'disclaimer' => 'DORR AI is not a fatwa authority, an accredited legal body or an accredited medical body. Every religious, legal or medical answer is general, introductory information only — not a fatwa, legal advice, a diagnosis or a final medical recommendation.',
+        'notice' => [
+            'religion' => 'This is a general view; consult a trusted religious scholar about your own situation.',
+            'law' => 'This is general information; consult a licensed lawyer in your country.',
+            'medicine' => 'This is general medical information; consult a licensed doctor or health professional about your own situation.',
+            'engineering' => 'This is a general design concept; it must be reviewed and approved by a licensed engineer before it is carried out, because it affects structural safety.',
+            'code' => 'This code has not been run or tested. It must go through a code review and testing before it is merged into production.',
+        ],
+    ],
 ];

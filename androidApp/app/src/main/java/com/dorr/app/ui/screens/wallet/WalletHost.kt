@@ -25,6 +25,12 @@ sealed interface WaRoute {
     data object Scanner : WaRoute
     data object History : WaRoute
     data object PinSettings : WaRoute
+
+    /** The payment screen (CheckoutScreen) — its state rides in the route so a top-up and back keeps it. */
+    data class Checkout(val state: CheckoutState) : WaRoute
+
+    /** Top up a given amount (what's missing on the payment screen). */
+    data class TopupAmount(val minor: Long) : WaRoute
 }
 
 /** Bottom sheets that float over any wallet page. */
@@ -61,16 +67,18 @@ internal val PIN_ERROR_CODES = setOf("wallet_pin_invalid", "wallet_pin_locked", 
  * module-level `state`/`stack`.
  */
 @Stable
-class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
+class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit, start: WaRoute = WaRoute.Home) {
     var balance by mutableStateOf<WalletBalanceDto?>(null)
     var hideBalance by mutableStateOf(false)
     var sheet by mutableStateOf<WaSheet?>(null)
     var toast by mutableStateOf<String?>(null)
+    /** True when the toast on screen reports a problem (validation, a refused request) rather than a success. */
+    var toastError by mutableStateOf(false)
 
     /** The total the hero card last counted up to, so the next count starts from there. */
     var shownTotal: Long = 0L
 
-    val stack = mutableStateListOf<WaRoute>(WaRoute.Home)
+    val stack = mutableStateListOf(start)
     val current: WaRoute get() = stack.last()
 
     /** True when the last move was a push, so pages slide in from the trailing side and back the other way. */
@@ -97,14 +105,18 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
         stack.removeAt(stack.lastIndex)
     }
 
-    fun showToast(message: String) {
+    fun showToast(message: String, error: Boolean = false) {
         toast = message
+        toastError = error
         toastJob?.cancel()
         toastJob = scope.launch {
-            delay(2200)
+            delay(if (error) 3200 else 2200)
             toast = null
         }
     }
+
+    /** A validation or request problem, shown as a notification at the top instead of text inside the page. */
+    fun showError(message: String) = showToast(message, error = true)
 
     fun openSheet(value: WaSheet) {
         sheet = value
@@ -117,9 +129,16 @@ class WalletHost(val scope: CoroutineScope, var onExit: () -> Unit) {
     /** Balance + wallet number for the request's country; the wallet is created on first look. */
     suspend fun refreshBalance(): Boolean {
         val fresh = runCatching { ApiClient.wallet.balance(walletAuth()).data }.getOrNull()
-        if (fresh != null) balance = fresh
+        if (fresh != null) {
+            // No wallet chosen: the server opened the one of where I am.
+            if (com.dorr.app.network.WalletCountry.selected == null) com.dorr.app.network.WalletCountry.learnHere(fresh.countryCode)
+            balance = fresh
+        }
         return fresh != null
     }
 }
 
 val LocalWallet = staticCompositionLocalOf<WalletHost> { error("WalletHost missing — wrap wallet pages in WalletScreen") }
+
+/** Same host, but null outside the wallet (the portals, moments and calendar pages reuse the wallet widgets). */
+val LocalWalletOrNull = staticCompositionLocalOf<WalletHost?> { null }

@@ -15,6 +15,9 @@ return [
     ],
     'image' => 'The :attribute field must be an image.',
     'mimes' => 'The :attribute field must be a file of type: :values.',
+    'mimetypes' => 'The :attribute field must be a file of type: :values.',
+    'extensions' => 'The :attribute field must have one of the following extensions: :values.',
+    'file' => 'The :attribute field must be a file.',
     'min' => [
         'array' => 'The :attribute field must have at least :min items.',
         'numeric' => 'The :attribute field must be at least :min.',
@@ -75,6 +78,7 @@ return [
     ],
 
     'attributes' => [
+        'file' => 'file',
         'avatar' => 'avatar',
         'name' => 'name',
         'email' => 'email',
@@ -105,6 +109,8 @@ return [
         'decimal_places' => 'decimal places',
         'exchange_rate' => 'exchange rate',
         'status' => 'status',
+        'service_ids' => 'services',
+        'service_ids.*' => 'service',
         'service_category_ids' => 'services',
         'service_category_ids.*' => 'service',
         'service_category_id' => 'service category',
@@ -139,6 +145,7 @@ return [
         'translations.*.question' => 'question',
         'translations.*.answer' => 'answer',
         'translations.*.content' => 'content',
+        'legal_page_type' => 'page type',
         'preview_image' => 'preview image',
     ],
 

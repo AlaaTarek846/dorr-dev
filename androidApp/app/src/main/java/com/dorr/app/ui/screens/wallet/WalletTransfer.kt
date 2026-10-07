@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -146,8 +147,19 @@ fun WalletTransfer() {
     val scope = rememberCoroutineScope()
     val balance = host.balance
     val networkError = stringResource(R.string.wa_error_network)
+    // The wallet's own country (not my phone number's): where I am, or another wallet of mine I chose.
     val uc = AuthSession.user?.country
-    val resolved = uc?.let { userCountry ->
+    val fromWallet = balance?.countryCode?.let { code ->
+        CountryDto(
+            id = 0, code = code, name = "",
+            dialCode = balance.dialCode ?: "",
+            phoneLength = balance.phoneLength,
+            phoneStartsWith = balance.phoneStartsWith,
+            isDefault = false,
+            flag = FlagDto(id = 0, code = code.lowercase()),
+        )
+    }
+    val resolved = fromWallet ?: uc?.let { userCountry ->
         CountryDto(
             id = 0, code = userCountry.code ?: "", name = "",
             dialCode = userCountry.dialCode ?: "",
@@ -239,14 +251,13 @@ fun WalletTransfer() {
             WaCtaHint(stringResource(R.string.wa_transfer_review_hint), Icons.Rounded.Shield)
         },
     ) {
-        // Country banner.
+        // Which wallet sends (a tap switches to another of mine), then what that means.
+        balance?.let { WalletPickerCard(it, Modifier.padding(bottom = 10.dp).waRise(0)) }
+        // Country banner: just the rule, in one line.
         WaCard(Modifier.fillMaxWidth().waRise(0), padding = 12.dp) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 WaIconWell(Icons.Rounded.Public, Tone.Blue)
-                Column {
-                    Text(stringResource(R.string.wa_transfer_banner_title, country), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
-                    Text(stringResource(R.string.wa_transfer_banner_text, balance?.currencyCode.orEmpty(), country), color = Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp))
-                }
+                Text(stringResource(R.string.wa_transfer_banner_title, country), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
             }
         }
 
@@ -309,7 +320,7 @@ private fun ScanCta(modifier: Modifier, onClick: () -> Unit) {
         modifier
             .fillMaxWidth()
             .scale(pressScale)
-            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Color(0x47E50914), spotColor = Color(0x47E50914))
+            .shadow(14.dp, RoundedCornerShape(22.dp), ambientColor = Wa.Red.copy(alpha = 0.28f), spotColor = Wa.Red.copy(alpha = 0.28f))
             .clip(RoundedCornerShape(22.dp))
             .background(Wa.ButtonBrush)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
@@ -322,7 +333,6 @@ private fun ScanCta(modifier: Modifier, onClick: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.wa_scan_cta_title), color = Color.White, fontSize = 15.5.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.wa_scan_cta_text), color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 2.dp))
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(18.dp))
     }
@@ -390,17 +400,23 @@ private fun InputCard(
 ) {
     var focused by remember { mutableStateOf(false) }
     val isError = errorMessage != null || state == FieldState.Bad
+    // The reason a field was refused arrives as a notification, not as a box under the field.
+    val host = LocalWallet.current
+    LaunchedEffect(errorMessage) {
+        if (!errorMessage.isNullOrBlank()) host.showError(errorMessage)
+    }
     val border by animateColorAsState(
         when {
             state == FieldState.Ok -> Wa.Green
             isError -> Wa.Danger
-            focused -> Color(0x73E50914)
-            else -> Color.Transparent
+            focused -> Wa.Red.copy(alpha = 0.45f)
+            else -> Wa.Line
         },
         label = "inputBorder",
     )
-    WaCard(modifier.fillMaxWidth(), padding = 16.dp) {
-        Text(label, color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+    // No card around the field: just its label, the bordered number box and the hint.
+    Column(modifier.fillMaxWidth()) {
+        Text(label, color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 2.dp))
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Row(
                 Modifier
@@ -408,7 +424,7 @@ private fun InputCard(
                     .height(50.dp)
                     .clip(RoundedCornerShape(15.dp))
                     .background(if (focused) Wa.Surface else Wa.Field)
-                    .border(2.dp, border, RoundedCornerShape(15.dp))
+                    .border(1.5.dp, border, RoundedCornerShape(15.dp))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -448,42 +464,7 @@ private fun InputCard(
                 }
             }
         }
-        AnimatedVisibility(
-            visible = errorMessage != null,
-            enter = fadeIn() + expandVertically(),
-            exit = fadeOut() + shrinkVertically(),
-        ) {
-            errorMessage?.let { message ->
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp)
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
-                        .padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Icon(
-                        Icons.Rounded.ErrorOutline,
-                        contentDescription = null,
-                        tint = Wa.Danger,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        text = message,
-                        color = Wa.Danger,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        textAlign = TextAlign.Center,
-                    )
-                }
-            }
-        }
-        if (errorMessage == null) {
-            Text(hint, color = if (state == FieldState.Bad) Wa.Danger else Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
-        }
+        Text(hint, color = if (isError) Wa.Danger else Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, textAlign = TextAlign.Start, modifier = Modifier.padding(top = 8.dp, start = 2.dp))
     }
 }
 

@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens.profile
 import android.content.Context
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -44,6 +45,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
@@ -90,6 +92,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
@@ -135,10 +139,11 @@ private const val PD_GENDER = "gender"
 private const val PD_PHOTO = "photo"
 // Matches the server's auth_flow.otp_length (phone and e-mail change codes alike).
 private const val PD_OTP_LENGTH = 4
-private val Pink = Color(0xFFFDE8EC)
+private const val PD_OTP_MARKER = "​"
+private val Pink = Color(0xFFFFEEE8)
 private val FieldFill = Color(0xFFFBF7F8)
 private val FieldBorder = Color(0xFFF3D5DB)
-private val CardShadow = Color(0x12E50914)
+private val CardShadow = Color(0x12001B53)
 private val VerifiedGreen = Color(0xFF16A34A)
 
 private fun profilePrefs(context: Context, userId: Int) =
@@ -189,6 +194,11 @@ private fun saveProfilePhoto(context: Context, uri: Uri, userId: Int): String? =
     dest.absolutePath
 }.getOrNull()
 
+private fun deleteProfilePhoto(context: Context, userId: Int) {
+    runCatching { photoFile(context, userId).delete() }
+    runCatching { profilePrefs(context, userId).edit().remove(PD_PHOTO).apply() }
+}
+
 private data class FieldRow(
     val icon: ImageVector,
     val label: String,
@@ -210,6 +220,9 @@ private fun pdAuthHeader(): String = "Bearer ${AuthSession.token.orEmpty()}"
 fun PersonalDataScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
     var sub by remember { mutableStateOf(PdSub.NONE) }
     var refresh by remember { mutableIntStateOf(0) }
+
+    // Edit name / phone / email → back to the personal data list; on the list, ProfileScreen handles it.
+    BackHandler(enabled = sub != PdSub.NONE) { sub = PdSub.NONE }
 
     AnimatedContent(
         targetState = sub,
@@ -283,6 +296,34 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
         }
     }
 
+    var deletingAvatar by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
+
+    fun deleteAvatar() {
+        scope.launch {
+            deletingAvatar = true
+            runCatching {
+                ApiClient.profile.deleteAvatar(pdAuthHeader())
+            }.onSuccess { envelope ->
+                envelope.data?.let { AuthSession.user = it }
+                user?.id?.let { deleteProfilePhoto(context, it) }
+                photoPath = null
+                Toast.makeText(
+                    context,
+                    envelope.message.ifBlank { avatarSaved },
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }.onFailure {
+                Toast.makeText(
+                    context,
+                    it.serverMessage() ?: genericError,
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+            deletingAvatar = false
+        }
+    }
+
     val photoPicker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         val userId = user?.id ?: return@rememberLauncherForActivityResult
@@ -293,6 +334,16 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                 uploadAvatar(File(saved))
             }
         }
+    }
+
+    if (confirmDelete) {
+        // Same confirmation card as deleting an address.
+        DeleteAddressDialog(
+            title = stringResource(R.string.pd_delete_photo_ask),
+            name = stringResource(R.string.pd_delete_photo_confirm),
+            onDismiss = { confirmDelete = false },
+            onConfirm = { confirmDelete = false; deleteAvatar() },
+        )
     }
 
     PdScreen(title = stringResource(R.string.personal_data_title), onBack = onBack) {
@@ -328,7 +379,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                         Box(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914)))
+                                .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1F001B53), spotColor = Color(0x1F001B53)))
                                 .clip(CircleShape)
                                 .background(com.dorr.app.ui.screens.profile.settingsCard()),
                             contentAlignment = Alignment.Center,
@@ -359,7 +410,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             } else {
                                 Icon(Icons.Rounded.Person, contentDescription = stringResource(R.string.pd_change_photo), tint = settingsAccent(), modifier = Modifier.size(44.dp))
                             }
-                            if (uploadingAvatar) {
+                            if (uploadingAvatar || deletingAvatar) {
                                 Box(
                                     modifier = Modifier
                                         .fillMaxSize()
@@ -379,12 +430,32 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             modifier = Modifier
                                 .align(Alignment.BottomEnd)
                                 .size(28.dp)
-                                .shadow(4.dp, CircleShape, ambientColor = Color(0x40E50914), spotColor = Color(0x40E50914))
+                                .shadow(4.dp, CircleShape, ambientColor = Color(0x40001B53), spotColor = Color(0x40001B53))
                                 .clip(CircleShape)
                                 .background(settingsAccent()),
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(Icons.Rounded.Edit, contentDescription = null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        }
+                        // Only when there is a photo to remove (server avatar or the local copy).
+                        if ((user?.avatar != null || photoPath != null) && !uploadingAvatar && !deletingAvatar) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomStart)
+                                    .size(28.dp)
+                                    .shadow(4.dp, CircleShape)
+                                    .clip(CircleShape)
+                                    .background(settingsCard())
+                                    .clickable { confirmDelete = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Delete,
+                                    contentDescription = stringResource(R.string.pd_delete_photo),
+                                    tint = settingsAccent(),
+                                    modifier = Modifier.size(16.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -494,7 +565,7 @@ private fun PdFieldRow(
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4),
+            tint = if (settingsNight()) AccountDark.chevron else Color(0xFFF8BCA9),
             modifier = Modifier
                 .size(16.dp)
                 .graphicsLayer { if (rtl) scaleX = -1f },
@@ -603,7 +674,7 @@ private fun GenderOption(label: String, icon: ImageVector, selected: Boolean, on
         Box(
             modifier = Modifier
                 .size(18.dp)
-                .border(2.dp, if (selected) settingsAccent() else if (settingsNight()) AccountDark.chevron else Color(0xFFEFA8B4), CircleShape),
+                .border(2.dp, if (selected) settingsAccent() else if (settingsNight()) AccountDark.chevron else Color(0xFFF8BCA9), CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (selected) {
@@ -1021,6 +1092,12 @@ private fun PdOtpStep(
                                         if (code.length == PD_OTP_LENGTH) verify(code)
                                     }
                                 },
+                                onBackspaceOnEmpty = {
+                                    if (index > 0) {
+                                        focusers[index - 1].requestFocus()
+                                        digits = digits.toMutableList().also { it[index - 1] = "" }
+                                    }
+                                },
                             )
                         }
                     }
@@ -1063,12 +1140,13 @@ private fun OtpDigit(
     hasError: Boolean,
     focusRequester: FocusRequester,
     onValue: (String) -> Unit,
+    onBackspaceOnEmpty: () -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
     val border = when {
         hasError -> AppColors.danger
         focused -> settingsAccent()
-        else -> Color(0xFFF3C4CC)
+        else -> Color(0xFFFBD2C4)
     }
     Box(
         modifier = Modifier
@@ -1079,9 +1157,18 @@ private fun OtpDigit(
             .border(1.5.dp, border, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
     ) {
+        // A soft keyboard sends no key event for Backspace on an empty field, so the box always holds
+        // an invisible marker: deleting it is how an "empty" box learns Backspace was pressed.
+        val shown = PD_OTP_MARKER + value
         BasicTextField(
-            value = value,
-            onValueChange = { onValue(it.filter(Char::isDigit).takeLast(1)) },
+            value = TextFieldValue(shown, TextRange(shown.length)),
+            onValueChange = { typed ->
+                if (!typed.text.startsWith(PD_OTP_MARKER)) {
+                    if (value.isEmpty()) onBackspaceOnEmpty() else onValue("")
+                } else {
+                    onValue(typed.text.filter(Char::isDigit).takeLast(1))
+                }
+            },
             singleLine = true,
             textStyle = TextStyle(
                 fontSize = 20.sp,
@@ -1300,7 +1387,7 @@ private fun PdSaveButton(label: String, enabled: Boolean = true, onClick: () -> 
                 .fillMaxWidth()
                 .height(48.dp)
                 .alpha(if (enabled) 1f else 0.5f)
-                .shadow(8.dp, shape, ambientColor = Color(0x38E50914), spotColor = Color(0x38E50914))
+                .shadow(8.dp, shape, ambientColor = Color(0x38001B53), spotColor = Color(0x38001B53))
                 .clip(shape)
                 .background(settingsAccent())
                 .clickable(enabled = enabled, onClick = onClick),
@@ -1331,18 +1418,11 @@ private fun PdHeader(title: String, onBack: () -> Unit) {
             .padding(top = 14.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            title,
-            color = settingsAccent(),
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.weight(1f),
-            textAlign = TextAlign.Start,
-        )
+        SettingsScreenTitle(title, Modifier.weight(1f))
         Box(
             modifier = Modifier
                 .size(34.dp)
-                .shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914))
+                .shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53))
                 .clip(CircleShape)
                 .background(Color.White)
                 .clickable(onClick = onBack),
@@ -1375,8 +1455,8 @@ private fun PdBackdrop(modifier: Modifier = Modifier) {
                 center = center,
             )
         }
-        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFEFA8B4))
-        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFF3C4CC))
-        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF0B8C2))
+        glow(Offset(size.width * -0.08f, size.height * -0.12f), size.width * 1.3f, Color(0xFFF8BCA9))
+        glow(Offset(size.width * 0.50f, size.height * -0.18f), size.width * 1.1f, Color(0xFFFBD2C4))
+        glow(Offset(size.width * 1.12f, size.height * -0.08f), size.width * 0.9f, Color(0xFFF9C4B4))
     }
 }

@@ -94,7 +94,7 @@ object Ch {
      * it too: [Wa.Red]). ChatScreen copies it in here, so plain getters (and Canvas drawing code,
      * which can't call @Composable getters) all see the chosen colour.
      */
-    var accent by androidx.compose.runtime.mutableStateOf(Color(0xFFE50914))
+    var accent by androidx.compose.runtime.mutableStateOf(Color(0xFF001B53))
 
     /**
      * The neutral colours of the **appearance settings** (text, muted text, lines, background,

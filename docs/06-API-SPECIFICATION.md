@@ -165,6 +165,27 @@ Applies to: **flags**, **languages**, **currencies**, **countries**, **service-c
 
 Catalog create/update requires `translations[]` with `locale` + `name` for all storable languages.
 
+Country create/update accepts optional `service_ids[]` (leaf `service_categories` except admin-only modules). Omitted on update keeps the current assignment; `[]` clears it. The public `GET /api/general/v1/services` list is not filtered by this pivot.
+
+### Authenticated — Interface Translations `/api/admin/v1/languages/{language}/translations`
+
+Translation files for new interface languages (e.g. `fr`). `ar` / `en` are the bundled sources and are
+rejected (`422 translations_source_locale`). `en` is the base and fallback. Files are JSON stored through
+Spatie Media Library (`translation_files` holds metadata only). Import never publishes.
+
+| Method | Endpoint | Permission | Description |
+|--------|----------|------------|-------------|
+| GET | `/` | `languages.view` | Groups per platform with status, key counts, missing, publish state |
+| GET | `/{platform}/{group}/export?format=csv\|json&mode=all\|missing` | `languages.view` | Download a template/working copy (CSV columns: `key,en,ar,translation`) |
+| POST | `/{platform}/{group}/validate` | `languages.update` | Dry run: `file` (json/csv) → report |
+| POST | `/{platform}/{group}/import` | `languages.update` | Validate and save as draft (missing keys allowed, extra keys / placeholder changes rejected) |
+| POST | `/{platform}/{group}/publish` | `languages.update` | Publish the pending draft (version +1) |
+| DELETE | `/{platform}/{group}/draft` | `languages.update` | Discard the pending draft |
+| GET | `/android/export?source=published\|draft` | `languages.view` | ZIP with `values-{qualifier}/{group}.xml` (generated, never written to the Android project) |
+
+Platforms / groups: `backend` (`api, validation, notifications, chat, wallet, sms, ai, provider`), `vue` (`messages`),
+`android` (`strings, chat_strings, wallet_strings`).
+
 **Countries dropdown** (`/countries/dropdown`) returns each active country: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`. `phone_length` + `phone_starts_with` + `is_default` drive frontend phone placeholder (`prefix*********`), phone validation, and default-country auto-selection in Admin user/provider modals.
 
 ### Authenticated — Providers
@@ -305,11 +326,12 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/auth/verify` | `guest:user_api` | Verify OTP → marks phone verified, issues bearer token |
 | POST | `/auth/resend` | `guest:user_api` | Resend OTP (cooldown enforced) |
 | GET | `/auth/me` | `auth:user_api` + `ensure-phone-verified` | Current user |
-| POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token |
+| POST | `/auth/logout` | `auth:user_api` + `ensure-phone-verified` | Logout, revoke token. Optional `player_id`: that phone stops getting pushes |
 | POST | `/profile/phone/request` | `auth:user_api` + `ensure-phone-verified` | Change phone step 1: validate new number, cache it, send OTP to it |
 | POST | `/profile/phone/confirm` | `auth:user_api` + `ensure-phone-verified` | Change phone step 2: verify `code` → swap number, re-mark verified |
 | PUT | `/profile/identity` | `auth:user_api` + `ensure-phone-verified` | Update `name` + `gender` (`male`/`female`) directly |
 | POST | `/profile/avatar` | `auth:user_api` + `ensure-phone-verified` | Replace avatar (`avatar`: jpeg/jpg/png/webp ≤ 2MB, multipart) |
+| DELETE | `/profile/avatar` | `auth:user_api` + `ensure-phone-verified` | Remove avatar (idempotent); returns `UserResource` with `avatar: null` |
 | GET | `/addresses?search=` | `auth:user_api` + `ensure-phone-verified` | Own addresses, newest first, paginated (`page`/`per_page`, `all=1` for all) |
 | POST | `/addresses` | `auth:user_api` + `ensure-phone-verified` | Create address (201) |
 | GET | `/addresses/{id}` | `auth:user_api` + `ensure-phone-verified` | Single own address (404 for others') |
@@ -318,6 +340,16 @@ the phone does not exist yet, then sends a fixed demo OTP
 | PATCH | `/addresses/{id}/set-default` | `auth:user_api` + `ensure-phone-verified` | Pin/unpin default (`is_default: bool`) |
 | POST | `/profile/email/request` | `auth:user_api` + `ensure-phone-verified` | Change email step 1: validate, cache, mail OTP to the new address |
 | POST | `/profile/email/confirm` | `auth:user_api` + `ensure-phone-verified` | Change email step 2: verify `code` → swap address, mark verified |
+| GET | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Own tickets, latest activity first, paginated (`page`/`per_page`, optional `status`). `{ id, title, body, image_url, status, accepts_replies, last_message, last_message_at, created_at }` |
+| POST | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Open a ticket (`title`, `body`, optional `image` jpeg/jpg/png/webp ≤ 4MB). What was written becomes the first message. 201 |
+| GET | `/support-tickets/{id}` | `auth:user_api` + `ensure-phone-verified` | One own ticket (404 for someone else's) |
+| PATCH | `/support-tickets/{id}/status` | `auth:user_api` + `ensure-phone-verified` | `status`: the customer can only `closed` an open / reopened ticket, or `reopened` a resolved / closed one (422 otherwise) |
+| GET | `/support-tickets/{id}/messages` | `auth:user_api` + `ensure-phone-verified` | The conversation, paginated; `order=desc` returns the newest page first. `{ id, ticket_id, sender: user|support, body, image_url, agent_name, created_at }` |
+| POST | `/support-tickets/{id}/messages` | `auth:user_api` + `ensure-phone-verified`, `throttle:30,1` | Write in the ticket: `body` and/or `image`. 422 while the ticket is resolved / closed |
+| GET | `/ratings/mine` | `auth:user_api` + `ensure-phone-verified` | `{ rated, rating }` for the app (optional `rateable_type` `service`/`provider` + `rateable_id`) |
+| POST | `/ratings` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Save a rating (`stars` 1–5 in 0.25 steps, optional `comment` ≤ 500, optional `rateable_*`). 201 `{ id, stars, comment, type, prompt_store_review, ... }`; duplicate → 422 |
+| GET | `/referrals/my-code` | `auth:user_api` + `ensure-phone-verified` | Mint or return the caller's active `DORRFC-` code; `{ code, is_active, applied }` |
+| POST | `/referrals/track` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Body `{ referral_code }` only. 201 first save, 200 identical retry; 422 invalid / inactive / self / already applied |
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.
@@ -357,6 +389,10 @@ OAuth SPA landing routes: `/user/oauth/callback`, `/provider/oauth/callback`.
 Partial public data today:
 - `GET /api/admin/v1/platform-settings/branding` (no auth)
 - `GET /api/admin/v1/languages/dropdown` (no auth)
+- `GET /api/general/v1/translations/languages` (no auth) — interface languages: `ar`, `en` plus active languages with a published Vue file (`code`, `name`, `direction`, `version`)
+- `GET /api/general/v1/translations/{code}/vue` (no auth) — published Vue messages for a non-bundled locale (`ETag`); `404` when not published
+- `GET /api/general/v1/translations/languages?platform=android` (no auth) — Android app languages: `ar`, `en` (bundled in the APK, always listed, `android_version: null`) plus active languages whose Android `strings` group is published. Fields: `id`, `code`, `name`, `direction`, `flag {id, code}`, `android_version`. Without `platform` (or any other value) the response is the Vue list above, unchanged
+- `GET /api/general/v1/translations/{code}/android` (no auth) — published Android strings of a non-bundled locale, every published group (`strings`, `chat_strings`, `wallet_strings`) merged into one flat map: `{code, direction, version, strings}`. `strings` values are text or `{quantity: text}` for plurals (decoded, printf placeholders such as `%1$s`). `version` = `sha1("strings:N|chat_strings:N|wallet_strings:N")` of the published versions (0 for unpublished groups), so it changes on every re-publish and equals `android_version` in the list. Headers: `ETag: "android-{code}-{version}"`, `Cache-Control: no-cache`; `If-None-Match` with the current ETag answers `304`. `404` (`translations_not_published`) when `strings` is not published, the language is disabled, or the code is `ar` / `en`
 
 ---
 

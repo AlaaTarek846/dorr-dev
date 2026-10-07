@@ -72,6 +72,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.viewinterop.AndroidView
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
@@ -89,7 +90,7 @@ import java.util.UUID
 
 private val QUICK_AMOUNTS = listOf(50, 100, 200, 500)
 
-private fun methodLook(gateway: String): Pair<ImageVector, Tone> = when (gateway) {
+internal fun methodLook(gateway: String): Pair<ImageVector, Tone> = when (gateway) {
     "myfatoorah" -> Icons.Rounded.CreditCard to Tone.Blue
     "arb" -> Icons.Rounded.AccountBalance to Tone.Green
     "urpay" -> Icons.Rounded.Phone to Tone.Pink
@@ -305,7 +306,7 @@ private fun MethodCard(method: PaymentMethodDto, selected: Boolean, onClick: () 
             .alpha(if (soon) 0.72f else 1f)
             .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x0D111928), spotColor = Color(0x14111928))
             .clip(RoundedCornerShape(20.dp))
-            .background(if (selected) (if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFFFF6F7)) else if (soon) (if (walletNight()) Wa.Surface else Color(0xFFF7F8FA)) else Wa.Surface)
+            .background(if (selected) (if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.08f)) else if (soon) (if (walletNight()) Wa.Surface else Color(0xFFF7F8FA)) else Wa.Surface)
             .border(2.dp, if (selected) Wa.Red else Color.Transparent, RoundedCornerShape(20.dp))
             .clickable(interactionSource = source, indication = null, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
@@ -450,7 +451,7 @@ internal fun TopupStage(
 
 
 @Composable
-private fun OtpField(value: String, onChange: (String) -> Unit) {
+internal fun OtpField(value: String, onChange: (String) -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         BasicTextField(
             value = value, onValueChange = onChange, singleLine = true,
@@ -474,9 +475,20 @@ private fun OtpField(value: String, onChange: (String) -> Unit) {
 /** The fake bank (sandbox) inside the phone, like an in-app browser sliding up over the page. */
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun GatewayLayer(url: String?, onClose: () -> Unit) {
+internal fun GatewayLayer(url: String?, onClose: () -> Unit) {
     var last by remember { mutableStateOf("") }
     if (url != null) last = url
+
+    // The test bank page is ours, so it is drawn in the app's own colours: they travel in the query string
+    // (six hex digits each). A real gateway's URL is left untouched — it must not get extra parameters.
+    val theme = listOf(
+        "primary" to Wa.Red, "bg" to Wa.Bg, "surface" to Wa.Surface, "ink" to Wa.Ink,
+        "mut" to Wa.Mut, "soft" to Wa.Soft, "line" to Wa.Line, "field" to Wa.Field,
+    ).joinToString("&") { (name, color) -> "$name=" + String.format("%06x", color.toArgb() and 0xFFFFFF) }
+    // The page's language is the app's (the WebView would send the phone's), so it matches the screens around it.
+    val lang = com.dorr.app.ui.locale.LocalAppLanguage.current.code
+    val pageUrl = if ("/sandbox/" in last) last + (if ('?' in last) "&" else "?") + theme + "&lang=" + lang else last
+    val pageBackground = Wa.Bg.toArgb()
     AnimatedVisibility(visible = url != null, enter = slideInVertically(tween(380)) { it } + fadeIn(tween(200))) {
         Column(Modifier.fillMaxSize().background(Wa.Bg)) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -491,8 +503,10 @@ private fun GatewayLayer(url: String?, onClose: () -> Unit) {
                 factory = { ctx ->
                     WebView(ctx).apply {
                         settings.javaScriptEnabled = true
+                        // No white flash before the page paints.
+                        setBackgroundColor(pageBackground)
                         webViewClient = WebViewClient()
-                        loadUrl(last)
+                        loadUrl(pageUrl)
                     }
                 },
             )

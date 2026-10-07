@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -84,6 +85,8 @@ fun ServicesScreen(
         else if (onOpenService != null) onOpenService(service, color)
         else localDetail = service to color
     }
+
+    BackHandler(enabled = localDetail != null) { localDetail = null }
 
     localDetail?.let { (service, color) ->
         ServiceDetailScreen(
@@ -176,7 +179,7 @@ private fun ServiceRow(service: ServiceDto, color: Color, onClick: () -> Unit) {
             .fillMaxWidth()
             .then(
                 if (settingsNight()) Modifier
-                else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914)),
+                else Modifier.shadow(6.dp, RoundedCornerShape(18.dp), ambientColor = Color(0x12001B53), spotColor = Color(0x12001B53)),
             )
             .clip(RoundedCornerShape(18.dp))
             .background(settingsCard())

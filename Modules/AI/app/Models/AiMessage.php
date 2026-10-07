@@ -31,6 +31,7 @@ class AiMessage extends Model
         'generated_file',
         'confidence_score',
         'verification_warnings',
+        'safety',
     ];
 
     /**
@@ -45,6 +46,7 @@ class AiMessage extends Model
             'generated_file' => 'array',
             'confidence_score' => 'decimal:3',
             'verification_warnings' => 'array',
+            'safety' => 'array',
         ];
     }
 

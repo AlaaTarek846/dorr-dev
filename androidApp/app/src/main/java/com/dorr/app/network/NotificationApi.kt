@@ -19,6 +19,7 @@ interface NotificationApi {
     suspend fun list(
         @Header("Authorization") authorization: String,
         @Query("per_page") perPage: Int = 40,
+        @Query("page") page: Int = 1,
     ): ApiEnvelope<List<NotificationDto>>
 
     @GET("mobile/v1/notifications/unread-count")
@@ -49,6 +50,7 @@ data class NotificationDto(
     val type: String? = null,
     /** e.g. "wallet.transfer.received" — what the app keys its icon and deep link on. */
     val event: String? = null,
+    @com.google.gson.annotations.JsonAdapter(NullableJsonObjectAdapter::class)
     val data: JsonObject? = null,
     @SerializedName("created_at_iso") val createdAtIso: String? = null,
     @SerializedName("read_at") val readAt: String? = null,

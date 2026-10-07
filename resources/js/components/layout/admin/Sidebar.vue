@@ -453,10 +453,38 @@
                             <span class="category-name">{{ t('sidebar.users') }}</span>
                         </li>
 
-                        <li class="slide">
+                        <li v-if="can('users.view')" class="slide">
                             <router-link :to="{ name: 'admin.users.index' }" class="side-menu__item">
                                 <i class="ri-group-line side-menu__icon"></i>
                                 <span class="side-menu__label">{{ t('users.title') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-if="can('support-tickets.view')" class="slide">
+                            <router-link :to="{ name: 'admin.support-tickets.index' }" class="side-menu__item">
+                                <i class="ri-customer-service-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('support.title') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-if="can('ratings.view')" class="slide">
+                            <router-link :to="{ name: 'admin.ratings.index' }" class="side-menu__item">
+                                <i class="ri-star-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('ratings.title') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-if="can('referral-codes.view')" class="slide">
+                            <router-link :to="{ name: 'admin.referral-codes.index' }" class="side-menu__item">
+                                <i class="ri-coupon-3-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('referral_codes.title') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-if="can('referrals.view')" class="slide">
+                            <router-link :to="{ name: 'admin.referrals.index' }" class="side-menu__item">
+                                <i class="ri-share-forward-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('referrals.title') }}</span>
                             </router-link>
                         </li>
                     </template>
@@ -481,10 +509,10 @@
                                 </router-link>
                             </li>
 
-                            <li v-if="can('privacy-policy.view')" class="slide">
-                                <router-link :to="{ name: 'admin.privacy-policies.index' }" class="side-menu__item">
-                                    <i class="ri-shield-keyhole-line side-menu__icon"></i>
-                                    <span class="side-menu__label">{{ t('privacy_policies.title') }}</span>
+                            <li v-if="can('legal-page.view')" class="slide">
+                                <router-link :to="{ name: 'admin.legal-pages.index' }" class="side-menu__item">
+                                    <i class="ri-file-shield-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('legal_pages.title') }}</span>
                                 </router-link>
                             </li>
 
@@ -651,7 +679,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && can('users.view'),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('referral-codes.view') || can('referrals.view')),
 );
 
 /**
@@ -709,6 +737,12 @@ const showWalletSection = computed(() => walletItems.some((item) => can(item.per
 const chatAdminItems = [
     { route: 'admin.chat.reports', permission: 'chat-reports.view', icon: 'ri-flag-2-line', label: 'chat.reports.title' },
     { route: 'admin.chat.report-types', permission: 'chat-report-types.view', icon: 'ri-list-check-2', label: 'chat.report_types.title' },
+    { route: 'admin.chat.moments', permission: 'chat-moments.view', icon: 'ri-cake-2-line', label: 'chat.moments.title' },
+    { route: 'admin.chat.dorr-stories', permission: 'chat-dorr-stories.view', icon: 'ri-donut-chart-line', label: 'chat.dorr_stories.title' },
+    { route: 'admin.chat.channels', permission: 'chat-channels.view', icon: 'ri-verified-badge-line', label: 'chat.channels.title' },
+    { route: 'admin.chat.portals', permission: 'chat-portals.view', icon: 'ri-store-2-line', label: 'chat.portals.title' },
+    { route: 'admin.chat.packages', permission: 'chat-packages.view', icon: 'ri-vip-crown-2-line', label: 'chat.packages.title' },
+    { route: 'admin.chat.categories', permission: 'chat-categories.view', icon: 'ri-price-tag-3-line', label: 'chat.categories.title' },
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
     { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },

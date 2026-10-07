@@ -25,6 +25,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -47,6 +48,8 @@ data class UiMessage(
     val progress: Float? = null,
     /** A video's poster made on this phone — shown until the server's copy arrives. */
     val localThumb: File? = null,
+    /** A translation / voice transcript I asked the AI for, shown under the bubble. */
+    val ai: AiNote? = null,
 ) {
     val id: String get() = dto.id
     val isMine: Boolean get() = dto.isMine ?: (dto.sender?.key == myKey())
@@ -81,6 +84,12 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     var failed by mutableStateOf(false)
 
     var replyTo by mutableStateOf<MessageDto?>(null)
+    /** "✨ Ask about this" from a message: the messages the question is about (spec 125). */
+    var askAbout by mutableStateOf<List<String>?>(null)
+    /** A DORR AI tool opened on one message: understand · simplify · tasks · remind (spec 37, 38, 42, 46). */
+    var aiTool by mutableStateOf<Pair<String, MessageDto>?>(null)
+    /** Text for the composer (a reply I picked from an AI suggestion). */
+    var composerInsert by mutableStateOf<String?>(null)
     var editing by mutableStateOf<MessageDto?>(null)
     var focused by mutableStateOf<UiMessage?>(null)
     var pinned by mutableStateOf<List<MessageDto>>(emptyList())
@@ -93,6 +102,27 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     var hasMoreAfter by mutableStateOf(false)
     private var loadingNewer = false
 
+    /** Slow mode: when I may send again (epoch ms; 0 = now). Admins never wait. */
+    var slowUntil by mutableStateOf(0L)
+
+    /** Messages I unlocked (sensitive) or uncovered (blurred media) — until they hide again. */
+    val revealed = androidx.compose.runtime.mutableStateMapOf<String, Long>()
+
+    fun reveal(id: String) {
+        val at = System.currentTimeMillis()
+        revealed[id] = at
+        val seconds = com.dorr.app.chat.ChatShield.rehideSeconds
+        // 0 = until I leave the chat (this state goes with it).
+        if (seconds > 0) scope.launch {
+            kotlinx.coroutines.delay(seconds * 1000L)
+            if (revealed[id] == at) revealed.remove(id)
+        }
+    }
+
+    /** My scheduled messages in this chat (waiting or failed), soonest first. */
+    var scheduled by mutableStateOf<List<com.dorr.app.network.ScheduledMessageDto>>(emptyList())
+        private set
+
     /** Group members, for @mention suggestions (loaded on first "@"). */
     var members by mutableStateOf<List<com.dorr.app.network.MemberDto>>(emptyList())
         private set
@@ -101,9 +131,40 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     private var typingJob: Job? = null
     private var lastTypingSent = 0L
 
+    /** Messages that failed for lack of a connection → automatic tries so far (never a server "no"). */
+    private val autoRetries = mutableMapOf<String, Int>()
+
     init {
+        // While this chat is open it sends its own messages; the background outbox leaves it alone.
+        com.dorr.app.chat.ChatOutbox.opened(id)
         scope.launch { load() }
         scope.launch { ChatRealtime.events.collect { onEvent(it) } }
+        // Back online: everything that failed for lack of a connection goes again, by itself.
+        scope.launch {
+            com.dorr.app.network.NetworkMonitor.current()?.reconnectTick?.drop(1)?.collect {
+                autoRetries.keys.toList().forEach { uuid ->
+                    autoRetries[uuid] = 0
+                    messages.firstOrNull { it.id == uuid && it.local == "failed" }?.let { retry(it, quiet = true) }
+                }
+            }
+        }
+    }
+
+    /** The page left: anything still unsent goes on in the background (even if the app closes). */
+    fun close() = com.dorr.app.chat.ChatOutbox.closed(context, id)
+
+    /**
+     * A send that never reached the server (offline, tunnel down, timeout) is tried again after
+     * 5 s, 15 s and 45 s — always with the same uuid, so it can't arrive twice.
+     */
+    private fun scheduleAutoRetry(uuid: String) {
+        val tries = autoRetries[uuid] ?: 0
+        if (tries >= AutoRetryDelays.size) return
+        autoRetries[uuid] = tries + 1
+        scope.launch {
+            kotlinx.coroutines.delay(AutoRetryDelays[tries])
+            messages.firstOrNull { it.id == uuid && it.local == "failed" }?.let { retry(it, quiet = true) }
+        }
     }
 
     suspend fun load() {
@@ -113,6 +174,17 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 messages.addAll(cached.map { UiMessage(it) })
             }
         }
+        // What I sent here that the server doesn't have yet (sent offline, app closed since): back
+        // in place, and sent again below.
+        val restored = mutableListOf<UiMessage>()
+        com.dorr.app.chat.ChatOutbox.pendingFor(id).forEach { item ->
+            if (messages.none { it.id == item.uuid }) {
+                val out = com.dorr.app.chat.ChatOutbox.outgoingOf(item)
+                val ui = UiMessage(item.message, local = "failed", localFiles = out.files, localThumb = out.thumbnail)
+                messages.add(ui)
+                if (!item.rejected) restored += ui
+            }
+        }
         loading = messages.isEmpty()
         try {
             val fresh = ApiClient.chat.conversation(chatAuth(), id).data
@@ -120,7 +192,9 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             val page = ApiClient.chat.messages(chatAuth(), id).data
             if (page != null) {
                 // Keep bubbles still on their way up; replace the rest with the server's truth.
-                val unsent = messages.filter { it.local != null }
+                // One the server already has (the background sender got there first) isn't kept twice.
+                val unsent = messages.filter { it.local != null && page.messages.none { p -> p.id == it.id } }
+                page.messages.forEach { p -> if (p.isMine == true) com.dorr.app.chat.ChatOutbox.sent(p.id) }
                 messages.clear()
                 messages.addAll(page.messages.map { UiMessage(it) })
                 messages.addAll(unsent)
@@ -130,6 +204,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             }
             failed = false
             refreshPinned()
+            refreshScheduled()
             markRead()
         } catch (e: CancellationException) {
             throw e
@@ -137,6 +212,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             failed = messages.isEmpty()
         }
         loading = false
+        restored.forEach { ui -> messages.firstOrNull { it.id == ui.id && it.local != null }?.let { retry(it, quiet = true) } }
     }
 
     /** Open the page around one message (a search result / pinned message not loaded yet). */
@@ -192,6 +268,85 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         pinned = runCatching { ApiClient.chat.pinned(chatAuth(), id).data }.getOrNull().orEmpty()
     }
 
+    suspend fun refreshScheduled() {
+        runCatching { ApiClient.chat.scheduled(chatAuth(), id).data }.getOrNull()?.let { scheduled = it }
+    }
+
+    /** Write now, send at [sendAt] (the server sends it, even with this phone off). */
+    suspend fun schedule(body: String, sendAt: java.time.ZonedDateTime, silent: Boolean = false): Boolean = try {
+        val row = ApiClient.chat.schedule(chatAuth(), id, buildMap {
+            put("body", body)
+            put("send_at", sendAt.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME))
+            if (silent) put("silent", true)
+        }).data
+        if (row != null) scheduled = (scheduled + row).sortedBy { it.sendAt }
+        true
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        false
+    }
+
+    // ------------------------------------------------------------------ AI (each one tap)
+
+    /** Replies the AI suggested (shown as chips above the composer). */
+    var smartReplies by mutableStateOf<List<String>>(emptyList())
+        private set
+    var loadingReplies by mutableStateOf(false)
+        private set
+
+    fun translate(message: UiMessage) = askAi(message, "translation") {
+        ApiClient.chat.translate(chatAuth(), message.id, mapOf("to" to com.dorr.app.network.AppLocale.current)).data?.text
+    }
+
+    fun transcribe(message: UiMessage) = askAi(message, "transcript") {
+        ApiClient.chat.transcribe(chatAuth(), message.id).data?.text
+    }
+
+    fun hideAi(message: UiMessage) = setAi(message.id, null)
+
+    private fun askAi(message: UiMessage, kind: String, call: suspend () -> String?) {
+        setAi(message.id, AiNote(kind, loading = true))
+        scope.launch {
+            try {
+                setAi(message.id, AiNote(kind, text = call()))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                setAi(message.id, AiNote(kind, failed = e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network)))
+            }
+        }
+    }
+
+    private fun setAi(id: String, note: AiNote?) {
+        val index = messages.indexOfFirst { it.id == id }
+        if (index >= 0) messages[index] = messages[index].copy(ai = note, fresh = false)
+    }
+
+    fun loadSmartReplies() {
+        if (loadingReplies) return
+        loadingReplies = true
+        scope.launch {
+            try {
+                smartReplies = ApiClient.chat.smartReplies(chatAuth(), id).data?.replies.orEmpty()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+            }
+            loadingReplies = false
+        }
+    }
+
+    fun clearSmartReplies() {
+        smartReplies = emptyList()
+    }
+
+    /** Slow mode applies to me here: a group member (not an admin) in a group that has it on. */
+    val slowModeSeconds: Int
+        get() = conversation?.takeIf { it.isGroup && !it.isChannel && !it.isAdmin }?.group?.slowModeSeconds ?: 0
+
     // ------------------------------------------------------------------ sending
 
     fun send(out: Outgoing) {
@@ -220,18 +375,31 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         )
         val replyId = replyTo?.id
         replyTo = null
-        messages.add(UiMessage(optimistic, local = "pending", localFiles = out.files, fresh = true, localThumb = out.thumbnail))
+        // Saved on the phone first: it survives no connection and the app being closed.
+        val stored = com.dorr.app.chat.ChatOutbox.add(uuid, id, out, replyId, optimistic)
+        messages.add(UiMessage(optimistic, local = "pending", localFiles = stored.files, fresh = true, localThumb = stored.thumbnail))
         sendTyping(stop = true)
-        upload(uuid, out, replyId)
+        // Slow mode: the next one waits (the server counts from this message too).
+        slowModeSeconds.takeIf { it > 0 }?.let { slowUntil = System.currentTimeMillis() + it * 1000L }
+        upload(uuid, stored, replyId)
     }
 
-    fun retry(message: UiMessage) {
+    /** [quiet]: an automatic try — no toast if it fails again. */
+    fun retry(message: UiMessage, quiet: Boolean = false) {
         val index = messages.indexOfFirst { it.id == message.id }
         if (index < 0) return
         messages[index] = message.copy(local = "pending")
         val dto = message.dto
-        val extra: Map<String, Any?> = dto.meta?.let { gson.fromJson(it, Map::class.java) as Map<String, Any?> } ?: emptyMap()
-        upload(dto.id, Outgoing(dto.type, dto.body, message.localFiles, extra, message.localThumb), dto.replyTo?.id)
+        com.dorr.app.chat.ChatOutbox.retrying(dto.id)
+        // From the outbox when it's there (its files, its reply); else rebuilt from the bubble.
+        val kept = com.dorr.app.chat.ChatOutbox.pendingFor(id).firstOrNull { it.uuid == dto.id }
+        @Suppress("UNCHECKED_CAST")
+        val out = kept?.let { com.dorr.app.chat.ChatOutbox.outgoingOf(it) } ?: Outgoing(
+            dto.type, dto.body, message.localFiles,
+            dto.meta?.let { com.dorr.app.chat.ChatSender.normalize(gson.fromJson(it, Map::class.java)) as? Map<String, Any?> }.orEmpty(),
+            message.localThumb,
+        )
+        upload(dto.id, out, kept?.replyTo ?: dto.replyTo?.id, quiet)
     }
 
     // ------------------------------------------------------------------ polls, view once, live location
@@ -318,49 +486,17 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         }
     }
 
-    private fun upload(uuid: String, out: Outgoing, replyId: String?) {
+    private fun upload(uuid: String, out: Outgoing, replyId: String?, quiet: Boolean = false) {
         scope.launch {
             try {
-                val sent = if (out.files.isEmpty()) {
-                    val body = mutableMapOf<String, Any?>("type" to out.type, "uuid" to uuid, "body" to out.body, "reply_to" to replyId)
-                    body.putAll(out.extra)
-                    ApiClient.chat.send(chatAuth(), id, body.filterValues { it != null })
-                } else {
-                    val fields = mutableMapOf<String, RequestBody>()
-                    fun field(name: String, value: Any?) {
-                        if (value != null) fields[name] = value.toString().toRequestBody("text/plain".toMediaTypeOrNull())
+                val sent = com.dorr.app.chat.ChatSender.send(context, id, uuid, out, replyId) { progress ->
+                    scope.launch(kotlinx.coroutines.Dispatchers.Main) {
+                        val index = messages.indexOfFirst { it.id == uuid }
+                        if (index >= 0 && messages[index].local == "pending") messages[index] = messages[index].copy(progress = progress)
                     }
-                    field("type", out.type)
-                    field("uuid", uuid)
-                    field("body", out.body)
-                    field("reply_to", replyId)
-                    out.extra.forEach { (k, v) ->
-                        if (v is List<*>) v.forEachIndexed { i, item -> field("$k[$i]", item) } else field(k, v)
-                    }
-                    // Videos are shrunk first (the ring spins meanwhile), then uploaded.
-                    val files = if (out.type == "video") out.files.map { com.dorr.app.chat.VideoTools.compress(context, it) } else out.files
-                    // Progress across all the files together, reported in 2% steps.
-                    val total = files.sumOf { it.file.length() }.coerceAtLeast(1)
-                    var sentBytes = 0L
-                    var lastShown = -1
-                    val poster = out.thumbnail?.takeIf { it.exists() }?.let {
-                        MultipartBody.Part.createFormData("thumbnail", "poster.jpg", it.asRequestBody("image/jpeg".toMediaTypeOrNull()))
-                    }
-                    val parts = listOfNotNull(poster) + files.map { f ->
-                        MultipartBody.Part.createFormData("files[]", f.name, ProgressBody(f.file, f.mime) { delta ->
-                            sentBytes += delta
-                            val percent = (sentBytes * 100 / total).toInt()
-                            if (percent - lastShown >= 2) {
-                                lastShown = percent
-                                scope.launch(kotlinx.coroutines.Dispatchers.Main) {
-                                    val index = messages.indexOfFirst { it.id == uuid }
-                                    if (index >= 0 && messages[index].local == "pending") messages[index] = messages[index].copy(progress = percent / 100f)
-                                }
-                            }
-                        })
-                    }
-                    ApiClient.chat.sendWithFiles(chatAuth(), id, fields, parts)
                 }
+                com.dorr.app.chat.ChatOutbox.sent(uuid)
+                autoRetries.remove(uuid)
                 sent.data?.let {
                     replaceMessage(uuid, UiMessage(it))
                     // A live location starts its position updates as soon as the server has it.
@@ -375,8 +511,27 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 val index = messages.indexOfFirst { it.id == uuid }
                 if (index >= 0) messages[index] = messages[index].copy(local = "failed")
                 android.util.Log.w("DorrChat", "send ${out.type} failed", e)
-                // No HTTP answer at all (offline, tunnel down, timeout): say so instead of staying silent.
-                (failure.message ?: context.getString(com.dorr.app.R.string.ch_error_network)).let { host.showToast(it) }
+                // Slow mode (the app didn't know yet — e.g. just switched on): it goes by itself
+                // once the wait is over, and the send button counts down meanwhile.
+                if (failure.errorCode == "chat_slow_mode") {
+                    val wait = (failure.retryAfter ?: slowModeSeconds).coerceAtLeast(1)
+                    slowUntil = System.currentTimeMillis() + wait * 1000L
+                    scope.launch {
+                        kotlinx.coroutines.delay(wait * 1000L + 500)
+                        messages.firstOrNull { it.id == uuid && it.local == "failed" }?.let { retry(it, quiet = true) }
+                    }
+                    if (!quiet) failure.message?.let { host.showToast(it) }
+                    return@launch
+                }
+                // No HTTP answer at all (offline, tunnel down, timeout): it goes again by itself.
+                // A real answer from the server (validation, blocked…) is final — tap to retry.
+                if (e !is retrofit2.HttpException) {
+                    scheduleAutoRetry(uuid)
+                } else {
+                    autoRetries.remove(uuid)
+                    com.dorr.app.chat.ChatOutbox.rejected(uuid)
+                }
+                if (!quiet) (failure.message ?: context.getString(com.dorr.app.R.string.ch_error_network)).let { host.showToast(it) }
             }
         }
     }
@@ -406,6 +561,8 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
 
     fun deleteForMe(message: MessageDto) {
         messages.removeAll { it.id == message.id }
+        // An unsent one is simply dropped from the outbox (never sent).
+        com.dorr.app.chat.ChatOutbox.sent(message.id)
         scope.launch { runCatching { ApiClient.chat.deleteForMe(chatAuth(), id, mapOf("messages" to listOf(message.id))) } }
     }
 
@@ -430,10 +587,59 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
         return ReactionsDto(summary, newEmoji, summary.sumOf { it.count })
     }
 
-    fun star(message: MessageDto) {
+    /** Star (into one of my favourites folders, spec 24) or unstar. */
+    fun star(message: MessageDto, folderId: Int? = null) {
         val starred = !message.isStarred
         replaceMessage(message.id, UiMessage(message.copy(isStarred = starred)))
-        scope.launch { runCatching { ApiClient.chat.star(chatAuth(), message.id, mapOf("starred" to starred)) } }
+        scope.launch {
+            runCatching {
+                ApiClient.more.star(chatAuth(), message.id, com.google.gson.JsonObject().apply { addProperty("starred", starred); folderId?.let { addProperty("folder_id", it) } })
+            }
+        }
+    }
+
+    fun readLater(message: MessageDto) {
+        val on = !message.isReadLater
+        replaceMessage(message.id, UiMessage(message.copy(isReadLater = on)))
+        scope.launch { runCatching { ApiClient.chat.readLater(chatAuth(), message.id, mapOf("on" to on)) } }
+    }
+
+    fun followUp(message: MessageDto) {
+        val on = !message.isFollowUp
+        replaceMessage(message.id, UiMessage(message.copy(isFollowUp = on)))
+        scope.launch { runCatching { ApiClient.chat.followUp(chatAuth(), message.id, mapOf("on" to on)) } }
+    }
+
+    /** Remind me about this message at [at] (null: take the reminder off). */
+    fun remind(message: MessageDto, at: java.time.ZonedDateTime?) = scope.launch {
+        try {
+            if (at == null) {
+                ApiClient.chat.clearReminder(chatAuth(), message.id)
+                replaceMessage(message.id, UiMessage(message.copy(reminderAt = null)))
+            } else {
+                val iso = at.format(java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME)
+                ApiClient.chat.setReminder(chatAuth(), message.id, mapOf("remind_at" to iso))
+                replaceMessage(message.id, UiMessage(message.copy(reminderAt = iso)))
+                host.showToast(context.getString(com.dorr.app.R.string.ch_reminder_set, scheduleLabel(at)))
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        }
+    }
+
+    /** "Save to my notes": a copy in my note-to-self chat — a private place of my own, apart from stars. */
+    fun saveToNotes(message: MessageDto, done: String) = scope.launch {
+        try {
+            val notes = ApiClient.chat.openSelf(chatAuth()).data ?: return@launch
+            ApiClient.chat.forward(chatAuth(), mapOf("messages" to listOf(message.id), "conversations" to listOf(notes.id)))
+            host.showToast(done)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        }
     }
 
     fun pin(message: MessageDto, seconds: Int) = scope.launch {
@@ -465,7 +671,8 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     /** Tell the others we're typing — at most every 3s, and "stopped" after a pause. */
     fun sendTyping(stop: Boolean = false, state: String = "typing") {
         val c = conversation ?: return
-        if (c.isRequest) return
+        // Nobody to tell in a request I haven't accepted, or in my own notes.
+        if (c.isRequest || c.isSelf) return
         val now = System.currentTimeMillis()
         typingJob?.cancel()
         if (stop) {
@@ -489,8 +696,19 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     private fun onEvent(event: ChatEvent) {
         if (event.data.str("conversation_id") != id) return
         when (event.name) {
+            // One of my scheduled messages went out, failed, or changed on another device.
+            "chat.scheduled.changed" -> scope.launch { refreshScheduled() }
             "chat.message.sent" -> {
                 val dto = parseMessage(event.data.getAsJsonObject("message")) ?: return
+                // A reply in a thread: it stays in the thread; its message counts one more.
+                if (dto.threadRoot != null) {
+                    val i = messages.indexOfFirst { it.dto.id == dto.threadRoot }
+                    if (i >= 0) {
+                        val root = messages[i]
+                        messages[i] = root.copy(dto = root.dto.copy(thread = com.dorr.app.network.ThreadInfoDto((root.dto.thread?.count ?: 0) + 1, dto.createdAt)))
+                    }
+                    return
+                }
                 val mine = dto.sender?.key == myKey()
                 val fixed = dto.copy(isMine = mine, status = if (mine) "sent" else null)
                 if (messages.any { it.id == dto.id }) {
@@ -593,29 +811,31 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
 
     private fun parseMessage(json: JsonObject?): MessageDto? = json?.let { runCatching { gson.fromJson(it, MessageDto::class.java) }.getOrNull() }
 
+    /** Fetch one message again (a surprise card opening at its time) and swap it in place. */
+    suspend fun refreshOne(messageId: String) {
+        val page = runCatching { ApiClient.chat.messages(chatAuth(), id, around = messageId).data }.getOrNull() ?: return
+        page.messages.firstOrNull { it.id == messageId }?.let { fresh ->
+            val index = messages.indexOfFirst { it.id == messageId }
+            if (index >= 0) messages[index] = messages[index].copy(dto = fresh, fresh = true)
+        }
+    }
+
+    /** A short note from these messages, saved into "Notes (you)" (spec 39). */
+    fun aiNote(messageIds: List<String>, done: String) = scope.launch {
+        try {
+            ApiClient.aiTools.note(chatAuth(), id, com.google.gson.JsonObject().apply { add("messages", com.google.gson.Gson().toJsonTree(messageIds)) })
+            host.showToast(done)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+        }
+    }
+
     fun replaceMessage(id: String, message: UiMessage) {
         val index = messages.indexOfFirst { it.id == id }
         if (index >= 0) messages[index] = message.copy(fresh = false) else messages.add(message)
         persist()
-    }
-}
-
-/** A file upload body that reports how many bytes went out. */
-private class ProgressBody(private val file: File, private val mime: String, private val onBytes: (Long) -> Unit) : RequestBody() {
-    override fun contentType() = mime.toMediaTypeOrNull()
-
-    override fun contentLength() = file.length()
-
-    override fun writeTo(sink: okio.BufferedSink) {
-        file.inputStream().use { input ->
-            val buffer = ByteArray(64 * 1024)
-            while (true) {
-                val read = input.read(buffer)
-                if (read < 0) break
-                sink.write(buffer, 0, read)
-                onBytes(read.toLong())
-            }
-        }
     }
 }
 
@@ -631,9 +851,11 @@ internal fun compressImage(context: Context, file: LocalFile): LocalFile {
         val longest = maxOf(bounds.outWidth, bounds.outHeight)
         if (longest <= 0) return file
         var sample = 1
-        while (longest / (sample * 2) >= 1600) sample *= 2
+        // Lighter on a slow connection, sharper on Wi-Fi — or what I chose (spec 13).
+        val (maxSide, quality) = ChatPrefs.photoBudget(context)
+        while (longest / (sample * 2) >= maxSide) sample *= 2
         val decoded = android.graphics.BitmapFactory.decodeFile(file.file.absolutePath, android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }) ?: return file
-        val scale = (1600f / maxOf(decoded.width, decoded.height)).coerceAtMost(1f)
+        val scale = (maxSide.toFloat() / maxOf(decoded.width, decoded.height)).coerceAtMost(1f)
         var bitmap = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(decoded, (decoded.width * scale).toInt(), (decoded.height * scale).toInt(), true) else decoded
         val rotation = when (android.media.ExifInterface(file.file.absolutePath).getAttributeInt(android.media.ExifInterface.TAG_ORIENTATION, android.media.ExifInterface.ORIENTATION_NORMAL)) {
             android.media.ExifInterface.ORIENTATION_ROTATE_90 -> 90f
@@ -645,7 +867,7 @@ internal fun compressImage(context: Context, file: LocalFile): LocalFile {
             bitmap = android.graphics.Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, android.graphics.Matrix().apply { postRotate(rotation) }, true)
         }
         val out = File(context.cacheDir.resolve("chat-out").apply { mkdirs() }, UUID.randomUUID().toString() + ".jpg")
-        out.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, it) }
+        out.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, it) }
         if (out.length() in 1 until file.file.length()) LocalFile(out, "image/jpeg", file.name.substringBeforeLast('.') + ".jpg") else file
     }.getOrDefault(file)
 }
@@ -674,3 +896,6 @@ internal fun typeForMime(mime: String): String = when {
 }
 
 internal fun AttachmentDto.isImage(): Boolean = mimeType?.startsWith("image/") == true
+
+/** Gaps before each automatic resend of a message that never reached the server. */
+private val AutoRetryDelays = listOf(5_000L, 15_000L, 45_000L)

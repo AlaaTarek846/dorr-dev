@@ -39,7 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import androidx.compose.ui.window.DialogProperties
 import com.dorr.app.R
 import com.dorr.app.ui.theme.AppColors
@@ -53,7 +53,7 @@ fun ContactUsSheet(onDismiss: () -> Unit) {
     val context = LocalContext.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
 
-    Dialog(
+    LocaleAwareDialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
@@ -79,7 +79,10 @@ fun ContactUsSheet(onDismiss: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 12.dp)) {
                     PinkIcon(Icons.Rounded.Call)
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.contact_title), color = settingsAccent(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                    SettingsScreenTitle(
+                        stringResource(R.string.contact_title),
+                        Modifier.weight(1f),
+                    )
                 }
                 ContactTile(Icons.Rounded.Call, stringResource(R.string.contact_phone), CONTACT_PHONE, rtl) {
                     tryStart(context, Intent(Intent.ACTION_DIAL, Uri.parse("tel:$CONTACT_PHONE")))
@@ -117,7 +120,7 @@ private fun ContactTile(icon: ImageVector, label: String, value: String, rtl: Bo
         Icon(
             Icons.Rounded.ChevronRight,
             contentDescription = null,
-            tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFEFA8B4),
+            tint = if (settingsNight()) com.dorr.app.ui.screens.AccountDark.chevron else Color(0xFFF8BCA9),
             modifier = Modifier.size(16.dp).graphicsLayer { if (rtl) scaleX = -1f },
         )
     }

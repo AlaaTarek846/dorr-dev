@@ -28,7 +28,12 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Notes
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.Tag
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -131,14 +136,15 @@ private fun ExplainSheet(host: WalletHost) {
 
 @Composable
 private fun TxSheet(tx: com.dorr.app.network.WalletTransactionDto, host: WalletHost) {
-    val (icon, tone) = txMeta(tx.type)
+    val (icon, _) = txMeta(tx.type)
     val credit = tx.direction == "credit"
     val spend = tx.bucket == "spend_only"
     val currency = host.balance?.currencyCode.orEmpty()
 
     Column(Modifier.fillMaxWidth()) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            WaIconWell(icon, tone, size = 60.dp, iconSize = 28.dp)
+            // The brand-tinted well, like the rows of the list this sheet opens from.
+            WaIconWell(icon, Tone.Red, size = 60.dp, iconSize = 28.dp)
             Spacer(Modifier.height(10.dp))
             Text(tx.typeLabel, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = Wa.Ink, textAlign = TextAlign.Center)
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
@@ -150,26 +156,31 @@ private fun TxSheet(tx: com.dorr.app.network.WalletTransactionDto, host: WalletH
             }
         }
         Spacer(Modifier.height(14.dp))
-        WaKeyValue(stringResource(R.string.wa_date), dayText(tx.createdAt) + " · " + timeOf(tx.createdAt))
+        WaKeyValue(stringResource(R.string.wa_date), dayText(tx.createdAt) + " · " + timeOf(tx.createdAt), icon = Icons.Rounded.CalendarToday)
         WaDivider()
-        WaKeyValue(stringResource(R.string.wa_bucket), stringResource(if (spend) R.string.wa_spend_only else R.string.wa_withdrawable))
+        WaKeyValue(
+            stringResource(R.string.wa_bucket),
+            stringResource(if (spend) R.string.wa_spend_only else R.string.wa_withdrawable),
+            icon = if (spend) Icons.Rounded.CardGiftcard else Icons.Rounded.AccountBalance,
+        )
         WaDivider()
-        WaKeyValue(stringResource(R.string.wa_balance_after), money(tx.balanceAfterMinor) + " " + currency, ltr = true)
+        WaKeyValue(stringResource(R.string.wa_balance_after), money(tx.balanceAfterMinor) + " " + currency, ltr = true, icon = Icons.Rounded.AccountBalanceWallet)
         tx.counterparty?.let { party ->
             WaDivider()
             WaKeyValue(
                 stringResource(if (credit) R.string.wa_from else R.string.wa_to),
                 // The masked phone is isolated so its dots and digits keep their order inside Arabic text.
                 listOfNotNull(party.name, party.phone?.let { "\u2066" + it + "\u2069" }).joinToString("  "),
+                icon = if (credit) Icons.Rounded.SouthWest else Icons.Rounded.NorthEast,
             )
         }
         val note = tx.note
         if (!note.isNullOrBlank() && note != tx.typeLabel) {
             WaDivider()
-            WaKeyValue(stringResource(R.string.wa_note), note)
+            WaKeyValue(stringResource(R.string.wa_note), note, icon = Icons.Rounded.Notes)
         }
         WaDivider()
-        WaKeyValue(stringResource(R.string.wa_tx_number), tx.uuid.take(8), valueColor = Wa.Soft)
+        WaKeyValue(stringResource(R.string.wa_tx_number), tx.uuid.take(8), valueColor = Wa.Soft, icon = Icons.Rounded.Tag)
         if (spend && credit) {
             Spacer(Modifier.height(12.dp))
             WaNote(stringResource(R.string.wa_spend_only_received_note), icon = Icons.Rounded.Info)

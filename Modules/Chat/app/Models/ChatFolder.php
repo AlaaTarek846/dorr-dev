@@ -12,7 +12,7 @@ use Modules\Chat\Support\ParticipantType;
  */
 class ChatFolder extends Model
 {
-    protected $fillable = ['owner_type', 'owner_id', 'name', 'sort_order'];
+    protected $fillable = ['owner_type', 'owner_id', 'name', 'color', 'emoji', 'sort_order'];
 
     public function conversations(): BelongsToMany
     {

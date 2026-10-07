@@ -33,6 +33,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -43,16 +44,20 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.EmojiEmotions
+import androidx.compose.material.icons.rounded.Face
 import androidx.compose.material.icons.rounded.Gif
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.StickyNote2
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -61,6 +66,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -84,12 +90,14 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.GifDto
 import com.dorr.app.network.StickerDto
 import com.dorr.app.network.StickerLibraryDto
+import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.theme.CairoFontFamily
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.launch
 
 // =============================================================================== bubbles
 
@@ -163,6 +171,7 @@ fun ExpressionPanel(onDismiss: () -> Unit, onEmoji: (String) -> Unit, onPick: (E
     val sheet = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var library by remember { mutableStateOf<StickerLibraryDto?>(null) }
     LaunchedEffect(Unit) { library = runCatching { ApiClient.chat.stickers(chatAuth()).data }.getOrNull() ?: StickerLibraryDto() }
+    var making by remember { mutableStateOf(false) }
 
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().height(460.dp)) {
@@ -173,13 +182,28 @@ fun ExpressionPanel(onDismiss: () -> Unit, onEmoji: (String) -> Unit, onPick: (E
             }, modifier = Modifier.weight(1f)) { t ->
                 when (t) {
                     0 -> EmojiTab(onEmoji)
-                    1 -> StickersTab(library, onPick = { onPick(it); onDismiss() })
-                    else -> GifTab(onPick = { onPick(it); onDismiss() })
+                    1 -> StickersTab(
+                        library, onPick = { onPick(it); onDismiss() },
+                        onMake = { making = true },
+                        onMineChange = { mine -> library = (library ?: StickerLibraryDto()).copy(mine = mine) },
+                    )
+                    else -> GifTab(library, onPick = { onPick(it); onDismiss() })
                 }
             }
         }
     }
+
+    // A new sticker from my photo: kept in "My stickers" and sent straight away, like WhatsApp.
+    if (making) StickerMakerDialog(onDismiss = { making = false }) { s ->
+        making = false
+        library = (library ?: StickerLibraryDto()).let { it.copy(mine = listOf(s) + it.mine) }
+        onPick(mySticker(s))
+        onDismiss()
+    }
 }
+
+/** Sending one of "My stickers": only its id goes up — the server knows the file. */
+private fun mySticker(s: StickerDto) = ExpressionPick("sticker", mapOf("my_sticker_id" to s.id, "source" to "mine", "url" to s.url, "emoji" to s.emoji))
 
 @Composable
 private fun TabsRow(selected: Int, onSelect: (Int) -> Unit) {
@@ -235,13 +259,24 @@ private fun EmojiTab(onEmoji: (String) -> Unit) {
 // ------------------------------------------------------------------------------- stickers
 
 @Composable
-private fun StickersTab(library: StickerLibraryDto?, onPick: (ExpressionPick) -> Unit) {
+private fun StickersTab(library: StickerLibraryDto?, onPick: (ExpressionPick) -> Unit, onMake: () -> Unit, onMineChange: (List<StickerDto>) -> Unit) {
     val context = LocalContext.current
-    // -2 = recent, -1 = the Giphy library, else a pack id.
+    val host = LocalChat.current
+    val scope = rememberCoroutineScope()
+    // -3 = my stickers, -2 = recent, -1 = the Giphy library, else a pack id.
     var source by remember { mutableStateOf(-2) }
-    val recents = remember { Recents.load(context, "sticker") }
-    LaunchedEffect(library) {
-        if (library != null && recents.isEmpty()) source = library.packs.firstOrNull()?.id ?: if (library.libraryEnabled) -1 else -2
+    val stored = remember { Recents.load(context, "sticker") }
+    // A sticker of mine that I deleted is no longer offered in recents.
+    val recents = stored.filter { r -> r.source != "mine" || library == null || library.mine.any { it.id.toString() == r.id } }
+    var removing by remember { mutableStateOf<StickerDto?>(null) }
+    LaunchedEffect(library != null) {
+        // Nothing recent yet: open on Dorr's first pack — or on "My stickers", where one can be made.
+        if (library != null && recents.isEmpty()) source = library.packs.firstOrNull()?.id ?: -3
+    }
+
+    fun mine(s: StickerDto) {
+        Recents.add(context, RecentItem("sticker", "mine", s.id.toString(), s.url.orEmpty(), s.width ?: 0, s.height ?: 0))
+        onPick(mySticker(s))
     }
 
     fun packSticker(s: StickerDto) {
@@ -258,21 +293,51 @@ private fun StickersTab(library: StickerLibraryDto?, onPick: (ExpressionPick) ->
         // Sources: recent · library · each pack's cover.
         LazyRow(contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             item { SourceChip(source == -2, icon = Icons.Rounded.History) { source = -2 } }
+            item { SourceChip(source == -3, icon = Icons.Rounded.Face) { source = -3 } }
             if (library?.libraryEnabled == true) item { SourceChip(source == -1, icon = Icons.Rounded.Search) { source = -1 } }
             itemsIndexed(library?.packs.orEmpty(), key = { _, p -> p.id }) { _, pack ->
                 SourceChip(source == pack.id, image = pack.cover) { source = pack.id }
             }
         }
         when (source) {
-            -2 -> if (recents.isEmpty()) EmptyHint(stringResource(R.string.ch_expr_no_recent)) else LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(10.dp), modifier = Modifier.fillMaxSize()) {
+            // Nothing at all to offer yet (no packs from the admin, no GIF library): say why, not just "nothing".
+            -2 -> if (recents.isEmpty()) EmptyHint(stringResource(
+                if (library != null && library.packs.isEmpty() && !library.libraryEnabled) R.string.ch_expr_no_stickers_yet else R.string.ch_expr_no_recent,
+            )) else LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(10.dp), modifier = Modifier.fillMaxSize()) {
                 items(recents) { r ->
                     PopCell(Modifier.aspectRatio(1f).padding(4.dp), onClick = {
                         Recents.add(context, r)
-                        onPick(ExpressionPick("sticker", if (r.source == "pack") mapOf("sticker_id" to r.id.toIntOrNull(), "source" to "pack", "url" to r.url) else mapOf("giphy_id" to r.id, "source" to "giphy", "url" to r.url)))
+                        onPick(ExpressionPick("sticker", when (r.source) {
+                            "pack" -> mapOf("sticker_id" to r.id.toIntOrNull(), "source" to "pack", "url" to r.url)
+                            "mine" -> mapOf("my_sticker_id" to r.id.toIntOrNull(), "source" to "mine", "url" to r.url)
+                            else -> mapOf("giphy_id" to r.id, "source" to "giphy", "url" to r.url)
+                        }))
                     }) { AsyncImage(ApiClient.mediaUrl(r.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize()) }
                 }
             }
             -1 -> GiphyGrid(kind = "stickers", columns = 4, onPick = ::giphySticker)
+            // My stickers: "+" makes one from a photo; a long press removes one.
+            -3 -> LazyVerticalGrid(GridCells.Fixed(4), contentPadding = PaddingValues(10.dp), modifier = Modifier.fillMaxSize()) {
+                item(key = "make") {
+                    PopCell(Modifier.aspectRatio(1f).padding(4.dp), shape = RoundedCornerShape(18.dp), onClick = onMake) {
+                        Column(
+                            Modifier.fillMaxSize().background(Ch.Red.copy(alpha = 0.1f)),
+                            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(26.dp))
+                            Text(stringResource(R.string.ch_sticker_make_short), color = Ch.Red, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
+                        }
+                    }
+                }
+                items(library?.mine.orEmpty(), key = { it.id }) { s ->
+                    PopCell(Modifier.aspectRatio(1f).padding(4.dp), onClick = { mine(s) }, onLongClick = { removing = s }) {
+                        AsyncImage(ApiClient.mediaUrl(s.url), s.emoji, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                    }
+                }
+                if (library != null && library.mine.isEmpty()) item(key = "hint", span = { GridItemSpan(maxLineSpan) }) {
+                    Text(stringResource(R.string.ch_sticker_mine_empty), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 8.dp, vertical = 14.dp))
+                }
+            }
             else -> {
                 val pack = library?.packs?.firstOrNull { it.id == source }
                 if (pack == null) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(26.dp), color = Ch.Red, strokeWidth = 2.5.dp) }
@@ -285,6 +350,31 @@ private fun StickersTab(library: StickerLibraryDto?, onPick: (ExpressionPick) ->
                 }
             }
         }
+    }
+
+    removing?.let { s ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            containerColor = Ch.Surface,
+            icon = { AsyncImage(ApiClient.mediaUrl(s.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.size(84.dp)) },
+            title = { Text(stringResource(R.string.ch_sticker_remove_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) },
+            text = { Text(stringResource(R.string.ch_sticker_remove_body), color = Ch.Mut) },
+            confirmButton = {
+                TextButton(onClick = {
+                    removing = null
+                    // Gone from the grid at once; it comes back if the server says no.
+                    val before = library?.mine.orEmpty()
+                    onMineChange(before.filterNot { it.id == s.id })
+                    scope.launch {
+                        runCatching { ApiClient.chat.deleteMySticker(chatAuth(), s.id) }.onFailure { e ->
+                            onMineChange(before)
+                            e.apiFailure().message?.let { host.showToast(it) }
+                        }
+                    }
+                }) { Text(stringResource(R.string.ch_sticker_remove), color = Ch.Red, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.ch_sticker_keep), color = Ch.Mut) } },
+        )
     }
 }
 
@@ -303,8 +393,13 @@ private fun SourceChip(selected: Boolean, icon: ImageVector? = null, image: Stri
 // ------------------------------------------------------------------------------- GIFs
 
 @Composable
-private fun GifTab(onPick: (ExpressionPick) -> Unit) {
+private fun GifTab(library: StickerLibraryDto?, onPick: (ExpressionPick) -> Unit) {
     val context = LocalContext.current
+    // The GIF library is off until the server has a Giphy key — say so instead of "no results".
+    if (library != null && !library.libraryEnabled) {
+        EmptyHint(stringResource(R.string.ch_expr_gifs_off))
+        return
+    }
     GiphyGrid(kind = "gifs", columns = 2, moods = true) { g ->
         Recents.add(context, RecentItem("gif", "giphy", g.id, g.webp ?: g.url, g.width, g.height))
         onPick(ExpressionPick("gif", mapOf("giphy_id" to g.id, "source" to "giphy", "url" to g.url, "webp" to g.webp, "width" to g.width, "height" to g.height, "title" to g.title)))
@@ -402,10 +497,11 @@ private fun GiphyGrid(kind: String, columns: Int, moods: Boolean = false, onPick
 
 /** A cell that shrinks under the finger and springs back (the press feels alive). */
 @Composable
-private fun PopCell(modifier: Modifier, shape: RoundedCornerShape = RoundedCornerShape(12.dp), onClick: () -> Unit, content: @Composable () -> Unit) {
+@OptIn(ExperimentalFoundationApi::class)
+private fun PopCell(modifier: Modifier, shape: RoundedCornerShape = RoundedCornerShape(12.dp), onClick: () -> Unit, onLongClick: (() -> Unit)? = null, content: @Composable () -> Unit) {
     val press = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
     val scale by com.dorr.app.ui.screens.wallet.rememberPressScale(press, 0.82f)
-    Box(modifier.scale(scale).clip(shape).clickable(interactionSource = press, indication = null, onClick = onClick), contentAlignment = Alignment.Center) { content() }
+    Box(modifier.scale(scale).clip(shape).combinedClickable(interactionSource = press, indication = null, onLongClick = onLongClick, onClick = onClick), contentAlignment = Alignment.Center) { content() }
 }
 
 @Composable

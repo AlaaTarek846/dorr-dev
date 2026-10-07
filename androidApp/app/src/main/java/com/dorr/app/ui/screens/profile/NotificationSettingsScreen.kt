@@ -26,6 +26,9 @@ import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.LocalOffer
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -45,6 +48,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -53,6 +57,7 @@ import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.LocalThemeState
+import com.dorr.app.ui.theme.CairoFontFamily
 import com.dorr.app.ui.theme.appearanceColor
 
 private data class NotifToggle(val title: Int, val desc: Int, val icon: ImageVector, val startsOn: Boolean)
@@ -167,10 +172,25 @@ internal fun Modifier.settingsSurface(shape: RoundedCornerShape, elevation: andr
     return if (dark) {
         this.clip(shape).background(AccountDark.card).border(1.dp, AccountDark.line, shape)
     } else {
-        this.shadow(elevation, shape, ambientColor = Color(0x12E50914), spotColor = Color(0x12E50914))
+        this.shadow(elevation, shape, ambientColor = Color(0x12001B53), spotColor = Color(0x12001B53))
             .clip(shape)
             .background(appearanceColor("surface", Color.White, night = false))
     }
+}
+
+@Composable
+internal fun SettingsScreenTitle(title: String, modifier: Modifier = Modifier) {
+    val dark = settingsNight()
+    Text(
+        title,
+        color = if (dark) AccountDark.accent else settingsAccent(),
+        fontSize = 22.sp,
+        fontWeight = FontWeight.Black,
+        fontFamily = CairoFontFamily,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -180,22 +200,16 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp)
-            .padding(top = 14.dp, bottom = 8.dp),
+            .padding(top = 14.dp, bottom = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(
-            title,
-            color = settingsAccent(),
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.weight(1f),
-        )
+        SettingsScreenTitle(title, Modifier.weight(1f))
         Box(
             modifier = Modifier
                 .size(34.dp)
                 .then(
                     if (dark) Modifier
-                    else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
+                    else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
                 )
                 .clip(CircleShape)
                 .background(settingsCard())
@@ -251,5 +265,39 @@ internal fun PinkBackdrop(modifier: Modifier = Modifier) {
             radius = size.width * 0.55f,
             center = Offset(size.width * 1.05f, size.height * 0.02f),
         )
+    }
+}
+
+@Composable
+internal fun SettingsPrimaryButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled && !loading,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = settingsAccent(),
+            contentColor = Color.White,
+            disabledContainerColor = settingsAccent().copy(alpha = 0.55f),
+            disabledContentColor = Color.White,
+        ),
+        shape = RoundedCornerShape(18.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .then(
+                if (settingsNight()) Modifier
+                else Modifier.shadow(12.dp, RoundedCornerShape(18.dp), spotColor = settingsAccent().copy(alpha = 0.38f)),
+            ),
+    ) {
+        if (loading) {
+            CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+        } else {
+            Text(text, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+        }
     }
 }

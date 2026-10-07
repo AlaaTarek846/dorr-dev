@@ -133,17 +133,17 @@ fun WalletMyQr() {
         ) {
             Box(
                 Modifier.fillMaxWidth().height(120.dp).background(
-                    if (walletNight()) Brush.verticalGradient(listOf(Color(0x33E50914), Color.Transparent))
+                    if (walletNight()) Brush.verticalGradient(listOf(Wa.Red.copy(alpha = 0.2f), Color.Transparent))
                     else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
                 ),
             )
             Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Row(
-                    Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFE5F6EC)).padding(horizontal = 12.dp, vertical = 5.dp),
+                    Modifier.clip(RoundedCornerShape(999.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 5.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color(0xFF15803D), modifier = Modifier.size(15.dp))
-                    Text(stringResource(R.string.wa_your_wallet_in, country), color = Color(0xFF15803D), fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Wa.Red, modifier = Modifier.size(15.dp))
+                    Text(stringResource(R.string.wa_your_wallet_in, country), color = Wa.Red, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
                 }
                 Spacer(Modifier.height(16.dp))
                 Box(
@@ -160,7 +160,7 @@ fun WalletMyQr() {
                 }
                 Spacer(Modifier.height(14.dp))
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Text(number, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, letterSpacing = 2.sp)
+                    WaFitText(number, color = Wa.Ink, maxSize = 21.sp, letterSpacing = 2.sp)
                 }
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WaGlassChip(country, Icons.Rounded.Public, dark = true)
@@ -270,6 +270,12 @@ fun WalletScanner() {
     }
 
     WaPage(title = stringResource(R.string.wa_scan_title), onBack = { host.pop() }) {
+        // The sentence that used to sit under "Scan a QR code" on the transfer form.
+        Text(
+            stringResource(R.string.wa_scan_cta_text),
+            color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 21.sp,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).waRise(0),
+        )
         Viewfinder(busy, Modifier.waRise(0))
         Text(
             stringResource(if (busy) R.string.wa_scan_checking else R.string.wa_scan_hint),
@@ -324,7 +330,7 @@ private fun Viewfinder(busy: Boolean, modifier: Modifier = Modifier) {
                         .height(3.dp)
                         .graphicsLayer { translationY = sweep * 300.dp.toPx() * 0.78f }
                         .clip(RoundedCornerShape(3.dp))
-                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Color(0xFFFF4D57), Color.Transparent))),
+                        .background(Brush.horizontalGradient(listOf(Color.Transparent, Wa.Red, Color.Transparent))),
                 )
             }
         }

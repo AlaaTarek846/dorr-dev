@@ -109,6 +109,7 @@ import com.dorr.app.network.serverMessage
 import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
+import com.dorr.app.ui.screens.profile.TermsConditionsScreen
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -141,6 +142,7 @@ fun LoginScreen(
     var phone by remember { mutableStateOf("") }
     var acceptedTerms by remember { mutableStateOf(false) }
     var showPrivacy by remember { mutableStateOf(false) }
+    var showTerms by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
@@ -262,6 +264,7 @@ fun LoginScreen(
             acceptedTerms = acceptedTerms,
             onAcceptedTermsChange = { acceptedTerms = it },
             onOpenPrivacy = { showPrivacy = true },
+            onOpenTerms = { showTerms = true },
             isLoading = isLoading,
             isFormValid = isFormValid,
             canSubmit = canSubmit,
@@ -346,6 +349,11 @@ fun LoginScreen(
             BackHandler { showPrivacy = false }
             PrivacyPolicyScreen(onBack = { showPrivacy = false })
         }
+
+        if (showTerms) {
+            BackHandler { showTerms = false }
+            TermsConditionsScreen(onBack = { showTerms = false })
+        }
     }
 }
 
@@ -399,8 +407,8 @@ private fun RestoreAccountCard(
             .shadow(
                 elevation = 10.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = Color(0x33E50914),
-                spotColor = Color(0x33E50914),
+                ambientColor = Color(0x33001B53),
+                spotColor = Color(0x33001B53),
             )
             .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
@@ -498,7 +506,7 @@ private fun NoticeBanner(
     val bgColor = if (isDark) Color(0xFF2B191C) else Color(0xFFFFF5F5)
     val borderColor = if (isDark) settingsAccent().copy(alpha = 0.45f) else Color(0xFFFCA5A5)
     val iconBgColor = if (isDark) Color(0xFF4A1E24) else Color(0xFFFEE2E2)
-    val titleColor = if (isDark) Color(0xFFFDE8E8) else Color(0xFF991B1B)
+    val titleColor = if (isDark) Color(0xFFFDE8E8) else Color(0xFF001B53)
     val messageColor = if (isDark) Color(0xFFE5C0C4) else Color(0xFF7F1D1D)
 
     Row(
@@ -507,8 +515,8 @@ private fun NoticeBanner(
             .shadow(
                 elevation = 10.dp,
                 shape = RoundedCornerShape(16.dp),
-                ambientColor = Color(0x33E50914),
-                spotColor = Color(0x33E50914),
+                ambientColor = Color(0x33001B53),
+                spotColor = Color(0x33001B53),
             )
             .clip(RoundedCornerShape(16.dp))
             .background(bgColor)
@@ -575,6 +583,7 @@ private fun LoginContent(
     acceptedTerms: Boolean,
     onAcceptedTermsChange: (Boolean) -> Unit,
     onOpenPrivacy: () -> Unit,
+    onOpenTerms: () -> Unit,
     isLoading: Boolean,
     isFormValid: Boolean,
     canSubmit: Boolean,
@@ -737,7 +746,7 @@ private fun LoginContent(
                         fontWeight = FontWeight.SemiBold,
                     )
                     append(stringResource(R.string.login_terms_prefix))
-                    pushStringAnnotation("link", "privacy")
+                    pushStringAnnotation("link", "terms")
                     withStyle(link) { append(stringResource(R.string.login_terms_use)) }
                     pop()
                     append(stringResource(R.string.login_terms_mid))
@@ -754,8 +763,10 @@ private fun LoginContent(
                     ),
                     modifier = Modifier.weight(1f),
                     onClick = { offset ->
-                        if (terms.getStringAnnotations("link", offset, offset).isNotEmpty()) {
-                            onOpenPrivacy()
+                        val link = terms.getStringAnnotations("link", offset, offset).firstOrNull()?.item
+                        when (link) {
+                            "terms" -> onOpenTerms()
+                            "privacy" -> onOpenPrivacy()
                         }
                     },
                 )
@@ -825,7 +836,7 @@ private fun LoginContent(
                             .padding(top = 16.dp)
                             .clip(RoundedCornerShape(12.dp))
                             .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
-                            .border(1.dp, if (night) AccountDark.accent else Color(0xFFF8B4C0), RoundedCornerShape(12.dp))
+                            .border(1.dp, if (night) AccountDark.accent else Color(0xFFFBC8B7), RoundedCornerShape(12.dp))
                             .padding(horizontal = 14.dp, vertical = 12.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -838,7 +849,7 @@ private fun LoginContent(
                         Spacer(Modifier.width(10.dp))
                         Text(
                             text = message,
-                            color = if (night) AccountDark.accent else Color(0xFF991B1B),
+                            color = if (night) AccountDark.accent else Color(0xFF001B53),
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
                             modifier = Modifier.weight(1f),
@@ -1111,6 +1122,9 @@ private fun BrandName() {
 @Composable
 internal fun LanguagePicker() {
     val appLanguage = LocalAppLanguage.current
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val downloadFailed = stringResource(R.string.language_download_failed)
     var languages by remember { mutableStateOf<List<LanguageDto>>(emptyList()) }
     var expanded by remember { mutableStateOf(false) }
     var selected by remember { mutableStateOf<LanguageDto?>(null) }
@@ -1196,9 +1210,14 @@ internal fun LanguagePicker() {
                         }
                     } else null,
                     onClick = {
-                        selected = language
-                        appLanguage.set(language.code.lowercase())
                         expanded = false
+                        scope.launch {
+                            if (appLanguage.choose(context, language.code)) {
+                                selected = language
+                            } else {
+                                android.widget.Toast.makeText(context, downloadFailed, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
                     },
                     modifier = if (isSelected) Modifier.background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)) else Modifier,
                 )

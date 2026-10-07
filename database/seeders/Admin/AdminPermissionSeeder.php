@@ -137,7 +137,7 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
-            'privacy-policy' => [
+            'legal-page' => [
                 'module_name' => 'general_services',
                 'actions' => [
                     'view',
@@ -218,6 +218,30 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'update'],
             ],
+            'chat-categories' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-packages' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-portals' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-channels' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'chat-dorr-stories' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'chat-moments' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
             'withdrawal-requests' => [
                 'module_name' => 'general_services',
                 'actions' => [
@@ -246,6 +270,31 @@ class AdminPermissionSeeder extends Seeder
                     'view',
                     'reconcile',
                     'refund',
+                ],
+            ],
+            'support-tickets' => [
+                'module_name' => 'system_users',
+                'actions' => ['view', 'reply', 'change-status'],
+            ],
+            'ratings' => [
+                'module_name' => 'system_users',
+                'actions' => [
+                    'view',
+                    'delete',
+                    'multiple-delete',
+                ],
+            ],
+            'referral-codes' => [
+                'module_name' => 'system_users',
+                'actions' => [
+                    'view',
+                    'change-status',
+                ],
+            ],
+            'referrals' => [
+                'module_name' => 'system_users',
+                'actions' => [
+                    'view',
                 ],
             ],
             'users' => [
@@ -293,6 +342,7 @@ class AdminPermissionSeeder extends Seeder
 
     public function run(): void
     {
+        $this->call(AdminSeeder::class);
         $this->truncatePermissionModels(Permission::class, Role::class);
 
         app()[PermissionRegistrar::class]->forgetCachedPermissions();

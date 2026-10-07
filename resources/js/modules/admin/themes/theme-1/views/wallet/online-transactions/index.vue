@@ -23,25 +23,47 @@
         </div>
 
         <div class="card custom-card">
-            <div class="card-header d-flex align-items-center flex-wrap gap-2 py-3">
-                <div class="input-group input-group-sm" style="max-width: 260px;">
-                    <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
-                    <input v-model="filters.search" type="search" class="form-control" :placeholder="t('wallet.online.search')">
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 catalog-toolbar-filters">
+                    <div class="input-group input-group-sm catalog-toolbar-search">
+                        <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
+                        <input v-model="filters.search" type="search" class="form-control" :placeholder="t('wallet.online.search')">
+                        <button
+                            v-if="filters.search"
+                            type="button"
+                            class="btn btn-light border"
+                            :title="t('wallet.common.clear_search')"
+                            @click="filters.search = ''"
+                        >
+                            <i class="ri-close-line"></i>
+                        </button>
+                    </div>
+                    <Select
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
+                        v-model="filters.status"
+                        :options="statusFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                        class="wallet-filter-select"
+                    />
+                    <Select
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
+                        v-model="filters.owner_type"
+                        :options="ownerFilterOptions"
+                        option-label="label"
+                        option-value="value"
+                        class="wallet-filter-select"
+                    />
+                    <AdminDatePicker v-model="filters.from" :placeholder="t('wallet.common.date_from')" />
+                    <AdminDatePicker v-model="filters.to" :placeholder="t('wallet.common.date_to')" />
                 </div>
-                <select v-model="filters.status" class="form-select form-select-sm w-auto">
-                    <option value="">{{ t('wallet.common.all_statuses') }}</option>
-                    <option v-for="s in statuses" :key="s" :value="s">{{ t(`wallet.status.${s}`) }}</option>
-                </select>
-                <select v-model="filters.owner_type" class="form-select form-select-sm w-auto">
-                    <option value="">{{ t('wallet.common.all_owners') }}</option>
-                    <option value="user">{{ t('wallet.owner.user') }}</option>
-                    <option value="provider">{{ t('wallet.owner.provider') }}</option>
-                </select>
-                <input v-model="filters.from" type="date" class="form-control form-control-sm w-auto">
-                <input v-model="filters.to" type="date" class="form-control form-control-sm w-auto">
-                <button type="button" class="btn btn-sm btn-light ms-auto" @click="reload">
-                    <i class="ri-refresh-line"></i>
-                </button>
+                <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-light" :title="t('wallet.common.refresh')" @click="reload">
+                        <i class="ri-refresh-line"></i>
+                    </button>
+                </div>
             </div>
 
             <div class="card-body p-0">
@@ -56,32 +78,49 @@
                                 <th>{{ t('wallet.common.amount') }}</th>
                                 <th>{{ t('wallet.common.status') }}</th>
                                 <th>{{ t('wallet.online.reference') }}</th>
-                                <th class="text-end pe-4"></th>
+                                <th class="text-end pe-4">{{ t('wallet.common.actions') }}</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-if="loading">
-                                <td colspan="8" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td>
-                            </tr>
+                            <TableSkeleton v-if="loading" :rows="8" :columns="8" />
                             <tr v-else-if="!rows.length">
-                                <td colspan="8" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td>
+                                <td colspan="8" class="border-0">
+                                    <div class="text-center py-5">
+                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
+                                            <i class="ri-bank-card-line fs-2 text-primary"></i>
+                                        </span>
+                                        <p class="fw-semibold mb-1">{{ t('wallet.common.empty_title') }}</p>
+                                        <p class="text-muted mb-0">{{ t('wallet.common.empty') }}</p>
+                                    </div>
+                                </td>
                             </tr>
                             <template v-else>
-                                <tr v-for="row in rows" :key="row.id" role="button" @click="openDetail(row.id)">
-                                    <td class="ps-4">#{{ row.id }}</td>
+                                <tr v-for="row in rows" :key="row.id" class="crm-contact" @click="openDetail(row.id)">
+                                    <td class="ps-4">
+                                        <button type="button" class="btn btn-link p-0 fw-semibold text-default" @click.stop="openDetail(row.id)">#{{ row.id }}</button>
+                                    </td>
                                     <td>{{ formatDateTime(row.created_at, locale) }}</td>
                                     <td>
-                                        <span class="badge bg-light text-default">{{ t(`wallet.owner.${row.owner_type}`) }}</span>
-                                        #{{ row.owner_id }}
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="avatar avatar-sm avatar-rounded bg-primary-transparent">
+                                                <i :class="row.owner_type === 'provider' ? 'ri-store-2-line' : 'ri-user-line'" class="text-primary"></i>
+                                            </span>
+                                            <div>
+                                                <span class="fw-semibold d-block">#{{ row.owner_id }}</span>
+                                                <span class="d-block text-muted fs-11">{{ t(`wallet.owner.${row.owner_type}`) }}</span>
+                                            </div>
+                                        </div>
                                     </td>
-                                    <td>{{ row.payment_method?.name || row.payment_method?.code }}</td>
+                                    <td><span class="badge bg-secondary-transparent">{{ row.payment_method?.name || row.payment_method?.code }}</span></td>
                                     <td class="fw-semibold">{{ fmtMinor(row.requested_amount_minor, row.currency_code) }}</td>
                                     <td><span class="badge" :class="statusClass(row.status)">{{ t(`wallet.status.${row.status}`) }}</span></td>
                                     <td class="text-muted fs-12">{{ row.gateway_reference || '-' }}</td>
                                     <td class="text-end pe-4">
-                                        <button type="button" class="btn btn-sm btn-info-light btn-icon" @click.stop="openDetail(row.id)">
-                                            <i class="ri-eye-line"></i>
-                                        </button>
+                                        <div class="btn-list justify-content-end">
+                                            <button type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('wallet.online.detail')" @click.stop="openDetail(row.id)">
+                                                <i class="ri-eye-line"></i>
+                                            </button>
+                                        </div>
                                     </td>
                                 </tr>
                             </template>
@@ -94,92 +133,108 @@
 
         <WalletModal :show="showDetail" :title="detail ? `#${detail.id} · ${t('wallet.online.detail')}` : ''" size="xl" @close="closeDetail">
             <div v-if="detailLoading" class="text-center py-5"><span class="spinner-border"></span></div>
-            <div v-else-if="detail">
-                <div class="row g-3 mb-3">
+            <div v-else-if="detail" class="d-flex flex-column gap-3">
+                <WalletDetailHero
+                    icon="ri-bank-card-line"
+                    :label="t('wallet.online.paid_amount')"
+                    :value="fmtMinor(detail.requested_amount_minor, detail.currency_code)"
+                    :subtitle="detail.created_at ? formatDateTime(detail.created_at, locale) : ''"
+                >
+                    <span class="badge fs-12" :class="statusClass(detail.status)">{{ t(`wallet.status.${detail.status}`) }}</span>
+                    <span v-if="detail.gateway_reference" class="text-muted fs-11" dir="ltr">{{ detail.gateway_reference }}</span>
+                </WalletDetailHero>
+
+                <div v-if="detail.failure_reason" class="alert alert-danger py-2 mb-0">
+                    <i class="ri-error-warning-line me-1 align-middle"></i>{{ detail.failure_reason }}
+                </div>
+
+                <div class="row g-3">
                     <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.status') }}</div>
-                        <span class="badge" :class="statusClass(detail.status)">{{ t(`wallet.status.${detail.status}`) }}</span>
-                        <div v-if="detail.failure_reason" class="text-danger fs-12 mt-1">{{ detail.failure_reason }}</div>
+                        <WalletInfoTile icon="ri-user-line" :label="t('wallet.common.owner')">
+                            {{ detail.owner?.name || `#${detail.owner_id}` }}
+                            <div v-if="detail.owner?.phone" class="fs-12 fw-normal text-muted" dir="ltr">{{ detail.owner?.phone }}</div>
+                        </WalletInfoTile>
                     </div>
                     <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.common.owner') }}</div>
-                        <div class="fw-semibold">{{ detail.owner?.name || `#${detail.owner_id}` }}</div>
-                        <div class="fs-12 text-muted" dir="ltr">{{ detail.owner?.phone || '' }}</div>
+                        <WalletInfoTile icon="ri-secure-payment-line" :label="t('wallet.online.method')">
+                            {{ detail.payment_method?.name }}
+                            <div class="fs-12 fw-normal text-muted">{{ detail.payment_method?.gateway }}</div>
+                        </WalletInfoTile>
                     </div>
                     <div class="col-md-4">
-                        <div class="text-muted fs-12">{{ t('wallet.online.method') }}</div>
-                        <div class="fw-semibold">{{ detail.payment_method?.name }} <span class="text-muted fs-12">({{ detail.payment_method?.gateway }})</span></div>
+                        <WalletInfoTile icon="ri-repeat-line" :label="t('wallet.online.attempts')">
+                            {{ detail.reconciliation_attempts }}
+                        </WalletInfoTile>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-muted fs-12">{{ t('wallet.online.paid_amount') }}</div>
-                        <div class="fw-semibold">{{ fmtMinor(detail.requested_amount_minor, detail.currency_code) }}</div>
+                    <div class="col-md-6">
+                        <WalletInfoTile icon="ri-percent-line" :label="t('wallet.online.fee')">
+                            <span dir="ltr">{{ fmtMinor(detail.fee_minor, detail.currency_code) }}</span>
+                            <span v-if="detail.fee_percent" class="text-muted fs-12 fw-normal"> ({{ detail.fee_percent }}%)</span>
+                        </WalletInfoTile>
                     </div>
-                    <div class="col-md-3">
-                        <div class="text-muted fs-12">{{ t('wallet.online.fee') }}</div>
-                        <div class="fw-semibold">{{ fmtMinor(detail.fee_minor, detail.currency_code) }} <span v-if="detail.fee_percent" class="text-muted fs-12">({{ detail.fee_percent }}%)</span></div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-muted fs-12">{{ t('wallet.online.bonus') }}</div>
-                        <div class="fw-semibold">{{ fmtMinor(detail.bonus_minor, detail.currency_code) }}</div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="text-muted fs-12">{{ t('wallet.online.attempts') }}</div>
-                        <div class="fw-semibold">{{ detail.reconciliation_attempts }}</div>
+                    <div class="col-md-6">
+                        <WalletInfoTile icon="ri-gift-line" :label="t('wallet.online.bonus')">
+                            <span dir="ltr">{{ fmtMinor(detail.bonus_minor, detail.currency_code) }}</span>
+                        </WalletInfoTile>
                     </div>
                 </div>
 
-                <h6 class="fw-semibold">{{ t('wallet.online.gateway_log') }}</h6>
-                <div class="table-responsive mb-3">
-                    <table class="table table-sm table-bordered text-nowrap mb-0">
-                        <thead>
-                            <tr>
-                                <th>{{ t('wallet.common.date') }}</th>
-                                <th>{{ t('wallet.online.event') }}</th>
-                                <th>{{ t('wallet.online.direction') }}</th>
-                                <th>{{ t('wallet.online.reported') }}</th>
-                                <th>{{ t('wallet.online.payload') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="log in detail.logs" :key="log.id">
-                                <td>{{ formatDateTime(log.created_at, locale) }}</td>
-                                <td><span class="badge bg-primary-transparent">{{ log.event }}</span></td>
-                                <td>{{ log.direction }}</td>
-                                <td>{{ log.gateway_status_reported || '-' }}</td>
-                                <td class="text-wrap" style="min-width: 260px;">
-                                    <details>
-                                        <summary class="text-primary" role="button">JSON</summary>
-                                        <pre class="fs-11 mb-0" dir="ltr">{{ pretty({ request: log.request_payload, response: log.response_payload }) }}</pre>
-                                    </details>
-                                </td>
-                            </tr>
-                            <tr v-if="!detail.logs?.length"><td colspan="5" class="text-muted text-center">{{ t('wallet.common.empty') }}</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <WalletSection :title="t('wallet.online.gateway_log')" icon="ri-file-list-3-line" flush>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-nowrap mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-3">{{ t('wallet.common.date') }}</th>
+                                    <th>{{ t('wallet.online.event') }}</th>
+                                    <th>{{ t('wallet.online.direction') }}</th>
+                                    <th>{{ t('wallet.online.reported') }}</th>
+                                    <th class="pe-3">{{ t('wallet.online.payload') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="log in detail.logs" :key="log.id">
+                                    <td class="ps-3">{{ formatDateTime(log.created_at, locale) }}</td>
+                                    <td><span class="badge bg-primary-transparent">{{ log.event }}</span></td>
+                                    <td>{{ log.direction }}</td>
+                                    <td>{{ log.gateway_status_reported || '-' }}</td>
+                                    <td class="text-wrap pe-3" style="min-width: 260px;">
+                                        <details>
+                                            <summary class="text-primary" role="button">JSON</summary>
+                                            <pre class="fs-11 mb-0" dir="ltr">{{ pretty({ request: log.request_payload, response: log.response_payload }) }}</pre>
+                                        </details>
+                                    </td>
+                                </tr>
+                                <tr v-if="!detail.logs?.length"><td colspan="5" class="text-muted text-center py-3">{{ t('wallet.common.empty') }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </WalletSection>
 
-                <h6 class="fw-semibold">{{ t('wallet.online.ledger_rows') }}</h6>
-                <div class="table-responsive">
-                    <table class="table table-sm table-bordered text-nowrap mb-0">
-                        <thead>
-                            <tr>
-                                <th>{{ t('wallet.common.type') }}</th>
-                                <th>{{ t('wallet.common.direction') }}</th>
-                                <th>{{ t('wallet.common.bucket') }}</th>
-                                <th>{{ t('wallet.common.amount') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="tx in detail.wallet_transactions" :key="tx.uuid">
-                                <td>{{ t(`wallet.tx.${tx.type}`) }}</td>
-                                <td>{{ t(`wallet.direction.${tx.direction}`) }}</td>
-                                <td>{{ t(`wallet.bucket.${tx.bucket}`) }}</td>
-                                <td>{{ fmtMinor(tx.amount_minor, detail.currency_code) }}</td>
-                            </tr>
-                            <tr v-if="!detail.wallet_transactions?.length"><td colspan="4" class="text-muted text-center">{{ t('wallet.online.no_ledger') }}</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+                <WalletSection :title="t('wallet.online.ledger_rows')" icon="ri-book-open-line" flush>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover text-nowrap mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-3">{{ t('wallet.common.type') }}</th>
+                                    <th>{{ t('wallet.common.direction') }}</th>
+                                    <th>{{ t('wallet.common.bucket') }}</th>
+                                    <th class="pe-3">{{ t('wallet.common.amount') }}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="tx in detail.wallet_transactions" :key="tx.uuid">
+                                    <td class="ps-3">{{ t(`wallet.tx.${tx.type}`) }}</td>
+                                    <td>
+                                        <span class="badge" :class="tx.direction === 'credit' ? 'bg-success-transparent' : 'bg-danger-transparent'">{{ t(`wallet.direction.${tx.direction}`) }}</span>
+                                    </td>
+                                    <td>{{ t(`wallet.bucket.${tx.bucket}`) }}</td>
+                                    <td class="pe-3 fw-semibold" dir="ltr">{{ fmtMinor(tx.amount_minor, detail.currency_code) }}</td>
+                                </tr>
+                                <tr v-if="!detail.wallet_transactions?.length"><td colspan="4" class="text-muted text-center py-3">{{ t('wallet.online.no_ledger') }}</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </WalletSection>
             </div>
 
             <template #footer>
@@ -213,9 +268,15 @@
 </template>
 
 <script setup>
+import Select from 'primevue/select';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
+import AdminDatePicker from '../../../../../../../components/ui/AdminDatePicker.vue';
+import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
+import WalletDetailHero from '../../../../../../../components/wallet/WalletDetailHero.vue';
+import WalletInfoTile from '../../../../../../../components/wallet/WalletInfoTile.vue';
+import WalletSection from '../../../../../../../components/wallet/WalletSection.vue';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
@@ -229,6 +290,16 @@ const { can } = usePermission();
 const { showSuccess } = useToast();
 
 const statuses = ['pending', 'paid', 'failed', 'expired', 'refunded'];
+
+const statusFilterOptions = computed(() => [
+    { value: '', label: t('wallet.common.all_statuses') },
+    ...statuses.map((status) => ({ value: status, label: t(`wallet.status.${status}`) })),
+]);
+const ownerFilterOptions = computed(() => [
+    { value: '', label: t('wallet.common.all_owners') },
+    { value: 'user', label: t('wallet.owner.user') },
+    { value: 'provider', label: t('wallet.owner.provider') },
+]);
 const { rows, loading, pagination, filters, fetch } = useWalletList('online-transactions', {
     defaults: { search: '', status: '', owner_type: '', from: '', to: '' },
 });

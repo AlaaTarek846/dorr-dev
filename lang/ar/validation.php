@@ -15,9 +15,13 @@ return [
     ],
     'image' => 'يجب أن يكون حقل :attribute صورة.',
     'mimes' => 'يجب أن يكون حقل :attribute ملفاً من نوع: :values.',
+    'mimetypes' => 'يجب أن يكون حقل :attribute ملفاً من نوع: :values.',
+    'extensions' => 'يجب أن يكون امتداد حقل :attribute أحد الامتدادات التالية: :values.',
+    'file' => 'يجب أن يكون حقل :attribute ملفاً.',
     'confirmed' => 'تأكيد حقل :attribute غير متطابق.',
     'email' => 'يجب أن يكون حقل :attribute بريداً إلكترونياً صالحاً.',
     'enum' => 'القيمة المحددة في :attribute غير صالحة.',
+    'multiple_of' => 'يجب أن يكون حقل :attribute من مضاعفات :value.',
     'min' => [
         'array' => 'يجب أن يحتوي حقل :attribute على :min عناصر على الأقل.',
         'file' => 'يجب ألا يقل حقل :attribute عن :min كيلوبايت.',
@@ -84,6 +88,7 @@ return [
     ],
 
     'attributes' => [
+        'file' => 'الملف',
         'avatar' => 'الصورة',
         'name' => 'الاسم',
         'email' => 'البريد الإلكتروني',
@@ -115,6 +120,8 @@ return [
         'decimal_places' => 'الخانات العشرية',
         'exchange_rate' => 'سعر الصرف',
         'status' => 'الحالة',
+        'service_ids' => 'الخدمات',
+        'service_ids.*' => 'الخدمة',
         'service_category_ids' => 'الخدمات',
         'service_category_ids.*' => 'الخدمة',
         'service_category_id' => 'فئة الخدمة',
@@ -149,7 +156,9 @@ return [
         'translations.*.question' => 'السؤال',
         'translations.*.answer' => 'الإجابة',
         'translations.*.content' => 'المحتوى',
+        'legal_page_type' => 'نوع الصفحة',
         'preview_image' => 'صورة المعاينة',
+
     ],
 
     // AI website builder + hosting field names (see TranslatesSiteAttributes).

@@ -6,11 +6,18 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Location
 import android.location.LocationManager
+import androidx.compose.material.icons.rounded.Redeem
+import androidx.compose.material.icons.rounded.Inventory2
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CallSplit
 import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.LooksOne
+import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.PriorityHigh
+import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.RequestQuote
+import androidx.compose.material.icons.rounded.Schedule
 import android.os.Build
 import android.provider.ContactsContract
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -92,6 +99,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -140,7 +148,12 @@ fun Composer(state: ConversationState) {
     val haptic = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val host = LocalChat.current
-    var text by remember(state.id) { mutableStateOf("") }
+    // What I typed last time and didn't send comes back (and is kept as I type — see the effect below).
+    var text by remember(state.id) { mutableStateOf(com.dorr.app.chat.ChatStore.draft(state.id)) }
+    // Long-press on Send: "Send without sound" / "Schedule message".
+    var silentMenu by remember { mutableStateOf(false) }
+    var scheduling by remember { mutableStateOf(false) }
+    var scheduledOpen by remember { mutableStateOf(false) }
     var attachOpen by remember { mutableStateOf(false) }
     var exprOpen by remember { mutableStateOf(false) }
     var transferPicker by remember { mutableStateOf(false) }
@@ -152,6 +165,16 @@ fun Composer(state: ConversationState) {
 
     // Editing puts the old text in the field.
     LaunchedEffect(state.editing) { state.editing?.let { text = it.body.orEmpty() } }
+    // The draft: saved a moment after typing stops, and right away when I leave the chat.
+    LaunchedEffect(state.id, text) {
+        if (state.editing != null) return@LaunchedEffect
+        kotlinx.coroutines.delay(500)
+        com.dorr.app.chat.ChatStore.saveDraft(state.id, text)
+    }
+    val latestText by rememberUpdatedState(text)
+    DisposableEffect(state.id) {
+        onDispose { if (state.editing == null) com.dorr.app.chat.ChatStore.saveDraft(state.id, latestText) }
+    }
     DisposableEffect(Unit) { onDispose { recorder.cancel() } }
 
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -164,17 +187,49 @@ fun Composer(state: ConversationState) {
     // The word being typed right now, when it starts with "@" (null otherwise).
     val mentionQuery = if (isGroup) Regex("(?:^|\\s)@([^\\s@]{0,30})$").find(text)?.groupValues?.get(1) else null
     LaunchedEffect(mentionQuery != null) { if (mentionQuery != null) state.loadMembers() }
+    // "/word" alone in the field: my quick replies that start with it.
+    val quickQuery = if (state.editing == null) Regex("^/([^\\s/]{0,32})$").find(text)?.groupValues?.get(1) else null
 
-    fun send() {
+    // Slow mode: seconds left before I may send again (ticks down on the send button).
+    var clock by remember { androidx.compose.runtime.mutableLongStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(state.slowUntil) {
+        while (System.currentTimeMillis() < state.slowUntil) {
+            clock = System.currentTimeMillis()
+            kotlinx.coroutines.delay(250)
+        }
+        clock = System.currentTimeMillis()
+    }
+    val slowLeft = if (state.slowUntil > clock) ((state.slowUntil - clock + 999) / 1000).toInt() else 0
+    val slowWait = if (slowLeft > 0) stringResource(R.string.ch_slow_mode_wait, slowLeft) else ""
+    val scheduledToast = stringResource(R.string.ch_scheduled_toast)
+
+    fun send(silent: Boolean = false, urgent: Boolean = false, sensitive: Boolean = false) {
         val body = text.trim()
         if (body.isEmpty()) return
+        if (slowLeft > 0 && state.editing == null) {
+            host.showToast(slowWait)
+            return
+        }
         haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
         val editing = state.editing
         val mentions = mentioned.filter { (_, name) -> body.contains("@$name") }.keys.toList()
-        if (editing != null) state.edit(editing, body)
-        else state.send(Outgoing("text", body, extra = if (mentions.isNotEmpty()) mapOf("mentions" to mentions) else emptyMap()))
+        if (editing != null) {
+            state.edit(editing, body)
+        } else {
+            val extra = buildMap<String, Any?> {
+                if (mentions.isNotEmpty()) put("mentions", mentions)
+                // Delivered without a notification sound or vibration.
+                if (silent) put("silent", true)
+                // Gets through their mute, when they allow urgent messages from me.
+                if (urgent) put("urgent", true)
+                // Hidden until they unlock it, and never in a notification.
+                if (sensitive) put("sensitive", true)
+            }
+            state.send(Outgoing("text", body, extra = extra))
+        }
         text = ""
         mentioned.clear()
+        com.dorr.app.chat.ChatStore.saveDraft(state.id, "")
     }
 
     fun finishVoice() {
@@ -185,8 +240,31 @@ fun Composer(state: ConversationState) {
     }
 
     Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 6.dp)) {
+        // --------------------------------------------------------------- my scheduled messages here
+        ScheduledPill(state) { scheduledOpen = true }
+
         // --------------------------------------------------------------- the card of a link being typed
         ComposerLinkPreview(text)
+
+        // --------------------------------------------------------------- "/" quick replies
+        QuickReplySuggestions(quickQuery) { reply ->
+            text = reply.body
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+
+        // --------------------------------------------------------------- ✨ suggested replies (on a tap)
+        SmartRepliesRow(state) { reply ->
+            text = reply
+            state.clearSmartReplies()
+            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+        }
+
+        // --------------------------------------------------------------- ✓ fix spelling (on a tap, spec 36)
+        ProofreadBar(text, enabled = !recorder.recording) { text = it }
+        // A reply picked from "understand this message" lands here to edit and send.
+        LaunchedEffect(state.composerInsert) {
+            state.composerInsert?.let { text = it; state.composerInsert = null }
+        }
 
         // --------------------------------------------------------------- @mention suggestions
         val suggestions = if (mentionQuery == null) emptyList() else state.members
@@ -237,7 +315,8 @@ fun Composer(state: ConversationState) {
                     } else {
                         Row(
                             Modifier.fillMaxWidth().heightIn(min = 50.dp).shadow(6.dp, RoundedCornerShape(25.dp), spotColor = Color.Black.copy(alpha = 0.15f))
-                                .clip(RoundedCornerShape(25.dp)).background(Ch.Surface).padding(horizontal = 6.dp),
+                                // Slightly see-through: the wallpaper shows around and under the message box.
+                                .clip(RoundedCornerShape(25.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 6.dp),
                             verticalAlignment = Alignment.Bottom,
                         ) {
                             val rotation by animateFloatAsState(if (attachOpen) 45f else 0f, spring(dampingRatio = 0.45f), label = "attach")
@@ -245,7 +324,11 @@ fun Composer(state: ConversationState) {
                                 Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(26.dp).rotate(rotation))
                             }
                             Box(Modifier.weight(1f).padding(vertical = 14.dp, horizontal = 4.dp)) {
-                                if (text.isEmpty()) Text(stringResource(R.string.ch_message_hint), color = Ch.Soft, fontSize = 15.5.sp)
+                                if (text.isEmpty()) Text(
+                                    // Slow mode on: say so where I type.
+                                    if (state.slowModeSeconds > 0) stringResource(R.string.ch_slow_mode_hint, slowModeLabel(state.slowModeSeconds)) else stringResource(R.string.ch_message_hint),
+                                    color = Ch.Soft, fontSize = 15.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                                )
                                 BasicTextField(
                                     value = text,
                                     onValueChange = {
@@ -258,6 +341,12 @@ fun Composer(state: ConversationState) {
                                     keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
+                            }
+                            // ✨ Suggest replies — only on an empty field, only when the AI is available.
+                            if (text.isEmpty() && ChatAi.smartReplies && state.editing == null) {
+                                Box(Modifier.padding(bottom = 5.dp).size(40.dp).clip(CircleShape).clickable { state.loadSmartReplies() }, contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.AutoAwesome, null, tint = if (state.loadingReplies) Ch.Red else Ch.Mut, modifier = Modifier.size(22.dp))
+                                }
                             }
                             // Emoji · stickers · GIFs — the face winks when the panel opens.
                             val wink by animateFloatAsState(if (exprOpen) 1f else 0f, spring(dampingRatio = 0.4f), label = "exprWink")
@@ -284,6 +373,32 @@ fun Composer(state: ConversationState) {
             val lockAt = with(density) { 80.dp.toPx() }
 
             Box(contentAlignment = Alignment.BottomCenter) {
+                // Long-press on Send: "Send without sound" pops up above the button.
+                if (silentMenu) {
+                    val popIn = remember { androidx.compose.animation.core.Animatable(0f) }
+                    LaunchedEffect(Unit) { popIn.animateTo(1f, spring(dampingRatio = 0.55f, stiffness = 500f)) }
+                    androidx.compose.ui.window.Popup(
+                        alignment = Alignment.BottomEnd,
+                        offset = with(LocalDensity.current) { androidx.compose.ui.unit.IntOffset(0, -64.dp.roundToPx()) },
+                        onDismissRequest = { silentMenu = false },
+                        properties = androidx.compose.ui.window.PopupProperties(focusable = true),
+                    ) {
+                        Column(
+                            Modifier
+                                .graphicsLayer { scaleX = popIn.value; scaleY = popIn.value; alpha = popIn.value; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(1f, 1f) }
+                                .shadow(14.dp, RoundedCornerShape(18.dp), spotColor = Color.Black.copy(alpha = 0.25f))
+                                .clip(RoundedCornerShape(18.dp)).background(Ch.Surface)
+                                .padding(vertical = 4.dp),
+                        ) {
+                            SendMenuRow(Icons.Rounded.NotificationsOff, stringResource(R.string.ch_send_silent)) { silentMenu = false; send(silent = true) }
+                            SendMenuRow(Icons.Rounded.Schedule, stringResource(R.string.ch_schedule_message)) { silentMenu = false; scheduling = true }
+                            SendMenuRow(Icons.Rounded.Lock, stringResource(R.string.ch_send_sensitive)) { silentMenu = false; send(sensitive = true) }
+                            if (state.conversation?.let { !it.isGroup && !it.isSelf } == true) {
+                                SendMenuRow(Icons.Rounded.PriorityHigh, stringResource(R.string.ch_send_urgent)) { silentMenu = false; send(urgent = true) }
+                            }
+                        }
+                    }
+                }
                 // The lock that rises above the mic while recording.
                 androidx.compose.animation.AnimatedVisibility(recorder.recording && !locked, enter = fadeIn() + scaleIn(), exit = fadeOut() + scaleOut(), modifier = Modifier.offset(y = (-70).dp)) {
                     val lift = (-dragY / lockAt).coerceIn(0f, 1f)
@@ -309,7 +424,22 @@ fun Composer(state: ConversationState) {
                             if (showSend) {
                                 awaitEachGesture {
                                     awaitFirstDown()
-                                    val up = waitForUpOrCancellation()
+                                    // A long press on a written message offers "send without sound".
+                                    val longPress = !locked && state.editing == null
+                                    // Wrapped in a list: null then means "held past the timeout", not "cancelled".
+                                    val inTime = if (longPress) {
+                                        withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) { listOf(waitForUpOrCancellation()) }
+                                    } else {
+                                        listOf(waitForUpOrCancellation())
+                                    }
+                                    val up = if (inTime != null) {
+                                        inTime.first()
+                                    } else {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        silentMenu = true
+                                        waitForUpOrCancellation()
+                                        null
+                                    }
                                     if (up != null) {
                                         if (locked) { locked = false; finishVoice() } else send()
                                     }
@@ -362,16 +492,31 @@ fun Composer(state: ConversationState) {
                     AnimatedContent(targetState = showSend, label = "micSend", transitionSpec = {
                         (scaleIn(spring(dampingRatio = 0.45f), initialScale = 0.3f) + fadeIn()) togetherWith (scaleOut(targetScale = 0.3f) + fadeOut())
                     }) { send ->
-                        Icon(
-                            if (send) (if (state.editing != null) Icons.Rounded.Edit else Icons.AutoMirrored.Rounded.Send) else Icons.Rounded.Mic,
-                            null, tint = Color.White, modifier = Modifier.size(24.dp),
-                        )
+                        if (send && slowLeft > 0 && state.editing == null) {
+                            Text(slowLeft.toString(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+                        } else {
+                            Icon(
+                                if (send) (if (state.editing != null) Icons.Rounded.Edit else Icons.AutoMirrored.Rounded.Send) else Icons.Rounded.Mic,
+                                null, tint = Color.White, modifier = Modifier.size(24.dp),
+                            )
+                        }
                     }
                 }
             }
         }
     }
 
+    if (scheduling) ScheduleSheet(onDismiss = { scheduling = false }) { at ->
+        val body = text.trim()
+        scope.launch {
+            if (body.isNotEmpty() && state.schedule(body, at)) {
+                host.showToast(scheduledToast.format(scheduleLabel(at)))
+                text = ""
+                com.dorr.app.chat.ChatStore.saveDraft(state.id, "")
+            }
+        }
+    }
+    if (scheduledOpen) ScheduledListSheet(state) { scheduledOpen = false }
     if (attachOpen) AttachSheet(state, onDismiss = { attachOpen = false }, onPickTransfer = { attachOpen = false; transferPicker = true })
     if (exprOpen) ExpressionPanel(
         onDismiss = { exprOpen = false },
@@ -381,6 +526,18 @@ fun Composer(state: ConversationState) {
     if (transferPicker) TransferPicker(onDismiss = { transferPicker = false }) { tx ->
         transferPicker = false
         state.send(Outgoing("wallet_transfer", extra = mapOf("wallet_transaction_id" to tx.uuid)))
+    }
+}
+
+/** One action in the send button's long-press menu. */
+@Composable
+private fun SendMenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(Modifier.clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(32.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(label, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
     }
 }
 
@@ -418,7 +575,7 @@ private fun RecordingBar(recorder: VoiceRecorder, dragX: Float, locked: Boolean,
     val density = LocalDensity.current
 
     Row(
-        Modifier.fillMaxWidth().height(50.dp).shadow(6.dp, RoundedCornerShape(25.dp)).clip(RoundedCornerShape(25.dp)).background(Ch.Surface).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().height(50.dp).shadow(6.dp, RoundedCornerShape(25.dp)).clip(RoundedCornerShape(25.dp)).background(Ch.Surface.copy(alpha = 0.9f)).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (locked) {
@@ -504,22 +661,38 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     var pollOpen by remember { mutableStateOf(false) }
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
+    var sendMoneyOpen by remember { mutableStateOf(false) }
+    // A greeting card (DORR Moments) in this chat.
+    var cardOpen by remember { mutableStateOf(false) }
     val isGroup = state.conversation?.isGroup == true
+    // Sending money goes to one other person: not in a group, a channel, or my own notes.
+    val canSendMoney = !isGroup && state.conversation?.isSelf != true && state.conversation != null
     val isChannel = state.conversation?.isChannel == true
-    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
-        if (granted.values.any { it }) {
-            host.showToast(locating)
-            val live = liveSeconds
-            currentLocation(context) { loc ->
-                if (loc == null) host.showToast(locationFailed)
-                else state.send(Outgoing("location", extra = buildMap {
-                    put("latitude", loc.latitude)
-                    put("longitude", loc.longitude)
-                    if (live != null) put("live_seconds", live)
-                }))
-            }
+    // Why the location couldn't be sent yet: "off" (location turned off on the phone) or
+    // "denied" (no permission) — a sheet explains and opens the right settings.
+    var locationNotice by remember { mutableStateOf<String?>(null) }
+    fun shareLocation() {
+        val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        if (!androidx.core.location.LocationManagerCompat.isLocationEnabled(manager)) {
+            locationNotice = "off"
+            return
+        }
+        locationNotice = null
+        host.showToast(locating)
+        val live = liveSeconds
+        currentLocation(context) { loc ->
+            if (loc == null) host.showToast(locationFailed)
+            else state.send(Outgoing("location", extra = buildMap {
+                put("latitude", loc.latitude)
+                put("longitude", loc.longitude)
+                if (live != null) put("live_seconds", live)
+            }))
         }
         onDismiss()
+    }
+    val locationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
+        askingLocation = false
+        if (granted.values.any { it }) shareLocation() else locationNotice = "denied"
     }
     // View once: one photo or video, never kept in the chat's gallery.
     val viewOnce = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -552,7 +725,9 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             if (isGroup) R.string.ch_attach_split else R.string.ch_attach_request,
             listOf(Color(0xFF34D399), Color(0xFF047857)),
         ) { moneyOpen = true },
-        AttachItem(Icons.Rounded.Payments, R.string.ch_attach_transfer, listOf(Ch.Red, Ch.RedDeep)) { onPickTransfer() },
+        if (canSendMoney) AttachItem(Icons.Rounded.Payments, R.string.ch_attach_send_money, listOf(Color(0xFF10B981), Color(0xFF047857))) { sendMoneyOpen = true } else null,
+        if (isChannel) null else AttachItem(Icons.Rounded.Redeem, R.string.mo_attach_card, listOf(Color(0xFFF472B6), Color(0xFF8B5CF6))) { cardOpen = true },
+        AttachItem(Icons.Rounded.ReceiptLong, R.string.ch_attach_transfer, listOf(Ch.Red, Ch.RedDeep)) { onPickTransfer() },
         AttachItem(Icons.Rounded.QrCode2, R.string.ch_attach_wallet_qr, listOf(Color(0xFFFBBF24), Color(0xFFD97706))) {
             onDismiss()
             state.send(Outgoing("wallet_qr"))
@@ -562,6 +737,32 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     // While Android asks for the location permission this sheet stays composed (its launcher must
     // be alive to get the answer) but draws nothing; the answer closes it.
     if (askingLocation) return
+    locationNotice?.let { notice ->
+        val off = notice == "off"
+        ChoiceSheet(
+            title = stringResource(if (off) R.string.ch_location_off_title else R.string.ch_location_denied_title),
+            subtitle = stringResource(if (off) R.string.ch_location_off_sub else R.string.ch_location_denied_sub),
+            options = buildList {
+                add(stringResource(if (off) R.string.ch_location_open_settings else R.string.ch_open_app_settings) to {
+                    val intent = if (off) android.content.Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+                    else android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, android.net.Uri.fromParts("package", context.packageName, null))
+                    runCatching { context.startActivity(intent) }
+                    Unit
+                })
+                // Back from the settings: send it now.
+                add(stringResource(R.string.ch_location_try_again) to {
+                    if (off) shareLocation() else {
+                        locationNotice = null
+                        askingLocation = true
+                        locationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+                    }
+                    Unit
+                })
+            },
+            onDismiss = { locationNotice = null; onDismiss() },
+        )
+        return
+    }
     if (locationChoice) {
         fun ask(seconds: Int?) {
             liveSeconds = seconds
@@ -590,6 +791,21 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             RequestMoneySheet(state.conversation?.title.orEmpty(), onDismiss = { moneyOpen = false; onDismiss() }) { amount, note ->
                 state.send(Outgoing("money_request", body = note, extra = mapOf("amount_minor" to amount)))
             }
+        }
+        return
+    }
+    if (sendMoneyOpen) {
+        SendMoneySheet(state.id, state.conversation?.title.orEmpty(), onDismiss = { sendMoneyOpen = false; onDismiss() }) { sent ->
+            state.replaceMessage(sent.id, UiMessage(sent))
+        }
+        return
+    }
+    if (cardOpen) {
+        com.dorr.app.ui.screens.moments.MomentCardSheet(
+            conversationId = state.id, peerName = state.conversation?.title, canGift = canSendMoney,
+            onDismiss = { cardOpen = false; onDismiss() },
+        ) { sent ->
+            if (sent != null) state.replaceMessage(sent.id, UiMessage(sent)) else host.scope.launch { state.refreshScheduled() }
         }
         return
     }
@@ -690,20 +906,53 @@ private fun readContact(context: Context, uri: android.net.Uri): Pair<String, Li
     if (name.isBlank()) null else name to phones.distinct().take(10)
 }.getOrNull()
 
+/**
+ * Where the phone is, as fast as it can be told: a fix from the last 2 minutes right away, else
+ * every enabled provider at once (GPS, network, fused) and the first answer wins — GPS alone can
+ * take very long indoors. After 12 s the last known position is used; null only when there's none.
+ */
 @SuppressLint("MissingPermission")
 private fun currentLocation(context: Context, onResult: (Location?) -> Unit) {
     val manager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
-    val last = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
-    if (provider == null) {
+    val candidates = buildList {
+        add(LocationManager.GPS_PROVIDER)
+        add(LocationManager.NETWORK_PROVIDER)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) add(LocationManager.FUSED_PROVIDER)
+    }
+    val providers = candidates.filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
+    val last = candidates.mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }.maxByOrNull { it.time }
+    if (last != null && System.currentTimeMillis() - last.time < 2 * 60_000) {
         onResult(last)
         return
     }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-        runCatching {
-            manager.getCurrentLocation(provider, null, ContextCompat.getMainExecutor(context)) { loc -> onResult(loc ?: last) }
-        }.onFailure { onResult(last) }
-    } else {
+    if (providers.isEmpty()) {
         onResult(last)
+        return
+    }
+
+    val main = android.os.Handler(android.os.Looper.getMainLooper())
+    val cancel = android.os.CancellationSignal()
+    val listeners = mutableListOf<android.location.LocationListener>()
+    var done = false
+    fun finish(loc: Location?) {
+        if (done) return
+        done = true
+        main.removeCallbacksAndMessages(null)
+        runCatching { cancel.cancel() }
+        listeners.forEach { runCatching { manager.removeUpdates(it) } }
+        onResult(loc)
+    }
+    main.postDelayed({ finish(last) }, 12_000)
+    providers.forEach { provider ->
+        runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                manager.getCurrentLocation(provider, cancel, ContextCompat.getMainExecutor(context)) { loc -> if (loc != null) finish(loc) }
+            } else {
+                val listener = android.location.LocationListener { loc -> finish(loc) }
+                listeners += listener
+                @Suppress("DEPRECATION")
+                manager.requestSingleUpdate(provider, listener, android.os.Looper.getMainLooper())
+            }
+        }
     }
 }

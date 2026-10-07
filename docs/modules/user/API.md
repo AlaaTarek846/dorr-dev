@@ -40,6 +40,7 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | Method | Endpoint | Auth | Controller |
 |--------|----------|------|------------|
 | POST | `/auth/otp` | guest:user_api | MobileAuthController::requestOtp |
+| POST | `/auth/otp/restore` | guest:user_api | MobileAuthController::requestRestoreOtp |
 | POST | `/auth/verify` | guest:user_api | MobileAuthController::verifyOtp |
 | POST | `/auth/resend` | guest:user_api | MobileAuthController::resendOtp |
 | GET | `/auth/me` | auth:user_api + ensure-phone-verified | MobileAuthController::me |
@@ -48,6 +49,7 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/profile/phone/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmPhoneChange |
 | PUT | `/profile/identity` | auth:user_api + ensure-phone-verified | MobileProfileController::updateIdentity |
 | POST | `/profile/avatar` | auth:user_api + ensure-phone-verified | MobileProfileController::updateAvatar |
+| DELETE | `/profile/avatar` | auth:user_api + ensure-phone-verified | MobileProfileController::deleteAvatar |
 | GET | `/addresses?search=` | auth:user_api + ensure-phone-verified | AddressController::index |
 | POST | `/addresses` | auth:user_api + ensure-phone-verified | AddressController::store |
 | GET | `/addresses/{id}` | auth:user_api + ensure-phone-verified | AddressController::show |
@@ -57,16 +59,28 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/profile/email/request` | auth:user_api + ensure-phone-verified | MobileProfileController::requestEmailChange |
 | POST | `/profile/email/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmEmailChange |
 | GET | `/faqs` | public | FaqController::index |
-| GET | `/privacy-policy` | public | PrivacyPolicyController::show |
+| GET | `/legal-pages` | public | LegalPageController::show |
+| GET | `/support-tickets` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::index |
+| POST | `/support-tickets` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::store |
+| GET | `/support-tickets/{ticket}` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::show |
+| PATCH | `/support-tickets/{ticket}/status` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::status |
+| GET | `/support-tickets/{ticket}/messages` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::messages |
+| POST | `/support-tickets/{ticket}/messages` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::sendMessage |
+| GET | `/api/admin/v1/support-tickets` (+ `/{id}`, `/{id}/messages`, `/{id}/activities`) | admin_api, `support-tickets.view` | SupportTicketController |
+| POST | `/api/admin/v1/support-tickets/{id}/messages` | admin_api, `support-tickets.reply` | SupportTicketController::sendMessage |
+| PATCH | `/api/admin/v1/support-tickets/{id}/status` | admin_api, `support-tickets.change-status` | SupportTicketController::status |
+| GET | `/ratings/mine` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::mine |
+| POST | `/ratings` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::store |
+| GET | `/referrals/my-code` | auth:user_api + ensure-phone-verified | GeneralMobileReferralController::myCode |
+| POST | `/referrals/track` | auth:user_api + ensure-phone-verified | GeneralMobileReferralController::track |
 
 Public catalog content for the app: `/faqs` returns every **active general** FAQ
-(`faqs.service_id IS NULL`) ordered by `sort_order`, then `id`; `/privacy-policy`
-returns the single active general privacy policy (`privacy_policies.service_id IS
-NULL`, first by `sort_order`, then `id`, `data` empty when none exists). Service-linked
+(`faqs.service_id IS NULL`) ordered by `sort_order`, then `id`; `/legal-pages?type=privacy|term&service_id=` (`type` required, `service_id` optional)
+returns the active legal page of that type for the service, or the general one when no
+service is given (`data` is `null` when none exists). Service-linked
 rows stay admin-only — the mobile app only ever sees the general ones. Both are
 localized through the `locale` middleware (`X-Locale` header, `?lang=`, or
-`Accept-Language`) and shape their payloads with the shared `FaqResource` /
-`PrivacyPolicyResource`.
+`Accept-Language`) and shape their payloads (`FaqResource` for FAQs; legal pages return just `{ content }`).
 
 Request payload (otp / verify / resend): `dial_code` (e.g. `+966`), `phone` (local
 digits); verify also sends `code` (6 digits). The user is matched/stored by the
@@ -82,15 +96,21 @@ digits); verify also sends `code` (6 digits). The user is matched/stored by the
 canonical full phone `+<dial><phone>` (same format the dashboard stores).
 
 Responses:
-- `POST /auth/otp` → `{ masked_phone, is_new_user, resend_cooldown_seconds }`
-- `POST /auth/verify` → `{ user, token, token_type: "Bearer" }`
+- `POST /auth/otp` → `{ masked_phone, is_new_user, account_state: "active", resend_cooldown_seconds }`.
+  For a soft-deleted (restorable) account: `{ masked_phone, account_state: "deleted" }` — **no OTP is sent and
+  nothing is restored**; the app must offer the restore step.
+- `POST /auth/otp/restore` → `{ masked_phone, account_state: "restore", resend_cooldown_seconds }` (deleted accounts
+  only; active accounts get `phone` → `account_not_deleted`). Still does not restore — the code must be verified first.
+- `POST /auth/verify` → `{ user, token, token_type: "Bearer", is_restored }`. `is_restored: true` means the account
+  was previously soft-deleted and `deleted_at` was set back to `null` on this successful verify.
 - `POST /auth/resend` → `{ masked_phone, resend_cooldown_seconds }`
 - `GET /auth/me` → `UserResource`
-- `POST /auth/logout` → `{}`
+- `POST /auth/logout` `{ player_id? }` → `{}` (the given OneSignal player id is unlinked from the account, so the signed-out phone gets no more messages or calls)
 - `POST /profile/phone/request` → `{ masked_phone, resend_cooldown_seconds }`
 - `POST /profile/phone/confirm` → `UserResource` (number swapped, re-verified)
 - `PUT /profile/identity` (`name`, `gender: male|female`) → `UserResource`
 - `POST /profile/avatar` (multipart `avatar`: jpeg/jpg/png/webp ≤ 2MB) → `UserResource` (old file removed)
+- `DELETE /profile/avatar` → `UserResource` with `avatar: null` (idempotent)
 - `GET /addresses?search=` → `AddressResource[]` (own addresses, newest first, paginated: `page`/`per_page` max 50, meta has `current_page`/`has_more_pages`; `all=1` returns everything)
 - `POST /addresses` (`type: home|work|other`, optional title/building/floor/details/landmark/lat/lng/is_default) → `AddressResource` (201)
 - `GET /addresses/{id}` → `AddressResource` (own only, else 404)
@@ -100,7 +120,7 @@ Responses:
 - `POST /profile/email/request` → `{ masked_email, resend_cooldown_seconds }`
 - `POST /profile/email/confirm` → `UserResource` (address swapped, verified)
 - `GET /faqs` → `FaqResource[]` (active general FAQs only, no pagination)
-- `GET /privacy-policy` → `PrivacyPolicyResource` for the general policy, or `[]` when none is published
+- `GET /legal-pages` → `{ content }` only (the page text in the request locale, falling back to an available language), or `null` when none is published
 
 Phone/email changes are two-step: nothing on the user row changes until the
 `confirm` call verifies the code. The pending value lives in Cache with the OTP

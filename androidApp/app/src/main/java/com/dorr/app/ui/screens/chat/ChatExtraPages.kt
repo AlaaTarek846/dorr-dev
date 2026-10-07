@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Block
+import androidx.compose.material.icons.rounded.BookmarkAdd
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallMade
 import androidx.compose.material.icons.rounded.CallMissed
@@ -70,6 +71,8 @@ fun PrivacyPage() {
     var privacy by remember { mutableStateOf<PrivacyDto?>(null) }
     var blocked by remember { mutableStateOf<List<BlockDto>>(emptyList()) }
     var picker by remember { mutableStateOf<Pair<String, String>?>(null) }
+    var notificationPicker by remember { mutableStateOf(false) }
+    var summary by remember { mutableStateOf<com.dorr.app.network.PrivacySummaryDto?>(null) }
 
     LaunchedEffect(Unit) {
         privacy = runCatching { ApiClient.chat.privacy(chatAuth()).data }.getOrNull()
@@ -92,15 +95,19 @@ fun PrivacyPage() {
                         AudienceRow(Icons.Rounded.Message, stringResource(R.string.ch_who_message), p.whoCanMessage) { picker = "who_can_message" to it }
                         AudienceRow(Icons.Rounded.GroupAdd, stringResource(R.string.ch_who_groups), p.whoCanAddToGroups) { picker = "who_can_add_to_groups" to it }
                         AudienceRow(Icons.Rounded.Call, stringResource(R.string.ch_who_call), p.whoCanCall) { picker = "who_can_call" to it }
+                        AudienceRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_who_urgent), p.whoCanUrgent ?: "contacts") { picker = "who_can_urgent" to it }
                     }
                 }
                 item {
                     Card {
                         ToggleRow(Icons.Rounded.DoneAll, stringResource(R.string.ch_read_receipts), p.readReceipts, subtitle = stringResource(R.string.ch_read_receipts_sub)) { save("read_receipts", it) }
                         ToggleRow(Icons.Rounded.Screenshot, stringResource(R.string.ch_block_screenshots), p.blockScreenshots) { save("block_screenshots", it) }
-                        ToggleRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_notification_preview), p.notificationPreview) { save("notification_preview", it) }
+                        // What a notification shows: name and message · name only · nothing.
+                        val level = p.notificationPrivacy ?: if (p.notificationPreview) "all" else "none"
+                        SettingRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_notification_preview), value = stringResource(notificationLevelLabel(level))) { notificationPicker = true }
                     }
                 }
+                item { PrivacyShieldCards(p, onChanged = { privacy = it }, onSummary = { summary = it }) }
                 item { Text(stringResource(R.string.ch_blocked_list), color = Ch.Mut, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 8.dp)) }
                 if (blocked.isEmpty()) {
                     item { Text(stringResource(R.string.ch_no_blocked), color = Ch.Soft, modifier = Modifier.padding(start = 8.dp)) }
@@ -123,6 +130,19 @@ fun PrivacyPage() {
         }
     }
 
+    summary?.let { PrivacySummaryDialog(it) { summary = null } }
+    if (notificationPicker) {
+        val current = privacy?.notificationPrivacy ?: "all"
+        ChoiceSheet(
+            title = stringResource(R.string.ch_notification_preview),
+            options = listOf("all", "name", "none").map { value ->
+                (if (value == current) "✓  " else "") + stringResource(notificationLevelLabel(value)) to { save("notification_privacy", value); Unit }
+            },
+            subtitle = stringResource(R.string.ch_notification_privacy_sub),
+            onDismiss = { notificationPicker = false },
+        )
+    }
+
     picker?.let { (key, current) ->
         ChoiceSheet(
             title = stringResource(R.string.ch_privacy_title),
@@ -134,6 +154,12 @@ fun PrivacyPage() {
     }
 }
 
+private fun notificationLevelLabel(level: String): Int = when (level) {
+    "name" -> R.string.ch_notif_name
+    "none" -> R.string.ch_notif_none
+    else -> R.string.ch_notif_all
+}
+
 @Composable
 private fun AudienceRow(icon: ImageVector, title: String, value: String, onClick: (String) -> Unit) {
     SettingRow(icon, title, value = stringResource(when (value) { "contacts" -> R.string.ch_my_contacts; "nobody" -> R.string.ch_nobody; else -> R.string.ch_everyone })) { onClick(value) }
@@ -143,30 +169,8 @@ private fun AudienceRow(icon: ImageVector, title: String, value: String, onClick
 
 @Composable
 fun StarredPage() {
-    val host = LocalChat.current
-    var list by remember { mutableStateOf<List<MessageDto>?>(null) }
-    LaunchedEffect(Unit) { list = runCatching { ApiClient.chat.starred(chatAuth()).data }.getOrNull().orEmpty() }
-
-    ChPage(stringResource(R.string.ch_starred_title), onBack = { host.pop() }) {
-        val items = list
-        when {
-            items == null -> Box(Modifier.fillMaxSize()) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().padding(16.dp).height(200.dp)) }
-            items.isEmpty() -> ChEmptyState(Icons.Rounded.Star, stringResource(R.string.ch_starred_title), stringResource(R.string.ch_no_starred), animated = true)
-            else -> LazyColumn(contentPadding = PaddingValues(vertical = 12.dp)) {
-                itemsIndexed(items, key = { _, m -> m.id }) { i, m ->
-                    Column(Modifier.fillMaxWidth().chStagger(i).clickable { host.push(ChRoute.Conversation(m.conversationId)) }.padding(vertical = 6.dp)) {
-                        Row(Modifier.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically) {
-                            ChAvatar(m.sender?.avatar, m.sender?.name, m.sender?.key, size = 26.dp)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (m.sender?.isMe == true) stringResource(R.string.ch_you) else m.sender?.name.orEmpty(), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.weight(1f))
-                            Text(listTime(m.createdAt), color = Ch.Soft, fontSize = 11.5.sp)
-                        }
-                        MessageRow(UiMessage(m), firstInRun = true, lastInRun = true, isGroup = false, actions = BubbleActions({}, {}, {}, {}, { _, _ -> }, { host.openWalletQr(it) }, {}))
-                    }
-                }
-            }
-        }
-    }
+    // Favourites with my own folders (spec 24).
+    FavouritesPage()
 }
 
 // =============================================================================== calls

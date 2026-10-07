@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="wa_wallet_of">Wallet: %1$s</string>
+    <string name="wa_wallet_away">You are in %1$s now</string>
+    <string name="wa_wallet_change">Change</string>
+    <string name="wa_wallet_away_note">You are using your %1$s wallet: money goes from it to %1$s numbers and wallets only, and it shows its own number and QR.</string>
+    <string name="wa_wallet_pick_title">My wallets</string>
+    <string name="wa_wallet_pick_sub">One wallet per country. Pick the one to use — to send, receive or show its number.</string>
+    <string name="wa_wallet_new">Not opened yet</string>
+    <string name="wa_wallet_you_are_here">You are here</string>
+    <string name="wa_wallet_rule">A wallet only sends to wallets of its own country, in its own currency.</string>
+</resources>

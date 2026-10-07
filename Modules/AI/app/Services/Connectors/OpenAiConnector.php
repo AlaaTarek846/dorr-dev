@@ -7,10 +7,13 @@ use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Http;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Services\Connectors\Concerns\SendsOpenAiCompatibleChat;
+use Modules\AI\Services\Connectors\Concerns\TranscribesOpenAiCompatibleAudio;
+use Modules\AI\Services\Connectors\Contracts\TranscribesAudio;
 
-class OpenAiConnector extends AbstractHttpConnector
+class OpenAiConnector extends AbstractHttpConnector implements TranscribesAudio
 {
     use SendsOpenAiCompatibleChat;
+    use TranscribesOpenAiCompatibleAudio;
 
     protected function providerKey(): string
     {
