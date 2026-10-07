@@ -90,6 +90,34 @@ personal_access_tokens (Sanctum)
 
 Admin: view/delete only (`ratings.*` permissions, module `system_users`).
 
+### `referral_codes`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| code | unique, format `DORRFC-` + 6 A–Z/0–9 |
+| referrable_type, referrable_id | owner alias (`user` / `provider`; later `driver`) — not a class name, not `Relation::morphMap()` |
+| is_active | bool; deactivating does not delete history |
+| timestamps | |
+
+One active code per owner is created on first `GET /api/mobile/v1/referrals/my-code`.
+
+### `referrals`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| referrer_type, referrer_id | owner of the code used |
+| referred_type, referred_id | unique pair — one referral per referred entity |
+| referral_code_id | FK → referral_codes, restrict on delete |
+| status | `registered` / `completed` / `cancelled` |
+| registered_at, completed_at, cancelled_at | nullable |
+| timestamps | |
+
+Mobile: `GET/POST /api/mobile/v1/referrals/*`. Admin: `/api/admin/v1/referral-codes*`, `/api/admin/v1/referrals*` (`referral-codes.view|change-status`, `referrals.view`).
+
+Completion (wallet rewards) is a later hook — v1 stores `registered` only.
+
 ### `support_messages`
 
 | Column | Notes |

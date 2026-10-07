@@ -11,6 +11,8 @@ class DorrApp : Application() {
     override fun onCreate() {
         super.onCreate()
         AuthSession.attach(this)
+        com.dorr.app.network.ReferralStore.attach(this)
+        com.dorr.app.network.ReferralInstallReferrer.capture(this)
         DeviceId.attach(this)
         OnboardingStore.attach(this)
         com.dorr.app.chat.ChatStore.attach(this)

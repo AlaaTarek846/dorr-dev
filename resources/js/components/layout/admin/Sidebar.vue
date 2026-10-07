@@ -136,6 +136,20 @@
                                 <span class="side-menu__label">{{ t('ratings.title') }}</span>
                             </router-link>
                         </li>
+
+                        <li v-if="can('referral-codes.view')" class="slide">
+                            <router-link :to="{ name: 'admin.referral-codes.index' }" class="side-menu__item">
+                                <i class="ri-coupon-3-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('referral_codes.title') }}</span>
+                            </router-link>
+                        </li>
+
+                        <li v-if="can('referrals.view')" class="slide">
+                            <router-link :to="{ name: 'admin.referrals.index' }" class="side-menu__item">
+                                <i class="ri-share-forward-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('referrals.title') }}</span>
+                            </router-link>
+                        </li>
                     </template>
 
                     <template v-if="isGeneralVisible">
@@ -329,7 +343,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view')),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('referral-codes.view') || can('referrals.view')),
 );
 
 /**

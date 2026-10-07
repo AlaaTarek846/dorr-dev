@@ -46,6 +46,7 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **Rating:** `RateAppScreen` ↔ `RatingApi` (`mobile/v1/ratings/mine`, `POST mobile/v1/ratings`); 4–5 stars launch Google Play In-App Review (no-op until the app is published on Play).
 - **Content:** FAQ from `mobile/v1/faqs`, policy text from `mobile/v1/legal-pages?type=privacy|term&service_id=`, rendered with `HtmlText`. Services from `general/v1/services`. Support: tickets and their live conversation via `mobile/v1/support-tickets*` (`SupportTicketScreen`, `SupportChatScreen`), updated by the `support.*` Pusher events on the account channel (`ChatRealtime`); a tapped support push (`data.type = support`) opens the ticket through `ChatDeepLink.Support`.
 - **Headers sent on every request:** `Accept: application/json`, `X-Locale`, `X-Device-Id`.
+- **Referral:** `GET mobile/v1/referrals/my-code` / `POST .../track`. Share uses the server code. A pending code (typed, shared, or Play Install Referrer later) is sent once after login; the backend is idempotent.
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 
 ## Backend host (dev)

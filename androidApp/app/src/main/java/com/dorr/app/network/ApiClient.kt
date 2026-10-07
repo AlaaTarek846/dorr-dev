@@ -109,6 +109,7 @@ object ApiClient {
     val profile: ProfileApi by lazy { retrofit.create(ProfileApi::class.java) }
     val support: SupportApi by lazy { retrofit.create(SupportApi::class.java) }
     val ratings: RatingApi by lazy { retrofit.create(RatingApi::class.java) }
+    val referrals: ReferralApi by lazy { retrofit.create(ReferralApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
 
 
