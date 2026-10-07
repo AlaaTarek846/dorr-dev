@@ -60,9 +60,15 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/profile/email/confirm` | auth:user_api + ensure-phone-verified | MobileProfileController::confirmEmailChange |
 | GET | `/faqs` | public | FaqController::index |
 | GET | `/legal-pages` | public | LegalPageController::show |
-| GET | `/support-tickets` | auth:user_api + ensure-phone-verified | SupportTicketController::index |
-| GET | `/support-chats` | auth:user_api + ensure-phone-verified | SupportChatController::index |
-| POST | `/support-chats` | auth:user_api + ensure-phone-verified | SupportChatController::store |
+| GET | `/support-tickets` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::index |
+| POST | `/support-tickets` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::store |
+| GET | `/support-tickets/{ticket}` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::show |
+| PATCH | `/support-tickets/{ticket}/status` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::status |
+| GET | `/support-tickets/{ticket}/messages` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::messages |
+| POST | `/support-tickets/{ticket}/messages` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::sendMessage |
+| GET | `/api/admin/v1/support-tickets` (+ `/{id}`, `/{id}/messages`, `/{id}/activities`) | admin_api, `support-tickets.view` | SupportTicketController |
+| POST | `/api/admin/v1/support-tickets/{id}/messages` | admin_api, `support-tickets.reply` | SupportTicketController::sendMessage |
+| PATCH | `/api/admin/v1/support-tickets/{id}/status` | admin_api, `support-tickets.change-status` | SupportTicketController::status |
 | GET | `/ratings/mine` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::mine |
 | POST | `/ratings` | auth:user_api + ensure-phone-verified | GeneralMobileRatingController::store |
 

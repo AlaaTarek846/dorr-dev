@@ -141,7 +141,7 @@ import com.dorr.app.ui.theme.appearanceColor
 private enum class ProfileSub {
     NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, WALLET_SETTINGS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
-    INVITE, RATE, SUPPORT, TICKET, SUPPORT_CHAT,
+    INVITE, RATE, SUPPORT, TICKET,
 }
 
 private data class MenuEntry(
@@ -161,9 +161,20 @@ fun ProfileScreen(
     onAccountDeleted: () -> Unit = {},
 ) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
-    var supportChatTicketId by remember { mutableStateOf<Int?>(null) }
-    var supportChatTicketTitle by remember { mutableStateOf<String?>(null) }
+    // A tapped support notification: open that ticket.
+    var openTicketId by remember { mutableStateOf<Int?>(null) }
     val isAtRoot = subScreen == ProfileSub.NONE
+
+    // A tapped support notification (a reply, a status change) lands on that ticket.
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatPush.deepLink.collect { link ->
+            if (link is com.dorr.app.chat.ChatDeepLink.Support) {
+                openTicketId = link.ticketId
+                subScreen = ProfileSub.TICKET
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+        }
+    }
 
     // System back = the same step as each sub-screen's own back arrow. Sub-screens with inner
     // steps (personal data, addresses form, privacy policy) register their own handlers after this one.
@@ -173,7 +184,6 @@ fun ProfileScreen(
             ProfileSub.LEGAL, ProfileSub.WALLET_SETTINGS -> ProfileSub.SETTINGS
             ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
             ProfileSub.TICKET -> ProfileSub.SUPPORT
-            ProfileSub.SUPPORT_CHAT -> if (supportChatTicketId != null) ProfileSub.TICKET else ProfileSub.SUPPORT
             ProfileSub.WALLET_PIN -> ProfileSub.WALLET_SETTINGS
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
@@ -275,27 +285,12 @@ fun ProfileScreen(
             ProfileSub.RATE -> RateAppScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SUPPORT -> SupportMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
-                onOpenChat = {
-                    supportChatTicketId = null
-                    supportChatTicketTitle = null
-                    subScreen = ProfileSub.SUPPORT_CHAT
-                },
                 onOpenTicket = { subScreen = ProfileSub.TICKET },
             )
             ProfileSub.TICKET -> SupportTicketScreen(
                 onBack = { subScreen = ProfileSub.SUPPORT },
-                onOpenChat = { ticket ->
-                    supportChatTicketId = ticket.id
-                    supportChatTicketTitle = ticket.title
-                    subScreen = ProfileSub.SUPPORT_CHAT
-                },
-            )
-            ProfileSub.SUPPORT_CHAT -> SupportChatScreen(
-                onBack = {
-                    subScreen = if (supportChatTicketId != null) ProfileSub.TICKET else ProfileSub.SUPPORT
-                },
-                ticketId = supportChatTicketId,
-                ticketTitle = supportChatTicketTitle,
+                openTicketId = openTicketId,
+                onTicketOpened = { openTicketId = null },
             )
             ProfileSub.APPEARANCE -> AppearanceScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.FONT -> AppearanceFontScreen(onBack = { subScreen = ProfileSub.SETTINGS })
@@ -747,7 +742,6 @@ private fun SettingsMenuScreen(
 @Composable
 private fun SupportMenuScreen(
     onBack: () -> Unit,
-    onOpenChat: () -> Unit,
     onOpenTicket: () -> Unit,
 ) {
     var showFaqSheet by remember { mutableStateOf(false) }
@@ -755,7 +749,6 @@ private fun SupportMenuScreen(
         title = stringResource(R.string.support_title),
         onBack = onBack,
         items = listOf(
-            MenuEntry(Icons.Rounded.Chat, R.string.support_live_chat, R.string.support_live_chat_sub, onClick = onOpenChat),
             MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = onOpenTicket),
             MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
         ),
@@ -1026,7 +1019,7 @@ private fun SettingsToggle(on: Boolean, dark: Boolean = false) {
 }
 
 @Composable
-private fun ConfirmDialog(
+internal fun ConfirmDialog(
     icon: ImageVector,
     title: String,
     message: String,

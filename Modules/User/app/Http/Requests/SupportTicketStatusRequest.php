@@ -3,9 +3,11 @@
 namespace Modules\User\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
+use Modules\User\Enums\SupportTicketStatus;
 
-/** A message in a support ticket: text, a photo, or both. Used by the app and by the dashboard. */
-class StoreSupportMessageRequest extends FormRequest
+/** Moves a support ticket to another status (the app: close / reopen; the dashboard: any). */
+class SupportTicketStatusRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -18,8 +20,7 @@ class StoreSupportMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body' => ['nullable', 'string', 'max:4000', 'required_without:image'],
-            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:4096'],
+            'status' => ['required', 'string', Rule::in(SupportTicketStatus::values())],
         ];
     }
 }

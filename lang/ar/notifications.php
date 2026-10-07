@@ -79,4 +79,22 @@ return [
     'wallet_security_approved_title' => 'تم التحقق من هويتك',
     'wallet_security_approved_body' => 'لقد تم التحقق من هويتك، ورمز الـPIN الخاص بك هو :pin. سيُطلب منك اختيار رقم سري جديد عند فتح المحفظة.',
 
+    // -------------------------------------------------------------- تذاكر الدعم
+    'support_ticket_new_title' => 'تذكرة دعم جديدة',
+    'support_ticket_new_body' => 'فتح :name التذكرة رقم :id.',
+    'support_ticket_customer_reply_title' => 'رد من العميل',
+    'support_ticket_customer_reply_body' => 'رد :name على التذكرة رقم :id.',
+    'support_ticket_reply_title' => 'رد من الدعم',
+    'support_ticket_reply_body' => 'لديك رد جديد على تذكرتك "#:id :title".',
+    'support_ticket_status_title' => 'تم تحديث تذكرتك',
+    'support_ticket_status_opened_body' => 'التذكرة #:id ":title" مفتوحة.',
+    'support_ticket_status_reopened_body' => 'تمت إعادة فتح التذكرة #:id ":title".',
+    'support_ticket_status_resolved_body' => 'تم تحديد التذكرة #:id ":title" كمحلولة. أعد فتحها إن كنت ما زلت بحاجة للمساعدة.',
+    'support_ticket_status_closed_body' => 'تم إغلاق التذكرة #:id ":title".',
+    'support_ticket_customer_status_title' => 'تغيرت حالة تذكرة',
+    'support_ticket_customer_status_opened_body' => 'فتح :name التذكرة رقم :id.',
+    'support_ticket_customer_status_reopened_body' => 'أعاد :name فتح التذكرة رقم :id.',
+    'support_ticket_customer_status_resolved_body' => 'حدد :name التذكرة رقم :id كمحلولة.',
+    'support_ticket_customer_status_closed_body' => 'أغلق :name التذكرة رقم :id.',
+
 ];

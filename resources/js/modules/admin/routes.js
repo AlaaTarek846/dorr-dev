@@ -104,6 +104,12 @@ export default [
                 meta: { middleware: [auth], permission: 'users.view' },
             },
             {
+                path: 'support-tickets',
+                name: 'admin.support-tickets.index',
+                component: page('support/index'),
+                meta: { middleware: [auth], permission: 'support-tickets.view' },
+            },
+            {
                 path: 'ratings',
                 name: 'admin.ratings.index',
                 component: page('rating/index'),

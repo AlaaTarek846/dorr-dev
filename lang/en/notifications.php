@@ -79,4 +79,22 @@ return [
     'wallet_security_approved_title' => 'Your identity has been verified',
     'wallet_security_approved_body' => 'Your identity has been verified, and your PIN is now :pin. You will be asked to choose a new one when you open the wallet.',
 
+    // -------------------------------------------------------------- support tickets
+    'support_ticket_new_title' => 'New support ticket',
+    'support_ticket_new_body' => ':name opened ticket #:id.',
+    'support_ticket_customer_reply_title' => 'Customer replied',
+    'support_ticket_customer_reply_body' => ':name replied on ticket #:id.',
+    'support_ticket_reply_title' => 'Support replied',
+    'support_ticket_reply_body' => 'You have a new reply on your ticket "#:id :title".',
+    'support_ticket_status_title' => 'Your ticket was updated',
+    'support_ticket_status_opened_body' => 'Ticket #:id ":title" is open.',
+    'support_ticket_status_reopened_body' => 'Ticket #:id ":title" was reopened.',
+    'support_ticket_status_resolved_body' => 'Ticket #:id ":title" was marked as resolved. Reopen it if you still need help.',
+    'support_ticket_status_closed_body' => 'Ticket #:id ":title" was closed.',
+    'support_ticket_customer_status_title' => 'Ticket status changed',
+    'support_ticket_customer_status_opened_body' => ':name opened ticket #:id.',
+    'support_ticket_customer_status_reopened_body' => ':name reopened ticket #:id.',
+    'support_ticket_customer_status_resolved_body' => ':name marked ticket #:id as resolved.',
+    'support_ticket_customer_status_closed_body' => ':name closed ticket #:id.',
+
 ];

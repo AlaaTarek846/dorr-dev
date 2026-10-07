@@ -56,7 +56,8 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 - **Ratings (2026-10-06):** polymorphic `ratings` + mobile API + admin page + Android Play In-App Review; see CHANGELOG.
 
-- **Android Settings — invite / rate / support (2026-10-06):** Settings now has Share with friends, Rate the app, and Support & help (dedicated support live chat via `GET/POST /api/mobile/v1/support-chats`, ticket list + create form, FAQ sheet). Migration `2026_10_06_100000` (tickets) and `2026_10_06_120000` (support messages). **NEEDS-DECISION:** admin ticket inbox and agent chat replies.
+- **Support tickets, live (2026-10-07):** tickets are a conversation with status (opened / reopened / resolved / closed), assigned agent and history; the app (`SupportTicketScreen`, `SupportChatScreen`) and the dashboard page `support/` update live over Pusher, with in-app + OneSignal notifications via `NotificationCenter`. The general live chat was removed. See CHANGELOG. **NEEDS-DECISION:** manual assignment of a ticket to another agent (today the first agent to answer takes it).
+- **Android Settings — invite / rate / support (2026-10-06):** Settings has Share with friends, Rate the app, and Support & help (tickets + FAQ sheet).
 - **Country services (2026-10-06):** Admin country create/edit assigns leaf `service_categories` via `country_service_category`. Empty assignment means none; seeding attaches current marketplace leaves to existing countries. Public `/api/general/v1/services` is not filtered.
 
 - **One payment screen, merchant portals, channel verification (2026-10-05, `docs/remaining_chat.md` ج):**
