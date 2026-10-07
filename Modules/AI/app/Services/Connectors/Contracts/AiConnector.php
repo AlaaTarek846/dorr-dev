@@ -71,15 +71,52 @@ interface AiConnector
     public function generateImage(AiProvider $provider, string $modelKey, string $prompt): array;
 
     /**
+     * Clip lengths (seconds) this provider/model can really produce, ascending.
+     * Empty = the connector has no video generation at all.
+     *
+     * @return list<int>
+     */
+    public function videoDurationOptions(AiProvider $provider, string $modelKey): array;
+
+    /**
+     * Start an asynchronous video job. Video takes minutes, so this only
+     * submits it and returns the provider's job id; see pollVideo().
+     *
+     * @return array{success: bool, message: string, job_id: ?string}
+     */
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array;
+
+    /**
+     * @return array{success: bool, message: string, state: string, progress: ?int} state: queued|processing|completed|failed
+     */
+    public function pollVideo(AiProvider $provider, string $jobId): array;
+
+    /**
+     * Stream the finished video straight to $destinationPath (never into memory).
+     *
+     * @return array{success: bool, message: string}
+     */
+    public function downloadVideo(AiProvider $provider, string $jobId, string $destinationPath): array;
+
+    /**
      * Transcribe spoken audio (a customer's voice message) into plain
      * text. Not every provider exposes a real speech-to-text API - a
      * connector without real support returns success=false with an
      * explanatory message rather than faking a transcript, matching the
      * embed()/editImage() precedent above.
      *
+     * $languageHint, when given, is an ISO-639-1 code (e.g. "ar") passed
+     * straight through to the provider's own language parameter where
+     * supported - this is a real, observed bug fix: Whisper auto-detects
+     * the spoken language when none is given, and on short or accented
+     * Arabic voice messages (Egyptian colloquial speech especially) it
+     * regularly misdetects the language entirely or mixes scripts, which
+     * then has the assistant replying in a language the user never used.
+     * A connector that has no such parameter is free to ignore the hint.
+     *
      * @return array{success: bool, message: string, text: ?string}
      */
-    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime): array;
+    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime, ?string $languageHint = null): array;
 
     /**
      * Turn a text reply into a spoken audio reply (text-to-speech). Not

@@ -3,6 +3,7 @@
 namespace Modules\AI\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\Language;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -10,7 +11,6 @@ use Modules\AI\Http\Requests\AiUserLanguagePreferenceSelfUpdateRequest;
 use Modules\AI\Http\Resources\AiLanguageResource;
 use Modules\AI\Http\Resources\AiLanguageVariantResource;
 use Modules\AI\Http\Resources\AiUserLanguagePreferenceResource;
-use Modules\AI\Models\AiLanguage;
 use Modules\AI\Models\AiLanguageVariant;
 use Modules\AI\Models\AiUserLanguagePreference;
 use Modules\User\Models\User;
@@ -35,11 +35,14 @@ class AiUserLanguagePreferenceSelfController extends Controller
 
         return ApiResponse::success([
             'preference' => new AiUserLanguagePreferenceResource($preference),
+            // Root-cause fix (languages consolidation): sourced from the
+            // platform's general Language model now, filtered by the
+            // "ai_enabled" flag instead of a separate ai_languages row.
             'languages' => AiLanguageResource::collection(
-                AiLanguage::query()->where('is_active', true)->orderBy('name')->get()
+                Language::query()->with('translations')->where('ai_enabled', true)->orderBy('code')->get()
             ),
             'variants' => AiLanguageVariantResource::collection(
-                AiLanguageVariant::query()->with('language')->where('is_active', true)->orderBy('name')->get()
+                AiLanguageVariant::query()->with('language.translations')->where('is_active', true)->orderBy('name')->get()
             ),
         ]);
     }
@@ -86,7 +89,7 @@ class AiUserLanguagePreferenceSelfController extends Controller
         $user = $request->user('user_api');
 
         return AiUserLanguagePreference::query()
-            ->with(['language', 'variant'])
+            ->with(['language.translations', 'variant'])
             ->firstOrCreate(
                 ['owner_type' => $user->getMorphClass(), 'owner_id' => $user->getAuthIdentifier()],
                 ['auto_detect' => true, 'response_language_mode' => AiUserLanguagePreference::MODE_FOLLOW_INPUT],

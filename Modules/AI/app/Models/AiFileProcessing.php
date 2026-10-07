@@ -38,6 +38,7 @@ class AiFileProcessing extends Model
         'processing_type',
         'status',
         'extracted_content_ref',
+        'blocks_ref',
         'error_message',
     ];
 

@@ -65,6 +65,8 @@ dependencies {
     implementation("com.google.code.gson:gson:2.11.0")
     implementation("com.squareup.okhttp3:logging-interceptor:4.12.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // Chat GIFs and animated stickers (GIF + animated WebP).
+    implementation("io.coil-kt:coil-gif:2.7.0")
     // Wallet QR: scans someone else's code (camera screen included); it brings zxing-core, which
     // also draws the wallet's own code.
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")

@@ -84,7 +84,7 @@ class WalletPinRecoveryTest extends TestCase
     private function mailedCode(): string
     {
         $code = null;
-        Mail::assertSent(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
+        Mail::assertQueued(VerificationCodeMail::class, function (VerificationCodeMail $mail) use (&$code) {
             $code = $mail->code;
 
             return true;
@@ -491,7 +491,7 @@ class WalletPinRecoveryTest extends TestCase
             ->assertJsonPath('data.recovery.method', 'password')
             ->assertJsonPath('data.recovery.ready', true)
             ->assertJsonPath('data.recovery.pending_email', fn ($v) => $v !== null && str_contains($v, '@'));
-        Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('new@example.com'));
+        Mail::assertQueued(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('new@example.com'));
 
         // abandoned halfway: the password still recovers the PIN
         $this->postJson(self::BASE.'/recover', ['password' => 'secret123', 'pin' => '4444', 'pin_confirmation' => '4444'], $this->headers())->assertOk();
@@ -546,8 +546,13 @@ class WalletPinRecoveryTest extends TestCase
         $this->postJson(self::BASE.'/verify', [], $this->headers(['X-Wallet-Pin' => '1234']))
             ->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_locked');
 
+        // Reopening the wallet during the lock: the status already carries its end, so the app
+        // shows the countdown instead of the keypad.
+        $this->assertNotNull($this->getJson(self::BASE, $this->headers())->assertOk()->json('data.locked_until'));
+
         // Fast-forward past the 15 minutes (nothing auto-unlocks; this only ends the wait).
         WalletPin::query()->update(['locked_until' => now()->subMinute()]);
+        $this->getJson(self::BASE, $this->headers())->assertOk()->assertJsonPath('data.locked_until', null);
 
         // #3: the grace attempt after the lock is wrong too → permanent freeze, not another temporary lock.
         $this->postJson(self::BASE.'/verify', [], $this->headers($wrongPin))

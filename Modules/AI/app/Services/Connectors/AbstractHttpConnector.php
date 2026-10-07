@@ -51,6 +51,30 @@ abstract class AbstractHttpConnector implements AiConnector
         return ['success' => false, 'message' => __('ai.image_editing_not_supported', ['provider' => $provider->name]), 'image' => null];
     }
 
+    /** @return list<int> */
+    public function videoDurationOptions(AiProvider $provider, string $modelKey): array
+    {
+        return [];
+    }
+
+    /** @return array{success: bool, message: string, job_id: ?string} */
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array
+    {
+        return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name]), 'job_id' => null];
+    }
+
+    /** @return array{success: bool, message: string, state: string, progress: ?int} */
+    public function pollVideo(AiProvider $provider, string $jobId): array
+    {
+        return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name]), 'state' => 'failed', 'progress' => null];
+    }
+
+    /** @return array{success: bool, message: string} */
+    public function downloadVideo(AiProvider $provider, string $jobId, string $destinationPath): array
+    {
+        return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name])];
+    }
+
     /**
      * Default: no text-to-image generation support. Only a connector that
      * actually implements a real image-generation call (currently
@@ -70,7 +94,7 @@ abstract class AbstractHttpConnector implements AiConnector
      *
      * @return array{success: bool, message: string, text: ?string}
      */
-    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime): array
+    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime, ?string $languageHint = null): array
     {
         return ['success' => false, 'message' => __('ai.speech_to_text_not_supported', ['provider' => $provider->name]), 'text' => null];
     }

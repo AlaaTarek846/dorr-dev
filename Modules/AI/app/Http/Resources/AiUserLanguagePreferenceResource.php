@@ -19,10 +19,13 @@ class AiUserLanguagePreferenceResource extends JsonResource
                 'id' => $this->owner_id,
                 'name' => $this->owner->name ?? null,
             ] : null),
+            // Root-cause fix (languages consolidation): "language" is now
+            // App\Models\Language, which has no plain "name" column -
+            // display names are per-locale, via translatedName().
             'language' => $this->whenLoaded('language', fn () => $this->language ? [
                 'id' => $this->language->id,
                 'code' => $this->language->code,
-                'name' => $this->language->name,
+                'name' => $this->language->translatedName(),
             ] : null),
             'variant' => $this->whenLoaded('variant', fn () => $this->variant ? [
                 'id' => $this->variant->id,

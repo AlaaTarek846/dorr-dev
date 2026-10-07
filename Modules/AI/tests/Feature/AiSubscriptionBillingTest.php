@@ -74,6 +74,17 @@ class AiSubscriptionBillingTest extends TestCase
 
     private function makePlan(array $overrides = []): AiPlan
     {
+        // See AiPlanCountryPricingTest::makePlan() for why this translates
+        // a plain 'currency' => 'CODE' override into currency_id.
+        if (array_key_exists('currency', $overrides)) {
+            $code = $overrides['currency'];
+            unset($overrides['currency']);
+            $overrides['currency_id'] = Currency::query()->firstOrCreate(
+                ['code' => $code],
+                ['symbol' => $code, 'decimal_places' => 2],
+            )->id;
+        }
+
         return AiPlan::query()->create(array_merge([
             'name' => 'Pro Plan',
             'code' => 'pro-'.uniqid(),
@@ -81,7 +92,7 @@ class AiSubscriptionBillingTest extends TestCase
             'cooldown_minutes' => 0,
             'duration_days' => 30,
             'price' => 100,
-            'currency' => 'EGP',
+            'currency_id' => $this->currency->id,
             'is_trial' => false,
             'is_active' => true,
             'sort_order' => 1,

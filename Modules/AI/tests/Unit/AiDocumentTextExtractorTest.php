@@ -90,6 +90,65 @@ class AiDocumentTextExtractorTest extends TestCase
     }
 
     /**
+     * Root-cause regression test: a PDF whose embedded font encoding
+     * produces an invalid UTF-8 byte when read as raw text (a realistic
+     * CID/Identity-H artifact the dependency-free extractor cannot
+     * decode correctly - see its own docblock) used to come straight out
+     * of extract() unsanitized. That silently broke two things downstream
+     * (preg_replace()'s /u modifier, and later json_encode() when the
+     * text is sent to the provider) and turned an attached PDF into a
+     * generic "provider unavailable" failure instead of a real answer.
+     * This proves extract() never returns invalid UTF-8, whatever
+     * garbage bytes the source stream contains.
+     */
+    public function test_extracted_text_is_always_valid_utf8_even_from_a_garbled_stream(): void
+    {
+        $path = $this->tempDir.'/garbled.pdf';
+        // Raw \x80\xFF byte pair inside the Tj operator's string - not
+        // escaped as a PDF string literal, so it reaches the extractor's
+        // text-showing-operator reader exactly as an invalid UTF-8 byte
+        // sequence (a lone continuation byte followed by an invalid
+        // standalone byte), mimicking what a custom/CID embedded font
+        // actually produces.
+        $compressed = gzcompress("BT /F1 24 Tf 100 700 Td (Hello ÿ World) Tj ET");
+
+        $objects = [
+            "1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+",
+            "2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+",
+            "3 0 obj
+<< /Type /Page /Parent 2 0 R /Contents 4 0 R >>
+endobj
+",
+            "4 0 obj
+<< /Length ".strlen($compressed)." /Filter /FlateDecode >>
+stream
+{$compressed}
+endstream
+endobj
+",
+        ];
+
+        file_put_contents($path, "%PDF-1.4
+".implode('', $objects)."trailer
+<< /Size 5 /Root 1 0 R >>
+%%EOF");
+
+        $text = $this->extractor->extract($path, 'application/pdf');
+
+        if ($text !== null) {
+            $this->assertTrue(mb_check_encoding($text, 'UTF-8'));
+        } else {
+            $this->assertTrue(true);
+        }
+    }
+
+    /**
      * Hand-builds the smallest valid single-page PDF with one FlateDecode
      * content stream containing a single Tj text-showing operator - just
      * enough structure for the dependency-free fallback extractor to find

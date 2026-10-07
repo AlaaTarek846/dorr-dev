@@ -3,7 +3,10 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 use Modules\AI\Http\Controllers\AiChatController;
+use Modules\AI\Http\Controllers\AiConversationFileController;
 use Modules\AI\Http\Controllers\AiRealtimeController;
+use Modules\AI\Http\Controllers\AiSiteProjectController;
+use Modules\AI\Http\Controllers\AiSiteHostingController;
 use Modules\AI\Http\Controllers\AiUserSubscriptionController;
 
 // Same AiChatController as routes/user.php - AI chat is shared between the
@@ -17,6 +20,14 @@ Route::middleware(['locale', 'auth:provider_api', 'throttle:ai-chat-general'])->
     Route::post('conversations', [AiChatController::class, 'store']);
     Route::get('conversations/{conversation}', [AiChatController::class, 'show']);
     Route::delete('conversations/{conversation}', [AiChatController::class, 'destroy']);
+
+    // Phase 10 (doc S27): the explicit conversation<->file relationship
+    // (attach an already-uploaded file to this conversation's context /
+    // list what's attached / detach - never a file upload itself, and
+    // never deletes the underlying AiFile - see AiConversationFileScope).
+    Route::get('conversations/{conversation}/files', [AiConversationFileController::class, 'index']);
+    Route::post('conversations/{conversation}/files', [AiConversationFileController::class, 'store']);
+    Route::delete('conversations/{conversation}/files/{file}', [AiConversationFileController::class, 'destroy']);
 
     // v2.0 requirements doc 17.3: authorized self-service export/erase.
     Route::get('data-export', [AiChatController::class, 'exportData']);
@@ -60,4 +71,40 @@ Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-g
 Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-subscription')->group(function () {
     Route::post('subscribe', [AiUserSubscriptionController::class, 'subscribe']);
     Route::post('change-plan', [AiUserSubscriptionController::class, 'changePlan']);
+});
+
+// Website builder. Reading/listing/editing use the general limiter; anything
+// that spends AI quota or money is stricter, and a standalone purchase also
+// needs the wallet PIN + a resolved country (price is per country).
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-general'])->prefix('provider/v1/ai-sites')->group(function () {
+    Route::get('offers', [AiSiteProjectController::class, 'offers']);
+    Route::get('/', [AiSiteProjectController::class, 'index']);
+    Route::get('{project}', [AiSiteProjectController::class, 'show'])->whereNumber('project');
+    Route::get('{project}/download', [AiSiteProjectController::class, 'download'])->whereNumber('project');
+    Route::delete('{project}', [AiSiteProjectController::class, 'destroy'])->whereNumber('project');
+});
+
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send'])->prefix('provider/v1/ai-sites')->group(function () {
+    Route::post('/', [AiSiteProjectController::class, 'store']);
+    Route::post('{project}/edit', [AiSiteProjectController::class, 'edit'])->whereNumber('project');
+    Route::post('{project}/retry', [AiSiteProjectController::class, 'retry'])->whereNumber('project');
+    Route::post('{project}/versions/{number}/restore', [AiSiteProjectController::class, 'restore'])->whereNumber(['project', 'number']);
+});
+
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-sites')->group(function () {
+    Route::post('purchase', [AiSiteProjectController::class, 'purchase']);
+});
+
+// Site hosting (sub-domain, monthly/yearly). Money-moving calls need the wallet PIN.
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-general'])->prefix('provider/v1/ai-sites')->group(function () {
+    Route::get('hosting/plans', [AiSiteHostingController::class, 'plans']);
+    Route::get('hosting/check', [AiSiteHostingController::class, 'check']);
+    Route::get('{project}/hosting', [AiSiteHostingController::class, 'show'])->whereNumber('project');
+    Route::put('{project}/hosting/auto-renew', [AiSiteHostingController::class, 'autoRenew'])->whereNumber('project');
+    Route::post('{project}/hosting/publish', [AiSiteHostingController::class, 'publish'])->whereNumber('project');
+});
+
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-sites')->group(function () {
+    Route::post('{project}/hosting', [AiSiteHostingController::class, 'subscribe'])->whereNumber('project');
+    Route::post('{project}/hosting/renew', [AiSiteHostingController::class, 'renew'])->whereNumber('project');
 });

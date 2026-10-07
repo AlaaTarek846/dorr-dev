@@ -163,6 +163,46 @@ class AiGateway
         return $result;
     }
 
+    /** @return list<int> */
+    public function videoDurationOptions(AiProvider $provider): array
+    {
+        return $this->connectorFor($provider)->videoDurationOptions($provider, (string) $provider->model);
+    }
+
+    /**
+     * @return array{success: bool, message: string, job_id: ?string}
+     */
+    public function startVideo(AiProvider $provider, string $prompt, int $seconds, ?AiRequest $context = null): array
+    {
+        $rule = $this->dataRuleFor($provider);
+
+        if ($rule?->sanitize_pii) {
+            $prompt = $this->sanitizer->redactPii($prompt);
+        }
+
+        if ($rule?->sanitize_secrets) {
+            $prompt = $this->sanitizer->redactSecrets($prompt);
+        }
+
+        $startedAt = microtime(true);
+        $result = $this->connectorFor($provider)->startVideo($provider, (string) $provider->model, $prompt, $seconds);
+        $this->logCall($provider, $context, $startedAt, $result);
+
+        return $result;
+    }
+
+    /** @return array{success: bool, message: string, state: string, progress: ?int} */
+    public function pollVideo(AiProvider $provider, string $jobId): array
+    {
+        return $this->connectorFor($provider)->pollVideo($provider, $jobId);
+    }
+
+    /** @return array{success: bool, message: string} */
+    public function downloadVideo(AiProvider $provider, string $jobId, string $destinationPath): array
+    {
+        return $this->connectorFor($provider)->downloadVideo($provider, $jobId, $destinationPath);
+    }
+
     /**
      * @return array{success: bool, message: string, vector: ?list<float>}
      */
@@ -198,10 +238,10 @@ class AiGateway
      *
      * @return array{success: bool, message: string, text: ?string}
      */
-    public function transcribeAudio(AiProvider $provider, string $audioBytes, string $audioMime, ?AiRequest $context = null): array
+    public function transcribeAudio(AiProvider $provider, string $audioBytes, string $audioMime, ?string $languageHint = null, ?AiRequest $context = null): array
     {
         $startedAt = microtime(true);
-        $result = $this->connectorFor($provider)->transcribeAudio($provider, (string) $provider->model, $audioBytes, $audioMime);
+        $result = $this->connectorFor($provider)->transcribeAudio($provider, (string) $provider->model, $audioBytes, $audioMime, $languageHint);
         $this->logCall($provider, $context, $startedAt, $result);
 
         return $result;

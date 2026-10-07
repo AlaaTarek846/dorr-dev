@@ -93,12 +93,12 @@ class AiChatImageEditTest extends TestCase
         ]);
     }
 
-    protected function callResolveSourceImageBytes(AiConversation $conversation, ?UploadedFile $attachment, string $content = ''): array
+    protected function callResolveSourceImageBytes(AiConversation $conversation, ?UploadedFile $attachment, string $content = '', bool $recentImageExists = false): array
     {
         $method = new ReflectionMethod(AiChatService::class, 'resolveSourceImageBytes');
         $method->setAccessible(true);
 
-        return $method->invoke(app(AiChatService::class), $conversation, $attachment, $content);
+        return $method->invoke(app(AiChatService::class), $conversation, $attachment, $content, $recentImageExists);
     }
 
     protected function callTryHandleImageEdit(
@@ -109,6 +109,7 @@ class AiChatImageEditTest extends TestCase
         string $content,
         ?UploadedFile $attachment,
         array $candidate,
+        bool $recentImageExists = false,
     ) {
         $method = new ReflectionMethod(AiChatService::class, 'tryHandleImageEdit');
         $method->setAccessible(true);
@@ -123,7 +124,7 @@ class AiChatImageEditTest extends TestCase
             'session' => null,
         ];
 
-        return $method->invoke(app(AiChatService::class), $owner, $conversation, $userMessage, $aiRequest, $content, $attachment, $candidate, $usage);
+        return $method->invoke(app(AiChatService::class), $owner, $conversation, $userMessage, $aiRequest, $content, $attachment, $candidate, $usage, $recentImageExists);
     }
 
     protected function makeAiRequest(Admin $owner): AiRequest
@@ -268,7 +269,7 @@ class AiChatImageEditTest extends TestCase
         // actually read as an edit of an EXISTING picture (an edit verb
         // + a mention of "the picture"), never a bare absence of an
         // attachment - see looksLikeEditOfExistingImage().
-        [$bytes, $mime] = $this->callResolveSourceImageBytes($conversation, null, 'لا غير انت لون الصورة');
+        [$bytes, $mime] = $this->callResolveSourceImageBytes($conversation, null, 'لا غير انت لون الصورة', recentImageExists: true);
 
         $this->assertSame('earlier-real-bytes', $bytes);
         $this->assertSame('image/png', $mime);
@@ -309,7 +310,7 @@ class AiChatImageEditTest extends TestCase
             'file_size' => strlen('old-unrelated-bytes'),
         ]);
 
-        [$bytes, $mime] = $this->callResolveSourceImageBytes($conversation, null, 'اصنع صوره فيها طفل صغير');
+        [$bytes, $mime] = $this->callResolveSourceImageBytes($conversation, null, 'اصنع صوره فيها طفل صغير', recentImageExists: true);
 
         $this->assertNull($bytes);
         $this->assertNull($mime);

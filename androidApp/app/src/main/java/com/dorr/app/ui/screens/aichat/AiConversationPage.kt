@@ -1,12 +1,29 @@
 package com.dorr.app.ui.screens.aichat
 
+import android.app.DownloadManager
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
+import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.gestures.detectTransformGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,8 +51,12 @@ import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AttachFile
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Image
@@ -43,14 +64,14 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material.icons.rounded.WorkspacePremium
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -60,15 +81,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
+import com.dorr.app.network.AiAttachmentDto
 import com.dorr.app.network.AiMessageDto
 import com.dorr.app.network.AiUsageDto
 import com.dorr.app.network.ApiClient
@@ -79,11 +116,16 @@ import com.dorr.app.ui.screens.chat.chatAuth
 import com.dorr.app.ui.screens.chat.chatImages
 import com.dorr.app.ui.screens.chat.copyToCache
 import com.dorr.app.ui.screens.chat.durationText
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import java.util.UUID
 
 /**
@@ -99,6 +141,7 @@ internal fun AiConversationPage(
     onNewChat: () -> Unit,
     onOpenVoice: () -> Unit,
     onOpenSubscription: () -> Unit,
+    onOpenSettings: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -121,6 +164,22 @@ internal fun AiConversationPage(
     var sendError by remember(conversationId) { mutableStateOf<String?>(null) }
     var idempotencyKey by remember(conversationId) { mutableStateOf(UUID.randomUUID().toString()) }
     var attachSheet by remember { mutableStateOf(false) }
+    // Which attachment (if any) is open in the full-screen image
+    // viewer below - null means closed. Scoped per-conversation like the
+    // other UI state here so switching conversations never leaves a
+    // stale viewer open.
+    var viewerAttachment by remember(conversationId) { mutableStateOf<AiAttachmentDto?>(null) }
+    // Root-cause fix - real, observed bug: while the FIRST message in a
+    // brand-new conversation is in flight, `messages` is still an empty
+    // list (the only thing that ever populates it is a server response),
+    // so the screen kept showing the static "ask the assistant anything"
+    // placeholder with no sign the tap was even registered until the
+    // reply came back - looked frozen for however long the request took.
+    // This holds a locally-built copy of what the user just sent so it
+    // renders immediately (see the LazyColumn below), cleared the moment
+    // the real persisted messages come back (success) or the send fails
+    // (the sendError banner takes over at that point).
+    var pendingUserMessage by remember(conversationId) { mutableStateOf<AiMessageDto?>(null) }
 
     // Real, observed UX gap (2026-09-29): the composer's single static
     // "Thinking..." bubble never changed for the whole wait, including a
@@ -165,7 +224,6 @@ internal fun AiConversationPage(
 
     val sendFailedLabel = stringResource(R.string.ai_send_failed)
     val attachmentCaption = stringResource(R.string.ai_attachment_caption)
-    val voiceCaption = stringResource(R.string.ai_voice_message_caption)
 
     // Shared by the composer's Send button and the mic's auto-send-on-stop — same request,
     // same failure handling, same idempotency key discipline either way it was triggered.
@@ -178,7 +236,14 @@ internal fun AiConversationPage(
         // (AiChatMessageRequest: 'message' => 'required') — a short, honest caption
         // instead of silently failing or inventing a description of the file's content.
         val isVoice = attachment != null && attachment.mime.startsWith("audio/")
-        val text = typed.ifEmpty { if (isVoice) voiceCaption else attachmentCaption }
+        // Voice-only sends stay empty here on purpose: the backend now
+        // accepts an empty 'message' whenever an attachment is present
+        // (AiChatMessageRequest), and for audio it replaces this with the
+        // real transcript server-side. Forcing a placeholder caption in
+        // used to leak into the stored message content and the
+        // conversation's auto-generated title (both used to show "رسالة
+        // صوتية…" instead of what was actually said).
+        val text = if (isVoice) typed else typed.ifEmpty { attachmentCaption }
 
         val imageKeywords = listOf("صورة", "صوره", "ارسم", "image", "picture", "photo", "draw")
         typingIsImageLike = attachment?.mime?.startsWith("image/") == true ||
@@ -186,6 +251,37 @@ internal fun AiConversationPage(
 
         sending = true
         sendError = null
+        pendingUserMessage = AiMessageDto(
+            id = Int.MIN_VALUE,
+            role = "user",
+            content = text,
+            isError = false,
+            model = null,
+            providerKey = null,
+            attachments = attachment?.let {
+                // localUri (Uri.fromFile, not the raw path) is what lets the
+                // pending bubble below show this image/voice note immediately
+                // from the local cache file - see AiAttachmentDto.localUri's
+                // own docblock for the full "doesn't show until the AI
+                // replies" root cause this fixes.
+                listOf(
+                    AiAttachmentDto(
+                        id = -1,
+                        messageId = null,
+                        fileName = it.name,
+                        mimeType = it.mime,
+                        fileSize = null,
+                        isImage = it.mime.startsWith("image/"),
+                        url = null,
+                        localUri = Uri.fromFile(it.file).toString(),
+                    ),
+                )
+            }.orEmpty(),
+            generatedFile = null,
+            confidenceScore = null,
+            verificationWarnings = null,
+            createdAt = null,
+        )
         val key = idempotencyKey
 
         scope.launch {
@@ -212,6 +308,7 @@ internal fun AiConversationPage(
                 sendError = it.apiFailure().message ?: sendFailedLabel
                 if (restoreOnFailure) { input = typed; pendingAttachment = attachment }
             }
+            pendingUserMessage = null
             sending = false
         }
     }
@@ -224,6 +321,17 @@ internal fun AiConversationPage(
         sendPayload(typed, attachment, restoreOnFailure = true)
     }
 
+    // Phase 7 (Universal AI File Engine - Video Processing): widened from
+    // ImageOnly to ImageAndVideo now that the backend genuinely processes
+    // video attachments (VideoFileProcessor) - copyToCache() already
+    // reads the real content-resolver MIME type regardless of the
+    // "photo.jpg" fallback name, so a picked video is already copied and
+    // tagged with its real video/* MIME with no further change needed
+    // here. A rich video bubble (poster thumbnail, duration, inline
+    // playback) is a disclosed limitation, not implemented this phase -
+    // see this phase's Final Report - a picked/received video today
+    // renders through the same generic document-style bubble any other
+    // non-image/non-audio attachment does.
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         pendingAttachment = copyToCache(context, uri, "photo.jpg")
@@ -283,8 +391,14 @@ internal fun AiConversationPage(
             Box(Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenHistory), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.History, contentDescription = stringResource(R.string.ai_history_title), tint = mut, modifier = Modifier.size(19.dp))
             }
-            Box(Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenSubscription), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.WorkspacePremium, contentDescription = stringResource(R.string.ai_subscription_manage), tint = mut, modifier = Modifier.size(19.dp))
+            // Business gap fix (2026-10-04): this used to open the
+            // subscription screen directly; it now opens the consolidated
+            // settings hub (AiSettingsScreen), which lists subscription AND
+            // language/dialect (and room for more later) instead of forcing
+            // a new top-bar icon per setting. onOpenSubscription is kept as
+            // a direct shortcut for the blocked-usage banner link below.
+            Box(Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenSettings), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.ai_settings_title), tint = mut, modifier = Modifier.size(19.dp))
             }
         }
 
@@ -328,7 +442,16 @@ internal fun AiConversationPage(
                 loadError != null && messages.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(loadError ?: "", color = mut, fontSize = 13.sp)
                 }
-                messages.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                // Root-cause fix: this branch used to fire on `messages.isEmpty()`
+                // alone, so the very first send in a new conversation - where
+                // `messages` has nothing in it yet and only ever gets
+                // populated by a server response - kept showing this static
+                // placeholder for the entire round-trip, with no sign the tap
+                // registered. Falling through to the LazyColumn branch
+                // whenever a send is in flight (sending/pendingUserMessage)
+                // is what actually surfaces the just-sent bubble + typing
+                // indicator built below.
+                messages.isEmpty() && !sending && pendingUserMessage == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Rounded.AutoAwesome, contentDescription = null, tint = Ai.Red.copy(alpha = 0.5f), modifier = Modifier.size(40.dp))
                         Spacer(Modifier.height(10.dp))
@@ -343,12 +466,26 @@ internal fun AiConversationPage(
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     if (sending) item(key = "typing") { AiTypingBubble(surface, mut, typingElapsedMs, typingIsImageLike) }
+                    // The locally-built stand-in for the message just tapped
+                    // "send" on - see pendingUserMessage's own docblock above.
+                    // Rendered with the exact same AiMessageBubble as a real
+                    // message so it looks identical, just without attachment
+                    // thumbnails (no server URL exists for it yet).
+                    pendingUserMessage?.let { pending ->
+                        item(key = "pending") {
+                            AiMessageBubble(message = pending, night = night, ink = ink, mut = mut, surface = surface, onOpenUrl = {}, onImageTap = {})
+                        }
+                    }
                     items(messages.asReversed(), key = { it.id }) { message ->
-                        AiMessageBubble(message = message, night = night, ink = ink, mut = mut, surface = surface, onOpenUrl = { url ->
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.mediaUrl(url))))
-                            }
-                        })
+                        AiMessageBubble(
+                            message = message, night = night, ink = ink, mut = mut, surface = surface,
+                            onOpenUrl = { url ->
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(ApiClient.mediaUrl(url))))
+                                }
+                            },
+                            onImageTap = { attachment -> viewerAttachment = attachment },
+                        )
                     }
                 }
             }
@@ -424,6 +561,7 @@ internal fun AiConversationPage(
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.Rounded.AttachFile, contentDescription = stringResource(R.string.ai_attach), tint = mut, modifier = Modifier.size(20.dp)) }
 
+
                 Box(
                     Modifier.weight(1f).heightIn(min = 42.dp).clip(RoundedCornerShape(21.dp)).background(surface).padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
@@ -460,7 +598,7 @@ internal fun AiConversationPage(
     if (attachSheet) {
         AiAttachSheet(
             night = night,
-            onPickImage = { attachSheet = false; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+            onPickImage = { attachSheet = false; gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
             onPickDocument = {
                 attachSheet = false
                 // Matches AiChatMessageRequest's mimes:...,xlsx rule exactly — no legacy
@@ -476,6 +614,10 @@ internal fun AiConversationPage(
             onDismiss = { attachSheet = false },
         )
     }
+
+    viewerAttachment?.let { attachment ->
+        AiImageViewer(attachment = attachment, onClose = { viewerAttachment = null })
+    }
 }
 
 @Composable
@@ -489,6 +631,218 @@ private fun aiUsageReasonText(reason: String?): String = when (reason) {
     else -> stringResource(R.string.ai_usage_unavailable)
 }
 
+/**
+ * Mirrors AiDocumentInlineFormatter.php's small, deliberate inline-markdown
+ * subset (bold/italic/inline code, links collapsed to "label (url)") - the
+ * exact same message.content that was showing literal "**bold**" asterisks
+ * in generated PDF/DOCX files (see AiDocumentInlineFormatter and
+ * AiChatService::structureContentForDocument()'s prompt) showed the
+ * identical literal asterisks here too, since this Text() rendered
+ * message.content as one plain, unstyled string with no markdown handling
+ * at all - completely normal model output ("**bold**" for emphasis), not
+ * an edge case.
+ */
+private fun inlineMarkdownAnnotatedString(text: String): AnnotatedString {
+    val linked = Regex("""\[([^\]]+)]\(([^)\s]+)\)""").replace(text) { m ->
+        "${m.groupValues[1]} (${m.groupValues[2]})"
+    }
+
+    val pattern = Regex(
+        """(\*\*.+?\*\*|__.+?__|`.+?`|\*[^*\n]+?\*|_[^_\n]+?_)""",
+        RegexOption.DOT_MATCHES_ALL,
+    )
+
+    return buildAnnotatedString {
+        var lastIndex = 0
+        for (match in pattern.findAll(linked)) {
+            if (match.range.first > lastIndex) {
+                append(linked.substring(lastIndex, match.range.first))
+            }
+            val token = match.value
+            when {
+                token.startsWith("**") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(token.removeSurrounding("**"))
+                }
+                token.startsWith("__") -> withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                    append(token.removeSurrounding("__"))
+                }
+                token.startsWith("`") -> withStyle(SpanStyle(fontFamily = FontFamily.Monospace)) {
+                    append(token.removeSurrounding("`"))
+                }
+                token.startsWith("*") -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                    append(token.removeSurrounding("*"))
+                }
+                token.startsWith("_") -> withStyle(SpanStyle(fontStyle = FontStyle.Italic)) {
+                    append(token.removeSurrounding("_"))
+                }
+                else -> append(token)
+            }
+            lastIndex = match.range.last + 1
+        }
+        if (lastIndex < linked.length) {
+            append(linked.substring(lastIndex))
+        }
+    }
+}
+
+/**
+ * Reads a voice note's total length off the file itself (works for both a
+ * remote http(s) url and a local file:// preview uri - see
+ * AiAttachmentDto.localUri) since neither AiAttachmentDto nor the backend's
+ * ai_conversation_attachments table stores a duration anywhere: there is
+ * simply no other source of truth for "how long is this voice message"
+ * to show before (or instead of) pressing play. The same
+ * ngrok-skip-browser-warning header VoicePlayer already needs for actual
+ * playback over the local dev tunnel is required here too, or metadata
+ * extraction silently fails against an HTML interstitial page instead of
+ * real audio bytes.
+ */
+private suspend fun probeAudioDurationMs(context: Context, url: String): Long? = withContext(Dispatchers.IO) {
+    val retriever = MediaMetadataRetriever()
+    try {
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            retriever.setDataSource(url, mapOf("ngrok-skip-browser-warning" to "1"))
+        } else {
+            retriever.setDataSource(context, Uri.parse(url))
+        }
+        retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLongOrNull()
+    } catch (e: Exception) {
+        null
+    } finally {
+        runCatching { retriever.release() }
+    }
+}
+
+/**
+ * A chat message mixes normal prose with ```fenced``` code blocks (the
+ * only code-block syntax the assistant is prompted to use - see
+ * structureContentForDocument()/AiDomainPipelineService's own code-fence
+ * handling on the backend). Splitting the two apart lets code render in
+ * its own professional, Claude/ChatGPT-style card (monospace, dark,
+ * horizontally scrollable, its own explicit Copy button) instead of as
+ * plain wrapped text with literal backtick characters showing - which is
+ * what the single shared inlineMarkdownAnnotatedString() Text() call used
+ * to produce, since its inline-code regex was never meant to (and does
+ * not cleanly) handle a multi-line triple-backtick block.
+ */
+private data class AiContentSegment(val isCode: Boolean, val language: String?, val text: String)
+
+private val aiCodeFenceRegex = Regex("""```([a-zA-Z0-9_+#.-]*)\n?([\s\S]*?)```""")
+
+private fun splitAiContentIntoSegments(content: String): List<AiContentSegment> {
+    val segments = mutableListOf<AiContentSegment>()
+    var lastIndex = 0
+    for (match in aiCodeFenceRegex.findAll(content)) {
+        if (match.range.first > lastIndex) {
+            segments.add(AiContentSegment(isCode = false, language = null, text = content.substring(lastIndex, match.range.first)))
+        }
+        val language = match.groupValues[1].trim().ifBlank { null }
+        val code = match.groupValues[2].trim('\n')
+        segments.add(AiContentSegment(isCode = true, language = language, text = code))
+        lastIndex = match.range.last + 1
+    }
+    if (lastIndex < content.length) {
+        segments.add(AiContentSegment(isCode = false, language = null, text = content.substring(lastIndex)))
+    }
+    return segments
+}
+
+@Composable
+private fun MessageContentBlocks(content: String, textColor: Color, fontSize: TextUnit = 14.sp, lineHeight: TextUnit = 20.sp) {
+    val segments = remember(content) { splitAiContentIntoSegments(content) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        segments.forEach { segment ->
+            if (segment.isCode) {
+                if (segment.text.isNotBlank()) CodeBlockCard(code = segment.text, language = segment.language)
+            } else if (segment.text.isNotBlank()) {
+                Text(inlineMarkdownAnnotatedString(segment.text.trim('\n')), color = textColor, fontSize = fontSize, lineHeight = lineHeight)
+            }
+        }
+    }
+}
+
+/**
+ * The code-block card itself: always rendered on a fixed dark "editor"
+ * background regardless of the surrounding bubble's color (exactly like
+ * Claude's and ChatGPT's own chat UIs) so code reads as code - a language
+ * label plus an explicit Copy button up top (not just the whole-message
+ * long-press copy, which copies the raw markdown fences and surrounding
+ * prose together, not a clean, pasteable snippet), and a horizontally
+ * scrolling body so long lines never wrap and break indentation.
+ */
+@Composable
+private fun CodeBlockCard(code: String, language: String?) {
+    val context = LocalContext.current
+    val copiedLabel = stringResource(R.string.ai_code_copied)
+    val copyLabel = stringResource(R.string.ai_copy)
+    val copiedDoneLabel = stringResource(R.string.ai_copied_done)
+    var justCopied by remember(code) { mutableStateOf(false) }
+
+    LaunchedEffect(justCopied) {
+        if (justCopied) {
+            delay(1600)
+            justCopied = false
+        }
+    }
+
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF1E1E2E)),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().background(Color(0xFF14141F)).padding(horizontal = 12.dp, vertical = 7.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                language?.lowercase() ?: "code",
+                color = Color(0xFF9CA3AF),
+                fontSize = 11.5.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                        clipboard?.setPrimaryClip(ClipData.newPlainText("code", code))
+                        Toast.makeText(context, copiedLabel, Toast.LENGTH_SHORT).show()
+                        justCopied = true
+                    }
+                    .padding(horizontal = 7.dp, vertical = 3.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    if (justCopied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
+                    contentDescription = stringResource(R.string.ai_copy_code),
+                    tint = if (justCopied) Color(0xFF34D399) else Color(0xFF9CA3AF),
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    if (justCopied) copiedDoneLabel else copyLabel,
+                    color = if (justCopied) Color(0xFF34D399) else Color(0xFF9CA3AF),
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+        }
+        Box(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(
+                code,
+                color = Color(0xFFE5E7EB),
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.5.sp,
+                lineHeight = 18.sp,
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AiMessageBubble(
     message: AiMessageDto,
@@ -497,8 +851,24 @@ private fun AiMessageBubble(
     mut: Color,
     surface: Color,
     onOpenUrl: (String) -> Unit,
+    onImageTap: (AiAttachmentDto) -> Unit,
 ) {
     val isUser = message.isUser
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val copiedLabel = stringResource(R.string.ai_message_copied)
+    fun copyMessageText() {
+        if (message.content.isBlank()) return
+        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+        clipboard?.setPrimaryClip(ClipData.newPlainText("message", message.content))
+        Toast.makeText(context, copiedLabel, Toast.LENGTH_SHORT).show()
+    }
+    // Only a voice attachment gets the collapsed "convert to text" toggle -
+    // an image/document message still shows its caption text immediately,
+    // unchanged. Keyed by message.id so each bubble keeps its own
+    // expanded/collapsed state across recompositions/list scrolling.
+    val hasAudioAttachment = message.attachments.orEmpty().any { it.mimeType?.startsWith("audio/") == true }
+    var transcriptExpanded by remember(message.id) { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start) {
         Column(
             Modifier
@@ -511,60 +881,154 @@ private fun AiMessageBubble(
                         else -> surface
                     },
                 )
+                // Long-press anywhere on the bubble copies its text - the
+                // same "long-press to copy" convention already used in the
+                // person-to-person chat (MessageActions.kt); onClick is a
+                // required no-op here so the long-press gesture recognizer
+                // activates at all (combinedClickable needs both).
+                .combinedClickable(
+                    onClick = {},
+                    onLongClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        copyMessageText()
+                    },
+                )
                 .padding(horizontal = 14.dp, vertical = 10.dp),
         ) {
             message.attachments.orEmpty().forEach { attachment ->
-                if (attachment.isImage && attachment.url != null) {
+                if (attachment.isImage && (attachment.url != null || attachment.localUri != null)) {
+                    // url (real, uploaded) takes priority once the send
+                    // succeeds; localUri (see AiAttachmentDto.localUri) is
+                    // what lets the just-picked photo show immediately in
+                    // the optimistic pending bubble, before the upload
+                    // round-trip even starts.
                     AsyncImage(
-                        model = ApiClient.mediaUrl(attachment.url),
+                        model = ApiClient.mediaUrl(attachment.url ?: attachment.localUri),
                         imageLoader = chatImages(LocalContext.current),
                         contentDescription = attachment.fileName,
                         contentScale = androidx.compose.ui.layout.ContentScale.Crop,
                         modifier = Modifier
                             .heightIn(max = 180.dp)
                             .clip(RoundedCornerShape(12.dp))
-                            .clickable { attachment.url?.let(onOpenUrl) }
+                            // Tapping a chat image opens the full-screen zoomable
+                            // viewer (AiImageViewer) instead of handing it off to
+                            // onOpenUrl (an external browser/app) - see that
+                            // composable for the pinch-zoom + download behavior.
+                            .clickable { onImageTap(attachment) }
                             .padding(bottom = 6.dp),
                     )
-                } else if (attachment.url != null && attachment.mimeType?.startsWith("audio/") == true) {
-                    val rawAudioUrl = attachment.url
-                    val audioUrl = ApiClient.mediaUrl(rawAudioUrl) ?: rawAudioUrl
+                } else if ((attachment.url != null || attachment.localUri != null) && attachment.mimeType?.startsWith("audio/") == true) {
+                    // Same local-preview fallback as the image branch above:
+                    // MediaPlayer (VoicePlayer) plays a file:// Uri exactly
+                    // like a real http(s) one, so the just-recorded note is
+                    // tappable/playable immediately in the pending bubble.
+                    val rawAudioUrl = attachment.url ?: attachment.localUri
+                    val audioUrl = ApiClient.mediaUrl(rawAudioUrl) ?: rawAudioUrl!!
                     val playing = VoicePlayer.isPlaying(audioUrl)
                     val current = VoicePlayer.playingId == audioUrl
                     val progress = if (current) VoicePlayer.progress else 0f
+
+                    // Neither AiAttachmentDto nor the backend stores a real
+                    // duration (see probeAudioDurationMs's docblock), so the
+                    // total length is read once off the file itself and
+                    // cached for this attachment/url - the same "how long is
+                    // this note" a WhatsApp-style voice bubble shows before
+                    // it is ever played, not just a count-up after pressing
+                    // play.
+                    val durationMs by produceState<Long?>(initialValue = null, key1 = audioUrl) {
+                        value = probeAudioDurationMs(context, audioUrl)
+                    }
+
+                    // No real per-sample waveform exists for an AI-chat voice
+                    // note (unlike the person-to-person chat's VoiceNote,
+                    // which can read one back from dto.meta) - a short,
+                    // deterministic bar pattern seeded from the attachment's
+                    // own id gives every note a distinct, natural silhouette
+                    // instead of one identical flat bar repeated everywhere.
+                    val waveform = remember(attachment.id) {
+                        val seed = attachment.id
+                        List(32) { i -> (18 + ((i * 37 + seed * 11) % 64)) }
+                    }
+
+                    val fg = if (isUser) Color.White else Ai.Red
+                    val track = if (isUser) Color.White.copy(alpha = 0.35f) else Ai.Red.copy(alpha = 0.22f)
+                    val buttonScale by animateFloatAsState(if (playing) 1.08f else 1f, spring(dampingRatio = 0.4f), label = "ai-voice-play")
+
                     Row(
                         Modifier
-                            .widthIn(min = 160.dp)
+                            .widthIn(min = 220.dp)
                             .clip(RoundedCornerShape(20.dp))
                             .background(if (isUser) Color.White.copy(alpha = 0.16f) else Color.Black.copy(alpha = 0.06f))
-                            .clickable { VoicePlayer.toggle(audioUrl, audioUrl) }
                             .padding(horizontal = 10.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Icon(
-                            if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                            contentDescription = stringResource(if (playing) R.string.ai_stop_recording else R.string.ai_record_voice),
-                            tint = if (isUser) Color.White else Ai.Red,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.width(120.dp)) {
-                            LinearProgressIndicator(
-                                progress = { progress },
-                                modifier = Modifier.fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)),
-                                color = if (isUser) Color.White else Ai.Red,
-                                trackColor = if (isUser) Color.White.copy(alpha = 0.3f) else Color.Black.copy(alpha = 0.12f),
+                        Box(
+                            Modifier
+                                .size(38.dp)
+                                .scale(buttonScale)
+                                .clip(CircleShape)
+                                .background(if (isUser) Color.White else Ai.Red)
+                                .clickable { VoicePlayer.toggle(audioUrl, audioUrl) },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                if (playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                                contentDescription = stringResource(if (playing) R.string.ai_stop_recording else R.string.ai_record_voice),
+                                tint = if (isUser) Ai.Red else Color.White,
+                                modifier = Modifier.size(20.dp),
                             )
+                        }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.width(150.dp)) {
+                            Canvas(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .height(26.dp)
+                                    .pointerInput(audioUrl) {
+                                        detectTapGestures { pos -> VoicePlayer.seek(audioUrl, (pos.x / size.width).coerceIn(0f, 1f)) }
+                                    },
+                            ) {
+                                val bars = waveform.size
+                                val gap = 2.dp.toPx()
+                                val barWidth = (size.width - gap * (bars - 1)) / bars
+                                waveform.forEachIndexed { i, v ->
+                                    val barHeight = (size.height * (0.2f + 0.8f * v / 100f)).coerceAtLeast(3.dp.toPx())
+                                    val x = i * (barWidth + gap)
+                                    val filled = (i + 0.5f) / bars <= progress
+                                    drawRoundRect(
+                                        if (filled) fg else track,
+                                        Offset(x, (size.height - barHeight) / 2),
+                                        Size(barWidth, barHeight),
+                                        CornerRadius(barWidth / 2),
+                                    )
+                                }
+                            }
                             Spacer(Modifier.height(4.dp))
                             Text(
-                                durationText(if (current) VoicePlayer.positionMs else 0L),
+                                if (current) {
+                                    durationText(VoicePlayer.positionMs)
+                                } else {
+                                    durationMs?.let { durationText(it) } ?: "--:--"
+                                },
                                 color = if (isUser) Color.White.copy(alpha = 0.85f) else mut,
                                 fontSize = 11.sp,
                             )
                         }
                     }
                     Spacer(Modifier.height(6.dp))
-                } else if (attachment.url != null) {
+                } else if (attachment.url != null || attachment.localUri != null) {
+                    // Root-cause fix - same class of bug already fixed for
+                    // images/voice notes (see localUri's docblock): a
+                    // just-sent PDF/document attachment has no `url` yet
+                    // (the server hasn't responded with one), only
+                    // `localUri` (the local cache file) - this branch used
+                    // to require `url` alone, so the pending bubble showed
+                    // nothing at all for a document until the AI's reply
+                    // came back and finally supplied a real `url`. Opening
+                    // stays gated on a real `url` (a local cache file isn't
+                    // meant to be opened via onOpenUrl), so the pending
+                    // bubble is tappable only once the real attachment
+                    // exists server-side.
                     Row(
                         Modifier.clip(RoundedCornerShape(10.dp)).background(Color.Black.copy(alpha = 0.06f))
                             .clickable { attachment.url?.let(onOpenUrl) }
@@ -579,12 +1043,38 @@ private fun AiMessageBubble(
                 }
             }
 
-            if (message.content.isNotBlank()) {
-                Text(
-                    message.content,
-                    color = if (message.isError) Color(0xFFB91C1C) else if (isUser) Color.White else ink,
-                    fontSize = 14.sp,
-                    lineHeight = 20.sp,
+            if (hasAudioAttachment && message.content.isNotBlank()) {
+                Spacer(Modifier.height(6.dp))
+                Row(
+                    Modifier
+                        .clickable { transcriptExpanded = !transcriptExpanded }
+                        .padding(vertical = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(
+                        if (transcriptExpanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                        contentDescription = null,
+                        tint = if (isUser) Color.White.copy(alpha = 0.85f) else mut,
+                        modifier = Modifier.size(16.dp),
+                    )
+                    Spacer(Modifier.width(2.dp))
+                    Text(
+                        stringResource(if (transcriptExpanded) R.string.ai_voice_transcript_hide else R.string.ai_voice_transcript_show),
+                        color = if (isUser) Color.White.copy(alpha = 0.85f) else mut,
+                        fontSize = 12.sp,
+                    )
+                }
+                if (transcriptExpanded) {
+                    Spacer(Modifier.height(4.dp))
+                    MessageContentBlocks(
+                        content = message.content,
+                        textColor = if (message.isError) Color(0xFFB91C1C) else if (isUser) Color.White else ink,
+                    )
+                }
+            } else if (message.content.isNotBlank()) {
+                MessageContentBlocks(
+                    content = message.content,
+                    textColor = if (message.isError) Color(0xFFB91C1C) else if (isUser) Color.White else ink,
                 )
             }
 
@@ -612,7 +1102,82 @@ private fun AiMessageBubble(
                     modifier = Modifier.padding(top = 6.dp),
                 )
             }
+
+            // Phase 11 (doc S14/S16): sources for this reply, collapsed by
+            // default - never shown on a user's own message (citations
+            // only ever describe the assistant's evidence for its answer).
+            if (!isUser && message.citations.isNotEmpty()) {
+                AiCitationsSection(citations = message.citations, mut = mut)
+            }
         }
+    }
+}
+
+/**
+ * Doc S14/S16/S37: a compact, collapsible sources list - shows only real
+ * citation metadata (file name + whichever location field the backend
+ * actually computed for that citation's content type), never an invented
+ * page/sheet/slide/timestamp, and never an internal chunk/embedding id.
+ */
+@Composable
+private fun AiCitationsSection(citations: List<com.dorr.app.network.AiFileCitationDto>, mut: Color) {
+    var expanded by remember(citations) { mutableStateOf(false) }
+
+    Column(Modifier.padding(top = 6.dp)) {
+        Row(
+            Modifier.clickable { expanded = !expanded },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                contentDescription = null,
+                tint = mut,
+                modifier = Modifier.size(14.dp),
+            )
+            Spacer(Modifier.width(2.dp))
+            Text(
+                stringResource(R.string.ai_sources_count, citations.size),
+                color = mut,
+                fontSize = 11.sp,
+            )
+        }
+
+        if (expanded) {
+            citations.forEach { citation ->
+                Row(Modifier.padding(top = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Rounded.Description, contentDescription = null, tint = mut, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        buildString {
+                            append(citation.fileName ?: "")
+                            citationLocationLabel(citation)?.let { append(" — ").append(it) }
+                        },
+                        color = mut,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** Mirrors MessageCitations.vue's locationLabel() - same precedence, same fields. */
+private fun citationLocationLabel(citation: com.dorr.app.network.AiFileCitationDto): String? {
+    val loc = citation.location ?: return null
+
+    return when {
+        loc.page != null -> "p.${loc.page}"
+        loc.sheet != null && (loc.rowStart != null || loc.rowEnd != null) -> "${loc.sheet} (${loc.rowStart}-${loc.rowEnd})"
+        loc.sheet != null -> loc.sheet
+        loc.slide != null -> "slide ${loc.slide}"
+        loc.timestampStart != null -> {
+            val start = loc.timestampStart.toInt()
+            "${start / 60}:${(start % 60).toString().padStart(2, '0')}"
+        }
+        loc.section != null -> loc.section
+        else -> null
     }
 }
 
@@ -667,5 +1232,122 @@ private fun AiAttachSheet(night: Boolean, onPickImage: () -> Unit, onPickDocumen
                 Text(stringResource(R.string.ai_attach_document), color = ink, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             }
         }
+    }
+}
+
+// ------------------------------------------------------------------------------- full-screen image viewer
+
+/**
+ * Full-screen zoomable viewer for any chat image (user-uploaded or
+ * AI-generated), opened by tapping a bubble's image. Mirrors the existing
+ * media viewer pattern already used by the regular chat module
+ * (ui/screens/chat/ConversationPage.kt's MediaViewer: pinch-to-zoom, drag
+ * down to dismiss) so the gesture language stays consistent across the
+ * app, plus a download button - a real, previously missing capability
+ * (there was no way to save a chat image to the device at all).
+ */
+@Composable
+private fun AiImageViewer(attachment: AiAttachmentDto, onClose: () -> Unit) {
+    val context = LocalContext.current
+    val resolvedUrl = ApiClient.mediaUrl(attachment.url) ?: attachment.url
+    val scope = rememberCoroutineScope()
+    val drag = remember(attachment.id) { Animatable(0f) }
+    var scale by remember(attachment.id) { mutableStateOf(1f) }
+    var offset by remember(attachment.id) { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
+    val fade = (1f - kotlin.math.abs(drag.value) / 900f).coerceIn(0.2f, 1f)
+
+    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = fade))
+                .pointerInput(attachment.id) {
+                    // Only drag-to-dismiss while not zoomed in - otherwise a
+                    // vertical pan while zoomed would fight detectTransformGestures
+                    // below for the same gesture.
+                    detectVerticalDragGestures(
+                        onDragEnd = {
+                            if (kotlin.math.abs(drag.value) > 260f) {
+                                onClose()
+                            } else {
+                                scope.launch { drag.animateTo(0f, spring(dampingRatio = 0.6f)) }
+                            }
+                        },
+                    ) { _, dy -> if (scale <= 1f) scope.launch { drag.snapTo(drag.value + dy) } }
+                },
+        ) {
+            AsyncImage(
+                model = resolvedUrl,
+                imageLoader = chatImages(context),
+                contentDescription = attachment.fileName,
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(attachment.id) {
+                        detectTransformGestures { _, pan, zoom, _ ->
+                            scale = (scale * zoom).coerceIn(1f, 5f)
+                            offset = if (scale > 1f) offset + pan else androidx.compose.ui.geometry.Offset.Zero
+                        }
+                    }
+                    .graphicsLayer {
+                        translationY = drag.value
+                        val dragScale = 1f - kotlin.math.abs(drag.value) / 3000f
+                        scaleX = scale * dragScale
+                        scaleY = scale * dragScale
+                        translationX = offset.x
+                    },
+            )
+
+            Row(
+                Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f)).clickable(onClick = onClose),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.ai_image_viewer_close), tint = Color.White)
+                }
+                if (resolvedUrl != null) {
+                    Box(
+                        Modifier.size(42.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.15f))
+                            .clickable { downloadChatImage(context, resolvedUrl, attachment.fileName) },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.DownloadForOffline, contentDescription = stringResource(R.string.ai_image_viewer_download), tint = Color.White)
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Saves a chat image to the device's public Pictures folder via the
+ * system DownloadManager - no WRITE_EXTERNAL_STORAGE permission needed at
+ * this app's targetSdk (29+ writes through MediaStore automatically).
+ * The ngrok-skip-browser-warning header is required here for the exact
+ * same reason DorrApp.newImageLoader()'s docblock explains for Coil:
+ * DownloadManager makes its own independent HTTP request (it does not
+ * reuse ApiClient.okHttpClient or its interceptors), so without this
+ * header it would silently download ngrok's HTML interstitial page
+ * instead of the actual image bytes.
+ */
+private fun downloadChatImage(context: android.content.Context, url: String, fileName: String?) {
+    runCatching {
+        val safeName = fileName?.takeIf { it.isNotBlank() && it.contains('.') } ?: "dorr_${System.currentTimeMillis()}.jpg"
+        val request = DownloadManager.Request(Uri.parse(url))
+            .addRequestHeader("ngrok-skip-browser-warning", "1")
+            .setTitle(safeName)
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_PICTURES, safeName)
+            .setAllowedOverMetered(true)
+            .setAllowedOverRoaming(true)
+        val manager = context.getSystemService(android.content.Context.DOWNLOAD_SERVICE) as DownloadManager
+        manager.enqueue(request)
+        Toast.makeText(context, context.getString(R.string.ai_image_download_started), Toast.LENGTH_SHORT).show()
+    }.onFailure {
+        Toast.makeText(context, context.getString(R.string.ai_image_download_failed), Toast.LENGTH_SHORT).show()
     }
 }

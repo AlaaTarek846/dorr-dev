@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Services\General\CountryService;
 use App\Services\General\LanguageService;
 use App\Services\General\PlatformSettingService;
+use App\Services\General\MobileAppColorDefaultService;
 use App\Services\General\ServiceCategoryService;
 use Illuminate\Http\JsonResponse;
 
@@ -21,6 +22,7 @@ class GeneralController extends Controller
         protected LanguageService $languageService,
         protected PlatformSettingService $platformSettingService,
         protected ServiceCategoryService $serviceCategoryService,
+        protected MobileAppColorDefaultService $mobileAppColorDefaultService,
     ) {}
 
     public function countriesDropdown(): JsonResponse
@@ -46,5 +48,10 @@ class GeneralController extends Controller
     public function services(): JsonResponse
     {
         return $this->serviceCategoryService->publicList();
+    }
+
+    public function mobileAppearanceDefaults(): JsonResponse
+    {
+        return $this->mobileAppColorDefaultService->publicDefaults();
     }
 }

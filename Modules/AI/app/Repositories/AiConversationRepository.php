@@ -33,7 +33,7 @@ class AiConversationRepository extends BaseRepository
         return $this->model->newQuery()
             ->where('owner_type', $owner->getMorphClass())
             ->where('owner_id', $owner->getAuthIdentifier())
-            ->with('messages.attachments')
+            ->with(['messages.attachments', 'messages.fileCitations.file'])
             ->findOrFail($id);
     }
 

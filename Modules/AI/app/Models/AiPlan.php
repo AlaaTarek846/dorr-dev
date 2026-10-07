@@ -3,7 +3,9 @@
 namespace Modules\AI\Models;
 
 use App\Models\Country;
+use App\Models\Currency;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AiPlan extends Model
@@ -17,10 +19,15 @@ class AiPlan extends Model
         'description',
         'usage_minutes',
         'cooldown_minutes',
+        'image_daily_limit',
+        'video_daily_limit',
+        'video_max_seconds',
+        'site_projects_limit',
+        'site_daily_generations',
         'duration_days',
         'price',
         'original_price',
-        'currency',
+        'currency_id',
         'badge',
         'is_featured',
         'features',
@@ -37,6 +44,11 @@ class AiPlan extends Model
         return [
             'usage_minutes' => 'integer',
             'cooldown_minutes' => 'integer',
+            'image_daily_limit' => 'integer',
+            'video_daily_limit' => 'integer',
+            'video_max_seconds' => 'integer',
+            'site_projects_limit' => 'integer',
+            'site_daily_generations' => 'integer',
             'duration_days' => 'integer',
             'price' => 'decimal:2',
             'original_price' => 'decimal:2',
@@ -51,6 +63,33 @@ class AiPlan extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(AiSubscription::class, 'plan_id');
+    }
+
+    /**
+     * Named currencyRef (not currency()) on purpose - the `currency`
+     * accessor below returns the plain code string every existing caller
+     * already expects ($this->currency, AiPlanResource, the purchase/
+     * billing services, the notifier...), so the relation needs a
+     * different name to avoid the accessor/relation colliding on the
+     * same `currency` key.
+     */
+    public function currencyRef(): BelongsTo
+    {
+        return $this->belongsTo(Currency::class, 'currency_id');
+    }
+
+    /**
+     * Back-compat shim for the currency->currency_id migration: every
+     * existing read of $plan->currency (resolvedPriceFor's fallback
+     * branch, AiPlanResource, AiSubscriptionPurchaseService::logPayment(),
+     * AiSubscriptionNotifier, AiPlanPriceController's plan summary...)
+     * expects a plain currency code string, not a Currency model - so this
+     * stays a string-returning accessor instead of exposing the relation
+     * under the `currency` key directly.
+     */
+    public function getCurrencyAttribute(): ?string
+    {
+        return $this->currencyRef?->code;
     }
 
     /**

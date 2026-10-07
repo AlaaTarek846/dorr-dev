@@ -107,6 +107,79 @@ class AiRealtimeSessionTest extends TestCase
         Http::assertSent(fn ($request) => $request->hasHeader('Authorization', 'Bearer sk-REAL-SECRET-MUST-NEVER-LEAK'));
     }
 
+    /**
+     * Real, observed bug fix: AiVoiceScreen.kt (Android) always calls this
+     * endpoint with instructions=null - before this fix, that meant OpenAI's
+     * Realtime API got NO language guidance at all for a voice call, unlike
+     * every text/voice-message chat turn (which always goes through
+     * AiChatLanguageResolver). This proves the session request actually
+     * carries that same dialect/register directive now, even with the
+     * client sending nothing.
+     */
+    public function test_the_language_directive_is_sent_to_openai_even_with_no_client_instructions(): void
+    {
+        $this->registerRealtimeModel();
+        $this->makeTrialPlan();
+
+        Http::fake([
+            'api.openai.com/v1/realtime/client_secrets' => Http::response([
+                'client_secret' => ['value' => 'ek_test_ephemeral_token', 'expires_at' => now()->addMinutes(10)->timestamp],
+                'session' => ['model' => 'gpt-realtime-2.1'],
+            ], 200),
+        ]);
+
+        $user = $this->makeUser();
+        Sanctum::actingAs($user, ['*'], 'user_api');
+
+        $response = $this->postJson('/api/user/v1/ai-realtime/session', []);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) {
+            $instructions = $request->data()['session']['instructions'] ?? null;
+
+            return $instructions !== null
+                && str_contains($instructions, "register/dialect of the user")
+                && str_contains($instructions, 'Saudi/Gulf');
+        });
+    }
+
+    /**
+     * A client-supplied instructions string (future use - the client
+     * doesn't send one today) must layer ON TOP OF the language directive,
+     * not replace it - same rule the text chat's own conversation-level
+     * instructions already follow in systemMessages().
+     */
+    public function test_a_client_supplied_instructions_string_is_appended_to_the_language_directive(): void
+    {
+        $this->registerRealtimeModel();
+        $this->makeTrialPlan();
+
+        Http::fake([
+            'api.openai.com/v1/realtime/client_secrets' => Http::response([
+                'client_secret' => ['value' => 'ek_test_ephemeral_token', 'expires_at' => now()->addMinutes(10)->timestamp],
+                'session' => ['model' => 'gpt-realtime-2.1'],
+            ], 200),
+        ]);
+
+        $user = $this->makeUser();
+        Sanctum::actingAs($user, ['*'], 'user_api');
+
+        $response = $this->postJson('/api/user/v1/ai-realtime/session', [
+            'instructions' => 'Keep answers under 20 seconds.',
+        ]);
+
+        $response->assertOk();
+
+        Http::assertSent(function ($request) {
+            $instructions = $request->data()['session']['instructions'] ?? null;
+
+            return $instructions !== null
+                && str_contains($instructions, "register/dialect of the user")
+                && str_contains($instructions, 'Keep answers under 20 seconds.');
+        });
+    }
+
     public function test_no_session_is_created_when_no_realtime_capable_model_is_registered(): void
     {
         $repository = app(AiProviderRepository::class);

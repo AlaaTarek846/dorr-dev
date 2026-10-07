@@ -91,7 +91,7 @@ class AiProviderTestConnectionAutoRegistersModelsTest extends TestCase
         $this->assertSame(['speech_to_text'], $byKey->get('whisper-1')['capabilities']);
         $this->assertTrue($byKey->get('whisper-1')['is_active'], 'a speech-to-text model has real connector support and should be usable right away');
 
-        $this->assertSame([], $byKey->get('text-embedding-3-small')['capabilities'], 'no connector implements a real embeddings-category call through this registry yet, so it must get zero capabilities, never a guess');
+        $this->assertSame(['embeddings'], $byKey->get('text-embedding-3-small')['capabilities'], 'AiGateway::embed() is a real embeddings call now (used by knowledge indexing), so the capability is registered');
         $this->assertFalse($byKey->get('text-embedding-3-small')['is_active'], 'a category with no real capability implementation must never be auto-activated');
 
         // Exactly one auto-registered model should end up flagged default,

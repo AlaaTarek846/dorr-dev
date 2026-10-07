@@ -10,7 +10,7 @@ class AiUserLanguagePreferenceRepository extends BaseRepository
     /**
      * @var array<int, string>
      */
-    protected array $with = ['owner', 'language', 'variant'];
+    protected array $with = ['owner', 'language.translations', 'variant'];
 
     /**
      * @var array<string, string>

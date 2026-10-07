@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.ArrowBackIosNew
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -57,6 +58,7 @@ internal fun AiConversationListPage(
     onRetry: () -> Unit,
     onOpen: (Int) -> Unit,
     onNewChat: () -> Unit,
+    onOpenSettings: () -> Unit,
     onDelete: (Int) -> Unit,
 ) {
     val bg = if (night) Ai.bgDark else Ai.bgLight
@@ -74,6 +76,14 @@ internal fun AiConversationListPage(
             Spacer(Modifier.width(4.dp))
             Text(stringResource(R.string.ai_history_title), color = ink, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, modifier = Modifier.weight(1f))
             if (!unavailable) {
+                // Opens the consolidated AI Assistant settings hub
+                // (AiSettingsScreen) - subscription, language/dialect, and
+                // room for more, instead of a separate top-bar icon per
+                // setting (2026-10-04).
+                Box(
+                    Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onOpenSettings),
+                    contentAlignment = Alignment.Center,
+                ) { Icon(Icons.Rounded.Settings, contentDescription = stringResource(R.string.ai_settings_title), tint = mut, modifier = Modifier.size(19.dp)) }
                 Box(
                     Modifier.size(38.dp).clip(CircleShape).background(Ai.Red.copy(alpha = 0.12f)).clickable(onClick = onNewChat),
                     contentAlignment = Alignment.Center,

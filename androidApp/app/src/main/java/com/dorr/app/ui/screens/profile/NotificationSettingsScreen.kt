@@ -153,6 +153,14 @@ internal fun settingsAccent(): Color = if (settingsNight()) {
     appearanceColor("primary", AppColors.waRed, night = false)
 }
 
+/** The card fill behind a settings row, matching [Modifier.settingsSurface] without its shape. */
+@Composable
+internal fun settingsCard(): Color = if (settingsNight()) AccountDark.card else appearanceColor("surface", Color.White, night = false)
+
+@Composable
+internal fun settingsBackground(): Color =
+    if (settingsNight()) AccountDark.bg else appearanceColor("background", Color.White, night = false)
+
 @Composable
 internal fun Modifier.settingsSurface(shape: RoundedCornerShape, elevation: androidx.compose.ui.unit.Dp = 6.dp): Modifier {
     val dark = settingsNight()
@@ -190,7 +198,7 @@ internal fun SubHeader(title: String, onBack: () -> Unit) {
                     else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14E50914), spotColor = Color(0x14E50914)),
                 )
                 .clip(CircleShape)
-                .background(if (dark) AccountDark.card else Color.White)
+                .background(settingsCard())
                 .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onBack),
             contentAlignment = Alignment.Center,

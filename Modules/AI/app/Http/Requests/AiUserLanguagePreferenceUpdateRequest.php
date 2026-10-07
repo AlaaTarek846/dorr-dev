@@ -31,7 +31,7 @@ class AiUserLanguagePreferenceUpdateRequest extends FormRequest
                 AiUserLanguagePreference::MODE_FOLLOW_INPUT,
                 AiUserLanguagePreference::MODE_FIXED,
             ])],
-            'language_id' => ['nullable', 'exists:ai_languages,id'],
+            'language_id' => ['nullable', 'exists:languages,id'],
             'variant_id' => ['nullable', 'exists:ai_language_variants,id'],
             'auto_detect' => ['sometimes', 'boolean'],
         ];

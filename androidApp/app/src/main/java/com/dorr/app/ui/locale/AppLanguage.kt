@@ -16,6 +16,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.dorr.app.network.AppLocale
 import java.util.Locale
 
@@ -70,6 +72,22 @@ fun LocalizedApp(content: @Composable () -> Unit) {
 
     val localizedContext = remember(code) { context.forLocale(code) }
 
+    // Root-cause fix: this used to hardcode "ar" as the only RTL language,
+    // so the moment a language list grows beyond ar/en (the general
+    // Languages admin screen already supports de/fr today, and could add
+    // an RTL one like Hebrew/Urdu/Farsi tomorrow) any other RTL language
+    // would silently render LTR. Android's own Configuration already
+    // resolves the correct layout direction per locale (real ICU data,
+    // not a hardcoded guess), so read it from the locale-wrapped context
+    // this function already builds instead of special-casing one code.
+    val layoutDirection = remember(code) {
+        if (localizedContext.resources.configuration.layoutDirection == android.view.View.LAYOUT_DIRECTION_RTL) {
+            LayoutDirection.Rtl
+        } else {
+            LayoutDirection.Ltr
+        }
+    }
+
     val state = AppLanguageState(code) { next ->
         code = next
         AppLanguagePreferences.save(context, next)
@@ -80,10 +98,36 @@ fun LocalizedApp(content: @Composable () -> Unit) {
         // resources off LocalContext, so swap in the locale-wrapped context instead.
         LocalContext provides localizedContext,
         LocalConfiguration provides localizedContext.resources.configuration,
-        LocalLayoutDirection provides (if (code == "ar") LayoutDirection.Rtl else LayoutDirection.Ltr),
+        LocalLayoutDirection provides layoutDirection,
         LocalAppLanguage provides state,
     ) {
         content()
+    }
+}
+
+/**
+ * [Dialog] content is composed in a separate window that keeps the Activity's
+ * default [Context], so [stringResource] would ignore [LocalizedApp] and fall
+ * back to `values/` (English). Capture the locale-aware locals from the caller
+ * and re-provide them inside the dialog.
+ */
+@Composable
+fun LocaleAwareDialog(
+    onDismissRequest: () -> Unit,
+    properties: DialogProperties = DialogProperties(),
+    content: @Composable () -> Unit,
+) {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    val layoutDirection = LocalLayoutDirection.current
+    Dialog(onDismissRequest = onDismissRequest, properties = properties) {
+        CompositionLocalProvider(
+            LocalContext provides context,
+            LocalConfiguration provides configuration,
+            LocalLayoutDirection provides layoutDirection,
+        ) {
+            content()
+        }
     }
 }
 

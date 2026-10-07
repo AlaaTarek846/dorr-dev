@@ -28,6 +28,7 @@
         <env name="REVERB_APP_SECRET" value="testing-secret"/>
         <env name="REVERB_APP_ID" value="testing-app-id"/>
         <env name="CACHE_STORE" value="array"/>
+        <env name="AI_INTENT_ROUTER_ENABLED" value="false"/>
         <env name="DB_CONNECTION" value="sqlite"/>
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>

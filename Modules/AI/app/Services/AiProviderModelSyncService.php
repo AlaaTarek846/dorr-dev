@@ -234,6 +234,23 @@ class AiProviderModelSyncService
                 continue;
             }
 
+            if ($this->isVideoGenerationModel($modelId)) {
+                $provider->models()->create($registryFields + [
+                    'model_key' => $modelId,
+                    'display_name' => $this->humanize($modelId),
+                    'capabilities' => [AiModelCapability::VideoOutput->value],
+                    'temperature_supported' => false,
+                    'is_default' => false,
+                    'is_active' => true,
+                    'sort_order' => $nextSortOrder++,
+                ]);
+
+                $alreadyKnown[] = $modelId;
+                $created++;
+
+                continue;
+            }
+
             // Real, observed gap this same registry overhaul fixes:
             // speech-to-text/text-to-speech models are just as unable to
             // answer a normal chat/completions call as an image model is
@@ -520,6 +537,14 @@ class AiProviderModelSyncService
         return str_contains($id, 'gpt-image') || str_contains($id, 'dall-e');
     }
 
+    /** Video-generation models (OpenAI Sora, Google Veo): never chat-capable. */
+    public static function isVideoGenerationModel(string $modelId): bool
+    {
+        $id = Str::lower($modelId);
+
+        return str_contains($id, 'sora') || str_contains($id, 'veo-') || str_contains($id, 'video-generation');
+    }
+
     protected function isChatCapable(string $modelId): bool
     {
         $id = Str::lower($modelId);
@@ -604,7 +629,7 @@ class AiProviderModelSyncService
             return AiModelCategory::ImageGeneration->value;
         }
 
-        if (str_contains($id, 'sora') || str_contains($id, 'video-generation')) {
+        if (self::isVideoGenerationModel($modelId)) {
             return AiModelCategory::VideoGeneration->value;
         }
 

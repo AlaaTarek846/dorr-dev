@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Database\Seeders;
 
+use App\Models\Currency;
 use Illuminate\Database\Seeder;
 use Modules\AI\Models\AiGateway;
 use Modules\AI\Models\AiIntent;
@@ -13,8 +14,8 @@ use Modules\AI\Models\AiProviderDataRule;
 use Modules\AI\Models\AiSafetyPolicy;
 use Modules\AI\Models\AiSafetyRule;
 use Modules\AI\Models\AiSecurityPolicy;
-use Modules\AI\Models\AiLanguage;
-use Modules\AI\Models\AiLocale;
+use App\Models\Flag;
+use App\Models\Language;
 use Modules\AI\Models\AiLanguageVariant;
 use Modules\AI\Models\AiRoutingPolicy;
 use Modules\AI\Repositories\AiProviderRepository;
@@ -31,6 +32,7 @@ class AIDatabaseSeeder extends Seeder
 
         $this->seedGroqTestKey($repository);
         $this->seedDefaultPlans();
+        $this->call(AiSiteSeeder::class);
         $this->seedDefaultIntents();
         $this->seedDefaultRoutingPolicyAndGateway();
         $this->seedDefaultSafetyPoliciesAndRules();
@@ -84,6 +86,14 @@ class AIDatabaseSeeder extends Seeder
      */
     protected function seedDefaultPlans(): void
     {
+        // Base/default currency for these seeded plans is Saudi Arabia (SAR)
+        // - the primary market this seed data is anchored on. A missing SAR
+        // row (CurrencySeeder not run yet) falls back to null rather than
+        // failing the whole seed; AiPlan::resolvedPriceFor() already treats
+        // a plan with no currency set the same way it treats one with no
+        // country-specific override, so this degrades gracefully.
+        $sarCurrencyId = Currency::query()->where('code', 'SAR')->value('id');
+
         $plans = [
             [
                 'code' => 'free_trial',
@@ -94,7 +104,7 @@ class AIDatabaseSeeder extends Seeder
                 'duration_days' => 7,
                 'price' => 0,
                 'original_price' => null,
-                'currency' => 'EGP',
+                'currency_id' => $sarCurrencyId,
                 'badge' => null,
                 'is_featured' => false,
                 'features' => [
@@ -115,7 +125,7 @@ class AIDatabaseSeeder extends Seeder
                 'duration_days' => 30,
                 'price' => 99,
                 'original_price' => null,
-                'currency' => 'EGP',
+                'currency_id' => $sarCurrencyId,
                 'badge' => null,
                 'is_featured' => false,
                 'features' => [
@@ -136,7 +146,7 @@ class AIDatabaseSeeder extends Seeder
                 'duration_days' => 30,
                 'price' => 249,
                 'original_price' => 299,
-                'currency' => 'EGP',
+                'currency_id' => $sarCurrencyId,
                 'badge' => 'الأكثر شيوعاً',
                 'is_featured' => true,
                 'features' => [
@@ -158,7 +168,7 @@ class AIDatabaseSeeder extends Seeder
                 'duration_days' => 30,
                 'price' => 599,
                 'original_price' => null,
-                'currency' => 'EGP',
+                'currency_id' => $sarCurrencyId,
                 'badge' => 'الأفضل قيمة',
                 'is_featured' => false,
                 'features' => [
@@ -533,71 +543,39 @@ class AIDatabaseSeeder extends Seeder
     }
 
     /**
-     * Seeds the default AI languages, locales, and dialect/style variants
-     * (Phase 10) - especially important for Arabic and its dialects, which
-     * the AI response-language layer needs available before any user
-     * language preference can be set. Safe to re-run - upserts by "code".
+     * Seeds the AI-relevant dialect/style variants (Phase 10) - especially
+     * important for Arabic and its dialects, which the AI
+     * response-language layer needs available before any user language
+     * preference can be set. Safe to re-run - upserts by "code".
+     *
+     * Root-cause fix (languages consolidation): no longer seeds its own
+     * ai_languages/ai_locales rows - "ar"/"en" are the platform's general
+     * Language rows (seeded by Database\Seeders\General\LanguageSeeder;
+     * firstOrCreate here only as a defensive fallback if this seeder ever
+     * runs before that one), simply flagged ai_enabled. ai_locales itself
+     * is gone - it was never wired into anything AiChatLanguageResolver
+     * actually reads.
      */
     protected function seedDefaultLanguages(): void
     {
-        $languages = [
-            [
-                'code' => 'ar',
-                'name' => 'العربية',
-                'direction' => 'rtl',
-                'is_active' => true,
-            ],
-            [
-                'code' => 'en',
-                'name' => 'English',
-                'direction' => 'ltr',
-                'is_active' => true,
-            ],
-        ];
-
         $languageModels = [];
 
-        foreach ($languages as $language) {
-            $languageModels[$language['code']] = AiLanguage::query()->updateOrCreate(
-                ['code' => $language['code']],
-                $language,
-            );
-        }
+        foreach (['ar' => 'rtl', 'en' => 'ltr'] as $code => $direction) {
+            $language = Language::query()->firstOrNew(['code' => $code]);
 
-        $locales = [
-            [
-                'language' => 'ar',
-                'code' => 'ar-EG',
-                'name' => 'العربية (مصر)',
-                'settings' => ['date_format' => 'd/m/Y', 'number_format' => 'arabic'],
-                'is_active' => true,
-            ],
-            [
-                'language' => 'ar',
-                'code' => 'ar-SA',
-                'name' => 'العربية (السعودية)',
-                'settings' => ['date_format' => 'd/m/Y', 'number_format' => 'arabic'],
-                'is_active' => true,
-            ],
-            [
-                'language' => 'en',
-                'code' => 'en-US',
-                'name' => 'English (US)',
-                'settings' => ['date_format' => 'm/d/Y', 'number_format' => 'western'],
-                'is_active' => true,
-            ],
-        ];
+            if (! $language->exists) {
+                $language->direction = $direction;
+                $language->is_default_website = false;
+                $language->is_default_dashboard = false;
+                $language->stores_translation = false;
+                $language->status = true;
+                $language->flag_id = Flag::query()->orderBy('id')->value('id');
+            }
 
-        foreach ($locales as $locale) {
-            AiLocale::query()->updateOrCreate(
-                ['code' => $locale['code']],
-                [
-                    'language_id' => $languageModels[$locale['language']]->id,
-                    'name' => $locale['name'],
-                    'settings' => $locale['settings'],
-                    'is_active' => $locale['is_active'],
-                ],
-            );
+            $language->ai_enabled = true;
+            $language->save();
+
+            $languageModels[$code] = $language;
         }
 
         $variants = [
@@ -613,6 +591,14 @@ class AIDatabaseSeeder extends Seeder
                 'language' => 'ar',
                 'code' => 'egyptian_arabic',
                 'name' => 'اللهجة المصرية',
+                'style' => 'conversational',
+                'is_default' => false,
+                'is_active' => true,
+            ],
+            [
+                'language' => 'ar',
+                'code' => 'saudi_arabic',
+                'name' => 'اللهجة السعودية',
                 'style' => 'conversational',
                 'is_default' => false,
                 'is_active' => true,

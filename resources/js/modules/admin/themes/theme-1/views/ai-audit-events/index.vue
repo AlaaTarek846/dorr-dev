@@ -50,7 +50,7 @@
                                             <span class="badge" :class="severityBadgeClass(event.severity)">{{ event.severity }}</span>
                                         </td>
                                         <td>
-                                            <span class="d-block">{{ event.owner?.name || event.owner?.type || '-' }}</span>
+                                            <span class="d-block">{{ ownerDisplayName(event.owner) }}</span>
                                             <span v-if="event.owner" class="d-block text-muted fs-11">#{{ event.owner.id }}</span>
                                         </td>
                                         <td>
@@ -87,6 +87,7 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { ownerDisplayName } from '../../../../../../utils/aiOwner';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';

@@ -59,8 +59,11 @@ import com.dorr.app.ui.screens.wallet.PadResult
 import com.dorr.app.ui.screens.wallet.WaPinPad
 import com.dorr.app.ui.screens.wallet.walletAuth
 import kotlinx.coroutines.launch
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.time.Instant
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * Professional AI subscription system linked to the wallet (2026-09-29):
@@ -302,6 +305,16 @@ private fun CurrentSubscriptionCard(
     }
 }
 
+// Plan prices arrive as plain decimal strings ("249.00") from the API, not
+// minor units - a light thousands-separator pass only, no currency symbol
+// lookup available here, matching what the admin list already shows.
+private val planPriceFormat = DecimalFormat("#,##0.##", DecimalFormatSymbols(Locale.US))
+
+private fun formatPlanPrice(raw: String): String {
+    val value = raw.toDoubleOrNull() ?: return raw
+    return planPriceFormat.format(value)
+}
+
 @Composable
 private fun PlanCard(
     plan: AiPlanDto,
@@ -312,6 +325,7 @@ private fun PlanCard(
     surface: Color,
     onAction: () -> Unit,
 ) {
+    val hasDiscount = plan.discountPercent != null && plan.discountPercent > 0 && ! plan.originalPrice.isNullOrBlank()
     Column(
         Modifier.fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
@@ -357,15 +371,35 @@ private fun PlanCard(
                 }
             }
             Column(horizontalAlignment = Alignment.End) {
-                if (! plan.originalPrice.isNullOrBlank() && plan.discountPercent != null && plan.discountPercent > 0) {
+                if (hasDiscount) {
+                    Box(
+                        Modifier
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(Ai.Red.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    ) {
+                        Text(
+                            stringResource(R.string.ai_subscription_discount_badge, plan.discountPercent ?: 0),
+                            color = Ai.Red,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    Spacer(Modifier.height(4.dp))
                     Text(
-                        "${plan.originalPrice} ${plan.currency}",
+                        "${formatPlanPrice(plan.originalPrice!!)} ${plan.currency}",
                         color = mut,
                         fontSize = 11.sp,
                         textDecoration = TextDecoration.LineThrough,
                     )
+                    Spacer(Modifier.height(2.dp))
                 }
-                Text("${plan.price} ${plan.currency}", color = ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(
+                    "${formatPlanPrice(plan.price)} ${plan.currency}",
+                    color = if (hasDiscount) Ai.Red else ink,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 16.sp,
+                )
                 Text(stringResource(R.string.ai_subscription_per_cycle, plan.durationDays), color = mut, fontSize = 11.sp)
             }
         }
@@ -405,7 +439,7 @@ private fun PlanCard(
  * dialog itself the moment a submission actually succeeds.
  */
 @Composable
-private fun AiWalletPinSheet(
+internal fun AiWalletPinSheet(
     night: Boolean,
     subtitle: String,
     onDismiss: () -> Unit,
@@ -429,7 +463,7 @@ private fun AiWalletPinSheet(
 }
 
 @Composable
-private fun AiInfoDialog(night: Boolean, message: String, onDismiss: () -> Unit) {
+internal fun AiInfoDialog(night: Boolean, message: String, onDismiss: () -> Unit) {
     val surface = if (night) Ai.surfaceDark else Ai.surfaceLight
     val ink = if (night) Ai.inkDark else Ai.inkLight
     Dialog(onDismissRequest = onDismiss) {

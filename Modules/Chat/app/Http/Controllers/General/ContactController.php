@@ -3,6 +3,7 @@
 namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
+use App\Models\Country;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Chat\Http\Requests\ContactSyncRequest;
@@ -65,9 +66,16 @@ class ContactController extends Controller
      */
     public function lookup(Request $request)
     {
-        $data = $request->validate(['phone' => ['required', 'string', 'max:40']]);
+        $data = $request->validate([
+            'phone' => ['required', 'string', 'max:40'],
+            // The country picked next to the number; defaults to the country of my own phone.
+            'country_code' => ['nullable', 'string', 'size:2'],
+        ]);
         $me = $request->user();
-        $account = $this->contacts->lookup($me, $data['phone'], $this->contacts->countryFor($me));
+        $country = isset($data['country_code'])
+            ? Country::query()->where('status', true)->where('code', strtoupper($data['country_code']))->first()
+            : null;
+        $account = $this->contacts->lookup($me, $data['phone'], $country ?? $this->contacts->countryFor($me));
 
         return ApiResponse::success($this->directory->profile($me, ParticipantType::aliasFor($account), $account->getKey()), __('api.retrieved'));
     }

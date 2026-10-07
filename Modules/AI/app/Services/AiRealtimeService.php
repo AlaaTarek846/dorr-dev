@@ -44,6 +44,7 @@ class AiRealtimeService
         protected AiGateway $gateway,
         protected AiChatUsageGuard $usageGuard,
         protected AiAuditTrail $auditTrail,
+        protected AiChatLanguageResolver $languageResolver,
     ) {}
 
     public function createSession(Authenticatable $owner, int|string|null $conversationId = null, ?string $instructions = null): JsonResponse
@@ -79,8 +80,24 @@ class AiRealtimeService
         $provider = $match['provider'];
         $model = $match['model'];
 
+        // Real, observed bug: the text/voice-message chat path always injects
+        // the owner's dialect/register directive (AiChatLanguageResolver -
+        // see its own docblock) before calling the model, but this realtime
+        // voice-call path never did - the Android client always sends
+        // instructions=null (AiVoiceScreen.kt), so OpenAI's Realtime API got
+        // zero language guidance and fell back to its own default, which is
+        // why a call answered in "a strange language" instead of Arabic.
+        // Prepended (not replacing) so a caller-supplied instructions string
+        // still layers on top of the language directive, exactly like the
+        // conversation-level instructions do in the text chat's own
+        // systemMessages().
+        $languageDirective = $this->languageResolver->resolve($owner);
+        $effectiveInstructions = implode("
+
+", array_filter([$languageDirective, $instructions]));
+
         $result = $this->gateway->createRealtimeSession($provider, $model->model_key, [
-            'instructions' => $instructions,
+            'instructions' => $effectiveInstructions !== '' ? $effectiveInstructions : null,
         ]);
 
         if (! $result['success'] || $result['session'] === null) {

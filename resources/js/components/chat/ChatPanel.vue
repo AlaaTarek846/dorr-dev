@@ -72,6 +72,8 @@
 
                         <div class="chat-bubble__content" v-html="formatContent(message.content)"></div>
 
+                        <MessageCitations v-if="message.role !== 'user'" :citations="message.citations || []" />
+
                         <a
                             v-if="message.generated_file"
                             :href="message.generated_file.url"
@@ -128,7 +130,57 @@
                     <button type="button" class="btn-close btn-close-sm" @click="clearAttachment"></button>
                 </div>
 
+                <!-- Phase 11 (doc S4/S10/S12): "files available to this
+                     conversation" (multi-file Q&A scope) is a distinct
+                     concept from the single quick attachment above
+                     (doc S11) - its own small panel rather than being
+                     folded into the one-file preview. -->
+                <div v-if="conversationFiles.length" class="chat-panel__file-scope mb-2">
+                    <button type="button" class="chat-panel__file-scope-summary" @click="showFilePanel = !showFilePanel">
+                        <i class="ri-folder-2-line"></i>
+                        <span>{{ fileScopeLabel }}</span>
+                        <i :class="showFilePanel ? 'ri-arrow-up-s-line' : 'ri-arrow-down-s-line'"></i>
+                    </button>
+
+                    <div v-if="showFilePanel" class="chat-panel__file-panel">
+                        <ConversationFileList
+                            :files="conversationFiles"
+                            :selectable="true"
+                            :selected-ids="selectedFileIds"
+                            :allowed-mime-types="fileLimits.allowed_mime_types"
+                            @add="(list) => emit('add-files', list)"
+                            @remove="(file) => emit('remove-file', file)"
+                            @toggle-select="(id) => emit('toggle-file-select', id)"
+                        />
+                        <button
+                            v-if="selectedFileIds.length"
+                            type="button"
+                            class="btn btn-sm btn-light w-100 mt-2"
+                            @click="emit('toggle-file-select', null)"
+                        >
+                            {{ t('ai_chat.file_scope_all') }}
+                        </button>
+                    </div>
+                </div>
+
                 <div class="chat-panel__composer-inner">
+                    <input
+                        ref="filesInput"
+                        type="file"
+                        class="d-none"
+                        multiple
+                        :accept="fileLimits.allowed_mime_types.join(',')"
+                        @change="onFilesPicked"
+                    >
+                    <button
+                        type="button"
+                        class="btn btn-icon chat-panel__attach"
+                        :disabled="!available || sending"
+                        :title="t('ai_chat.add_files')"
+                        @click="filesInput.click()"
+                    >
+                        <i class="ri-folder-add-line fs-18"></i>
+                    </button>
                     <input
                         ref="fileInput"
                         type="file"
@@ -180,6 +232,8 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import MessageCitations from './MessageCitations.vue';
+import ConversationFileList from './ConversationFileList.vue';
 
 const props = defineProps({
     hasConversation: {
@@ -210,15 +264,54 @@ const props = defineProps({
         type: String,
         default: '',
     },
+    // Phase 11: the conversation-wide file scope (doc S4/S10/S12/S13) -
+    // all presentational here, the parent view owns upload/attach/
+    // detach/poll state (useAiConversationFiles composable).
+    conversationFiles: {
+        type: Array,
+        default: () => [],
+    },
+    selectedFileIds: {
+        type: Array,
+        default: () => [],
+    },
+    fileLimits: {
+        type: Object,
+        default: () => ({ allowed_mime_types: [], max_conversation_files: 10 }),
+    },
 });
 
-const emit = defineEmits(['send', 'cancel', 'usage-expired']);
+const emit = defineEmits(['send', 'cancel', 'usage-expired', 'add-files', 'remove-file', 'toggle-file-select']);
 
 const { t } = useI18n();
 const draft = ref('');
 const messagesEl = ref(null);
 const fileInput = ref(null);
 const attachmentFile = ref(null);
+const filesInput = ref(null);
+const showFilePanel = ref(false);
+
+// Doc S13: a short, plain-language summary instead of exposing
+// "scope"/"retrieval mode" terminology - either "Use all files" or how
+// many of the attached files are explicitly selected for the next
+// question.
+const fileScopeLabel = computed(() => {
+    if (! props.selectedFileIds.length) {
+        return t('ai_chat.file_scope_all');
+    }
+
+    return t('ai_chat.file_scope_selected', { count: props.selectedFileIds.length });
+});
+
+function onFilesPicked(event) {
+    const picked = event.target.files;
+
+    if (picked && picked.length) {
+        emit('add-files', picked);
+    }
+
+    event.target.value = '';
+}
 
 function scrollToBottom() {
     nextTick(() => {
@@ -509,6 +602,28 @@ const usageBadgeClass = computed(() => {
 
 .chat-panel__composer {
     flex: 0 0 auto;
+}
+
+.chat-panel__file-scope {
+    font-size: 0.75rem;
+}
+
+.chat-panel__file-scope-summary {
+    border: 1px solid var(--default-border, #e9edf1);
+    background: transparent;
+    border-radius: 0.6rem;
+    padding: 0.25rem 0.6rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    color: var(--text-muted, #8c9097);
+}
+
+.chat-panel__file-panel {
+    border: 1px solid var(--default-border, #e9edf1);
+    border-radius: 0.6rem;
+    padding: 0.5rem;
+    margin-top: 0.4rem;
 }
 
 .chat-panel__attachment-preview {

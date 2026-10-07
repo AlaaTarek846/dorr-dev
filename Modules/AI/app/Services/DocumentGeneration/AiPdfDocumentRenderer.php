@@ -67,11 +67,16 @@ class AiPdfDocumentRenderer
                 'heading' => sprintf(
                     '<h%1$d>%2$s</h%1$d>',
                     min(max((int) ($block['level'] ?? 2), 1), 3),
-                    e($block['text'] ?? '')
+                    $this->inlineHtml((string) ($block['text'] ?? ''))
                 ),
-                'paragraph' => '<p>'.nl2br(e($block['text'] ?? '')).'</p>',
+                // Root-cause fix: was e($text) with no markdown handling at
+                // all, so a reply using "**bold**" (completely normal model
+                // output) showed up in the PDF as literal asterisks - see
+                // AiDocumentInlineFormatter for the shared span parser this
+                // now routes through.
+                'paragraph' => '<p>'.nl2br($this->inlineHtml((string) ($block['text'] ?? ''))).'</p>',
                 'bullets' => '<ul>'.implode('', array_map(
-                    fn ($item) => '<li>'.e($item).'</li>',
+                    fn ($item) => '<li>'.$this->inlineHtml((string) $item).'</li>',
                     $block['items'] ?? []
                 )).'</ul>',
                 'table' => $this->renderTable($block),
@@ -99,6 +104,7 @@ li { margin-bottom: 5px; }
 table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; }
 th, td { border: 1px solid #ccc; padding: 7px 9px; text-align: right; font-size: 12px; }
 th { background: #f2f2f2; font-weight: bold; }
+code { font-family: 'DejaVu Sans Mono', monospace; background: #f2f2f2; padding: 1px 4px; border-radius: 3px; }
 </style>
 </head>
 <body>
@@ -116,14 +122,40 @@ HTML;
         $headers = $block['headers'] ?? [];
         $rows = $block['rows'] ?? [];
 
-        $thead = '<thead><tr>'.implode('', array_map(fn ($h) => '<th>'.e($h).'</th>', $headers)).'</tr></thead>';
+        $thead = '<thead><tr>'.implode('', array_map(fn ($h) => '<th>'.$this->inlineHtml((string) $h).'</th>', $headers)).'</tr></thead>';
 
         $tbody = '<tbody>';
         foreach ($rows as $row) {
-            $tbody .= '<tr>'.implode('', array_map(fn ($c) => '<td>'.e($c).'</td>', $row)).'</tr>';
+            $tbody .= '<tr>'.implode('', array_map(fn ($c) => '<td>'.$this->inlineHtml((string) $c).'</td>', $row)).'</tr>';
         }
         $tbody .= '</tbody>';
 
         return '<table>'.$thead.$tbody.'</table>';
+    }
+
+    /**
+     * Turns one block's raw text into escaped HTML with real <strong>/<em>/
+     * <code> tags for its inline markdown spans, via the shared parser -
+     * never passes unescaped user/model text into the HTML dompdf renders.
+     */
+    protected function inlineHtml(string $text): string
+    {
+        $html = '';
+
+        foreach (AiDocumentInlineFormatter::parseSpans($text) as $span) {
+            $escaped = e($span['text']);
+
+            if ($span['bold']) {
+                $escaped = '<strong>'.$escaped.'</strong>';
+            } elseif ($span['italic']) {
+                $escaped = '<em>'.$escaped.'</em>';
+            } elseif ($span['code']) {
+                $escaped = '<code>'.$escaped.'</code>';
+            }
+
+            $html .= $escaped;
+        }
+
+        return $html;
     }
 }

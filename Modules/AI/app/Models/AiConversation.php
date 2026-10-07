@@ -86,4 +86,15 @@ class AiConversation extends Model
     {
         return $this->hasMany(AiConversationInstruction::class, 'conversation_id');
     }
+
+    /**
+     * Phase 10: the explicit many-to-many conversation<->file
+     * relationship rows (any status - see AiConversationFile).
+     * AiConversationFileScope is the one place that filters these down
+     * to "currently attached and searchable".
+     */
+    public function conversationFiles(): HasMany
+    {
+        return $this->hasMany(AiConversationFile::class, 'conversation_id');
+    }
 }

@@ -3,9 +3,10 @@
 namespace Modules\AI\Tests\Feature;
 
 use App\Enums\UserStatus;
+use App\Models\Flag;
+use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Modules\AI\Models\AiLanguage;
 use Modules\AI\Models\AiLanguageVariant;
 use Modules\AI\Models\AiUserLanguagePreference;
 use Modules\User\Models\User;
@@ -42,6 +43,24 @@ class AiUserLanguagePreferenceSelfScreenTest extends TestCase
         return $user;
     }
 
+    // Root-cause fix (languages consolidation): preferences now point at
+    // the platform's general Language model, which requires a flag_id.
+    protected function makeLanguage(string $code, string $direction, bool $aiEnabled): Language
+    {
+        $flag = Flag::query()->create(['code' => 'xx-'.uniqid(), 'status' => true]);
+
+        return Language::query()->create([
+            'code' => $code,
+            'direction' => $direction,
+            'is_default_website' => false,
+            'is_default_dashboard' => false,
+            'stores_translation' => false,
+            'status' => true,
+            'ai_enabled' => $aiEnabled,
+            'flag_id' => $flag->id,
+        ]);
+    }
+
     public function test_an_unauthenticated_request_is_rejected(): void
     {
         $this->getJson('/api/user/v1/ai-language-preference')->assertStatus(401);
@@ -51,8 +70,8 @@ class AiUserLanguagePreferenceSelfScreenTest extends TestCase
     {
         $this->actingAsUser();
 
-        $active = AiLanguage::query()->create(['code' => 'ar', 'name' => 'Arabic', 'direction' => 'rtl', 'is_active' => true]);
-        AiLanguage::query()->create(['code' => 'fr', 'name' => 'French', 'direction' => 'ltr', 'is_active' => false]);
+        $active = $this->makeLanguage('ar', 'rtl', true);
+        $this->makeLanguage('fr', 'ltr', false);
         AiLanguageVariant::query()->create([
             'language_id' => $active->id, 'code' => 'egyptian_arabic', 'name' => 'Egyptian Arabic',
             'style' => 'conversational', 'is_default' => true, 'is_active' => true,
@@ -74,7 +93,7 @@ class AiUserLanguagePreferenceSelfScreenTest extends TestCase
     {
         $this->actingAsUser();
 
-        $language = AiLanguage::query()->create(['code' => 'ar', 'name' => 'Arabic', 'direction' => 'rtl', 'is_active' => true]);
+        $language = $this->makeLanguage('ar', 'rtl', true);
         $variant = AiLanguageVariant::query()->create([
             'language_id' => $language->id, 'code' => 'egyptian_arabic', 'name' => 'Egyptian Arabic',
             'style' => 'conversational', 'is_default' => true, 'is_active' => true,

@@ -17,16 +17,19 @@
             </div>
         </div>
 
+        <!--
+            Root-cause fix (languages consolidation): this screen used to
+            create/edit/delete its own ai_languages rows (code/name/
+            direction) - a redundant, driftable copy of the platform's
+            general Languages table. It now only lists the platform's
+            existing languages and toggles whether the AI assistant may
+            use each one; adding, renaming or removing a language itself
+            is done from the general Languages screen (it also affects
+            the website/dashboard, so this screen should not do it too).
+        -->
         <div class="row">
             <div class="col-xl-12">
                 <div class="card custom-card">
-                    <div class="card-header d-flex align-items-center justify-content-end py-3">
-                        <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
-                            <i class="ri-add-line me-1 align-middle"></i>
-                            {{ t('ai_languages.add_short') }}
-                        </button>
-                    </div>
-
                     <div class="card-body p-0">
                         <div class="table-responsive">
                             <table class="table text-nowrap table-striped table-hover mb-0">
@@ -35,15 +38,14 @@
                                         <th scope="col">{{ t('ai_languages.code') }}</th>
                                         <th scope="col">{{ t('ai_languages.name') }}</th>
                                         <th scope="col">{{ t('ai_languages.direction') }}</th>
-                                        <th scope="col">{{ t('ai_languages.status') }}</th>
-                                        <th scope="col" class="text-end pe-4">{{ t('ai_languages.actions') }}</th>
+                                        <th scope="col">{{ t('ai_languages.ai_enabled') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <TableSkeleton v-if="loading" :rows="5" :columns="5" />
+                                    <TableSkeleton v-if="loading" :rows="5" :columns="4" />
 
                                     <tr v-else-if="!languages.length">
-                                        <td colspan="5" class="border-0">
+                                        <td colspan="4" class="border-0">
                                             <div class="text-center py-5">
                                                 <p class="fw-semibold mb-1">{{ t('ai_languages.empty_title') }}</p>
                                                 <p class="text-muted mb-0">{{ t('ai_languages.empty') }}</p>
@@ -52,11 +54,7 @@
                                     </tr>
 
                                     <tr v-for="language in languages" v-else :key="language.id">
-                                        <td>
-                                            <button type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="openEdit(language)">
-                                                {{ language.code }}
-                                            </button>
-                                        </td>
+                                        <td class="fw-semibold text-default">{{ language.code }}</td>
                                         <td>{{ language.name }}</td>
                                         <td>
                                             <span class="badge bg-secondary-transparent">{{ language.direction }}</span>
@@ -64,23 +62,13 @@
                                         <td>
                                             <div
                                                 class="toggle toggle-success mb-0"
-                                                :class="{ on: language.is_active }"
+                                                :class="{ on: language.ai_enabled }"
                                                 role="button"
                                                 tabindex="0"
-                                                @click="toggleActive(language)"
-                                                @keydown.enter.space.prevent="toggleActive(language)"
+                                                @click="toggleAiEnabled(language)"
+                                                @keydown.enter.space.prevent="toggleAiEnabled(language)"
                                             >
                                                 <span></span>
-                                            </div>
-                                        </td>
-                                        <td class="text-end pe-4">
-                                            <div class="btn-list justify-content-end">
-                                                <button type="button" class="btn btn-sm btn-info-light btn-icon" @click="openEdit(language)">
-                                                    <i class="ri-pencil-line"></i>
-                                                </button>
-                                                <button type="button" class="btn btn-sm btn-danger-light btn-icon" @click="remove(language)">
-                                                    <i class="ri-delete-bin-line"></i>
-                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -100,14 +88,6 @@
                 </div>
             </div>
         </div>
-
-        <ModalCreateAndUpdate
-            :show="modalShow"
-            :type="modalType"
-            :record="selectedRecord"
-            @close="modalShow = false"
-            @saved="onSaved"
-        />
     </div>
 </template>
 
@@ -119,16 +99,12 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
-import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
 const { t } = useI18n();
 const { showSuccess, showError } = useToast();
 
 const languages = ref([]);
 const loading = ref(true);
-const modalShow = ref(false);
-const modalType = ref('create');
-const selectedRecord = ref(null);
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
 
 async function loadLanguages() {
@@ -145,48 +121,17 @@ async function loadLanguages() {
     }
 }
 
-function openCreate() {
-    modalType.value = 'create';
-    selectedRecord.value = null;
-    modalShow.value = true;
-}
-
-function openEdit(language) {
-    modalType.value = 'edit';
-    selectedRecord.value = { ...language };
-    modalShow.value = true;
-}
-
-async function toggleActive(language) {
-    const previous = language.is_active;
-    language.is_active = ! language.is_active;
+async function toggleAiEnabled(language) {
+    const previous = language.ai_enabled;
+    language.ai_enabled = ! language.ai_enabled;
 
     try {
-        const response = await adminAxios.put(`/api/admin/v1/ai-languages/${language.id}`, { is_active: language.is_active });
+        const response = await adminAxios.put(`/api/admin/v1/ai-languages/${language.id}`, { ai_enabled: language.ai_enabled });
         showSuccess(extractApiMessage(response, t('toast.status_changed')));
     } catch (error) {
-        language.is_active = previous;
+        language.ai_enabled = previous;
         showError(extractApiErrorMessage(error, t('toast.error')));
     }
-}
-
-async function remove(language) {
-    if (! window.confirm(t('ai_languages.confirm_delete'))) {
-        return;
-    }
-
-    try {
-        const response = await adminAxios.delete(`/api/admin/v1/ai-languages/${language.id}`);
-        showSuccess(extractApiMessage(response, t('toast.deleted')));
-        await loadLanguages();
-    } catch (error) {
-        showError(extractApiErrorMessage(error, t('toast.error')));
-    }
-}
-
-function onSaved() {
-    modalShow.value = false;
-    loadLanguages();
 }
 
 function onChangePage(target) {

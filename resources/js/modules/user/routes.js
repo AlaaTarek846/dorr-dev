@@ -83,6 +83,12 @@ export default [
                 meta: { middleware: [userAuth] },
             },
             {
+                path: 'messages',
+                name: 'user.messages',
+                component: page('messages/index'),
+                meta: { middleware: [userAuth] },
+            },
+            {
                 path: 'chat',
                 name: 'user.chat',
                 component: page('chat/index'),

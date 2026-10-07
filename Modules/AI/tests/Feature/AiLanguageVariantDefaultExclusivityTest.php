@@ -2,9 +2,10 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use App\Models\Flag;
+use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Modules\AI\Models\AiLanguage;
 use Modules\AI\Models\AiLanguageVariant;
 use Modules\Admin\Models\Admin;
 use Tests\TestCase;
@@ -37,13 +38,21 @@ class AiLanguageVariantDefaultExclusivityTest extends TestCase
         return $admin;
     }
 
-    protected function makeLanguage(): AiLanguage
+    // Root-cause fix (languages consolidation): variants now belong to the
+    // platform's general Language model, which requires a flag_id.
+    protected function makeLanguage(): Language
     {
-        return AiLanguage::query()->create([
+        $flag = Flag::query()->create(['code' => 'xx-'.uniqid(), 'status' => true]);
+
+        return Language::query()->create([
             'code' => 'ar-'.uniqid(),
-            'name' => 'Arabic',
             'direction' => 'rtl',
-            'is_active' => true,
+            'is_default_website' => false,
+            'is_default_dashboard' => false,
+            'stores_translation' => false,
+            'status' => true,
+            'ai_enabled' => true,
+            'flag_id' => $flag->id,
         ]);
     }
 

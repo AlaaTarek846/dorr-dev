@@ -49,6 +49,12 @@ class SafeUploadedFile implements ValidationRule
         // version, so both are allowed rather than guessing one.
         'audio/mp4',
         'audio/x-m4a',
+        // Some libmagic/fileinfo builds sniff MediaRecorder's audio-only MP4
+        // container as "video/mp4" (see AiChatMessageRequest's mimes: rule
+        // comment) - allowed here too so a real voice note isn't rejected by
+        // this content check even when finfo reports the generic container
+        // type instead of the audio-specific one.
+        'video/mp4',
     ];
 
     /**

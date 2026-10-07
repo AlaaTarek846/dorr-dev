@@ -63,12 +63,14 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Contacts
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.Icon
@@ -206,6 +208,11 @@ fun NewChatPage() {
     }
     val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         val text = result.contents ?: return@rememberLauncherForActivityResult
+        // A group's invite QR: the join sheet (join / ask to join), not a person.
+        if (text.startsWith("dorr://chat/join/")) {
+            host.joinToken = text.removePrefix("dorr://chat/join/")
+            return@rememberLauncherForActivityResult
+        }
         scope.launch {
             runCatching { ApiClient.chat.resolveQr(chatAuth(), mapOf("payload" to text)).data }
                 .onSuccess { it?.let { p -> host.openChatWith(p) } }
@@ -232,25 +239,16 @@ fun NewChatPage() {
     ChPage(stringResource(R.string.ch_new_chat), onBack = { host.pop() }) {
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxSize()) {
             item {
-                Row(
-                    Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Icon(Icons.Rounded.Search, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Box(Modifier.weight(1f)) {
-                        if (query.isEmpty()) Text(stringResource(R.string.ch_find_by_number), color = Ch.Soft, fontSize = 14.5.sp)
-                        BasicTextField(query, { query = it; lookupError = null }, singleLine = true, textStyle = TextStyle(color = Ch.Ink, fontSize = 14.5.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
-                    }
+                ChField(query, { query = it; lookupError = null }, stringResource(R.string.ch_find_by_number), icon = Icons.Rounded.Search, clearable = !looksLikeNumber, trailing = {
                     AnimatedVisibility(looksLikeNumber, enter = scaleIn() + fadeIn(), exit = scaleOut() + fadeOut()) {
                         Text(
                             stringResource(R.string.ch_find), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(Ch.Red).clickable { byPhone = query }.padding(horizontal = 12.dp, vertical = 6.dp),
                         )
                     }
-                }
+                })
                 AnimatedVisibility(lookupError != null) {
-                    Text(lookupError.orEmpty(), color = Color(0xFFDC2626), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp, start = 8.dp))
+                    Text(lookupError.orEmpty(), color = Ch.Danger, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp, start = 8.dp))
                 }
             }
             item {
@@ -261,6 +259,24 @@ fun NewChatPage() {
                         scanner.launch(ScanOptions().setPrompt(context.getString(R.string.ch_scan_prompt)).setBeepEnabled(false).setOrientationLocked(false))
                     }
                     ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 3, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
+                }
+            }
+            // Channels: discover, follow, or start one.
+            item {
+                Row(
+                    Modifier.fillMaxWidth().chStagger(4).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
+                        .clickable { host.push(ChRoute.Channels) }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.HeaderBrush), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Campaign, null, tint = Color.White, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ch_channels), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text(stringResource(R.string.ch_channels_hero_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
                 }
             }
             item { SyncCard(syncing, synced, permissionDenied) {
@@ -440,7 +456,7 @@ private fun SyncCard(syncing: Boolean, synced: Int?, denied: Boolean = false, on
                             count != null && !busy -> stringResource(R.string.ch_synced, count)
                             else -> stringResource(R.string.ch_contacts_permission)
                         },
-                        color = if (denied && !busy) Color(0xFFDC2626) else Ch.Mut, fontSize = 12.sp,
+                        color = if (denied && !busy) Ch.Danger else Ch.Mut, fontSize = 12.sp,
                     )
                 }
             }
@@ -577,17 +593,7 @@ fun NewGroupPage(addTo: String?) {
                         }
                         // Search + "add by number": always there, even with an empty address book.
                         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Row(
-                                Modifier.weight(1f).shadow(3.dp, RoundedCornerShape(16.dp)).clip(RoundedCornerShape(16.dp)).background(Ch.Surface).padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Icon(Icons.Rounded.Search, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Box(Modifier.weight(1f)) {
-                                    if (query.isEmpty()) Text(stringResource(R.string.ch_search_contacts), color = Ch.Soft, fontSize = 14.sp)
-                                    BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = Ch.Ink, fontSize = 14.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
-                                }
-                            }
+                            ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), modifier = Modifier.weight(1f), icon = Icons.Rounded.Search, clearable = true)
                             Box(
                                 Modifier.size(46.dp).shadow(8.dp, RoundedCornerShape(16.dp), spotColor = Ch.Red.copy(alpha = 0.4f)).clip(RoundedCornerShape(16.dp)).background(Ch.HeaderBrush).clickable { byPhone = true },
                                 contentAlignment = Alignment.Center,
@@ -642,9 +648,9 @@ fun NewGroupPage(addTo: String?) {
                         else Icon(Icons.Rounded.AddAPhoto, null, tint = Color.White, modifier = Modifier.size(38.dp))
                     }
                     Spacer(Modifier.height(22.dp))
-                    GroupField(name, stringResource(R.string.ch_group_name_hint)) { name = it.take(100) }
+                    GroupField(name, stringResource(R.string.ch_group_name_hint), Icons.Rounded.Groups) { name = it.take(100) }
                     Spacer(Modifier.height(10.dp))
-                    GroupField(description, stringResource(R.string.ch_group_desc_hint)) { description = it.take(500) }
+                    GroupField(description, stringResource(R.string.ch_group_desc_hint), Icons.Rounded.Notes, multiline = true) { description = it.take(500) }
                     Spacer(Modifier.height(18.dp))
                     Text(stringResource(R.string.ch_selected, selected.size), color = Ch.Mut, fontSize = 13.sp)
                     Spacer(Modifier.weight(1f))
@@ -692,11 +698,8 @@ private fun NoContactsForGroup(onByNumber: () -> Unit, onInvite: () -> Unit) {
 }
 
 @Composable
-private fun GroupField(value: String, hint: String, onChange: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().shadow(4.dp, RoundedCornerShape(18.dp)).clip(RoundedCornerShape(18.dp)).background(Ch.Surface).padding(16.dp)) {
-        if (value.isEmpty()) Text(hint, color = Ch.Soft, fontSize = 15.sp)
-        BasicTextField(value, onChange, textStyle = TextStyle(color = Ch.Ink, fontSize = 15.sp, fontFamily = CairoFontFamily), cursorBrush = SolidColor(Ch.Red), modifier = Modifier.fillMaxWidth())
-    }
+private fun GroupField(value: String, hint: String, icon: ImageVector, multiline: Boolean = false, onChange: (String) -> Unit) {
+    ChField(value, onChange, hint, icon = icon, singleLine = !multiline, fontSize = 15.sp)
 }
 
 // =============================================================================== my QR

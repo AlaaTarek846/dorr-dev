@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.ui.components.DotIndicator
+import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
@@ -78,8 +79,6 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     val cardShape = RoundedCornerShape(28.dp)
     val buttonShape = RoundedCornerShape(999.dp)
     val night = settingsNight()
-    val nightBg = AccountDark.bg
-    val nightGlow = AccountDark.accent
     val brand = settingsAccent()
 
     BackHandler(enabled = pagerState.currentPage > 0) {
@@ -91,47 +90,8 @@ fun OnboardingScreen(onFinished: () -> Unit) {
         }
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .drawBehind {
-                if (night) {
-                    drawRect(nightBg)
-                    drawCircle(
-                        brush = Brush.radialGradient(
-                            colors = listOf(nightGlow.copy(alpha = 0.35f), nightGlow.copy(alpha = 0.10f), Color.Transparent),
-                            center = Offset(size.width * 0.5f, size.height * -0.08f),
-                            radius = size.width * 0.85f,
-                        ),
-                        radius = size.width * 0.85f,
-                        center = Offset(size.width * 0.5f, size.height * -0.08f),
-                    )
-                    return@drawBehind
-                }
-                drawRect(Color.White)
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(brand.copy(alpha = 0.28f), brand.copy(alpha = 0.08f), Color.Transparent),
-                        center = Offset(size.width * -0.08f, size.height * -0.12f),
-                        radius = size.width * 1.3f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(AppColors.otpPinkBorder, Color.Transparent),
-                        center = Offset(size.width * 0.5f, size.height * -0.18f),
-                        radius = size.width * 1.1f,
-                    ),
-                )
-                drawRect(
-                    Brush.radialGradient(
-                        colors = listOf(AppColors.otpGlowMist, Color.Transparent),
-                        center = Offset(size.width * 1.12f, size.height * -0.08f),
-                        radius = size.width * 0.9f,
-                    ),
-                )
-            },
-    ) {
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.matchParentSize())
         Column(
             modifier = Modifier
                 .fillMaxSize()

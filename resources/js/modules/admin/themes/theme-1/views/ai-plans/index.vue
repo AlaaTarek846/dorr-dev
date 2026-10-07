@@ -72,7 +72,7 @@
                                         <td><span class="badge bg-primary-transparent">{{ plan.code }}</span></td>
                                         <td>{{ plan.usage_minutes }}</td>
                                         <td>{{ plan.price }} {{ plan.currency }}</td>
-                                        <td>{{ plan.duration_days }}</td>
+                                        <td>{{ plan.duration_days }} {{ t('ai_plans.days_suffix') }}</td>
                                         <td>
                                             <span v-if="plan.is_trial" class="badge bg-warning-transparent">{{ t('ai_plans.is_trial') }}</span>
                                             <span v-else class="text-muted">-</span>

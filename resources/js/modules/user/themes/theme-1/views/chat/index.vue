@@ -33,9 +33,15 @@
                             :brand-name="status.brand_name || 'DORR AI'"
                             :usage="usage"
                             :streaming-text="streamingText"
+                            :conversation-files="aiFiles.files.value"
+                            :selected-file-ids="aiFiles.selectedFileIds.value"
+                            :file-limits="fileLimits"
                             @send="sendMessage"
                             @cancel="cancelSending"
                             @usage-expired="loadUsage"
+                            @add-files="onAddFiles"
+                            @remove-file="onRemoveFile"
+                            @toggle-file-select="onToggleFileSelect"
                         />
                     </div>
                 </div>
@@ -54,13 +60,14 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import userAxios from '../../../../../../api/userAxios';
 import ChatPanel from '../../../../../../components/chat/ChatPanel.vue';
 import ConversationSidebar from '../../../../../../components/chat/ConversationSidebar.vue';
 import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import { useAiConversationChannel } from '../../../../../../composables/useAiConversationChannel';
+import { useAiConversationFiles } from '../../../../../../composables/useAiConversationFiles';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 
@@ -69,6 +76,10 @@ const { showError, showWarning } = useToast();
 const deleteConfirm = useConfirmDelete();
 
 const status = reactive({ available: true, brand_name: 'DORR AI' });
+// Phase 11 (doc S32): server-authoritative file limits, read from the
+// status endpoint's new file_limits block rather than hardcoded here.
+const fileLimits = reactive({ max_size_bytes: 26214400, allowed_mime_types: [], max_conversation_files: 10 });
+const aiFiles = useAiConversationFiles(userAxios);
 const usage = ref(null);
 const conversations = ref([]);
 const activeConversationId = ref(null);
@@ -86,6 +97,10 @@ async function loadStatus() {
     try {
         const { data } = await userAxios.get('/api/user/v1/ai-chat/status');
         Object.assign(status, data.data ?? {});
+
+        if (data.data?.file_limits) {
+            Object.assign(fileLimits, data.data.file_limits);
+        }
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
     }
@@ -121,6 +136,7 @@ async function loadConversations(showSkeleton = true) {
 async function selectConversation(id) {
     activeConversationId.value = id;
     activeMessages.value = [];
+    aiFiles.reset();
 
     try {
         const { data } = await userAxios.get(`/api/user/v1/ai-chat/conversations/${id}`);
@@ -128,6 +144,8 @@ async function selectConversation(id) {
     } catch (error) {
         showError(extractApiErrorMessage(error, t('ai_chat.load_failed')));
     }
+
+    await aiFiles.loadFiles(id);
 }
 
 async function createConversation() {
@@ -192,6 +210,52 @@ function isNetworkFailure(error) {
     // response that DID arrive (4xx/5xx) is a real answer and must never
     // be retried silently.
     return ! error.response;
+}
+
+// Phase 11 (doc S4/S6/S8/S9): multi-file conversation attachment -
+// each picked file is uploaded individually (doc S6: "batch upload if
+// the API supports it" - it does not; uploads go one at a time but in
+// parallel-safe sequence inside the composable) and then polled until
+// it leaves PROCESSING, never blocking the chat itself.
+async function onAddFiles(fileList) {
+    const { rejected } = await aiFiles.uploadFiles(activeConversationId.value, fileList, fileLimits);
+
+    rejected.forEach(({ name, reason }) => {
+        if (reason === 'file_too_large') {
+            showWarning(`${name}: ${t('ai_chat.file_too_large', { size: formatLimitSize() })}`);
+        } else if (reason === 'max_files_reached') {
+            showWarning(`${name}: ${t('ai_chat.max_files_reached', { max: fileLimits.max_conversation_files })}`);
+        } else if (reason === 'unsupported_file_type') {
+            showWarning(`${name}: ${t('ai_chat.unsupported_file_type')}`);
+        } else {
+            showError(`${name}: ${t('ai_chat.upload_failed')}`);
+        }
+    });
+}
+
+function formatLimitSize() {
+    const mb = fileLimits.max_size_bytes / (1024 * 1024);
+
+    return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+}
+
+async function onRemoveFile(file) {
+    const ok = await aiFiles.removeFile(activeConversationId.value, file.id);
+
+    if (! ok) {
+        showError(t('toast.error'));
+    }
+}
+
+// null (from ChatPanel's "Use all files" button) clears the explicit
+// selection entirely rather than toggling a specific id.
+function onToggleFileSelect(fileId) {
+    if (fileId === null) {
+        aiFiles.clearSelection();
+        return;
+    }
+
+    aiFiles.toggleSelected(fileId);
 }
 
 function cancelSending() {
@@ -267,7 +331,14 @@ async function sendMessageStreamed(message) {
             {
                 method: 'POST',
                 headers: { ...authHeaders(), 'Idempotency-Key': idempotencyKey },
-                body: JSON.stringify({ message }),
+                // Doc S12: explicit per-message file scope, when the
+                // user picked specific conversation files - omitted
+                // entirely (not an empty array) so the backend falls
+                // back to its own default (all attached files).
+                body: JSON.stringify({
+                    message,
+                    ...(aiFiles.selectedFileIds.value.length ? { file_ids: aiFiles.selectedFileIds.value } : {}),
+                }),
                 signal: abortController.value.signal,
             },
         );
@@ -355,6 +426,10 @@ async function sendMessageWithAttachment(message, attachment) {
     const payload = new FormData();
     payload.append('message', message || '');
     payload.append('attachment', attachment);
+
+    if (aiFiles.selectedFileIds.value.length) {
+        aiFiles.selectedFileIds.value.forEach((id) => payload.append('file_ids[]', id));
+    }
     const headers = { 'Content-Type': 'multipart/form-data', 'Idempotency-Key': idempotencyKey };
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -455,6 +530,10 @@ useAiConversationChannel(activeConversationId, (message) => {
 
 onMounted(async () => {
     await Promise.all([loadStatus(), loadConversations(), loadUsage()]);
+});
+
+onBeforeUnmount(() => {
+    aiFiles.stopAllPolling();
 });
 </script>
 

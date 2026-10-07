@@ -52,10 +52,21 @@ class AiRoutingEngine
      *     fallback_enabled: bool,
      * }
      */
-    public function resolve(Authenticatable $owner, string $content, ?int $planId, AiProviderRepository $providers, ?string $attachmentMimeType = null): array
+    public function resolve(Authenticatable $owner, string $content, ?int $planId, AiProviderRepository $providers, ?string $attachmentMimeType = null, bool $recentImageExists = false, array $extraCapabilities = []): array
     {
         $intent = $this->intentClassifier->classify($content);
-        $requiredCapabilities = $this->requiredCapabilities->resolve($content, $attachmentMimeType);
+        $requiredCapabilities = $this->requiredCapabilities->resolve($content, $attachmentMimeType, $recentImageExists);
+
+        // Capabilities the smart intent router (AiIntentRouterService) found for
+        // phrasings the static dictionary did not know. An image request must
+        // not also demand "vision" (see AiRequiredCapabilityResolver's note).
+        if ($extraCapabilities !== []) {
+            $requiredCapabilities = array_values(array_unique(array_merge($requiredCapabilities, $extraCapabilities)));
+
+            if (in_array('image_generation', $extraCapabilities, true)) {
+                $requiredCapabilities = array_values(array_diff($requiredCapabilities, ['vision']));
+            }
+        }
 
         $gateway = AiGatewayModel::query()
             ->where('environment', 'production')

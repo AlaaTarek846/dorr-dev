@@ -27,7 +27,7 @@ fun Throwable.serverMessage(): String? {
     val raw = response()?.errorBody()?.string() ?: return null
     return runCatching {
         val root = JsonParser.parseString(raw).asJsonObject
-        val errors = root.getAsJsonObject("errors")
+        val errors = root.get("errors")?.takeIf { it.isJsonObject }?.asJsonObject
         val firstError = errors?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
         firstError ?: root.get("message")?.takeIf { !it.isJsonNull }?.asString
     }.getOrNull()
@@ -51,10 +51,12 @@ fun Throwable.apiFailure(): ApiFailure {
     if (this !is retrofit2.HttpException) return ApiFailure(null, null, null)
     val raw = response()?.errorBody()?.string()
     val root = raw?.let { runCatching { JsonParser.parseString(it).asJsonObject }.getOrNull() }
-    val firstError = root?.getAsJsonObject("errors")?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
+    val firstError = root?.get("errors")?.takeIf { it.isJsonObject }?.asJsonObject
+        ?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
     val message = firstError ?: root?.get("message")?.takeIf { !it.isJsonNull }?.asString
     val errorCode = root?.get("error_code")?.takeIf { !it.isJsonNull }?.asString
-    val lockedUntil = root?.getAsJsonObject("data")?.get("locked_until")?.takeIf { !it.isJsonNull }?.asString
+    val lockedUntil = root?.get("data")?.takeIf { it.isJsonObject }?.asJsonObject
+        ?.get("locked_until")?.takeIf { !it.isJsonNull }?.asString
     return ApiFailure(message, errorCode, code(), lockedUntil)
 }
 
@@ -96,6 +98,8 @@ data class OtpRequest(
 data class OtpSentDto(
     @SerializedName("masked_phone") val maskedPhone: String?,
     @SerializedName("is_new_user") val isNewUser: Boolean?,
+    /** "active" (normal login), "deleted" (soft-deleted, offer restore), "restore" (restore OTP sent). */
+    @SerializedName("account_state") val accountState: String?,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int?,
 )
 
@@ -109,6 +113,8 @@ data class AuthResultDto(
     val user: UserDto?,
     val token: String?,
     @SerializedName("token_type") val tokenType: String?,
+    /** True when this verify restored a previously deleted account (deleted_at → null). */
+    @SerializedName("is_restored") val isRestored: Boolean?,
 )
 
 data class UserDto(
@@ -145,6 +151,8 @@ data class ServiceDto(
     val name: String,
     @SerializedName("module_name") val moduleName: String?,
     val image: String?,
+    val description: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
     @SerializedName("requires_provider") val requiresProvider: Boolean?,
     @SerializedName("has_children") val hasChildren: Boolean?,
     val children: List<ServiceChildDto>?,
@@ -155,4 +163,6 @@ data class ServiceChildDto(
     val name: String,
     @SerializedName("module_name") val moduleName: String?,
     val image: String?,
+    val description: String? = null,
+    @SerializedName("sort_order") val sortOrder: Int = 0,
 )

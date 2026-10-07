@@ -73,10 +73,16 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
     // Dark mode: the chat's own choice (system / light / dark), "system" following the app theme.
     val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
     val mode = com.dorr.app.chat.ChatStore.themeMode
-    SideEffect { Ch.dark = when (mode) { "dark" -> true; "light" -> false; else -> appDark } }
-    // The accent the user chose for the app (appearance settings) colours the chat too.
-    val accent = com.dorr.app.ui.screens.wallet.Wa.Red
-    SideEffect { Ch.accent = accent }
+    val chatDark = when (mode) { "dark" -> true; "light" -> false; else -> appDark }
+    // Colours from the appearance settings — the app colour and the neutrals (text, lines,
+    // background, surfaces) for the chat's mode — exactly like the wallet and the profile pages.
+    val palette = chatPaletteFromSettings(chatDark)
+    val accent = if (chatDark) com.dorr.app.ui.screens.AccountDark.accent else com.dorr.app.ui.theme.appearanceColor("primary", com.dorr.app.ui.theme.AppColors.waRed, night = false)
+    SideEffect {
+        Ch.dark = chatDark
+        Ch.accent = accent
+        Ch.palette = palette
+    }
 
     // A notification tapped for a conversation: open it on top of whatever chat page is showing.
     LaunchedEffect(Unit) {
@@ -101,6 +107,19 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             StoryViewerOverlay()
             OfflineBanner()
             ChatToast(host)
+            // A group invite link was tapped: preview + "Join" / "Ask to join".
+            host.joinToken?.let { token -> JoinGroupSheet(token) { host.joinToken = null } }
+            // The admins answered my request to join.
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+                AnimatedVisibility(host.joinDecided != null, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
+                    host.joinDecided?.let { d ->
+                        JoinDecisionBanner(d, onOpen = {
+                            host.joinDecided = null
+                            host.push(ChRoute.Conversation(d.conversationId))
+                        }, onDismiss = { host.joinDecided = null })
+                    }
+                }
+            }
         }
     }
 }
@@ -124,6 +143,7 @@ private fun ChatPages(host: ChatHost) {
             is ChRoute.Conversation -> ConversationPage(route)
             is ChRoute.Info -> ChatInfoPage(route.id)
             ChRoute.NewChat -> NewChatPage()
+            ChRoute.Channels -> ChannelsPage()
             is ChRoute.NewGroup -> NewGroupPage(route.addTo)
             ChRoute.MyQr -> MyQrPage()
             ChRoute.Privacy -> PrivacyPage()

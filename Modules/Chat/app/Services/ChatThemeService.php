@@ -16,6 +16,9 @@ class ChatThemeService
 {
     private const CACHE_KEY = 'chat.themes.active';
 
+    /** Read once per request (the service is scoped): a chat list asks for every row. */
+    private ?Collection $active = null;
+
     /**
      * Active themes, in the admin's order — cached, every chat screen needs them.
      *
@@ -23,7 +26,7 @@ class ChatThemeService
      */
     public function active(): Collection
     {
-        return Cache::rememberForever(self::CACHE_KEY, fn () => ChatTheme::query()->active()
+        return $this->active ??= Cache::rememberForever(self::CACHE_KEY, fn () => ChatTheme::query()->active()
             ->with(['translations', 'media'])
             ->orderBy('sort_order')->orderBy('id')
             ->get());
@@ -104,6 +107,7 @@ class ChatThemeService
 
     public function flush(): void
     {
+        $this->active = null;
         Cache::forget(self::CACHE_KEY);
     }
 }

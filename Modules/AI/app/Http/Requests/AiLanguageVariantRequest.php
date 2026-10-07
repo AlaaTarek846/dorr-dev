@@ -20,7 +20,7 @@ class AiLanguageVariantRequest extends FormRequest
         $isUpdate = $this->route()->getActionMethod() === 'update';
 
         return [
-            'language_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:ai_languages,id'],
+            'language_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:languages,id'],
             'code' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:50'],
             'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:100'],
             'style' => ['nullable', Rule::in(['formal', 'conversational'])],

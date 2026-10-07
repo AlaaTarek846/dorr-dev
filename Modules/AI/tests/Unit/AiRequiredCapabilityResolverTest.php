@@ -82,9 +82,14 @@ class AiRequiredCapabilityResolverTest extends TestCase
      */
     public function test_a_word_that_merely_ends_with_an_edit_verbs_letters_is_not_a_false_positive(): void
     {
+        // A brand-new "make a picture of a small child" request IS image
+        // generation (the dialect-aware lexicon covers it), but "صغير"
+        // ending in the letters of the edit verb "غير" must never make
+        // it read as an EDIT of an existing image.
         $required = $this->resolver()->resolve('اصنع صوره فيها طفل صغير', null);
 
-        $this->assertNotContains('image_generation', $required);
+        $this->assertContains('image_generation', $required);
+        $this->assertFalse(\Modules\AI\Support\AiChatLexicon::wantsImageEdit('اصنع صوره فيها طفل صغير'));
     }
 
     public function test_an_attached_image_with_no_edit_wording_still_only_requires_vision(): void
@@ -93,6 +98,48 @@ class AiRequiredCapabilityResolverTest extends TestCase
 
         $this->assertContains('vision', $required);
         $this->assertNotContains('image_generation', $required);
+    }
+
+    /**
+     * Phase 5 (doc S14) disclosure, NOT a fix: this resolver's image
+     * branch is unconditional - ANY image attachment requires `vision`,
+     * even for a purely metadata question that RasterImageFileProcessor
+     * can now answer honestly from getimagesize()/EXIF alone with no
+     * model call at all. Distinguishing "what are this image's
+     * dimensions?" from "what's in this image?" at the
+     * capability-resolution level is a real, pre-existing gap in this
+     * OLD attachment pipeline (AiChatService/AiRequiredCapabilityResolver),
+     * unrelated to and unchanged by the new AiFileEngine image
+     * processors - same "disclose, don't silently fix the old pipeline"
+     * choice already made and documented in the Phase 4 Final Report.
+     * This test exists to PIN today's actual behavior so a future phase
+     * that does add that distinction has a failing test to update, not
+     * to assert that today's behavior is correct.
+     */
+    public function test_a_metadata_only_image_question_still_unconditionally_requires_vision_today(): void
+    {
+        $required = $this->resolver()->resolve('ما هي أبعاد هذه الصورة؟', 'image/png');
+
+        $this->assertContains('vision', $required);
+    }
+
+    /**
+     * Real, observed bug (the exact message that exposed it): "خلى كمان
+     * واقف فى ميدان وجنبيه جنود تانيين" uses alef maksura ("ى") instead
+     * of ya ("ي") in "خلى" - both are typed completely interchangeably in
+     * everyday Egyptian Arabic, especially on mobile keyboards, but
+     * $imageChangeVerbs only ever listed the ya spelling ("خلي"/"خلّي"),
+     * a different Unicode codepoint. A bare follow-up edit right after
+     * the assistant had just returned a generated image (recentImageExists
+     * = true) silently fell through to a plain chat model instead of
+     * reaching the real image-edit path, so the user got an unrelated
+     * clarifying-questions reply instead of an actual edited photo.
+     */
+    public function test_a_followup_edit_verb_spelled_with_alef_maksura_is_still_recognized(): void
+    {
+        $required = $this->resolver()->resolve('خلى كمان واقف فى ميدان وجنبيه جنود تانيين', null, recentImageExists: true);
+
+        $this->assertContains('image_generation', $required);
     }
 
     /**
@@ -175,6 +222,32 @@ class AiRequiredCapabilityResolverTest extends TestCase
         $this->assertNotContains('web_search', $required);
     }
 
+    /**
+     * Real, observed bug (the exact message that exposed it): "ممكن
+     * تكتبلى كود لصفحه منتجات" - the extremely natural "[can] you write
+     * me code for a products page" phrasing - matched none of the fixed
+     * phrases in $keywordsByCapability['coding'], which are all built
+     * around the bare imperative "اكتب" ("write"), never "تكتبلي"/
+     * "تكتبلى" ("[can/will] you write me"). The request silently carried
+     * no required capabilities, so routing never looked for a
+     * coding-capable model and fell back to whatever provider came first
+     * by default instead - talking to the wrong model entirely, not the
+     * dedicated code-writing one.
+     */
+    public function test_a_natural_request_to_write_code_is_recognized_as_coding(): void
+    {
+        $required = $this->resolver()->resolve('ممكن تكتبلى كود لصفحه منتجات', null);
+
+        $this->assertContains('coding', $required);
+    }
+
+    public function test_a_discount_code_mention_with_no_creation_verb_does_not_falsely_require_coding(): void
+    {
+        $required = $this->resolver()->resolve('عايز كود الخصم بتاع الطلب', null);
+
+        $this->assertNotContains('coding', $required);
+    }
+
     public function test_asking_to_convert_data_to_json_in_arabic_requires_structured_output(): void
     {
         $required = $this->resolver()->resolve('حول البيانات دي إلى json', null);
@@ -197,5 +270,48 @@ class AiRequiredCapabilityResolverTest extends TestCase
         $required = $this->resolver()->resolve('رجعلي المقارنة في شكل جدول عادي', null);
 
         $this->assertNotContains('structured_output', $required);
+    }
+
+    /**
+     * Root-cause fix - real, observed bug: "اعمل الصوره اللى طلبتها منك"
+     * ("make the picture I asked you for") never matched the fixed phrase
+     * "اعمل صورة"/"اعمل صوره" because of the inserted definite article
+     * ("ال") - "اعمل" + "الصوره" is not the same substring as "اعمل" +
+     * "صوره". required_capabilities silently stayed empty, so routing
+     * picked an ordinary chat model instead of the real image-generation
+     * one, and the user got an honest-but-wrong "I can't produce images"
+     * reply even though a working image connector exists. See
+     * mentionsGeneratingImage()'s docblock.
+     */
+    public function test_a_generation_request_with_a_definite_article_is_recognized_as_image_generation(): void
+    {
+        $required = $this->resolver()->resolve('اعمل الصوره اللى طلبتها منك', null);
+
+        $this->assertContains('image_generation', $required);
+    }
+
+    public function test_make_me_a_logo_in_arabic_is_recognized_as_image_generation(): void
+    {
+        $required = $this->resolver()->resolve('اعملي لوجو لمطعمي', null);
+
+        $this->assertContains('image_generation', $required);
+    }
+
+    public function test_make_an_image_in_english_is_recognized_as_image_generation(): void
+    {
+        $required = $this->resolver()->resolve('make an image of a sunset over the sea', null);
+
+        $this->assertContains('image_generation', $required);
+    }
+
+    public function test_a_creation_verb_with_no_mention_of_a_picture_does_not_falsely_require_image_generation(): void
+    {
+        // "اعمل" ("make"/"do") alone is far too generic - e.g. "اعمل
+        // حسابي يشتغل تاني" ("make my account work again") - and must
+        // never fire image_generation without an actual mention of a
+        // picture/photo/logo anywhere in the message.
+        $required = $this->resolver()->resolve('اعمل حسابي يشتغل تاني من فضلك', null);
+
+        $this->assertNotContains('image_generation', $required);
     }
 }

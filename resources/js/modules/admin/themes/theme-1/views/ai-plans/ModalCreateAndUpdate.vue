@@ -66,6 +66,34 @@
                             </div>
 
                             <div class="col-md-6">
+                                <label for="plan-image-daily" class="form-label">{{ t('ai_plans.image_daily_limit') }}</label>
+                                <input id="plan-image-daily" v-model.number="form.image_daily_limit" type="number" min="0" class="form-control" :placeholder="t('ai_plans.image_daily_limit_placeholder')">
+                                <div class="form-text">{{ t('ai_plans.image_daily_limit_hint') }}</div>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="plan-video-daily" class="form-label">{{ t('ai_plans.video_daily_limit') }}</label>
+                                <input id="plan-video-daily" v-model.number="form.video_daily_limit" type="number" min="0" class="form-control">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="plan-video-seconds" class="form-label">{{ t('ai_plans.video_max_seconds') }}</label>
+                                <input id="plan-video-seconds" v-model.number="form.video_max_seconds" type="number" min="0" max="600" class="form-control">
+                            </div>
+                            <div class="col-12"><div class="form-text mt-n2">{{ t('ai_plans.video_hint') }}</div></div>
+
+                            <div class="col-md-3">
+                                <label for="plan-site-projects" class="form-label">{{ t('ai_plans.site_projects_limit') }}</label>
+                                <input id="plan-site-projects" v-model.number="form.site_projects_limit" type="number" min="0" class="form-control">
+                            </div>
+
+                            <div class="col-md-3">
+                                <label for="plan-site-daily" class="form-label">{{ t('ai_plans.site_daily_generations') }}</label>
+                                <input id="plan-site-daily" v-model.number="form.site_daily_generations" type="number" min="0" class="form-control">
+                            </div>
+                            <div class="col-12"><div class="form-text mt-n2">{{ t('ai_plans.site_hint') }}</div></div>
+
+                            <div class="col-md-6">
                                 <label for="plan-duration-days" class="form-label">{{ t('ai_plans.duration_days') }}</label>
                                 <input id="plan-duration-days" v-model.number="form.duration_days" type="number" min="1" class="form-control">
                             </div>
@@ -77,17 +105,52 @@
 
                             <div class="col-md-6">
                                 <label for="plan-price" class="form-label">{{ t('ai_plans.price') }}</label>
-                                <input id="plan-price" v-model.number="form.price" type="number" min="0" step="0.01" class="form-control">
+                                <input
+                                    id="plan-price"
+                                    v-model.number="form.price"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control"
+                                    @input="onPriceInput"
+                                >
                             </div>
 
                             <div class="col-md-6">
-                                <label for="plan-currency" class="form-label">{{ t('ai_plans.currency') }}</label>
-                                <input id="plan-currency" v-model="form.currency" type="text" maxlength="3" class="form-control text-uppercase">
+                                <label for="plan-discount-percent" class="form-label">{{ t('ai_plans.discount_percent') }}</label>
+                                <input
+                                    id="plan-discount-percent"
+                                    v-model.number="discountPercent"
+                                    type="number"
+                                    min="0"
+                                    max="99"
+                                    step="1"
+                                    class="form-control"
+                                    @input="onDiscountInput"
+                                >
+                                <div class="form-text">{{ t('ai_plans.discount_percent_hint') }}</div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <CurrencySelect
+                                    v-model="form.currency_id"
+                                    input-id="plan-currency"
+                                    :label="t('ai_plans.currency')"
+                                    :placeholder="t('ai_plans.currency_placeholder')"
+                                />
                             </div>
 
                             <div class="col-md-6">
                                 <label for="plan-original-price" class="form-label">{{ t('ai_plans.original_price') }}</label>
-                                <input id="plan-original-price" v-model.number="form.original_price" type="number" min="0" step="0.01" class="form-control">
+                                <input
+                                    id="plan-original-price"
+                                    v-model.number="form.original_price"
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    class="form-control"
+                                    @input="onOriginalPriceInput"
+                                >
                             </div>
 
                             <div class="col-md-6">
@@ -191,6 +254,7 @@ import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 import useValidation from '../../../../../../composables/useValidation';
+import CurrencySelect from '../../../../../../components/catalog/CurrencySelect.vue';
 
 const props = defineProps({
     show: { type: Boolean, default: false },
@@ -217,10 +281,15 @@ const form = reactive({
     description: '',
     usage_minutes: 0,
     cooldown_minutes: 0,
+    image_daily_limit: null,
+    video_daily_limit: 0,
+    video_max_seconds: 0,
+    site_projects_limit: 0,
+    site_daily_generations: 0,
     duration_days: 30,
     price: 0,
     original_price: null,
-    currency: 'EGP',
+    currency_id: null,
     badge: '',
     is_featured: false,
     features: [],
@@ -230,6 +299,50 @@ const form = reactive({
 });
 
 const newFeature = ref('');
+
+// Price <-> original_price <-> discount% bidirectional calc (not a stored
+// column - AiPlan::discountPercent() derives it server-side from
+// price/original_price). anchorField tracks which of the two real price
+// fields the admin last typed directly, so editing the discount% always
+// recomputes the OTHER one - matching both requested directions: "price +
+// discount% -> original_price" and "original_price + discount% -> price".
+const discountPercent = ref(null);
+const anchorField = ref(null); // 'price' | 'original_price' | null
+
+function round2(value) {
+    return Math.round(value * 100) / 100;
+}
+
+function recomputeFromDiscount() {
+    const pct = Number(discountPercent.value);
+    if (! Number.isFinite(pct) || pct <= 0 || pct >= 100) return;
+
+    if (anchorField.value === 'price') {
+        const price = Number(form.price);
+        if (Number.isFinite(price) && price > 0) {
+            form.original_price = round2(price / (1 - pct / 100));
+        }
+    } else if (anchorField.value === 'original_price') {
+        const original = Number(form.original_price);
+        if (Number.isFinite(original) && original > 0) {
+            form.price = round2(original * (1 - pct / 100));
+        }
+    }
+}
+
+function onPriceInput() {
+    anchorField.value = 'price';
+    recomputeFromDiscount();
+}
+
+function onOriginalPriceInput() {
+    anchorField.value = 'original_price';
+    recomputeFromDiscount();
+}
+
+function onDiscountInput() {
+    recomputeFromDiscount();
+}
 
 function addFeature() {
     const value = newFeature.value.trim();
@@ -274,10 +387,15 @@ function resetForm() {
     form.description = '';
     form.usage_minutes = 0;
     form.cooldown_minutes = 0;
+    form.image_daily_limit = null;
+    form.video_daily_limit = 0;
+    form.video_max_seconds = 0;
+    form.site_projects_limit = 0;
+    form.site_daily_generations = 0;
     form.duration_days = 30;
     form.price = 0;
     form.original_price = null;
-    form.currency = 'EGP';
+    form.currency_id = null;
     form.badge = '';
     form.is_featured = false;
     form.features = [];
@@ -285,6 +403,8 @@ function resetForm() {
     form.is_active = true;
     form.sort_order = 0;
     newFeature.value = '';
+    discountPercent.value = null;
+    anchorField.value = null;
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
 }
@@ -295,10 +415,15 @@ function fillForm(record) {
     form.description = record?.description ?? '';
     form.usage_minutes = record?.usage_minutes ?? 0;
     form.cooldown_minutes = record?.cooldown_minutes ?? 0;
+    form.image_daily_limit = record?.image_daily_limit ?? null;
+    form.video_daily_limit = record?.video_daily_limit ?? 0;
+    form.video_max_seconds = record?.video_max_seconds ?? 0;
+    form.site_projects_limit = record?.site_projects_limit ?? 0;
+    form.site_daily_generations = record?.site_daily_generations ?? 0;
     form.duration_days = record?.duration_days ?? 30;
     form.price = record?.price ?? 0;
     form.original_price = record?.original_price ?? null;
-    form.currency = record?.currency ?? 'EGP';
+    form.currency_id = record?.currency_id ?? null;
     form.badge = record?.badge ?? '';
     form.is_featured = Boolean(record?.is_featured);
     form.features = Array.isArray(record?.features) ? [...record.features] : [];
@@ -306,6 +431,20 @@ function fillForm(record) {
     form.is_active = Boolean(record?.is_active ?? true);
     form.sort_order = record?.sort_order ?? 0;
     newFeature.value = '';
+
+    // Pre-fill the discount% helper from the existing price/original_price
+    // so editing a plan shows its current discount, and default the anchor
+    // to 'price' (the actually-charged amount) so touching discount% alone
+    // recomputes original_price rather than silently changing what's charged.
+    const existingPrice = Number(form.price);
+    const existingOriginal = Number(form.original_price);
+    if (Number.isFinite(existingOriginal) && existingOriginal > existingPrice && existingPrice > 0) {
+        discountPercent.value = Math.round((1 - existingPrice / existingOriginal) * 100);
+    } else {
+        discountPercent.value = null;
+    }
+    anchorField.value = existingPrice > 0 ? 'price' : (existingOriginal > 0 ? 'original_price' : null);
+
     v$.value.$reset();
     applyApiErrors(serverErrors, {});
 }

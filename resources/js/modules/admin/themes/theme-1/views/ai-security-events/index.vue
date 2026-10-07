@@ -44,7 +44,7 @@
 
                                     <tr v-for="event in events" v-else :key="event.id">
                                         <td>
-                                            <span class="d-block fw-semibold">{{ event.owner?.name ?? '-' }}</span>
+                                            <span class="d-block fw-semibold">{{ ownerDisplayName(event.owner) }}</span>
                                             <span class="d-block text-muted fs-11">#{{ event.owner?.id ?? '-' }}</span>
                                         </td>
                                         <td>{{ event.event_type }}</td>
@@ -77,6 +77,7 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { ownerDisplayName } from '../../../../../../utils/aiOwner';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';

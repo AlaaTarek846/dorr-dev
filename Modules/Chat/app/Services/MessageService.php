@@ -80,7 +80,7 @@ class MessageService
             'messages' => $messages,
             'has_more_before' => $first !== null && $base()->where('id', '<', $first->id)->exists(),
             'has_more_after' => $last !== null && $base()->where('id', '>', $last->id)->exists(),
-            'context' => MessageViewContext::build($me, $participant, $conversation->load('participants'), $messages),
+            'context' => MessageViewContext::build($me, $participant, $conversation->loadViewParticipants($participant), $messages),
         ];
     }
 
@@ -99,7 +99,7 @@ class MessageService
         $participant = $this->conversations->participantOf($me, $conversation);
         $message->load(['media', 'reactions', 'replyTo.media']);
 
-        return new MessageResource($message, MessageViewContext::build($me, $participant, $conversation->load('participants'), collect([$message])));
+        return new MessageResource($message, MessageViewContext::build($me, $participant, $conversation->loadViewParticipants($participant), collect([$message])));
     }
 
     /**
@@ -144,7 +144,12 @@ class MessageService
         $this->assertCanSend($me, $participant, $conversation);
 
         $type = MessageType::from($data['type'] ?? MessageType::Text->value);
-        $meta = $this->buildMeta($me, $type, $data);
+        $meta = match ($type) {
+            // Built from the chat itself (who can pay, in which currency) — never from client data.
+            MessageType::MoneyRequest => app(MoneyRequestService::class)->requestMeta($me, $conversation, $data),
+            MessageType::BillSplit => app(MoneyRequestService::class)->splitMeta($me, $conversation, $participant, $data),
+            default => $this->buildMeta($me, $type, $data),
+        };
         $body = isset($data['body']) ? trim((string) $data['body']) : null;
         $body = $body === '' ? null : $body;
 
@@ -167,7 +172,16 @@ class MessageService
 
         $mentions = $conversation->isGroup() ? $this->validMentions($conversation, (array) ($data['mentions'] ?? [])) : [];
 
-        return DB::transaction(function () use ($me, $participant, $conversation, $type, $body, $meta, $files, $replyTo, $mentions, $data, $copyFrom) {
+        if ($type === MessageType::Poll && $body === null) {
+            throw new ChatException('poll_invalid', 422);
+        }
+
+        $viewOnce = ! empty($data['view_once']);
+        if ($viewOnce && ! $type->canViewOnce()) {
+            throw new ChatException('view_once_not_allowed', 422);
+        }
+
+        $message = DB::transaction(function () use ($me, $participant, $conversation, $type, $body, $meta, $files, $replyTo, $mentions, $data, $copyFrom, $viewOnce) {
             // Replying to a request accepts it (you clearly want to talk).
             if ($conversation->status === ConversationStatus::Pending && ! $this->startedBy($conversation, $participant)) {
                 $conversation->status = ConversationStatus::Accepted;
@@ -186,6 +200,7 @@ class MessageService
                 'forward_score' => (int) ($data['forward_score'] ?? 0),
                 'mentions' => $mentions ?: null,
                 'has_link' => $body !== null && (bool) preg_match('~(https?://|www\.)\S+~i', $body),
+                'view_once' => $viewOnce,
                 'expires_at' => $conversation->disappearing_seconds ? now()->addSeconds($conversation->disappearing_seconds) : null,
             ]);
 
@@ -211,6 +226,31 @@ class MessageService
 
             return $message;
         });
+
+        $this->previewLinkLater($message);
+
+        return $message;
+    }
+
+    /**
+     * The link card is fetched after the response is sent — sending never waits for a website.
+     */
+    private function previewLinkLater(ChatMessage $message): void
+    {
+        if (! $message->has_link || $message->view_once || $message->is_forwarded && isset($message->meta['link_preview'])) {
+            return;
+        }
+
+        $id = $message->id;
+        dispatch(fn () => app(LinkPreviewService::class)->attachTo($id))->afterResponse();
+    }
+
+    /**
+     * Tell everyone a message changed after the fact (link card arrived, live location stopped…).
+     */
+    public function rebroadcast(ChatMessage $message): void
+    {
+        $this->broadcast($message->conversation, $message, 'chat.message.updated');
     }
 
     /**
@@ -296,6 +336,12 @@ class MessageService
 
         $this->broadcast($message->conversation, $message, 'chat.message.updated');
 
+        // The link may have changed or gone: refresh (or drop) the card.
+        if ($message->has_link || isset($message->meta['link_preview'])) {
+            $id = $message->id;
+            dispatch(fn () => app(LinkPreviewService::class)->attachTo($id))->afterResponse();
+        }
+
         return $message;
     }
 
@@ -378,7 +424,7 @@ class MessageService
                 throw ChatException::messageDeleted();
             }
 
-            if (in_array($source->type, [MessageType::WalletTransfer, MessageType::Call, MessageType::System, MessageType::StoryReply], true)) {
+            if ($source->view_once || in_array($source->type, [MessageType::WalletTransfer, MessageType::Call, MessageType::System, MessageType::StoryReply, MessageType::MoneyRequest, MessageType::BillSplit], true)) {
                 throw new ChatException('not_forwardable', 422);
             }
         }
@@ -391,7 +437,10 @@ class MessageService
                 $sent[] = $this->send($me, $target, [
                     'type' => $source->type->value,
                     'body' => $source->body,
-                    'meta_raw' => $source->meta,
+                    // A forwarded live location is the last position, not a live one.
+                    'meta_raw' => $source->type === MessageType::Location && $source->meta !== null
+                        ? array_merge($source->meta, ['live_until' => null, 'stopped' => null])
+                        : $source->meta,
                     'is_forwarded' => true,
                     'forward_score' => $source->forward_score + 1,
                     'copy_media_from' => $source,
@@ -441,7 +490,7 @@ class MessageService
     public function reactions(Model $me, ChatMessage $message): array
     {
         $participant = $this->conversations->participantOf($me, $message->conversation);
-        $context = MessageViewContext::build($me, $participant, $message->conversation->load('participants'), collect());
+        $context = MessageViewContext::build($me, $participant, $message->conversation->loadViewParticipants($participant), collect());
 
         return $message->reactions()->latest('updated_at')->get()->map(fn (ChatMessageReaction $r) => [
             'emoji' => $r->emoji,
@@ -545,7 +594,7 @@ class MessageService
         $messages = $messages->filter(fn (ChatMessage $m) => $this->visibleTo($participant, ChatMessage::query()->whereKey($m->id))->exists())->values();
         $messages->load(['media', 'reactions']);
 
-        return $this->present($messages, MessageViewContext::build($me, $participant, $conversation->load('participants'), $messages));
+        return $this->present($messages, MessageViewContext::build($me, $participant, $conversation->loadViewParticipants($participant), $messages));
     }
 
     /**
@@ -555,8 +604,9 @@ class MessageService
      */
     public function info(Model $me, ChatMessage $message): array
     {
-        $conversation = $message->conversation->load('participants');
+        $conversation = $message->conversation;
         $participant = $this->conversations->participantOf($me, $conversation);
+        $conversation->loadViewParticipants($participant);
         $this->assertMine($message, $participant);
 
         $context = MessageViewContext::build($me, $participant, $conversation, collect([$message]));
@@ -623,6 +673,7 @@ class MessageService
 
         $query = $this->visibleTo($participant, $conversation->messages()->getQuery())
             ->whereNull('deleted_for_everyone_at')
+            ->where('view_once', false)
             ->when($before, fn ($q) => $q->where('id', '<', $this->findInConversation($conversation, $before)->id));
 
         match ($kind) {
@@ -639,7 +690,7 @@ class MessageService
         $messages = $messages->take($limit)->values();
         $messages->load(['media', 'reactions']);
 
-        return ['messages' => $messages, 'has_more' => $hasMore, 'context' => MessageViewContext::build($me, $participant, $conversation->load('participants'), $messages)];
+        return ['messages' => $messages, 'has_more' => $hasMore, 'context' => MessageViewContext::build($me, $participant, $conversation->loadViewParticipants($participant), $messages)];
     }
 
     // ---------------------------------------------------------------- helpers
@@ -657,7 +708,8 @@ class MessageService
         }
 
         if ($conversation->isGroup()) {
-            if ($conversation->group->only_admins_send && ! $participant->isAdmin()) {
+            // A channel: its admins post, followers read (and react).
+            if (($conversation->isChannel() || $conversation->group->only_admins_send) && ! $participant->isAdmin()) {
                 throw ChatException::adminsOnly();
             }
 
@@ -703,8 +755,17 @@ class MessageService
                 'longitude' => (float) $data['longitude'],
                 'name' => $data['location_name'] ?? null,
                 'address' => $data['address'] ?? null,
-                'live_until' => null,
+                // Live location: moves (PUT messages/{m}/live-location) until this time.
+                'live_until' => in_array((int) ($data['live_seconds'] ?? 0), MessageExtrasService::LIVE_DURATIONS, true)
+                    ? now()->addSeconds((int) $data['live_seconds'])->toIso8601String() : null,
+                'updated_at' => now()->toIso8601String(),
             ],
+            // Looked up by id on the server: a message can only show real library media.
+            MessageType::Gif => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'gif'),
+            MessageType::Sticker => ! empty($data['sticker_id'])
+                ? app(StickerService::class)->meta((int) $data['sticker_id'])
+                : app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
+            MessageType::Poll => MessageExtrasService::pollMeta((array) ($data['poll_options'] ?? []), (bool) ($data['poll_multiple'] ?? false)),
             MessageType::Contact => [
                 'name' => (string) $data['contact_name'],
                 'phones' => array_values((array) $data['contact_phones']),

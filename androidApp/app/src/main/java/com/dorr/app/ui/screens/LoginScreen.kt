@@ -41,17 +41,20 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckBox
+import androidx.compose.material.icons.rounded.CheckBoxOutlineBlank
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -107,6 +110,8 @@ import com.dorr.app.ui.components.DorrLogo
 import com.dorr.app.ui.locale.LocalAppLanguage
 import com.dorr.app.ui.screens.profile.PrivacyPolicyScreen
 import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.settingsAccent
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalThemeState
@@ -115,14 +120,22 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
-    onOtpRequested: (dialCode: String, phone: String) -> Unit,
+    onOtpRequested: (dialCode: String, phone: String, restoreMode: Boolean) -> Unit,
     sessionExpiredNotice: Boolean = false,
     onDismissSessionExpired: () -> Unit = {},
+    accountDeletedNotice: Boolean = false,
+    onDismissAccountDeleted: () -> Unit = {},
 ) {
     LaunchedEffect(sessionExpiredNotice) {
         if (sessionExpiredNotice) {
             delay(5500)
             onDismissSessionExpired()
+        }
+    }
+    LaunchedEffect(accountDeletedNotice) {
+        if (accountDeletedNotice) {
+            delay(7000)
+            onDismissAccountDeleted()
         }
     }
     var phone by remember { mutableStateOf("") }
@@ -132,6 +145,9 @@ fun LoginScreen(
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var countries by remember { mutableStateOf<List<CountryDto>>(emptyList()) }
     var menuExpanded by remember { mutableStateOf(false) }
+    // The server said this phone belongs to a deleted (restorable) account — show the Restore card.
+    var showRestoreCard by remember { mutableStateOf(false) }
+    var restoreRequesting by remember { mutableStateOf(false) }
 
     // Seeded default country is Saudi Arabia until dropdown answer.
     var selectedCountryId by remember { mutableStateOf<Int?>(null) }
@@ -161,8 +177,17 @@ fun LoginScreen(
         val listed = runCatching { ApiClient.countries.list().data.orEmpty() }.getOrDefault(emptyList())
         countries = listed
         if (listed.isNotEmpty()) CountryCache.save(context, listed)
-        val chosen = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
-        chosen?.let(::applyCountry)
+        val default = listed.firstOrNull { it.isDefault } ?: listed.firstOrNull()
+        default?.let(::applyCountry)
+        // The country the phone is in: the server's guess by IP; when that only gives the
+        // default, the mobile network's / SIM's country. Either one only if it's in the list.
+        val byIp = runCatching { ApiClient.countries.detect().data }.getOrNull()
+            ?.let { found -> listed.firstOrNull { it.id == found.id } }
+        val byNetwork = deviceCountryIso(context)
+            ?.let { iso -> listed.firstOrNull { it.code.equals(iso, ignoreCase = true) } }
+        val chosen = byIp?.takeIf { !it.isDefault } ?: byNetwork ?: byIp
+        // Don't override a country the user already picked by hand meanwhile.
+        if (chosen != null && selectedCountryId == default?.id && phone.isEmpty()) applyCountry(chosen)
     }
 
     val isPhoneValid = phone.length == phoneLength && (phoneStartsWith.isEmpty() || phone.startsWith(phoneStartsWith))
@@ -184,14 +209,22 @@ fun LoginScreen(
         if (!canSubmit) return
         isLoading = true
         errorMessage = null
+        showRestoreCard = false
         scope.launch {
             runCatching {
                 ApiClient.mobileAuth.requestOtp(
                     OtpRequest(dialCode = dialCode, phone = phone),
                 ).data
-            }.onSuccess {
+            }.onSuccess { dto ->
                 isLoading = false
-                onOtpRequested(dialCode, phone)
+                if (dto?.accountState == "deleted") {
+                    // The account exists but was deleted — offer the restore step
+                    // instead of the normal OTP flow.
+                    onDismissAccountDeleted()
+                    showRestoreCard = true
+                } else {
+                    onOtpRequested(dialCode, phone, false)
+                }
             }.onFailure {
                 isLoading = false
                 errorMessage = it.serverMessage() ?: genericError
@@ -199,9 +232,29 @@ fun LoginScreen(
         }
     }
 
+    /** The user picked "Restore Account": send the restore OTP, then verify via the OTP screen. */
+    fun restoreAccount() {
+        if (restoreRequesting) return
+        restoreRequesting = true
+        errorMessage = null
+        scope.launch {
+            runCatching {
+                ApiClient.mobileAuth.requestRestoreOtp(
+                    OtpRequest(dialCode = dialCode, phone = phone),
+                ).data
+            }.onSuccess {
+                restoreRequesting = false
+                onOtpRequested(dialCode, phone, true)
+            }.onFailure {
+                restoreRequesting = false
+                errorMessage = it.serverMessage() ?: genericError
+            }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize()) {
         // Fullscreen edge-to-edge background canvas
-        LoginBackdrop(Modifier.fillMaxSize())
+        PinkBackdrop(Modifier.fillMaxSize())
 
         // Safe area content with system insets
         LoginContent(
@@ -226,7 +279,12 @@ fun LoginScreen(
                 menuExpanded = false
             },
             phoneLength = phoneLength,
-            onPhoneChange = { if (it.length <= phoneLength) phone = it },
+            onPhoneChange = { newPhone ->
+                if (newPhone.length <= phoneLength) {
+                    phone = newPhone
+                    if (showRestoreCard) showRestoreCard = false
+                }
+            },
             onSubmit = ::submit,
             modifier = Modifier
                 .fillMaxSize()
@@ -235,9 +293,9 @@ fun LoginScreen(
                 .imePadding(),
         )
 
-        // Animated Session Expired Notification Banner
+        // Animated Session Expired / Account Deleted Notification Banner
         AnimatedVisibility(
-            visible = sessionExpiredNotice,
+            visible = sessionExpiredNotice || accountDeletedNotice,
             enter = slideInVertically(
                 initialOffsetY = { -it },
                 animationSpec = tween(400, easing = FastOutSlowInEasing),
@@ -252,7 +310,36 @@ fun LoginScreen(
                 .padding(top = 16.dp, start = 16.dp, end = 16.dp)
                 .widthIn(max = 440.dp),
         ) {
-            SessionExpiredBanner(onDismiss = onDismissSessionExpired)
+            if (sessionExpiredNotice) {
+                SessionExpiredBanner(onDismiss = onDismissSessionExpired)
+            } else {
+                AccountDeletedBanner(onDismiss = onDismissAccountDeleted)
+            }
+        }
+
+        // A deleted (but restorable) account — the user taps Restore to jump into
+        // the OTP flow and bring the account back.
+        AnimatedVisibility(
+            visible = showRestoreCard,
+            enter = fadeIn(animationSpec = tween(300)) + slideInVertically(
+                initialOffsetY = { -it },
+                animationSpec = tween(350, easing = FastOutSlowInEasing),
+            ),
+            exit = fadeOut(animationSpec = tween(200)) + slideOutVertically(
+                targetOffsetY = { -it },
+                animationSpec = tween(250, easing = FastOutSlowInEasing),
+            ),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 16.dp, start = 16.dp, end = 16.dp)
+                .widthIn(max = 440.dp),
+        ) {
+            RestoreAccountCard(
+                restoring = restoreRequesting,
+                onRestore = ::restoreAccount,
+                onDismiss = { showRestoreCard = false },
+            )
         }
 
         if (showPrivacy) {
@@ -264,6 +351,146 @@ fun LoginScreen(
 
 @Composable
 private fun SessionExpiredBanner(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NoticeBanner(
+        title = stringResource(R.string.session_expired_title),
+        message = stringResource(R.string.session_expired_message),
+        icon = Icons.Rounded.Lock,
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
+}
+
+/** "Your account was deleted — sign in again to restore it." Same shape, calmer colours. */
+@Composable
+private fun AccountDeletedBanner(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    NoticeBanner(
+        title = stringResource(R.string.account_deleted_title),
+        message = stringResource(R.string.account_deleted_message),
+        icon = Icons.Rounded.DeleteForever,
+        onDismiss = onDismiss,
+        modifier = modifier,
+    )
+}
+
+/** The login attempt hit a soft-deleted account — offer to restore it via OTP. */
+@Composable
+private fun RestoreAccountCard(
+    restoring: Boolean,
+    onRestore: () -> Unit,
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val bgColor = if (isDark) Color(0xFF1F2A24) else Color(0xFFF0FDF4)
+    val borderColor = if (isDark) AppColors.success.copy(alpha = 0.45f) else Color(0xFF86EFAC)
+    val titleColor = if (isDark) Color(0xFFDCFCE7) else Color(0xFF14532D)
+    val messageColor = if (isDark) Color(0xFFA7C4B2) else Color(0xFF166534)
+    val accent = settingsAccent()
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 10.dp,
+                shape = RoundedCornerShape(16.dp),
+                ambientColor = Color(0x33E50914),
+                spotColor = Color(0x33E50914),
+            )
+            .clip(RoundedCornerShape(16.dp))
+            .background(bgColor)
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(if (isDark) Color(0xFF2F3D45) else Color(0xFFDCFCE7)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Restore,
+                contentDescription = null,
+                tint = accent,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = stringResource(R.string.account_deleted_title),
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.5.sp,
+                ),
+                color = titleColor,
+            )
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = stringResource(R.string.account_restore_message),
+                style = MaterialTheme.typography.bodySmall.copy(
+                    fontSize = 12.sp,
+                    lineHeight = 16.sp,
+                ),
+                color = messageColor,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(accent.copy(alpha = 0.14f))
+                    .clickable(enabled = !restoring, onClick = onRestore)
+                    .padding(horizontal = 12.dp, vertical = 7.dp),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (restoring) {
+                        CircularProgressIndicator(
+                            color = accent,
+                            strokeWidth = 2.dp,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(
+                        text = stringResource(R.string.account_restore_action),
+                        color = accent,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        IconButton(
+            onClick = onDismiss,
+            modifier = Modifier.size(28.dp),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.common_close),
+                tint = messageColor.copy(alpha = 0.8f),
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun NoticeBanner(
+    title: String,
+    message: String,
+    icon: ImageVector,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -297,7 +524,7 @@ private fun SessionExpiredBanner(
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Lock,
+                imageVector = icon,
                 contentDescription = null,
                 tint = settingsAccent(),
                 modifier = Modifier.size(20.dp),
@@ -308,7 +535,7 @@ private fun SessionExpiredBanner(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = stringResource(R.string.session_expired_title),
+                text = title,
                 style = MaterialTheme.typography.bodyMedium.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.5.sp,
@@ -317,7 +544,7 @@ private fun SessionExpiredBanner(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = stringResource(R.string.session_expired_message),
+                text = message,
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontSize = 12.sp,
                     lineHeight = 16.sp,
@@ -339,34 +566,6 @@ private fun SessionExpiredBanner(
                 modifier = Modifier.size(16.dp),
             )
         }
-    }
-}
-
-@Composable
-private fun LoginBackdrop(modifier: Modifier = Modifier) {
-    val night = settingsNight()
-    val base = if (night) AccountDark.bg else Color.White
-    val glow = if (night) AccountDark.accent else settingsAccent()
-    Canvas(modifier) {
-        drawRect(base)
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.35f), glow.copy(alpha = 0.10f), Color.Transparent),
-                center = Offset(size.width * 0.5f, size.height * -0.08f),
-                radius = size.width * 0.85f,
-            ),
-            radius = size.width * 0.85f,
-            center = Offset(size.width * 0.5f, size.height * -0.08f),
-        )
-        drawCircle(
-            brush = Brush.radialGradient(
-                colors = listOf(glow.copy(alpha = 0.20f), Color.Transparent),
-                center = Offset(size.width * 1.05f, size.height * 0.02f),
-                radius = size.width * 0.55f,
-            ),
-            radius = size.width * 0.55f,
-            center = Offset(size.width * 1.05f, size.height * 0.02f),
-        )
     }
 }
 
@@ -397,7 +596,11 @@ private fun LoginContent(
     val scrollState = rememberScrollState()
     val night = settingsNight()
     val accent = if (night) AccountDark.accent else settingsAccent()
-    val mut = if (night) AccountDark.mut else Color(0xFF6B7280)
+    val mut = if (night) {
+        AccountDark.mut
+    } else {
+        com.dorr.app.ui.theme.appearanceColor("authTextMuted", Color(0xFF6B7280), night = false)
+    }
 
     Column(
         modifier = modifier
@@ -443,27 +646,11 @@ private fun LoginContent(
                 modifier = Modifier.widthIn(max = 260.dp),
             )
 
-            Box(
-                modifier = Modifier
-                    .padding(top = 26.dp, bottom = 28.dp)
-                    .size(104.dp)
-                    .then(
-                        if (night) Modifier
-                        else Modifier.shadow(
-                            elevation = 10.dp,
-                            shape = RoundedCornerShape(22.dp),
-                            ambientColor = Color(0x14111928),
-                            spotColor = Color(0x14111928),
-                        ),
-                    )
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(if (night) AccountDark.card else Color.White)
-                    .then(if (night) Modifier.border(1.dp, AccountDark.line, RoundedCornerShape(22.dp)) else Modifier)
-                    .padding(8.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                DorrLogo(width = 88.dp)
-            }
+            DorrLogo(
+                width = 156.dp,
+                onDark = night,
+                modifier = Modifier.padding(top = 22.dp, bottom = 26.dp),
+            )
 
             // Phone Input Field (56.dp height, perfectly centered, no text cutoff)
             PhoneField(
@@ -489,29 +676,33 @@ private fun LoginContent(
                 exit = fadeOut() + shrinkVertically(),
             ) {
                 phoneError?.let { message ->
+                    val errorInk = if (night) Color(0xFFFFB4B4) else AppColors.danger
+                    val errorBg = AppColors.danger.copy(alpha = if (night) 0.16f else 0.12f)
+                    val errorBorder = AppColors.danger.copy(alpha = if (night) 0.38f else 0.28f)
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 8.dp)
                             .clip(RoundedCornerShape(10.dp))
-                            .background(if (night) AccountDark.well else Color(0xFFFEE2E2).copy(alpha = 0.85f))
-                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                            .background(errorBg)
+                            .border(1.dp, errorBorder, RoundedCornerShape(10.dp))
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                        horizontalArrangement = Arrangement.Start,
                     ) {
                         Icon(
                             Icons.Rounded.ErrorOutline,
                             contentDescription = null,
-                            tint = AppColors.danger,
+                            tint = errorInk,
                             modifier = Modifier.size(16.dp),
                         )
-                        Spacer(Modifier.width(6.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
                             text = message,
-                            color = AppColors.danger,
+                            color = errorInk,
                             style = MaterialTheme.typography.bodySmall,
                             fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.Center,
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -522,19 +713,23 @@ private fun LoginContent(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 4.dp, horizontal = 2.dp),
-                verticalAlignment = Alignment.Top,
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Checkbox(
-                    checked = acceptedTerms,
-                    onCheckedChange = onAcceptedTermsChange,
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = settingsAccent(),
-                        checkmarkColor = Color.White,
-                        uncheckedColor = if (night) AccountDark.line else Color(0xFFD1D5DB),
-                    ),
-                )
-                Spacer(Modifier.width(6.dp))
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clickable { onAcceptedTermsChange(!acceptedTerms) },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = if (acceptedTerms) Icons.Rounded.CheckBox else Icons.Rounded.CheckBoxOutlineBlank,
+                        contentDescription = null,
+                        tint = if (acceptedTerms) accent else if (night) AccountDark.line else Color(0xFFD1D5DB),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
                 val terms = buildAnnotatedString {
                     val link = SpanStyle(
                         color = accent,
@@ -554,7 +749,7 @@ private fun LoginContent(
                     text = terms,
                     style = MaterialTheme.typography.bodySmall.copy(
                         fontSize = 13.sp,
-                        lineHeight = 18.sp,
+                        lineHeight = 20.sp,
                         color = mut,
                     ),
                     modifier = Modifier.weight(1f),
@@ -569,18 +764,20 @@ private fun LoginContent(
             Spacer(Modifier.height(16.dp))
 
             val buttonShape = RoundedCornerShape(999.dp)
+            val disabledOutline = accent.copy(alpha = if (night) 0.55f else 0.35f)
+            val disabledLabel = if (night) accent.copy(alpha = 0.92f) else accent.copy(alpha = 0.55f)
             Button(
                 onClick = onSubmit,
                 enabled = canSubmit,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = settingsAccent(),
-                    disabledContainerColor = if (isLoading) settingsAccent() else Color.Transparent,
+                    containerColor = accent,
+                    disabledContainerColor = if (isLoading) accent else Color.Transparent,
                     contentColor = Color.White,
-                    disabledContentColor = if (isLoading) Color.White else Color(0x80E50914),
+                    disabledContentColor = if (isLoading) Color.White else disabledLabel,
                 ),
                 shape = buttonShape,
                 border = if (!canSubmit && !isLoading) {
-                    androidx.compose.foundation.BorderStroke(1.dp, Color(0x33E50914))
+                    androidx.compose.foundation.BorderStroke(1.dp, disabledOutline)
                 } else {
                     null
                 },
@@ -592,8 +789,8 @@ private fun LoginContent(
                             Modifier.shadow(
                                 elevation = 8.dp,
                                 shape = buttonShape,
-                                ambientColor = Color(0x66E50914),
-                                spotColor = Color(0x66E50914),
+                                ambientColor = accent.copy(alpha = 0.4f),
+                                spotColor = accent.copy(alpha = 0.4f),
                             )
                         } else {
                             Modifier
@@ -611,7 +808,6 @@ private fun LoginContent(
                         text = stringResource(R.string.login_cta),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
-                        color = if (isFormValid) Color.White else Color(0x80E50914),
                     )
                 }
             }
@@ -942,7 +1138,12 @@ internal fun LanguagePicker() {
                     .padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                FlagImage(languageFlagCode(selected))
+                Icon(
+                    Icons.Rounded.Language,
+                    contentDescription = null,
+                    tint = caret,
+                    modifier = Modifier.size(20.dp),
+                )
                 Spacer(Modifier.width(8.dp))
                 Text(
                     text = selected?.name ?: stringResource(R.string.language_arabic),
@@ -1045,3 +1246,9 @@ private fun formatDialCode(value: String): String {
     val digits = value.trim().removePrefix("+")
     return if (digits.isEmpty()) "" else "+$digits"
 }
+
+/** The country of the mobile network the phone is on (else its SIM's), as ISO alpha-2; null on Wi-Fi-only devices. */
+private fun deviceCountryIso(context: android.content.Context): String? = runCatching {
+    val tm = context.getSystemService(android.content.Context.TELEPHONY_SERVICE) as? android.telephony.TelephonyManager
+    listOfNotNull(tm?.networkCountryIso, tm?.simCountryIso).firstOrNull { it.length == 2 }
+}.getOrNull()

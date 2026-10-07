@@ -17,6 +17,7 @@ class AiConversationAttachment extends Model
         'file_path',
         'mime_type',
         'file_size',
+        'ai_file_id',
     ];
 
     /**
@@ -37,5 +38,15 @@ class AiConversationAttachment extends Model
     public function message(): BelongsTo
     {
         return $this->belongsTo(AiMessage::class, 'message_id');
+    }
+
+    /**
+     * The AiFileEngine-processed counterpart of this attachment - see the
+     * ai_file_id migration's docblock. Nullable: it is only set once
+     * AiFileEngine::process() has run for this upload.
+     */
+    public function aiFile(): BelongsTo
+    {
+        return $this->belongsTo(AiFile::class, 'ai_file_id');
     }
 }

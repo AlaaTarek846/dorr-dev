@@ -21,7 +21,7 @@ class AiLanguageEvaluationRequest extends FormRequest
 
         return [
             'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:150'],
-            'language_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:ai_languages,id'],
+            'language_id' => [$isUpdate ? 'sometimes' : 'required', 'integer', 'exists:languages,id'],
             'variant_id' => ['nullable', 'integer', 'exists:ai_language_variants,id'],
             'test_case_count' => ['nullable', 'integer', 'min:0'],
             'pass_rate' => ['nullable', 'numeric', 'min:0', 'max:100'],

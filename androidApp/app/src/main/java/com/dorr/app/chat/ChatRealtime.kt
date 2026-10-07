@@ -46,6 +46,8 @@ object ChatRealtime {
         "chat.conversation.updated", "chat.pins.updated",
         "chat.call.ringing", "chat.call.accepted", "chat.call.declined", "chat.call.left", "chat.call.ended",
         "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction",
+        "chat.poll.updated", "chat.view_once.opened", "chat.location.moved",
+        "chat.group.join_requests", "chat.group.join_decided",
     )
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)

@@ -122,7 +122,7 @@ fun StoryRing(count: Int, seenCount: Int, size: Dp, uploading: Boolean = false, 
             val stroke = 2.6.dp.toPx()
             val inset = stroke / 2
             val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
-            val brand = Brush.sweepGradient(listOf(Color(0xFFF2202C), Color(0xFFFF8A4C), Color(0xFFDB2777), Color(0xFFF2202C)))
+            val brand = Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red))
             if (uploading) {
                 rotate(angle) { drawArc(brand, 0f, 100f, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Round)) }
                 return@Canvas

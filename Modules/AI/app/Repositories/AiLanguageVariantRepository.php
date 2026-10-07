@@ -10,7 +10,7 @@ class AiLanguageVariantRepository extends BaseRepository
     /**
      * @var array<int, string>
      */
-    protected array $with = ['language'];
+    protected array $with = ['language.translations'];
 
     /**
      * @var array<string, string>

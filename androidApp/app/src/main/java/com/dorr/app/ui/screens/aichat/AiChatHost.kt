@@ -21,7 +21,7 @@ import com.dorr.app.ui.screens.chat.chatAuth
 import com.dorr.app.ui.theme.LocalThemeState
 import kotlinx.coroutines.launch
 
-private enum class AiScreen { LIST, CONVERSATION, VOICE, SUBSCRIPTION }
+private enum class AiScreen { LIST, CONVERSATION, VOICE, SUBSCRIPTION, LANGUAGE, SITES, SETTINGS }
 
 /**
  * Owns the AI Assistant flow end to end: checks whether there is anything to chat with,
@@ -114,6 +114,7 @@ fun AiChatHost(onExit: () -> Unit) {
                         onNewChat = { scope.launch { startNewChat() } },
                         onOpenVoice = { screen = AiScreen.VOICE },
                         onOpenSubscription = { screen = AiScreen.SUBSCRIPTION },
+                        onOpenSettings = { screen = AiScreen.SETTINGS },
                     )
                 }
             }
@@ -130,6 +131,27 @@ fun AiChatHost(onExit: () -> Unit) {
                     onExit = { screen = AiScreen.CONVERSATION },
                 )
             }
+            AiScreen.LANGUAGE -> {
+                AiLanguageSettingsScreen(
+                    night = night,
+                    onExit = { screen = AiScreen.LIST },
+                )
+            }
+            AiScreen.SITES -> {
+                AiSitesScreen(
+                    night = night,
+                    onExit = { screen = AiScreen.SETTINGS },
+                )
+            }
+            AiScreen.SETTINGS -> {
+                AiSettingsScreen(
+                    night = night,
+                    onExit = { screen = AiScreen.CONVERSATION },
+                    onOpenSubscription = { screen = AiScreen.SUBSCRIPTION },
+                    onOpenLanguage = { screen = AiScreen.LANGUAGE },
+                    onOpenSites = { screen = AiScreen.SITES },
+                )
+            }
             AiScreen.LIST -> {
                 AiConversationListPage(
                     night = night,
@@ -144,6 +166,7 @@ fun AiChatHost(onExit: () -> Unit) {
                     onRetry = { scope.launch { refreshConversations() } },
                     onOpen = { id -> openConversationId = id; screen = AiScreen.CONVERSATION },
                     onNewChat = { scope.launch { startNewChat() } },
+                    onOpenSettings = { screen = AiScreen.SETTINGS },
                     onDelete = { id ->
                         scope.launch {
                             runCatching { ApiClient.aiChat.deleteConversation(chatAuth(), id) }

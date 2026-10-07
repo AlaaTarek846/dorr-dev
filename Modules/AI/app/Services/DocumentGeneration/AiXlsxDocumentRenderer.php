@@ -71,7 +71,11 @@ class AiXlsxDocumentRenderer
      */
     protected function writeHeading(Worksheet $sheet, int $row, array $block): int
     {
-        $sheet->setCellValue("A{$row}", $block['text'] ?? '');
+        // Root-cause fix: a spreadsheet cell is read as data, not styled
+        // prose, so strip markdown markers (e.g. "**") instead of writing
+        // them verbatim - see AiDocumentInlineFormatter for why XLSX gets
+        // plain text while PDF/DOCX get real bold/italic runs.
+        $sheet->setCellValue("A{$row}", AiDocumentInlineFormatter::toPlainText((string) ($block['text'] ?? '')));
 
         $size = match ((int) ($block['level'] ?? 2)) {
             1 => 16,
@@ -90,7 +94,7 @@ class AiXlsxDocumentRenderer
      */
     protected function writeParagraph(Worksheet $sheet, int $row, array $block): int
     {
-        $sheet->setCellValue("A{$row}", $block['text'] ?? '');
+        $sheet->setCellValue("A{$row}", AiDocumentInlineFormatter::toPlainText((string) ($block['text'] ?? '')));
         $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT)->setWrapText(true);
 
         return $row + 1;
@@ -102,7 +106,7 @@ class AiXlsxDocumentRenderer
     protected function writeBullets(Worksheet $sheet, int $row, array $block): int
     {
         foreach ($block['items'] ?? [] as $item) {
-            $sheet->setCellValue("A{$row}", '• '.$item);
+            $sheet->setCellValue("A{$row}", '• '.AiDocumentInlineFormatter::toPlainText((string) $item));
             $sheet->getStyle("A{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             $row++;
         }
@@ -125,7 +129,7 @@ class AiXlsxDocumentRenderer
 
         foreach ($headers as $i => $header) {
             $col = Coordinate::stringFromColumnIndex($i + 1);
-            $sheet->setCellValue("{$col}{$row}", $header);
+            $sheet->setCellValue("{$col}{$row}", AiDocumentInlineFormatter::toPlainText((string) $header));
         }
 
         $lastCol = Coordinate::stringFromColumnIndex(count($headers));
@@ -141,7 +145,7 @@ class AiXlsxDocumentRenderer
 
             foreach ($headers as $i => $header) {
                 $col = Coordinate::stringFromColumnIndex($i + 1);
-                $sheet->setCellValue("{$col}{$row}", $cells[$i] ?? '');
+                $sheet->setCellValue("{$col}{$row}", AiDocumentInlineFormatter::toPlainText((string) ($cells[$i] ?? '')));
                 $sheet->getStyle("{$col}{$row}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             }
 

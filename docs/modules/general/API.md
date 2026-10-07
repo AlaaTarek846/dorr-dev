@@ -21,6 +21,8 @@ Routes: `routes/general.php` (loaded from `routes/api.php`).
 
 `/countries/dropdown` returns: `id`, `code`, `name`, `dial_code`, `phone_length`, `phone_starts_with`, `is_default`, `flag {id, code}`.
 
+`/countries/detect` returns one country in the same shape: the caller's country by IP (`getCountryCodeByIp()` in `app/Support/helpers.php`), or the default country when it can't be told or **isn't active**. Order: Cloudflare's `CF-IPCountry` header → `ipwho.is` → `ip-api.com` (geoplugin.net went paid-only in 2026 and answers 403). Loopback/LAN IPs are not looked up. The detected code is cached per IP for a day (a failed lookup for 10 minutes); the active check runs on every call. Behind a proxy or tunnel (ngrok, nginx, a load balancer), set `TRUSTED_PROXIES` in `.env` (`127.0.0.1,::1` for ngrok locally, or `*`), or every caller looks like the proxy. The mobile login screen uses it to preselect the country, then falls back to the phone's network/SIM country. **NEEDS-DECISION (production):** the free providers are rate-limited (ip-api.com is non-commercial); use Cloudflare's header or a licensed source (e.g. MaxMind GeoLite2) in production.
+
 ## Admin Routes (`/api/admin/v1`)
 
 ### Authenticated — Platform Settings
@@ -32,7 +34,7 @@ Routes: `routes/general.php` (loaded from `routes/api.php`).
 
 ### Authenticated — Catalog Standard Pattern
 
-Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
+Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`, `faqs`, `privacy-policies`
 
 | Method | Endpoint |
 |--------|----------|
@@ -56,6 +58,10 @@ Resources: `flags`, `languages`, `currencies`, `countries`, `service-categories`
 | GET | `/service-categories/tree-options` |
 | GET | `/service-categories/leaf-options` |
 | GET | `/service-categories/dropdown?parent_id=null` (parents only) |
+| GET | `/faqs/ordered?service_id=` (`faqs.view`) |
+| PUT | `/faqs/reorder` (`faqs.update`) |
+
+FAQ order is kept per group: the general FAQs (`service_id IS NULL`) and each service have their own `sort_order`. `/faqs/ordered` returns one group (omit `service_id` for general) ordered by `sort_order`, `id`. `/faqs/reorder` takes `{service_id: int|null, ordered_ids: int[]}` and must list every non-deleted FAQ of that group, otherwise 422 on `ordered_ids`. `POST /faqs` ignores any `sort_order` and appends the FAQ to the end of its group; `PUT /faqs/{id}` keeps the position unless `service_id` changes, in which case the FAQ goes to the end of the new group. The admin list `/faqs` is ordered newest first (`id desc`).
 
 `/service-categories/dropdown` returns active categories: `id`, `name` (translated), `parent_id`, `module_name`, `image`, `translations {locale, name}`. `image`, `name`, and `module_name` drive the **AdminServiceSelect** header dropdown (frontend-only "General" item first) and per-module sidebar sections (Chat `module_name=chat`, AI `module_name=ai_assistant`).
 

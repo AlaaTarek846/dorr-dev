@@ -9,10 +9,15 @@ use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\AI\Console\Commands\EnforceAiDataRetention;
+use Modules\AI\Console\Commands\ManageAiLearnedIntents;
 use Modules\AI\Console\Commands\NormalizeAiModels;
 use Modules\AI\Console\Commands\ProcessAiSubscriptionRenewals;
 use Modules\AI\Console\Commands\RunAiBenchmark;
 use Modules\AI\Console\Commands\SyncAiModels;
+use Modules\AI\Services\Chunking\AiTokenCounterInterface;
+use Modules\AI\Services\Chunking\AiHeuristicTokenCounter;
+use Modules\AI\Services\Indexing\AiIndexStoreInterface;
+use Modules\AI\Services\Indexing\DatabaseIndexStore;
 
 class AIServiceProvider extends ModuleServiceProvider
 {
@@ -37,6 +42,9 @@ class AIServiceProvider extends ModuleServiceProvider
         SyncAiModels::class,
         NormalizeAiModels::class,
         ProcessAiSubscriptionRenewals::class,
+        \Modules\AI\Console\Commands\ProcessAiSiteHostings::class,
+        \Modules\AI\Console\Commands\FailStaleAiSiteVersions::class,
+        ManageAiLearnedIntents::class,
     ];
 
     /**
@@ -48,6 +56,23 @@ class AIServiceProvider extends ModuleServiceProvider
         EventServiceProvider::class,
         RouteServiceProvider::class,
     ];
+
+    /**
+     * Phase 8 (doc S10's own "adding a new strategy later must not
+     * require modifying the whole engine" instruction, applied one
+     * level up): this module had no existing interface-to-implementation
+     * binding at all (confirmed by inspection - boot() previously only
+     * registered rate limiters). Both bindings swap cleanly later
+     * (e.g. DatabaseIndexStore -> VectorIndexStore) without touching
+     * any class that depends on the interface.
+     */
+    public function register(): void
+    {
+        parent::register();
+
+        $this->app->bind(AiTokenCounterInterface::class, AiHeuristicTokenCounter::class);
+        $this->app->bind(AiIndexStoreInterface::class, DatabaseIndexStore::class);
+    }
 
     public function boot(): void
     {
@@ -72,6 +97,25 @@ class AIServiceProvider extends ModuleServiceProvider
         ]);
 
         $this->registerRateLimiters();
+        $this->registerHostedSiteMiddleware();
+    }
+
+    /**
+     * Sub-domain hosting of customer sites answers before routing (see
+     * ServeHostedSiteMiddleware), so it has to sit at the front of the global stack.
+     * Only registered when a hosting domain is configured.
+     */
+    protected function registerHostedSiteMiddleware(): void
+    {
+        if (blank(config('ai.sites.hosting.domain'))) {
+            return;
+        }
+
+        $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
+
+        if (method_exists($kernel, 'prependMiddleware')) {
+            $kernel->prependMiddleware(\Modules\AI\Http\Middleware\ServeHostedSiteMiddleware::class);
+        }
     }
 
     /**
@@ -145,6 +189,14 @@ class AIServiceProvider extends ModuleServiceProvider
         // hourly instead, so a renewal/suspension is never more than an
         // hour late for an owner whose ends_at/grace_ends_at just passed.
         $schedule->command('ai:process-subscription-renewals')
+            ->hourly()
+            ->onOneServer();
+
+        // Site hosting: same reasoning - renewal, grace and suspension follow the clock.
+        // A build/edit whose worker died must not leave the site "generating" forever.
+        $schedule->command('ai:fail-stale-sites')->everyFiveMinutes();
+
+        $schedule->command('ai:process-site-hostings')
             ->hourly()
             ->onOneServer();
     }

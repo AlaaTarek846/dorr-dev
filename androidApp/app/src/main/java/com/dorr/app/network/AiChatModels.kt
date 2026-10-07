@@ -12,6 +12,15 @@ import com.google.gson.annotations.SerializedName
 data class AiStatusDto(
     val available: Boolean,
     @SerializedName("brand_name") val brandName: String?,
+    // Phase 11 (doc S32): server-authoritative file limits for the
+    // attachment picker - never hardcode a different limit client-side.
+    @SerializedName("file_limits") val fileLimits: AiFileLimitsDto? = null,
+)
+
+data class AiFileLimitsDto(
+    @SerializedName("max_size_bytes") val maxSizeBytes: Long?,
+    @SerializedName("allowed_mime_types") val allowedMimeTypes: List<String> = emptyList(),
+    @SerializedName("max_conversation_files") val maxConversationFiles: Int? = null,
 )
 
 data class AiUsageDto(
@@ -47,10 +56,55 @@ data class AiMessageDto(
     @SerializedName("generated_file") val generatedFile: AiGeneratedFileDto? = null,
     @SerializedName("confidence_score") val confidenceScore: Double? = null,
     @SerializedName("verification_warnings") val verificationWarnings: List<String>? = null,
+    // Phase 11 (doc S14/S37): file-grounded citations for this turn -
+    // see AiFileCitationResource server-side. Only real, already-
+    // computed metadata; never rendered unless this list is non-empty.
+    val citations: List<AiFileCitationDto> = emptyList(),
     @SerializedName("created_at") val createdAt: String?,
 ) {
     val isUser: Boolean get() = role == "user"
 }
+
+/** Mirrors Modules/AI's AiFileCitationResource field-for-field. */
+data class AiFileCitationDto(
+    val id: Int,
+    val number: Int?,
+    @SerializedName("file_id") val fileId: Int,
+    @SerializedName("file_name") val fileName: String?,
+    val excerpt: String?,
+    val score: Double?,
+    @SerializedName("retrieval_method") val retrievalMethod: String?,
+    // Only the subset of keys the chunk's own content type produced -
+    // see AiRetrievalEngine::sourceReference(). Never invented.
+    val location: AiCitationLocationDto? = null,
+)
+
+data class AiCitationLocationDto(
+    val page: Int? = null,
+    val section: String? = null,
+    val sheet: String? = null,
+    @SerializedName("row_start") val rowStart: Int? = null,
+    @SerializedName("row_end") val rowEnd: Int? = null,
+    val slide: Int? = null,
+    @SerializedName("timestamp_start") val timestampStart: Double? = null,
+    @SerializedName("timestamp_end") val timestampEnd: Double? = null,
+)
+
+/**
+ * Phase 11 (doc S10/S27): one file attached to (or available in) a
+ * conversation - mirrors Modules/AI's AiFileResource (a subset of its
+ * fields; the rest - checksum, owner, chunking/embedding internals -
+ * are deliberately never surfaced to this client, doc S37).
+ */
+data class AiFileDto(
+    val id: Int,
+    @SerializedName("file_name") val fileName: String?,
+    @SerializedName("mime_type") val mimeType: String?,
+    @SerializedName("file_size") val fileSize: Long?,
+    // "uploading" | "processing" | "ready" | "failed" (AiFile lifecycle).
+    val status: String?,
+    @SerializedName("processing_error") val processingError: String?,
+)
 
 data class AiAttachmentDto(
     val id: Int,
@@ -60,6 +114,15 @@ data class AiAttachmentDto(
     @SerializedName("file_size") val fileSize: Long?,
     @SerializedName("is_image") val isImage: Boolean = false,
     val url: String?,
+    // Client-only, never sent by or to the server (no @SerializedName, so
+    // Gson just leaves it null on every parsed response). Lets the
+    // composer's optimistic pending-message bubble (AiConversationPage.kt)
+    // show the user's own just-picked image or just-recorded voice note
+    // immediately from the local cache file, instead of rendering nothing
+    // at all until the real attachment comes back from the server with a
+    // `url` - which is exactly the "voice/image doesn't show until the AI
+    // replies" bug this field exists to fix.
+    val localUri: String? = null,
 )
 
 data class AiGeneratedFileDto(
@@ -177,4 +240,54 @@ data class AiChangePlanRequestDto(
 
 data class AiAutoRenewRequestDto(
     @SerializedName("auto_renew") val autoRenew: Boolean,
+)
+
+// Business gap fix (2026-10-03): user-facing language/dialect preference -
+// see AiChatApi.languagePreference()/updateLanguagePreference()'s own
+// docblock and Modules/AI's AiUserLanguagePreferenceSelfController.
+
+data class AiLanguageDto(
+    val id: Int,
+    val code: String,
+    val name: String,
+    val direction: String?,
+    @SerializedName("ai_enabled") val aiEnabled: Boolean,
+)
+
+data class AiLanguageVariantDto(
+    val id: Int,
+    @SerializedName("language_id") val languageId: Int?,
+    val code: String,
+    val name: String,
+    /** "formal" | "conversational". */
+    val style: String?,
+    @SerializedName("is_default") val isDefault: Boolean,
+    @SerializedName("is_active") val isActive: Boolean,
+)
+
+data class AiLanguageRefDto(
+    val id: Int,
+    val code: String,
+    val name: String,
+)
+
+data class AiUserLanguagePreferenceDto(
+    val id: Int,
+    val language: AiLanguageRefDto?,
+    val variant: AiLanguageRefDto?,
+    @SerializedName("auto_detect") val autoDetect: Boolean,
+    /** "follow_input" | "fixed". */
+    @SerializedName("response_language_mode") val responseLanguageMode: String,
+)
+
+data class AiLanguagePreferenceShowDto(
+    val preference: AiUserLanguagePreferenceDto,
+    val languages: List<AiLanguageDto>,
+    val variants: List<AiLanguageVariantDto>,
+)
+
+data class AiLanguagePreferenceUpdateRequestDto(
+    @SerializedName("response_language_mode") val responseLanguageMode: String,
+    @SerializedName("language_id") val languageId: Int?,
+    @SerializedName("variant_id") val variantId: Int?,
 )

@@ -55,43 +55,65 @@ if (! function_exists('currentCountry')) {
 if (! function_exists('getCountryCodeByIp')) {
     /**
      * Best-effort ISO alpha-2 country code (matches countries.code) for the
-     * current request's IP, via geoplugin.net. Falls back to the seeded
+     * current request's IP: Cloudflare's CF-IPCountry when present, else a
+     * free IP lookup (ipwho.is, then ip-api.com). Falls back to the seeded
      * default country — never a hardcoded literal — when geolocation fails
      * or resolves to a country we don't have active in the countries table.
-     * Cached per IP for a day since geolocation-by-IP doesn't change often
-     * and geoplugin.net has no SLA worth calling on every request.
+     * The detected code is cached per IP for a day (a failed lookup for 10
+     * minutes); "active" is checked on every call, so switching a country on
+     * in the admin takes effect at once. The real IP behind a tunnel/proxy
+     * needs TRUSTED_PROXIES (bootstrap/app.php).
      */
     function getCountryCodeByIp(): string
     {
-        $ip = request()->ip();
+        $ip = (string) request()->ip();
 
-        return Cache::remember(
-            "country_code_by_ip:{$ip}",
-            now()->addDay(),
-            function () use ($ip): string {
-                $fallback = Country::query()->where('is_default', true)->value('code')
-                    ?? Country::query()->where('status', true)->value('code')
-                    ?? 'EG';
+        $fallback = fn (): string => Country::query()->where('is_default', true)->value('code')
+            ?? Country::query()->where('status', true)->value('code')
+            ?? 'EG';
 
-                try {
-                    $response = Http::timeout(3)->get('http://www.geoplugin.net/json.gp', ['ip' => $ip]);
-                    $detected = $response->successful() ? $response->json('geoplugin_countryCode') : null;
-                } catch (Throwable) {
-                    $detected = null;
-                }
+        $active = fn (?string $code): bool => $code && Country::query()->where('code', $code)->where('status', true)->exists();
 
-                if (! $detected) {
-                    return $fallback;
-                }
+        // Behind Cloudflare the edge already knows the visitor's country — no lookup needed.
+        $edge = strtoupper((string) request()->header('CF-IPCountry'));
+        if (strlen($edge) === 2 && $edge !== 'XX' && $edge !== 'T1') {
+            return $active($edge) ? $edge : $fallback();
+        }
 
-                $isActiveCountry = Country::query()
-                    ->where('code', $detected)
-                    ->where('status', true)
-                    ->exists();
+        // A loopback / LAN address (local dev, or a proxy that isn't trusted — see TRUSTED_PROXIES)
+        // can't be geolocated: answer the default without a lookup or caching it.
+        if (! filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return $fallback();
+        }
 
-                return $isActiveCountry ? $detected : $fallback;
-            },
-        );
+        $key = "country_code_by_ip:{$ip}";
+        if (($cached = Cache::get($key)) !== null) {
+            return $active($cached) ? $cached : $fallback();
+        }
+
+        // Free lookups tried in order (geoplugin.net went paid-only — it answers 403 now). Each is
+        // [url, path of the ISO alpha-2 code in the JSON answer].
+        $detected = null;
+        foreach ([
+            ["https://ipwho.is/{$ip}", 'country_code'],
+            ["http://ip-api.com/json/{$ip}?fields=status,countryCode", 'countryCode'],
+        ] as [$url, $path]) {
+            try {
+                $response = Http::timeout(3)->get($url);
+                $code = $response->successful() ? $response->json($path) : null;
+            } catch (Throwable) {
+                $code = null;
+            }
+            if (is_string($code) && strlen($code) === 2) {
+                $detected = strtoupper($code);
+                break;
+            }
+        }
+
+        // A real answer is kept for a day; a failed lookup only briefly, so it's retried soon.
+        Cache::put($key, $detected ?? '', $detected ? now()->addDay() : now()->addMinutes(10));
+
+        return $active($detected) ? $detected : $fallback();
     }
 }
 

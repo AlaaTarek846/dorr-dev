@@ -5,6 +5,10 @@ use Modules\AI\Enums\AiProviderKey;
 use Modules\AI\Http\Controllers\AiGatewayController;
 use Modules\AI\Http\Controllers\AiIntentController;
 use Modules\AI\Http\Controllers\AiPlanController;
+use Modules\AI\Http\Controllers\AiSiteAdminProjectController;
+use Modules\AI\Http\Controllers\AiSiteOfferController;
+use Modules\AI\Http\Controllers\AiSiteHostingPlanController;
+use Modules\AI\Http\Controllers\AiSiteAdminHostingController;
 use Modules\AI\Http\Controllers\AiPlanPriceController;
 use Modules\AI\Http\Controllers\AiProviderController;
 use Modules\AI\Http\Controllers\AiRoutingPolicyController;
@@ -22,6 +26,7 @@ use Modules\AI\Http\Controllers\AiResponseController;
 use Modules\AI\Http\Controllers\AiSubscriptionController;
 use Modules\AI\Http\Controllers\AiSubscriptionAdminController;
 use Modules\AI\Http\Controllers\AiUsageController;
+use Modules\AI\Http\Controllers\AiLearnedIntentController;
 use Modules\AI\Http\Controllers\AiTrialControlController;
 use Modules\AI\Http\Controllers\AiUsageSessionController;
 use Modules\AI\Http\Controllers\AiConversationContextController;
@@ -39,7 +44,6 @@ use Modules\AI\Http\Controllers\AiBenchmarkCaseController;
 use Modules\AI\Http\Controllers\AiBenchmarkRunController;
 use Modules\AI\Http\Controllers\AiReliabilityMetricController;
 use Modules\AI\Http\Controllers\AiLanguageController;
-use Modules\AI\Http\Controllers\AiLocaleController;
 use Modules\AI\Http\Controllers\AiLanguageVariantController;
 use Modules\AI\Http\Controllers\AiUserLanguagePreferenceController;
 use Modules\AI\Http\Controllers\AiLanguageEvaluationController;
@@ -113,6 +117,15 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::get('/', [AiTrialControlController::class, 'index']);
     Route::get('{trialControl}', [AiTrialControlController::class, 'show']);
     Route::put('{trialControl}', [AiTrialControlController::class, 'update']);
+});
+
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-learned-intents')->group(function () {
+    Route::get('/', [AiLearnedIntentController::class, 'index']);
+    Route::get('stats', [AiLearnedIntentController::class, 'stats']);
+    Route::post('test', [AiLearnedIntentController::class, 'test']);
+    Route::post('/', [AiLearnedIntentController::class, 'store']);
+    Route::put('{learnedIntent}', [AiLearnedIntentController::class, 'update'])->whereNumber('learnedIntent');
+    Route::delete('{learnedIntent}', [AiLearnedIntentController::class, 'destroy'])->whereNumber('learnedIntent');
 });
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-intents')->group(function () {
@@ -286,20 +299,15 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::get('{metric}', [AiReliabilityMetricController::class, 'show']);
 });
 
+// Root-cause fix (languages consolidation): lists the platform's general
+// languages and toggles whether each is AI-enabled - creating/editing/
+// deleting a language is the general Languages admin screen's job (see
+// AiLanguageController's docblock). The old "ai-locales" endpoint group
+// (an unused, never-wired-up duplicate of ai-language-variants) is gone.
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-languages')->group(function () {
     Route::get('/', [AiLanguageController::class, 'index']);
-    Route::post('/', [AiLanguageController::class, 'store']);
     Route::get('{language}', [AiLanguageController::class, 'show']);
     Route::put('{language}', [AiLanguageController::class, 'update']);
-    Route::delete('{language}', [AiLanguageController::class, 'destroy']);
-});
-
-Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-locales')->group(function () {
-    Route::get('/', [AiLocaleController::class, 'index']);
-    Route::post('/', [AiLocaleController::class, 'store']);
-    Route::get('{locale}', [AiLocaleController::class, 'show']);
-    Route::put('{locale}', [AiLocaleController::class, 'update']);
-    Route::delete('{locale}', [AiLocaleController::class, 'destroy']);
 });
 
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-language-variants')->group(function () {
@@ -381,4 +389,42 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     // be swallowed as a $run id and 404 on model binding.
     Route::get('config', [AiBenchmarkRunController::class, 'config']);
     Route::get('{run}', [AiBenchmarkRunController::class, 'show']);
+});
+
+// Website builder: standalone offers (price per country) and moderation of customer sites.
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-offers')->group(function () {
+    Route::get('/', [AiSiteOfferController::class, 'index']);
+    Route::post('/', [AiSiteOfferController::class, 'store']);
+    Route::get('{offer}', [AiSiteOfferController::class, 'show']);
+    Route::put('{offer}', [AiSiteOfferController::class, 'update']);
+    Route::delete('{offer}', [AiSiteOfferController::class, 'destroy']);
+    Route::get('{offer}/prices', [AiSiteOfferController::class, 'prices']);
+    Route::put('{offer}/prices', [AiSiteOfferController::class, 'syncPrices']);
+});
+
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-sites')->group(function () {
+    Route::get('/', [AiSiteAdminProjectController::class, 'index']);
+    Route::get('{project}', [AiSiteAdminProjectController::class, 'show'])->whereNumber('project');
+    Route::post('{project}/disable', [AiSiteAdminProjectController::class, 'disable'])->whereNumber('project');
+    Route::post('{project}/enable', [AiSiteAdminProjectController::class, 'enable'])->whereNumber('project');
+    Route::delete('{project}', [AiSiteAdminProjectController::class, 'destroy'])->whereNumber('project');
+});
+
+// Site hosting: plans with a price per country, and every hosted site.
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-hosting-plans')->group(function () {
+    Route::get('/', [AiSiteHostingPlanController::class, 'index']);
+    Route::post('/', [AiSiteHostingPlanController::class, 'store']);
+    Route::get('{plan}', [AiSiteHostingPlanController::class, 'show']);
+    Route::put('{plan}', [AiSiteHostingPlanController::class, 'update']);
+    Route::delete('{plan}', [AiSiteHostingPlanController::class, 'destroy']);
+    Route::get('{plan}/prices', [AiSiteHostingPlanController::class, 'prices']);
+    Route::put('{plan}/prices', [AiSiteHostingPlanController::class, 'syncPrices']);
+});
+
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-hostings')->group(function () {
+    Route::get('/', [AiSiteAdminHostingController::class, 'index']);
+    Route::get('{hosting}', [AiSiteAdminHostingController::class, 'show'])->whereNumber('hosting');
+    Route::post('{hosting}/suspend', [AiSiteAdminHostingController::class, 'suspend'])->whereNumber('hosting');
+    Route::post('{hosting}/resume', [AiSiteAdminHostingController::class, 'resume'])->whereNumber('hosting');
+    Route::delete('{hosting}', [AiSiteAdminHostingController::class, 'destroy'])->whereNumber('hosting');
 });

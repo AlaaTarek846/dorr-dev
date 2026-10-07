@@ -44,7 +44,7 @@
 
                                     <tr v-for="item in requests" v-else :key="item.id">
                                         <td>
-                                            <span class="d-block fw-semibold">{{ item.owner?.name ?? '-' }}</span>
+                                            <span class="d-block fw-semibold">{{ ownerDisplayName(item.owner) }}</span>
                                             <span class="d-block text-muted fs-11">#{{ item.owner?.id ?? '-' }}</span>
                                         </td>
                                         <td>{{ item.intent?.name ?? '-' }}</td>
@@ -77,6 +77,7 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { ownerDisplayName } from '../../../../../../utils/aiOwner';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';

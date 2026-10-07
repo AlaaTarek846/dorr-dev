@@ -239,7 +239,7 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
                     fontWeight = if (item.unread) FontWeight.Bold else FontWeight.SemiBold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
+                    color = com.dorr.app.ui.screens.profile.settingsInk(),
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
@@ -283,14 +283,14 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
                         item.title.ifBlank { stringResource(R.string.notification_default_title) },
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
+                        color = com.dorr.app.ui.screens.profile.settingsInk(),
                     )
                     Spacer(Modifier.height(4.dp))
                     Text(relativeTime(item.minutesAgo), style = MaterialTheme.typography.bodySmall, color = if (night) AccountDark.mut else AppColors.textMuted)
                 }
             }
             Spacer(Modifier.height(18.dp))
-            Text(item.body, style = MaterialTheme.typography.bodyLarge, color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified)
+            Text(item.body, style = MaterialTheme.typography.bodyLarge, color = com.dorr.app.ui.screens.profile.settingsInk())
             Spacer(Modifier.height(24.dp))
         }
     }
@@ -317,7 +317,7 @@ private fun EmptyNotifications(modifier: Modifier = Modifier) {
             stringResource(R.string.notifications_empty_title),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
-            color = if (night) AccountDark.ink else androidx.compose.ui.graphics.Color.Unspecified,
+            color = com.dorr.app.ui.screens.profile.settingsInk(),
         )
         Spacer(Modifier.height(8.dp))
         Text(

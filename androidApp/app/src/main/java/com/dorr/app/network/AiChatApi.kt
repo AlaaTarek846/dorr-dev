@@ -4,6 +4,8 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
+import retrofit2.http.Field
+import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Multipart
@@ -43,6 +45,43 @@ interface AiChatApi {
 
     @DELETE("user/v1/ai-chat/conversations/{id}")
     suspend fun deleteConversation(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<Any?>
+
+    // Phase 11 (doc S10/S27): the "files available to this conversation"
+    // list - Modules/AI's AiConversationFileController. Distinct from
+    // the single quick `attachment` on sendMessage() below (doc S11).
+    @GET("user/v1/ai-chat/conversations/{id}/files")
+    suspend fun conversationFiles(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<List<AiFileDto>>
+
+    @FormUrlEncoded
+    @POST("user/v1/ai-chat/conversations/{id}/files")
+    suspend fun attachConversationFile(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Field("file_id") fileId: Int,
+    ): ApiEnvelope<AiFileDto>
+
+    @DELETE("user/v1/ai-chat/conversations/{id}/files/{fileId}")
+    suspend fun detachConversationFile(
+        @Header("Authorization") auth: String,
+        @Path("id") id: Int,
+        @Path("fileId") fileId: Int,
+    ): ApiEnvelope<Any?>
+
+    // Phase 11 (doc S5/S6): standalone upload used for the multi-file
+    // "attach to this conversation" flow - Modules/AI's
+    // AiFileUploadController. Uploading with conversation_id already
+    // attaches the file server-side (AiFileEngine::attachToConversation(),
+    // Phase 10) - no separate attach call needed after this succeeds.
+    @Multipart
+    @POST("user/v1/ai-files")
+    suspend fun uploadConversationFile(
+        @Header("Authorization") auth: String,
+        @Part file: MultipartBody.Part,
+        @Part("conversation_id") conversationId: RequestBody,
+    ): ApiEnvelope<AiFileDto>
+
+    @GET("user/v1/ai-files/{id}/status")
+    suspend fun fileStatus(@Header("Authorization") auth: String, @Path("id") id: Int): ApiEnvelope<AiFileDto>
 
     /**
      * Always multipart: `attachment` is simply omitted when there is no file. A real
@@ -114,4 +153,19 @@ interface AiChatApi {
         @Header("X-Wallet-Pin") pin: String,
         @Body body: AiChangePlanRequestDto,
     ): ApiEnvelope<AiSubscriptionDto>
+
+    // Business gap fix (2026-10-03): the user-facing counterpart of the
+    // admin-only admin/v1/ai-user-language-preferences screen, and the only
+    // place a user can actually control the AI Assistant's reply
+    // language/dialect from the mobile app (AiChatLanguageResolver already
+    // read this row on every chat reply/voice transcript/realtime call -
+    // there was simply no screen to change it from, until this one).
+    @GET("user/v1/ai-language-preference")
+    suspend fun languagePreference(@Header("Authorization") auth: String): ApiEnvelope<AiLanguagePreferenceShowDto>
+
+    @PUT("user/v1/ai-language-preference")
+    suspend fun updateLanguagePreference(
+        @Header("Authorization") auth: String,
+        @Body body: AiLanguagePreferenceUpdateRequestDto,
+    ): ApiEnvelope<AiUserLanguagePreferenceDto>
 }

@@ -85,6 +85,28 @@
     <string name="ch_pick_transfer">اختر تحويلاً لمشاركته</string>
     <string name="ch_no_transfers">لم ترسل أي تحويلات بعد</string>
 
+    <string name="ch_live_title">مشاركة الموقع مباشرة</string>
+    <string name="ch_live_15m">لمدة 15 دقيقة</string>
+    <string name="ch_live_1h">لمدة ساعة واحدة</string>
+    <string name="ch_live_8h">لمدة 8 ساعات</string>
+    <string name="ch_live_sub">يستطيع الآخرون متابعتك حتى ينتهي</string>
+    <string name="ch_live_badge">مباشر</string>
+    <string name="ch_live_ended">انتهى</string>
+    <string name="ch_live_ended_long">انتهى الموقع المباشر</string>
+    <string name="ch_live_minutes_left">باقي %d دقيقة</string>
+    <string name="ch_live_until">مباشر حتى %s</string>
+    <string name="ch_live_stop">إيقاف المشاركة</string>
+    <string name="ch_live_channel">الموقع المباشر</string>
+    <string name="ch_live_sharing_title">يتم مشاركة الموقع المباشر</string>
+    <plurals name="ch_live_sharing_text">
+        <item quantity="zero">لا يوجد موقع مباشر</item>
+        <item quantity="one">موقع مباشر واحد</item>
+        <item quantity="two">موقعان مباشرة</item>
+        <item quantity="few">%d مواقع مباشرة</item>
+        <item quantity="many">%d موقعًا مباشرًا</item>
+        <item quantity="other">%d موقع مباشر</item>
+    </plurals>
+
     <string name="ch_transfer_receipt">إيصال تحويل</string>
     <string name="ch_transfer_to">إلى %s</string>
     <string name="ch_transfer_done">تم التحويل بنجاح</string>
@@ -248,6 +270,117 @@
     <string name="ch_sync_failed">تعذّرت مزامنة جهات الاتصال. تحقق من اتصالك وحاول مرة أخرى.</string>
     <string name="ch_contacts_denied">الوصول لجهات الاتصال مقفول — اضغط للسماح من الإعدادات</string>
 
+    <!-- القنوات -->
+    <string name="ch_channels">القنوات</string>
+    <string name="ch_channels_hero">القنوات</string>
+    <string name="ch_channels_hero_sub">تحديثات من الأشخاص والشركات التي تتابعها</string>
+    <string name="ch_channels_search">ابحث في القنوات</string>
+    <string name="ch_channels_none">لا توجد قنوات</string>
+    <string name="ch_channel_new">قناة جديدة</string>
+    <string name="ch_channel_create">إنشاء قناة</string>
+    <string name="ch_channel_name_hint">اسم القناة</string>
+    <string name="ch_channel_handle_hint">المعرّف (اختياري)</string>
+    <string name="ch_channel_handle_rule">من ٣ إلى ٣٢ حرفًا أو رقمًا أو شرطة سفلية</string>
+    <string name="ch_channel_public">عامة</string>
+    <string name="ch_channel_public_sub">يستطيع أي شخص العثور عليها ومتابعتها</string>
+    <string name="ch_channel_private">خاصة</string>
+    <string name="ch_channel_private_sub">يستطيع متابعتها من يملك الرابط فقط</string>
+    <string name="ch_follow_channel">متابعة القناة</string>
+    <string name="ch_follow">متابعة</string>
+    <string name="ch_following">تتابعها</string>
+    <string name="ch_followers">%d متابع</string>
+    <string name="ch_channel_share_text">%1$s — %2$s</string>
+    <string name="ch_open_group">فتح المجموعة</string>
+
+    <!-- طلبات الانضمام -->
+    <string name="ch_join_group">انضم للمجموعة</string>
+    <string name="ch_join_ask">طلب الانضمام</string>
+    <string name="ch_join_cancel">إلغاء الطلب</string>
+    <string name="ch_join_needs_approval">يجب أن يوافق أحد المشرفين</string>
+    <string name="ch_join_request_sent">تم إرسال الطلب</string>
+    <string name="ch_join_requests">طلبات الانضمام</string>
+    <string name="ch_join_requests_empty">لا توجد طلبات حاليًا</string>
+    <string name="ch_join_approved">تمت الموافقة</string>
+    <string name="ch_join_rejected">تم الرفض</string>
+
+    <!-- التعبيرات والملصقات وصور GIF -->
+    <string name="ch_expr_emoji">الرموز التعبيرية</string>
+    <string name="ch_expr_stickers">الملصقات</string>
+    <string name="ch_expr_gif">صور GIF</string>
+    <string name="ch_expr_nothing">لا يوجد شيء هنا بعد</string>
+    <string name="ch_expr_no_recent">لا توجد ملصقات حديثة</string>
+    <string name="ch_expr_search_gifs">ابحث عن صور GIF</string>
+    <string name="ch_expr_search_stickers">ابحث عن ملصقات</string>
+    <string name="ch_expr_powered">مدعوم بواسطة Dorr</string>
+
+    <!-- المزاج -->
+    <string name="ch_mood_haha">ضحك</string>
+    <string name="ch_mood_love">حب</string>
+    <string name="ch_mood_congrats">تهانينا</string>
+    <string name="ch_mood_hi">مرحبًا</string>
+    <string name="ch_mood_party">حفلة</string>
+    <string name="ch_mood_sad">حزين</string>
+    <string name="ch_mood_sleepy">نعسان</string>
+    <string name="ch_mood_thinking">يفكّر</string>
+
+    <!-- الاستطلاعات -->
+    <string name="ch_poll_new">استطلاع جديد</string>
+    <string name="ch_poll_question_hint">سؤال الاستطلاع</string>
+    <string name="ch_poll_options">الخيارات</string>
+    <string name="ch_poll_option_hint">الخيار %d</string>
+    <string name="ch_poll_add_option">إضافة خيار</string>
+    <string name="ch_poll_allow_many">السماح بإجابات متعددة</string>
+    <string name="ch_poll_pick_one">اختر إجابة واحدة</string>
+    <string name="ch_poll_pick_many">اختر ما تشاء</string>
+    <string name="ch_poll_no_votes">لا توجد أصوات بعد</string>
+    <string name="ch_poll_view_votes">%d صوت</string>
+    <string name="ch_poll_votes_count">%d صوت</string>
+
+    <!-- العرض مرة واحدة -->
+    <string name="ch_view_once_title">عرض مرة واحدة</string>
+    <string name="ch_view_once_tap">اضغط للعرض</string>
+    <string name="ch_view_once_opened">تم الفتح</string>
+    <string name="ch_view_once_photo">صورة</string>
+    <string name="ch_view_once_video">فيديو</string>
+    <string name="ch_view_once_voice">رسالة صوتية</string>
+
+    <!-- طلبات الأموال -->
+    <string name="ch_money_pay_title">ادفع %s</string>
+    <string name="ch_money_pay_to">طلبها %s</string>
+    <string name="ch_money_pay">دفع</string>
+    <string name="ch_money_decline">رفض</string>
+    <string name="ch_money_note_hint">أضف ملاحظة (اختياري)</string>
+    <string name="ch_money_send_request">طلب أموال</string>
+    <string name="ch_money_request_from">طلب منك %s مبلغًا</string>
+    <string name="ch_money_requested_from_you">طلبت من %s مبلغًا</string>
+    <string name="ch_money_you_requested">طلبت أنت مبلغًا</string>
+    <string name="ch_money_paid_title">تم الدفع</string>
+    <string name="ch_money_cancel">إلغاء</string>
+    <string name="ch_money_status_pending">قيد الانتظار</string>
+    <string name="ch_money_status_paid">مدفوع</string>
+    <string name="ch_money_status_declined">مرفوض</string>
+    <string name="ch_money_status_cancelled">ملغى</string>
+
+    <!-- تقسيم الفاتورة -->
+    <string name="ch_split_new">تقسيم فاتورة</string>
+    <string name="ch_split_equal">تقسيم متساوٍ</string>
+    <string name="ch_split_custom">تقسيم مخصص</string>
+    <string name="ch_split_note_hint">ما الغرض منها؟ (اختياري)</string>
+    <string name="ch_split_send">إرسال الطلب</string>
+    <string name="ch_split_collected">تم تحصيل %s</string>
+    <string name="ch_split_left">متبقٍ %s</string>
+    <string name="ch_split_adds_up">المجموع متساوٍ</string>
+    <string name="ch_split_pay_mine">ادفع حصتي (%s)</string>
+    <string name="ch_split_close">إغلاق</string>
+    <string name="ch_split_title">تقسيم فاتورة</string>
+
+    <!-- مشاركة الموقع -->
+    <string name="ch_location_current">الموقع الحالي</string>
+    <string name="ch_location_current_sub">إرسال علامة واحدة</string>
+
+    <string name="ch_send">إرسال</string>
+    <string name="ch_mute">كتم</string>
+
     <string name="st_my_status">حالتي</string>
     <string name="st_add_status">أضف إلى حالتك</string>
     <string name="st_uploading">جارٍ النشر…</string>
@@ -314,4 +447,15 @@
     <string name="ch_group_empty_sub">ضيف الناس للجروب برقم موبايلهم، أو ادعي صحابك يدخلوا دُر.</string>
     <string name="ch_invite_friends">ادعي صحابك</string>
     <string name="ch_add_to_group">ضيفه للجروب</string>
+    <string name="ch_poll">استطلاع</string>
+    <string name="ch_attach_poll">استطلاع</string>
+    <string name="ch_attach_view_once">مرة واحدة</string>
+    <string name="ch_approve_joins">موافقة على الأعضاء الجدد</string>
+    <string name="ch_attach_request">اطلب فلوس</string>
+    <string name="ch_attach_split">قسّم فاتورة</string>
+    <string name="ch_money_request">طلب فلوس</string>
+    <string name="ch_filter_channels">القنوات</string>
+    <string name="ch_channel_handle">الاسم المميز للقناة</string>
+    <string name="ch_unfollow">إلغاء المتابعة</string>
+    <string name="ch_sticker">ملصق</string>
 </resources>

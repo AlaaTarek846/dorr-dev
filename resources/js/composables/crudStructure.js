@@ -56,6 +56,7 @@ export default function crudStructure(options = {}) {
         optimisticStatus = false,
         fetchCounts = null,
         onAfterFetch = null,
+        getExtraListParams = null,
     } = options;
 
     const errors = ref({});
@@ -121,6 +122,14 @@ export default function crudStructure(options = {}) {
                 ...searchDefaults,
                 searchKey: search.value.searchKey.trim(),
             });
+        }
+
+        if (typeof getExtraListParams === 'function') {
+            const extra = getExtraListParams();
+
+            if (extra && typeof extra === 'object') {
+                Object.assign(params, extra);
+            }
         }
 
         return params;

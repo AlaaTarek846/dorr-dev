@@ -330,7 +330,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                                 .fillMaxSize()
                                 .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1FE50914), spotColor = Color(0x1FE50914)))
                                 .clip(CircleShape)
-                                .background(if (settingsNight()) AccountDark.card else Color.White),
+                                .background(com.dorr.app.ui.screens.profile.settingsCard()),
                             contentAlignment = Alignment.Center,
                         ) {
                             // Server avatar first (rewritten to a host the device
@@ -820,7 +820,7 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
 
 @Composable
 private fun EditEmailScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
-    var email by remember { mutableStateOf(AuthSession.user?.email.orEmpty()) }
+    var email by remember { mutableStateOf("") }
     var stepOtp by remember { mutableStateOf(false) }
     var requesting by remember { mutableStateOf(false) }
     var maskedEmail by remember { mutableStateOf<String?>(null) }
@@ -1075,7 +1075,7 @@ private fun OtpDigit(
             .width(40.dp)
             .height(48.dp)
             .clip(RoundedCornerShape(14.dp))
-            .background(if (settingsNight()) AccountDark.card else Color.White)
+            .background(com.dorr.app.ui.screens.profile.settingsCard())
             .border(1.5.dp, border, RoundedCornerShape(14.dp)),
         contentAlignment = Alignment.Center,
     ) {

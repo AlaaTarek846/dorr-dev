@@ -290,4 +290,57 @@ class AiChatSendMessageVoiceIntegrationTest extends TestCase
         $systemTexts = collect($capturedMessages)->where('role', 'system')->pluck('content')->implode(' | ');
         $this->assertStringContainsString('audio file will be attached', $systemTexts);
     }
+
+    /**
+     * Phase 6 (doc S13) disclosure, NOT a fix: AiChatService
+     * unconditionally transcribes ANY attached audio file via a real
+     * speech-to-text provider call BEFORE it ever looks at the message
+     * content - confirmed by reading sendMessage()'s source this phase
+     * (the `if ($attachment && str_starts_with(... 'audio/'))` block
+     * runs unconditionally, with no branch for a pure metadata question).
+     * A purely local question ("مدة التسجيل كام؟" - "how long is this
+     * recording?") that the new Phase 5/6 AiFileEngine processors could
+     * now answer from local ffprobe metadata alone, with zero AI cost,
+     * still triggers a full Whisper API call today - the exact same
+     * class of gap Phase 5 disclosed (not fixed) for images
+     * (AiRequiredCapabilityResolverTest::test_a_metadata_only_image_question_still_unconditionally_requires_vision_today),
+     * for the identical reason: AiChatService's attachment pipeline is
+     * still entirely separate from, and does not call, AiFileEngine.
+     * This test exists to PIN today's actual behavior (via Http::fake(),
+     * never a real network call) so a future phase that adds that
+     * distinction has a failing test to update, not to assert that
+     * today's behavior is correct.
+     */
+    public function test_a_purely_metadata_question_about_an_attached_recording_still_triggers_a_real_transcription_call_today(): void
+    {
+        Config::set('ai.chat.verification.enabled', false);
+        $this->registerProviderWithModels(['speech_to_text']);
+
+        Http::fake([
+            'api.openai.com/v1/audio/transcriptions' => Http::response(['text' => 'نص غير مهم لهذا الاختبار'], 200),
+        ]);
+
+        $this->makeTrialPlan();
+
+        $owner = $this->makeOwner();
+        $conversation = $this->makeConversation($owner);
+
+        $this->partialMock(AiGateway::class, function ($mock) {
+            $mock->shouldReceive('transcribeAudio')->passthru();
+            $mock->shouldReceive('chat')->once()->andReturn([
+                'success' => true,
+                'message' => '',
+                'content' => 'التسجيل مدته حوالي دقيقتين.',
+            ]);
+        });
+
+        $attachment = UploadedFile::fake()->create('voice-note.mp3', 50, 'audio/mpeg');
+
+        // A purely local, metadata-only question - no reason an honest
+        // implementation would need to hear the recording's content at
+        // all to answer it.
+        app(AiChatService::class)->sendMessage($owner, $conversation->id, 'مدة التسجيل كام؟', $attachment);
+
+        Http::assertSent(fn ($request) => $request->url() === 'https://api.openai.com/v1/audio/transcriptions');
+    }
 }

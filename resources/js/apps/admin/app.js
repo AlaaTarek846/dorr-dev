@@ -21,12 +21,16 @@ import '../../composables/useAuth';
 import '../../composables/usePermission';
 import '../../plugins/echo';
 import '../../styles/catalog-list.css';
+import '../../styles/rich-text-content.css';
+import { watchThemeMode } from '../../utils/themeMode';
 
 applyDocumentDirection(
     getStoredDirection(),
     resolveInitialLocale(),
     hasStoredLocalePreference(),
 );
+
+watchThemeMode();
 
 const app = createApp(App);
 const pinia = createPinia();

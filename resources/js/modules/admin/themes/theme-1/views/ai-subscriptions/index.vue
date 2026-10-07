@@ -116,7 +116,7 @@
                                     <tr v-for="subscription in subscriptions" v-else :key="subscription.id">
                                         <td>
                                             <div>
-                                                <span class="d-block fw-semibold">{{ subscription.owner?.name ?? '-' }}</span>
+                                                <span class="d-block fw-semibold">{{ ownerDisplayName(subscription.owner) }}</span>
                                                 <span class="d-block text-muted fs-11">
                                                     {{ t(`ai_subscriptions.${subscription.owner?.type}`) }} #{{ subscription.owner?.id }}
                                                 </span>
@@ -145,7 +145,7 @@
                                                     type="number"
                                                     min="1"
                                                     class="form-control form-control-sm"
-                                                    style="width: 70px"
+                                                    style="width: 110px"
                                                     :placeholder="t('ai_subscriptions.extend_days_placeholder')"
                                                 >
                                                 <button
@@ -201,22 +201,36 @@
                 </div>
             </div>
         </div>
+
+        <ConfirmDeleteModal
+            :show="actionConfirm.state.show"
+            :title="actionConfirm.state.title"
+            :message="actionConfirm.state.message"
+            :loading="actionConfirm.state.loading"
+            :confirm-text="actionConfirmButtonText"
+            @close="actionConfirm.close()"
+            @confirm="handleActionConfirm"
+        />
     </div>
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { ownerDisplayName } from '../../../../../../utils/aiOwner';
+import ConfirmDeleteModal from '../../../../../../components/ui/ConfirmDeleteModal.vue';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
+import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 
 const { t, locale } = useI18n();
 const { showSuccess, showError, showWarning } = useToast();
 const { page, perPage, pagination, paginationParams, applyPagination } = useAdminPagination();
+const actionConfirm = useConfirmDelete();
 
 const subscriptions = ref([]);
 const loading = ref(true);
@@ -294,19 +308,55 @@ function extend(subscription) {
     runAction(subscription, `/api/admin/v1/ai-subscriptions/${subscription.id}/extend`, t('toast.updated'), { days });
 }
 
+const actionEndpoints = {
+    suspend: 'suspend',
+    reactivate: 'reactivate',
+    cancel: 'cancel',
+};
+
+const actionButtonLabels = {
+    suspend: 'ai_subscriptions.suspend',
+    reactivate: 'ai_subscriptions.reactivate',
+    cancel: 'ai_subscriptions.cancel',
+};
+
+const actionConfirmButtonText = computed(() => {
+    const action = actionConfirm.state.payload?.action;
+    return action ? t(actionButtonLabels[action]) : '';
+});
+
+function askConfirm(action, subscription, messageKey) {
+    actionConfirm.open({
+        title: t(actionButtonLabels[action]),
+        message: t(messageKey),
+        payload: { action, subscription },
+    });
+}
+
 function suspend(subscription) {
-    if (! window.confirm(t('ai_subscriptions.confirm_suspend'))) return;
-    runAction(subscription, `/api/admin/v1/ai-subscriptions/${subscription.id}/suspend`, t('toast.updated'));
+    askConfirm('suspend', subscription, 'ai_subscriptions.confirm_suspend');
 }
 
 function reactivate(subscription) {
-    if (! window.confirm(t('ai_subscriptions.confirm_reactivate'))) return;
-    runAction(subscription, `/api/admin/v1/ai-subscriptions/${subscription.id}/reactivate`, t('toast.updated'));
+    askConfirm('reactivate', subscription, 'ai_subscriptions.confirm_reactivate');
 }
 
 function cancelSubscription(subscription) {
-    if (! window.confirm(t('ai_subscriptions.confirm_cancel'))) return;
-    runAction(subscription, `/api/admin/v1/ai-subscriptions/${subscription.id}/cancel`, t('toast.updated'));
+    askConfirm('cancel', subscription, 'ai_subscriptions.confirm_cancel');
+}
+
+async function handleActionConfirm() {
+    const { action, subscription } = actionConfirm.state.payload ?? {};
+    if (! action || ! subscription) return;
+
+    actionConfirm.setLoading(true);
+
+    try {
+        await runAction(subscription, `/api/admin/v1/ai-subscriptions/${subscription.id}/${actionEndpoints[action]}`, t('toast.updated'));
+    } finally {
+        actionConfirm.setLoading(false);
+        actionConfirm.close();
+    }
 }
 
 function onChangePage(target) {

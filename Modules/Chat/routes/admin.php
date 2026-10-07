@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Chat\Http\Controllers\Admin\ChatReportController;
 use Modules\Chat\Http\Controllers\Admin\ChatReportTypeController;
 use Modules\Chat\Http\Controllers\Admin\ChatSettingController;
+use Modules\Chat\Http\Controllers\Admin\ChatStickerController;
 use Modules\Chat\Http\Controllers\Admin\ChatThemeController;
 
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
@@ -22,6 +23,17 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('chat-report-types/dropdown', [ChatReportTypeController::class, 'dropdown']);
         Route::patch('chat-report-types/{chat_report_type}/status', [ChatReportTypeController::class, 'status']);
         Route::apiResource('chat-report-types', ChatReportTypeController::class);
+
+        // Sticker packs (POST for update: multipart cover).
+        Route::get('chat-sticker-packs', [ChatStickerController::class, 'index']);
+        Route::post('chat-sticker-packs', [ChatStickerController::class, 'store']);
+        Route::get('chat-sticker-packs/{chat_sticker_pack}', [ChatStickerController::class, 'show']);
+        Route::post('chat-sticker-packs/{chat_sticker_pack}', [ChatStickerController::class, 'update']);
+        Route::patch('chat-sticker-packs/{chat_sticker_pack}/status', [ChatStickerController::class, 'status']);
+        Route::delete('chat-sticker-packs/{chat_sticker_pack}', [ChatStickerController::class, 'destroy']);
+        Route::post('chat-sticker-packs/{chat_sticker_pack}/stickers', [ChatStickerController::class, 'addStickers']);
+        Route::patch('chat-stickers/{chat_sticker}', [ChatStickerController::class, 'updateSticker']);
+        Route::delete('chat-stickers/{chat_sticker}', [ChatStickerController::class, 'destroySticker']);
 
         Route::get('chat-reports', [ChatReportController::class, 'index']);
         Route::get('chat-reports/{chat_report}', [ChatReportController::class, 'show']);

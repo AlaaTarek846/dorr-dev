@@ -3,8 +3,14 @@
 namespace Modules\AI\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rule;
 
+/**
+ * Root-cause fix (languages consolidation): this screen no longer
+ * creates/edits/deletes a language's code/name/direction (that is the
+ * general Languages admin screen's job, since those fields also affect
+ * the website and dashboard) - the only thing it can change is whether
+ * the AI assistant is allowed to use this (already-existing) language.
+ */
 class AiLanguageRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,19 +23,8 @@ class AiLanguageRequest extends FormRequest
      */
     public function rules(): array
     {
-        $isUpdate = $this->route()->getActionMethod() === 'update';
-        $languageId = $this->route('language');
-
         return [
-            'code' => [
-                $isUpdate ? 'sometimes' : 'required',
-                'string',
-                'max:10',
-                Rule::unique('ai_languages', 'code')->ignore($languageId),
-            ],
-            'name' => [$isUpdate ? 'sometimes' : 'required', 'string', 'max:100'],
-            'direction' => ['nullable', Rule::in(['ltr', 'rtl'])],
-            'is_active' => ['nullable', 'boolean'],
+            'ai_enabled' => ['required', 'boolean'],
         ];
     }
 }

@@ -69,9 +69,47 @@ class AiDocumentTextExtractor
             return null;
         }
 
+        // Root-cause fix - real, observed bug: extracted PDF text (most of
+        // all from the dependency-free fallback path below, which has no
+        // real encoding/CMap resolution) can easily contain invalid UTF-8
+        // byte sequences - a garbled remnant of a CID/Identity-H embedded
+        // font, say. Two things downstream both fail outright, not
+        // gracefully, on a single invalid byte: the preg_replace() calls
+        // just below (their /u modifier makes PCRE return null on invalid
+        // input, which the old code masked with "?? $text" - silently
+        // keeping the ORIGINAL, still-invalid text instead of a cleaned
+        // one) and, far more seriously, json_encode() when this text is
+        // later folded into the chat history and sent to the provider's
+        // API - that throws/fails the entire request. The user never sees
+        // either failure for what it is: it surfaces as the chat's
+        // generic "provider unavailable" message on a request that would
+        // have worked fine without the attachment. Sanitizing immediately
+        // after extraction, before anything else touches this text, closes
+        // both gaps at once.
+        $text = $this->sanitizeUtf8($text);
+
         $text = trim(preg_replace('/[ \t]+/u', ' ', preg_replace('/\n{3,}/u', "\n\n", $text) ?? $text) ?? $text);
 
         return $text === '' ? null : $text;
+    }
+
+    /**
+     * Drops/replaces any byte sequence that isn't valid UTF-8 rather than
+     * letting it silently poison every later consumer of this text (see
+     * the call site's docblock above). iconv's //IGNORE suffix is tried
+     * first because it drops invalid bytes outright instead of
+     * substituting a replacement character for each one; mb_convert_encoding
+     * is the fallback for the rare environment without iconv.
+     */
+    protected function sanitizeUtf8(string $text): string
+    {
+        $clean = @iconv('UTF-8', 'UTF-8//IGNORE', $text);
+
+        if (! is_string($clean) || $clean === '') {
+            $clean = @mb_convert_encoding($text, 'UTF-8', 'UTF-8');
+        }
+
+        return is_string($clean) ? $clean : '';
     }
 
     protected function extractPdf(string $absolutePath): ?string

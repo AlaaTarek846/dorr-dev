@@ -30,6 +30,7 @@
                                     <th>{{ t('ai_plans.prices_country') }}</th>
                                     <th>{{ t('ai_plans.prices_currency') }}</th>
                                     <th>{{ t('ai_plans.prices_price') }}</th>
+                                    <th>{{ t('ai_plans.prices_discount_percent') }}</th>
                                     <th>{{ t('ai_plans.prices_original_price') }}</th>
                                     <th></th>
                                     <th class="text-end"></th>
@@ -48,6 +49,19 @@
                                             class="form-control form-control-sm"
                                             dir="ltr"
                                             :placeholder="String(plan?.price ?? 0)"
+                                            @input="onRowPriceInput(row)"
+                                        >
+                                    </td>
+                                    <td style="min-width: 110px;">
+                                        <input
+                                            v-model="row.discount_percent"
+                                            type="number"
+                                            step="1"
+                                            min="0"
+                                            max="99"
+                                            class="form-control form-control-sm"
+                                            dir="ltr"
+                                            @input="onRowDiscountInput(row)"
                                         >
                                     </td>
                                     <td style="min-width: 140px;">
@@ -58,6 +72,7 @@
                                             min="0"
                                             class="form-control form-control-sm"
                                             dir="ltr"
+                                            @input="onRowOriginalPriceInput(row)"
                                         >
                                     </td>
                                     <td>
@@ -140,17 +155,69 @@ async function loadRows() {
         const { data } = await adminAxios.get(`/api/admin/v1/ai-plans/${props.plan.id}/prices`);
         const payload = data.data ?? {};
 
-        rows.value = (payload.rows ?? []).map((row) => ({
-            ...row,
-            price: row.price ?? '',
-            original_price: row.original_price ?? '',
-        }));
+        rows.value = (payload.rows ?? []).map((row) => {
+            const price = Number(row.price);
+            const original = Number(row.original_price);
+            const discount = Number.isFinite(original) && original > price && price > 0
+                ? Math.round((1 - price / original) * 100)
+                : '';
+
+            return {
+                ...row,
+                price: row.price ?? '',
+                original_price: row.original_price ?? '',
+                discount_percent: discount,
+                // Which of price/original_price this row's discount% should
+                // recompute when edited - defaults to 'price' (the actually
+                // charged amount) whenever one is already known, same rule
+                // as the base-plan modal.
+                _anchor: price > 0 ? 'price' : (original > 0 ? 'original_price' : null),
+            };
+        });
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
         rows.value = [];
     } finally {
         loading.value = false;
     }
+}
+
+function round2(value) {
+    return Math.round(value * 100) / 100;
+}
+
+// Same price <-> original_price <-> discount% bidirectional calc as the
+// base-plan modal (ModalCreateAndUpdate.vue), applied per country row -
+// discount_percent is a client-only helper, never sent to the server.
+function recomputeRowFromDiscount(row) {
+    const pct = Number(row.discount_percent);
+    if (! Number.isFinite(pct) || pct <= 0 || pct >= 100) return;
+
+    if (row._anchor === 'price') {
+        const price = Number(row.price);
+        if (Number.isFinite(price) && price > 0) {
+            row.original_price = round2(price / (1 - pct / 100));
+        }
+    } else if (row._anchor === 'original_price') {
+        const original = Number(row.original_price);
+        if (Number.isFinite(original) && original > 0) {
+            row.price = round2(original * (1 - pct / 100));
+        }
+    }
+}
+
+function onRowPriceInput(row) {
+    row._anchor = 'price';
+    recomputeRowFromDiscount(row);
+}
+
+function onRowOriginalPriceInput(row) {
+    row._anchor = 'original_price';
+    recomputeRowFromDiscount(row);
+}
+
+function onRowDiscountInput(row) {
+    recomputeRowFromDiscount(row);
 }
 
 async function saveRow(row) {
@@ -197,6 +264,8 @@ async function removeRow(row) {
         row.is_country_specific = false;
         row.price = '';
         row.original_price = '';
+        row.discount_percent = '';
+        row._anchor = null;
 
         showSuccess(extractApiMessage(response, t('toast.deleted')));
     } catch (error) {

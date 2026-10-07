@@ -43,7 +43,7 @@
 
                                     <tr v-for="session in sessions" v-else :key="session.id">
                                         <td>
-                                            <span class="d-block fw-semibold">{{ session.owner?.name ?? '-' }}</span>
+                                            <span class="d-block fw-semibold">{{ ownerDisplayName(session.owner) }}</span>
                                             <span class="d-block text-muted fs-11">#{{ session.owner?.id }}</span>
                                         </td>
                                         <td>{{ session.subscription?.plan?.name ?? '-' }}</td>
@@ -73,6 +73,7 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
+import { ownerDisplayName } from '../../../../../../utils/aiOwner';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../composables/useToast';
 

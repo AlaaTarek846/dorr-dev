@@ -15,10 +15,13 @@ class AiLanguageEvaluationResource extends JsonResource
         return [
             'id' => $this->id,
             'name' => $this->name,
+            // Root-cause fix (languages consolidation): "language" is now
+            // App\Models\Language, which has no plain "name" column -
+            // display names are per-locale, via translatedName().
             'language' => $this->whenLoaded('language', fn () => $this->language ? [
                 'id' => $this->language->id,
                 'code' => $this->language->code,
-                'name' => $this->language->name,
+                'name' => $this->language->translatedName(),
             ] : null),
             'language_id' => $this->language_id,
             'variant' => $this->whenLoaded('variant', fn () => $this->variant ? [

@@ -4,6 +4,7 @@ namespace Modules\AI\Services;
 
 use Illuminate\Support\Str;
 use Modules\AI\Enums\AiModelCapability;
+use Modules\AI\Support\AiChatLexicon;
 
 /**
  * Figures out which ai_provider_models capabilities a given chat turn
@@ -94,46 +95,99 @@ class AiRequiredCapabilityResolver
      */
     protected array $imageChangeVerbs = [
         'غير', 'غيّر', 'بدل', 'بدّل', 'خلي', 'خلّي', 'عدل', 'حول', 'حوّل',
-        'change', 'recolor', 'colorize',
+        // Root-cause fix - real, observed bug: "زود كمان على الصوره قطه بتضحك" ("also add a laughing cat to
+        // the picture") mentions "الصوره" explicitly - so the word-gate was never
+        // the problem - but "زود"/"add" is an ADDITION verb, not a
+        // change/recolor one, and this list only ever covered the latter. The
+        // result fell straight through to the honest-refusal system message
+        // even though the request was mentioning the picture by name.
+        'زود', 'زوّد', 'ضيف', 'ضيّف', 'اضف', 'أضف',
+        'change', 'recolor', 'colorize', 'add',
+    ];
+
+    /**
+     * Root-cause fix - real, observed bug: mentionsChangingTheImage()
+     * below gives EDIT requests a robust "creation verb + mention of the
+     * picture" gate that survives natural phrasing (definite articles,
+     * conjugations, ...) instead of needing an exact fixed phrase - but
+     * brand-new image GENERATION only ever had the rigid
+     * $keywordsByCapability['image_generation'] phrase list, which is a
+     * byte-exact substring check. A message like "اعمل الصوره اللى
+     * طلبتها منك" ("make the picture I asked you for") never matches the
+     * fixed phrase "اعمل صورة"/"اعمل صوره" because of the inserted "ال"
+     * (definite article) - "اعمل" + "الصوره" is not the same substring as
+     * "اعمل" + "صوره". The request silently carried no required
+     * capabilities, so routing picked an ordinary chat model, which then
+     * (correctly, for itself) explained it cannot actually produce an
+     * image - confusing and wrong from the user's point of view, since a
+     * real image-generation model/connector exists and was never even
+     * considered. These verbs mirror $imageChangeVerbs but for CREATING a
+     * picture from scratch rather than changing an existing one.
+     *
+     * @var list<string>
+     */
+    protected array $imageCreationVerbs = [
+        'اعمل', 'أعمل', 'اعملي', 'أعملي', 'اطلع', 'أطلع', 'طلعلي', 'ولد', 'وّلد', 'اصنع', 'أصنع', 'جهزلي',
+        'make', 'generate', 'create',
+    ];
+
+    /**
+     * Verbs used to ASK FOR code to be written, checked together with a
+     * bare mention of "code" below - the same verb+mention gate already
+     * used for image edits above, for the same reason: a literal phrase
+     * list ('اكتب كود', 'برمج لي', ...) only ever matches that exact
+     * wording and silently misses every natural conjugation ("تكتبلي
+     * كود", "تكتبلى كود") of the same request.
+     *
+     * @var list<string>
+     */
+    protected array $codeCreationVerbs = [
+        'تكتب', 'أكتب', 'اكتب', 'يكتب', 'اعمل', 'أعمل', 'اعملي', 'ابعت', 'ابعتلي', 'ابنيلي', 'ابني',
+        'صمم', 'برمج', 'جهز', 'جهزلي',
+        'write', 'create', 'build', 'generate',
     ];
 
     /**
      * @return list<string>
      */
-    public function resolve(string $content, ?string $attachmentMimeType = null): array
+    public function resolve(string $content, ?string $attachmentMimeType = null, bool $recentImageExists = false): array
     {
         $required = [];
-        $lower = mb_strtolower($content);
+        // Root-cause fix (systemic): every keyword/verb gate below used to
+        // do a byte-exact comparison, so each Arabic spelling variant
+        // (ى/ي, ة/ه, hamza forms, diacritics, elongation) and each dialect
+        // (Egyptian vs Saudi/Gulf vs MSA vs English) needed its own hand
+        // added entry - and every miss silently routed the request to a
+        // plain chat model. All matching now goes through
+        // AiChatLexicon/ArabicTextNormalizer, which normalizes BOTH the
+        // message and every phrase, so one natural spelling per phrase
+        // covers them all. The legacy phrase lists below are kept and
+        // consulted too, so nothing that matched before can stop matching.
+        $legacy = array_map(
+            fn (array $keywords) => $keywords,
+            $this->keywordsByCapability,
+        );
 
-        // Root-cause fix - real, observed bug: a real user message
-        // ("اعمل صوره فيها كلب بيضحك مع طفل") was never detected as
-        // needing "image_generation" at all, because the keyword list
-        // below only has the phrase spelled with taa marbuta ("اعمل
-        // صورة"), and Str::contains() is a byte-exact substring check -
-        // "صوره" (spelled with a plain haa, the extremely common informal
-        // spelling on mobile keyboards) simply never matches it. The
-        // result silently fell through to a plain chat model, which then
-        // honestly (but wrongly, from the user's point of view) declined
-        // to draw anything. Normalizing the taa-marbuta/haa ending before
-        // comparing (both the incoming text AND every keyword) makes
-        // "صورة"/"صوره" - and every other keyword ending the same way -
-        // match interchangeably, without having to hand-duplicate every
-        // phrase in the list under both spellings.
-        $normalizedLower = str_replace('ة', 'ه', $lower);
-
-        foreach ($this->keywordsByCapability as $capability => $keywords) {
-            foreach ($keywords as $keyword) {
-                $normalizedKeyword = str_replace('ة', 'ه', mb_strtolower($keyword));
-
-                if (Str::contains($normalizedLower, $normalizedKeyword)) {
-                    $required[] = $capability;
-                    break;
-                }
+        foreach ($legacy as $capability => $keywords) {
+            if (AiChatLexicon::containsAny($content, $keywords)) {
+                $required[] = $capability;
             }
         }
 
-        if (! in_array(AiModelCapability::ImageGeneration->value, $required, true) && $this->mentionsChangingTheImage($lower)) {
-            $required[] = AiModelCapability::ImageGeneration->value;
+        $viaLexicon = [
+            'image_generation' => AiChatLexicon::wantsImageGeneration($content) || AiChatLexicon::wantsImageEdit($content, $recentImageExists),
+            'video_output' => AiChatLexicon::wantsVideoGeneration($content),
+            'research' => AiChatLexicon::wantsResearch($content),
+            'study' => AiChatLexicon::wantsStudyHelp($content),
+            'coding' => AiChatLexicon::wantsCode($content),
+            'web_search' => AiChatLexicon::wantsWebSearch($content),
+            'structured_output' => AiChatLexicon::wantsStructuredOutput($content),
+        ];
+
+        foreach ($viaLexicon as $capability => $matched) {
+            if ($matched) {
+                $required[] = $capability;
+            }
         }
 
         if ($attachmentMimeType !== null) {
@@ -203,15 +257,85 @@ class AiRequiredCapabilityResolver
      * is never misrouted to the image-editing model) while still covering
      * the real conjugations that broke before.
      */
-    protected function mentionsChangingTheImage(string $lower): bool
+    protected function mentionsChangingTheImage(string $lower, bool $recentImageExists = false): bool
     {
-        $mentionsPicture = Str::contains($lower, ['صور', 'image', 'picture', 'photo']);
+        // Root-cause fix - real, observed bug: a user who was just shown
+        // a generated picture replying "خلي الطفل ده لابس بدلة وفى فرح
+        // كده ومعاه بوكيه ورد" ("make this kid wear a suit...") never
+        // says the word "صورة"/"image"/"picture" at all - they are
+        // naturally talking about the SUBJECT of the photo they can see
+        // right above the composer, not "the picture" as an abstract
+        // object. The old $mentionsPicture gate required that literal
+        // word unconditionally, so this read as a normal chat message
+        // and the plain text model answered "sorry, I can't edit images"
+        // - true for it personally, but dishonest about what this app
+        // can actually do. $recentImageExists (true only when the
+        // immediately preceding message in this conversation carried an
+        // image - see AiChatService::conversationEndsWithImage()) lets a
+        // bare change-verb stand in for the missing "the picture" ONLY
+        // in that narrow, unambiguous situation; anywhere else in the
+        // conversation the literal-word requirement still applies, so an
+        // unrelated "خليك هادي" days later in the same thread is not
+        // affected.
+        $mentionsPicture = $recentImageExists || Str::contains($lower, ['صور', 'image', 'picture', 'photo']);
 
         if (! $mentionsPicture) {
             return false;
         }
 
         foreach ($this->imageChangeVerbs as $verb) {
+            if ($this->containsWordStartingWith($lower, $verb)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Same verb+mention gate as mentionsChangingTheImage() above, but for
+     * a brand-new image GENERATION request rather than an edit of an
+     * existing one - see $imageCreationVerbs' docblock for the real,
+     * observed bug this fixes. Deliberately does not consult
+     * $recentImageExists the way the edit gate does: a bare creation verb
+     * right after a generated image ("اعمل واحده تانية" with no mention
+     * of "صورة" at all) is ambiguous between "make another picture" and
+     * an unrelated request, and misreading it the wrong way silently
+     * routes to the image model for a normal chat message - a worse
+     * failure than asking the user to be explicit once.
+     */
+    protected function mentionsGeneratingImage(string $lower): bool
+    {
+        if (! Str::contains($lower, ['صور', 'image', 'picture', 'photo', 'logo', 'لوجو'])) {
+            return false;
+        }
+
+        foreach ($this->imageCreationVerbs as $verb) {
+            if ($this->containsWordStartingWith($lower, $verb)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Same verb+mention gate as mentionsChangingTheImage() above, for a
+     * request to write code: requires BOTH a creation verb AND a mention
+     * of "code"/a code fence, so an unrelated "عايز كود خصم" ("I want a
+     * discount code") - no creation verb present - is never misrouted to
+     * a coding-capable model, while "تكتبلي كود لصفحة منتجات" correctly
+     * is.
+     */
+    protected function mentionsWritingCode(string $lower): bool
+    {
+        $mentionsCode = Str::contains($lower, ['كود', 'اكواد', 'كواد', 'code', 'script', '```']);
+
+        if (! $mentionsCode) {
+            return false;
+        }
+
+        foreach ($this->codeCreationVerbs as $verb) {
             if ($this->containsWordStartingWith($lower, $verb)) {
                 return true;
             }
@@ -234,6 +358,16 @@ class AiRequiredCapabilityResolver
      */
     protected function containsWordStartingWith(string $haystack, string $needle): bool
     {
+        // Root-cause fix - same real, observed bug and same reasoning as
+        // AiChatService::containsWordStartingWith(): "خلى" (alef maksura)
+        // vs "خلي" (ya) are typed interchangeably in everyday Egyptian
+        // Arabic and never matched each other as distinct Unicode
+        // codepoints, so a message like "خلى كمان واقف فى ميدان" never
+        // set required_capabilities=[image_generation] at all, and the
+        // router picked an ordinary chat model instead of an image-edit
+        // one.
+        $haystack = str_replace('ى', 'ي', $haystack);
+
         $pattern = '/(?<![\p{L}\p{M}])'.preg_quote(mb_strtolower($needle), '/').'/u';
 
         return (bool) preg_match($pattern, $haystack);

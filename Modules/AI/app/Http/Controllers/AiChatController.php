@@ -48,9 +48,19 @@ class AiChatController extends Controller
         return $this->service->sendMessage(
             $this->owner($request),
             $conversation,
-            $request->validated('message'),
+            // 'message' is now nullable when an attachment is present (see
+            // AiChatMessageRequest - a voice-only send has nothing typed),
+            // but sendMessage()'s $content parameter is a plain non-nullable
+            // string, so null must be coalesced here rather than passed
+            // through and fatal with a TypeError.
+            $request->validated('message') ?? '',
             $request->file('attachment'),
             $request->header('Idempotency-Key'),
+            // Phase 10: explicit per-message file scope, null when the
+            // client did not send it (falls back to the conversation's
+            // own attached-file scope - see
+            // AiChatService::resolveFileRetrievalContext()).
+            $request->validated('file_ids'),
         );
     }
 
@@ -70,6 +80,11 @@ class AiChatController extends Controller
             $conversation,
             $request->validated('message'),
             $request->header('Idempotency-Key'),
+            // Phase 11 (doc S12): same explicit per-message file scope
+            // the plain sendMessage() endpoint already accepts - see
+            // AiChatService::streamMessage()'s own docblock for why the
+            // streaming path needs it too.
+            $request->validated('file_ids'),
         );
     }
 

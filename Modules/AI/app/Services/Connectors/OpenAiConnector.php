@@ -4,6 +4,7 @@ namespace Modules\AI\Services\Connectors;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\Http;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Services\Connectors\Concerns\SendsOpenAiCompatibleChat;
 
@@ -168,6 +169,110 @@ class OpenAiConnector extends AbstractHttpConnector
     }
 
     /**
+     * OpenAI Sora (POST /videos, GET /videos/{id}, GET /videos/{id}/content).
+     * Clip lengths per OpenAI's documented values for Sora 2.
+     *
+     * @return list<int>
+     */
+    public function videoDurationOptions(AiProvider $provider, string $modelKey): array
+    {
+        // OpenAI shut the Sora Videos API down on 2026-09-24 (no replacement), so
+        // no OpenAI model is offered for video. Set AI_OPENAI_VIDEO_ENABLED=true
+        // only if OpenAI ever brings a /videos endpoint back.
+        return config('ai.video.openai_enabled', false) ? [4, 8, 12] : [];
+    }
+
+    /** @return array{success: bool, message: string, job_id: ?string} */
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array
+    {
+        if (! $provider->hasApiKey()) {
+            return ['success' => false, 'message' => __('ai.api_key_missing'), 'job_id' => null];
+        }
+
+        try {
+            $response = $this->client()
+                ->withHeaders(['Authorization' => 'Bearer '.$provider->api_key])
+                ->post($this->baseUrl($provider).'/videos', [
+                    'model' => $modelKey ?: 'sora-2',
+                    'prompt' => $prompt,
+                    'seconds' => (string) $seconds,
+                    'size' => (string) config('ai.video.size', '1280x720'),
+                ]);
+
+            if (! $response->successful()) {
+                return ['success' => false, 'message' => $this->errorMessageFromResponse($response), 'job_id' => null];
+            }
+
+            $id = $response->json('id');
+
+            if (! is_string($id) || $id === '') {
+                return ['success' => false, 'message' => __('ai.empty_reply'), 'job_id' => null];
+            }
+
+            return ['success' => true, 'message' => '', 'job_id' => $id];
+        } catch (ConnectionException $exception) {
+            return ['success' => false, 'message' => __('ai.connection_failed', ['message' => $exception->getMessage()]), 'job_id' => null];
+        } catch (\Throwable $exception) {
+            return ['success' => false, 'message' => __('ai.unexpected_error', ['message' => $exception->getMessage()]), 'job_id' => null];
+        }
+    }
+
+    /** @return array{success: bool, message: string, state: string, progress: ?int} */
+    public function pollVideo(AiProvider $provider, string $jobId): array
+    {
+        try {
+            $response = $this->client()
+                ->withHeaders(['Authorization' => 'Bearer '.$provider->api_key])
+                ->get($this->baseUrl($provider).'/videos/'.rawurlencode($jobId));
+
+            if (! $response->successful()) {
+                return ['success' => false, 'message' => $this->errorMessageFromResponse($response), 'state' => 'failed', 'progress' => null];
+            }
+
+            $status = (string) $response->json('status');
+            $progress = $response->json('progress');
+            $progress = is_numeric($progress) ? (int) $progress : null;
+
+            return match ($status) {
+                'completed' => ['success' => true, 'message' => '', 'state' => 'completed', 'progress' => 100],
+                'failed', 'cancelled', 'canceled', 'expired' => ['success' => false, 'message' => (string) ($response->json('error.message') ?? $status), 'state' => 'failed', 'progress' => $progress],
+                'queued' => ['success' => true, 'message' => '', 'state' => 'queued', 'progress' => $progress],
+                default => ['success' => true, 'message' => '', 'state' => 'processing', 'progress' => $progress],
+            };
+        } catch (\Throwable $exception) {
+            // A network blip while polling must not fail a job that is still running at the provider.
+            return ['success' => true, 'message' => $exception->getMessage(), 'state' => 'processing', 'progress' => null];
+        }
+    }
+
+    /** @return array{success: bool, message: string} */
+    public function downloadVideo(AiProvider $provider, string $jobId, string $destinationPath): array
+    {
+        try {
+            $response = Http::timeout((int) config('ai.video.download_timeout', 180))
+                ->withHeaders(['Authorization' => 'Bearer '.$provider->api_key])
+                ->sink($destinationPath)
+                ->get($this->baseUrl($provider).'/videos/'.rawurlencode($jobId).'/content');
+
+            if (! $response->successful()) {
+                @unlink($destinationPath);
+
+                return ['success' => false, 'message' => $this->errorMessageFromResponse($response)];
+            }
+
+            if (! is_file($destinationPath) || filesize($destinationPath) === 0) {
+                return ['success' => false, 'message' => __('ai.empty_reply')];
+            }
+
+            return ['success' => true, 'message' => ''];
+        } catch (\Throwable $exception) {
+            @unlink($destinationPath);
+
+            return ['success' => false, 'message' => __('ai.unexpected_error', ['message' => $exception->getMessage()])];
+        }
+    }
+
+    /**
      * Real embeddings support via OpenAI's /embeddings endpoint - the only
      * connector with a genuine implementation right now (Anthropic has no
      * embeddings API; Google/Groq are not wired up yet). The Knowledge
@@ -219,7 +324,7 @@ class OpenAiConnector extends AbstractHttpConnector
      *
      * @return array{success: bool, message: string, text: ?string}
      */
-    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime): array
+    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime, ?string $languageHint = null): array
     {
         if (! $provider->hasApiKey()) {
             return ['success' => false, 'message' => __('ai.api_key_missing'), 'text' => null];
@@ -234,14 +339,29 @@ class OpenAiConnector extends AbstractHttpConnector
             default => 'mp3',
         };
 
+        // Root-cause fix: without OpenAI's own "language" field, Whisper
+        // auto-detects the spoken language, and short/accented Arabic
+        // voice messages routinely get misdetected (wrong language
+        // entirely, or a mangled mixed-script transcript) - the
+        // downstream reply then looks like it's in a "weird language"
+        // when really the transcript it answered was already wrong.
+        // Giving Whisper the ISO-639-1 hint it already supports fixes
+        // this at the source instead of trying to patch it after the
+        // fact in the chat reply.
+        $fields = [
+            'model' => $modelKey ?: 'whisper-1',
+            'response_format' => 'json',
+        ];
+
+        if ($languageHint !== null && $languageHint !== '') {
+            $fields['language'] = $languageHint;
+        }
+
         try {
             $response = $this->client()
                 ->withHeaders(['Authorization' => 'Bearer '.$provider->api_key])
                 ->attach('file', $audioBytes, "voice-message.{$extension}")
-                ->post($this->baseUrl($provider).'/audio/transcriptions', [
-                    'model' => $modelKey ?: 'whisper-1',
-                    'response_format' => 'json',
-                ]);
+                ->post($this->baseUrl($provider).'/audio/transcriptions', $fields);
 
             if (! $response->successful()) {
                 return ['success' => false, 'message' => $this->errorMessageFromResponse($response), 'text' => null];
