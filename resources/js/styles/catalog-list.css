@@ -321,6 +321,16 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
     }
 }
 
+/* An amount reads left to right in every language ("-1,000.00 SAR": the minus before the number, never after it),
+   isolated from the Arabic text around it, and aligned with the other columns of its row. */
+.wallet-num {
+    display: inline-block;
+    direction: ltr;
+    unicode-bidi: isolate;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
 /* Wallet pages: PrimeVue filter selects sit in the toolbar like the small Bootstrap controls. */
 .wallet-filter-select {
     min-width: 180px;
@@ -339,4 +349,64 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
 
 .p-multiselect.wallet-filter-select .p-multiselect-label {
     padding-block: 0.25rem;
+}
+
+/*
+ * Wallet form modals whose fields and footer sit inside a <form>. Bootstrap's scrollable modal expects the body to be
+ * a direct child of the content box, so a tall form was just cut off. The form becomes the flex column, the body
+ * scrolls inside it — smoothly, contained in the dialog, with a clearly visible themed bar — and the footer with the
+ * save button stays in view.
+ */
+.wallet-scroll-form {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.wallet-scroll-form .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    /* "scroll", not "auto": the bar and its track are always there, so it is plain that the form scrolls. */
+    overflow-y: scroll;
+    padding-block: 1rem;
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    scroll-padding-block: 1rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Chromium / Brave / Edge / Safari use the ::-webkit-scrollbar rules (Chromium ignores them once scrollbar-width /
+   scrollbar-color are set, so those are kept in the @supports block for Firefox only). */
+.wallet-scroll-form .modal-body::-webkit-scrollbar {
+    width: 12px;
+}
+
+.wallet-scroll-form .modal-body::-webkit-scrollbar-track {
+    margin-block: 6px;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.1);
+}
+
+.wallet-scroll-form .modal-body::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.6);
+    background-clip: padding-box;
+}
+
+.wallet-scroll-form .modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.85);
+    background-clip: padding-box;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    .wallet-scroll-form .modal-body {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(var(--primary-rgb, 132, 90, 223), 0.6) rgba(var(--primary-rgb, 132, 90, 223), 0.1);
+    }
+}
+
+.wallet-scroll-form .modal-footer {
+    flex-shrink: 0;
 }

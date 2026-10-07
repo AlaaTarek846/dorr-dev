@@ -1141,7 +1141,8 @@
             "all_directions": "كل الاتجاهات",
             "invalid_amount": "أدخل مبلغاً بحد أقصى منزلتين عشريتين.",
             "active": "مفعّل",
-            "inactive": "غير مفعّل"
+            "inactive": "غير مفعّل",
+            "per_page": "لكل صفحة"
         },
         "status": {
             "pending": "معلّقة",

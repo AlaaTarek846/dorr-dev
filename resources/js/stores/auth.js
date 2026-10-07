@@ -10,6 +10,9 @@ function normalizePermissionNames(value) {
     return value.filter((name) => typeof name === 'string' && name !== '');
 }
 
+/** The /me request in flight, shared by everyone who asks for the profile at the same time (route guard, header, profile page). */
+let meRequest = null;
+
 export const useAuthStore = defineStore('auth', {
     state: () => ({
         token: localStorage.getItem(TOKEN_KEY),
@@ -63,17 +66,39 @@ export const useAuthStore = defineStore('auth', {
             this.setSession({ token: null, admin: null });
         },
 
-        async refreshSession(adminAxios) {
+        /**
+         * The signed-in admin and their permissions, from `GET /api/admin/v1/me` — asked for once. Anyone who needs the
+         * profile calls this: while the request is on its way they all get that same request, and once the profile is in
+         * the store it is not fetched again (pass `force` to ask the server anyway).
+         */
+        async loadMe(adminAxios, { force = false } = {}) {
             if (! this.token) {
-                return;
+                return null;
             }
 
-            const { data } = await adminAxios.get('/api/admin/v1/me');
+            if (! force && this.admin) {
+                return this.admin;
+            }
 
-            this.setSession({
-                token: this.token,
-                admin: data.data,
-            });
+            if (! meRequest) {
+                meRequest = adminAxios.get('/api/admin/v1/me')
+                    .then(({ data }) => {
+                        this.setSession({ token: this.token, admin: data.data });
+
+                        return this.admin;
+                    })
+                    .finally(() => {
+                        meRequest = null;
+                    });
+            }
+
+            return meRequest;
+        },
+
+        async refreshSession(adminAxios) {
+            // The route guard asks when the permissions are not known yet (a login response may carry the admin without
+            // them), so it forces the fetch — but still joins a /me that is already on its way instead of sending another.
+            await this.loadMe(adminAxios, { force: true });
         },
     },
 });

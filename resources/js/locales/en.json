@@ -1141,7 +1141,8 @@
             "all_directions": "All directions",
             "invalid_amount": "Enter an amount with at most 2 decimals.",
             "active": "Active",
-            "inactive": "Inactive"
+            "inactive": "Inactive",
+            "per_page": "Per page"
         },
         "status": {
             "pending": "Pending",

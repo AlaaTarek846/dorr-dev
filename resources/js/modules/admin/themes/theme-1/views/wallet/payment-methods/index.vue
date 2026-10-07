@@ -18,6 +18,7 @@
                             <i class="ri-close-line"></i>
                         </button>
                     </div>
+                    <WalletStatusTabs :model-value="statusFilter" :counts="counts" @update:model-value="setStatusFilter" />
                 </div>
                 <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                     <button
@@ -128,7 +129,7 @@
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
         <ModalCreateAndUpdate
@@ -161,6 +162,8 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import { useConfirmDelete } from '../../../../../../../composables/useConfirmDelete';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import useWalletList from '../../../../../../../composables/useWalletList';
+import useWalletStatusTabs from '../../../../../../../composables/useWalletStatusTabs';
+import WalletStatusTabs from '../../../../../../../components/wallet/WalletStatusTabs.vue';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 
@@ -174,7 +177,8 @@ const canDelete = computed(() => can('payment-methods.delete'));
 const canChangeStatus = computed(() => can('payment-methods.change-status'));
 const canMultipleDelete = computed(() => can('payment-methods.multiple-delete'));
 
-const { rows, loading, pagination, filters, fetch } = useWalletList('payment-methods', { defaults: { search: '' } });
+const { rows, loading, pagination, filters, fetch, perPage, statusCounts } = useWalletList('payment-methods', { defaults: { search: '', filterColumns: '' }, statusCounts: true });
+const { statusFilter, counts, setStatusFilter } = useWalletStatusTabs(filters, statusCounts);
 fetch(1);
 
 const tableColumnCount = computed(() => 5 + (canMultipleDelete.value ? 1 : 0));

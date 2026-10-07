@@ -7,10 +7,10 @@
                 <div class="card custom-card">
                     <div class="card-body">
                         <div class="fw-semibold mb-2">{{ entry.currency_code }}</div>
-                        <div class="d-flex justify-content-between"><span class="text-muted">{{ t('wallet.ledger.income') }}</span><span class="text-success fw-semibold">{{ fmtMinor(entry.income_minor) }}</span></div>
-                        <div class="d-flex justify-content-between"><span class="text-muted">{{ t('wallet.ledger.expense') }}</span><span class="text-danger fw-semibold">{{ fmtMinor(entry.expense_minor) }}</span></div>
+                        <div class="d-flex justify-content-between"><span class="text-muted">{{ t('wallet.ledger.income') }}</span><span class="wallet-num text-success fw-semibold">{{ fmtMinor(entry.income_minor) }}</span></div>
+                        <div class="d-flex justify-content-between"><span class="text-muted">{{ t('wallet.ledger.expense') }}</span><span class="wallet-num text-danger fw-semibold">{{ fmtMinor(entry.expense_minor) }}</span></div>
                         <hr class="my-2">
-                        <div class="d-flex justify-content-between"><span class="fw-semibold">{{ t('wallet.ledger.net') }}</span><span class="fw-bold" :class="entry.net_minor < 0 ? 'text-danger' : 'text-success'">{{ fmtMinor(entry.net_minor) }}</span></div>
+                        <div class="d-flex justify-content-between"><span class="fw-semibold">{{ t('wallet.ledger.net') }}</span><span class="wallet-num fw-bold" :class="entry.net_minor < 0 ? 'text-danger' : 'text-success'">{{ fmtMinor(entry.net_minor) }}</span></div>
                     </div>
                 </div>
             </div>
@@ -36,6 +36,8 @@
                         filter
                         :filter-placeholder="t('search_placeholder')"
                         v-model="filters.type"
+                        :placeholder="t('wallet.common.type')"
+                        show-clear
                         :options="typeFilterOptions"
                         option-label="label"
                         option-value="value"
@@ -48,7 +50,7 @@
 
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table text-nowrap table-striped table-hover mb-0">
+                    <table class="table table-striped table-hover align-middle mb-0 ledger-table">
                         <thead>
                             <tr>
                                 <th class="ps-4">{{ t('wallet.common.date') }}</th>
@@ -56,7 +58,7 @@
                                 <th>{{ t('wallet.common.type') }}</th>
                                 <th>{{ t('wallet.common.amount') }}</th>
                                 <th>{{ t('wallet.common.note') }}</th>
-                                <th>{{ t('wallet.wallets.country') }}</th>
+                                <th class="pe-4">{{ t('wallet.wallets.country') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -74,22 +76,31 @@
                             </tr>
                             <template v-else>
                                 <tr v-for="row in rows" :key="row.id" class="crm-contact">
-                                    <td class="ps-4">{{ row.entry_date }}</td>
-                                    <td>
-                                        <span class="fw-semibold d-block">{{ row.category?.name }}</span>
-                                        <span class="d-block text-muted fs-11">{{ row.category?.slug }}</span>
+                                    <td class="ps-4 text-nowrap fw-semibold">{{ entryDate(row.entry_date) }}</td>
+                                    <td class="ledger-category">
+                                        <!-- The name is the slug itself until someone translates it: show it once, not twice. -->
+                                        <span class="fw-semibold d-block"><bdi>{{ row.category?.name || row.category?.slug || '—' }}</bdi></span>
+                                        <span v-if="row.category?.slug && row.category.name && row.category.name !== row.category.slug" class="ledger-slug d-block text-muted fs-11"><bdi>{{ row.category.slug }}</bdi></span>
                                     </td>
-                                    <td><span class="badge" :class="row.type === 'income' ? 'bg-success-transparent' : 'bg-danger-transparent'">{{ t(`wallet.ledger.${row.type}`) }}</span></td>
-                                    <td class="fw-semibold" dir="ltr">{{ fmtMinor(row.amount_minor, row.currency_code) }}</td>
-                                    <td class="text-wrap" style="max-width: 320px;">{{ row.note }}</td>
-                                    <td><span v-if="row.country_code" class="badge bg-primary-transparent">{{ row.country_code }}</span><span v-else class="text-muted">-</span></td>
+                                    <td class="text-nowrap"><span class="badge" :class="row.type === 'income' ? 'bg-success-transparent' : 'bg-danger-transparent'">{{ t(`wallet.ledger.${row.type}`) }}</span></td>
+                                    <td class="text-nowrap">
+                                        <span class="wallet-num fw-semibold" :class="row.type === 'income' ? 'text-success' : 'text-danger'">{{ fmtMinor(row.amount_minor, row.currency_code) }}</span>
+                                    </td>
+                                    <td class="ledger-note">{{ row.note || '—' }}</td>
+                                    <td class="pe-4 text-nowrap">
+                                        <span v-if="row.country_code" class="d-inline-flex align-items-center gap-2">
+                                            <FlagImage :code="row.country_code" :size="32" :width="24" :height="18" class="ledger-flag" />
+                                            <span class="badge bg-primary-transparent">{{ row.country_code }}</span>
+                                        </span>
+                                        <span v-else class="text-muted">—</span>
+                                    </td>
                                 </tr>
                             </template>
                         </tbody>
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
     </div>
 </template>
@@ -100,22 +111,31 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
 import AdminDatePicker from '../../../../../../../components/ui/AdminDatePicker.vue';
+import FlagImage from '../../../../../../../components/ui/FlagImage.vue';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { fmtMinor } from '../../../../../../../utils/walletMoney';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
+
+/** "2026-10-07" → "7 Oct 2026" / "7 أكتوبر 2026" (Latin digits in both languages, like the amounts next to it). */
+function entryDate(value) {
+    if (! value) {
+        return '—';
+    }
+
+    return new Date(value).toLocaleDateString(locale.value === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' });
+}
 
 const typeFilterOptions = computed(() => [
-    { value: '', label: t('wallet.ledger.all_types') },
     { value: 'income', label: t('wallet.ledger.income') },
     { value: 'expense', label: t('wallet.ledger.expense') },
 ]);
 
-const { rows, loading, pagination, filters, fetch } = useWalletList('financial-entries', {
-    defaults: { type: '', category: '', from: '', to: '' },
+const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('financial-entries', {
+    defaults: { type: null, category: '', from: '', to: '' },
 });
 
 const summary = ref([]);
@@ -138,3 +158,30 @@ onMounted(() => {
     loadSummary();
 });
 </script>
+
+<style scoped>
+.ledger-table th {
+    white-space: nowrap;
+}
+
+.ledger-category {
+    min-width: 150px;
+}
+
+/* The category slug is Latin: <bdi> keeps its own direction, and the line stays at the start of the cell like the name above it. */
+.ledger-slug {
+    white-space: nowrap;
+}
+
+.ledger-flag {
+    border-radius: 3px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+
+.ledger-note {
+    min-width: 180px;
+    max-width: 320px;
+    word-break: break-word;
+}
+</style>
