@@ -35,7 +35,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('message_id')->constrained('chat_messages')->cascadeOnDelete();
             $table->foreignId('participant_id')->constrained('chat_participants')->cascadeOnDelete();
-            $table->timestamp('remind_at');
+            $table->timestamp('remind_at')->nullable();
             $table->string('note', 200)->nullable();
             $table->timestamp('sent_at')->nullable();
             $table->timestamps();

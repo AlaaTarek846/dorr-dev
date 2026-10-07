@@ -53,6 +53,13 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+
+- **Ratings (2026-10-06):** polymorphic `ratings` + mobile API + admin page + Android Play In-App Review; see CHANGELOG.
+
+- **Support tickets, live (2026-10-07):** tickets are a conversation with status (opened / reopened / resolved / closed), assigned agent and history; the app (`SupportTicketScreen`, `SupportChatScreen`) and the dashboard page `support/` update live over Pusher, with in-app + OneSignal notifications via `NotificationCenter`. The general live chat was removed. See CHANGELOG. **NEEDS-DECISION:** manual assignment of a ticket to another agent (today the first agent to answer takes it).
+- **Android Settings — invite / rate / support (2026-10-06):** Settings has Share with friends, Rate the app, and Support & help (tickets + FAQ sheet).
+- **Country services (2026-10-06):** Admin country create/edit assigns leaf `service_categories` via `country_service_category`. Empty assignment means none; seeding attaches current marketplace leaves to existing countries. Public `/api/general/v1/services` is not filtered.
+
 - **One payment screen, merchant portals, channel verification (2026-10-05, `docs/remaining_chat.md` ج):**
   - **Checkout:** `checkouts` in `Modules/Wallet`. Any module registers a purpose. Pay from the wallet with the PIN (spend_only first), or through a gateway: the gateway tops the wallet up, then pays the checkout once it confirms. Revenue is booked as `service_revenue`.
   - **Login country:** `users.logged_in_country_id` is set on every sign-in (by IP; SA when unknown). `CountryResolver` reads it before `country_id`.
@@ -141,6 +148,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - Logout unregisters the phone's push id (`auth/logout {player_id}`), and a signed-out phone shows no pushes.
 
 - **Chat phases 2 and 3 (2026-10-04, `docs/chat-tasks.md`):** group slow mode, banned words and invite links that expire; business tools (quick replies, opening hours, welcome / away auto-replies — `config('chat.business_participants')`); scheduled messages (`chat:send-scheduled` every minute — **needs the scheduler**); three notification privacy levels (`notification_privacy`); calls off per country (`calls_disabled_countries`); AI in the chat on a tap (translate, voice to text, summary, suggested replies — `Services\ChatAiService`, admin switch `ai_enabled`; the AI module gained speech to text for OpenAI, Groq and Google). Plus "make a sticker from my photo" (`stickers/mine`, ML Kit on Android) and the logo's navy `#001B53` / orange `#FA7552` as the app's colours. Migrations `2026_10_04_100000`–`100700`. Tests: `ChatModerationTest`, `ChatBusinessTest`, `ChatScheduledTest`, `ChatAiTest`, `ChatEssentialsTest`.
+
 - **WebP uploads (2026-10-05):** JPEG/PNG stored as WebP in place (`App\Support\Media\WebpUploadConverter` via `HasMediaTrait` plus chat attachments/stories). Stickers, GIF, SVG, fonts, and translation JSON stay as uploaded.
 
  group slow mode, banned words and invite links that expire; business tools (quick replies, opening hours, welcome / away auto-replies — `config('chat.business_participants')`); scheduled messages (`chat:send-scheduled` every minute — **needs the scheduler**); three notification privacy levels (`notification_privacy`); calls off per country (`calls_disabled_countries`); AI in the chat on a tap (translate, voice to text, summary, suggested replies — `Services\ChatAiService`, admin switch `ai_enabled`; the AI module gained speech to text for OpenAI, Groq and Google). Plus "make a sticker from my photo" (`stickers/mine`, ML Kit on Android) and the logo's navy `#001B53` / orange `#FA7552` as the app's colours. Migrations `2026_10_04_100000`–`100700`. Tests: `ChatModerationTest`, `ChatBusinessTest`, `ChatScheduledTest`, `ChatAiTest`, `ChatEssentialsTest`.

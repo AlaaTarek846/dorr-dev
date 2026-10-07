@@ -21,7 +21,7 @@ return new class extends Migration
             $table->unsignedBigInteger('owner_id');
             $table->text('body');
             $table->boolean('is_silent')->default(false);
-            $table->timestamp('send_at');
+            $table->timestamp('send_at')->nullable();
             $table->string('status', 16)->default('pending')->comment('pending | sent | failed');
             $table->string('error_code', 64)->nullable()->comment('why it could not be sent (chat_* code)');
             $table->unsignedBigInteger('message_id')->nullable()->comment('the message it became');

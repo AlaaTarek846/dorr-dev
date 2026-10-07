@@ -43,7 +43,8 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **401:** `ApiClient` clears `AuthSession` and routes to Login, remembering the page to return to. Only when a Bearer token was sent.
 - **First launch:** Splash → 3-step onboarding once (`onboarding_completed`), then Login or Home.
 - **Appearance:** `GET/PUT mobile/v1/appearance` (dark mode, primary/secondary colors, font). Before login the built-in palette is used.
-- **Content:** FAQ from `mobile/v1/faqs`, policy text from `mobile/v1/legal-pages?type=privacy|term&service_id=`, rendered with `HtmlText`. Services from `general/v1/services`. Support tickets via `GET/POST mobile/v1/support-tickets`. Support live chat via `GET/POST mobile/v1/support-chats`.
+- **Rating:** `RateAppScreen` ↔ `RatingApi` (`mobile/v1/ratings/mine`, `POST mobile/v1/ratings`); 4–5 stars launch Google Play In-App Review (no-op until the app is published on Play).
+- **Content:** FAQ from `mobile/v1/faqs`, policy text from `mobile/v1/legal-pages?type=privacy|term&service_id=`, rendered with `HtmlText`. Services from `general/v1/services`. Support: tickets and their live conversation via `mobile/v1/support-tickets*` (`SupportTicketScreen`, `SupportChatScreen`), updated by the `support.*` Pusher events on the account channel (`ChatRealtime`); a tapped support push (`data.type = support`) opens the ticket through `ChatDeepLink.Support`.
 - **Headers sent on every request:** `Accept: application/json`, `X-Locale`, `X-Device-Id`.
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 

@@ -21,6 +21,7 @@ return [
     'confirmed' => 'تأكيد حقل :attribute غير متطابق.',
     'email' => 'يجب أن يكون حقل :attribute بريداً إلكترونياً صالحاً.',
     'enum' => 'القيمة المحددة في :attribute غير صالحة.',
+    'multiple_of' => 'يجب أن يكون حقل :attribute من مضاعفات :value.',
     'min' => [
         'array' => 'يجب أن يحتوي حقل :attribute على :min عناصر على الأقل.',
         'file' => 'يجب ألا يقل حقل :attribute عن :min كيلوبايت.',

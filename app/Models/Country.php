@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\Admin\Models\Admin;
 
 class Country extends Model
 {
@@ -63,6 +64,6 @@ class Country extends Model
 
     public function admins(): HasMany
     {
-        return $this->hasMany(\Modules\Admin\Models\Admin::class);
+        return $this->hasMany(Admin::class);
     }
 }

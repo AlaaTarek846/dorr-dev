@@ -272,6 +272,18 @@ class AdminPermissionSeeder extends Seeder
                     'refund',
                 ],
             ],
+            'support-tickets' => [
+                'module_name' => 'system_users',
+                'actions' => ['view', 'reply', 'change-status'],
+            ],
+            'ratings' => [
+                'module_name' => 'system_users',
+                'actions' => [
+                    'view',
+                    'delete',
+                    'multiple-delete',
+                ],
+            ],
             'users' => [
                 'module_name' => 'system_users',
                 'actions' => [
