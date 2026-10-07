@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import com.dorr.app.ui.locale.LocaleAwareBottomSheet
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -91,9 +92,9 @@ internal fun WalletPickerCard(balance: WalletBalanceDto, modifier: Modifier = Mo
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.wa_wallet_of, countryName(current)), color = Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(
-                    if (away) stringResource(R.string.wa_wallet_away, countryName(here)) else stringResource(R.string.wa_wallet_here_sub, balance.currencyCode.orEmpty()),
-                    color = if (away) Wa.Red else Wa.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                if (away) Text(
+                    stringResource(R.string.wa_wallet_away, countryName(here)),
+                    color = Wa.Red, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 )
             }
             Row(
@@ -125,7 +126,7 @@ internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit)
     val phoneCountry = AuthSession.user?.country?.code?.uppercase()
     val options = listOfNotNull(here, current, *others.keys.toTypedArray(), phoneCountry).distinct()
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.wa_wallet_pick_title), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.wa_wallet_pick_sub), color = Wa.Mut, fontSize = 12.5.sp, lineHeight = 19.sp)

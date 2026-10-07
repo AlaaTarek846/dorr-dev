@@ -485,7 +485,9 @@ internal fun GatewayLayer(url: String?, onClose: () -> Unit) {
         "primary" to Wa.Red, "bg" to Wa.Bg, "surface" to Wa.Surface, "ink" to Wa.Ink,
         "mut" to Wa.Mut, "soft" to Wa.Soft, "line" to Wa.Line, "field" to Wa.Field,
     ).joinToString("&") { (name, color) -> "$name=" + String.format("%06x", color.toArgb() and 0xFFFFFF) }
-    val pageUrl = if ("/sandbox/" in last) last + (if ('?' in last) "&" else "?") + theme else last
+    // The page's language is the app's (the WebView would send the phone's), so it matches the screens around it.
+    val lang = com.dorr.app.ui.locale.LocalAppLanguage.current.code
+    val pageUrl = if ("/sandbox/" in last) last + (if ('?' in last) "&" else "?") + theme + "&lang=" + lang else last
     val pageBackground = Wa.Bg.toArgb()
     AnimatedVisibility(visible = url != null, enter = slideInVertically(tween(380)) { it } + fadeIn(tween(200))) {
         Column(Modifier.fillMaxSize().background(Wa.Bg)) {

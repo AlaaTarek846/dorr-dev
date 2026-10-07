@@ -131,7 +131,6 @@ import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
-import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.LocalThemeState
@@ -139,7 +138,7 @@ import com.dorr.app.ui.theme.appearanceColor
 
 
 private enum class ProfileSub {
-    NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, WALLET_SETTINGS,
+    NONE, PERSONAL_DATA, NOTIFICATIONS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
     INVITE, RATE, SUPPORT, TICKET,
 }
@@ -181,10 +180,9 @@ fun ProfileScreen(
     BackHandler(enabled = !isAtRoot) {
         subScreen = when (subScreen) {
             ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
-            ProfileSub.LEGAL, ProfileSub.WALLET_SETTINGS -> ProfileSub.SETTINGS
+            ProfileSub.LEGAL -> ProfileSub.SETTINGS
             ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
             ProfileSub.TICKET -> ProfileSub.SUPPORT
-            ProfileSub.WALLET_PIN -> ProfileSub.WALLET_SETTINGS
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
         }
@@ -252,17 +250,6 @@ fun ProfileScreen(
                 )
             }
             ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
-            ProfileSub.WALLET_PIN -> {
-                val subContext = LocalContext.current
-                WalletPinSettingsScreen(
-                    onBack = { subScreen = ProfileSub.WALLET_SETTINGS },
-                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
-                )
-            }
-            ProfileSub.WALLET_SETTINGS -> WalletSettingsMenuScreen(
-                onBack = { subScreen = ProfileSub.SETTINGS },
-                onOpenChangePin = { subScreen = ProfileSub.WALLET_PIN },
-            )
             ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.LEGAL })
             ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.LEGAL })
             ProfileSub.LEGAL -> LegalMenuScreen(
@@ -274,7 +261,6 @@ fun ProfileScreen(
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
-                onOpenWalletSettings = { subScreen = ProfileSub.WALLET_SETTINGS },
                 onOpenLegal = { subScreen = ProfileSub.LEGAL },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
@@ -696,7 +682,6 @@ private fun AccountListScreen(
 private fun SettingsMenuScreen(
     onBack: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenWalletSettings: () -> Unit,
     onOpenLegal: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenFont: () -> Unit,
@@ -713,7 +698,6 @@ private fun SettingsMenuScreen(
         onBack = onBack,
         items = listOf(
             MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
-            MenuEntry(Icons.Rounded.AccountBalanceWallet, R.string.account_settings_wallet, R.string.account_settings_wallet_sub, onClick = onOpenWalletSettings),
             MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
             MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = onOpenAppearance),
             MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = onOpenFont),
@@ -768,20 +752,6 @@ private fun LegalMenuScreen(
         items = listOf(
             MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
             MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = onOpenTerms),
-        ),
-    )
-}
-
-@Composable
-private fun WalletSettingsMenuScreen(
-    onBack: () -> Unit,
-    onOpenChangePin: () -> Unit,
-) {
-    AccountListScreen(
-        title = stringResource(R.string.account_settings_wallet),
-        onBack = onBack,
-        items = listOf(
-            MenuEntry(Icons.Rounded.Lock, R.string.account_change_pin, R.string.account_change_pin_sub, onClick = onOpenChangePin),
         ),
     )
 }

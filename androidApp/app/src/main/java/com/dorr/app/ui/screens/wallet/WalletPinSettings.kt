@@ -175,7 +175,8 @@ private fun WaSecurityMenu(night: Boolean, onBack: () -> Unit, onOpen: (PinSub) 
             Icons.Rounded.Fingerprint, R.string.wa_biometric_menu_title, R.string.wa_biometric_menu_sub, 3,
             when {
                 !biometricAvailable -> stringResource(R.string.wa_not_available)
-                biometricOn -> stringResource(R.string.wa_on)
+                // On shows no label (the word "on" was removed on purpose); only the cases that need explaining do.
+                biometricOn -> null
                 else -> stringResource(R.string.wa_off)
             },
         ) { onOpen(PinSub.Biometric) }
@@ -376,9 +377,9 @@ private fun WaBiometricPage(night: Boolean, onBack: () -> Unit) {
                         WaIconWell(Icons.Rounded.Fingerprint, Tone.Red, size = 44.dp, iconSize = 22.dp)
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.wa_biometric_toggle), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
-                            Text(
-                                stringResource(if (enabled) R.string.wa_on else R.string.wa_off),
-                                fontSize = 12.sp, color = if (enabled) Wa.Red else Wa.Mut, modifier = Modifier.padding(top = 2.dp),
+                            if (!enabled) Text(
+                                stringResource(R.string.wa_off),
+                                fontSize = 12.sp, color = Wa.Mut, modifier = Modifier.padding(top = 2.dp),
                             )
                         }
                         Switch(
