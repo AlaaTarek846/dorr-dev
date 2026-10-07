@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-05  
+**Last updated:** 2026-10-07  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -54,7 +54,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 ## Current Work
 
 
-- **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin pages; Android share + Play referrer stub. No rewards yet. See CHANGELOG.
+- **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
 - **Ratings (2026-10-06):** polymorphic `ratings` + mobile API + admin page + Android Play In-App Review; see CHANGELOG.
 
 - **Support tickets, live (2026-10-07):** tickets are a conversation with status (opened / reopened / resolved / closed), assigned agent and history; the app (`SupportTicketScreen`, `SupportChatScreen`) and the dashboard page `support/` update live over Pusher, with in-app + OneSignal notifications via `NotificationCenter`. The general live chat was removed. See CHANGELOG. **NEEDS-DECISION:** manual assignment of a ticket to another agent (today the first agent to answer takes it).
