@@ -208,6 +208,16 @@ private val childDisplayOrder = compareBy<ServiceChildDto>({ it.sortOrder }, { i
 fun ServicesSection(
     onViewAll: () -> Unit,
     onOpenService: (ServiceDto, Color) -> Unit,
+    // Real, observed bug fix (2026-10-04): this preview grid (Home tab's
+    // own "services" section) used to route EVERY card - including "AI
+    // Assistant" - through onOpenService, landing on the generic
+    // ServiceDetailScreen instead of actually opening the assistant.
+    // ServicesScreen.kt (the full "Services" tab) already special-cases
+    // moduleName == "ai_assistant" the same way; this param lets the Home
+    // preview do the identical thing instead of duplicating that branch
+    // with no way to reach it. Defaults to null so any other caller of
+    // this composable keeps its previous behavior unchanged.
+    onOpenAi: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val loader = rememberServicesLoader(homeDashboardOnly = true)
@@ -225,7 +235,13 @@ fun ServicesSection(
             is ServicesState.Loaded -> if (s.services.isNotEmpty()) {
                 ServiceGrid(
                     services = s.services.take(COLLAPSED_COUNT),
-                    onClick = { service, color -> onOpenService(service, color) },
+                    onClick = { service, color ->
+                        if (service.moduleName == "ai_assistant" && onOpenAi != null) {
+                            onOpenAi()
+                        } else {
+                            onOpenService(service, color)
+                        }
+                    },
                 )
             }
         }

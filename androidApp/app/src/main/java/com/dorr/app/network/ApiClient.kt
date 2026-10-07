@@ -1,6 +1,7 @@
 package com.dorr.app.network
 
 import okhttp3.OkHttpClient
+import java.util.concurrent.TimeUnit
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -24,7 +25,7 @@ import java.net.UnknownHostException
 // Dev backend: this ngrok tunnel (https). To switch to LAN/emulator, put dorr.apiHost /
 // dorr.apiScheme in androidApp/local.properties and restore BASE_HOST from BuildConfig.
 // ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test
-private const val NGROK_HOST = "unafraid-occupy-geography.ngrok-free.dev"
+private const val NGROK_HOST = "zane-metazoal-max.ngrok-free.dev"
 private const val BASE_HOST = NGROK_HOST
 private const val BASE_URL = "https://$BASE_HOST/api/"
 
@@ -33,6 +34,28 @@ private const val LOCAL_MEDIA_HOST = "dorr.test"
 object ApiClient {
     /** Shared with the image loader so media requests get the same dev Host header. */
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
+        // Root-cause fix (real, observed bug): OkHttp's own defaults - 10s
+        // connect/read/write - are fine for plain JSON endpoints but far too
+        // short for two real calls this app makes: (1) AI image generation/
+        // editing (Modules/AI AiGateway::generateImage()/editImage()) routinely
+        // takes well past 10s through the OpenAI images API, especially over the
+        // ngrok dev tunnel - the request was genuinely still being processed
+        // server-side (and completed successfully, saving the message/image)
+        // when the phone had already given up and shown "تعذر إرسال الرسالة";
+        // (2) Coil's app-wide ImageLoader shares this exact client (see
+        // DorrApp.newImageLoader()'s own docblock), so downloading a freshly
+        // generated image over the same slow tunnel could ALSO hit the 10s read
+        // timeout on the very first attempt - the bubble rendered blank until
+        // the next app launch cleared Coil's in-memory failure and it was
+        // fetched again, succeeding this time only because nothing else had
+        // changed except that the earlier failed attempt was gone. Raising the
+        // ceiling costs nothing for the app's many fast JSON calls (this is a
+        // cap, not a fixed delay) and gives slow AI/media calls room to
+        // actually finish instead of failing a request the server was about to
+        // complete successfully anyway.
+        .connectTimeout(20, TimeUnit.SECONDS)
+        .readTimeout(90, TimeUnit.SECONDS)
+        .writeTimeout(90, TimeUnit.SECONDS)
         // Connectivity signal first: a completed round-trip proves we are
         // online (clearing a stale offline state), while a failure before any
         // HTTP response — unknown host, refused/unreachable route — raises the
@@ -92,6 +115,8 @@ object ApiClient {
     val notifications: NotificationApi by lazy { retrofit.create(NotificationApi::class.java) }
     val services: ServiceApi by lazy { retrofit.create(ServiceApi::class.java) }
     val chat: ChatApi by lazy { retrofit.create(ChatApi::class.java) }
+    val aiChat: AiChatApi by lazy { retrofit.create(AiChatApi::class.java) }
+    val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
     val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }

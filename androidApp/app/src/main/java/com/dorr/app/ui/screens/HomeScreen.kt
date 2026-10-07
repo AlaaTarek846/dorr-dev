@@ -72,6 +72,7 @@ fun HomeScreen(
     onOpenServices: () -> Unit,
     onOpenService: (ServiceDto, Color) -> Unit,
     onOpenChat: () -> Unit = {},
+    onOpenAi: () -> Unit = {},
     onOpenPortals: () -> Unit = {},
     homeStories: com.dorr.app.ui.screens.chat.HomeStoriesState? = null,
     onOpenMoments: () -> Unit = {},
@@ -117,6 +118,10 @@ fun HomeScreen(
             ServicesSection(
                 onViewAll = onOpenServices,
                 onOpenService = onOpenService,
+                // Bug fix (2026-10-04): without this, tapping "AI
+                // Assistant" in this Home preview grid opened the generic
+                // service-details page instead of the assistant itself.
+                onOpenAi = onOpenAi,
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }

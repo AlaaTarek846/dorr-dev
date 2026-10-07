@@ -256,6 +256,8 @@
                     </div>
                 </div>
             </form>
+
+            <AiProviderModelManager :provider="provider" @refresh-all="$emit('refresh-all')" />
         </div>
     </div>
 </template>
@@ -266,6 +268,7 @@ import { useI18n } from 'vue-i18n';
 import adminAxios from '../../api/adminAxios';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../composables/useToast';
 import useValidation from '../../composables/useValidation';
+import AiProviderModelManager from './AiProviderModelManager.vue';
 
 const props = defineProps({
     provider: {

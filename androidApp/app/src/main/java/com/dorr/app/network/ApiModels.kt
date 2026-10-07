@@ -28,7 +28,7 @@ fun Throwable.serverMessage(): String? {
     val raw = response()?.errorBody()?.string() ?: return null
     return runCatching {
         val root = JsonParser.parseString(raw).asJsonObject
-        val errors = root.getAsJsonObject("errors")
+        val errors = root.get("errors")?.takeIf { it.isJsonObject }?.asJsonObject
         val firstError = errors?.entrySet()?.firstOrNull()?.value?.asJsonArray?.firstOrNull()?.asString
         firstError ?: root.get("message")?.takeIf { !it.isJsonNull }?.asString
     }.getOrNull()

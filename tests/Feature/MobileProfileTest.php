@@ -167,7 +167,7 @@ class MobileProfileTest extends TestCase
 
         $this->assertSame('old@example.com', $user->fresh()->email);
         $this->assertDatabaseHas('verification_codes', [
-            'authenticatable_type' => User::class,
+            'authenticatable_type' => $user->getMorphClass(),
             'authenticatable_id' => $user->id,
             'type' => VerificationType::Email->value,
         ]);

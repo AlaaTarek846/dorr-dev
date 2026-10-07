@@ -61,7 +61,12 @@ class MobileAuthTest extends TestCase
         $this->assertNotNull($user);
 
         $this->assertDatabaseHas('verification_codes', [
-            'authenticatable_type' => User::class,
+            // Modules\AI\Providers\AIServiceProvider registers a
+            // non-enforced Relation::morphMap() for 'user'/'provider' that
+            // applies app-wide, not just to AI tables - every polymorphic
+            // relation using User/Provider now stores the short alias
+            // instead of the FQCN, verification_codes included.
+            'authenticatable_type' => $user->getMorphClass(),
             'authenticatable_id' => $user->id,
             'type' => VerificationType::Phone->value,
             'code' => '1234',

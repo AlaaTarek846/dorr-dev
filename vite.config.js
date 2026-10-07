@@ -34,6 +34,17 @@ export default defineConfig({
                 '**/storage/framework/views/**',
                 '**/public/dashboard/**',
                 '**/*.zip',
+                // Bug fix (2026-09-29, real observed crash): `npm run dev`
+                // was watching the ENTIRE repo root by default, which
+                // includes androidApp/ - Gradle/Android Studio's build
+                // output there (native .so libs, .class files, etc.) gets
+                // locked by the build tools on Windows while a build is
+                // running, and chokidar's watcher throws an uncaught
+                // EBUSY error on those files that kills the whole Vite
+                // dev server process outright (not just a warning). None
+                // of androidApp/ is ever consumed by Vite, so it never
+                // needed to be watched in the first place.
+                '**/androidApp/**',
             ],
         },
     },
