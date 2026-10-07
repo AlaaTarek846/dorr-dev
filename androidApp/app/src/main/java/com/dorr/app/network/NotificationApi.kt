@@ -19,6 +19,7 @@ interface NotificationApi {
     suspend fun list(
         @Header("Authorization") authorization: String,
         @Query("per_page") perPage: Int = 40,
+        @Query("page") page: Int = 1,
     ): ApiEnvelope<List<NotificationDto>>
 
     @GET("mobile/v1/notifications/unread-count")

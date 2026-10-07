@@ -370,14 +370,7 @@ private fun MyNumberCard(balance: WalletBalanceDto, host: WalletHost) {
             WaIconWell(Icons.Rounded.AccountBalanceWallet, Tone.Red, size = 46.dp)
             Box(Modifier.weight(1f)) {
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Text(
-                        number,
-                        color = Wa.Ink,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 0.6.sp,
-                        maxLines = 1,
-                    )
+                    WaFitText(number, color = Wa.Ink, maxSize = 22.sp, letterSpacing = 0.6.sp, modifier = Modifier.fillMaxWidth())
                 }
             }
             WaOutlineCircleButton(Icons.Rounded.QrCode2, { host.push(WaRoute.MyQr) })

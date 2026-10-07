@@ -160,7 +160,7 @@ fun WalletMyQr() {
                 }
                 Spacer(Modifier.height(14.dp))
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Text(number, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, letterSpacing = 2.sp)
+                    WaFitText(number, color = Wa.Ink, maxSize = 21.sp, letterSpacing = 2.sp)
                 }
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WaGlassChip(country, Icons.Rounded.Public, dark = true)
