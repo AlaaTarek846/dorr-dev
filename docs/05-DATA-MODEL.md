@@ -73,7 +73,7 @@ personal_access_tokens (Sanctum)
 | status | default `open` |
 | timestamps | |
 
-Created from the Android app via `POST /api/mobile/v1/support-tickets`. **NEEDS-DECISION:** admin list / reply UI is not built yet.
+`status` is `opened` / `reopened` / `resolved` / `closed` (`SupportTicketStatus`); `admin_id` (nullable FK → admins) is the agent who took it; `last_message_at` orders the lists. Opened from the Android app via `POST /api/mobile/v1/support-tickets`; the dashboard answers and moves the status (`support-tickets.*` permissions, module `system_users`). The history of status moves is in `support_ticket_activities` (`support_ticket_id`, `admin_id` nullable, `actor` user|support, `status`, timestamps).
 
 ### `ratings`
 
@@ -95,13 +95,15 @@ Admin: view/delete only (`ratings.*` permissions, module `system_users`).
 | Column | Notes |
 |--------|-------|
 | id | PK |
-| user_id | FK → users, cascade on delete |
-| support_ticket_id | nullable FK → support_tickets (null = general live chat) |
+| user_id | FK → users, cascade on delete (the customer of the ticket) |
+| admin_id | nullable FK → admins (the agent who wrote it) |
+| support_ticket_id | FK → support_tickets |
 | sender | `user` or `support` |
-| body | text |
+| body | nullable text (a message can be a photo only) |
+| image_path | nullable, public disk |
 | timestamps | |
 
-Mobile: `GET/POST /api/mobile/v1/support-chats`. Users can only send as `user`. **NEEDS-DECISION:** admin/agent replies.
+Mobile: `GET/POST /api/mobile/v1/support-tickets/{id}/messages`; dashboard: `GET/POST /api/admin/v1/support-tickets/{id}/messages`. Live on the Pusher channels via `SupportRealtimeEvent`. The old general (ticket-less) chat no longer exists.
 
 ### `admins`
 

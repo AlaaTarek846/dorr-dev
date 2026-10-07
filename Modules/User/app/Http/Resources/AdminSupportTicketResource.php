@@ -6,9 +6,9 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\User\Models\SupportTicket;
 
-/** The ticket as the customer (the app) sees it. */
+/** The ticket as the support team (dashboard) sees it: with the customer and the assigned agent. */
 /** @mixin SupportTicket */
-class SupportTicketResource extends JsonResource
+class AdminSupportTicketResource extends JsonResource
 {
     /**
      * @return array<string, mixed>
@@ -18,10 +18,17 @@ class SupportTicketResource extends JsonResource
         return [
             'id' => $this->id,
             'title' => $this->title,
-            'body' => $this->body,
-            'image_url' => $this->imageUrl(),
             'status' => $this->status->value,
             'accepts_replies' => $this->status->acceptsReplies(),
+            'user' => $this->whenLoaded('user', fn () => $this->user === null ? null : [
+                'id' => $this->user->id,
+                'name' => $this->user->name,
+                'phone' => $this->user->phone,
+            ]),
+            'admin' => $this->whenLoaded('admin', fn () => $this->admin === null ? null : [
+                'id' => $this->admin->id,
+                'name' => $this->admin->name,
+            ]),
             'last_message' => $this->whenLoaded('latestMessage', fn () => $this->latestMessage === null ? null : [
                 'sender' => $this->latestMessage->sender,
                 'body' => $this->latestMessage->body,

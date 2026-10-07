@@ -29,6 +29,8 @@ sealed interface ChatDeepLink {
     data object Tasks : ChatDeepLink
     /** A DORR Calendar reminder (spec 204). */
     data object Calendar : ChatDeepLink
+    /** A reply or a status change on one of my support tickets. */
+    data class Support(val ticketId: Int) : ChatDeepLink
 }
 
 /**
@@ -124,6 +126,7 @@ object ChatPush {
                     _deepLink.value = when {
                         data.optString("type") == "chat_call" && data.optString("call_id").isNotBlank() ->
                             ChatDeepLink.Call(data.optString("call_id"), conversation)
+                        data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
                         conversation != null -> ChatDeepLink.Conversation(conversation)
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks
                         data.optString("type") == "calendar" -> ChatDeepLink.Calendar
