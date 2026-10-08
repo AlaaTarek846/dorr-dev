@@ -7,9 +7,11 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\User\Models\User;
 use Modules\User\Models\UserPhoneHistory;
+use Modules\Wallet\Models\WalletPin;
 use Modules\Wallet\Services\PinService;
 use Tests\TestCase;
 
@@ -48,7 +50,7 @@ class PhoneChangeTest extends TestCase
         return $extra + ['Accept' => 'application/json'];
     }
 
-    private function start(string $phone = '500000099', array $headers = []): \Illuminate\Testing\TestResponse
+    private function start(string $phone = '500000099', array $headers = []): TestResponse
     {
         return $this->postJson(self::BASE, ['dial_code' => '+966', 'phone' => $phone], $this->headers($headers));
     }
@@ -98,7 +100,7 @@ class PhoneChangeTest extends TestCase
     public function test_a_frozen_wallet_refuses_the_whole_flow(): void
     {
         app(PinService::class)->set($this->alice, '1234');
-        \Modules\Wallet\Models\WalletPin::query()->update(['frozen_at' => now()]);
+        WalletPin::query()->update(['frozen_at' => now()]);
 
         $this->start('500000098', ['X-Wallet-Pin' => '1234'])->assertStatus(423)->assertJsonPath('error_code', 'wallet_pin_frozen');
     }

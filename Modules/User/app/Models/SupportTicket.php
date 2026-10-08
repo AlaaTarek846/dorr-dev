@@ -13,6 +13,7 @@ use Modules\User\Enums\SupportTicketStatus;
 class SupportTicket extends Model
 {
     protected $fillable = [
+        'number',
         'user_id',
         'admin_id',
         'title',
@@ -22,6 +23,24 @@ class SupportTicket extends Model
         'last_message_at',
         'auto_reply_stopped_at',
     ];
+
+    protected static function booted(): void
+    {
+        // Every ticket gets its own random number when it is created.
+        static::creating(function (self $ticket) {
+            $ticket->number ??= self::generateNumber();
+        });
+    }
+
+    /** A random 7-digit number nobody else has: what the customer and the team quote, not the database id. */
+    public static function generateNumber(): string
+    {
+        do {
+            $number = (string) random_int(1000000, 9999999);
+        } while (self::query()->where('number', $number)->exists());
+
+        return $number;
+    }
 
     protected function casts(): array
     {

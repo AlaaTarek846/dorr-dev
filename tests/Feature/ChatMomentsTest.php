@@ -11,10 +11,12 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatMoment;
 use Modules\Chat\Models\ChatSetting;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -172,9 +174,9 @@ class ChatMomentsTest extends TestCase
      */
     private function asAdmin(array $permissions): void
     {
-        $admin = \Modules\Admin\Models\Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

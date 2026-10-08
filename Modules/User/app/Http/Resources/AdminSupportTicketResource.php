@@ -17,6 +17,7 @@ class AdminSupportTicketResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'number' => $this->number,
             'title' => $this->title,
             'status' => $this->status->value,
             'accepts_replies' => $this->status->acceptsReplies(),

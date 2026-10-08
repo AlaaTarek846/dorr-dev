@@ -36,6 +36,7 @@
                     <Select
                         v-model="filters.status"
                         filter
+                        :placeholder="t('support.statuses')"
                         :filter-placeholder="t('search_placeholder')"
                         :options="statusOptions"
                         option-label="label"
@@ -96,7 +97,7 @@
                                     :class="{ 'support-row--flash': flashing[row.id] }"
                                     @click="open(row)"
                                 >
-                                    <td class="ps-4"><span class="fw-semibold">#{{ row.id }}</span></td>
+                                    <td class="ps-4"><span class="fw-semibold">#{{ row.number }}</span></td>
                                     <td>
                                         <div class="d-flex align-items-center gap-2">
                                             <span class="avatar avatar-sm avatar-rounded bg-primary-transparent"><i class="ri-user-line text-primary"></i></span>
@@ -144,6 +145,7 @@
 <script setup>
 import Select from 'primevue/select';
 import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
@@ -158,7 +160,7 @@ import ConversationModal from './ConversationModal.vue';
 import { statusClass } from './supportStatus';
 
 const { t, locale } = useI18n();
-const { showSuccess } = useToast();
+const { showSuccess, showError } = useToast();
 const { can } = usePermission();
 
 const statuses = ['opened', 'reopened', 'resolved', 'closed'];
@@ -209,6 +211,43 @@ function open(row) {
     showConversation.value = true;
 }
 
+// A clicked notification arrives as ?ticket=ID (that ticket) or ?user=ID (the customer's latest ticket):
+// open its conversation, then drop the query so a refresh does not open it again.
+const route = useRoute();
+const router = useRouter();
+
+async function openFromNotification() {
+    const { ticket, user } = route.query;
+
+    if (! ticket && ! user) {
+        return;
+    }
+
+    try {
+        let row = null;
+
+        if (ticket) {
+            row = (await adminAxios.get(`/api/admin/v1/support-tickets/${ticket}`)).data.data;
+        } else {
+            row = (await adminAxios.get('/api/admin/v1/support-tickets', { params: { user_id: user, per_page: 1 } })).data.data?.[0] ?? null;
+
+            if (! row) {
+                showError(t('support.no_ticket_yet'));
+            }
+        }
+
+        if (row) {
+            open(row);
+        }
+    } catch {
+        showError(t('support.ticket_not_found'));
+    } finally {
+        router.replace({ name: route.name, query: {} });
+    }
+}
+
+watch(() => [route.query.ticket, route.query.user], openFromNotification);
+
 function flash(id) {
     flashing[id] = true;
     setTimeout(() => { flashing[id] = false; }, 2200);
@@ -247,11 +286,14 @@ useSupportRealtime((name, payload) => {
     loadCounts();
 
     if (name === 'support.ticket.created') {
-        showSuccess(t('support.new_ticket_toast', { id: payload.ticket.id }));
+        showSuccess(t('support.new_ticket_toast', { id: payload.ticket.number }));
     }
 });
 
-onMounted(reload);
+onMounted(() => {
+    reload();
+    openFromNotification();
+});
 </script>
 
 <style scoped>

@@ -149,11 +149,17 @@ fun SupportTicketScreen(
     onBack: () -> Unit,
     openTicketId: Int? = null,
     onTicketOpened: () -> Unit = {},
+    /** Opens on the quick chat (guided help) instead of the ticket list. */
+    startQuickChat: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val gson = remember { Gson() }
+    var helping by remember { mutableStateOf(startQuickChat) }
     var creating by remember { mutableStateOf(false) }
+    // Where the customer was in the quick chat when they asked for an agent (so back from the form returns there).
+    var helpPath by remember { mutableStateOf<List<Int>>(emptyList()) }
+    var topic by remember { mutableStateOf("") }
     var chat by remember { mutableStateOf<SupportTicketDto?>(null) }
     var tickets by remember { mutableStateOf<List<SupportTicketDto>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
@@ -162,9 +168,21 @@ fun SupportTicketScreen(
     var loadingMore by remember { mutableStateOf(false) }
     val reconnectTick = collectReconnectTick()
     val replyToast = stringResource(R.string.support_reply_toast)
+    val solvedToast = stringResource(R.string.support_help_solved_toast)
+
+    // Back from the ticket form: into the quick chat it came from (at the same topic), or out when there was none.
+    fun leaveForm() {
+        // Leaving the screen for good must not flip the state first: the ticket list would flash while it animates out.
+        if (startQuickChat && topic.isBlank()) {
+            onBack()
+            return
+        }
+        creating = false
+        if (startQuickChat) helping = true
+    }
 
     BackHandler(enabled = creating || chat != null) {
-        if (chat != null) chat = null else creating = false
+        if (chat != null) { if (startQuickChat) onBack() else chat = null } else leaveForm()
     }
 
     fun upsert(ticket: SupportTicketDto) {
@@ -204,15 +222,36 @@ fun SupportTicketScreen(
             val fresh = runCatching { gson.fromJson(event.data.get("ticket"), SupportTicketDto::class.java) }.getOrNull() ?: return@collect
             upsert(fresh)
             if (event.name == "support.message" && fresh.lastMessage?.sender == "support" && chat?.id != fresh.id) {
-                Toast.makeText(context, String.format(replyToast, fresh.id), Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, String.format(replyToast, fresh.displayNumber), Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    // The quick chat (guided help) is its own entry; a ticket from it is only opened when the customer asks for an agent.
+    // "New ticket" in the list goes straight to the form.
+    if (helping) {
+        SupportHelpFlowScreen(
+            onBack = { if (startQuickChat) onBack() else helping = false },
+            onSolved = {
+                Toast.makeText(context, solvedToast, Toast.LENGTH_SHORT).show()
+                if (startQuickChat) onBack() else helping = false
+            },
+            initialPath = helpPath,
+            onPathChange = { helpPath = it },
+            onNeedAgent = { picked ->
+                topic = picked.orEmpty()
+                helping = false
+                creating = true
+            },
+        )
+        return
     }
 
     chat?.let { current ->
         SupportChatScreen(
             initial = current,
-            onBack = { chat = null },
+            // A ticket opened from the quick chat goes back to the Support menu, not to a list the customer never visited.
+            onBack = { if (startQuickChat) onBack() else chat = null },
             onTicketChanged = { upsert(it) },
         )
         return
@@ -220,7 +259,8 @@ fun SupportTicketScreen(
 
     if (creating) {
         SupportTicketCreateForm(
-            onBack = { creating = false },
+            initialTitle = topic,
+            onBack = { leaveForm() },
             onSubmitted = { message, ticket ->
                 creating = false
                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
@@ -324,7 +364,7 @@ private fun SupportTicketEmpty(onCreate: () -> Unit) {
 @Composable
 private fun SupportTicketCard(ticket: SupportTicketDto, onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val shape = RoundedCornerShape(16.dp)
+    val shape = RoundedCornerShape(14.dp)
     val color = supportStatusColor(ticket.status)
     val unread = SupportSeen.hasNewReply(context, ticket)
     Row(
@@ -337,53 +377,31 @@ private fun SupportTicketCard(ticket: SupportTicketDto, onOpen: () -> Unit, modi
     ) {
         // The status colour runs down the card's edge.
         Box(Modifier.width(4.dp).fillMaxHeight().background(color))
-        Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 10.dp)) {
+        Column(Modifier.weight(1f).padding(horizontal = 12.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(R.string.support_ticket_number, ticket.id),
-                    color = settingsMut(),
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
+                    ticket.title.orEmpty(),
+                    color = settingsInk(),
+                    fontSize = 14.sp,
+                    fontWeight = if (unread) FontWeight.ExtraBold else FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.weight(1f),
                 )
+                Spacer(Modifier.width(8.dp))
                 SupportStatusChip(ticket.status)
             }
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
-                ticket.title.orEmpty(),
-                color = settingsInk(),
-                fontSize = 15.sp,
-                fontWeight = FontWeight.Bold,
+                listOfNotNull(
+                    stringResource(R.string.support_ticket_number, ticket.displayNumber),
+                    ticketWhen(ticket.lastMessageAt ?: ticket.createdAt),
+                ).joinToString("  ·  "),
+                color = settingsMut(),
+                fontSize = 11.sp,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            val last = ticket.lastMessage
-            if (last != null) {
-                Spacer(Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (last.body.isNullOrBlank() && last.hasImage) {
-                        Icon(Icons.Rounded.Image, null, tint = settingsMut(), modifier = Modifier.size(14.dp).padding(end = 2.dp))
-                    }
-                    Text(
-                        (when (last.sender) {
-                            "support" -> stringResource(R.string.support_agent_prefix)
-                            "system" -> stringResource(R.string.support_auto_prefix)
-                            else -> ""
-                        }) +
-                            (last.body?.takeIf { it.isNotBlank() } ?: stringResource(R.string.support_photo)),
-                        color = if (unread) settingsInk() else settingsMut(),
-                        fontSize = 12.sp,
-                        fontWeight = if (unread) FontWeight.Bold else FontWeight.Normal,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-            ticketWhen(ticket.lastMessageAt ?: ticket.createdAt)?.let { whenText ->
-                Spacer(Modifier.height(3.dp))
-                Text(whenText, color = settingsMut(), fontSize = 11.sp)
-            }
         }
         if (unread) {
             Box(Modifier.padding(end = 14.dp).size(10.dp).clip(CircleShape).background(settingsAccent()))
@@ -401,12 +419,13 @@ private fun ticketWhen(iso: String?): String? {
 
 @Composable
 private fun SupportTicketCreateForm(
+    initialTitle: String = "",
     onBack: () -> Unit,
     onSubmitted: (String, SupportTicketDto?) -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var title by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf(initialTitle) }
     var body by remember { mutableStateOf("") }
     var imageUri by remember { mutableStateOf<Uri?>(null) }
     var sending by remember { mutableStateOf(false) }

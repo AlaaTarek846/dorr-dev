@@ -49,6 +49,18 @@ interface SupportApi {
         @Body body: SupportStatusRequest,
     ): ApiEnvelope<SupportTicketDto>
 
+    /** The guided help menu (the whole active tree, in the customer's language). */
+    @GET("mobile/v1/support-help")
+    suspend fun help(@Header("Authorization") authorization: String): ApiEnvelope<SupportHelpDto>
+
+    /** What was pressed at the end of a help topic (counted on the dashboard). */
+    @POST("mobile/v1/support-help/{id}/feedback")
+    suspend fun helpFeedback(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int,
+        @Body body: SupportAutoReplyFeedbackRequest,
+    ): ApiEnvelope<Any?>
+
     @POST("mobile/v1/support-tickets/{id}/auto-reply-feedback")
     suspend fun autoReplyFeedback(
         @Header("Authorization") authorization: String,
@@ -85,6 +97,8 @@ data class SupportLastMessageDto(
 
 data class SupportTicketDto(
     val id: Int,
+    /** The random number the customer and support quote (the id stays internal). */
+    val number: String? = null,
     val title: String?,
     val body: String? = null,
     @SerializedName("image_url") val imageUrl: String? = null,
@@ -96,7 +110,10 @@ data class SupportTicketDto(
     @SerializedName("last_message") val lastMessage: SupportLastMessageDto? = null,
     @SerializedName("last_message_at") val lastMessageAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
-)
+) {
+    /** What is shown as "#…": the ticket's number, or its id for an old payload without one. */
+    val displayNumber: String get() = number ?: id.toString()
+}
 
 data class SupportMessageDto(
     val id: Int,
@@ -114,3 +131,16 @@ data class SupportMessageDto(
 
 data class SupportStatusRequest(val status: String)
 data class SupportAutoReplyFeedbackRequest(val solved: Boolean)
+
+data class SupportHelpDto(
+    val greeting: String? = null,
+    val items: List<SupportHelpNodeDto> = emptyList(),
+)
+
+/** A topic: with `children` it is a menu, without any it is an answer. */
+data class SupportHelpNodeDto(
+    val id: Int,
+    val title: String? = null,
+    val answer: String? = null,
+    val children: List<SupportHelpNodeDto> = emptyList(),
+)
