@@ -206,6 +206,8 @@ return [
 
     'preview' => [
         'moment_card' => '🎉 Greeting card',
+        'event_card' => '📍 Event',
+        'match_card' => '⚽ Match',
         'moment_card_sealed' => '🎁 A surprise for you — it opens soon',
         'image' => '📷 Photo',
         'video' => '🎥 Video',
@@ -257,6 +259,7 @@ return [
         'decision_approved' => ':actor approved the decision ":name"',
         'decision_rejected' => ':actor rejected the decision ":name"',
         'group_created' => ':actor created the group ":name"',
+        'event_room_closed' => 'The event is over — only admins can write here now',
         'channel_created' => 'Channel ":name" created',
         'members_added' => ':actor added :targets',
         'member_removed' => ':actor removed :targets',

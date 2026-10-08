@@ -123,6 +123,8 @@ object ApiClient {
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
+    val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }
+    val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }
     val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
 

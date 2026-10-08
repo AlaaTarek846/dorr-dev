@@ -205,6 +205,8 @@ return [
 
     'preview' => [
         'moment_card' => '🎉 كارت تهنئة',
+        'event_card' => '📍 فعالية',
+        'match_card' => '⚽ ماتش',
         'moment_card_sealed' => '🎁 مفاجأة ليك — هتتفتح قريب',
         'image' => '📷 صورة',
         'video' => '🎥 فيديو',
@@ -255,6 +257,7 @@ return [
         'decision_approved' => ':actor اعتمد القرار ":name"',
         'decision_rejected' => ':actor رفض القرار ":name"',
         'group_created' => ':actor أنشأ المجموعة ":name"',
+        'event_room_closed' => 'الفعالية خلصت — المشرفين بس يقدروا يكتبوا هنا دلوقتي',
         'channel_created' => 'تم إنشاء قناة ":name"',
         'members_added' => ':actor أضاف :targets',
         'member_removed' => ':actor أزال :targets',

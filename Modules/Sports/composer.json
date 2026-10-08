@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/sports",
+    "description": "DORR Sports: fixtures, live scores and standings from a licensed provider (spec 183-200).",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Sports\\": "app/",
+            "Modules\\Sports\\Database\\Factories\\": "database/factories/",
+            "Modules\\Sports\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Sports\\Tests\\": "tests/"
+        }
+    }
+}

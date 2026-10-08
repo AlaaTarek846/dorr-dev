@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.SportsSoccer
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
@@ -137,6 +138,8 @@ internal fun typeColor(item: CalItemDto): Color = when (item.type) {
     "task" -> Color(0xFF16A34A)
     "reminder" -> Color(0xFFD97706)
     "moment", "personal" -> momentColor(item.color, Color(0xFFDB2777))
+    "discover" -> Color(0xFF7C3AED)
+    "sports" -> Color(0xFF0E9F6E)
     else -> Wa.Mut
 }
 
@@ -144,6 +147,8 @@ internal fun typeIcon(type: String): ImageVector = when (type) {
     "task" -> Icons.Rounded.CheckCircle
     "reminder" -> Icons.Rounded.Alarm
     "capsule" -> Icons.Rounded.Inventory2
+    "discover" -> Icons.Rounded.Place
+    "sports" -> Icons.Rounded.SportsSoccer
     else -> Icons.Rounded.Event
 }
 
@@ -338,7 +343,15 @@ private fun CalendarMain(onBack: () -> Unit, onSettings: () -> Unit, onSearch: (
     }
 
     adding?.let { day -> EventEditorSheet(existing = null, day = day) { adding = null } }
-    open?.let { item -> ItemSheet(item, onDismiss = { open = null }, onOpenMoments = onOpenMoments) }
+    open?.let { item ->
+        if (item.type == "sports") {
+            LaunchedEffect(item.id) { com.dorr.app.ui.screens.sports.SportsLink.show(item.ref); open = null }
+        } else if (item.type == "discover") {
+            LaunchedEffect(item.id) { com.dorr.app.ui.screens.events.EventsLink.show(item.ref); open = null }
+        } else {
+            ItemSheet(item, onDismiss = { open = null }, onOpenMoments = onOpenMoments)
+        }
+    }
 }
 
 @Composable

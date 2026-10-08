@@ -93,6 +93,8 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
     // Chat GIFs and animated stickers (GIF + animated WebP).
     implementation("io.coil-kt:coil-gif:2.7.0")
+    // Vector icons from the server (chat categories…).
+    implementation("io.coil-kt:coil-svg:2.7.0")
     // Wallet QR: scans someone else's code (camera screen included); it brings zxing-core, which
     // also draws the wallet's own code.
     implementation("com.journeyapps:zxing-android-embedded:4.3.0")
@@ -120,6 +122,8 @@ dependencies {
     implementation("androidx.media3:media3-transformer:1.4.1")
     // The chat outbox: messages sent offline go in the background once there's a connection.
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+    // DORR Sports on the home screen (my team, live now).
+    implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.media3:media3-effect:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
     // "Make a sticker from my photo": the subject is cut out of its background on the phone.

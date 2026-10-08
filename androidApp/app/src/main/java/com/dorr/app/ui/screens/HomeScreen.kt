@@ -109,6 +109,8 @@ fun HomeScreen(
         homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
         item { Spacer(Modifier.height(10.dp)) }
         item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { com.dorr.app.ui.screens.sports.SportsHomeCard(onOpen = { com.dorr.app.ui.screens.sports.SportsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { com.dorr.app.ui.screens.events.EventsBanner(onOpen = { com.dorr.app.ui.screens.events.EventsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item {
             HomeWalletCard(

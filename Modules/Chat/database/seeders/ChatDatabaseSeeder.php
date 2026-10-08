@@ -18,6 +18,9 @@ class ChatDatabaseSeeder extends Seeder
         // The occasions catalog (DORR Moments).
         $this->call(ChatMomentsSeeder::class);
 
+        // Categories for channels and merchant portals, each with its icon.
+        $this->call(ChatCategorySeeder::class);
+
         if (! ChatReportType::query()->exists()) {
             $reasons = [
                 ['Spam or advertising', 'رسايل مزعجة أو إعلانات'],

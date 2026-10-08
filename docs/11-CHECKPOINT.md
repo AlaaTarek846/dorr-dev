@@ -77,6 +77,41 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - Smart quiet with an end-of-quiet summary (115, `chat:quiet-digest` every minute).
   - Migrations `2026_10_06_100000`–`100400`. Tests: `ChatBroadcastTest`, `ChatCirclesTest`, `ChatThreadsDecisionsTest`.
   - Android: `ChatOrganizeUi.kt` (threads, decisions, circles, broadcasts) and the quiet sheet in `ChatShieldUi.kt`.
+- **DORR Sports (2026-10-13, spec 183–200, `Modules/Sports`, plan in `docs/sports-plan.md`):**
+  - **Provider:** API-Sports (one key, one daily budget for every sport, `API_SPORTS_KEY` / `API_SPORTS_DAILY_LIMIT`). Only the server calls it. Every request is counted in `sports_api_usage`.
+  - **Engine:**
+    - Competitions are imported from the provider (`sports:import football`). The admin tiers them: big = 1 min during a match, normal = 3 min, minor = 8 min, off.
+    - A followed team's match goes one tier up; a competition nobody watches goes one tier down.
+    - Schedules: one request per sport per day, today and tomorrow every 3 hours.
+    - Live: one request per tier, only inside match windows. Details are fetched only when something changed. Line-ups come an hour before, standings after a round.
+    - The budget governor stretches the intervals to fit the day and keeps a reserve. Commands: `sports:tick` every 30 s, `sports:schedule` hourly, `sports:standings` hourly, `sports:reminders` every minute, `sports:contests` hourly.
+  - **Live:** Pusher public channels `sports.match.{uuid}` and `sports.live`, plus `sports.alert` and `sports.prize` on the account channel. OneSignal pushes go to followers by their choices; never twice, with no spoilers and quiet hours respected.
+  - **Follows and preferences:** any number of teams and competitions in any sport, alerts per follow, no spoilers, celebration level, sounds, reminder.
+  - **Predictions:** free, locked at kick-off, exact score = 3 and the right winner = 1. Contests run on a match, a round or a competition. Prizes are wallet `spend_only` credit (`reward`, booked as `prize_cost`), a coupon, or a badge. They're closed until the admin opens them per country. One winner per device, with a seeded draw, a budget cap and the admin's review.
+  - **Coupons** (`Modules/Wallet`): `wallet_coupons`, used on Checkout (`POST wallet/checkouts/{uuid}/coupon`); the charge is `payable_minor`.
+  - **Chat and calendar:** the `match_card` message type, match rooms, and the calendar's `sports` source.
+  - **Admin:** competitions and tiers, the request budget, contests and winners, and settings. Permissions are `sports-*`.
+  - **Other sports:**
+    - F1 (`RacesAdapter`): races, the live order, the drivers' championship.
+    - MMA (`FightsAdapter`): fights and how they were won.
+    - Period sports (`GamesAdapter`).
+  - **Deep pages (phase 6, 2026-10-08, plan §10):** everything the provider has, kept in `sports_cache` with its own freshness (`SportsLibrary`, `FootballViews`) — rounds and the whole season, leaders (goals, assists, yellow, red), home/away tables, team profile, coach, squad, statistics and transfers, player and coach pages with career, trophies, transfers and injuries, a match's prediction, head to head, absentees, odds (information only, per country), the poster (stadium, captains, coaches, referee), player ratings, one search, logos and photos from our copy (`media/…`). `sports:seasons` hourly. Android: full competition, team, player, coach, search pages, the pitch with photos and ratings, and two home-screen widgets (Glance).
+  - **Quiet hours:** held alerts are summed up when quiet hours end (`sports_held_alerts`).
+  - **Migrations:** `2026_10_13_100000`, `100100`, `100400`, `100500` (Sports) and `100300` (Wallet coupons). **Tests:** `SportsTest`, `SportsPredictionsTest`, `SportsMoreSportsTest`.
+  - **Android:**
+    - `network/SportsApi.kt` and `ui/screens/sports/` (store, parts, match, play, celebration).
+    - Synthesised sounds in `res/raw/sp_*.wav`.
+    - The coupon box on the payment screen, the Home card, push deep links, and the chat card.
+- **DORR Discover (2026-10-12, spec 169–182, `Modules/Discover`):**
+  - **Sources:** events come only from the admin (official) and from organizers after review. An event shows as verified only when its organizer is verified (AT-DISC-02). The same title, city and day can't be added twice.
+  - **For people:** a home (for you, this week, the weekend, free, popular, places I follow), browse and search, travel search by a city's own days (AT-DISC-03), interests, followed cities, and "don't miss it" alerts (`discover:alerts`, hourly, with a weekly limit).
+  - **Status changes:** every change is kept in a history. Only people who are interested and asked for updates are told (AT-DISC-01).
+  - **Calendar:** events I'm interested in are the calendar's `discover` source.
+  - **Chat:** share an event as an `event_card` message, with a "who's going?" poll. An event room is a group that becomes admins-only some hours after the event (`discover:close-rooms`).
+  - **AI:** the AI turns a question into filters only. Every event shown is a real one.
+  - **Admin:** settings, categories and cities, the events review queue (add, edit, approve, status), and organizers (verify, reject, suspend). Permissions are `discover-*`.
+  - **Migration:** `2026_10_12_100000`, with `DiscoverSeeder` (10 kinds, plus cities in SA, EG, AE, KW, QA, BH, OM and JO). **Test:** `DiscoverTest`.
+  - **Android:** `network/EventsApi.kt` and `ui/screens/events/` (`EventsScreen`, `EventsParts`), a banner on Home, the chat card, and the push deep link.
 - **Partial chat items closed (2026-10-10):**
   - Items: 1 folder colours, 24 favourites folders, 6 text size and compact list, 13 photo quality by connection, 17/18 media by date and files by kind or size, 20 search in my voice transcripts, 21 search by kind, 25 a PIN per chat, 81 @usernames, 114 priority inbox, 123 "what I missed", 66 money in a chat, 153 decision room, 127 privacy center.
   - **Migration:** `2026_10_10_100000`.
