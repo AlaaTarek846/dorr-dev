@@ -262,7 +262,8 @@ internal fun WalletCheckout(state: CheckoutState) {
         else -> {
             val method = checkout.paymentMethods.firstOrNull { it.id.toString() == state.choice }
             val payWithWallet = state.choice == "wallet"
-            val charge = if (payWithWallet) checkout.amountMinor else method?.chargeMinor ?: checkout.amountMinor
+            val payable = checkout.payableMinor ?: checkout.amountMinor
+            val charge = if (payWithWallet) payable else method?.chargeMinor ?: payable
             val canPay = (payWithWallet && checkout.wallet.enough) || (method != null && method.available && !method.comingSoon)
             WaPage(
                 title = stringResource(R.string.wa_checkout_title),
@@ -308,6 +309,7 @@ internal fun WalletCheckout(state: CheckoutState) {
                 },
             ) {
                 Box(Modifier.waRise(0)) { OrderCard(checkout) }
+                Box(Modifier.waRise(1).padding(top = 12.dp)) { CouponBox(checkout) { state.checkout = it } }
 
                 WaSectionTitle(stringResource(R.string.wa_checkout_from_wallet), Modifier.waRise(1))
                 Box(Modifier.waRise(2)) {
@@ -330,8 +332,8 @@ internal fun WalletCheckout(state: CheckoutState) {
                             }
                         }
                     }
-                    if (method != null && method.chargeMinor != null && method.chargeMinor > checkout.amountMinor) {
-                        WaNote(stringResource(R.string.wa_checkout_fee_note, money(method.chargeMinor - checkout.amountMinor), checkout.currencyCode.orEmpty()))
+                    if (method != null && method.chargeMinor != null && method.chargeMinor > payable) {
+                        WaNote(stringResource(R.string.wa_checkout_fee_note, money(method.chargeMinor - payable), checkout.currencyCode.orEmpty()))
                     }
                 }
                 WaError(state.error)
@@ -368,7 +370,13 @@ private fun OrderCard(checkout: CheckoutDto) {
             Text(stringResource(R.string.wa_checkout_total), color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(money(checkout.amountMinor), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
+                    if (checkout.discountMinor > 0) {
+                        Text(
+                            money(checkout.amountMinor), color = Color.White.copy(alpha = 0.6f), fontSize = 16.sp, fontWeight = FontWeight.Bold,
+                            textDecoration = androidx.compose.ui.text.style.TextDecoration.LineThrough, modifier = Modifier.padding(bottom = 7.dp),
+                        )
+                    }
+                    Text(money(checkout.payableMinor ?: checkout.amountMinor), color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.5).sp)
                     Text(checkout.currencyCode.orEmpty(), color = Color.White.copy(alpha = 0.8f), fontSize = 15.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
                 }
             }
@@ -520,5 +528,67 @@ private fun CheckoutFailed(checkout: CheckoutDto, onRetry: () -> Unit, onBack: (
             WaButton(stringResource(R.string.wa_try_again), onRetry, icon = Icons.Rounded.Refresh)
             WaButton(stringResource(R.string.wa_cancel), onBack, style = WaButtonStyle.Quiet)
         }
+    }
+}
+
+/** A coupon on this payment: type a code, or tap one of mine (a DORR Sports prize…). */
+@Composable
+private fun CouponBox(checkout: CheckoutDto, onChanged: (CheckoutDto) -> Unit) {
+    var code by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf("") }
+    var mine by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<List<com.dorr.app.network.WalletCouponDto>>(emptyList()) }
+    var busy by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+    var error by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(Unit) { mine = runCatching { ApiClient.wallet.coupons(walletAuth()).data }.getOrNull().orEmpty() }
+    val apply: (String) -> Unit = { c ->
+        busy = true
+        error = null
+        scope.launch {
+            runCatching { ApiClient.wallet.applyCoupon(walletAuth(), checkout.id, com.dorr.app.network.CheckoutCouponRequest(c.trim())).data }
+                .onSuccess { it?.let(onChanged); code = "" }
+                .onFailure { error = it.apiFailure().message }
+            busy = false
+        }
+    }
+    val applied = checkout.coupon
+    if (applied != null) {
+        Row(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Wa.Green.copy(alpha = 0.10f)).padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text("🎟️", fontSize = 20.sp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(applied.code.orEmpty(), color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                Text(stringResource(R.string.wa_coupon_saved, money(applied.discountMinor), checkout.currencyCode.orEmpty()), color = Wa.Green, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+            }
+            Text(
+                stringResource(R.string.wa_coupon_remove), color = Wa.Danger, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(CircleShape).clickable(enabled = !busy) {
+                    busy = true
+                    scope.launch { runCatching { ApiClient.wallet.removeCoupon(walletAuth(), checkout.id).data }.getOrNull()?.let(onChanged); busy = false }
+                }.padding(8.dp),
+            )
+        }
+        return
+    }
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            com.dorr.app.ui.components.DorrTextField(code, { code = it.take(40).uppercase() }, placeholder = stringResource(R.string.wa_coupon_hint), modifier = Modifier.weight(1f))
+            Spacer(Modifier.width(8.dp))
+            WaButton(stringResource(R.string.wa_coupon_apply), { apply(code) }, enabled = code.length >= 4 && !busy, loading = busy, style = WaButtonStyle.Ghost, modifier = Modifier.width(110.dp))
+        }
+        if (mine.isNotEmpty()) {
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                mine.take(3).forEach { c ->
+                    Text(
+                        "🎟️ " + if (c.kind == "percent") "${c.value}%" else money(c.value) + " " + c.currencyCode.orEmpty(),
+                        color = Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clip(CircleShape).background(Wa.Surface).clickable { apply(c.code) }.padding(horizontal = 12.dp, vertical = 7.dp),
+                    )
+                }
+            }
+        }
+        error?.let { Text(it, color = Wa.Danger, fontSize = 12.5.sp, modifier = Modifier.padding(top = 6.dp)) }
     }
 }

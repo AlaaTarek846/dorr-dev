@@ -28,6 +28,10 @@ enum MessageType: string
     case Call = 'call';
     /** A greeting card (DORR Moments): the occasion's look, words, voice, photos, a gift, maybe a surprise. */
     case MomentCard = 'moment_card';
+    /** An event from DORR Discover (spec 178): meta.event is a snapshot built on the server. */
+    case EventCard = 'event_card';
+    /** A match from DORR Sports (spec 195): meta.match is a snapshot; the app shows it live. */
+    case MatchCard = 'match_card';
     case System = 'system';
 
     /**

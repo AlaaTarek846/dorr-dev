@@ -1,0 +1,11 @@
+{
+    "name": "Discover",
+    "alias": "discover",
+    "description": "DORR Discover: trusted public events (spec 169-182).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Discover\\Providers\\DiscoverServiceProvider"
+    ],
+    "files": []
+}

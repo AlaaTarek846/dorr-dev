@@ -40,6 +40,8 @@ class DatabaseSeeder extends Seeder
             CountrySeeder::class,
             WalletDatabaseSeeder::class,
             ChatDatabaseSeeder::class,
+            \Modules\Discover\Database\Seeders\DiscoverSeeder::class,
+            \Modules\Sports\Database\Seeders\SportsSeeder::class,
             UserSeeder::class,
             PlatformSettingSeeder::class,
             MobileAppColorDefaultSeeder::class,

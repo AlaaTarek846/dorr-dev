@@ -10,7 +10,16 @@ import com.dorr.app.network.DeviceId
 import com.dorr.app.network.CountryCache
 import com.dorr.app.network.OnboardingStore
 
-class DorrApp : Application(), ImageLoaderFactory {
+class DorrApp : Application(), coil.ImageLoaderFactory {
+    /** Every AsyncImage: SVG icons and animated GIFs, through the API's client (same dev headers). */
+    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this)
+        .okHttpClient { com.dorr.app.network.ApiClient.okHttpClient }
+        .components {
+            add(coil.decode.SvgDecoder.Factory())
+            if (android.os.Build.VERSION.SDK_INT >= 28) add(coil.decode.ImageDecoderDecoder.Factory()) else add(coil.decode.GifDecoder.Factory())
+        }
+        .build()
+
     override fun onCreate() {
         super.onCreate()
         AuthSession.attach(this)

@@ -859,6 +859,8 @@ internal fun previewOf(type: String, deleted: Boolean): Pair<ImageVector?, Strin
     type == "money_request" -> Icons.Rounded.Payments to stringResource(R.string.ch_money_request)
     type == "bill_split" -> Icons.Rounded.Payments to stringResource(R.string.ch_split_title)
     type == "moment_card" -> Icons.Rounded.Redeem to stringResource(R.string.mo_card_preview)
+    type == "event_card" -> Icons.Rounded.Place to stringResource(R.string.ev_event_preview)
+    type == "match_card" -> Icons.Rounded.Place to stringResource(R.string.sp_match_preview)
     else -> null to ""
 }
 
