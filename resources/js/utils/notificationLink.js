@@ -4,6 +4,13 @@
  * Returns a vue-router location, or null when the notification is informational only.
  */
 export function notificationLink(notification) {
+    // A notification can carry its own admin path (`data.url`, e.g. "/admin/support-tickets?ticket=7"): it wins.
+    const url = notification?.data?.url;
+
+    if (typeof url === 'string' && url.startsWith('/')) {
+        return url;
+    }
+
     const type = notification?.data?.type;
 
     switch (type) {

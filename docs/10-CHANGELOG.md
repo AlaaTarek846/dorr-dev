@@ -9,6 +9,9 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Added
+- Bell dropdown: clicking any notification reads it (it leaves the list and the badge count drops), also one with no destination; a notification that arrived live is swapped for its saved row a moment later so it can be read too
+- Admin notifications: the whole card (page) or row (bell dropdown) is clickable and opens what the notification is about — for support, the tickets page with that conversation modal — and marks it read; a notification may carry its own admin path in `data.url` (a path starting with `/`), which `notificationLink.js` uses before the per-type mapping
+- Admin notifications page redesigned: each notification is its own card (avatar with a read/unread dot, title, message, "x min ago", a date badge), unread ones have a tinted background and an accent edge, and the list loads the newest 20 first and the next 20 older ones when the end is reached (IntersectionObserver, "Loading" pill, no pager)
 - Quick chat back navigation, second pass: leaving the quick chat no longer flips the screen's state first (the ticket list flashed while it animated out), and a ticket opened from the quick chat goes back straight to the Support menu instead of a list the customer never visited
 - App: the ticket conversation header card is laid out on two rows — back, support icon and title; then number, status badge and the close / reopen action — separated by a thin line (no behaviour change)
 - App: the support ticket card in the list is smaller and no longer shows the last message — title and status on the first line, "Ticket #number · date" under it (the unread dot stays)

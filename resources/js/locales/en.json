@@ -2606,7 +2606,9 @@
         "new_notification": "New notification",
         "mark_all_read": "Mark all as read",
         "mark_as_read": "Mark as read",
-        "open": "Open"
+        "open": "Open",
+        "loading": "Loading",
+        "end_of_list": "You have reached the end"
     },
     "sms": {
         "test_status_passed": "Passed",
