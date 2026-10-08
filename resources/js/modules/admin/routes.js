@@ -410,10 +410,16 @@ export default [
                 meta: { middleware: [auth], permission: 'support-settings.view' },
             },
             {
-                path: 'support-settings',
-                name: 'admin.support-settings',
-                component: page('support/settings'),
-                meta: { middleware: [auth], permission: 'support-settings.view' },
+                path: 'support-help-nodes',
+                name: 'admin.support-help-nodes',
+                component: page('support/help-nodes'),
+                meta: { middleware: [auth], permission: 'support-help-nodes.view' },
+            },
+            {
+                path: 'support-quick-replies',
+                name: 'admin.support-quick-replies',
+                component: page('support/quick-replies'),
+                meta: { middleware: [auth], permission: 'support-quick-replies.view' },
             },
             {
                 path: 'ratings',

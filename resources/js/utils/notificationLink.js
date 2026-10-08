@@ -13,6 +13,12 @@ export function notificationLink(notification) {
             return { name: 'admin.wallet.pin-recovery' };
         case 'wallet':
             return { name: 'admin.wallet.online-transactions' };
+        // A ticket opens its conversation on the support page; a customer who asked for an agent in the quick chat
+        // opens their latest ticket (the one they open right after, when it exists).
+        case 'support':
+            return { name: 'admin.support-tickets.index', query: { ticket: notification.data.ticket_id } };
+        case 'support_help':
+            return { name: 'admin.support-tickets.index', query: { user: notification.data.user_id } };
         default:
             return null;
     }
@@ -26,6 +32,7 @@ export function notificationIcon(notification) {
     if (event.startsWith('wallet.transfer')) return 'bx bx-transfer-alt';
     if (event.startsWith('wallet.pin')) return 'bx bx-lock-alt';
     if (event.startsWith('wallet.')) return 'bx bx-wallet';
+    if (event.startsWith('support.')) return 'bx bx-support';
 
     return 'bx bx-bell';
 }

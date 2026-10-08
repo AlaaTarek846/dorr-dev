@@ -1,6 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\User\Http\Controllers\SupportHelpNodeController;
+use Modules\User\Http\Controllers\SupportQuickReplyController;
 use Modules\User\Http\Controllers\SupportSettingController;
 use Modules\User\Http\Controllers\SupportTicketController;
 use Modules\User\Http\Controllers\UserController;
@@ -22,11 +24,17 @@ Route::middleware(['locale', 'auth:admin_api'])->prefix('admin/v1')->group(funct
     Route::post('support-tickets/{supportTicket}/messages', [SupportTicketController::class, 'sendMessage']);
     Route::patch('support-tickets/{supportTicket}/status', [SupportTicketController::class, 'status']);
 
-    // Support settings: automatic replies (acknowledgement, away note, AI answers from the FAQs) + quick replies.
+    // Support settings: automatic replies (acknowledgement, away note, AI answers from the FAQs).
     Route::get('support-settings', [SupportSettingController::class, 'show']);
     Route::put('support-settings', [SupportSettingController::class, 'update']);
-    Route::get('support-settings/quick-replies', [SupportSettingController::class, 'quickReplies']);
-    Route::post('support-settings/quick-replies', [SupportSettingController::class, 'storeQuickReply']);
-    Route::put('support-settings/quick-replies/{quickReply}', [SupportSettingController::class, 'updateQuickReply']);
-    Route::delete('support-settings/quick-replies/{quickReply}', [SupportSettingController::class, 'destroyQuickReply']);
+
+    // The guided help menu of the app (a tree of topics).
+    Route::get('support-help-nodes/options', [SupportHelpNodeController::class, 'options']);
+    Route::patch('support-help-nodes/{supportHelpNode}/status', [SupportHelpNodeController::class, 'status']);
+    Route::apiResource('support-help-nodes', SupportHelpNodeController::class);
+
+    // Quick replies: the ready answers agents drop in with "/".
+    Route::post('support-quick-replies/delete-multiple', [SupportQuickReplyController::class, 'deleteMultiple']);
+    Route::patch('support-quick-replies/{supportQuickReply}/status', [SupportQuickReplyController::class, 'status']);
+    Route::apiResource('support-quick-replies', SupportQuickReplyController::class);
 });

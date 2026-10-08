@@ -2,7 +2,43 @@
     <div>
         <WalletPageHeader :title="t('support.settings.title')" :section="t('sidebar.users')" />
 
-        <div v-if="loading" class="text-center py-5"><span class="spinner-border"></span></div>
+        <div class="d-flex justify-content-end mb-3">
+            <button type="button" class="btn btn-sm btn-light" :title="t('support.refresh')" :disabled="loading" @click="load">
+                <i class="ri-refresh-line" :class="{ 'support-spin': loading }"></i>
+            </button>
+        </div>
+
+        <!-- the page's own shape while it loads: the intro, the master switch and the section cards -->
+        <div v-if="loading" aria-busy="true">
+            <Skeleton height="3.25rem" border-radius="0.5rem" class="mb-3" />
+            <div class="row g-3 justify-content-center">
+                <div class="col-xl-9 ">
+                    <div class="card custom-card">
+                        <div class="card-body d-flex align-items-center justify-content-between gap-3">
+                            <div class="flex-grow-1">
+                                <Skeleton width="30%" height="1rem" class="mb-2" />
+                                <Skeleton width="55%" height="0.75rem" />
+                            </div>
+                            <Skeleton width="2.5rem" height="1.4rem" border-radius="1rem" />
+                        </div>
+                    </div>
+                    <div v-for="section in 3" :key="section" class="card custom-card">
+                        <div class="card-header"><Skeleton width="12rem" height="1.1rem" /></div>
+                        <div class="card-body">
+                            <div class="d-flex gap-2 mb-3">
+                                <Skeleton width="5.5rem" height="2rem" border-radius="0.5rem" />
+                                <Skeleton width="5.5rem" height="2rem" border-radius="0.5rem" />
+                            </div>
+                            <Skeleton height="6rem" border-radius="0.5rem" class="mb-3" />
+                            <div class="row g-3">
+                                <div class="col-md-6"><Skeleton height="2.4rem" border-radius="0.5rem" /></div>
+                                <div class="col-md-6"><Skeleton height="2.4rem" border-radius="0.5rem" /></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <template v-else-if="form">
             <div class="alert alert-info fs-13 d-flex align-items-start gap-2">
@@ -10,8 +46,8 @@
                 <span>{{ t('support.settings.intro') }}</span>
             </div>
 
-            <div class="row g-3">
-                <div class="col-xl-8">
+            <div class="row g-3 justify-content-center">
+                <div class="col-xl-9">
                     <!-- master switch -->
                     <div class="card custom-card">
                         <div class="card-body d-flex align-items-center justify-content-between gap-3">
@@ -145,70 +181,9 @@
                     </div>
                 </div>
 
-                <!-- quick replies -->
-                <div class="col-xl-4">
-                    <div class="card custom-card">
-                        <div class="card-header d-flex align-items-center justify-content-between">
-                            <div class="card-title"><i class="ri-flashlight-line me-1"></i>{{ t('support.settings.quick_title') }}</div>
-                            <button v-if="canUpdate" type="button" class="btn btn-sm btn-primary" @click="openReply()">
-                                <i class="ri-add-line me-1"></i>{{ t('support.settings.quick_add') }}
-                            </button>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-muted fs-12">{{ t('support.settings.quick_hint') }}</p>
-                            <div v-if="! quickReplies.length" class="text-center text-muted py-4">{{ t('support.settings.quick_empty') }}</div>
-                            <div v-for="reply in quickReplies" :key="reply.id" class="quick-row" :class="{ 'opacity-50': ! reply.status }">
-                                <div class="min-w-0">
-                                    <div class="d-flex align-items-center gap-2">
-                                        <span class="badge bg-primary-transparent" dir="ltr">/{{ reply.shortcut }}</span>
-                                        <strong class="text-truncate">{{ reply.title }}</strong>
-                                    </div>
-                                    <div class="text-muted fs-12 quick-body">{{ reply.body }}</div>
-                                </div>
-                                <div v-if="canUpdate" class="btn-list flex-shrink-0">
-                                    <button type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('support.settings.quick_edit')" @click="openReply(reply)"><i class="ri-pencil-line"></i></button>
-                                    <button type="button" class="btn btn-sm btn-danger-light btn-icon" :title="t('support.settings.quick_delete')" @click="removeReply(reply)"><i class="ri-delete-bin-line"></i></button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
         </template>
 
-        <WalletModal :show="replyModal" :title="replyForm.id ? t('support.settings.quick_edit') : t('support.settings.quick_add')" size="md" @close="replyModal = false">
-            <div class="d-flex flex-column gap-3">
-                <div>
-                    <label class="form-label" for="qr-shortcut">{{ t('support.settings.quick_shortcut') }}</label>
-                    <div class="input-group" dir="ltr">
-                        <span class="input-group-text">/</span>
-                        <input id="qr-shortcut" v-model="replyForm.shortcut" type="text" class="form-control" :class="cls(rv$.shortcut)" placeholder="refund">
-                    </div>
-                    <div v-if="msg(rv$.shortcut)" class="invalid-feedback d-block">{{ msg(rv$.shortcut) }}</div>
-                </div>
-                <div>
-                    <label class="form-label" for="qr-title">{{ t('support.settings.quick_name') }}</label>
-                    <input id="qr-title" v-model="replyForm.title" type="text" class="form-control" :class="cls(rv$.title)">
-                    <div v-if="msg(rv$.title)" class="invalid-feedback d-block">{{ msg(rv$.title) }}</div>
-                </div>
-                <div>
-                    <label class="form-label" for="qr-body">{{ t('support.settings.quick_text') }}</label>
-                    <textarea id="qr-body" v-model="replyForm.body" rows="5" class="form-control" :class="cls(rv$.body)"></textarea>
-                    <div v-if="msg(rv$.body)" class="invalid-feedback d-block">{{ msg(rv$.body) }}</div>
-                </div>
-                <div class="form-check form-switch">
-                    <input id="qr-status" v-model="replyForm.status" class="form-check-input" type="checkbox" role="switch">
-                    <label class="form-check-label" for="qr-status">{{ t('wallet.common.active') }}</label>
-                </div>
-                <div v-if="replyError" class="text-danger fs-12">{{ replyError }}</div>
-            </div>
-            <template #footer>
-                <button type="button" class="btn btn-light" @click="replyModal = false">{{ t('close') }}</button>
-                <button type="button" class="btn btn-primary" :disabled="savingReply" @click="saveReply">
-                    <span v-if="savingReply" class="spinner-border spinner-border-sm me-1"></span>{{ t('save_changes') }}
-                </button>
-            </template>
-        </WalletModal>
     </div>
 </template>
 
@@ -216,13 +191,13 @@
 import useVuelidate from '@vuelidate/core';
 import { helpers } from '@vuelidate/validators';
 import Select from 'primevue/select';
-import { computed, onMounted, reactive, ref } from 'vue';
+import Skeleton from 'primevue/skeleton';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import AdminDatePicker from '../../../../../../components/ui/AdminDatePicker.vue';
 import CatalogTranslationTabs from '../../../../../../components/catalog/CatalogTranslationTabs.vue';
 import { useAvailableLanguagesStore } from '../../../../../../stores/availableLanguages';
-import WalletModal from '../../../../../../components/wallet/WalletModal.vue';
 import WalletPageHeader from '../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletSection from '../../../../../../components/wallet/WalletSection.vue';
 import useValidation from '../../../../../../composables/useValidation';
@@ -257,7 +232,6 @@ const saving = ref(false);
 const errorMessage = ref('');
 const settings = ref({});
 const form = ref(null);
-const quickReplies = ref([]);
 
 const defaults = computed(() => settings.value.default_texts ?? { ack: {}, away: {} });
 const timezones = computed(() => {
@@ -292,13 +266,10 @@ async function load() {
     loading.value = true;
 
     try {
-        const [settingsResponse, repliesResponse] = await Promise.all([
-            adminAxios.get('/api/admin/v1/support-settings'),
-            adminAxios.get('/api/admin/v1/support-settings/quick-replies'),
-        ]);
+        const { data } = await adminAxios.get('/api/admin/v1/support-settings');
 
-        fill(settingsResponse.data.data);
-        quickReplies.value = repliesResponse.data.data ?? [];
+        fill(data.data);
+        v$.value.$reset();
     } catch (error) {
         showError(extractApiErrorMessage(error));
     } finally {
@@ -333,13 +304,6 @@ async function save() {
     }
 }
 
-// ---------------------------------------------------------------- quick replies
-
-const replyModal = ref(false);
-const savingReply = ref(false);
-const replyError = ref('');
-const replyForm = reactive({ id: null, shortcut: '', title: '', body: '', status: true });
-
 // ---------------------------------------------------------------- validation (Vuelidate)
 
 const texts = (labelKey) => Object.fromEntries(languageList.value.map((lang) => [lang.code, { max: maxString(labelKey, 1000) }]));
@@ -365,74 +329,10 @@ const rules = computed(() => ({
 
 const v$ = useVuelidate(rules, computed(() => form.value ?? {}), { $autoDirty: true, $scope: 'settings' });
 
-const replyRules = computed(() => ({
-    shortcut: {
-        required: requiredField('support.settings.quick_shortcut'),
-        max: maxString('support.settings.quick_shortcut', 40),
-        format: helpers.withMessage(
-            () => t('validation.regex', { field: t('support.settings.quick_shortcut') }),
-            (value) => ! value || /^[\p{L}\p{N}_-]+$/u.test(String(value).replace(/^\//, '')),
-        ),
-    },
-    title: { required: requiredField('support.settings.quick_name'), max: maxString('support.settings.quick_name', 120) },
-    body: { required: requiredField('support.settings.quick_text'), max: maxString('support.settings.quick_text', 4000) },
-}));
-
-const rv$ = useVuelidate(replyRules, replyForm, { $autoDirty: true, $scope: 'reply' });
-
 const msg = (field) => field?.$errors?.[0]?.$message || '';
 const cls = (field) => ({ 'is-invalid': Boolean(field?.$error) });
 
 
-
-function openReply(reply = null) {
-    Object.assign(replyForm, reply
-        ? { id: reply.id, shortcut: reply.shortcut, title: reply.title, body: reply.body, status: Boolean(reply.status) }
-        : { id: null, shortcut: '', title: '', body: '', status: true });
-    replyError.value = '';
-    rv$.value.$reset();
-    replyModal.value = true;
-}
-
-async function saveReply() {
-    if (! await rv$.value.$validate()) {
-        return;
-    }
-
-    savingReply.value = true;
-    replyError.value = '';
-
-    try {
-        const payload = { shortcut: replyForm.shortcut, title: replyForm.title, body: replyForm.body, status: replyForm.status };
-
-        if (replyForm.id) {
-            await adminAxios.put(`/api/admin/v1/support-settings/quick-replies/${replyForm.id}`, payload);
-        } else {
-            await adminAxios.post('/api/admin/v1/support-settings/quick-replies', payload);
-        }
-
-        replyModal.value = false;
-        quickReplies.value = (await adminAxios.get('/api/admin/v1/support-settings/quick-replies')).data.data ?? [];
-        showSuccess(t('support.settings.saved'));
-    } catch (error) {
-        replyError.value = extractApiErrorMessage(error);
-    } finally {
-        savingReply.value = false;
-    }
-}
-
-async function removeReply(reply) {
-    if (! window.confirm(t('support.settings.quick_confirm_delete', { name: reply.title }))) {
-        return;
-    }
-
-    try {
-        await adminAxios.delete(`/api/admin/v1/support-settings/quick-replies/${reply.id}`);
-        quickReplies.value = quickReplies.value.filter((item) => item.id !== reply.id);
-    } catch (error) {
-        showError(extractApiErrorMessage(error));
-    }
-}
 
 onMounted(async () => {
     await languagesStore.fetch();
@@ -442,6 +342,17 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.support-spin {
+    display: inline-block;
+    animation: support-spin 0.8s linear infinite;
+}
+
+@keyframes support-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .hours-picker {
     max-width: 150px;
 }
@@ -461,20 +372,4 @@ onMounted(async () => {
     border-color: transparent;
 }
 
-.quick-row {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    padding: 0.75rem 0;
-    border-top: 1px solid var(--default-border, #dee2e6);
-}
-
-.quick-body {
-    display: -webkit-box;
-    overflow: hidden;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-}
 </style>

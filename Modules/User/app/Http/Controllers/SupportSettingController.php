@@ -12,12 +12,11 @@ use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Modules\AI\Repositories\AiProviderRepository;
-use Modules\User\Models\SupportQuickReply;
 use Modules\User\Models\SupportSetting;
 
 /**
  * Dashboard → Support settings: the automatic replies (acknowledgement, away note with the working hours,
- * the AI's answers from the FAQs) and the agents' quick replies.
+ * the AI's answers from the FAQs).
  */
 class SupportSettingController extends Controller implements HasMiddleware
 {
@@ -27,8 +26,8 @@ class SupportSettingController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return AdminPermissionMiddleware::fromActionMethodMap('support-settings', [
-            ['view', ['show', 'quickReplies']],
-            ['update', ['update', 'storeQuickReply', 'updateQuickReply', 'destroyQuickReply']],
+            ['view', ['show']],
+            ['update', ['update']],
         ]);
     }
 
@@ -66,37 +65,6 @@ class SupportSettingController extends Controller implements HasMiddleware
         ])->save();
 
         return ApiResponse::success($this->present($settings->refresh(), $providers, $faqs), __('api.updated'));
-    }
-
-    // ---------------------------------------------------------------- quick replies
-
-    public function quickReplies(): JsonResponse
-    {
-        return ApiResponse::success(
-            SupportQuickReply::query()->orderBy('sort_order')->orderBy('id')->get()->map(fn (SupportQuickReply $r) => $this->presentQuickReply($r)),
-            __('api.retrieved'),
-        );
-    }
-
-    public function storeQuickReply(Request $request): JsonResponse
-    {
-        $reply = SupportQuickReply::query()->create($this->quickReplyData($request));
-
-        return ApiResponse::created($this->presentQuickReply($reply), __('api.created'));
-    }
-
-    public function updateQuickReply(Request $request, SupportQuickReply $quickReply): JsonResponse
-    {
-        $quickReply->update($this->quickReplyData($request, $quickReply));
-
-        return ApiResponse::success($this->presentQuickReply($quickReply->refresh()), __('api.updated'));
-    }
-
-    public function destroyQuickReply(SupportQuickReply $quickReply): JsonResponse
-    {
-        $quickReply->delete();
-
-        return ApiResponse::noContent(__('api.deleted'));
     }
 
     // ---------------------------------------------------------------- helpers
@@ -143,40 +111,5 @@ class SupportSettingController extends Controller implements HasMiddleware
         }
 
         return $out;
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function quickReplyData(Request $request, ?SupportQuickReply $current = null): array
-    {
-        // "/refund" and "refund" are the same shortcut: the slash is how agents type it, not part of it.
-        if ($request->has('shortcut')) {
-            $request->merge(['shortcut' => mb_strtolower(ltrim(trim((string) $request->input('shortcut')), '/'))]);
-        }
-
-        $data = $request->validate([
-            'shortcut' => ['required', 'string', 'max:40', 'regex:/^[\p{L}\p{N}_-]+$/u', Rule::unique('support_quick_replies', 'shortcut')->ignore($current?->id)],
-            'title' => ['required', 'string', 'max:120'],
-            'body' => ['required', 'string', 'max:4000'],
-            'sort_order' => ['nullable', 'integer', 'min:0'],
-            'status' => ['nullable', 'boolean'],
-        ]);
-
-        return [
-            'shortcut' => $data['shortcut'],
-            'title' => trim($data['title']),
-            'body' => trim($data['body']),
-            'sort_order' => (int) ($data['sort_order'] ?? 0),
-            'status' => (bool) ($data['status'] ?? true),
-        ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function presentQuickReply(SupportQuickReply $reply): array
-    {
-        return $reply->only(['id', 'shortcut', 'title', 'body', 'sort_order', 'status']);
     }
 }

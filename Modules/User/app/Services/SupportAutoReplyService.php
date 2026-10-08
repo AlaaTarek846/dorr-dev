@@ -166,7 +166,7 @@ class SupportAutoReplyService
     {
         $locale = $this->locale($ticket);
 
-        return $settings->textFor($kind, $locale, ['id' => $ticket->id, 'hours' => $settings->hoursText($locale)]);
+        return $settings->textFor($kind, $locale, ['id' => $ticket->number, 'hours' => $settings->hoursText($locale)]);
     }
 
     /** The customer's own language (the one their app uses), else the site's. */

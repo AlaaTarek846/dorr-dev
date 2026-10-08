@@ -7,6 +7,7 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\Provider\Models\Provider;
@@ -64,7 +65,7 @@ class WalletStatementTest extends TestCase
         return $this->wallets->firstOrCreateWallet($owner, $country ?? $this->saudi);
     }
 
-    private function statement(array $query = [], array $headers = ['X-Country' => 'SA']): \Illuminate\Testing\TestResponse
+    private function statement(array $query = [], array $headers = ['X-Country' => 'SA']): TestResponse
     {
         return $this->getJson('/api/provider/v1/wallet/transactions?'.http_build_query($query), $headers);
     }

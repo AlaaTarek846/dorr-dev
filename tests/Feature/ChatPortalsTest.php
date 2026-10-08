@@ -8,9 +8,12 @@ use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\Chat\Models\ChatCategory;
@@ -28,6 +31,7 @@ use Modules\Wallet\Models\PaymentMethod;
 use Modules\Wallet\Models\Wallet;
 use Modules\Wallet\Services\PinService;
 use Modules\Wallet\Services\WalletService;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -143,7 +147,7 @@ class ChatPortalsTest extends TestCase
         $this->postJson("/api/mobile/v1/wallet/checkouts/{$again}/pay", ['method' => 'wallet'], $this->headers() + ['X-Wallet-Pin' => '1234'])->assertOk();
 
         $this->assertSame(2, ChatSubscription::query()->count());
-        $this->assertEquals(\Illuminate\Support\Carbon::parse($firstEnd)->addMonth()->toDateString(), ChatPortal::query()->where('uuid', $portal)->first()->listed_until->toDateString());
+        $this->assertEquals(Carbon::parse($firstEnd)->addMonth()->toDateString(), ChatPortal::query()->where('uuid', $portal)->first()->listed_until->toDateString());
     }
 
     public function test_paying_through_a_gateway_settles_the_moment_the_gateway_confirms(): void
@@ -297,9 +301,9 @@ class ChatPortalsTest extends TestCase
      */
     private function asAdmin(array $permissions, string $email = 'a@example.com'): void
     {
-        $admin = \Modules\Admin\Models\Admin::create(['name' => 'A', 'email' => $email, 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::create(['name' => 'A', 'email' => $email, 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');
@@ -343,7 +347,7 @@ class ChatPortalsTest extends TestCase
     /**
      * @param  array<string, mixed>  $reference
      */
-    private function checkout(string $purpose, array $reference): \Illuminate\Testing\TestResponse
+    private function checkout(string $purpose, array $reference): TestResponse
     {
         return $this->postJson('/api/mobile/v1/wallet/checkouts', ['purpose' => $purpose, 'reference' => $reference], $this->headers());
     }
