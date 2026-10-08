@@ -207,15 +207,15 @@ fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.cal_home_label),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = mut,
-            )
             if (count == 0) {
                 Text(
-                    nextLine ?: stringResource(R.string.cal_home_free),
+                    stringResource(R.string.cal_home_free),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = mut,
+                )
+                Text(
+                    dayTitle(runCatching { LocalDate.parse(today.date) }.getOrNull() ?: LocalDate.now()),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = settingsInk(),
@@ -223,6 +223,12 @@ fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                     overflow = TextOverflow.Ellipsis,
                 )
             } else {
+                Text(
+                    stringResource(R.string.cal_home_label),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = mut,
+                )
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text(
                         count.toString(),
@@ -241,6 +247,14 @@ fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                     )
                 }
             }
+            Text(
+                nextLine ?: stringResource(R.string.cal_home_add),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = mut,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
         Box(
             modifier = Modifier

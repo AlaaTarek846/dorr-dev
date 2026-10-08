@@ -10,6 +10,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Changed
 - Android Home: the top greeting bar uses appearance colors (same wallet / chat / notifications icons), then ads, stories, an improved today-calendar card, moments, wallet, and services.
+- Android Home today card when the day is empty: the small label is "Your day is free" / "يومك فاضي", and the main line is today's date (`Thursday, 8 October` in English).
 - **Ratings:** a later `POST /api/mobile/v1/ratings` updates the same row (stars and comment, empty comment clears it) instead of 422. Android Rate screen stays editable after the first save. Play In-App Review still only the first time the rating is 4–5 stars. Optional comment is 5–300 characters (placeholder no longer “what should we improve”).
 
 ### Added
