@@ -23,7 +23,7 @@ class StoreRatingRequest extends FormRequest
 
         return [
             'stars' => ['required', 'numeric', 'between:1,5', 'multiple_of:0.25'],
-            'comment' => ['nullable', 'string', 'max:500'],
+            'comment' => ['nullable', 'string', 'min:5', 'max:300'],
             // Empty = the app itself.
             'rateable_type' => ['nullable', 'string', Rule::in(array_keys(Rating::RATEABLES))],
             'rateable_id' => [
@@ -32,6 +32,17 @@ class StoreRatingRequest extends FormRequest
                 'integer',
                 $class !== null ? Rule::exists((new $class)->getTable(), 'id') : Rule::prohibitedIf(fn () => ! $this->filled('rateable_type')),
             ],
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'comment.min' => __('api.rating_comment_length'),
+            'comment.max' => __('api.rating_comment_length'),
         ];
     }
 }

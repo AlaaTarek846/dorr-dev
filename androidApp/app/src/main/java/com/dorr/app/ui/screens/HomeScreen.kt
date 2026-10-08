@@ -1,14 +1,18 @@
 package com.dorr.app.ui.screens
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.UserDto
 import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.wallet.formatMinor
 import androidx.compose.foundation.background
@@ -46,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -89,14 +94,7 @@ fun HomeScreen(
                 onOpenChat = onOpenChat,
             )
         }
-        item { Spacer(Modifier.height(10.dp)) }
-        // Like the chat's stories bar: the merchant portals circle (then public stories, ج.1).
-        homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
-        item { Spacer(Modifier.height(10.dp)) }
-        // DORR Today (spec 202): my day — what's on and what's next; a tap opens the calendar.
-        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        // DORR Moments: the occasion that's on (or the next one soon) — from the server's catalog.
-        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { Spacer(Modifier.height(14.dp)) }
         item {
             HeroBannerSlider(
                 slides = listOf(
@@ -107,6 +105,11 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
+        item { Spacer(Modifier.height(10.dp)) }
+        homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
+        item { Spacer(Modifier.height(10.dp)) }
+        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item {
             HomeWalletCard(
                 onOpenWallet = onOpenWallet,
@@ -136,86 +139,117 @@ fun HomeScreen(
 private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenChat: () -> Unit) {
     var hasUnread by remember { mutableStateOf(false) }
     val reconnectTick = collectReconnectTick()
+    val sessionVersion by AuthSession.sessionVersion.collectAsState()
+    val user = remember(sessionVersion) { AuthSession.user }
     LaunchedEffect(reconnectTick) {
         hasUnread = runCatching {
             ApiClient.notifications.unreadCount("Bearer ${AuthSession.token.orEmpty()}").data?.count ?: 0
         }.getOrDefault(0) > 0
     }
-    val night = settingsNight()
-    val accent = if (night) AccountDark.accent else settingsAccent()
+    val accent = settingsAccent()
+    val onAccent = Color.White
+    val shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        accent,
+                        Color(accent.red * 0.78f, accent.green * 0.78f, accent.blue * 0.78f),
+                    ),
+                ),
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(settingsCard())
-                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
+                .background(onAccent.copy(alpha = 0.18f))
                 .clickable(onClick = onOpenAccount),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Person, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            HomeAvatar(user)
         }
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = stringResource(R.string.home_greeting, AuthSession.user?.name ?: stringResource(R.string.account_default_user)),
-            color = accent,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            // End padding keeps a long name (cut with "...") clear of the wallet icon; it follows RTL.
-            modifier = Modifier.weight(1f).padding(end = 10.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
-                .clip(CircleShape)
-                .background(settingsCard())
-                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
-                .clickable(onClick = onOpenWallet),
-            contentAlignment = Alignment.Center,
-        ) {
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(
+                stringResource(R.string.home_welcome_back),
+                color = onAccent.copy(alpha = 0.86f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                user?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.account_default_user),
+                color = onAccent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        HomeHeaderIcon(onClick = onOpenWallet) {
             Icon(
                 Icons.Rounded.AccountBalanceWallet,
                 contentDescription = stringResource(R.string.wallet_title),
-                tint = accent,
-                modifier = Modifier.size(18.dp),
+                tint = onAccent,
+                modifier = Modifier.size(15.dp),
             )
         }
-        Spacer(Modifier.width(8.dp))
-        com.dorr.app.ui.screens.chat.HomeChatButton(onClick = onOpenChat)
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
+        com.dorr.app.ui.screens.chat.HomeChatButton(onClick = onOpenChat, onBrand = true)
+        Spacer(Modifier.width(6.dp))
         Box {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
-                    .clip(CircleShape)
-                    .background(settingsCard())
-                    .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
-                    .clickable(onClick = onOpenNotifications),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            HomeHeaderIcon(onClick = onOpenNotifications) {
+                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = onAccent, modifier = Modifier.size(15.dp))
             }
             if (hasUnread) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(5.dp)
+                        .padding(4.dp)
                         .size(8.dp)
-                        .background(settingsAccent(), CircleShape)
-                        .border(1.5.dp, settingsCard(), CircleShape),
+                        .background(onAccent, CircleShape)
+                        .border(1.5.dp, accent, CircleShape),
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HomeHeaderIcon(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+@Composable
+private fun HomeAvatar(user: UserDto?) {
+    val avatarUrl = remember(user?.avatar, user?.updatedAt) {
+        ApiClient.mediaUrl(user?.avatar)?.let { url -> "$url?v=${user?.updatedAt ?: "0"}" }
+    }
+    var failed by remember(avatarUrl) { mutableStateOf(false) }
+    if (avatarUrl != null && !failed) {
+        AsyncImage(
+            model = avatarUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            onError = { failed = true },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
     }
 }
 

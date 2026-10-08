@@ -14,7 +14,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -61,6 +60,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -80,6 +80,12 @@ import com.dorr.app.network.CalItemDto
 import com.dorr.app.network.CalTodayDto
 import com.dorr.app.ui.screens.moments.momentBrush
 import com.dorr.app.ui.screens.moments.momentColor
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.wallet.Tone
 import com.dorr.app.ui.screens.wallet.Wa
 import com.dorr.app.ui.screens.wallet.WaButton
@@ -89,7 +95,6 @@ import com.dorr.app.ui.screens.wallet.WaEmpty
 import com.dorr.app.ui.screens.wallet.WaPage
 import com.dorr.app.ui.screens.wallet.WaSectionTitle
 import com.dorr.app.ui.screens.wallet.WaSkeleton
-import com.dorr.app.ui.screens.wallet.rememberPressScale
 import com.dorr.app.ui.screens.wallet.waRise
 import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
@@ -163,46 +168,96 @@ object CalendarStore {
 // =============================================================================== home: my day
 
 /**
- * DORR Today on the home page: the date, how much is on, and what's next — a tap opens the
- * calendar. Hidden when the calendar is off.
+ * DORR Today on the home page — same card as the wallet row: icon, two lines, accent pill.
+ * Hidden when the calendar is off.
  */
 @Composable
 fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { CalendarStore.refresh() }
     val today = CalendarStore.today ?: return
     if (!today.enabled) return
-    val source = remember { MutableInteractionSource() }
-    val press by rememberPressScale(source, 0.98f)
-    val date = runCatching { LocalDate.parse(today.date) }.getOrDefault(LocalDate.now())
     val count = today.events.size + today.tasks.count { !it.done } + today.reminders.size
+    val night = settingsNight()
+    val accent = settingsAccent()
+    val cardShape = RoundedCornerShape(20.dp)
+    val mut = if (night) AccountDark.mut else AppColors.textSecondary
+    val nextLine = today.next?.let { listOfNotNull(timeText(it.startsAt).takeIf { t -> t.isNotEmpty() }, it.title).joinToString("  ·  ") }
+        ?: today.moments.firstOrNull()?.let { "${it.emoji ?: "✨"}  ${it.title}" }
 
     Row(
-        modifier.fillMaxWidth().scale(press).clip(RoundedCornerShape(24.dp)).background(Wa.HeroBrush)
-            .clickable(interactionSource = source, indication = null, onClick = onOpen).padding(16.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = accent.copy(alpha = 0.08f)))
+            .clip(cardShape)
+            .background(settingsCard())
+            .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
+            .clickable(onClick = onOpen)
+            .padding(12.dp, 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(
-            Modifier.size(58.dp).clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.16f)),
-            horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(15.dp))
+                .background(if (night) AccountDark.well else accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
         ) {
-            Text(date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()), color = Color.White.copy(alpha = 0.85f), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(date.dayOfMonth.toString(), color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Icon(Icons.Rounded.CalendarMonth, contentDescription = null, tint = if (night) AccountDark.accent else accent, modifier = Modifier.size(22.dp))
         }
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
             Text(
-                if (count == 0) stringResource(R.string.cal_home_free) else stringResource(R.string.cal_home_count, count),
-                color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                stringResource(R.string.cal_home_label),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = mut,
             )
-            val next = today.next
+            if (count == 0) {
+                Text(
+                    nextLine ?: stringResource(R.string.cal_home_free),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = settingsInk(),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            } else {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        count.toString(),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = settingsInk(),
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Text(
+                        stringResource(R.string.cal_home_things),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = mut,
+                        modifier = Modifier.alignByBaseline(),
+                    )
+                }
+            }
+        }
+        Box(
+            modifier = Modifier
+                .shadow(8.dp, RoundedCornerShape(50), spotColor = accent.copy(alpha = 0.25f))
+                .clip(RoundedCornerShape(50))
+                .background(accent)
+                .clickable(onClick = onOpen)
+                .padding(horizontal = 14.dp, vertical = 8.dp),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
-                next?.let { listOfNotNull(timeText(it.startsAt).takeIf { t -> t.isNotEmpty() }, it.title).joinToString("  ·  ") }
-                    ?: today.moments.firstOrNull()?.let { "${it.emoji ?: "✨"}  ${it.title}" }
-                    ?: stringResource(R.string.cal_home_add),
-                color = Color.White.copy(alpha = 0.88f), fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                stringResource(R.string.cal_home_open),
+                color = Color.White,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
             )
         }
-        Icon(Icons.Rounded.CalendarMonth, null, tint = Color.White, modifier = Modifier.size(24.dp))
     }
 }
 
