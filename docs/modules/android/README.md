@@ -35,7 +35,7 @@ Native Kotlin app for end users. It talks to the Laravel backend through `/api/m
 | `chat/` | Realtime, push, call controller, voice/video tools, live location service |
 | `res/values`, `res/values-ar` | Strings — **always update both** |
 
-Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on top of it. Home order: themed greeting header, ads, stories, calendar (today card), moments, wallet, services.
+Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on top of it. Home order: themed greeting header, ads, stories, calendar (today card), sports, events, moments, wallet, services.
 
 ## Behaviour to remember
 

@@ -179,15 +179,20 @@ object CalendarStore {
 @Composable
 fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     LaunchedEffect(Unit) { CalendarStore.refresh() }
-    val today = CalendarStore.today ?: return
-    if (!today.enabled) return
-    val count = today.events.size + today.tasks.count { !it.done } + today.reminders.size
+    val today = CalendarStore.today
+    val count = if (today == null || !today.enabled) {
+        0
+    } else {
+        today.events.size + today.tasks.count { !it.done } + today.reminders.size
+    }
     val night = settingsNight()
     val accent = settingsAccent()
     val cardShape = RoundedCornerShape(20.dp)
     val mut = if (night) AccountDark.mut else AppColors.textSecondary
-    val nextLine = today.next?.let { listOfNotNull(timeText(it.startsAt).takeIf { t -> t.isNotEmpty() }, it.title).joinToString("  ·  ") }
-        ?: today.moments.firstOrNull()?.let { "${it.emoji ?: "✨"}  ${it.title}" }
+    val nextLine = today?.takeIf { it.enabled }?.let { day ->
+        day.next?.let { listOfNotNull(timeText(it.startsAt).takeIf { t -> t.isNotEmpty() }, it.title).joinToString("  ·  ") }
+            ?: day.moments.firstOrNull()?.let { "${it.emoji ?: "✨"}  ${it.title}" }
+    }
 
     Row(
         modifier = modifier
@@ -220,7 +225,7 @@ fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                     color = mut,
                 )
                 Text(
-                    dayTitle(runCatching { LocalDate.parse(today.date) }.getOrNull() ?: LocalDate.now()),
+                    dayTitle(today?.date?.let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()),
                     fontSize = 16.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = settingsInk(),
