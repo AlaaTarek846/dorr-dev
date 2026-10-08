@@ -7,6 +7,7 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Services\General\CountryResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
@@ -78,7 +79,7 @@ class CountryResolverTest extends TestCase
 
     public function test_falls_back_to_default_country_when_the_ip_provider_is_completely_unreachable(): void
     {
-        Http::fake(['*' => fn () => throw new \Illuminate\Http\Client\ConnectionException('simulated outage')]);
+        Http::fake(['*' => fn () => throw new ConnectionException('simulated outage')]);
 
         // Must not throw a 500 — resolves to is_default instead.
         $resolved = $this->resolver->resolve(Request::create('/'));

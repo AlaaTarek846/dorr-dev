@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\Provider\Models\Provider;
@@ -90,7 +91,7 @@ class WithdrawalTest extends TestCase
         ]);
     }
 
-    private function withdraw(int $amount, ?WithdrawalMethod $method = null, string $key = 'key-12345678', array $headers = []): \Illuminate\Testing\TestResponse
+    private function withdraw(int $amount, ?WithdrawalMethod $method = null, string $key = 'key-12345678', array $headers = []): TestResponse
     {
         return $this->postJson('/api/provider/v1/wallet/withdrawals', [
             'withdrawal_method_id' => ($method ?? $this->makeMethod())->id,

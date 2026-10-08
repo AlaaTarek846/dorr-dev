@@ -19,6 +19,7 @@ use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\User\Events\SupportRealtimeEvent;
 use Modules\User\Models\SupportMessage;
+use Modules\User\Models\SupportQuickReply;
 use Modules\User\Models\SupportSetting;
 use Modules\User\Models\SupportTicket;
 use Modules\User\Models\User;
@@ -149,7 +150,7 @@ class SupportAutoReplyTest extends TestCase
         $messages = $this->getJson("/api/mobile/v1/support-tickets/{$ticket->id}/messages", $this->asUser())->assertOk()->json('data');
         $this->assertSame(['user', 'system', 'system'], array_column($messages, 'sender'));
         $this->assertTrue($messages[1]['is_auto']);
-        $this->assertStringContainsString('#'.$ticket->id, $messages[1]['body'], 'the acknowledgement names the ticket');
+        $this->assertStringContainsString('#'.$ticket->number, $messages[1]['body'], 'the acknowledgement names the ticket by its number');
         $this->assertSame('faq', $messages[2]['auto_kind']);
         $this->assertSame('Open your wallet, tap Top up and pick a payment method.', $messages[2]['body']);
         $this->assertNull($messages[2]['agent_name'], 'never in an agent\'s name');
@@ -246,7 +247,7 @@ class SupportAutoReplyTest extends TestCase
 
         SupportSetting::current()->update(['ack_message' => ['ar' => 'أهلاً، تذكرتك رقم :id وصلتنا', 'en' => '']]);
         $second = $this->open('مشكلة', 'تاني');
-        $this->assertSame('أهلاً، تذكرتك رقم '.$second->id.' وصلتنا', $second->messages()->where('auto_kind', 'ack')->value('body'));
+        $this->assertSame('أهلاً، تذكرتك رقم '.$second->number.' وصلتنا', $second->messages()->where('auto_kind', 'ack')->value('body'));
     }
 
     // ------------------------------------------------------------------ never after a person, never when off
@@ -325,24 +326,133 @@ class SupportAutoReplyTest extends TestCase
         $this->putJson('/api/admin/v1/support-settings', ['hours' => [['open' => true, 'from' => '25:00', 'to' => '1']]] + $payload)->assertUnprocessable();
     }
 
-    public function test_quick_replies_are_managed_in_settings_and_listed_for_agents(): void
+    public function test_quick_replies_are_translated_managed_and_listed_for_agents(): void
     {
-        $this->admin(['support-settings.view', 'support-settings.update']);
-        $id = $this->postJson('/api/admin/v1/support-settings/quick-replies', ['shortcut' => '/Refund', 'title' => 'Refund policy', 'body' => 'Refunds take 5 working days.'])
-            ->assertCreated()->assertJsonPath('data.shortcut', 'refund')->json('data.id');
-        $this->postJson('/api/admin/v1/support-settings/quick-replies', ['shortcut' => 'refund', 'title' => 'x', 'body' => 'y'])->assertUnprocessable();
-        $this->postJson('/api/admin/v1/support-settings/quick-replies', ['shortcut' => 'off', 'title' => 'Hidden', 'body' => 'z', 'status' => false])->assertCreated();
-        $this->putJson("/api/admin/v1/support-settings/quick-replies/{$id}", ['shortcut' => 'refund', 'title' => 'Refunds', 'body' => 'Refunds take 5 days.'])->assertOk();
+        $this->admin(['support-quick-replies.view', 'support-quick-replies.create', 'support-quick-replies.update', 'support-quick-replies.delete', 'support-quick-replies.change-status', 'support-quick-replies.multiple-delete']);
+        $payload = fn (string $shortcut, array $extra = []) => array_merge([
+            'shortcut' => $shortcut,
+            'translations' => [
+                ['locale' => 'en', 'title' => 'Refund policy', 'body' => 'Refunds take 5 working days.'],
+                ['locale' => 'ar', 'title' => 'سياسة الاسترداد', 'body' => 'يستغرق الاسترداد 5 أيام عمل.'],
+            ],
+        ], $extra);
 
-        // Agents see the active ones only, for the "/" menu.
+        $id = $this->postJson('/api/admin/v1/support-quick-replies', $payload('/Refund'))
+            ->assertCreated()->assertJsonPath('data.shortcut', 'refund')->assertJsonCount(2, 'data.translations')->json('data.id');
+        $this->postJson('/api/admin/v1/support-quick-replies', $payload('refund'))->assertUnprocessable();
+        $this->postJson('/api/admin/v1/support-quick-replies', ['shortcut' => 'x', 'translations' => [['locale' => 'en', 'title' => '', 'body' => 'y']]])->assertUnprocessable();
+        $this->postJson('/api/admin/v1/support-quick-replies', $payload('off', ['status' => false, 'translations' => [['locale' => 'en', 'title' => 'Hidden', 'body' => 'Not shown.']]]))->assertCreated();
+        $this->putJson("/api/admin/v1/support-quick-replies/{$id}", $payload('refund', [
+            'translations' => [
+                ['locale' => 'en', 'title' => 'Refunds', 'body' => 'Refunds take 5 days.'],
+                ['locale' => 'ar', 'title' => 'الاسترداد', 'body' => 'يستغرق 5 أيام.'],
+            ],
+        ]))->assertOk();
+        $this->patchJson("/api/admin/v1/support-quick-replies/{$id}/status", ['status' => true])->assertOk();
+        $this->getJson('/api/admin/v1/support-quick-replies?search=refund')->assertOk()->assertJsonCount(1, 'data');
+        $this->getJson('/api/admin/v1/support-quick-replies?status_counts=1&per_page=1')->assertOk()
+            ->assertJsonCount(1, 'data')->assertJsonPath('pagination.total', 2)->assertJsonPath('status_counts.active', 1)->assertJsonPath('status_counts.inactive', 1);
+        $this->getJson('/api/admin/v1/support-quick-replies?status=inactive')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.shortcut', 'off');
+        $this->getJson('/api/admin/v1/support-quick-replies')->assertOk()->assertJsonCount(2, 'data');
+
+        // Agents see the active ones only, in their language, for the "/" menu.
         $this->admin(['support-tickets.reply']);
+        app()->setLocale('ar');
         $this->getJson('/api/admin/v1/support-tickets/quick-replies')->assertOk()
-            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Refunds');
+            ->assertJsonCount(1, 'data')->assertJsonPath('data.0.shortcut', 'refund');
 
         $this->admin(['support-tickets.view']);
         $this->getJson('/api/admin/v1/support-tickets/quick-replies')->assertForbidden();
 
-        $this->admin(['support-settings.update']);
-        $this->deleteJson("/api/admin/v1/support-settings/quick-replies/{$id}")->assertSuccessful();
+        $this->admin(['support-quick-replies.delete', 'support-quick-replies.multiple-delete']);
+        $other = SupportQuickReply::query()->where('shortcut', 'off')->value('id');
+        $this->postJson('/api/admin/v1/support-quick-replies/delete-multiple', ['ids' => [$other]])->assertSuccessful();
+        $this->assertDatabaseMissing('support_quick_replies', ['id' => $other]);
+        $this->deleteJson("/api/admin/v1/support-quick-replies/{$id}")->assertSuccessful();
+        $this->assertDatabaseMissing('support_quick_reply_translations', ['support_quick_reply_id' => $id]);
+    }
+
+    public function test_the_help_menu_is_a_tree_the_admin_builds_and_the_app_reads_in_one_request(): void
+    {
+        $this->admin(['support-help-nodes.view', 'support-help-nodes.create', 'support-help-nodes.update', 'support-help-nodes.delete', 'support-help-nodes.change-status']);
+        $node = fn (string $en, string $ar, ?string $answer = null, array $extra = []) => array_merge([
+            'translations' => [
+                ['locale' => 'en', 'title' => $en, 'answer' => $answer],
+                ['locale' => 'ar', 'title' => $ar, 'answer' => $answer ? $answer.' (ar)' : null],
+            ],
+        ], $extra);
+
+        $payments = $this->postJson('/api/admin/v1/support-help-nodes', $node('Payments', 'المدفوعات'))->assertCreated()->json('data.id');
+        $late = $this->postJson('/api/admin/v1/support-help-nodes', $node('Money is late', 'الرصيد متأخر', 'Wait 24 hours.', ['parent_id' => $payments]))->assertCreated()->json('data.id');
+        $this->postJson('/api/admin/v1/support-help-nodes', $node('Hidden', 'مخفي', 'x', ['parent_id' => $payments, 'status' => false]))->assertCreated();
+        $this->postJson('/api/admin/v1/support-help-nodes', $node('Empty menu', 'قائمة فارغة'))->assertCreated();
+        $this->postJson('/api/admin/v1/support-help-nodes', ['translations' => [['locale' => 'en', 'title' => '', 'answer' => null]]])->assertUnprocessable();
+
+        // One level at a time, with the path and the tabs' counts.
+        $this->getJson('/api/admin/v1/support-help-nodes')->assertOk()->assertJsonCount(2, 'data')->assertJsonPath('data.0.children_count', 2);
+        $this->getJson("/api/admin/v1/support-help-nodes?parent_id={$payments}")->assertOk()
+            ->assertJsonCount(2, 'data')->assertJsonPath('path.0.id', $payments)->assertJsonPath('status_counts.inactive', 1);
+
+        // The depth is limited.
+        $deep = $late;
+        for ($i = 0; $i < 4; $i++) {
+            $deep = $this->postJson('/api/admin/v1/support-help-nodes', $node("Level {$i}", "مستوى {$i}", 'a', ['parent_id' => $deep]))->assertCreated()->json('data.id');
+        }
+        $this->postJson('/api/admin/v1/support-help-nodes', $node('Too deep', 'عميق', 'a', ['parent_id' => $deep]))->assertUnprocessable();
+
+        // Editing without a new parent keeps the place; a topic cannot move under itself or its own branch.
+        $this->putJson("/api/admin/v1/support-help-nodes/{$late}", $node('Money is late', 'الرصيد متأخر', 'Wait a day.', ['parent_id' => $payments]))->assertOk()->assertJsonPath('data.parent_id', $payments);
+        $this->putJson("/api/admin/v1/support-help-nodes/{$payments}", $node('Payments', 'المدفوعات', null, ['parent_id' => $deep]))->assertUnprocessable();
+        $this->putJson("/api/admin/v1/support-help-nodes/{$payments}", $node('Payments', 'المدفوعات', null, ['parent_id' => $payments]))->assertUnprocessable();
+
+        // Moving: the options leave out the topic's own branch and the places that are too deep for it.
+        $flatten = function (array $nodes) use (&$flatten) {
+            return collect($nodes)->flatMap(fn ($n) => array_merge([$n], $flatten($n['children'])->all()));
+        };
+        $tree = $this->getJson("/api/admin/v1/support-help-nodes/options?exclude={$payments}")->assertOk()->json('data');
+        $keys = $flatten($tree)->pluck('key')->map(fn ($k) => (int) $k)->all();
+        $this->assertNotContains($late, $keys);
+        $this->assertNotContains($payments, $keys);
+        // Without an excluded topic the whole tree is there, and the places too deep for a branch cannot be picked.
+        $all = $flatten($this->getJson('/api/admin/v1/support-help-nodes/options')->assertOk()->json('data'));
+        $this->assertTrue($all->firstWhere('key', (string) $payments)['selectable']);
+        $this->assertFalse($all->firstWhere('key', (string) $deep)['selectable']);
+        $other = $this->postJson('/api/admin/v1/support-help-nodes', $node('Account', 'حسابي'))->assertCreated()->json('data.id');
+        $this->putJson("/api/admin/v1/support-help-nodes/{$late}", $node('Money is late', 'الرصيد متأخر', 'Wait a day.', ['parent_id' => $other]))->assertOk()->assertJsonPath('data.parent_id', $other);
+        $this->putJson("/api/admin/v1/support-help-nodes/{$late}", $node('Money is late', 'الرصيد متأخر', 'Wait a day.', ['parent_id' => $payments]))->assertOk();
+        $this->putJson("/api/admin/v1/support-help-nodes/{$late}", $node('Money is late', 'الرصيد متأخر', 'Wait a day.', ['parent_id' => null]))->assertOk()->assertJsonPath('data.parent_id', null);
+        $this->putJson("/api/admin/v1/support-help-nodes/{$late}", $node('Money is late', 'الرصيد متأخر', 'Wait a day.', ['parent_id' => $payments]))->assertOk();
+
+        // The app: active topics only, no dead ends, in the customer's language, in one request.
+        $headers = $this->asUser();
+        $response = $this->getJson('/api/mobile/v1/support-help', $headers)->assertOk();
+        $response->assertJsonCount(1, 'data.items')->assertJsonPath('data.items.0.title', 'Payments')
+            ->assertJsonPath('data.items.0.children.0.id', $late)->assertJsonPath('data.items.0.children.0.answer', 'Wait a day.')
+            ->assertJsonCount(1, 'data.items.0.children');
+        $this->assertNotEmpty($response->json('data.greeting'));
+        $this->getJson('/api/mobile/v1/support-help', ['Accept-Language' => 'ar'] + $headers)->assertJsonPath('data.items.0.title', 'المدفوعات');
+
+        // What customers press at the end of a topic is counted, and a menu adds up its sub-topics.
+        $agent = $this->admin(['support-tickets.view']);
+        $this->postJson("/api/mobile/v1/support-help/{$late}/feedback", ['solved' => true], $headers)->assertOk();
+        $this->postJson("/api/mobile/v1/support-help/{$late}/feedback", ['solved' => true], $headers)->assertOk();
+        $this->assertSame([], $agent->fresh()->notifications->pluck('data.title')->all()); // solved: nobody is bothered
+        $this->postJson("/api/mobile/v1/support-help/{$late}/feedback", ['solved' => false], $headers)->assertOk();
+        $this->assertContains('support_help_agent_title', $agent->fresh()->notifications->pluck('data.title')->all());
+        $this->postJson("/api/mobile/v1/support-help/{$late}/feedback", [], $headers)->assertUnprocessable();
+        $this->postJson('/api/mobile/v1/support-help/999999/feedback', ['solved' => true], $headers)->assertNotFound();
+        $this->admin(['support-help-nodes.view', 'support-help-nodes.delete']);
+        $menu = $this->getJson('/api/admin/v1/support-help-nodes')->assertOk();
+        $menu->assertJsonPath('summary.solved', 2)->assertJsonPath('summary.agent', 1)->assertJsonPath('summary.solved_rate', 67);
+        $this->assertSame([2, 1], collect($menu->json('data'))->where('id', $payments)->map(fn ($row) => [$row['solved_count'], $row['agent_count']])->first());
+        $this->getJson("/api/admin/v1/support-help-nodes?parent_id={$payments}")->assertJsonPath('data.0.solved_count', 2);
+
+        // Deleting a menu takes its sub-topics with it.
+        $this->admin(['support-help-nodes.delete']);
+        $this->deleteJson("/api/admin/v1/support-help-nodes/{$payments}")->assertSuccessful();
+        $this->assertDatabaseMissing('support_help_nodes', ['id' => $late]);
+
+        $this->admin(['support-tickets.view']);
+        $this->getJson('/api/admin/v1/support-help-nodes')->assertForbidden();
     }
 }

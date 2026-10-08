@@ -6,7 +6,6 @@ declare(strict_types=1);
  * One-off generator for database/seeders/data/country-phone-rules.json
  * Run: php database/seeders/scripts/generate-country-phone-rules.php
  */
-
 $examplesPath = $argv[1] ?? null;
 $lengthsPath = $argv[2] ?? null;
 

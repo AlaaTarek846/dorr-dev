@@ -254,6 +254,11 @@ class SupportTicketTest extends TestCase
         $this->getJson('/api/admin/v1/support-tickets')->assertOk()->assertJsonCount(2, 'data');
         $this->getJson('/api/admin/v1/support-tickets?status=resolved')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Login problem');
         $this->getJson('/api/admin/v1/support-tickets?search=Wallet')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.user.phone', '+966501234567');
+        $number = SupportTicket::query()->where('title', 'Login problem')->value('number');
+        $this->assertMatchesRegularExpression('/^\d{7}$/', $number);
+        $this->assertSame(2, SupportTicket::query()->distinct()->count('number'));
+        $this->getJson("/api/admin/v1/support-tickets?search={$number}")->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.number', $number);
+        $this->getJson("/api/admin/v1/support-tickets?user_id={$this->user->id}")->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Wallet problem');
         $this->getJson('/api/admin/v1/support-tickets?search=509876543')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Login problem');
         $this->getJson("/api/admin/v1/support-tickets/{$second->id}")->assertOk()->assertJsonPath('data.status', 'resolved');
     }

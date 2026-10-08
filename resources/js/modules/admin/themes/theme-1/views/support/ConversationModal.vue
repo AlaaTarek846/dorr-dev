@@ -1,5 +1,5 @@
 <template>
-    <WalletModal :show="show" :title="ticket ? `#${ticket.id} · ${ticket.title}` : ''" size="xl" @close="emit('close')">
+    <WalletModal :show="show" :title="ticket ? `#${ticket.number} · ${ticket.title}` : ''" size="xl" @close="emit('close')">
         <div v-if="ticket" class="support-chat">
             <div class="support-chat__head">
                 <div class="d-flex align-items-center gap-3 min-w-0">
