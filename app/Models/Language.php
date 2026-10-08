@@ -23,6 +23,10 @@ class Language extends Model
         'stores_translation',
         'status',
         'flag_id',
+        // Whether DORR's AI assistant can converse in this language -
+        // added for the AI module's languages consolidation, so "which
+        // languages exist" has exactly one table instead of two.
+        'ai_enabled',
     ];
 
     protected function casts(): array
@@ -33,6 +37,7 @@ class Language extends Model
             'is_default_dashboard' => 'boolean',
             'stores_translation' => 'boolean',
             'status' => 'boolean',
+            'ai_enabled' => 'boolean',
         ];
     }
 

@@ -20,6 +20,7 @@
                             <i class="ri-close-line"></i>
                         </button>
                     </div>
+                    <WalletStatusTabs :model-value="statusFilter" :counts="counts" @update:model-value="setStatusFilter" />
                 </div>
                 <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
                     <button
@@ -104,8 +105,8 @@
                                         <span class="fw-semibold ms-1" dir="ltr">{{ Number(row.percent) }}%</span>
                                     </td>
                                     <td class="fs-13">
-                                        {{ row.country_id ? countryName(row.country_id) : t('wallet.rules.any_country') }} ·
-                                        {{ row.payment_method_id ? methodName(row.payment_method_id) : t('wallet.rules.any_method') }} ·
+                                        {{ row.country_id ? (row.country_code || `#${row.country_id}`) : t('wallet.rules.any_country') }} ·
+                                        {{ row.payment_method_id ? (row.payment_method_name || `#${row.payment_method_id}`) : t('wallet.rules.any_method') }} ·
                                         {{ row.owner_type ? t(`wallet.owner.${row.owner_type}`) : t('wallet.rules.any_owner') }}
                                     </td>
                                     <td class="fs-12">{{ period(row) }}</td>
@@ -139,7 +140,7 @@
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
         <ModalCreateAndUpdate
@@ -172,6 +173,8 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import { useConfirmDelete } from '../../../../../../../composables/useConfirmDelete';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import useWalletList from '../../../../../../../composables/useWalletList';
+import useWalletStatusTabs from '../../../../../../../composables/useWalletStatusTabs';
+import WalletStatusTabs from '../../../../../../../components/wallet/WalletStatusTabs.vue';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor } from '../../../../../../../utils/walletMoney';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
@@ -186,10 +189,8 @@ const canDelete = computed(() => can('wallet-fee-rules.delete'));
 const canChangeStatus = computed(() => can('wallet-fee-rules.change-status'));
 const canMultipleDelete = computed(() => can('wallet-fee-rules.multiple-delete'));
 
-const { rows, loading, pagination, filters, fetch } = useWalletList('wallet-fee-rules', { defaults: { search: '' } });
-
-const countries = ref([]);
-const methods = ref([]);
+const { rows, loading, pagination, filters, fetch, perPage, statusCounts } = useWalletList('wallet-fee-rules', { defaults: { search: '', filterColumns: '' }, statusCounts: true });
+const { statusFilter, counts, setStatusFilter } = useWalletStatusTabs(filters, statusCounts);
 
 const tableColumnCount = computed(() => 7 + (canMultipleDelete.value ? 1 : 0));
 
@@ -223,8 +224,6 @@ function onSelectAll(checked) {
     selectedIds.value = checked ? rows.value.map((row) => Number(row.id)) : [];
 }
 
-const countryName = (id) => countries.value.find((c) => c.id === id)?.code ?? `#${id}`;
-const methodName = (id) => methods.value.find((m) => m.id === id)?.name ?? `#${id}`;
 
 function period(row) {
     if (! row.starts_at && ! row.ends_at) {
@@ -301,15 +300,7 @@ async function handleDeleteConfirm() {
     }
 }
 
-onMounted(async () => {
-    fetch(1);
-
-    const [c, m] = await Promise.allSettled([
-        adminAxios.get('/api/general/v1/countries/dropdown'),
-        adminAxios.get('/api/admin/v1/payment-methods/dropdown'),
-    ]);
-
-    countries.value = c.status === 'fulfilled' ? (c.value.data.data ?? []) : [];
-    methods.value = m.status === 'fulfilled' ? (m.value.data.data ?? []) : [];
-});
+// Opening the page is one request: the list (with the tab counts). The countries / payment methods the form
+// needs are loaded by the form itself when it opens.
+onMounted(() => fetch(1));
 </script>

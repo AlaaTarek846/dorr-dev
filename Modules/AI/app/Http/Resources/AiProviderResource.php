@@ -6,6 +6,8 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use Modules\AI\Enums\AiModelCapability;
+use Modules\AI\Enums\AiModelCategory;
 
 class AiProviderResource extends JsonResource
 {
@@ -40,6 +42,13 @@ class AiProviderResource extends JsonResource
             'pricing_note' => Arr::get($config, 'pricing_note'),
             'has_api_key' => $this->hasApiKey(),
             'api_key_preview' => $this->maskedApiKey(),
+            'registered_models' => AiProviderModelResource::collection($this->whenLoaded('models')),
+            'capability_options' => collect(AiModelCapability::cases())
+                ->map(fn (AiModelCapability $capability) => ['value' => $capability->value, 'label' => $capability->label()])
+                ->values(),
+            'category_options' => collect(AiModelCategory::cases())
+                ->map(fn (AiModelCategory $category) => ['value' => $category->value, 'label' => $category->label()])
+                ->values(),
             'last_tested_at' => $this->last_tested_at?->toISOString(),
             'last_test_status' => $this->last_test_status,
             'last_test_message' => $this->last_test_message,

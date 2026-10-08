@@ -4,11 +4,12 @@ namespace Modules\User\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
+/** A message in a support ticket: text, a photo, or both. Used by the app and by the dashboard. */
 class StoreSupportMessageRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return (bool) $this->user('user_api');
+        return (bool) ($this->user('user_api') ?? $this->user('admin_api'));
     }
 
     /**
@@ -17,8 +18,8 @@ class StoreSupportMessageRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'body' => ['required', 'string', 'max:4000'],
-            'ticket_id' => ['nullable', 'integer', 'exists:support_tickets,id'],
+            'body' => ['nullable', 'string', 'max:4000', 'required_without:image'],
+            'image' => ['nullable', 'image', 'mimes:jpeg,jpg,png,webp', 'max:4096'],
         ];
     }
 }

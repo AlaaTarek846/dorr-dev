@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-05  
+**Last updated:** 2026-10-08  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -23,6 +23,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Translation-based catalog pattern
 - AI gateway with multiple providers
 - Provider profiles with service category linkage
+- Support automatic replies (acknowledgement, away note, FAQ answers through the AI gateway; admin `support-settings`, quick replies, mobile feedback buttons)
 - Provider dashboard API: `/api/provider/v1/*` (auth, registration, profile, password reset, `countries/dropdown`)
 - Provider admin API: `/api/admin/v1/providers*` (CRUD, trash, status) via `Modules/Provider/routes/admin.php`
 - Provider OAuth web routes + shared Google/Apple callback via `social_auth_panel` session
@@ -54,9 +55,11 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 ## Current Work
 
 
+- **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
 - **Ratings (2026-10-06):** polymorphic `ratings` + mobile API + admin page + Android Play In-App Review; see CHANGELOG.
 
-- **Android Settings — invite / rate / support (2026-10-06):** Settings now has Share with friends, Rate the app, and Support & help (dedicated support live chat via `GET/POST /api/mobile/v1/support-chats`, ticket list + create form, FAQ sheet). Migration `2026_10_06_100000` (tickets) and `2026_10_06_120000` (support messages). **NEEDS-DECISION:** admin ticket inbox and agent chat replies.
+- **Support tickets, live (2026-10-07):** tickets are a conversation with status (opened / reopened / resolved / closed), assigned agent and history; the app (`SupportTicketScreen`, `SupportChatScreen`) and the dashboard page `support/` update live over Pusher, with in-app + OneSignal notifications via `NotificationCenter`. The general live chat was removed. See CHANGELOG. **NEEDS-DECISION:** manual assignment of a ticket to another agent (today the first agent to answer takes it).
+- **Android Settings — invite / rate / support (2026-10-06):** Settings has Share with friends, Rate the app, and Support & help (tickets + FAQ sheet).
 - **Country services (2026-10-06):** Admin country create/edit assigns leaf `service_categories` via `country_service_category`. Empty assignment means none; seeding attaches current marketplace leaves to existing countries. Public `/api/general/v1/services` is not filtered.
 
 - **One payment screen, merchant portals, channel verification (2026-10-05, `docs/remaining_chat.md` ج):**

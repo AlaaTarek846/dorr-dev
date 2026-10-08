@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\General\MobileRatingController;
+use App\Http\Controllers\General\MobileReferralController;
 use Illuminate\Support\Facades\Route;
 use Modules\User\Http\Controllers\Mobile\AddressController;
 use Modules\User\Http\Controllers\Mobile\FaqController;
@@ -8,7 +9,6 @@ use Modules\User\Http\Controllers\Mobile\LegalPageController;
 use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
-use Modules\User\Http\Controllers\Mobile\SupportChatController;
 use Modules\User\Http\Controllers\Mobile\SupportTicketController;
 use Modules\User\Http\Controllers\PhoneChangeController;
 
@@ -43,8 +43,11 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
 
         Route::get('support-tickets', [SupportTicketController::class, 'index']);
         Route::post('support-tickets', [SupportTicketController::class, 'store']);
-        Route::get('support-chats', [SupportChatController::class, 'index']);
-        Route::post('support-chats', [SupportChatController::class, 'store']);
+        Route::get('support-tickets/{ticket}', [SupportTicketController::class, 'show'])->whereNumber('ticket');
+        Route::patch('support-tickets/{ticket}/status', [SupportTicketController::class, 'status'])->whereNumber('ticket');
+        Route::get('support-tickets/{ticket}/messages', [SupportTicketController::class, 'messages'])->whereNumber('ticket');
+        Route::post('support-tickets/{ticket}/messages', [SupportTicketController::class, 'sendMessage'])->whereNumber('ticket')->middleware('throttle:30,1');
+        Route::post('support-tickets/{ticket}/auto-reply-feedback', [SupportTicketController::class, 'autoReplyFeedback'])->whereNumber('ticket')->middleware('throttle:30,1');
 
         Route::get('addresses', [AddressController::class, 'index']);
         Route::post('addresses', [AddressController::class, 'store']);
@@ -55,6 +58,9 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
 
         Route::get('ratings/mine', [MobileRatingController::class, 'mine']);
         Route::post('ratings', [MobileRatingController::class, 'store'])->middleware('throttle:10,1');
+
+        Route::get('referrals/my-code', [MobileReferralController::class, 'myCode']);
+        Route::post('referrals/track', [MobileReferralController::class, 'track'])->middleware('throttle:10,1');
 
         Route::get('appearance', [MobileAppearanceController::class, 'show']);
         Route::put('appearance', [MobileAppearanceController::class, 'update']);

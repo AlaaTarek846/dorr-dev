@@ -3,10 +3,12 @@
 namespace Modules\Provider\Models;
 
 use App\Enums\Gender;
-use App\Models\Country;
+use App\Enums\UserStatus;
 use App\Models\Concerns\HasNotificationDevices;
+use App\Models\Concerns\HasReferralCode;
 use App\Models\Concerns\HasSocialAccounts;
 use App\Models\Concerns\HasVerificationCodes;
+use App\Models\Country;
 use App\Traits\HasMediaTrait;
 use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,14 +16,13 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
-use App\Enums\UserStatus;
 use Laravel\Sanctum\HasApiTokens;
 use Modules\Wallet\Concerns\HasWallets;
 use Spatie\MediaLibrary\HasMedia;
 
 class Provider extends Authenticatable implements HasMedia
 {
-    use HasApiTokens, HasMediaTrait, HasNotificationDevices, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SoftDeletes;
+    use HasApiTokens, HasMediaTrait, HasNotificationDevices, HasReferralCode, HasSocialAccounts, HasVerificationCodes, HasWallets, Notifiable, SearchFilterTrait, SoftDeletes;
 
     protected $table = 'providers';
 

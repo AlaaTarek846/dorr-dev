@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,27 +57,37 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
-import com.dorr.app.network.UserDto
 import com.dorr.app.ui.screens.AccountDark
 import kotlinx.coroutines.delay
-
-internal fun inviteCodeFor(user: UserDto?): String {
-    val id = user?.id ?: 0
-    val slug = user?.name.orEmpty()
-        .uppercase()
-        .filter { it in 'A'..'Z' }
-        .take(8)
-    return if (slug.isNotEmpty()) "$slug-$id" else "DORR-$id"
-}
 
 @Composable
 fun InviteFriendsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
-    val code = inviteCodeFor(AuthSession.user)
-    val storeUrl = "https://play.google.com/store/apps/details?id=com.dorr.app"
+    var code by remember { mutableStateOf("") }
+    var loading by remember { mutableStateOf(true) }
+    var loadError by remember { mutableStateOf(false) }
+    var reloadKey by remember { mutableStateOf(0) }
+    val storeUrl = remember(code) {
+        val referrer = if (code.isNotBlank()) "&referrer=$code" else ""
+        "https://play.google.com/store/apps/details?id=com.dorr.app$referrer"
+    }
     val shareBody = stringResource(R.string.invite_share_body, code, storeUrl)
     val copiedToast = stringResource(R.string.invite_copied)
+    val auth = "Bearer ${AuthSession.token.orEmpty()}"
+
+    LaunchedEffect(reloadKey) {
+        loading = true
+        loadError = false
+        runCatching { ApiClient.referrals.myCode(auth) }
+            .onSuccess { envelope ->
+                code = envelope.data?.code.orEmpty()
+                loadError = code.isBlank()
+            }
+            .onFailure { loadError = true }
+        loading = false
+    }
 
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.fillMaxSize())
@@ -105,16 +116,32 @@ fun InviteFriendsScreen(onBack: () -> Unit) {
                 InviteStep(Icons.Rounded.PersonAdd, R.string.invite_step2_title, R.string.invite_step2_body)
                 InviteStep(Icons.Rounded.CardGiftcard, R.string.invite_step3_title, R.string.invite_step3_body)
                 Spacer(Modifier.height(14.dp))
-                InviteCodeButton(
-                    code = code,
-                    onCopy = {
-                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("invite", code))
-                        Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
-                    },
-                )
+                if (loading) {
+                    CircularProgressIndicator(color = settingsAccent(), modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
+                } else if (loadError || code.isBlank()) {
+                    Text(
+                        stringResource(R.string.invite_code_failed),
+                        color = settingsMut(),
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp),
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    SettingsPrimaryButton(text = stringResource(R.string.invite_code_retry)) {
+                        reloadKey++
+                    }
+                } else {
+                    InviteCodeButton(
+                        code = code,
+                        onCopy = {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("invite", code))
+                            Toast.makeText(context, copiedToast, Toast.LENGTH_SHORT).show()
+                        },
+                    )
+                }
                 Spacer(Modifier.height(14.dp))
-                SettingsPrimaryButton(text = stringResource(R.string.invite_share_now)) {
+                SettingsPrimaryButton(text = stringResource(R.string.invite_share_now), enabled = code.isNotBlank()) {
                     val send = Intent(Intent.ACTION_SEND).apply {
                         type = "text/plain"
                         putExtra(Intent.EXTRA_TEXT, shareBody)

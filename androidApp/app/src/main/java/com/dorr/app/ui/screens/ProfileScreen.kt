@@ -131,7 +131,6 @@ import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.screens.profile.settingsMut
-import com.dorr.app.ui.screens.wallet.WalletPinSettingsScreen
 import com.dorr.app.ui.theme.AppColors
 import com.dorr.app.ui.theme.LocalAppearance
 import com.dorr.app.ui.theme.LocalThemeState
@@ -139,9 +138,9 @@ import com.dorr.app.ui.theme.appearanceColor
 
 
 private enum class ProfileSub {
-    NONE, PERSONAL_DATA, NOTIFICATIONS, WALLET_PIN, WALLET_SETTINGS,
+    NONE, PERSONAL_DATA, NOTIFICATIONS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
-    INVITE, RATE, SUPPORT, TICKET, SUPPORT_CHAT,
+    INVITE, RATE, SUPPORT, TICKET,
 }
 
 private data class MenuEntry(
@@ -161,20 +160,29 @@ fun ProfileScreen(
     onAccountDeleted: () -> Unit = {},
 ) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
-    var supportChatTicketId by remember { mutableStateOf<Int?>(null) }
-    var supportChatTicketTitle by remember { mutableStateOf<String?>(null) }
+    // A tapped support notification: open that ticket.
+    var openTicketId by remember { mutableStateOf<Int?>(null) }
     val isAtRoot = subScreen == ProfileSub.NONE
+
+    // A tapped support notification (a reply, a status change) lands on that ticket.
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatPush.deepLink.collect { link ->
+            if (link is com.dorr.app.chat.ChatDeepLink.Support) {
+                openTicketId = link.ticketId
+                subScreen = ProfileSub.TICKET
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
+        }
+    }
 
     // System back = the same step as each sub-screen's own back arrow. Sub-screens with inner
     // steps (personal data, addresses form, privacy policy) register their own handlers after this one.
     BackHandler(enabled = !isAtRoot) {
         subScreen = when (subScreen) {
             ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
-            ProfileSub.LEGAL, ProfileSub.WALLET_SETTINGS -> ProfileSub.SETTINGS
+            ProfileSub.LEGAL -> ProfileSub.SETTINGS
             ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
             ProfileSub.TICKET -> ProfileSub.SUPPORT
-            ProfileSub.SUPPORT_CHAT -> if (supportChatTicketId != null) ProfileSub.TICKET else ProfileSub.SUPPORT
-            ProfileSub.WALLET_PIN -> ProfileSub.WALLET_SETTINGS
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
         }
@@ -242,17 +250,6 @@ fun ProfileScreen(
                 )
             }
             ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
-            ProfileSub.WALLET_PIN -> {
-                val subContext = LocalContext.current
-                WalletPinSettingsScreen(
-                    onBack = { subScreen = ProfileSub.WALLET_SETTINGS },
-                    onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
-                )
-            }
-            ProfileSub.WALLET_SETTINGS -> WalletSettingsMenuScreen(
-                onBack = { subScreen = ProfileSub.SETTINGS },
-                onOpenChangePin = { subScreen = ProfileSub.WALLET_PIN },
-            )
             ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.LEGAL })
             ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.LEGAL })
             ProfileSub.LEGAL -> LegalMenuScreen(
@@ -264,7 +261,6 @@ fun ProfileScreen(
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
-                onOpenWalletSettings = { subScreen = ProfileSub.WALLET_SETTINGS },
                 onOpenLegal = { subScreen = ProfileSub.LEGAL },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
@@ -275,27 +271,12 @@ fun ProfileScreen(
             ProfileSub.RATE -> RateAppScreen(onBack = { subScreen = ProfileSub.NONE })
             ProfileSub.SUPPORT -> SupportMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
-                onOpenChat = {
-                    supportChatTicketId = null
-                    supportChatTicketTitle = null
-                    subScreen = ProfileSub.SUPPORT_CHAT
-                },
                 onOpenTicket = { subScreen = ProfileSub.TICKET },
             )
             ProfileSub.TICKET -> SupportTicketScreen(
                 onBack = { subScreen = ProfileSub.SUPPORT },
-                onOpenChat = { ticket ->
-                    supportChatTicketId = ticket.id
-                    supportChatTicketTitle = ticket.title
-                    subScreen = ProfileSub.SUPPORT_CHAT
-                },
-            )
-            ProfileSub.SUPPORT_CHAT -> SupportChatScreen(
-                onBack = {
-                    subScreen = if (supportChatTicketId != null) ProfileSub.TICKET else ProfileSub.SUPPORT
-                },
-                ticketId = supportChatTicketId,
-                ticketTitle = supportChatTicketTitle,
+                openTicketId = openTicketId,
+                onTicketOpened = { openTicketId = null },
             )
             ProfileSub.APPEARANCE -> AppearanceScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.FONT -> AppearanceFontScreen(onBack = { subScreen = ProfileSub.SETTINGS })
@@ -701,7 +682,6 @@ private fun AccountListScreen(
 private fun SettingsMenuScreen(
     onBack: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenWalletSettings: () -> Unit,
     onOpenLegal: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenFont: () -> Unit,
@@ -718,7 +698,6 @@ private fun SettingsMenuScreen(
         onBack = onBack,
         items = listOf(
             MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
-            MenuEntry(Icons.Rounded.AccountBalanceWallet, R.string.account_settings_wallet, R.string.account_settings_wallet_sub, onClick = onOpenWalletSettings),
             MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
             MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = onOpenAppearance),
             MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = onOpenFont),
@@ -747,7 +726,6 @@ private fun SettingsMenuScreen(
 @Composable
 private fun SupportMenuScreen(
     onBack: () -> Unit,
-    onOpenChat: () -> Unit,
     onOpenTicket: () -> Unit,
 ) {
     var showFaqSheet by remember { mutableStateOf(false) }
@@ -755,7 +733,6 @@ private fun SupportMenuScreen(
         title = stringResource(R.string.support_title),
         onBack = onBack,
         items = listOf(
-            MenuEntry(Icons.Rounded.Chat, R.string.support_live_chat, R.string.support_live_chat_sub, onClick = onOpenChat),
             MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = onOpenTicket),
             MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
         ),
@@ -775,20 +752,6 @@ private fun LegalMenuScreen(
         items = listOf(
             MenuEntry(Icons.Rounded.Shield, R.string.account_privacy, R.string.account_privacy_sub, onClick = onOpenPrivacy),
             MenuEntry(Icons.Rounded.Description, R.string.account_terms, R.string.account_terms_sub, onClick = onOpenTerms),
-        ),
-    )
-}
-
-@Composable
-private fun WalletSettingsMenuScreen(
-    onBack: () -> Unit,
-    onOpenChangePin: () -> Unit,
-) {
-    AccountListScreen(
-        title = stringResource(R.string.account_settings_wallet),
-        onBack = onBack,
-        items = listOf(
-            MenuEntry(Icons.Rounded.Lock, R.string.account_change_pin, R.string.account_change_pin_sub, onClick = onOpenChangePin),
         ),
     )
 }
@@ -1026,7 +989,7 @@ private fun SettingsToggle(on: Boolean, dark: Boolean = false) {
 }
 
 @Composable
-private fun ConfirmDialog(
+internal fun ConfirmDialog(
     icon: ImageVector,
     title: String,
     message: String,

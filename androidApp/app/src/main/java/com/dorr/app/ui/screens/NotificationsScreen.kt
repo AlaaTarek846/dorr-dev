@@ -20,6 +20,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -43,6 +45,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -72,6 +76,9 @@ import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.theme.AppColors
 
 private enum class NotificationType { JOB_UPDATE, QUOTE, INVOICE, MAINTENANCE, PROMO, GENERAL, WALLET, WALLET_PIN }
+
+/** Notifications fetched per request (infinite scroll). */
+private const val PAGE_SIZE = 15
 
 private data class NotificationItem(
     val id: String,
@@ -129,16 +136,51 @@ fun NotificationsScreen(onBack: () -> Unit) {
     val hasUnread = notifications.any { it.unread }
     val night = settingsNight()
 
-    // The real feed. Reloaded on entry and on reconnect; every row arrives in
-    // the language the app is using.
+    // The real feed, PAGE_SIZE rows at a time: the first page on entry (and again on reconnect), the next
+    // page each time the list is scrolled near its end, until the server says there is no more. Every row
+    // arrives in the language the app is using.
+    val listState = rememberLazyListState()
+    var page by remember { mutableIntStateOf(0) }
+    var hasMore by remember { mutableStateOf(true) }
+    var loadingMore by remember { mutableStateOf(false) }
+    var pageFailed by remember { mutableStateOf(false) }
+
+    suspend fun loadPage(next: Int) {
+        // One request at a time: scrolling again while a page is on its way does nothing.
+        if (loadingMore) return
+        loadingMore = true
+        pageFailed = false
+        runCatching { ApiClient.notifications.list("Bearer ${AuthSession.token.orEmpty()}", perPage = PAGE_SIZE, page = next) }
+            .onSuccess { envelope ->
+                val rows = envelope.data.orEmpty().map { it.toItem() }
+                if (next == 1) notifications.clear()
+                // New rows go under the ones already there; a row that moved between pages is not shown twice.
+                notifications.addAll(rows.filter { row -> notifications.none { it.id == row.id } })
+                page = next
+                hasMore = envelope.pagination?.hasMorePages == true
+            }
+            .onFailure { pageFailed = true }
+        loadingMore = false
+        loaded = true
+    }
+
     val reconnectTick = collectReconnectTick()
     LaunchedEffect(reconnectTick) {
-        runCatching { ApiClient.notifications.list("Bearer ${AuthSession.token.orEmpty()}").data.orEmpty() }
-            .onSuccess { rows ->
-                notifications.clear()
-                notifications.addAll(rows.map { it.toItem() })
-            }
-        loaded = true
+        page = 0
+        hasMore = true
+        loadPage(1)
+    }
+
+    // Near the end of what is loaded (the last few rows are on screen)?
+    val nearEnd by remember {
+        derivedStateOf {
+            val info = listState.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: -1
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 4
+        }
+    }
+    LaunchedEffect(nearEnd, notifications.size, hasMore, pageFailed, loaded) {
+        if (loaded && nearEnd && hasMore && !loadingMore && !pageFailed) loadPage(page + 1)
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -160,6 +202,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
             EmptyNotifications(modifier = Modifier.weight(1f))
         } else {
             LazyColumn(
+                state = listState,
                 modifier = Modifier
                     .fillMaxSize()
                     .weight(1f),
@@ -176,6 +219,21 @@ fun NotificationsScreen(onBack: () -> Unit) {
                             if (item.unread) scope.launch { runCatching { ApiClient.notifications.markRead("Bearer ${AuthSession.token.orEmpty()}", item.id) } }
                         },
                     )
+                }
+                // The next page is loading (a spinner under the rows), or it failed (tap to try again).
+                if (loadingMore || pageFailed) item(key = "footer") {
+                    Box(Modifier.fillMaxWidth().padding(vertical = 8.dp), contentAlignment = Alignment.Center) {
+                        if (loadingMore) {
+                            CircularProgressIndicator(color = if (night) AccountDark.accent else settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(24.dp))
+                        } else {
+                            Text(
+                                stringResource(R.string.support_ticket_more),
+                                color = if (night) AccountDark.accent else settingsAccent(),
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { scope.launch { loadPage(if (page == 0) 1 else page + 1) } }.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -214,21 +272,14 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
             .padding(14.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(if (item.unread) (if (night) AccountDark.accent else settingsAccent()) else Color.Transparent, CircleShape),
-            )
-            Spacer(Modifier.height(4.dp))
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
-            }
+        // Unread is shown by the tinted card and the bold title; no dot above the icon.
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .background(color.copy(alpha = 0.1f), RoundedCornerShape(12.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = color, modifier = Modifier.size(22.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {

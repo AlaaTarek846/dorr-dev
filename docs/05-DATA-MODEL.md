@@ -61,6 +61,9 @@ personal_access_tokens (Sanctum)
 
 **Relationships:** `belongsTo` Country; morphMany SocialAccount, VerificationCode; HasRoles (Spatie); `hasMany` SupportTicket.
 
+### Support automatic replies
+`support_settings` (one row): `auto_reply_enabled`, `ack_enabled`, `ack_message` json {ar,en}, `away_enabled`, `away_message` json, `hours` json (7 days, Sunday first: open/from/to), `timezone` (default Asia/Riyadh), `away_every_hours` (6), `ai_enabled`, `ai_max_replies` (2). `support_quick_replies`: `shortcut` (unique), `title`, `body`, `sort_order`, `status`. `support_messages` gains `is_auto` and `auto_kind` (ack|away|faq; `sender = system`); `support_tickets` gains `auto_reply_stopped_at`.
+
 ### `support_tickets`
 
 | Column | Notes |
@@ -73,7 +76,7 @@ personal_access_tokens (Sanctum)
 | status | default `open` |
 | timestamps | |
 
-Created from the Android app via `POST /api/mobile/v1/support-tickets`. **NEEDS-DECISION:** admin list / reply UI is not built yet.
+`status` is `opened` / `reopened` / `resolved` / `closed` (`SupportTicketStatus`); `admin_id` (nullable FK → admins) is the agent who took it; `last_message_at` orders the lists. Opened from the Android app via `POST /api/mobile/v1/support-tickets`; the dashboard answers and moves the status (`support-tickets.*` permissions, module `system_users`). The history of status moves is in `support_ticket_activities` (`support_ticket_id`, `admin_id` nullable, `actor` user|support, `status`, timestamps).
 
 ### `ratings`
 
@@ -90,18 +93,48 @@ Created from the Android app via `POST /api/mobile/v1/support-tickets`. **NEEDS-
 
 Admin: view/delete only (`ratings.*` permissions, module `system_users`).
 
+### `referral_codes`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| code | unique, format `DORRFC-` + 6 A–Z/0–9 |
+| referrable_type, referrable_id | owner alias (`user` / `provider`; later `driver`) — not a class name, not `Relation::morphMap()` |
+| is_active | bool; deactivating does not delete history |
+| timestamps | |
+
+One active code per owner is created on first `GET /api/mobile/v1/referrals/my-code`.
+
+### `referrals`
+
+| Column | Notes |
+|--------|-------|
+| id | PK |
+| referrer_type, referrer_id | owner of the code used |
+| referred_type, referred_id | unique pair — one referral per referred entity |
+| referral_code_id | FK → referral_codes, restrict on delete |
+| status | `registered` / `completed` / `cancelled` |
+| registered_at, completed_at, cancelled_at | nullable |
+| timestamps | |
+
+Mobile: `GET/POST /api/mobile/v1/referrals/*`. Admin: `/api/admin/v1/referral-codes*`, `/api/admin/v1/referrals*` (`referral-codes.view|change-status`, `referrals.view`).
+
+Completion (wallet rewards) is a later hook — v1 stores `registered` only.
+
 ### `support_messages`
 
 | Column | Notes |
 |--------|-------|
 | id | PK |
-| user_id | FK → users, cascade on delete |
-| support_ticket_id | nullable FK → support_tickets (null = general live chat) |
+| user_id | FK → users, cascade on delete (the customer of the ticket) |
+| admin_id | nullable FK → admins (the agent who wrote it) |
+| support_ticket_id | FK → support_tickets |
 | sender | `user` or `support` |
-| body | text |
+| body | nullable text (a message can be a photo only) |
+| image_path | nullable, public disk |
 | timestamps | |
 
-Mobile: `GET/POST /api/mobile/v1/support-chats`. Users can only send as `user`. **NEEDS-DECISION:** admin/agent replies.
+Mobile: `GET/POST /api/mobile/v1/support-tickets/{id}/messages`; dashboard: `GET/POST /api/admin/v1/support-tickets/{id}/messages`. Live on the Pusher channels via `SupportRealtimeEvent`. The old general (ticket-less) chat no longer exists.
 
 ### `admins`
 

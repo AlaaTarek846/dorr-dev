@@ -160,7 +160,7 @@ fun WalletMyQr() {
                 }
                 Spacer(Modifier.height(14.dp))
                 CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    Text(number, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink, letterSpacing = 2.sp)
+                    WaFitText(number, color = Wa.Ink, maxSize = 21.sp, letterSpacing = 2.sp)
                 }
                 Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     WaGlassChip(country, Icons.Rounded.Public, dark = true)
@@ -270,6 +270,12 @@ fun WalletScanner() {
     }
 
     WaPage(title = stringResource(R.string.wa_scan_title), onBack = { host.pop() }) {
+        // The sentence that used to sit under "Scan a QR code" on the transfer form.
+        Text(
+            stringResource(R.string.wa_scan_cta_text),
+            color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, lineHeight = 21.sp,
+            modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp).waRise(0),
+        )
         Viewfinder(busy, Modifier.waRise(0))
         Text(
             stringResource(if (busy) R.string.wa_scan_checking else R.string.wa_scan_hint),

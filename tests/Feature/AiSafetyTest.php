@@ -9,6 +9,7 @@ use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use Modules\AI\Models\AiPlan;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Safety\RiskAssessment;
@@ -41,6 +42,9 @@ class AiSafetyTest extends TestCase
         $saudi = Country::create(['code' => 'SA', 'dial_code' => '+966', 'phone_length' => 9, 'is_default' => true, 'flag_id' => $flag->id, 'currency_id' => Currency::create(['code' => 'SAR', 'symbol' => 'SAR', 'decimal_places' => 2])->id, 'status' => true]);
         Language::create(['code' => 'en', 'direction' => 'ltr', 'is_default_website' => true, 'is_default_dashboard' => true, 'stores_translation' => true, 'status' => true, 'flag_id' => $flag->id]);
         $this->user = User::create(['name' => 'Alice', 'phone' => '+966500000001', 'country_id' => $saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+
+        // AiChatUsageGuard 402s ("no_plan") unless an active trial plan exists to start the user on.
+        AiPlan::query()->create(['name' => 'Trial', 'code' => 'trial-safety-test', 'is_trial' => true, 'is_active' => true, 'sort_order' => 1, 'usage_minutes' => 60, 'cooldown_minutes' => 5]);
 
         app(AiProviderRepository::class)->ensureDefaults();
         AiProvider::query()->where('key', 'openai')->firstOrFail()->update(['is_enabled' => true, 'is_default' => true, 'api_key' => 'sk-test', 'model' => 'gpt-4o-mini']);

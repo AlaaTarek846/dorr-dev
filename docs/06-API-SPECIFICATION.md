@@ -340,12 +340,17 @@ the phone does not exist yet, then sends a fixed demo OTP
 | PATCH | `/addresses/{id}/set-default` | `auth:user_api` + `ensure-phone-verified` | Pin/unpin default (`is_default: bool`) |
 | POST | `/profile/email/request` | `auth:user_api` + `ensure-phone-verified` | Change email step 1: validate, cache, mail OTP to the new address |
 | POST | `/profile/email/confirm` | `auth:user_api` + `ensure-phone-verified` | Change email step 2: verify `code` → swap address, mark verified |
-| GET | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Own tickets, newest first, paginated (`page`/`per_page`, `all=1` for all). `{ id, title, body, status, created_at }` |
-| POST | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Open a support ticket (`title`, `body`, optional `image` jpeg/jpg/png/webp ≤ 4MB). Returns `{ id, title, body, status, created_at }` (201) |
-| GET | `/support-chats?ticket_id=` | `auth:user_api` + `ensure-phone-verified` | Own support chat messages (omit `ticket_id` for general live chat; pass a ticket id for that ticket's thread). `{ id, ticket_id, sender, body, created_at }` |
-| POST | `/support-chats` | `auth:user_api` + `ensure-phone-verified` | Send a support chat message (`body`, optional `ticket_id`). `sender` is always `user` (201) |
+| GET | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Own tickets, latest activity first, paginated (`page`/`per_page`, optional `status`). `{ id, title, body, image_url, status, accepts_replies, last_message, last_message_at, created_at }` |
+| POST | `/support-tickets` | `auth:user_api` + `ensure-phone-verified` | Open a ticket (`title`, `body`, optional `image` jpeg/jpg/png/webp ≤ 4MB). What was written becomes the first message. 201 |
+| GET | `/support-tickets/{id}` | `auth:user_api` + `ensure-phone-verified` | One own ticket (404 for someone else's) |
+| PATCH | `/support-tickets/{id}/status` | `auth:user_api` + `ensure-phone-verified` | `status`: the customer can only `closed` an open / reopened ticket, or `reopened` a resolved / closed one (422 otherwise) |
+| GET | `/support-tickets/{id}/messages` | `auth:user_api` + `ensure-phone-verified` | The conversation, paginated; `order=desc` returns the newest page first. `{ id, ticket_id, sender: user|support, body, image_url, agent_name, created_at }` |
+| POST | `/support-tickets/{id}/auto-reply-feedback` | `auth:user_api` + `ensure-phone-verified`, `throttle:30,1` | `solved` (bool): true closes the ticket, false stops the automatic replies and tells support the customer wants a person. Returns the ticket (`auto_reply_stopped`). Messages now carry `sender: user|support|system`, `is_auto`, `auto_kind`. Admin: `GET/PUT /api/admin/v1/support-settings` (`support-settings.view|update`), `GET/POST/PUT/DELETE /api/admin/v1/support-settings/quick-replies`, `GET /api/admin/v1/support-tickets/quick-replies` (active ones, for the `/` menu) |
+| POST | `/support-tickets/{id}/messages` | `auth:user_api` + `ensure-phone-verified`, `throttle:30,1` | Write in the ticket: `body` and/or `image`. 422 while the ticket is resolved / closed |
 | GET | `/ratings/mine` | `auth:user_api` + `ensure-phone-verified` | `{ rated, rating }` for the app (optional `rateable_type` `service`/`provider` + `rateable_id`) |
 | POST | `/ratings` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Save a rating (`stars` 1–5 in 0.25 steps, optional `comment` ≤ 500, optional `rateable_*`). 201 `{ id, stars, comment, type, prompt_store_review, ... }`; duplicate → 422 |
+| GET | `/referrals/my-code` | `auth:user_api` + `ensure-phone-verified` | Mint or return the caller's active `DORRFC-` code; `{ code, is_active, applied }` |
+| POST | `/referrals/track` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Body `{ referral_code }` only. 201 first save, 200 identical retry; 422 invalid / inactive / self / already applied |
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.

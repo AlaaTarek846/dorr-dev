@@ -42,6 +42,8 @@
                         filter
                         :filter-placeholder="t('search_placeholder')"
                         v-model="filters.status"
+                        :placeholder="t('wallet.common.status')"
+                        show-clear
                         :options="statusFilterOptions"
                         option-label="label"
                         option-value="value"
@@ -51,6 +53,8 @@
                         filter
                         :filter-placeholder="t('search_placeholder')"
                         v-model="filters.owner_type"
+                        :placeholder="t('wallet.common.owner')"
+                        show-clear
                         :options="ownerFilterOptions"
                         option-label="label"
                         option-value="value"
@@ -128,7 +132,7 @@
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
         <WalletModal :show="showDetail" :title="detail ? `#${detail.id} · ${t('wallet.online.detail')}` : ''" size="xl" @close="closeDetail">
@@ -292,16 +296,14 @@ const { showSuccess } = useToast();
 const statuses = ['pending', 'paid', 'failed', 'expired', 'refunded'];
 
 const statusFilterOptions = computed(() => [
-    { value: '', label: t('wallet.common.all_statuses') },
     ...statuses.map((status) => ({ value: status, label: t(`wallet.status.${status}`) })),
 ]);
 const ownerFilterOptions = computed(() => [
-    { value: '', label: t('wallet.common.all_owners') },
     { value: 'user', label: t('wallet.owner.user') },
     { value: 'provider', label: t('wallet.owner.provider') },
 ]);
-const { rows, loading, pagination, filters, fetch } = useWalletList('online-transactions', {
-    defaults: { search: '', status: '', owner_type: '', from: '', to: '' },
+const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('online-transactions', {
+    defaults: { search: '', status: null, owner_type: null, from: '', to: '' },
 });
 
 const canReconcile = computed(() => can('online-transactions.reconcile'));
