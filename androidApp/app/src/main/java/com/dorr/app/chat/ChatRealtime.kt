@@ -51,6 +51,7 @@ object ChatRealtime {
         "chat.scheduled.changed", "chat.reminder.due",
         // DORR Sports: an alert for a match I follow (the goal moment, 197–198).
         "sports.alert", "sports.prize",
+        "support.ticket.created", "support.message", "support.ticket.updated",
     )
 
     /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */

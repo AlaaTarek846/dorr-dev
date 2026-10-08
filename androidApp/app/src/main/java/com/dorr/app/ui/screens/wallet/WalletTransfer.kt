@@ -253,14 +253,11 @@ fun WalletTransfer() {
     ) {
         // Which wallet sends (a tap switches to another of mine), then what that means.
         balance?.let { WalletPickerCard(it, Modifier.padding(bottom = 10.dp).waRise(0)) }
-        // Country banner.
+        // Country banner: just the rule, in one line.
         WaCard(Modifier.fillMaxWidth().waRise(0), padding = 12.dp) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 WaIconWell(Icons.Rounded.Public, Tone.Blue)
-                Column {
-                    Text(stringResource(R.string.wa_transfer_banner_title, country), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
-                    Text(stringResource(R.string.wa_transfer_banner_text, balance?.currencyCode.orEmpty(), country), color = Wa.Mut, fontSize = 12.sp, lineHeight = 20.sp, modifier = Modifier.padding(top = 2.dp))
-                }
+                Text(stringResource(R.string.wa_transfer_banner_title, country), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
             }
         }
 
@@ -336,7 +333,6 @@ private fun ScanCta(modifier: Modifier, onClick: () -> Unit) {
         }
         Column(Modifier.weight(1f)) {
             Text(stringResource(R.string.wa_scan_cta_title), color = Color.White, fontSize = 15.5.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.wa_scan_cta_text), color = Color.White.copy(alpha = 0.9f), fontSize = 12.sp, lineHeight = 19.sp, modifier = Modifier.padding(top = 2.dp))
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(18.dp))
     }
@@ -414,12 +410,13 @@ private fun InputCard(
             state == FieldState.Ok -> Wa.Green
             isError -> Wa.Danger
             focused -> Wa.Red.copy(alpha = 0.45f)
-            else -> Color.Transparent
+            else -> Wa.Line
         },
         label = "inputBorder",
     )
-    WaCard(modifier.fillMaxWidth(), padding = 16.dp) {
-        Text(label, color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+    // No card around the field: just its label, the bordered number box and the hint.
+    Column(modifier.fillMaxWidth()) {
+        Text(label, color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 2.dp))
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Row(
                 Modifier
@@ -427,7 +424,7 @@ private fun InputCard(
                     .height(50.dp)
                     .clip(RoundedCornerShape(15.dp))
                     .background(if (focused) Wa.Surface else Wa.Field)
-                    .border(2.dp, border, RoundedCornerShape(15.dp))
+                    .border(1.5.dp, border, RoundedCornerShape(15.dp))
                     .padding(horizontal = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),

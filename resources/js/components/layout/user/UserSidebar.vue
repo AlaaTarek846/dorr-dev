@@ -38,6 +38,13 @@
                         </router-link>
                     </li>
 
+                    <li class="slide">
+                        <router-link :to="{ name: 'user.ai-language-preference' }" class="side-menu__item">
+                            <i class="ri-translate-2 side-menu__icon"></i>
+                            <span class="side-menu__label">{{ t('ai_language_preference.title') }}</span>
+                        </router-link>
+                    </li>
+
                     <li class="slide__category">
                         <span class="category-name">{{ t('profile.title') }}</span>
                     </li>

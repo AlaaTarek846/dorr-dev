@@ -9,11 +9,14 @@ use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatDorrStory;
 use Modules\Chat\Models\ChatSetting;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -172,7 +175,7 @@ class ChatPublicStoriesTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function post_(User $user, array $data): \Illuminate\Testing\TestResponse
+    private function post_(User $user, array $data): TestResponse
     {
         $this->as($user);
 
@@ -184,9 +187,9 @@ class ChatPublicStoriesTest extends TestCase
      */
     private function asAdmin(array $permissions): void
     {
-        $admin = \Modules\Admin\Models\Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

@@ -25,7 +25,105 @@ abstract class AbstractHttpConnector implements AiConnector
      * @param  list<array{role: string, content: string}>  $messages
      * @return array{success: bool, message: string, content: ?string}
      */
-    abstract public function sendChat(AiProvider $provider, array $messages): array;
+    abstract public function sendChat(AiProvider $provider, array $messages, bool $useWebSearch = false): array;
+
+    /**
+     * Default: no embeddings support. Only connectors that actually
+     * implement a real embeddings call (currently OpenAiConnector) should
+     * override this - never fake a vector here.
+     *
+     * @return array{success: bool, message: string, vector: ?list<float>}
+     */
+    public function embed(AiProvider $provider, string $text): array
+    {
+        return ['success' => false, 'message' => __('ai.embeddings_not_supported', ['provider' => $provider->name]), 'vector' => null];
+    }
+
+    /**
+     * Default: no image editing support. Only a connector that actually
+     * implements a real image-edit call (currently OpenAiConnector)
+     * should override this - never fake an edited image here.
+     *
+     * @return array{success: bool, message: string, image: ?array{base64: string, mime: string}}
+     */
+    public function editImage(AiProvider $provider, string $modelKey, string $imageBytes, string $imageMime, string $prompt): array
+    {
+        return ['success' => false, 'message' => __('ai.image_editing_not_supported', ['provider' => $provider->name]), 'image' => null];
+    }
+
+    /** @return list<int> */
+    public function videoDurationOptions(AiProvider $provider, string $modelKey): array
+    {
+        return [];
+    }
+
+    /** @return array{success: bool, message: string, job_id: ?string} */
+    public function startVideo(AiProvider $provider, string $modelKey, string $prompt, int $seconds): array
+    {
+        return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name]), 'job_id' => null];
+    }
+
+    /** @return array{success: bool, message: string, state: string, progress: ?int} */
+    public function pollVideo(AiProvider $provider, string $jobId): array
+    {
+        return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name]), 'state' => 'failed', 'progress' => null];
+    }
+
+    /** @return array{success: bool, message: string} */
+    public function downloadVideo(AiProvider $provider, string $jobId, string $destinationPath): array
+    {
+        return ['success' => false, 'message' => __('ai.video_generation_not_supported', ['provider' => $provider->name])];
+    }
+
+    /**
+     * Default: no text-to-image generation support. Only a connector that
+     * actually implements a real image-generation call (currently
+     * OpenAiConnector) should override this - never fake a picture here.
+     *
+     * @return array{success: bool, message: string, image: ?array{base64: string, mime: string}}
+     */
+    public function generateImage(AiProvider $provider, string $modelKey, string $prompt): array
+    {
+        return ['success' => false, 'message' => __('ai.image_generation_not_supported', ['provider' => $provider->name]), 'image' => null];
+    }
+
+    /**
+     * Default: no speech-to-text support. Only a connector that actually
+     * implements a real transcription call (currently OpenAiConnector)
+     * should override this - never fake a transcript here.
+     *
+     * @return array{success: bool, message: string, text: ?string}
+     */
+    public function transcribeAudio(AiProvider $provider, string $modelKey, string $audioBytes, string $audioMime, ?string $languageHint = null): array
+    {
+        return ['success' => false, 'message' => __('ai.speech_to_text_not_supported', ['provider' => $provider->name]), 'text' => null];
+    }
+
+    /**
+     * Default: no text-to-speech support. Only a connector that actually
+     * implements a real TTS call (currently OpenAiConnector) should
+     * override this - never fake audio here.
+     *
+     * @return array{success: bool, message: string, audio: ?array{base64: string, mime: string}}
+     */
+    public function synthesizeSpeech(AiProvider $provider, string $modelKey, string $text): array
+    {
+        return ['success' => false, 'message' => __('ai.text_to_speech_not_supported', ['provider' => $provider->name]), 'audio' => null];
+    }
+
+    /**
+     * Default: no Realtime session support. Only a connector that
+     * actually implements a real ephemeral-session call (currently
+     * OpenAiConnector) should override this - never fake a session
+     * credential here, matching the synthesizeSpeech() precedent above.
+     *
+     * @param  array{voice?: string, instructions?: ?string}  $options
+     * @return array{success: bool, message: string, session: ?array{client_secret: string, expires_at: ?int, model: string}}
+     */
+    public function createRealtimeSession(AiProvider $provider, string $modelKey, array $options = []): array
+    {
+        return ['success' => false, 'message' => __('ai.realtime_not_supported', ['provider' => $provider->name]), 'session' => null];
+    }
 
     protected function baseUrl(AiProvider $provider): string
     {

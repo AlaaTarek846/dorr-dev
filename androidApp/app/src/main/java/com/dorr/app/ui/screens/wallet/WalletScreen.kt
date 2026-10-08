@@ -258,6 +258,28 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                         return PadResult.Ok
                     }
 
+                    // The stored PIN, opened by the fingerprint / face prompt. A PIN that no longer matches the
+                    // server's is dropped, rather than failing silently on every future attempt.
+                    fun unlockWithBiometric() {
+                        if (activity == null) return
+                        WaBiometric.unlock(activity) { pin ->
+                            if (pin == null) return@unlock
+                            scope.launch {
+                                if (completeWithPin(pin) is PadResult.Error) WaBiometric.disable(context)
+                            }
+                        }
+                    }
+
+                    // Opening the wallet shows the prompt at once (once per visit; a cancel leaves the PIN pad and the button).
+                    var autoPrompted by remember { mutableStateOf(false) }
+                    val lockedNow = (current.lockedUntil?.let { runCatching { java.time.Instant.parse(it).toEpochMilli() }.getOrNull() } ?: 0L) > System.currentTimeMillis()
+                    LaunchedEffect(Unit) {
+                        if (!autoPrompted && !lockedNow && activity != null && WaBiometric.isEnabled(context)) {
+                            autoPrompted = true
+                            unlockWithBiometric()
+                        }
+                    }
+
                     Column(Modifier.fillMaxSize().padding(horizontal = 8.dp)) {
                         WaPinPad(
                             title = enterTitle,
@@ -269,18 +291,7 @@ private fun WaGate(onUnlocked: () -> Unit, onCancel: () -> Unit) {
                         if (activity != null && WaBiometric.isEnabled(context)) {
                             WaButton(
                                 stringResource(R.string.wa_biometric_unlock_button),
-                                {
-                                    WaBiometric.unlock(activity) { pin ->
-                                        if (pin == null) return@unlock
-                                        scope.launch {
-                                            if (completeWithPin(pin) is PadResult.Error) {
-                                                // The stored PIN no longer matches the server's — drop it
-                                                // rather than fail silently on every future attempt.
-                                                WaBiometric.disable(context)
-                                            }
-                                        }
-                                    }
-                                },
+                                ::unlockWithBiometric,
                                 style = WaButtonStyle.Ghost,
                                 icon = Icons.Rounded.Fingerprint,
                             )

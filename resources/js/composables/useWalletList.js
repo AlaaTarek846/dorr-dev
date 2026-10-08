@@ -8,18 +8,26 @@ import useToast, { extractApiErrorMessage } from './useToast';
  * response that arrives after a newer request was made is ignored, so a fast
  * typist never sees stale rows.
  */
-export default function useWalletList(path, { defaults = {}, perPage = 15 } = {}) {
+export default function useWalletList(path, { defaults = {}, perPage: initialPerPage = 15, statusCounts: withStatusCounts = false } = {}) {
     const { showError } = useToast();
     const rows = ref([]);
     const loading = ref(false);
     const pagination = ref(null);
     const page = ref(1);
+    // { total, active, inactive } of the whole list, when the page asked for them (they ride on the same request).
+    const statusCounts = ref(null);
+    // Rows per page (the admin picks it under the table).
+    const perPage = ref(initialPerPage);
     const filters = reactive({ ...defaults });
     let sequence = 0;
     let timer = null;
 
     function params(pageNumber) {
-        const query = { per_page: perPage, page: pageNumber };
+        const query = { per_page: perPage.value, page: pageNumber };
+
+        if (withStatusCounts) {
+            query.status_counts = 1;
+        }
 
         Object.entries(filters).forEach(([key, value]) => {
             if (value !== '' && value !== null && value !== undefined) {
@@ -43,6 +51,7 @@ export default function useWalletList(path, { defaults = {}, perPage = 15 } = {}
 
             rows.value = data.data ?? [];
             pagination.value = data.pagination ?? null;
+            statusCounts.value = data.status_counts ?? statusCounts.value;
             page.value = pageNumber;
         } catch (error) {
             if (current === sequence) {
@@ -60,7 +69,9 @@ export default function useWalletList(path, { defaults = {}, perPage = 15 } = {}
         timer = setTimeout(() => fetch(1), 350);
     }, { deep: true });
 
+    watch(perPage, () => fetch(1));
+
     onBeforeUnmount(() => clearTimeout(timer));
 
-    return { rows, loading, pagination, page, filters, fetch };
+    return { rows, loading, pagination, page, filters, fetch, perPage, statusCounts };
 }

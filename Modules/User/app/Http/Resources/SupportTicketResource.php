@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\User\Models\SupportTicket;
 
+/** The ticket as the customer (the app) sees it. */
 /** @mixin SupportTicket */
 class SupportTicketResource extends JsonResource
 {
@@ -16,9 +17,21 @@ class SupportTicketResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'number' => $this->number,
             'title' => $this->title,
             'body' => $this->body,
-            'status' => $this->status,
+            'image_url' => $this->imageUrl(),
+            'status' => $this->status->value,
+            'accepts_replies' => $this->status->acceptsReplies(),
+            // The customer asked for a person: no more automatic replies on this ticket.
+            'auto_reply_stopped' => $this->auto_reply_stopped_at !== null,
+            'last_message' => $this->whenLoaded('latestMessage', fn () => $this->latestMessage === null ? null : [
+                'sender' => $this->latestMessage->sender,
+                'body' => $this->latestMessage->body,
+                'has_image' => $this->latestMessage->image_path !== null,
+                'created_at' => $this->latestMessage->created_at?->toIso8601String(),
+            ]),
+            'last_message_at' => ($this->last_message_at ?? $this->created_at)?->toIso8601String(),
             'created_at' => $this->created_at?->toIso8601String(),
         ];
     }

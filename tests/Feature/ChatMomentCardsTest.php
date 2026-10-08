@@ -12,6 +12,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
@@ -173,7 +174,7 @@ class ChatMomentCardsTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function card(string $chat, array $data, ?string $pin = null): \Illuminate\Testing\TestResponse
+    private function card(string $chat, array $data, ?string $pin = null): TestResponse
     {
         $this->as($this->alice);
 

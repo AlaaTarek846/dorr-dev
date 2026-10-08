@@ -30,7 +30,7 @@ android {
         }
         // A build for a given server overrides it on the command line, leaving local.properties alone:
         //   gradlew assembleDebug -Pdorr.apiHost=dorr-app.com -Pdorr.apiScheme=https
-        val apiHost = (findProperty("dorr.apiHost") as String?) ?: local.getProperty("dorr.apiHost", "exploring-molasses-pretended.ngrok-free.dev")
+        val apiHost = (findProperty("dorr.apiHost") as String?) ?: local.getProperty("dorr.apiHost", "unafraid-occupy-geography.ngrok-free.dev")
         val apiScheme = (findProperty("dorr.apiScheme") as String?) ?: local.getProperty("dorr.apiScheme", "https")
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
@@ -103,6 +103,19 @@ dependencies {
     implementation("com.pusher:pusher-java-client:2.4.4")
     // Chat calls (voice / video) — LiveKit Cloud now, self-hosted LiveKit later (same SDK).
     implementation("io.livekit:livekit-android:2.5.0")
+    // Realtime Voice (AI Assistant live call, Phase 7): direct WebRTC to OpenAI's
+    // /v1/realtime/calls edge using the short-lived client_secret our backend mints
+    // (AiRealtimeController). This is a SEPARATE WebRTC artifact from whatever
+    // livekit-android pulls in transitively for LiveKit calls above -- if Gradle
+    // reports a duplicate native library / duplicate class for libjingle_peerconnection
+    // (or similar) when this is built, resolve it by excluding livekit-android's own
+    // webrtc transitive dependency (its group is io.livekit / io.github.webrtc-sdk
+    // depending on the release) rather than removing this line -- this module talks to
+    // OpenAI directly and cannot reuse a LiveKit-scoped connection.
+    implementation("io.github.webrtc-sdk:android:125.6422.04")
+    // Realtime event payloads over the WebRTC data channel are small JSON blobs;
+    // org.json (bundled in the Android platform) is used to parse them, no new
+    // dependency needed for that part.
     // Phone notifications (chat messages, calls, wallet…) — the server already sends through OneSignal.
     implementation("com.onesignal:OneSignal:5.1.6")
     // Chat videos are re-encoded on the phone before upload (720p H.264) — Google's own transcoder.
@@ -118,6 +131,8 @@ dependencies {
     implementation("com.google.android.gms:play-services-mlkit-subject-segmentation:16.0.0-beta1")
     // Google Play In-App Review (shown after a 4–5 star rating; a no-op until the app is on Play)
     implementation("com.google.android.play:review-ktx:2.0.2")
+    // Play Install Referrer (no-op until the app is published; same API as share/copy today)
+    implementation("com.android.installreferrer:installreferrer:2.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

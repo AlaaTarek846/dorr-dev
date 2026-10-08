@@ -238,11 +238,8 @@ export function useHeader() {
         }
 
         try {
-            const { data } = await adminAxios.get('/api/admin/v1/me');
-            authStore.setSession({
-                token: authStore.token,
-                admin: data.data,
-            });
+            // Shares the route guard's /me request (or finds the profile already loaded): never a second one.
+            await authStore.loadMe(adminAxios);
         } catch {
             authStore.logout();
         }

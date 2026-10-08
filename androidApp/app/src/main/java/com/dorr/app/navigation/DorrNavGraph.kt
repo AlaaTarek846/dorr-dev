@@ -9,6 +9,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -22,6 +23,7 @@ import androidx.navigation.compose.rememberNavController
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.OnboardingStore
+import com.dorr.app.network.ReferralTracker
 import com.dorr.app.ui.screens.LoginScreen
 import com.dorr.app.ui.screens.MainScreen
 import com.dorr.app.ui.screens.NotificationsScreen
@@ -250,6 +252,9 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(Routes.MAIN) {
+            LaunchedEffect(AuthSession.token) {
+                ReferralTracker.submitPending()
+            }
             MainScreen(
                 initialTab = lastMainTab,
                 initialWalletOpen = lastWalletOpen,

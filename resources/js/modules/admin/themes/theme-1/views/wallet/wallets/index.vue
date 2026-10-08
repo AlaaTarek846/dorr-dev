@@ -22,6 +22,8 @@
                     filter
                     :filter-placeholder="t('search_placeholder')"
                     v-model="filters.owner_type"
+                    :placeholder="t('wallet.common.owner')"
+                    show-clear
                     :options="ownerFilterOptions"
                     option-label="label"
                     option-value="value"
@@ -96,10 +98,10 @@
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
-        <WalletModal :show="showModal" :title="wallet ? `${wallet.owner?.name || '#' + wallet.owner_id} · ${wallet.country_code}` : ''" size="xl" @close="showModal = false">
+        <WalletModal :show="showModal" :title="wallet ? `${wallet.owner?.name || '#' + wallet.owner_id} · ${wallet.country_code}` : ''" size="xl" smooth @close="showModal = false">
             <div v-if="wallet" class="d-flex flex-column gap-3">
                 <WalletDetailHero
                     icon="ri-wallet-3-line"
@@ -157,6 +159,8 @@
                     <div class="d-flex flex-wrap gap-2">
                         <Select
                             v-model="txFilters.bucket"
+                            :placeholder="t('wallet.common.bucket')"
+                            show-clear
                             filter
                             :filter-placeholder="t('search_placeholder')"
                             :options="bucketFilterOptions"
@@ -168,6 +172,8 @@
                         />
                         <Select
                             v-model="txFilters.direction"
+                            :placeholder="t('wallet.common.direction')"
+                            show-clear
                             filter
                             :filter-placeholder="t('search_placeholder')"
                             :options="directionFilterOptions"
@@ -181,7 +187,7 @@
 
                     <WalletSection :title="t('wallet.wallets.statement')" icon="ri-file-list-3-line" flush>
                         <div class="table-responsive">
-                            <table class="table table-sm table-hover text-nowrap mb-0">
+                            <table class="table table-sm table-hover align-middle mb-0 wallet-statement">
                                 <thead>
                                     <tr>
                                         <th class="ps-3">{{ t('wallet.common.date') }}</th>
@@ -206,23 +212,34 @@
                                     </tr>
                                     <template v-else>
                                         <tr v-for="tx in txRows" :key="tx.uuid">
-                                            <td class="ps-3">{{ formatDateTime(tx.created_at, locale) }}</td>
-                                            <td>{{ tx.type_label }}</td>
-                                            <td><span class="badge" :class="tx.bucket === 'spend_only' ? 'bg-pink-transparent' : 'bg-primary-transparent'">{{ t(`wallet.bucket.${tx.bucket}`) }}</span></td>
-                                            <td :class="tx.direction === 'credit' ? 'text-success' : 'text-danger'" class="fw-semibold" dir="ltr">
-                                                {{ tx.direction === 'credit' ? '+' : '−' }} {{ fmtMinor(tx.amount_minor) }}
+                                            <td class="ps-3 text-nowrap">
+                                                <span class="d-block fw-semibold">{{ statementDate(tx.created_at) }}</span>
+                                                <span class="d-block text-muted fs-11">{{ statementTime(tx.created_at) }}</span>
                                             </td>
-                                            <td dir="ltr">{{ fmtMinor(tx.balance_after_minor) }}</td>
-                                            <td class="text-wrap pe-3">{{ tx.counterparty ? `${tx.counterparty.name || ''} ${tx.counterparty.phone || ''}` : (tx.note !== tx.type_label ? tx.note : '') }}</td>
+                                            <td class="statement-type">{{ tx.type_label }}</td>
+                                            <td class="text-nowrap"><span class="badge" :class="tx.bucket === 'spend_only' ? 'bg-pink-transparent' : 'bg-primary-transparent'">{{ t(`wallet.bucket.${tx.bucket}`) }}</span></td>
+                                            <td class="text-nowrap">
+                                                <!-- The number reads left-to-right in every language, but sits at the start of its cell like the other columns. -->
+                                                <span class="statement-amount" :class="tx.direction === 'credit' ? 'text-success' : 'text-danger'" dir="ltr">
+                                                    {{ tx.direction === 'credit' ? '+' : '−' }}{{ fmtMinor(tx.amount_minor) }}
+                                                </span>
+                                            </td>
+                                            <td class="text-nowrap"><span class="statement-amount" dir="ltr">{{ fmtMinor(tx.balance_after_minor) }}</span></td>
+                                            <td class="pe-3 statement-note">
+                                                <template v-if="tx.counterparty">
+                                                    <span v-if="tx.counterparty.name" class="d-block fw-semibold">{{ tx.counterparty.name }}</span>
+                                                    <span v-if="tx.counterparty.phone" class="statement-phone text-muted fs-12" dir="ltr">{{ tx.counterparty.phone }}</span>
+                                                </template>
+                                                <span v-else-if="tx.note && tx.note !== tx.type_label">{{ tx.note }}</span>
+                                                <span v-else class="text-muted">—</span>
+                                            </td>
                                         </tr>
                                     </template>
                                 </tbody>
                             </table>
                         </div>
-                        <div v-if="txPagination && txPagination.last_page > 1" class="d-flex justify-content-between align-items-center border-top px-3 py-2">
-                            <button type="button" class="btn btn-sm btn-light" :disabled="txPagination.current_page <= 1" @click="loadTx(txPagination.current_page - 1)">{{ t('currencies.previous') }}</button>
-                            <span class="text-muted fs-12">{{ txPagination.current_page }} / {{ txPagination.last_page }}</span>
-                            <button type="button" class="btn btn-sm btn-light" :disabled="txPagination.current_page >= txPagination.last_page" @click="loadTx(txPagination.current_page + 1)">{{ t('currencies.next') }}</button>
+                        <div v-if="txPagination" class="border-top">
+                            <WalletPagination v-model:per-page="txPerPage" :per-page-options="[10, 25, 50]" :pagination="txPagination" @change="loadTx" />
                         </div>
                     </WalletSection>
                 </div>
@@ -237,6 +254,7 @@
                                 <label class="form-label">{{ t('wallet.common.direction') }}</label>
                                 <Select
                                     v-model="adjust.direction"
+                                    :placeholder="t('wallet.common.direction')"
                                     filter
                                     :filter-placeholder="t('search_placeholder')"
                                     :options="directionOptions"
@@ -294,7 +312,7 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue';
+import { computed, reactive, ref, watch } from 'vue';
 import useVuelidate from '@vuelidate/core';
 import Select from 'primevue/select';
 import { useI18n } from 'vue-i18n';
@@ -312,15 +330,15 @@ import useToast from '../../../../../../../composables/useToast';
 import useValidation from '../../../../../../../composables/useValidation';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
-import { fmtMinor, formatDateTime, parseMajor } from '../../../../../../../utils/walletMoney';
+import { fmtMinor, parseMajor } from '../../../../../../../utils/walletMoney';
 
 const { t, locale } = useI18n();
 const { can } = usePermission();
 const { showSuccess, showWarning } = useToast();
 const { requiredField, minString, maxString, moneyFormat, applyApiErrors } = useValidation();
 
-const { rows, loading, pagination, filters, fetch } = useWalletList('wallets', {
-    defaults: { search: '', owner_type: '' },
+const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('wallets', {
+    defaults: { search: '', owner_type: null },
 });
 fetch(1);
 
@@ -336,7 +354,7 @@ const tab = ref('statement');
 const txRows = ref([]);
 const txLoading = ref(false);
 const txPagination = ref(null);
-const txFilters = reactive({ bucket: '', direction: '' });
+const txFilters = reactive({ bucket: null, direction: null });
 
 const adjust = reactive({ direction: 'credit', bucket: '', amount: '', reason: '' });
 const adjustServerErrors = reactive({});
@@ -382,9 +400,9 @@ const directionOptions = computed(() => [
     { value: 'credit', label: t('wallet.direction.credit') },
     { value: 'debit', label: t('wallet.direction.debit') },
 ]);
-const ownerFilterOptions = computed(() => [{ value: '', label: t('wallet.common.all_owners') }, ...ownerOptions.value]);
-const bucketFilterOptions = computed(() => [{ value: '', label: t('wallet.common.all_buckets') }, ...bucketOptions.value]);
-const directionFilterOptions = computed(() => [{ value: '', label: t('wallet.common.all_directions') }, ...directionOptions.value]);
+const ownerFilterOptions = ownerOptions;
+const bucketFilterOptions = bucketOptions;
+const directionFilterOptions = directionOptions;
 const adjusting = ref(false);
 
 function open(row) {
@@ -395,11 +413,19 @@ function open(row) {
     loadTx(1);
 }
 
+const txPerPage = ref(10);
+watch(txPerPage, () => loadTx(1));
+
+/** Latin digits in both languages, so the date, the time and the amounts of a row line up. */
+const statementLocale = computed(() => (locale.value === 'ar' ? 'ar-EG-u-nu-latn' : 'en-US'));
+const statementDate = (value) => (value ? new Date(value).toLocaleDateString(statementLocale.value, { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const statementTime = (value) => (value ? new Date(value).toLocaleTimeString(statementLocale.value, { hour: '2-digit', minute: '2-digit' }) : '');
+
 async function loadTx(page) {
     txLoading.value = true;
 
     try {
-        const params = { per_page: 10, page, ...Object.fromEntries(Object.entries(txFilters).filter(([, v]) => v !== '')) };
+        const params = { per_page: txPerPage.value, page, ...Object.fromEntries(Object.entries(txFilters).filter(([, v]) => v !== '' && v !== null)) };
         const { data } = await adminAxios.get(`/api/admin/v1/wallets/${wallet.value.id}/transactions`, { params });
 
         txRows.value = data.data ?? [];

@@ -15,6 +15,7 @@ class AiProviderService
     public function __construct(
         protected AiProviderRepository $repository,
         protected AiGateway $gateway,
+        protected AiProviderModelSyncService $modelSync,
     ) {}
 
     public function list(): JsonResponse
@@ -76,18 +77,35 @@ class AiProviderService
             'last_tested_at' => now(),
         ];
 
+        $sync = ['created' => 0, 'skipped' => 0];
+
         // Only refresh the cached model list when we actually got one back,
         // so a failed test never wipes out a previously known-good list.
         if (($result['models'] ?? []) !== []) {
             $updates['available_models'] = $result['models'];
             $updates['available_models_synced_at'] = now();
+
+            // Business gap fix: turn the model list the provider just
+            // returned into real ai_provider_models rows, so a successful
+            // test is enough to populate "connected models" - the admin
+            // no longer has to re-type every model by hand. See
+            // AiProviderModelSyncService for exactly what is registered
+            // and why (chat-capable models only, best-effort capability
+            // tags, never touches a model_key that already exists).
+            $sync = $this->modelSync->sync($provider, $result['models']);
         }
 
         $provider->update($updates);
 
+        $message = $result['success'] ? __('ai.test_success') : __('ai.test_failed');
+
+        if ($sync['created'] > 0) {
+            $message .= ' '.__('ai.models_auto_registered', ['count' => $sync['created']]);
+        }
+
         return ApiResponse::success(
-            new AiProviderResource($provider->refresh()),
-            $result['success'] ? __('ai.test_success') : __('ai.test_failed'),
+            new AiProviderResource($provider->refresh()->load('models')),
+            $message,
         );
     }
 

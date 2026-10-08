@@ -12,6 +12,8 @@ use App\Http\Controllers\General\MobileAppColorDefaultController;
 use App\Http\Controllers\General\MobileAppFontController;
 use App\Http\Controllers\General\PlatformSettingController;
 use App\Http\Controllers\General\RatingController;
+use App\Http\Controllers\General\ReferralCodeController;
+use App\Http\Controllers\General\ReferralController;
 use App\Http\Controllers\General\ServiceCategoryController;
 use App\Http\Controllers\General\TranslationController;
 use Illuminate\Support\Facades\Route;
@@ -30,6 +32,10 @@ Route::middleware('auth:admin_api')->group(function () {
     // Ratings from the mobile app: read and remove only.
     Route::post('ratings/delete-multiple', [RatingController::class, 'deleteMultiple']);
     Route::apiResource('ratings', RatingController::class)->only(['index', 'show', 'destroy']);
+
+    Route::patch('referral-codes/{referral_code}/status', [ReferralCodeController::class, 'changeStatus']);
+    Route::apiResource('referral-codes', ReferralCodeController::class)->only(['index', 'show']);
+    Route::apiResource('referrals', ReferralController::class)->only(['index', 'show']);
 
     Route::get('platform-settings', [PlatformSettingController::class, 'show']);
     Route::post('platform-settings', [PlatformSettingController::class, 'update']);
