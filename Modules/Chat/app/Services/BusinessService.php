@@ -3,6 +3,7 @@
 namespace Modules\Chat\Services;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatBusinessProfile;
@@ -200,7 +201,7 @@ class BusinessService
                 ->where('id', '<', $incoming->id)->whereNotNull('sender_type')
                 ->latest('id')->value('created_at');
 
-            if ($previous === null || \Illuminate\Support\Carbon::parse($previous)->lt(now()->subDays(self::WELCOME_AFTER_DAYS))) {
+            if ($previous === null || Carbon::parse($previous)->lt(now()->subDays(self::WELCOME_AFTER_DAYS))) {
                 $this->messages->autoReply($conversation, $business, trim((string) $profile->welcome_message), 'welcome');
             }
         }

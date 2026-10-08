@@ -5,6 +5,7 @@ namespace Modules\Chat\Http\Controllers\General;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Services\LinkPreviewService;
@@ -86,7 +87,7 @@ class MessageExtrasController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
             'uuid' => ['required', 'uuid'],
             // A money gift: the receipt drawn as a card for the occasion.
-            'gift' => ['nullable', \Illuminate\Validation\Rule::in(\Modules\Chat\Services\MessageService::GIFT_CARDS)],
+            'gift' => ['nullable', Rule::in(MessageService::GIFT_CARDS)],
         ]);
         $me = $request->user();
         $message = $money->sendMoney($me, $conversation, (int) $data['amount_minor'], $data['note'] ?? null, $data['uuid'], $data['gift'] ?? null);

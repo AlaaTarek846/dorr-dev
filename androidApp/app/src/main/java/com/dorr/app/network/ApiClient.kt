@@ -58,6 +58,15 @@ object ApiClient {
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)
+        // Counts the requests under way (pull-to-refresh hides its indicator when they have all finished).
+        .addInterceptor { chain ->
+            RefreshCoordinator.requestStarted()
+            try {
+                chain.proceed(chain.request())
+            } finally {
+                RefreshCoordinator.requestFinished()
+            }
+        }
         // Connectivity signal first: a completed round-trip proves we are
         // online (clearing a stale offline state), while a failure before any
         // HTTP response — unknown host, refused/unreachable route — raises the
@@ -123,6 +132,8 @@ object ApiClient {
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
+    val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }
+    val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }
     val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
 

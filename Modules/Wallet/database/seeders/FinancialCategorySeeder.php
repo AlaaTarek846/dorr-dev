@@ -51,6 +51,12 @@ class FinancialCategorySeeder extends Seeder
                 'name' => ['en' => 'Transfer Fee', 'ar' => 'رسوم التحويل'],
             ],
             [
+                // Prizes paid into wallets (DORR Sports contests) — spend_only credit.
+                'slug' => 'prize_cost',
+                'type' => FinancialEntryType::Expense,
+                'name' => ['en' => 'Prizes Cost', 'ar' => 'تكلفة الجوائز'],
+            ],
+            [
                 'slug' => 'promo_bonus_cost',
                 'type' => FinancialEntryType::Expense,
                 'name' => ['en' => 'Promotional Bonus Cost', 'ar' => 'تكلفة هدايا الشحن الترويجية'],

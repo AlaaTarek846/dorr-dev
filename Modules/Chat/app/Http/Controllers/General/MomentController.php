@@ -9,7 +9,13 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Modules\Chat\Exceptions\ChatException;
+use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatMoment;
 use Modules\Chat\Models\ChatPersonalMoment;
+use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Services\ChatAiService;
+use Modules\Chat\Services\MessageService;
+use Modules\Chat\Services\MomentCardService;
 use Modules\Chat\Services\MomentService;
 use Modules\Chat\Support\ParticipantType;
 use Modules\User\Models\User;
@@ -61,9 +67,9 @@ class MomentController extends Controller
      * (a surprise), `send_at?` + `schedule_zone` (recipient | mine), `gift_amount_minor?` (+ the
      * wallet PIN in X-Wallet-Pin).
      */
-    public function card(Request $request, \Modules\Chat\Models\ChatConversation $conversation)
+    public function card(Request $request, ChatConversation $conversation)
     {
-        $max = \Modules\Chat\Models\ChatSetting::current()->max_file_size_mb * 1024;
+        $max = ChatSetting::current()->max_file_size_mb * 1024;
         $data = $request->validate([
             'moment_id' => ['nullable', 'integer'],
             'personal_kind' => ['nullable', Rule::in(ChatPersonalMoment::KINDS)],
@@ -83,10 +89,10 @@ class MomentController extends Controller
         $files = array_values(array_filter([$request->file('voice'), ...($request->file('photos') ?? [])]));
         $me = $request->user();
 
-        $result = app(\Modules\Chat\Services\MomentCardService::class)->send($me, $conversation, $data, $files);
+        $result = app(MomentCardService::class)->send($me, $conversation, $data, $files);
 
         return $result['message'] !== null
-            ? ApiResponse::created(app(\Modules\Chat\Services\MessageService::class)->presentOne($me, $result['message']), __('api.created'))
+            ? ApiResponse::created(app(MessageService::class)->presentOne($me, $result['message']), __('api.created'))
             : ApiResponse::created(['scheduled' => $result['scheduled']->present()], __('api.created'));
     }
 
@@ -105,10 +111,10 @@ class MomentController extends Controller
             'dialect' => ['nullable', 'string', 'max:40'],
         ]);
         $occasion = ! empty($data['moment_id'])
-            ? \Modules\Chat\Models\ChatMoment::query()->with('translations')->find($data['moment_id'])?->translatedName()
+            ? ChatMoment::query()->with('translations')->find($data['moment_id'])?->translatedName()
             : __('chat.card.titles.'.($data['kind'] ?? 'other'));
 
-        return ApiResponse::success(app(\Modules\Chat\Services\ChatAiService::class)->greetings((string) $occasion, $data['relation'], $data['tone'], $data['name'] ?? null, $data['dialect'] ?? null), __('api.retrieved'));
+        return ApiResponse::success(app(ChatAiService::class)->greetings((string) $occasion, $data['relation'], $data['tone'], $data['name'] ?? null, $data['dialect'] ?? null), __('api.retrieved'));
     }
 
     public function personal(Request $request)

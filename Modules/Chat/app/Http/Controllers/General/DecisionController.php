@@ -7,6 +7,7 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatDecisionArgument;
 use Modules\Chat\Models\ChatGroupDecision;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Services\DecisionService;
@@ -53,7 +54,7 @@ class DecisionController extends Controller
     /** POST decisions/{id}/arguments — `{stance: pro|con|note, text, option_id?}` */
     public function argue(Request $request, ChatGroupDecision $decision)
     {
-        $data = $request->validate(['stance' => ['required', Rule::in(\Modules\Chat\Models\ChatDecisionArgument::STANCES)], 'text' => ['required', 'string', 'max:500'], 'option_id' => ['nullable', 'string', 'max:20']]);
+        $data = $request->validate(['stance' => ['required', Rule::in(ChatDecisionArgument::STANCES)], 'text' => ['required', 'string', 'max:500'], 'option_id' => ['nullable', 'string', 'max:20']]);
         $me = $request->user();
         $this->decisions->argue($me, $decision, $data['stance'], $data['text'], $data['option_id'] ?? null);
 

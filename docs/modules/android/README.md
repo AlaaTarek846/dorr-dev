@@ -35,7 +35,7 @@ Native Kotlin app for end users. It talks to the Laravel backend through `/api/m
 | `chat/` | Realtime, push, call controller, voice/video tools, live location service |
 | `res/values`, `res/values-ar` | Strings — **always update both** |
 
-Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on top of it.
+Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on top of it. Home order: themed greeting header, ads, stories, calendar (today card), sports, events, moments, wallet, services.
 
 ## Behaviour to remember
 
@@ -43,12 +43,13 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **401:** `ApiClient` clears `AuthSession` and routes to Login, remembering the page to return to. Only when a Bearer token was sent.
 - **First launch:** Splash → 3-step onboarding once (`onboarding_completed`), then Login or Home.
 - **Appearance:** `GET/PUT mobile/v1/appearance` (dark mode, primary/secondary colors, font). Before login the built-in palette is used.
-- **Rating:** `RateAppScreen` ↔ `RatingApi` (`mobile/v1/ratings/mine`, `POST mobile/v1/ratings`); 4–5 stars launch Google Play In-App Review (no-op until the app is published on Play).
+- **Rating:** `RateAppScreen` ↔ `RatingApi` (`mobile/v1/ratings/mine`, `POST mobile/v1/ratings` create or update the same row); 4–5 stars launch Google Play In-App Review once (no-op until the app is published on Play).
 - **Content:** FAQ from `mobile/v1/faqs`, policy text from `mobile/v1/legal-pages?type=privacy|term&service_id=`, rendered with `HtmlText`. Services from `general/v1/services`. Support: tickets and their live conversation via `mobile/v1/support-tickets*` (`SupportTicketScreen`, `SupportChatScreen`), updated by the `support.*` Pusher events on the account channel (`ChatRealtime`); a tapped support push (`data.type = support`) opens the ticket through `ChatDeepLink.Support`. The Support menu has a separate "Quick chat" entry (guided help: `SupportHelpFlowScreen`, `mobile/v1/support-help`), while "New ticket" in Support requests opens the form directly: topics as a list, each pick answered, and at the end only "solved" or "I need an agent" (the latter opens the ticket form with the topic as its title).
 - **Headers sent on every request:** `Accept: application/json`, `X-Locale`, `X-Device-Id`.
 - **Referral:** `GET mobile/v1/referrals/my-code` / `POST .../track`. Share uses the server code. A pending code (typed, shared, or Play Install Referrer later) is sent once after login; the backend is idempotent.
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 
+- **Pull to refresh:** wrap a screen's scrollable content in `PullToRefreshHost` (`ui/components/PullToRefresh.kt`, used by every tab in `MainScreen` and by the wallet) and key its load on `collectReconnectTick()` — `RefreshCoordinator` adds a pull tick to that value and hides the indicator when the in-flight API requests (counted by an OkHttp interceptor) have finished. Screens that load once with `LaunchedEffect(Unit)` do not reload on a pull until keyed on the tick.
 ## Backend host (dev)
 
 `network/ApiClient.kt` hard-codes `BASE_HOST`:

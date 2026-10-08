@@ -5,11 +5,15 @@ namespace Modules\Chat\Http\Controllers\General;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Validation\Rule;
+use Modules\Chat\Enums\PrivacyAudience;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Http\Requests\PrivacySettingsRequest;
 use Modules\Chat\Models\ChatPrivacySetting;
 use Modules\Chat\Services\BlockService;
 use Modules\Chat\Services\ChatPrivacy;
+use Modules\Chat\Services\MessageService;
 use Modules\Chat\Services\PresenceService;
 use Modules\Chat\Support\ParticipantType;
 
@@ -47,7 +51,7 @@ class PrivacyController extends Controller
             'emoji' => ['nullable', 'string', 'max:16'],
             'text' => ['nullable', 'string', 'max:100'],
             'until' => ['nullable', 'date', 'after:now'],
-            'audience' => ['sometimes', \Illuminate\Validation\Rule::enum(\Modules\Chat\Enums\PrivacyAudience::class)],
+            'audience' => ['sometimes', Rule::enum(PrivacyAudience::class)],
         ]);
         if (blank($data['emoji'] ?? null) && blank($data['text'] ?? null)) {
             throw new ChatException('status_empty', 422);
@@ -90,7 +94,7 @@ class PrivacyController extends Controller
     /**
      * Privacy mode off — and what came in meanwhile (spec 113).
      */
-    public function privacyModeOff(Request $request, \Modules\Chat\Services\MessageService $messages)
+    public function privacyModeOff(Request $request, MessageService $messages)
     {
         $settings = $this->privacy->settingsFor($request->user());
         $from = $settings->privacy_mode_started_at ?? now();
@@ -102,11 +106,11 @@ class PrivacyController extends Controller
     /**
      * "While you were private": what came in since `from` (after a timed or scheduled mode ended).
      */
-    public function privacySummary(Request $request, \Modules\Chat\Services\MessageService $messages)
+    public function privacySummary(Request $request, MessageService $messages)
     {
         $data = $request->validate(['from' => ['required', 'date', 'before:now']]);
 
-        return ApiResponse::success($messages->receivedSince($request->user(), \Illuminate\Support\Carbon::parse($data['from'])), __('api.retrieved'));
+        return ApiResponse::success($messages->receivedSince($request->user(), Carbon::parse($data['from'])), __('api.retrieved'));
     }
 
     public function blocked(Request $request)

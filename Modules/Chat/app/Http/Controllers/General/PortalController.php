@@ -4,6 +4,7 @@ namespace Modules\Chat\Http\Controllers\General;
 
 use App\Http\Controllers\Controller;
 use App\Models\Country;
+use App\Models\Language;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Modules\Chat\Models\ChatCategory;
@@ -41,7 +42,7 @@ class PortalController extends Controller
     public function languages()
     {
         $current = app()->getLocale();
-        $rows = \App\Models\Language::query()->where('status', true)->where('stores_translation', true)
+        $rows = Language::query()->where('status', true)->where('stores_translation', true)
             ->with(['translations', 'translation'])->orderBy('id')->get()
             ->map(fn ($l) => ['code' => strtolower($l->code), 'name' => $l->translatedName() ?? strtoupper($l->code), 'direction' => $l->direction])
             ->sortBy(fn ($l) => $l['code'] === $current ? 0 : 1)->values();

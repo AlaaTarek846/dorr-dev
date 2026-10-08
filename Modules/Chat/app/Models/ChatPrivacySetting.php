@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Models;
 
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Chat\Enums\PrivacyAudience;
 
@@ -51,7 +52,7 @@ class ChatPrivacySetting extends Model
      * Privacy mode is on: switched on until a time (spec 111), or inside the daily schedule
      * (spec 112, in the owner's own time zone; a window like 22:00–07:00 runs past midnight).
      */
-    public function privacyModeOn(?\Carbon\CarbonInterface $at = null): bool
+    public function privacyModeOn(?CarbonInterface $at = null): bool
     {
         $at ??= now();
 
@@ -66,7 +67,7 @@ class ChatPrivacySetting extends Model
      * Smart quiet (spec 115): inside my quiet times right now — messages that aren't urgent wait
      * for the summary instead of notifying.
      */
-    public function quietOn(?\Carbon\CarbonInterface $at = null): bool
+    public function quietOn(?CarbonInterface $at = null): bool
     {
         return self::inWindow($this->quiet_schedule, $at ?? now());
     }
@@ -77,7 +78,7 @@ class ChatPrivacySetting extends Model
      *
      * @param  array<string, mixed>|null  $schedule
      */
-    public static function inWindow(?array $schedule, \Carbon\CarbonInterface $at): bool
+    public static function inWindow(?array $schedule, CarbonInterface $at): bool
     {
         if (empty($schedule['from']) || empty($schedule['to'])) {
             return false;

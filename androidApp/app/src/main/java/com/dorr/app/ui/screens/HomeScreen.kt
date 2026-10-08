@@ -1,14 +1,18 @@
 package com.dorr.app.ui.screens
 
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.UserDto
 import com.dorr.app.network.collectReconnectTick
 import com.dorr.app.ui.screens.wallet.formatMinor
 import androidx.compose.foundation.background
@@ -46,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
@@ -89,14 +94,7 @@ fun HomeScreen(
                 onOpenChat = onOpenChat,
             )
         }
-        item { Spacer(Modifier.height(10.dp)) }
-        // Like the chat's stories bar: the merchant portals circle (then public stories, ج.1).
-        homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
-        item { Spacer(Modifier.height(10.dp)) }
-        // DORR Today (spec 202): my day — what's on and what's next; a tap opens the calendar.
-        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        // DORR Moments: the occasion that's on (or the next one soon) — from the server's catalog.
-        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { Spacer(Modifier.height(14.dp)) }
         item {
             HeroBannerSlider(
                 slides = listOf(
@@ -107,24 +105,23 @@ fun HomeScreen(
                 modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
-        item {
-            HomeWalletCard(
-                onOpenWallet = onOpenWallet,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-        }
-        item { Spacer(Modifier.height(12.dp)) }
+        item { Spacer(Modifier.height(10.dp)) }
+        homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
+        item { Spacer(Modifier.height(10.dp)) }
         item {
             ServicesSection(
                 onViewAll = onOpenServices,
                 onOpenService = onOpenService,
-                // Bug fix (2026-10-04): without this, tapping "AI
-                // Assistant" in this Home preview grid opened the generic
-                // service-details page instead of the assistant itself.
+                // Bug fix (2026-10-04): without this, tapping "AI Assistant" in this Home preview opened the
+                // generic service-details page instead of the assistant itself.
                 onOpenAi = onOpenAi,
-                modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
+        item { Spacer(Modifier.height(10.dp)) }
+        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { com.dorr.app.ui.screens.sports.SportsHomeCard(onOpen = { com.dorr.app.ui.screens.sports.SportsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { com.dorr.app.ui.screens.events.EventsBanner(onOpen = { com.dorr.app.ui.screens.events.EventsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item { Spacer(Modifier.height(24.dp)) }
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }
@@ -136,83 +133,83 @@ fun HomeScreen(
 private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenChat: () -> Unit) {
     var hasUnread by remember { mutableStateOf(false) }
     val reconnectTick = collectReconnectTick()
+    val sessionVersion by AuthSession.sessionVersion.collectAsState()
+    val user = remember(sessionVersion) { AuthSession.user }
     LaunchedEffect(reconnectTick) {
         hasUnread = runCatching {
             ApiClient.notifications.unreadCount("Bearer ${AuthSession.token.orEmpty()}").data?.count ?: 0
         }.getOrDefault(0) > 0
     }
-    val night = settingsNight()
-    val accent = if (night) AccountDark.accent else settingsAccent()
+    val accent = settingsAccent()
+    val onAccent = Color.White
+    val shape = RoundedCornerShape(bottomStart = 22.dp, bottomEnd = 22.dp)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 14.dp),
+            .clip(shape)
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        accent,
+                        Color(accent.red * 0.78f, accent.green * 0.78f, accent.blue * 0.78f),
+                    ),
+                ),
+            )
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
             modifier = Modifier
-                .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(settingsCard())
-                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
+                .background(onAccent.copy(alpha = 0.18f))
                 .clickable(onClick = onOpenAccount),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Rounded.Person, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            HomeAvatar(user)
         }
-        Spacer(Modifier.width(10.dp))
-        Text(
-            text = stringResource(R.string.home_greeting, AuthSession.user?.name ?: stringResource(R.string.account_default_user)),
-            color = accent,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.ExtraBold,
-            // End padding keeps a long name (cut with "...") clear of the wallet icon; it follows RTL.
-            modifier = Modifier.weight(1f).padding(end = 10.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
-                .clip(CircleShape)
-                .background(settingsCard())
-                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
-                .clickable(onClick = onOpenWallet),
-            contentAlignment = Alignment.Center,
-        ) {
+        Spacer(Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+            Text(
+                stringResource(R.string.home_welcome_back),
+                color = onAccent.copy(alpha = 0.86f),
+                fontSize = 11.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                user?.name?.takeIf { it.isNotBlank() } ?: stringResource(R.string.account_default_user),
+                color = onAccent,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
+        HomeHeaderIcon(onClick = onOpenWallet) {
             Icon(
                 Icons.Rounded.AccountBalanceWallet,
                 contentDescription = stringResource(R.string.wallet_title),
-                tint = accent,
-                modifier = Modifier.size(18.dp),
+                tint = onAccent,
+                modifier = Modifier.size(15.dp),
             )
         }
-        Spacer(Modifier.width(8.dp))
-        com.dorr.app.ui.screens.chat.HomeChatButton(onClick = onOpenChat)
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(6.dp))
+        com.dorr.app.ui.screens.chat.HomeChatButton(onClick = onOpenChat, onBrand = true)
+        Spacer(Modifier.width(6.dp))
         Box {
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
-                    .clip(CircleShape)
-                    .background(settingsCard())
-                    .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
-                    .clickable(onClick = onOpenNotifications),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = accent, modifier = Modifier.size(18.dp))
+            HomeHeaderIcon(onClick = onOpenNotifications) {
+                Icon(Icons.Rounded.Notifications, contentDescription = null, tint = onAccent, modifier = Modifier.size(15.dp))
             }
             if (hasUnread) {
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(5.dp)
+                        .padding(4.dp)
                         .size(8.dp)
-                        .background(settingsAccent(), CircleShape)
-                        .border(1.5.dp, settingsCard(), CircleShape),
+                        .background(onAccent, CircleShape)
+                        .border(1.5.dp, accent, CircleShape),
                 )
             }
         }
@@ -220,90 +217,33 @@ private fun HomeHeader(onOpenAccount: () -> Unit, onOpenNotifications: () -> Uni
 }
 
 @Composable
-private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifier) {
-    var balanceText by remember { mutableStateOf("0.00") }
-    var currencyText by remember { mutableStateOf("") }
-    val reconnectTick = collectReconnectTick()
-    LaunchedEffect(reconnectTick) {
-        runCatching { ApiClient.wallet.balance("Bearer ${AuthSession.token.orEmpty()}").data }.onSuccess { dto ->
-            dto?.let {
-                balanceText = formatMinor(it.totalMinor, null)
-                currencyText = it.currencySymbol ?: it.currencyCode.orEmpty()
-            }
-        }
+private fun HomeHeaderIcon(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .background(Color.White.copy(alpha = 0.18f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { content() }
+}
+
+@Composable
+private fun HomeAvatar(user: UserDto?) {
+    val avatarUrl = remember(user?.avatar, user?.updatedAt) {
+        ApiClient.mediaUrl(user?.avatar)?.let { url -> "$url?v=${user?.updatedAt ?: "0"}" }
     }
-    val night = settingsNight()
-    val cardShape = RoundedCornerShape(20.dp)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp)
-            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
-            .clip(cardShape)
-            .background(settingsCard())
-            .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
-            .clickable(onClick = onOpenWallet)
-            .padding(12.dp, 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Rounded.AccountBalanceWallet,
-                contentDescription = null,
-                tint = if (night) AccountDark.accent else settingsAccent(),
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.home_wallet_balance),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (night) AccountDark.mut else AppColors.textSecondary,
-            )
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    balanceText,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = settingsInk(),
-                    modifier = Modifier.alignByBaseline(),
-                )
-                if (currencyText.isNotBlank()) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        currencyText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (night) AccountDark.mut else AppColors.textSecondary,
-                        modifier = Modifier.alignByBaseline(),
-                    )
-                }
-            }
-        }
-        Box(
-            modifier = Modifier
-                .shadow(8.dp, RoundedCornerShape(50), spotColor = settingsAccent().copy(alpha = 0.25f))
-                .clip(RoundedCornerShape(50))
-                .background(settingsAccent())
-                .clickable(onClick = onOpenWallet)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                stringResource(R.string.home_wallet_topup),
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
-        }
+    var failed by remember(avatarUrl) { mutableStateOf(false) }
+    if (avatarUrl != null && !failed) {
+        AsyncImage(
+            model = avatarUrl,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            onError = { failed = true },
+            modifier = Modifier.fillMaxSize(),
+        )
+    } else {
+        Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
     }
 }
 

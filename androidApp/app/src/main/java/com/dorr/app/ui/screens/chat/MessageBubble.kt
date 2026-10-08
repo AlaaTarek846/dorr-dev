@@ -405,6 +405,10 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         "moment_card" -> com.dorr.app.ui.screens.moments.MomentCardBubble(
             dto, mine, onOpenSealed = { actions.onOpenSealed(m) }, onOpenPhoto = { actions.onOpenMedia(dto, it) },
         ) { Footer(m, mine, overlay = true) }
+        // An event from DORR Discover: a snapshot card that opens the live event.
+        "event_card" -> com.dorr.app.ui.screens.events.EventCardBubble(dto, mine) { Footer(m, mine, overlay = false) }
+        // A match from DORR Sports: live score from Pusher, opens the match.
+        "match_card" -> com.dorr.app.ui.screens.sports.MatchCardBubble(dto) { Footer(m, mine, overlay = false) }
         "location" -> if (dto.liveLocation != null) {
             LiveLocationCard(dto.meta, dto.liveLocation, mine, onStop = { actions.onStopLive(m) }) { Footer(m, mine, overlay = true) }
         } else LocationCard(dto.meta, m, mine)

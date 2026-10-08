@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Storefront
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -47,20 +50,38 @@ import com.dorr.app.ui.screens.wallet.rememberPressScale
  */
 @Composable
 fun HomeCircles(stories: com.dorr.app.ui.screens.chat.HomeStoriesState, onOpenPortals: () -> Unit, modifier: Modifier = Modifier) {
-    LaunchedEffect(Unit) { stories.refresh() }
+    val reloadTick = com.dorr.app.network.collectReconnectTick()
+    LaunchedEffect(reloadTick) { stories.refresh() }
     val feed = stories.feed
-    LazyRow(
-        modifier = modifier,
-        contentPadding = PaddingValues(horizontal = 20.dp),
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
+    val listState = androidx.compose.foundation.lazy.rememberLazyListState()
+
+    // Ten people at a time: the next ten load as the row nears its end.
+    LaunchedEffect(listState, feed?.people?.size, feed?.hasMore) {
+        androidx.compose.runtime.snapshotFlow { listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index to listState.layoutInfo.totalItemsCount }
+            .collect { (last, total) ->
+                if (last != null && total > 0 && last >= total - 3) stories.loadMore()
+            }
+    }
+
+    androidx.compose.foundation.layout.Column(modifier) {
+        LazyRow(
+            state = listState,
+            contentPadding = PaddingValues(horizontal = 20.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
         // 1. Me (my public story, or "+").  2. Merchant portals.  3. Dorr.  Then everyone — the
         // ones I haven't watched first, the most watched first; the ones I've seen at the back.
         if (feed?.enabled != false) item(key = "me") { com.dorr.app.ui.screens.chat.HomeMyCircle(stories) }
         item(key = "portals") { PortalsCircle(onOpenPortals) }
         feed?.dorr?.let { dorr -> item(key = "dorr") { com.dorr.app.ui.screens.chat.HomeDorrCircle(stories, dorr) } }
-        feed?.people?.forEach { group ->
-            item(key = "p-" + (group.owner?.key ?: group.lastAt.orEmpty())) { com.dorr.app.ui.screens.chat.HomePersonCircle(stories, group) }
+            feed?.people?.forEach { group ->
+                item(key = "p-" + (group.owner?.key ?: group.lastAt.orEmpty())) { com.dorr.app.ui.screens.chat.HomePersonCircle(stories, group) }
+            }
+            if (stories.loadingMore) item(key = "more") {
+                Box(Modifier.width(58.dp).height(56.dp), contentAlignment = Alignment.Center) {
+                    androidx.compose.material3.CircularProgressIndicator(color = Wa.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                }
+            }
         }
     }
 }
@@ -72,18 +93,18 @@ private fun PortalsCircle(onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val press by rememberPressScale(source, 0.92f)
     Column(
-        Modifier.width(74.dp).scale(pop.value * press).clickable(interactionSource = source, indication = null, onClick = onClick),
+        Modifier.width(58.dp).scale(pop.value * press).clickable(interactionSource = source, indication = null, onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // Always "new": the ring keeps turning, like an unseen story.
-        StoryRing(count = 1, seenCount = 0, size = 68.dp) {
-            Box(Modifier.size(58.dp).clip(CircleShape).background(Wa.HeroBrush), contentAlignment = Alignment.Center) {
-                Icon(Icons.Rounded.Storefront, null, tint = Color.White, modifier = Modifier.size(28.dp))
+        StoryRing(count = 1, seenCount = 0, size = 56.dp) {
+            Box(Modifier.size(48.dp).clip(CircleShape).background(Wa.HeroBrush), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Storefront, null, tint = Color.White, modifier = Modifier.size(24.dp))
             }
         }
         Spacer(Modifier.height(4.dp))
         Text(
-            stringResource(R.string.pt_circle), color = Wa.Ink, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+            stringResource(R.string.pt_circle), color = Wa.Ink, fontSize = 11.sp, fontWeight = FontWeight.Bold,
             maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
         )
     }
