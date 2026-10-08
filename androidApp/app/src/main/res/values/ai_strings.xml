@@ -1,0 +1,229 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- AI Assistant (Modules/AI). Every key exists in both languages. -->
+    <string name="ai_fab_content_description">AI Assistant</string>
+    <string name="ai_title">AI Assistant</string>
+    <string name="ai_subtitle">Ask anything, anytime</string>
+    <string name="ai_history_title">Chat history</string>
+    <string name="ai_new_chat">New chat</string>
+    <string name="ai_delete_chat">Delete chat</string>
+    <string name="ai_delete_chat_confirm">This chat and its messages will be deleted for good.</string>
+    <string name="ai_cancel">Cancel</string>
+    <string name="ai_delete">Delete</string>
+    <string name="ai_retry">Try again</string>
+    <string name="ai_empty_history">No conversations yet</string>
+    <string name="ai_empty_conversation">Ask the assistant anything to get started</string>
+    <string name="ai_unavailable">%1$s is not available right now. Please try again later.</string>
+    <string name="ai_composer_hint">Message the assistant…</string>
+    <string name="ai_attach">Attach a file</string>
+    <string name="ai_attach_photo">Photo</string>
+    <string name="ai_attach_document">Document</string>
+    <string name="ai_send">Send</string>
+    <string name="ai_attachment_caption">Attachment</string>
+    <string name="ai_message_copied">Message copied</string>
+    <string name="ai_copy_message">Copy message</string>
+    <string name="ai_copy">Copy</string>
+    <string name="ai_copy_code">Copy code</string>
+    <string name="ai_code_copied">Code copied</string>
+    <string name="ai_copied_done">Copied</string>
+    <string name="ai_image_viewer_close">Close</string>
+    <string name="ai_image_viewer_download">Download image</string>
+    <string name="ai_image_download_started">Downloading the image…</string>
+    <string name="ai_image_download_failed">Couldn\'t download the image. Please try again.</string>
+    <string name="ai_send_failed">Couldn\'t send the message. Please try again.</string>
+    <string name="ai_typing">Thinking…</string>
+    <!-- Real, observed UX gap: the single static "Thinking…" bubble
+         above sat there unchanged for the whole wait, including a
+         30+ second image-generation call - with nothing to show it
+         was progressing, users assumed the app had frozen and tapped
+         send again, colliding with the still-in-flight request's
+         idempotency key. AiConversationPage now cycles through these
+         as elapsed time grows, so the assistant keeps narrating what
+         it's doing exactly like a normal AI chat, instead of one
+         frozen-looking label for the whole wait. -->
+    <string name="ai_typing_step_2">Reading your message…</string>
+    <string name="ai_typing_step_3">Still working on it, one moment…</string>
+    <string name="ai_typing_step_4">This is taking a bit longer than usual…</string>
+    <string name="ai_typing_step_image">Generating the image, this can take up to a minute…</string>
+    <string name="ai_trial_remaining">Free trial · %1$d min left today</string>
+    <string name="ai_usage_blocked">This account can\'t use the AI Assistant right now.</string>
+    <string name="ai_usage_trial_ended">Your free trial has ended. Please upgrade to keep chatting.</string>
+    <string name="ai_usage_cooldown">You\'ve reached today\'s limit. Please try again a bit later.</string>
+    <string name="ai_usage_limit_reached">You\'ve reached your usage limit for this period.</string>
+    <string name="ai_usage_no_plan">No active plan covers the AI Assistant yet.</string>
+    <string name="ai_usage_unavailable">The AI Assistant isn\'t available right now.</string>
+    <string name="ai_record_voice">Record a voice message</string>
+    <string name="ai_recording_hint">Recording…</string>
+    <string name="ai_cancel_recording">Cancel recording</string>
+    <string name="ai_stop_recording">Stop and send</string>
+    <string name="ai_voice_message_caption">Voice message</string>
+    <string name="ai_voice_transcript_show">Show transcript</string>
+    <string name="ai_voice_transcript_hide">Hide transcript</string>
+
+    <!-- Realtime voice mode (WebRTC live call with the assistant) -->
+    <string name="ai_voice_mode">Voice mode</string>
+    <string name="ai_voice_connecting">Connecting…</string>
+    <string name="ai_voice_listening">Listening…</string>
+    <string name="ai_voice_speaking">Speaking…</string>
+    <string name="ai_voice_muted">Muted</string>
+    <string name="ai_voice_ended">Call ended</string>
+    <string name="ai_voice_error_generic">The voice call couldn\'t connect. Please try again.</string>
+    <string name="ai_voice_permission_needed">Microphone access is needed for voice mode.</string>
+    <string name="ai_voice_permission_denied">Microphone access was denied. Enable it from app settings to use voice mode.</string>
+    <string name="ai_voice_mute">Mute</string>
+    <string name="ai_voice_unmute">Unmute</string>
+    <string name="ai_voice_end_call">End call</string>
+    <string name="ai_voice_retry">Try again</string>
+
+    <!-- Professional AI subscription system linked to the wallet (2026-09-29) -->
+    <string name="ai_subscription_title">AI Assistant subscription</string>
+    <string name="ai_subscription_current">Current plan</string>
+    <string name="ai_subscription_no_plan">You are not subscribed to a paid plan yet.</string>
+    <string name="ai_subscription_days_remaining">%1$d days remaining</string>
+    <string name="ai_subscription_ends_today">Ends today</string>
+    <string name="ai_subscription_auto_renew">Auto-renew</string>
+    <string name="ai_subscription_grace_warning">Your last renewal payment failed. Top up your wallet before %1$s or your subscription will be suspended.</string>
+    <string name="ai_subscription_suspended_banner">Your subscription was suspended because your wallet balance was not enough. Subscribe again to continue.</string>
+    <string name="ai_subscription_available_plans">Available plans</string>
+    <string name="ai_subscription_subscribe">Subscribe</string>
+    <string name="ai_subscription_switch_plan">Switch to this plan</string>
+    <string name="ai_subscription_current_badge">Current plan</string>
+    <string name="ai_subscription_per_cycle">/ %1$d days</string>
+    <string name="ai_subscription_discount_badge">Save %1$d%%</string>
+    <string name="ai_subscription_pin_title">Wallet PIN</string>
+    <string name="ai_subscription_pin_subtitle_subscribe">Confirm your wallet PIN to subscribe</string>
+    <string name="ai_subscription_pin_subtitle_change">Confirm your wallet PIN to switch plans</string>
+    <string name="ai_subscription_success_subscribe">Subscribed successfully.</string>
+    <string name="ai_subscription_success_change">Plan changed successfully.</string>
+    <string name="ai_subscription_no_pin_set">Set up your wallet PIN from the Wallet tab first to subscribe.</string>
+    <string name="ai_subscription_payments_title">Payment history</string>
+    <string name="ai_subscription_payment_type_initial">Subscription</string>
+    <string name="ai_subscription_payment_type_renewal">Renewal</string>
+    <string name="ai_subscription_payment_type_upgrade">Upgrade</string>
+    <string name="ai_subscription_payment_type_downgrade">Downgrade</string>
+    <string name="ai_subscription_payment_failed">Failed</string>
+    <string name="ai_subscription_manage">Manage subscription</string>
+    <string name="ai_subscription_view_payments">View payment history</string>
+    <string name="ai_subscription_empty_plans">No plans are available right now.</string>
+    <string name="ai_ok">OK</string>
+
+    <!-- Business gap fix (2026-10-03): user-facing language/dialect control
+         - see AiLanguageSettingsScreen.kt's own docblock. -->
+    <string name="ai_language_title">Language &amp; dialect</string>
+    <string name="ai_language_subtitle">Choose how the AI Assistant replies: match your own message every time, or always answer in one language you pick.</string>
+    <string name="ai_language_mode_follow_input">Match my message automatically</string>
+    <string name="ai_language_mode_follow_input_desc">The assistant replies in the same language and dialect you write or speak in, every time.</string>
+    <string name="ai_language_mode_fixed">Always reply in one language</string>
+    <string name="ai_language_mode_fixed_desc">The assistant always answers in the language (and dialect, if you pick one) you choose below, no matter what language you write in.</string>
+    <string name="ai_language_select_language">Choose a language</string>
+    <string name="ai_language_select_dialect">Choose a dialect / style</string>
+    <string name="ai_language_save">Save</string>
+    <string name="ai_language_saved">Saved</string>
+    <string name="ai_language_fixed_requires_language">Choose a language first.</string>
+
+    <!-- Consolidated AI Assistant settings hub (2026-10-04) -->
+    <string name="ai_settings_title">Settings</string>
+    <string name="ai_settings_subscription_sub">Your plan, billing and payment history</string>
+    <string name="ai_settings_language_sub">Control what language and dialect the assistant replies in</string>
+
+    <!-- Phase 11: files available to this conversation + citations/sources -->
+    <string name="ai_sources_count">%1$d sources</string>
+    <string name="ai_files_title">Files</string>
+    <string name="ai_files_in_conversation">Files in this conversation</string>
+    <string name="ai_no_files_attached">No files attached</string>
+    <string name="ai_no_files_attached_hint">Attach documents, images, spreadsheets, audio, or video to ask questions about them.</string>
+    <string name="ai_add_files">Add files</string>
+    <string name="ai_remove_file">Remove from this conversation</string>
+    <string name="ai_remove_file_confirm">Remove this file from this conversation? The file itself is not deleted.</string>
+    <string name="ai_file_status_uploading">Uploading…</string>
+    <string name="ai_file_status_processing">Preparing file…</string>
+    <string name="ai_file_status_ready">Ready</string>
+    <string name="ai_file_status_failed">Couldn\'t prepare file</string>
+    <string name="ai_file_too_large">This file is too large.</string>
+    <string name="ai_file_unsupported_type">This file type isn\'t supported.</string>
+    <string name="ai_file_upload_failed">Couldn\'t upload this file. Please try again.</string>
+
+    <!-- Website builder -->
+    <string name="ai_sites_title">Website builder</string>
+    <string name="ai_sites_settings_sub">Describe your business once and the AI builds your website</string>
+    <string name="ai_sites_new">New website</string>
+    <string name="ai_sites_empty">No websites yet. Create your first one.</string>
+    <string name="ai_sites_status_generating">Building...</string>
+    <string name="ai_sites_status_ready">Ready</string>
+    <string name="ai_sites_status_failed">Failed</string>
+    <string name="ai_sites_status_draft">Draft</string>
+    <string name="ai_sites_disabled">Disabled by the administrators</string>
+    <string name="ai_sites_open">Open website</string>
+    <string name="ai_sites_edit_hint">Tell the AI what to change (colors, text, sections...)</string>
+    <string name="ai_sites_edit_send">Apply change</string>
+    <string name="ai_sites_versions">Versions</string>
+    <string name="ai_sites_restore">Restore</string>
+    <string name="ai_sites_version_n">Version %1$d</string>
+    <string name="ai_sites_current">Current</string>
+    <string name="ai_sites_retry">Try again</string>
+    <string name="ai_sites_delete">Delete website</string>
+    <string name="ai_sites_delete_confirm">Delete this website and all its files?</string>
+    <string name="ai_sites_unavailable">The website builder is not available right now.</string>
+    <string name="ai_sites_not_included">Your plan does not include the website builder. You can buy a standalone website instead.</string>
+    <string name="ai_sites_choose_offer">Choose a package</string>
+    <string name="ai_sites_offer_line">%1$s - %2$s %3$s</string>
+    <string name="ai_sites_offer_gens">%1$d AI builds/edits included</string>
+    <string name="ai_sites_generations_left">%1$d AI builds/edits left</string>
+    <string name="ai_sites_building">Your website is being built. This can take a minute or two.</string>
+    <string name="ai_sites_pin_sub">Confirm the website purchase</string>
+    <string name="ai_sites_f_title">Website name</string>
+    <string name="ai_sites_f_business">Business / brand name</string>
+    <string name="ai_sites_f_activity">Activity (what you do)</string>
+    <string name="ai_sites_f_type">Website type</string>
+    <string name="ai_sites_f_description">Describe your business and what the site should say</string>
+    <string name="ai_sites_f_phone">Phone</string>
+    <string name="ai_sites_f_whatsapp">WhatsApp</string>
+    <string name="ai_sites_f_email">Email</string>
+    <string name="ai_sites_f_address">Address</string>
+    <string name="ai_sites_f_primary">Main color (#RRGGBB)</string>
+    <string name="ai_sites_f_secondary">Secondary color (#RRGGBB)</string>
+    <string name="ai_sites_f_logo">Choose logo</string>
+    <string name="ai_sites_f_logo_set">Logo selected</string>
+    <string name="ai_sites_f_images">Add photos (up to 8)</string>
+    <string name="ai_sites_f_images_set">%1$d photos selected</string>
+    <string name="ai_sites_f_submit">Build my website</string>
+    <string name="ai_sites_f_submit_buy">Buy and build</string>
+    <string name="ai_sites_type_portfolio">Portfolio</string>
+    <string name="ai_sites_type_business">Business</string>
+    <string name="ai_sites_type_store_showcase">Store showcase</string>
+    <string name="ai_sites_type_restaurant">Restaurant</string>
+    <string name="ai_sites_type_personal">Personal</string>
+    <string name="ai_sites_type_landing">Landing page</string>
+    <string name="ai_sites_type_other">Other</string>
+
+    <!-- Site hosting -->
+    <string name="ai_sites_hosting_title">Hosting on your own address</string>
+    <string name="ai_sites_hosting_intro">Publish your finished website on its own address. Pick a plan and a name.</string>
+    <string name="ai_sites_hosting_unavailable">Hosting is not available in your country right now.</string>
+    <string name="ai_sites_hosting_monthly">month</string>
+    <string name="ai_sites_hosting_yearly">year</string>
+    <string name="ai_sites_hosting_name">Address name (letters, numbers, hyphen)</string>
+    <string name="ai_sites_hosting_check">Check availability</string>
+    <string name="ai_sites_hosting_subscribe">Subscribe and publish</string>
+    <string name="ai_sites_hosting_pin_sub">Confirm the hosting payment</string>
+    <string name="ai_sites_hosting_live">Your website is live</string>
+    <string name="ai_sites_hosting_offline">Hosting is not active</string>
+    <string name="ai_sites_hosting_until">Paid until %1$s</string>
+    <string name="ai_sites_hosting_auto_on">Auto-renew is on</string>
+    <string name="ai_sites_hosting_auto_off">Auto-renew is off (it ends on the date above)</string>
+    <string name="ai_sites_hosting_grace">Renewal failed. Top up your wallet to keep the site online.</string>
+    <string name="ai_sites_hosting_open">Open the live website</string>
+    <string name="ai_sites_hosting_unpublished">You changed the site after publishing. Visitors still see the older version.</string>
+    <string name="ai_sites_hosting_publish">Publish the latest version</string>
+    <string name="ai_sites_hosting_renew">Renew now</string>
+    <string name="ai_sites_hosting_stop_auto">Stop auto-renew</string>
+    <string name="ai_sites_hosting_start_auto">Turn on auto-renew</string>
+    <string name="ai_sites_f_colors">Website colors</string>
+    <string name="ai_sites_f_colors_hint">Pick a ready palette, or choose each color yourself.</string>
+    <string name="ai_sites_f_colors_auto">Let AI choose</string>
+    <string name="ai_sites_f_color_main">Main color</string>
+    <string name="ai_sites_f_color_second">Secondary color</string>
+    <string name="ai_sites_f_logo_hint">PNG or JPG, clear background works best</string>
+    <string name="ai_sites_f_tap_change">Tap to change</string>
+    <string name="ai_sites_f_images_hint">Photos of your work or place. The AI uses them in the site.</string>
+</resources>

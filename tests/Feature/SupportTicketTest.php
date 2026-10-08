@@ -14,6 +14,7 @@ use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\User\Events\SupportRealtimeEvent;
 use Modules\User\Models\SupportMessage;
+use Modules\User\Models\SupportSetting;
 use Modules\User\Models\SupportTicket;
 use Modules\User\Models\User;
 use Spatie\Permission\Models\Permission;
@@ -50,6 +51,9 @@ class SupportTicketTest extends TestCase
         ]);
 
         $this->user = $this->makeUser('+966501234567');
+
+        // These tests are about the conversation itself; the automatic replies have their own (SupportAutoReplyTest).
+        SupportSetting::current()->update(['auto_reply_enabled' => false]);
     }
 
     private function makeUser(string $phone): User

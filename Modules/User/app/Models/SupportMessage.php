@@ -13,6 +13,9 @@ class SupportMessage extends Model
 
     public const SENDER_SUPPORT = 'support';
 
+    /** An automatic reply (acknowledgement, away note, FAQ answer) — never in an agent's name. */
+    public const SENDER_SYSTEM = 'system';
+
     protected $fillable = [
         'user_id',
         'admin_id',
@@ -20,7 +23,14 @@ class SupportMessage extends Model
         'sender',
         'body',
         'image_path',
+        'is_auto',
+        'auto_kind',
     ];
+
+    protected function casts(): array
+    {
+        return ['is_auto' => 'boolean'];
+    }
 
     public function user(): BelongsTo
     {

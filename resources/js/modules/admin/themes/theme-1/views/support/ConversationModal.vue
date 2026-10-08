@@ -14,6 +14,9 @@
                 </div>
                 <div class="d-flex align-items-center flex-wrap gap-2 ms-auto">
                     <span class="badge fs-12" :class="statusClass(ticket.status)">{{ t(`support.status.${ticket.status}`) }}</span>
+                    <span v-if="ticket.auto_reply_stopped" class="badge bg-warning-transparent fs-12" :title="t('support.wants_agent_hint')">
+                        <i class="ri-user-voice-line me-1"></i>{{ t('support.wants_agent') }}
+                    </span>
                     <template v-if="canChangeStatus">
                         <Select
                             v-model="nextStatus"
@@ -64,10 +67,13 @@
                             v-for="message in group.items"
                             :key="message.id"
                             class="support-msg"
-                            :class="message.sender === 'support' ? 'support-msg--agent' : 'support-msg--customer'"
+                            :class="message.sender === 'user' ? 'support-msg--customer' : 'support-msg--agent'"
                         >
-                            <div class="support-msg__bubble">
-                                <div v-if="message.sender === 'support'" class="support-msg__who">{{ message.agent_name || t('support.support_team') }}</div>
+                            <div class="support-msg__bubble" :class="{ 'support-msg__bubble--auto': message.is_auto }">
+                                <div v-if="message.is_auto" class="support-msg__who support-msg__who--auto">
+                                    <i class="ri-robot-2-line me-1"></i>{{ t('support.auto_reply') }} · {{ t(`support.auto_kind.${message.auto_kind}`) }}
+                                </div>
+                                <div v-else-if="message.sender === 'support'" class="support-msg__who">{{ message.agent_name || t('support.support_team') }}</div>
                                 <a v-if="message.image_url" :href="message.image_url" target="_blank" rel="noopener" class="support-msg__image">
                                     <img :src="message.image_url" alt="">
                                 </a>
@@ -93,7 +99,19 @@
                         <i class="ri-image-add-line"></i>
                         <input ref="fileInput" type="file" accept="image/png,image/jpeg,image/webp" class="d-none" @change="pick">
                     </label>
-                    <div class="flex-fill">
+                    <div class="flex-fill position-relative">
+                        <div v-if="suggestions.length" class="support-quick" role="listbox">
+                            <button
+                                v-for="reply in suggestions"
+                                :key="reply.id"
+                                type="button"
+                                class="support-quick__item"
+                                @mousedown.prevent="useQuickReply(reply)"
+                            >
+                                <span class="support-quick__shortcut" dir="ltr">/{{ reply.shortcut }}</span>
+                                <span class="support-quick__text"><strong>{{ reply.title }}</strong><small>{{ reply.body }}</small></span>
+                            </button>
+                        </div>
                         <div v-if="previewUrl" class="support-preview">
                             <img :src="previewUrl" alt="">
                             <button type="button" class="btn-close" @click="clearImage"></button>
@@ -104,7 +122,9 @@
                             class="form-control"
                             :placeholder="t('support.type_reply')"
                             maxlength="4000"
-                            @keydown.enter.exact.prevent="send"
+                            @keydown.enter.exact.prevent="onEnter"
+                            @keydown.tab="onTab"
+                            @keydown.esc="draft = ''"
                         ></textarea>
                     </div>
                     <button type="submit" class="btn btn-primary btn-icon" :disabled="sending || (!draft.trim() && !image)">
@@ -152,6 +172,7 @@ const earlierPage = ref(0);
 const activities = ref([]);
 const showHistory = ref(false);
 const draft = ref('');
+const quickReplies = ref(null);
 const image = ref(null);
 const previewUrl = ref('');
 const sending = ref(false);
@@ -277,6 +298,56 @@ function clearImage() {
     }
 }
 
+/** The active quick replies, loaded once (the "/" menu of the reply box). */
+async function loadQuickReplies() {
+    if (quickReplies.value !== null || ! canReply.value) {
+        return;
+    }
+
+    try {
+        const { data } = await adminAxios.get('/api/admin/v1/support-tickets/quick-replies');
+
+        quickReplies.value = data.data ?? [];
+    } catch {
+        quickReplies.value = [];
+    }
+}
+
+// "/" at the start of the box (and no space yet) opens the menu; typing narrows it by shortcut or title.
+const suggestions = computed(() => {
+    if (! quickReplies.value?.length || ! draft.value.startsWith('/') || /\s/.test(draft.value)) {
+        return [];
+    }
+
+    const needle = draft.value.slice(1).toLowerCase();
+
+    return quickReplies.value
+        .filter((reply) => ! needle || reply.shortcut.includes(needle) || reply.title.toLowerCase().includes(needle))
+        .slice(0, 6);
+});
+
+function useQuickReply(reply) {
+    // The agent can still edit it before sending: it goes out in their own name.
+    draft.value = reply.body;
+}
+
+function onEnter() {
+    if (suggestions.value.length) {
+        useQuickReply(suggestions.value[0]);
+
+        return;
+    }
+
+    send();
+}
+
+function onTab(event) {
+    if (suggestions.value.length) {
+        event.preventDefault();
+        useQuickReply(suggestions.value[0]);
+    }
+}
+
 async function send() {
     if (sending.value || (! draft.value.trim() && ! image.value)) {
         return;
@@ -364,6 +435,7 @@ watch(() => [props.show, props.ticket?.id], ([visible]) => {
         draft.value = '';
         clearImage();
         load();
+        loadQuickReplies();
     }
 });
 </script>
@@ -456,6 +528,66 @@ watch(() => [props.show, props.ticket?.id], ([visible]) => {
     border-bottom-right-radius: 0.25rem;
     color: #fff;
     background: rgb(var(--primary-rgb, 132, 90, 223));
+}
+
+.support-msg--agent .support-msg__bubble--auto {
+    color: inherit;
+    border: 1px dashed rgba(var(--primary-rgb, 132, 90, 223), 0.45);
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.08);
+}
+
+.support-msg__who--auto {
+    color: rgb(var(--primary-rgb, 132, 90, 223));
+    opacity: 1;
+}
+
+.support-quick {
+    position: absolute;
+    inset-inline: 0;
+    bottom: calc(100% + 6px);
+    z-index: 5;
+    display: flex;
+    flex-direction: column;
+    max-height: 240px;
+    overflow-y: auto;
+    border: 1px solid var(--default-border, #dee2e6);
+    border-radius: 0.75rem;
+    background: var(--custom-white, #fff);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.support-quick__item {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    padding: 0.55rem 0.85rem;
+    border: 0;
+    background: transparent;
+    text-align: start;
+}
+
+.support-quick__item:hover {
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.08);
+}
+
+.support-quick__shortcut {
+    flex-shrink: 0;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgb(var(--primary-rgb, 132, 90, 223));
+}
+
+.support-quick__text {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.support-quick__text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-muted, #8c9097);
 }
 
 .support-msg__who {

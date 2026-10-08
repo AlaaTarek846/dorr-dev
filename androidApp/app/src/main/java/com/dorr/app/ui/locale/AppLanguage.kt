@@ -141,10 +141,13 @@ fun LocalizedApp(content: @Composable () -> Unit) {
         context.forLocale(code, downloaded)
     }
 
+    // A downloaded language carries its own direction; without that metadata, fall back to the
+    // direction Android's locale data (ICU) gives the locale-wrapped context.
     val isRtl = when (code) {
         "ar" -> true
         "en" -> false
-        else -> DownloadedTranslations.meta(context)?.takeIf { it.code == code }?.direction == "rtl"
+        else -> DownloadedTranslations.meta(context)?.takeIf { it.code == code }?.direction?.let { it == "rtl" }
+            ?: (localizedContext.resources.configuration.layoutDirection == android.view.View.LAYOUT_DIRECTION_RTL)
     }
 
     val state = AppLanguageState(

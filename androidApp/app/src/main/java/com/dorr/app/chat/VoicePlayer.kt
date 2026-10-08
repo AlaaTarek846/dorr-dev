@@ -1,7 +1,9 @@
 package com.dorr.app.chat
 
+import android.content.Context
 import android.media.AudioAttributes
 import android.media.MediaPlayer
+import android.net.Uri
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -18,6 +20,23 @@ import kotlinx.coroutines.launch
  * Exposes Compose state so every bubble's waveform can follow its own progress.
  */
 object VoicePlayer {
+    // Bug fix (2026-09-29, same root cause already fixed for images via
+    // Coil/DorrApp.kt): MediaPlayer.setDataSource(String) sends the
+    // request with NO custom headers at all. Over the ngrok tunnel used
+    // for local dev, a request missing "ngrok-skip-browser-warning" gets
+    // ngrok's HTML interstitial page back instead of the audio bytes -
+    // MediaPlayer fails to prepare, setOnErrorListener fires, stop() is
+    // called, and the voice bubble just silently does nothing when
+    // tapped, with no visible error. attach() lets DorrApp hand this
+    // singleton an application Context once at startup so playback can
+    // use the header-aware setDataSource(Context, Uri, headers) overload
+    // instead.
+    private var appContext: Context? = null
+
+    fun attach(context: Context) {
+        appContext = context.applicationContext
+    }
+
     var playingId by mutableStateOf<String?>(null)
         private set
     var progress by mutableFloatStateOf(0f)
@@ -46,7 +65,12 @@ object VoicePlayer {
         player = mp
         mp.setAudioAttributes(AudioAttributes.Builder().setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).setUsage(AudioAttributes.USAGE_MEDIA).build())
         runCatching {
-            mp.setDataSource(url)
+            val context = appContext
+            if (context != null) {
+                mp.setDataSource(context, Uri.parse(url), mapOf("ngrok-skip-browser-warning" to "1"))
+            } else {
+                mp.setDataSource(url)
+            }
             mp.setOnPreparedListener {
                 applySpeed()
                 it.start()

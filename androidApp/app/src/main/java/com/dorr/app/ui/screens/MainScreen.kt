@@ -60,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -115,6 +116,7 @@ fun MainScreen(
     var currentTab by rememberSaveable { mutableIntStateOf(initialTab) }
     var walletOpen by rememberSaveable { mutableStateOf(initialWalletOpen) }
     var chatOpen by rememberSaveable { mutableStateOf(false) }
+    var aiChatOpen by rememberSaveable { mutableStateOf(false) }
     var portalsOpen by rememberSaveable { mutableStateOf(false) }
     var momentsOpen by rememberSaveable { mutableStateOf(false) }
     var calendarOpen by rememberSaveable { mutableStateOf(false) }
@@ -222,22 +224,29 @@ fun MainScreen(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
         bottomBar = {
             // Hidden inside a chat (the conversation gets the whole screen), back on the chat list.
+            // Also hidden while the AI Assistant is open: it is its own full-screen space, and with
+            // the bar gone Scaffold's bottom padding shrinks to zero so AiChatHost reaches the edge.
             AnimatedVisibility(
-                visible = !(chatOpen && com.dorr.app.chat.ChatStore.immersive),
+                visible = !aiChatOpen && !com.dorr.app.ui.screens.profile.SupportChatState.open && !(chatOpen && com.dorr.app.chat.ChatStore.immersive),
                 enter = slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(220)),
                 exit = slideOutVertically(tween(260, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180)),
             ) {
             DorrBottomNavigationBar(
                 currentTab = currentTab,
-                // No tab is "current" while the wallet or the chat is open over the tabs.
+                // No tab is "current" while the wallet or a chat is open over the tabs.
                 walletOpen = walletOpen || chatOpen,
                 onSelectTab = { index ->
                     currentTab = index
                     walletOpen = false
                     chatOpen = false
+                    aiChatOpen = false
                 },
                 onFabClick = {
-                    // New request flow placeholder / trigger
+                    // Central "+" button — opens the AI Assistant, the same way the
+                    // chat button opens person-to-person chat below.
+                    walletOpen = false
+                    chatOpen = false
+                    aiChatOpen = true
                 },
             )
             }
@@ -264,6 +273,11 @@ fun MainScreen(
                         onOpenServices = onOpenServices,
                         onOpenService = openServiceDetail,
                         onOpenChat = { chatOpen = true },
+                        onOpenAi = {
+                            walletOpen = false
+                            chatOpen = false
+                            aiChatOpen = true
+                        },
                         onOpenPortals = { portalsOpen = true },
                         homeStories = homeStories,
                         onOpenMoments = { momentsOpen = true },
@@ -272,6 +286,11 @@ fun MainScreen(
                     1 -> ServicesScreen(
                         onBack = { currentTab = 0 },
                         onOpenService = openServiceDetail,
+                        onOpenAi = {
+                            walletOpen = false
+                            chatOpen = false
+                            aiChatOpen = true
+                        },
                     )
                     3 -> ProfileScreen(
                         onLogout = onLogout,
@@ -292,7 +311,9 @@ fun MainScreen(
                     targetOffsetY = { it },
                 ) + fadeOut(animationSpec = tween(260)),
             ) {
-                WalletScreen(onExit = { walletOpen = false })
+                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                    WalletScreen(onExit = { walletOpen = false })
+                }
             }
             // The chat sits above the tab bar, like the wallet — the home bar stays on every chat page.
             AnimatedVisibility(
@@ -300,14 +321,27 @@ fun MainScreen(
                 enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
                 exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
             ) {
-                com.dorr.app.ui.screens.chat.ChatScreen(
-                    onExit = { chatOpen = false },
-                    openWalletQr = { payload ->
-                        com.dorr.app.ui.screens.wallet.WalletDeepLink.openQr(payload)
-                        chatOpen = false
-                        walletOpen = true
-                    },
-                )
+                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                    com.dorr.app.ui.screens.chat.ChatScreen(
+                        onExit = { chatOpen = false },
+                        openWalletQr = { payload ->
+                            com.dorr.app.ui.screens.wallet.WalletDeepLink.openQr(payload)
+                            chatOpen = false
+                            walletOpen = true
+                        },
+                    )
+                }
+            }
+            // The AI Assistant, opened from the docked "+" FAB — sits above the tab bar
+            // exactly like the wallet and the person-to-person chat above.
+            AnimatedVisibility(
+                visible = aiChatOpen,
+                enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+                exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+            ) {
+                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                    com.dorr.app.ui.screens.aichat.AiChatHost(onExit = { aiChatOpen = false })
+                }
             }
         }
     }
@@ -530,7 +564,7 @@ private fun DorrBottomNavigationBar(
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.home_new_request),
+                    contentDescription = stringResource(R.string.ai_fab_content_description),
                     tint = Color.White,
                     modifier = Modifier.size(24.dp),
                 )
@@ -575,6 +609,31 @@ private fun TabItem(
                 color = if (selected) settingsAccent() else BottomBarInactiveGray,
                 maxLines = 1,
             )
+        }
+    }
+}
+
+/**
+ * Real, observed bug fix (2026-10-04): the wallet, person-to-person chat
+ * and AI Assistant are each rendered as a sibling AnimatedVisibility
+ * inside the SAME Box as the tab content below them (HomeScreen,
+ * ServicesScreen, ...), which is never removed from composition while
+ * an overlay is open - only drawn underneath. A full-screen background
+ * alone does not stop Compose from also dispatching a tap to whatever
+ * clickable sits at the same screen position in that hidden tab content,
+ * so a button inside the wallet/chat/AI screen could ALSO trigger
+ * something behind it ("بدوس على اي حاجة في المساعد الذكي او الشات...
+ * بيفتح حاجات تانية"). This swallows every pointer event anywhere in the
+ * overlay's own bounds before it can reach a sibling underneath - applied
+ * to the overlay's root Box, so its own buttons (deeper in the tree) still
+ * get first crack at each gesture and work completely normally; only
+ * whatever a descendant left unconsumed is absorbed here instead of
+ * leaking through.
+ */
+private fun Modifier.swallowClicksBehind(): Modifier = this.pointerInput(Unit) {
+    awaitPointerEventScope {
+        while (true) {
+            awaitPointerEvent().changes.forEach { it.consume() }
         }
     }
 }

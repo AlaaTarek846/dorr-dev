@@ -11,6 +11,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Modules\User\Models\User;
+use Modules\User\Models\UserPhoneChange;
 use Tests\TestCase;
 
 class MobileProfileTest extends TestCase
@@ -124,7 +125,7 @@ class MobileProfileTest extends TestCase
             'phone' => self::NEW_PHONE,
         ], $this->bearerHeaders($user))->assertOk();
 
-        $code = \Modules\User\Models\UserPhoneChange::query()->where('user_id', $user->id)->value('code');
+        $code = UserPhoneChange::query()->where('user_id', $user->id)->value('code');
 
         $this->postJson('/api/mobile/v1/profile/phone/confirm', [
             'code' => $code,
@@ -167,7 +168,7 @@ class MobileProfileTest extends TestCase
 
         $this->assertSame('old@example.com', $user->fresh()->email);
         $this->assertDatabaseHas('verification_codes', [
-            'authenticatable_type' => User::class,
+            'authenticatable_type' => $user->getMorphClass(),
             'authenticatable_id' => $user->id,
             'type' => VerificationType::Email->value,
         ]);
@@ -325,7 +326,7 @@ class MobileProfileTest extends TestCase
         // NOT send a code, and must NOT restore the account behind the user's back.
         $this->postJson('/api/mobile/v1/auth/otp', [
             'dial_code' => self::DIAL_CODE,
-            'phone'     => self::PHONE,
+            'phone' => self::PHONE,
         ])
             ->assertOk()
             ->assertJsonPath('data.account_state', 'deleted');
@@ -341,14 +342,14 @@ class MobileProfileTest extends TestCase
         // The restore endpoint sends the OTP without logging the user in.
         $this->postJson('/api/mobile/v1/auth/otp/restore', [
             'dial_code' => self::DIAL_CODE,
-            'phone'     => self::PHONE,
+            'phone' => self::PHONE,
         ])->assertOk();
 
         // Verifying the demo code restores the account and issues a fresh token.
         $this->postJson('/api/mobile/v1/auth/verify', [
             'dial_code' => self::DIAL_CODE,
-            'phone'     => self::PHONE,
-            'code'      => '1234',
+            'phone' => self::PHONE,
+            'code' => '1234',
         ])
             ->assertOk()
             ->assertJsonStructure(['data' => ['token', 'user', 'is_restored']])

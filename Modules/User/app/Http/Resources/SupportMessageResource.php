@@ -20,6 +20,9 @@ class SupportMessageResource extends JsonResource
             'sender' => $this->sender,
             'body' => $this->body,
             'image_url' => $this->imageUrl(),
+            // An automatic reply (ack · away · faq): shown as "automatic reply", never as an agent's message.
+            'is_auto' => (bool) $this->is_auto,
+            'auto_kind' => $this->auto_kind,
             // The name of the agent who answered; the customer never sees an account id or e-mail.
             'agent_name' => $this->sender === SupportMessage::SENDER_SUPPORT ? $this->admin?->name : null,
             'created_at' => $this->created_at?->toIso8601String(),

@@ -47,8 +47,13 @@ class AnthropicConnector extends AbstractHttpConnector
         });
     }
 
-    public function sendChat(AiProvider $provider, array $messages): array
+    public function sendChat(AiProvider $provider, array $messages, bool $useWebSearch = false): array
     {
+        // No real hosted web-search integration wired for Anthropic in this
+        // codebase yet - the flag is accepted (interface compatibility)
+        // but deliberately ignored rather than faking search results.
+        unset($useWebSearch);
+
         return $this->attempt(function () use ($provider, $messages) {
             if (! $provider->hasApiKey()) {
                 return $this->failure(__('ai.api_key_missing'));

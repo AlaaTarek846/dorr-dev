@@ -73,6 +73,7 @@ import com.dorr.app.ui.theme.AppColors
 fun ServicesScreen(
     onBack: () -> Unit,
     onOpenService: ((ServiceDto, Color) -> Unit)? = null,
+    onOpenAi: (() -> Unit)? = null,
 ) {
     val loader = rememberServicesLoader()
     var query by remember { mutableStateOf("") }
@@ -80,7 +81,8 @@ fun ServicesScreen(
     val night = settingsNight()
 
     val openDetail: (ServiceDto, Color) -> Unit = { service, color ->
-        if (onOpenService != null) onOpenService(service, color)
+        if (service.moduleName == "ai_assistant" && onOpenAi != null) onOpenAi()
+        else if (onOpenService != null) onOpenService(service, color)
         else localDetail = service to color
     }
 

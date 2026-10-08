@@ -20,6 +20,7 @@ class SupportTicket extends Model
         'image_path',
         'status',
         'last_message_at',
+        'auto_reply_stopped_at',
     ];
 
     protected function casts(): array
@@ -27,6 +28,7 @@ class SupportTicket extends Model
         return [
             'status' => SupportTicketStatus::class,
             'last_message_at' => 'datetime',
+            'auto_reply_stopped_at' => 'datetime',
         ];
     }
 
