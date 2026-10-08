@@ -198,6 +198,20 @@ class ChatPushNotifier
         );
     }
 
+    /**
+     * A notice to some accounts outside any chat (DORR Discover: an event I'm interested in
+     * changed, one I shouldn't miss) — same devices, same OneSignal path.
+     *
+     * @param  iterable<array{0: string, 1: int}>  $owners  [alias, id]
+     * @param  array<string, string>  $headings  per locale
+     * @param  array<string, string>  $contents  per locale
+     * @param  array<string, mixed>  $data
+     */
+    public function toAccounts(iterable $owners, array $headings, array $contents, array $data): void
+    {
+        $this->send(collect($owners)->map(fn ($o) => (object) ['participant_type' => $o[0], 'participant_id' => $o[1]])->values(), $headings, $contents, $data);
+    }
+
     /** "✅ Call the plumber" — one of my tasks whose time came (spec 38). */
     public function taskDue(\Modules\Chat\Models\ChatTask $task): void
     {

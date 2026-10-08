@@ -275,6 +275,12 @@ class CalendarService
         if ($want('moments') || $want('personal')) {
             $items = $items->concat($this->occasions($me, $from, $to, $want('moments'), $want('personal')));
         }
+        if ($want('discover')) {
+            $items = $items->concat($this->discover($me, $from, $to, $zone));
+        }
+        if ($want('sports')) {
+            $items = $items->concat($this->sports($me, $from, $to, $zone));
+        }
 
         return $this->dedupe($items)->sortBy(fn ($i) => [$i['date'], $i['all_day'] ? 0 : 1, $i['starts_at'] ?? ''])->values();
     }
@@ -309,6 +315,63 @@ class CalendarService
             'message_id' => $i->message?->uuid,
             'conversation_id' => $i->conversation?->uuid,
         ]);
+    }
+
+    /**
+     * DORR Discover events I said "interested" to (spec 177) — at their real time, with their own
+     * local time when I'm elsewhere (205).
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function discover(Model $me, CarbonImmutable $from, CarbonImmutable $to, string $zone): Collection
+    {
+        if (! class_exists(\Modules\Discover\Models\DiscoverInterest::class)) {
+            return collect();
+        }
+
+        return \Modules\Discover\Models\DiscoverInterest::query()->ownedBy($me)
+            ->whereHas('event', fn ($q) => $q->where('review_status', 'approved')->where('starts_at', '<=', $to->utc())
+                ->where(fn ($q) => $q->where('starts_at', '>=', $from->utc())->orWhere('ends_at', '>=', $from->utc())))
+            ->with('event.city.translations')->get()
+            ->map(fn ($i) => $this->row('discover', $i->event->uuid, $i->event->title, $i->event->starts_at, $i->event->ends_at, false, null, $zone, [
+                'timezone' => $i->event->timezone,
+                'origin_time' => $i->event->timezone !== $zone ? $i->event->starts_at->setTimezone($i->event->timezone)->format('H:i') : null,
+                'location' => trim(implode(' · ', array_filter([$i->event->venue, $i->event->city?->translatedName()]))) ?: null,
+                'status' => $i->event->status,
+            ]));
+    }
+
+    /**
+     * DORR Sports: matches of the teams I follow (spec 201–203).
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function sports(Model $me, CarbonImmutable $from, CarbonImmutable $to, string $zone): Collection
+    {
+        if (! class_exists(\Modules\Sports\Models\SportsFollow::class)) {
+            return collect();
+        }
+        $follows = \Modules\Sports\Models\SportsFollow::query()->ownedBy($me)->get(['kind', 'target_id']);
+        $teams = $follows->where('kind', 'team')->pluck('target_id')->all();
+        // A race has no teams: following the championship brings its races.
+        $races = $follows->where('kind', 'competition')->pluck('target_id')->all();
+        if ($teams === [] && $races === []) {
+            return collect();
+        }
+
+        return \Modules\Sports\Models\SportsMatch::query()
+            ->where(fn ($q) => $q->whereIn('home_team_id', $teams ?: [0])->orWhereIn('away_team_id', $teams ?: [0])
+                ->orWhere(fn ($q) => $q->whereNull('home_team_id')->whereIn('competition_id', $races ?: [0])))
+            ->whereBetween('starts_at', [$from->utc(), $to->utc()])
+            ->whereHas('competition', fn ($q) => $q->where('tier', '!=', 'off'))
+            ->with(['home', 'away', 'competition', 'sport'])->limit(200)->get()
+            ->map(fn ($m) => $this->row('sports', $m->uuid, $m->home_team_id === null ? (string) ($m->round ?? $m->competition?->name) : trim(($m->home?->name ?? '?').' – '.($m->away?->name ?? '?')), $m->starts_at, null, false, null, $zone, [
+                'location' => $m->competition?->name,
+                'status' => $m->status,
+                'emoji' => $m->sport ? $m->sport->emoji() : '🏆',
+                'home_score' => $m->home_score,
+                'away_score' => $m->away_score,
+            ]));
     }
 
     /** @return Collection<int, array<string, mixed>> */
@@ -410,7 +473,7 @@ class CalendarService
         $items = $items->reject(fn ($i) => $i['type'] === 'reminder' && $events->contains(fn ($e) => $e['message_id'] !== null && $e['message_id'] === ($i['message_id'] ?? null)
             && $e['starts_at'] !== null && abs(CarbonImmutable::parse($e['starts_at'])->diffInMinutes(CarbonImmutable::parse($i['starts_at']), true)) <= 10));
 
-        $rank = ['event' => 0, 'personal' => 1, 'moment' => 2, 'task' => 3, 'reminder' => 4];
+        $rank = ['event' => 0, 'discover' => 1, 'sports' => 2, 'personal' => 3, 'moment' => 4, 'task' => 5, 'reminder' => 6];
 
         return $items->sortBy(fn ($i) => $rank[$i['type']] ?? 9)
             ->unique(fn ($i) => $i['all_day'] ? mb_strtolower(trim($i['title'])).'|'.$i['date'] : $i['id'])
@@ -446,7 +509,7 @@ class CalendarService
 
         return $base + [
             'next' => $next,
-            'events' => $day->where('type', 'event')->values()->all(),
+            'events' => $day->whereIn('type', ['event', 'discover', 'sports'])->values()->all(),
             'tasks' => $overdue->concat($day->where('type', 'task'))->values()->all(),
             'reminders' => $day->where('type', 'reminder')->values()->all(),
             'moments' => $day->whereIn('type', ['moment', 'personal'])->values()->all(),

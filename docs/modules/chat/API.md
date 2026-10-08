@@ -466,7 +466,7 @@ One calendar of only the sources I keep on: my appointments (`events`), occasion
 | GET | `calendar/search?q=` | | **206.** My appointments, tasks, own dates, occasions and capsules — never messages |
 | POST | `calendar/items` | `title`, `starts_at` + `ends_at?` or `all_day` + `date`, `timezone?`, `location?`, `note?`, `color?` (#RRGGBB), `reminders?[]` (minutes before: 0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080; all-day = before 09:00 that day), `message_id?` (from a chat) | **201.** Without `reminders`, my defaults apply. The same title at the same minute (all-day: day) returns the existing one with `duplicate: true` (200), never a second (AT-CAL-02) |
 | GET / PATCH / DELETE | `calendar/items/{id}` | same fields | A new time is reminded again. Only mine (`chat_calendar_not_found`); a change that would duplicate another one: `chat_calendar_duplicate` |
-| GET / PUT | `calendar/preferences` | `sources{events, moments, personal, tasks, reminders: bool}`, `default_reminders[]`, `all_day_reminders[]`, `respect_quiet`, `personalised`, `today_sections{order[], hidden[]}` | Sections: `next, events, tasks, reminders, moments, around` |
+| GET / PUT | `calendar/preferences` | `sources{events, moments, personal, tasks, reminders, discover: bool}` (`discover` = DORR Discover events I'm interested in, type `discover` in the feed — see [../discover/API.md](../discover/API.md)), `default_reminders[]`, `all_day_reminders[]`, `respect_quiet`, `personalised`, `today_sections{order[], hidden[]}` | Sections: `next, events, tasks, reminders, moments, around` |
 
 **Smart reminders (204):** `chat:calendar-reminders` runs every minute.
 - It sends at my chosen times, for all-day items at 09:00 where I am now.

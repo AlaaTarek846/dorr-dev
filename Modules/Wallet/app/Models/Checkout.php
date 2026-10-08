@@ -29,6 +29,8 @@ class Checkout extends Model
         'title',
         'subtitle',
         'amount_minor',
+        'coupon_id',
+        'discount_minor',
         'status',
         'paid_via',
         'payment_transaction_id',
@@ -43,6 +45,7 @@ class Checkout extends Model
         return [
             'reference' => 'array',
             'amount_minor' => 'integer',
+            'discount_minor' => 'integer',
             'status' => CheckoutStatus::class,
             'expires_at' => 'datetime',
             'paid_at' => 'datetime',
@@ -80,5 +83,16 @@ class Checkout extends Model
     public function referenceValue(string $key): mixed
     {
         return ($this->reference ?? [])[$key] ?? null;
+    }
+
+    /** What's charged: the price less a coupon's discount. */
+    public function payableMinor(): int
+    {
+        return max(0, (int) $this->amount_minor - (int) $this->discount_minor);
+    }
+
+    public function coupon(): BelongsTo
+    {
+        return $this->belongsTo(WalletCoupon::class, 'coupon_id');
     }
 }

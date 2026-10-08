@@ -132,7 +132,17 @@ fun MainScreen(
         com.dorr.app.chat.ChatPush.requestPermission()
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             when (link) {
-                is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.Sports -> {
+                    walletOpen = false
+                    com.dorr.app.ui.screens.sports.SportsLink.show(link.matchId)
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
+                is com.dorr.app.chat.ChatDeepLink.Discover -> {
+                    walletOpen = false
+                    com.dorr.app.ui.screens.events.EventsLink.show(link.eventId)
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
                 com.dorr.app.chat.ChatDeepLink.Tasks -> { walletOpen = false; chatOpen = true }
                 com.dorr.app.chat.ChatDeepLink.Calendar -> {
                     walletOpen = false
@@ -382,11 +392,32 @@ fun MainScreen(
         com.dorr.app.ui.screens.calendar.CalendarScreen(onExit = { calendarOpen = false }, onOpenMoments = { calendarOpen = false; momentsOpen = true })
     }
 
+    // DORR Discover: events around me, where I travel, shared in chats.
+    AnimatedVisibility(
+        visible = com.dorr.app.ui.screens.events.EventsLink.open,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.events.EventsScreen(onExit = { com.dorr.app.ui.screens.events.EventsLink.close() })
+    }
+
+    // DORR Sports: my teams, live scores, tables.
+    AnimatedVisibility(
+        visible = com.dorr.app.ui.screens.sports.SportsLink.open,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.sports.SportsScreen(onExit = { com.dorr.app.ui.screens.sports.SportsLink.close() })
+    }
+
     // A public story being watched or written (from the home page's circles).
     com.dorr.app.ui.screens.chat.HomeStoriesLayer(homeStories)
 
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
+
+    // The goal moment and match banners, over anything (197, 198).
+    com.dorr.app.ui.screens.sports.SportsCelebrationHost()
 
     // A call can ring over anything (it's the only chat screen that takes the whole display).
     com.dorr.app.ui.screens.chat.CallOverlay()

@@ -40,6 +40,9 @@ Route::post('wallet/topups/quote', [TopupController::class, 'quote']);
 // The one payment screen for every paid thing in the app (docs/remaining_chat.md ج.0).
 Route::post('wallet/checkouts', [CheckoutController::class, 'store']);
 Route::get('wallet/checkouts/{uuid}', [CheckoutController::class, 'show']);
+Route::post('wallet/checkouts/{uuid}/coupon', [CheckoutController::class, 'coupon'])->middleware('throttle:20,1');
+Route::delete('wallet/checkouts/{uuid}/coupon', [CheckoutController::class, 'removeCoupon']);
+Route::get('wallet/coupons', [CheckoutController::class, 'coupons']);
 Route::get('wallet/topups/{uuid}', [TopupController::class, 'show']);
 
 // Unlocks the wallet screens. A PIN that was reset to 0000 still passes here (the answer says `must_change`), so the app can ask for a new one.

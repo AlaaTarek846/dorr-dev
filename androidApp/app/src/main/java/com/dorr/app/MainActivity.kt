@@ -44,8 +44,25 @@ import com.dorr.app.ui.theme.toThemeOverride
 // has somewhere to host its invisible tracking fragment. Still a ComponentActivity underneath: every
 // Compose API used below (setContent, enableEdgeToEdge…) works exactly as before.
 class MainActivity : FragmentActivity() {
+    companion object {
+        /** A home-screen sports widget was tapped: the match to open ("" = Sports). */
+        const val EXTRA_SPORTS_MATCH = "sports_match"
+    }
+
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        openSports(intent)
+    }
+
+    private fun openSports(intent: android.content.Intent?) {
+        val match = intent?.getStringExtra(EXTRA_SPORTS_MATCH) ?: return
+        intent.removeExtra(EXTRA_SPORTS_MATCH)
+        com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Sports(match.ifBlank { null }))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        openSports(intent)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(
                 AndroidColor.WHITE,
