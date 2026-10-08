@@ -49,7 +49,12 @@ object ChatRealtime {
         "chat.poll.updated", "chat.view_once.opened", "chat.location.moved",
         "chat.group.join_requests", "chat.group.join_decided",
         "chat.scheduled.changed", "chat.reminder.due",
+        // DORR Sports: an alert for a match I follow (the goal moment, 197–198).
+        "sports.alert", "sports.prize",
     )
+
+    /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */
+    private val publicChannels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val _events = MutableSharedFlow<ChatEvent>(extraBufferCapacity = 128)
@@ -120,7 +125,34 @@ object ChatRealtime {
             }
 
             client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
+            publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
         }
+    }
+
+    /**
+     * Listen to a public channel (e.g. `sports.match.{id}`, `sports.live`); its events arrive on
+     * [events] like the private ones. Safe to call before the connection is up.
+     */
+    fun watchPublic(channel: String, events: List<String>) {
+        if (publicChannels.put(channel, events) == null) pusher?.let { subscribePublic(it, channel, events) }
+    }
+
+    fun unwatchPublic(channel: String) {
+        if (publicChannels.remove(channel) != null) runCatching { pusher?.unsubscribe(channel) }
+    }
+
+    private fun subscribePublic(client: Pusher, channel: String, events: List<String>) {
+        runCatching {
+            if (client.getChannel(channel) != null) return
+            client.subscribe(channel, object : com.pusher.client.channel.ChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull()
+                    if (data != null) _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+            }, *events.toTypedArray())
+        }.onFailure { Log.w(TAG, "Public channel $channel failed", it) }
     }
 
     fun stop() {

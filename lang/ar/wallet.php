@@ -53,6 +53,11 @@ return [
         'checkout_expired' => 'انتهت صلاحية صفحة الدفع. ابدأ من جديد.',
         'checkout_insufficient_balance' => 'رصيد المحفظة غير كافٍ. اشحن المحفظة أو ادفع بطريقة أخرى.',
         'checkout_gateway_pending' => 'هناك عملية دفع جارية لهذا بالفعل.',
+        'coupon_invalid' => 'كود الكوبون ده مش صحيح.',
+        'coupon_expired' => 'الكوبون ده انتهى.',
+        'coupon_used' => 'الكوبون ده اتستخدم قبل كده.',
+        'coupon_not_here' => 'الكوبون ده مينفعش للدفعة دي.',
+        'coupon_min_amount' => 'الكوبون ده محتاج مبلغ أكبر.',
         'withdrawal_not_pending' => 'تمت مراجعة طلب السحب هذا من قبل.',
         'withdrawal_not_found' => 'غير موجود.',
         'withdrawal_no_receipt' => 'لا يوجد إيصال لهذا الطلب.',
@@ -71,6 +76,7 @@ return [
         'manual_adjustment' => 'تسوية يدوية (:reason)',
         'transfer_fee' => 'رسوم التحويل',
         'service_payment' => ':title',
+        'reward' => 'جايزة: :title',
     ],
 
     'types' => [
@@ -84,6 +90,7 @@ return [
         'refund' => 'استرجاع',
         'penalty' => 'غرامة',
         'service_payment' => 'دفع خدمة',
+        'reward' => 'جايزة',
         'service_earning' => 'أرباح خدمة',
         'manual_adjustment' => 'تسوية يدوية',
         'reversal' => 'عكس عملية',

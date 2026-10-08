@@ -226,6 +226,32 @@
                             </li>
                         </template>
 
+                        <template v-if="showSportsSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.sports') }}</span>
+                            </li>
+
+                            <li v-for="item in sportsItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
+                        <template v-if="showDiscoverSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.discover') }}</span>
+                            </li>
+
+                            <li v-for="item in discoverItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                                <router-link :to="{ name: item.route }" class="side-menu__item">
+                                    <i :class="`${item.icon} side-menu__icon`"></i>
+                                    <span class="side-menu__label">{{ t(item.label) }}</span>
+                                </router-link>
+                            </li>
+                        </template>
+
                         <template v-if="showStaffSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.staff') }}</span>
@@ -392,6 +418,26 @@ const chatAdminItems = [
 ];
 
 const showChatAdminSection = computed(() => chatAdminItems.some((item) => can(item.permission)));
+
+/** DORR Discover (Modules/Discover): events, organizers, categories & cities, settings. */
+const discoverItems = [
+    { route: 'admin.discover.events', permission: 'discover-events.view', icon: 'ri-calendar-event-line', label: 'discover.events.title' },
+    { route: 'admin.discover.organizers', permission: 'discover-organizers.view', icon: 'ri-user-star-line', label: 'discover.organizers.title' },
+    { route: 'admin.discover.catalog', permission: 'discover-categories.view', icon: 'ri-map-pin-2-line', label: 'discover.catalog.title' },
+    { route: 'admin.discover.settings', permission: 'discover-settings.view', icon: 'ri-settings-4-line', label: 'discover.settings.title' },
+];
+
+const showDiscoverSection = computed(() => discoverItems.some((item) => can(item.permission)));
+
+/** DORR Sports (Modules/Sports): competitions and their tiers, the request budget, settings. */
+const sportsItems = [
+    { route: 'admin.sports.competitions', permission: 'sports-competitions.view', icon: 'ri-trophy-line', label: 'sports.competitions.title' },
+    { route: 'admin.sports.contests', permission: 'sports-contests.view', icon: 'ri-medal-line', label: 'sports.contests.title' },
+    { route: 'admin.sports.usage', permission: 'sports-usage.view', icon: 'ri-dashboard-3-line', label: 'sports.usage.title' },
+    { route: 'admin.sports.settings', permission: 'sports-settings.view', icon: 'ri-settings-4-line', label: 'sports.settings.title' },
+];
+
+const showSportsSection = computed(() => sportsItems.some((item) => can(item.permission)));
 
 const showStaffSection = computed(
     () => can('admins.view') || can('roles.view'),

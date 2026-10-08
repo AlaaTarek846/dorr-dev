@@ -57,6 +57,14 @@ return [
     | Used by the sendPushNotification() global helper.
     | No extra Composer package required — the helper uses Laravel HTTP client.
     */
+    // DORR Sports (spec 183-200): API-Sports (api-football.com). The key stays in .env only.
+    'api_sports' => [
+        'key' => env('API_SPORTS_KEY'),
+        'football_url' => env('API_SPORTS_FOOTBALL_URL', 'https://v3.football.api-sports.io'),
+        'daily_limit' => (int) env('API_SPORTS_DAILY_LIMIT', 100),
+        'timeout' => (int) env('API_SPORTS_TIMEOUT', 15),
+    ],
+
     'onesignal' => [
         'app_id' => env('ONESIGNAL_APP_ID'),
         'rest_api_key' => env('ONESIGNAL_REST_API_KEY'),

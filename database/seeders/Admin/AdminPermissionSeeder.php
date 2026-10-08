@@ -242,6 +242,44 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'general_services',
                 'actions' => ['view', 'create', 'update', 'delete'],
             ],
+            // DORR Discover (spec 169–182).
+            'discover-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'discover-categories' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'discover-cities' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            'discover-organizers' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'discover-events' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete'],
+            ],
+            // DORR Sports (spec 183–200).
+            'sports-settings' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'sports-competitions' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update'],
+            ],
+            'sports-usage' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
+            'sports-contests' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update'],
+            ],
             'withdrawal-requests' => [
                 'module_name' => 'general_services',
                 'actions' => [
