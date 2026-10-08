@@ -14,6 +14,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
+use Modules\Chat\Models\ChatMessage;
 use Modules\Sports\Database\Seeders\SportsSeeder;
 use Modules\Sports\Events\MatchChanged;
 use Modules\Sports\Models\SportsCompetition;
@@ -23,6 +25,7 @@ use Modules\Sports\Models\SportsMatch;
 use Modules\Sports\Models\SportsSetting;
 use Modules\Sports\Models\SportsSport;
 use Modules\Sports\Models\SportsTeam;
+use Modules\Sports\Services\ContestService;
 use Modules\User\Models\User;
 use Modules\Wallet\Contracts\CheckoutPurpose;
 use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
@@ -34,6 +37,7 @@ use Modules\Wallet\Services\PinService;
 use Modules\Wallet\Services\WalletService;
 use Modules\Wallet\Support\Payments\CheckoutLine;
 use Modules\Wallet\Support\Payments\CheckoutPurposes;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -131,7 +135,7 @@ class SportsPredictionsTest extends TestCase
         // Opened (after the legal review): one winner per phone, credit that can't be withdrawn.
         SportsSetting::query()->firstOrFail()->update(['prizes_countries' => [$this->saudi->id]]);
         $contest2 = $this->contest(['prize_type' => 'wallet', 'rule' => 'winner', 'distribution' => 'each', 'prize_amounts' => [(string) $this->saudi->id => 1000]]);
-        app(\Modules\Sports\Services\ContestService::class)->settle($contest2);
+        app(ContestService::class)->settle($contest2);
         $winners = SportsContestWinner::query()->where('contest_id', $contest2->id)->get();
         $this->assertCount(1, $winners);
         $this->assertSame('paid', $winners[0]->status);
@@ -209,10 +213,10 @@ class SportsPredictionsTest extends TestCase
         $this->as($this->alice);
         $chat = $this->postJson('/api/mobile/v1/chat/conversations/direct', ['participant_id' => $this->bob->id], $this->headers())->assertOk()->json('data.id');
         $r = $this->postJson($this->url('share'), ['conversation_id' => $chat, 'poll' => true], $this->headers())->assertCreated()->json('data');
-        $card = \Modules\Chat\Models\ChatMessage::query()->where('uuid', $r['message_id'])->firstOrFail();
+        $card = ChatMessage::query()->where('uuid', $r['message_id'])->firstOrFail();
         $this->assertSame('match_card', $card->type->value);
         $this->assertSame('Al-Hilal', $card->meta['match']['home']['name']);
-        $this->assertSame(['Al-Hilal', 'Draw', 'Al-Nassr'], array_column(\Modules\Chat\Models\ChatMessage::query()->where('uuid', $r['poll_id'])->first()->meta['options'], 'text'));
+        $this->assertSame(['Al-Hilal', 'Draw', 'Al-Nassr'], array_column(ChatMessage::query()->where('uuid', $r['poll_id'])->first()->meta['options'], 'text'));
     }
 
     // ------------------------------------------------------------------ helpers
@@ -240,9 +244,9 @@ class SportsPredictionsTest extends TestCase
 
     private function asAdmin(array $permissions): void
     {
-        $admin = \Modules\Admin\Models\Admin::query()->firstOrCreate(['email' => 'a@example.com'], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::query()->firstOrCreate(['email' => 'a@example.com'], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

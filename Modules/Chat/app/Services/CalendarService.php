@@ -3,6 +3,7 @@
 namespace Modules\Chat\Services;
 
 use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -18,6 +19,9 @@ use Modules\Chat\Models\ChatPersonalMoment;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Models\ChatTask;
 use Modules\Chat\Support\ParticipantType;
+use Modules\Discover\Models\DiscoverInterest;
+use Modules\Sports\Models\SportsFollow;
+use Modules\Sports\Models\SportsMatch;
 
 /**
  * DORR Calendar & DORR Today (spec 201–207): one calendar of only what I chose to see — my own
@@ -325,11 +329,11 @@ class CalendarService
      */
     private function discover(Model $me, CarbonImmutable $from, CarbonImmutable $to, string $zone): Collection
     {
-        if (! class_exists(\Modules\Discover\Models\DiscoverInterest::class)) {
+        if (! class_exists(DiscoverInterest::class)) {
             return collect();
         }
 
-        return \Modules\Discover\Models\DiscoverInterest::query()->ownedBy($me)
+        return DiscoverInterest::query()->ownedBy($me)
             ->whereHas('event', fn ($q) => $q->where('review_status', 'approved')->where('starts_at', '<=', $to->utc())
                 ->where(fn ($q) => $q->where('starts_at', '>=', $from->utc())->orWhere('ends_at', '>=', $from->utc())))
             ->with('event.city.translations')->get()
@@ -348,10 +352,10 @@ class CalendarService
      */
     private function sports(Model $me, CarbonImmutable $from, CarbonImmutable $to, string $zone): Collection
     {
-        if (! class_exists(\Modules\Sports\Models\SportsFollow::class)) {
+        if (! class_exists(SportsFollow::class)) {
             return collect();
         }
-        $follows = \Modules\Sports\Models\SportsFollow::query()->ownedBy($me)->get(['kind', 'target_id']);
+        $follows = SportsFollow::query()->ownedBy($me)->get(['kind', 'target_id']);
         $teams = $follows->where('kind', 'team')->pluck('target_id')->all();
         // A race has no teams: following the championship brings its races.
         $races = $follows->where('kind', 'competition')->pluck('target_id')->all();
@@ -359,7 +363,7 @@ class CalendarService
             return collect();
         }
 
-        return \Modules\Sports\Models\SportsMatch::query()
+        return SportsMatch::query()
             ->where(fn ($q) => $q->whereIn('home_team_id', $teams ?: [0])->orWhereIn('away_team_id', $teams ?: [0])
                 ->orWhere(fn ($q) => $q->whereNull('home_team_id')->whereIn('competition_id', $races ?: [0])))
             ->whereBetween('starts_at', [$from->utc(), $to->utc()])
@@ -445,7 +449,7 @@ class CalendarService
      * @param  array<string, mixed>  $extra
      * @return array<string, mixed>
      */
-    private function row(string $type, string $ref, string $title, ?\Carbon\CarbonInterface $start, ?\Carbon\CarbonInterface $end, bool $allDay, ?string $date, ?string $zone, array $extra = []): array
+    private function row(string $type, string $ref, string $title, ?CarbonInterface $start, ?CarbonInterface $end, bool $allDay, ?string $date, ?string $zone, array $extra = []): array
     {
         return [
             'id' => $type.':'.$ref,

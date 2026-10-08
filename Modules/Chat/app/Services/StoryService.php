@@ -10,12 +10,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\ConversationStatus;
 use Modules\Chat\Enums\ConversationType;
-use Modules\Chat\Models\ChatParticipant;
-use Modules\Chat\Models\ChatDorrStory;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatBlock;
 use Modules\Chat\Models\ChatContact;
+use Modules\Chat\Models\ChatDorrStory;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Models\ChatStory;
 use Modules\Chat\Models\ChatStoryView;
@@ -249,7 +249,7 @@ class StoryService
      *
      * @return array<string, mixed>
      */
-    public function publicFeed(Model $viewer): array
+    public function publicFeed(Model $viewer, int $page = 1, ?int $perPage = null): array
     {
         $settings = $this->assertEnabled();
         $viewerType = ParticipantType::aliasFor($viewer);
@@ -263,6 +263,7 @@ class StoryService
             'mine' => null,
             'dorr' => $this->dorrGroup($viewer),
             'people' => [],
+            'has_more' => false,
         ];
 
         if ($mine->isNotEmpty()) {
@@ -325,7 +326,20 @@ class StoryService
         usort($out['people'], fn ($a, $b) => $a['all_seen'] !== $b['all_seen']
             ? ($a['all_seen'] <=> $b['all_seen'])
             : ($a['all_seen'] ? strcmp((string) $b['last_at'], (string) $a['last_at']) : [$b['score'], $b['last_at']] <=> [$a['score'], $a['last_at']]));
-        $out['people'] = array_slice($out['people'], 0, 150);
+        $people = array_slice($out['people'], 0, 150);
+
+        // Paged: this page's people, and whether more follow. The later pages carry only people (the app appends them).
+        if ($perPage !== null) {
+            $out['has_more'] = count($people) > $page * $perPage;
+            $people = array_slice($people, ($page - 1) * $perPage, $perPage);
+
+            if ($page > 1) {
+                $out['mine'] = null;
+                $out['dorr'] = null;
+            }
+        }
+
+        $out['people'] = $people;
 
         return $out;
     }

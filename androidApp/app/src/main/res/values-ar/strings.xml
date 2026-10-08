@@ -967,4 +967,6 @@
     <string name="support_help_solved_toast">سعداء بأننا ساعدناك!</string>
     <string name="support_quick_chat_title">محادثة سريعة</string>
     <string name="support_quick_chat_sub">اعرف الإجابة بخطوات سريعة، وافتح تذكرة فقط إن احتجت موظفاً</string>
+    <string name="home_stories_title">القصص</string>
+    <string name="home_stories_all">عرض الكل</string>
 </resources>

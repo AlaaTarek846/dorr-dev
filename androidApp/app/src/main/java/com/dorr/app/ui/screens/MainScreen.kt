@@ -275,6 +275,8 @@ fun MainScreen(
                     ContentTransform(enter, exit, sizeTransform = null)
                 },
             ) { tab ->
+                // Every tab (and the screens opened inside it) can be pulled down to reload what it shows.
+                com.dorr.app.ui.components.PullToRefreshHost {
                 when (tab) {
                     0 -> HomeScreen(
                         onOpenAccount = { currentTab = 3 },
@@ -309,6 +311,7 @@ fun MainScreen(
                     )
                     else -> PlaceholderScreen()
                 }
+                }
             }
             AnimatedVisibility(
                 visible = walletOpen,
@@ -322,7 +325,7 @@ fun MainScreen(
                 ) + fadeOut(animationSpec = tween(260)),
             ) {
                 Box(Modifier.fillMaxSize().swallowClicksBehind()) {
-                    WalletScreen(onExit = { walletOpen = false })
+                    com.dorr.app.ui.components.PullToRefreshHost { WalletScreen(onExit = { walletOpen = false }) }
                 }
             }
             // The chat sits above the tab bar, like the wallet — the home bar stays on every chat page.

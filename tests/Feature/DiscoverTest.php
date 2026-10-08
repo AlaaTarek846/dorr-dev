@@ -9,8 +9,10 @@ use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\Chat\Models\ChatContact;
@@ -20,9 +22,11 @@ use Modules\Discover\Database\Seeders\DiscoverSeeder;
 use Modules\Discover\Models\DiscoverCategory;
 use Modules\Discover\Models\DiscoverCity;
 use Modules\Discover\Models\DiscoverEvent;
+use Modules\Discover\Models\DiscoverEventRoom;
 use Modules\Discover\Models\DiscoverOrganizer;
 use Modules\Discover\Models\DiscoverSetting;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -251,7 +255,7 @@ class DiscoverTest extends TestCase
         $this->artisan('discover:close-rooms')->assertSuccessful();
         $this->assertTrue($group->refresh()->only_admins_send);
         $this->assertDatabaseHas('discover_event_rooms', ['conversation_id' => $group->conversation_id]);
-        $this->assertNotNull(\Modules\Discover\Models\DiscoverEventRoom::query()->first()->closed_at);
+        $this->assertNotNull(DiscoverEventRoom::query()->first()->closed_at);
     }
 
     // ------------------------------------------------------------------ AI (178)
@@ -362,7 +366,7 @@ class DiscoverTest extends TestCase
     private function pushes(string $event): array
     {
         // Pushes from console commands wait in Laravel's deferred callbacks.
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
 
         return collect(Http::recorded())->map(fn ($pair) => $pair[0])
             ->filter(fn ($r) => str_contains($r->url(), 'onesignal') && ($r['data']['event'] ?? null) === $event)
@@ -374,9 +378,9 @@ class DiscoverTest extends TestCase
      */
     private function asAdmin(array $permissions, string $email = 'a@example.com'): void
     {
-        $admin = \Modules\Admin\Models\Admin::query()->firstOrCreate(['email' => $email], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::query()->firstOrCreate(['email' => $email], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

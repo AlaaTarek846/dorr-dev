@@ -178,7 +178,7 @@ object CalendarStore {
  */
 @Composable
 fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
-    LaunchedEffect(Unit) { CalendarStore.refresh() }
+    LaunchedEffect(com.dorr.app.network.collectReconnectTick()) { CalendarStore.refresh() }
     val today = CalendarStore.today
     val count = if (today == null || !today.enabled) {
         0
@@ -257,14 +257,17 @@ fun TodayCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
                     )
                 }
             }
-            Text(
-                nextLine ?: stringResource(R.string.cal_home_add),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = mut,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+            // The next thing today, when there is one (no "tap to plan your day" line otherwise).
+            nextLine?.let { line ->
+                Text(
+                    line,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = mut,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
         Box(
             modifier = Modifier

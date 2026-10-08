@@ -2,6 +2,8 @@
 
 namespace Modules\Chat\Services;
 
+use App\Models\Country;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -14,6 +16,7 @@ use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatCategory;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatPackage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Support\ParticipantType;
 
@@ -133,7 +136,7 @@ class ChannelService
      *
      * @return array<string, mixed>
      */
-    public function verification(Model $me, ChatConversation $conversation, \App\Models\Country $country): array
+    public function verification(Model $me, ChatConversation $conversation, Country $country): array
     {
         $this->assertChannelAdmin($me, $conversation);
         $group = $conversation->group;
@@ -143,12 +146,12 @@ class ChannelService
             'is_verified' => $group->isVerified(),
             'verified_until' => $group->verified_until?->toIso8601String(),
             'verified_by_admin' => (bool) $group->verified_by_admin,
-            'packages' => $packages->forCountry(\Modules\Chat\Models\ChatPackage::KIND_CHANNEL_VERIFICATION, $country)->values(),
+            'packages' => $packages->forCountry(ChatPackage::KIND_CHANNEL_VERIFICATION, $country)->values(),
             'history' => $packages->history('channel', $group->id)->values(),
         ];
     }
 
-    private function publicChannels(?string $search, ?int $categoryId): \Illuminate\Database\Eloquent\Builder
+    private function publicChannels(?string $search, ?int $categoryId): Builder
     {
         $search = trim((string) $search);
         $like = '%'.str_replace(['%', '_'], ['\%', '\_'], ltrim($search, '@')).'%';

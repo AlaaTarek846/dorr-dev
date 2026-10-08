@@ -967,4 +967,6 @@
     <string name="support_help_solved_toast">Glad we could help!</string>
     <string name="support_quick_chat_title">Quick chat</string>
     <string name="support_quick_chat_sub">Get an answer in a few taps, and open a ticket only if you need an agent</string>
+    <string name="home_stories_title">Stories</string>
+    <string name="home_stories_all">View all</string>
 </resources>

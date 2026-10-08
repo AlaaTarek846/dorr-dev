@@ -126,7 +126,7 @@ class ChatMessage extends Model implements HasMedia
     }
 
     /** The message this one replies to in a thread (spec 122). */
-    public function threadRoot(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function threadRoot(): BelongsTo
     {
         return $this->belongsTo(self::class, 'thread_id');
     }

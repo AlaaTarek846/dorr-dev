@@ -1,33 +1,34 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\Chat\Http\Controllers\General\BusinessController;
-use Modules\Chat\Http\Controllers\General\CallController;
 use Modules\Chat\Http\Controllers\General\BroadcastController;
-use Modules\Chat\Http\Controllers\General\ChannelController;
-use Modules\Chat\Http\Controllers\General\CircleController;
-use Modules\Chat\Http\Controllers\General\DecisionController;
-use Modules\Chat\Http\Controllers\General\MomentController;
-use Modules\Chat\Http\Controllers\General\MomentExtrasController;
-use Modules\Chat\Http\Controllers\General\PortalController;
-use Modules\Chat\Http\Controllers\General\ChatAiController;
+use Modules\Chat\Http\Controllers\General\BusinessController;
 use Modules\Chat\Http\Controllers\General\CalendarController;
+use Modules\Chat\Http\Controllers\General\CallController;
+use Modules\Chat\Http\Controllers\General\ChannelController;
 use Modules\Chat\Http\Controllers\General\ChatAccessController;
-use Modules\Chat\Http\Controllers\General\ChatOverviewController;
-use Modules\Chat\Http\Controllers\General\StarFolderController;
+use Modules\Chat\Http\Controllers\General\ChatAiController;
 use Modules\Chat\Http\Controllers\General\ChatAiToolsController;
+use Modules\Chat\Http\Controllers\General\ChatOverviewController;
+use Modules\Chat\Http\Controllers\General\CircleController;
 use Modules\Chat\Http\Controllers\General\ContactController;
-use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\ConversationController;
+use Modules\Chat\Http\Controllers\General\DecisionController;
+use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\FolderController;
 use Modules\Chat\Http\Controllers\General\GroupController;
 use Modules\Chat\Http\Controllers\General\MessageController;
 use Modules\Chat\Http\Controllers\General\MessageExtrasController;
+use Modules\Chat\Http\Controllers\General\MomentController;
+use Modules\Chat\Http\Controllers\General\MomentExtrasController;
+use Modules\Chat\Http\Controllers\General\PortalController;
 use Modules\Chat\Http\Controllers\General\PrivacyController;
 use Modules\Chat\Http\Controllers\General\RealtimeConfigController;
 use Modules\Chat\Http\Controllers\General\ScheduledMessageController;
+use Modules\Chat\Http\Controllers\General\StarFolderController;
 use Modules\Chat\Http\Controllers\General\StoryController;
 use Modules\Chat\Http\Controllers\General\ThemeReportController;
+use Modules\Chat\Http\Middleware\RememberTimezone;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
 /*
@@ -37,7 +38,7 @@ use Modules\Wallet\Http\Middleware\RequiresWalletPin;
  *
  * {conversation}, {message} and {call} are uuids; {contact}, {folder} and {participant} are ids.
  */
-Route::prefix('chat')->middleware(\Modules\Chat\Http\Middleware\RememberTimezone::class)->group(function () {
+Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::get('realtime-config', RealtimeConfigController::class);
 
     // ------------------------------------------------------------ conversations

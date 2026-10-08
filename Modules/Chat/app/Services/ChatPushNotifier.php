@@ -4,15 +4,21 @@ namespace Modules\Chat\Services;
 
 use App\Models\NotificationDevice;
 use App\Support\LocaleResolver;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
+use Modules\Chat\Models\ChatCalendarItem;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatPersonalMoment;
+use Modules\Chat\Models\ChatPrivacyCircle;
 use Modules\Chat\Models\ChatPrivacySetting;
+use Modules\Chat\Models\ChatTask;
 use Modules\Chat\Support\ParticipantType;
 use Throwable;
 
@@ -66,7 +72,7 @@ class ChatPushNotifier
         // Three audiences at most: the name and the text · the name and "New message" · "Dorr",
         // "New message". A locked chat never shows anything.
         $levels = $this->privacyLevels($recipients);
-        $circles = \Modules\Chat\Models\ChatPrivacyCircle::query()->whereIn('id', $recipients->pluck('privacy_circle_id')->filter()->unique())->get()->keyBy('id');
+        $circles = ChatPrivacyCircle::query()->whereIn('id', $recipients->pluck('privacy_circle_id')->filter()->unique())->get()->keyBy('id');
         $level = function (ChatParticipant $p) use ($levels, $message, $circles) {
             $chosen = $p->is_locked ? 'none' : ($levels[$p->participant_type.':'.$p->participant_id] ?? 'all');
 
@@ -77,7 +83,7 @@ class ChatPushNotifier
             // "circle" (P2) shows the circle's (stand-in) name instead of the person.
             $circle = $p->privacy_circle_id ? $circles->get($p->privacy_circle_id) : null;
             if ($circle !== null) {
-                $chosen = \Modules\Chat\Models\ChatPrivacyCircle::stricter($chosen, $circle->disclosure);
+                $chosen = ChatPrivacyCircle::stricter($chosen, $circle->disclosure);
                 if ($chosen === 'circle') {
                     return 'circle:'.$circle->id;
                 }
@@ -138,7 +144,7 @@ class ChatPushNotifier
     }
 
     /** "Ahmed invited you to sign a card for Sara" (spec 163). */
-    public function collabInvite(string $organiser, string $title, \Illuminate\Support\Collection $members, string $cardId): void
+    public function collabInvite(string $organiser, string $title, Collection $members, string $cardId): void
     {
         $contents = [];
         foreach (LocaleResolver::supported() as $locale) {
@@ -152,7 +158,7 @@ class ChatPushNotifier
      * "🎂 Sara's birthday — tomorrow" (my own date, DORR Moments): N days before and on the day.
      * Tapping it opens Moments, where the card for that person is one tap away.
      */
-    public function momentReminder(\Illuminate\Database\Eloquent\Model $owner, \Modules\Chat\Models\ChatPersonalMoment $moment, int $daysLeft): void
+    public function momentReminder(Model $owner, ChatPersonalMoment $moment, int $daysLeft): void
     {
         $emoji = MomentService::PERSONAL_LOOKS[$moment->kind]['emoji'] ?? '✨';
         $headings = [];
@@ -177,7 +183,7 @@ class ChatPushNotifier
     /**
      * "📅 Dentist — in 30 minutes" (DORR Calendar, spec 204). The time is shown where I am now.
      */
-    public function calendarReminder(\Modules\Chat\Models\ChatCalendarItem $item, \Illuminate\Database\Eloquent\Model $owner, int $minutesLeft): void
+    public function calendarReminder(ChatCalendarItem $item, Model $owner, int $minutesLeft): void
     {
         $zone = in_array($owner->timezone ?? '', timezone_identifiers_list(), true) ? $owner->timezone : (string) config('app.timezone', 'UTC');
         $contents = [];
@@ -213,7 +219,7 @@ class ChatPushNotifier
     }
 
     /** "✅ Call the plumber" — one of my tasks whose time came (spec 38). */
-    public function taskDue(\Modules\Chat\Models\ChatTask $task): void
+    public function taskDue(ChatTask $task): void
     {
         $this->send(
             collect([(object) ['participant_type' => $task->owner_type, 'participant_id' => $task->owner_id]]),
@@ -361,7 +367,7 @@ class ChatPushNotifier
         }
 
         // A surprise card shows nothing but that it's a surprise.
-        if ($message->type === MessageType::MomentCard && data_get($message->meta, 'card.reveal_at') && \Illuminate\Support\Carbon::parse(data_get($message->meta, 'card.reveal_at'))->isFuture()) {
+        if ($message->type === MessageType::MomentCard && data_get($message->meta, 'card.reveal_at') && Carbon::parse(data_get($message->meta, 'card.reveal_at'))->isFuture()) {
             return $this->inEveryLanguage('chat.preview.moment_card_sealed');
         }
 

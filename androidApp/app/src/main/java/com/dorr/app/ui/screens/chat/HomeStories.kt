@@ -75,9 +75,42 @@ import kotlinx.coroutines.delay
 class HomeStoriesState(val host: ChatHost) {
     var feed by mutableStateOf<PublicStoryFeedDto?>(null)
     var adding by mutableStateOf(false)
+    var loadingMore by mutableStateOf(false)
+    private var page = 1
 
+    /** The first ten people (and mine / Dorr's). Pages already scrolled in stay, after the fresh first ten. */
     suspend fun refresh() {
-        runCatching { ApiClient.chat.publicStories(chatAuth()).data }.getOrNull()?.let { feed = it }
+        val fresh = runCatching { ApiClient.chat.publicStories(chatAuth(), page = 1, perPage = PAGE).data }.getOrNull() ?: return
+        val keys = fresh.people.map { it.owner?.key }.toSet()
+        val kept = feed?.people.orEmpty().drop(PAGE).filter { it.owner?.key !in keys }
+        feed = fresh.copy(people = fresh.people + kept, hasMore = if (kept.isEmpty()) fresh.hasMore else feed?.hasMore ?: fresh.hasMore)
+        page = (feed?.people.orEmpty().size + PAGE - 1) / PAGE
+    }
+
+    /** The next ten, when the row is scrolled to its end. */
+    suspend fun loadMore() {
+        val current = feed ?: return
+        if (loadingMore || !current.hasMore) return
+        loadingMore = true
+        try {
+            val next = runCatching { ApiClient.chat.publicStories(chatAuth(), page = page + 1, perPage = PAGE).data }.getOrNull() ?: return
+            val known = current.people.map { it.owner?.key }.toSet()
+            feed = current.copy(people = current.people + next.people.filter { it.owner?.key !in known }, hasMore = next.hasMore)
+            page += 1
+        } finally {
+            loadingMore = false
+        }
+    }
+
+    /** "View all": plays everything from the first circle on. */
+    fun openAll() {
+        val f = feed ?: return
+        val all = listOfNotNull(f.mine, f.dorr) + f.people
+        if (all.isNotEmpty()) host.openStories(all, 0)
+    }
+
+    private companion object {
+        const val PAGE = 10
     }
 
     /** Everything the circles open, in their order — so the viewer pages from one to the next. */
@@ -160,19 +193,19 @@ fun HomeMyCircle(state: HomeStoriesState) {
     val plus = remember { Animatable(0f) }
     LaunchedEffect(Unit) { delay(250); plus.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 400f)) }
     Column(
-        Modifier.width(74.dp).combinedClickable(onClick = { if (mine != null) state.open(mine) else add() }, onLongClick = add),
+        Modifier.width(58.dp).combinedClickable(onClick = { if (mine != null) state.open(mine) else add() }, onLongClick = add),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box {
-            StoryRing(count, seenCount = 0, size = 68.dp, uploading = state.host.storyUploading) {
+            StoryRing(count, seenCount = 0, size = 56.dp, uploading = state.host.storyUploading) {
                 val latest = mine?.stories?.lastOrNull()
-                if (latest != null) StoryThumb(latest, size = 58.dp)
-                else ChAvatar(AuthSession.user?.avatar, AuthSession.user?.name, myKey(), size = 58.dp)
+                if (latest != null) StoryThumb(latest, size = 48.dp)
+                else ChAvatar(AuthSession.user?.avatar, AuthSession.user?.name, myKey(), size = 48.dp)
             }
             if (!full) Box(
-                Modifier.align(Alignment.BottomEnd).scale(plus.value).size(24.dp).clip(CircleShape).background(Ch.HeaderBrush).border(2.dp, Color.White, CircleShape).clickable(onClick = add),
+                Modifier.align(Alignment.BottomEnd).scale(plus.value).size(20.dp).clip(CircleShape).background(Ch.HeaderBrush).border(2.dp, Color.White, CircleShape).clickable(onClick = add),
                 contentAlignment = Alignment.Center,
-            ) { Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+            ) { Icon(Icons.Rounded.Add, null, tint = Color.White, modifier = Modifier.size(13.dp)) }
         }
         Spacer(Modifier.height(4.dp))
         CircleLabel(stringResource(R.string.st_my_public), bold = true)
@@ -182,8 +215,8 @@ fun HomeMyCircle(state: HomeStoriesState) {
 /** Dorr's own stories — a fixed circle with the logo. */
 @Composable
 fun HomeDorrCircle(state: HomeStoriesState, group: StoryGroupDto) {
-    Column(Modifier.width(74.dp).clickable { state.open(group) }, horizontalAlignment = Alignment.CenterHorizontally) {
-        StoryRing(group.stories.size, group.stories.count { it.seen }, size = 68.dp) { DorrAvatar(58.dp) }
+    Column(Modifier.width(58.dp).clickable { state.open(group) }, horizontalAlignment = Alignment.CenterHorizontally) {
+        StoryRing(group.stories.size, group.stories.count { it.seen }, size = 56.dp) { DorrAvatar(48.dp) }
         Spacer(Modifier.height(4.dp))
         CircleLabel(stringResource(R.string.st_dorr), bold = !group.allSeen)
     }
@@ -193,9 +226,9 @@ fun HomeDorrCircle(state: HomeStoriesState, group: StoryGroupDto) {
 @Composable
 fun HomePersonCircle(state: HomeStoriesState, group: StoryGroupDto) {
     val owner = group.owner
-    Column(Modifier.width(74.dp).clickable { state.open(group) }, horizontalAlignment = Alignment.CenterHorizontally) {
-        StoryRing(group.stories.size, group.stories.count { it.seen }, size = 68.dp) {
-            ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 58.dp)
+    Column(Modifier.width(58.dp).clickable { state.open(group) }, horizontalAlignment = Alignment.CenterHorizontally) {
+        StoryRing(group.stories.size, group.stories.count { it.seen }, size = 56.dp) {
+            ChAvatar(owner?.avatar, owner?.name, owner?.key, size = 48.dp)
         }
         Spacer(Modifier.height(4.dp))
         CircleLabel(owner?.name.orEmpty(), bold = !group.allSeen)
@@ -205,7 +238,7 @@ fun HomePersonCircle(state: HomeStoriesState, group: StoryGroupDto) {
 @Composable
 private fun CircleLabel(text: String, bold: Boolean) {
     Text(
-        text, color = com.dorr.app.ui.screens.wallet.Wa.Ink.copy(alpha = if (bold) 1f else 0.65f), fontSize = 11.5.sp,
+        text, color = com.dorr.app.ui.screens.wallet.Wa.Ink.copy(alpha = if (bold) 1f else 0.65f), fontSize = 11.sp,
         fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
     )
 }

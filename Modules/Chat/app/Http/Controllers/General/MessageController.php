@@ -5,6 +5,7 @@ namespace Modules\Chat\Http\Controllers\General;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Modules\Chat\Http\Requests\SendMessageRequest;
 use Modules\Chat\Models\ChatConversation;
@@ -142,7 +143,7 @@ class MessageController extends Controller
     public function setReminder(Request $request, ChatMessage $message, MessageReminderService $reminders)
     {
         $data = $request->validate(['remind_at' => ['required', 'date'], 'note' => ['nullable', 'string', 'max:200']]);
-        $reminder = $reminders->set($request->user(), $message, \Illuminate\Support\Carbon::parse($data['remind_at']), $data['note'] ?? null);
+        $reminder = $reminders->set($request->user(), $message, Carbon::parse($data['remind_at']), $data['note'] ?? null);
 
         return ApiResponse::success(['reminder_at' => $reminder->remind_at->toIso8601String(), 'note' => $reminder->note], __('api.updated'));
     }

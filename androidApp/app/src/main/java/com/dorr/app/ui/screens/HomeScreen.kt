@@ -108,28 +108,20 @@ fun HomeScreen(
         item { Spacer(Modifier.height(10.dp)) }
         homeStories?.let { stories -> item { com.dorr.app.ui.screens.portals.HomeCircles(stories, onOpenPortals = onOpenPortals) } }
         item { Spacer(Modifier.height(10.dp)) }
-        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp)) }
-        item { com.dorr.app.ui.screens.sports.SportsHomeCard(onOpen = { com.dorr.app.ui.screens.sports.SportsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        item { com.dorr.app.ui.screens.events.EventsBanner(onOpen = { com.dorr.app.ui.screens.events.EventsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
-        item {
-            HomeWalletCard(
-                onOpenWallet = onOpenWallet,
-                modifier = Modifier.padding(horizontal = 20.dp),
-            )
-        }
-        item { Spacer(Modifier.height(12.dp)) }
         item {
             ServicesSection(
                 onViewAll = onOpenServices,
                 onOpenService = onOpenService,
-                // Bug fix (2026-10-04): without this, tapping "AI
-                // Assistant" in this Home preview grid opened the generic
-                // service-details page instead of the assistant itself.
+                // Bug fix (2026-10-04): without this, tapping "AI Assistant" in this Home preview opened the
+                // generic service-details page instead of the assistant itself.
                 onOpenAi = onOpenAi,
-                modifier = Modifier.padding(horizontal = 20.dp),
             )
         }
+        item { Spacer(Modifier.height(10.dp)) }
+        item { com.dorr.app.ui.screens.calendar.TodayCard(onOpen = onOpenCalendar, modifier = Modifier.padding(horizontal = 20.dp)) }
+        item { com.dorr.app.ui.screens.sports.SportsHomeCard(onOpen = { com.dorr.app.ui.screens.sports.SportsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { com.dorr.app.ui.screens.events.EventsBanner(onOpen = { com.dorr.app.ui.screens.events.EventsLink.show() }, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
+        item { com.dorr.app.ui.screens.moments.MomentsBanner(onOpen = onOpenMoments, modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp)) }
         item { Spacer(Modifier.height(24.dp)) }
         item { QuickActionsRow(modifier = Modifier.padding(horizontal = 20.dp)) }
         item { Spacer(Modifier.height(20.dp)) }
@@ -252,94 +244,6 @@ private fun HomeAvatar(user: UserDto?) {
         )
     } else {
         Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
-    }
-}
-
-@Composable
-private fun HomeWalletCard(onOpenWallet: () -> Unit, modifier: Modifier = Modifier) {
-    var balanceText by remember { mutableStateOf("0.00") }
-    var currencyText by remember { mutableStateOf("") }
-    val reconnectTick = collectReconnectTick()
-    LaunchedEffect(reconnectTick) {
-        runCatching { ApiClient.wallet.balance("Bearer ${AuthSession.token.orEmpty()}").data }.onSuccess { dto ->
-            dto?.let {
-                balanceText = formatMinor(it.totalMinor, null)
-                currencyText = it.currencySymbol ?: it.currencyCode.orEmpty()
-            }
-        }
-    }
-    val night = settingsNight()
-    val cardShape = RoundedCornerShape(20.dp)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp)
-            .then(if (night) Modifier else Modifier.shadow(10.dp, cardShape, spotColor = settingsAccent().copy(alpha = 0.08f)))
-            .clip(cardShape)
-            .background(settingsCard())
-            .then(if (night) Modifier.border(1.dp, AccountDark.line, cardShape) else Modifier)
-            .clickable(onClick = onOpenWallet)
-            .padding(12.dp, 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            modifier = Modifier
-                .size(42.dp)
-                .clip(RoundedCornerShape(15.dp))
-                .background(if (night) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                Icons.Rounded.AccountBalanceWallet,
-                contentDescription = null,
-                tint = if (night) AccountDark.accent else settingsAccent(),
-                modifier = Modifier.size(22.dp),
-            )
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(R.string.home_wallet_balance),
-                fontSize = 12.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = if (night) AccountDark.mut else AppColors.textSecondary,
-            )
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    balanceText,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = settingsInk(),
-                    modifier = Modifier.alignByBaseline(),
-                )
-                if (currencyText.isNotBlank()) {
-                    Spacer(Modifier.width(4.dp))
-                    Text(
-                        currencyText,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (night) AccountDark.mut else AppColors.textSecondary,
-                        modifier = Modifier.alignByBaseline(),
-                    )
-                }
-            }
-        }
-        Box(
-            modifier = Modifier
-                .shadow(8.dp, RoundedCornerShape(50), spotColor = settingsAccent().copy(alpha = 0.25f))
-                .clip(RoundedCornerShape(50))
-                .background(settingsAccent())
-                .clickable(onClick = onOpenWallet)
-                .padding(horizontal = 14.dp, vertical = 8.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            Text(
-                stringResource(R.string.home_wallet_topup),
-                color = Color.White,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.ExtraBold,
-            )
-        }
     }
 }
 

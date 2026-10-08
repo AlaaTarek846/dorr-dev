@@ -10,10 +10,12 @@ use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\Sports\Data\GamesAdapter;
 use Modules\Sports\Database\Seeders\SportsSeeder;
 use Modules\Sports\Events\SportsRealtimeEvent;
@@ -26,6 +28,7 @@ use Modules\Sports\Services\SportsEngine;
 use Modules\Sports\Services\SportsGovernor;
 use Modules\Sports\Support\ApiSportsClient;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -366,7 +369,7 @@ class SportsTest extends TestCase
     /** @return list<array<string, mixed>> */
     private function pushes(): array
     {
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
 
         return collect(Http::recorded())->map(fn ($p) => $p[0])->filter(fn ($r) => str_contains($r->url(), 'onesignal') && str_starts_with((string) ($r['data']['type'] ?? ''), 'sports'))
             ->map(fn ($r) => $r->data())->values()->all();
@@ -374,9 +377,9 @@ class SportsTest extends TestCase
 
     private function asAdmin(array $permissions): void
     {
-        $admin = \Modules\Admin\Models\Admin::query()->firstOrCreate(['email' => 'a@example.com'], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::query()->firstOrCreate(['email' => 'a@example.com'], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

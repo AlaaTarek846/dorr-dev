@@ -2608,7 +2608,9 @@
         "new_notification": "إشعار جديد",
         "mark_all_read": "تعليم الكل كمقروء",
         "mark_as_read": "تعليم كمقروء",
-        "open": "فتح"
+        "open": "فتح",
+        "loading": "جارٍ التحميل",
+        "end_of_list": "وصلت إلى نهاية القائمة"
     },
     "sms": {
         "test_status_passed": "ناجح",

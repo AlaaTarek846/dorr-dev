@@ -49,6 +49,7 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **Referral:** `GET mobile/v1/referrals/my-code` / `POST .../track`. Share uses the server code. A pending code (typed, shared, or Play Install Referrer later) is sent once after login; the backend is idempotent.
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 
+- **Pull to refresh:** wrap a screen's scrollable content in `PullToRefreshHost` (`ui/components/PullToRefresh.kt`, used by every tab in `MainScreen` and by the wallet) and key its load on `collectReconnectTick()` — `RefreshCoordinator` adds a pull tick to that value and hides the indicator when the in-flight API requests (counted by an OkHttp interceptor) have finished. Screens that load once with `LaunchedEffect(Unit)` do not reload on a pull until keyed on the tick.
 ## Backend host (dev)
 
 `network/ApiClient.kt` hard-codes `BASE_HOST`:

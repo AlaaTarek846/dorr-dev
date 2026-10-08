@@ -174,7 +174,7 @@ class ScheduledMessageService
                 'silent' => $row->is_silent,
             ] + ($row->type && $row->type !== 'text' ? ['meta_raw' => $row->meta, 'copy_media_from' => $row] : []));
             if ($row->type && $row->type !== 'text') {
-                $row->clearMediaCollection(\Modules\Chat\Models\ChatMessage::ATTACHMENTS);
+                $row->clearMediaCollection(ChatMessage::ATTACHMENTS);
             }
 
             $row->update(['status' => ChatScheduledMessage::SENT, 'message_id' => $message->id, 'error_code' => null]);

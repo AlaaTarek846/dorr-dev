@@ -511,7 +511,11 @@ interface ChatApi {
     suspend fun viewStory(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
 
     @GET("mobile/v1/chat/stories/public")
-    suspend fun publicStories(@Header("Authorization") auth: String): ApiEnvelope<PublicStoryFeedDto>
+    suspend fun publicStories(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 10,
+    ): ApiEnvelope<PublicStoryFeedDto>
 
     @POST("mobile/v1/chat/stories/dorr/{id}/view")
     suspend fun viewDorrStory(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
@@ -1154,6 +1158,8 @@ data class PublicStoryFeedDto(
     val mine: StoryGroupDto? = null,
     val dorr: StoryGroupDto? = null,
     val people: List<StoryGroupDto> = emptyList(),
+    /** More people follow this page (the home row loads ten at a time). */
+    @SerializedName("has_more") val hasMore: Boolean = false,
 )
 
 data class StoryQuotaDto(val free: Int, val used: Int)

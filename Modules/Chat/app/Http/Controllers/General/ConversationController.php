@@ -12,6 +12,7 @@ use Modules\Chat\Http\Requests\ConversationSettingsRequest;
 use Modules\Chat\Http\Resources\ConversationResource;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Services\ChatOverviewService;
 use Modules\Chat\Services\ConversationService;
 use Modules\Chat\Services\MessageService;
 use Modules\Chat\Support\ParticipantType;
@@ -36,7 +37,7 @@ class ConversationController extends Controller
         $me = $request->user();
         $page = $this->conversations->list($me, $filters, (int) ($filters['per_page'] ?? 20));
         // The priority inbox says why each chat is there (spec 114).
-        $reasons = ($filters['filter'] ?? null) === 'priority' ? app(\Modules\Chat\Services\ChatOverviewService::class)->priorityReasons($page->getCollection()) : [];
+        $reasons = ($filters['filter'] ?? null) === 'priority' ? app(ChatOverviewService::class)->priorityReasons($page->getCollection()) : [];
         $data = $page->getCollection()->map(fn (ChatParticipant $p) => new ConversationResource($p, $me, isset($reasons[$p->id]) ? ['priority' => $reasons[$p->id]] : []))->values();
 
         return ApiResponse::success($data, __('api.retrieved'), 200, ApiPaginator::meta($page), [

@@ -4,13 +4,14 @@ namespace Modules\Chat\Support;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
+use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatMessageReceipt;
+use Modules\Chat\Models\ChatMessageReminder;
 use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatPollVote;
-use Modules\Chat\Enums\MessageType;
 
 /**
  * Everything MessageResource needs to render messages for *one* viewer, loaded once per page:
@@ -89,7 +90,7 @@ class MessageViewContext
             $context->starred = $states->whereNotNull('starred_at')->pluck('message_id')->flip()->map(fn () => true)->all();
             $context->readLater = $states->whereNotNull('read_later_at')->pluck('message_id')->flip()->map(fn () => true)->all();
             $context->followUp = $states->whereNotNull('follow_up_at')->pluck('message_id')->flip()->map(fn () => true)->all();
-            $context->reminders = \Modules\Chat\Models\ChatMessageReminder::query()
+            $context->reminders = ChatMessageReminder::query()
                 ->where('participant_id', $me->id)->whereIn('message_id', $ids)->whereNull('sent_at')
                 ->get(['message_id', 'remind_at'])->mapWithKeys(fn ($r) => [$r->message_id => $r->remind_at->toIso8601String()])->all();
         }

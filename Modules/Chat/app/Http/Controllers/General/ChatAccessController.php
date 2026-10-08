@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Services\ConversationService;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\User\Models\User;
@@ -66,7 +67,7 @@ class ChatAccessController extends Controller
         return ApiResponse::success(['ok' => true], __('api.retrieved'));
     }
 
-    private function check(\Modules\Chat\Models\ChatParticipant $participant, string $pin): void
+    private function check(ChatParticipant $participant, string $pin): void
     {
         if ($participant->lock_pin_until !== null && $participant->lock_pin_until->isFuture()) {
             throw new ChatException('lock_pin_locked', 429, ['minutes' => (int) ceil(now()->diffInSeconds($participant->lock_pin_until) / 60)]);

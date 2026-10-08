@@ -2,12 +2,14 @@
 
 namespace Modules\Chat\Services;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
+use Modules\Chat\Models\ChatDecisionArgument;
 use Modules\Chat\Models\ChatGroupDecision;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Support\ParticipantDirectory;
@@ -64,7 +66,7 @@ class DecisionService
                 'poll_message_id' => $poll->id,
                 'title' => mb_substr($title, 0, 300),
                 'description' => $description !== null && trim($description) !== '' ? mb_substr(trim($description), 0, 1000) : null,
-                'deadline_at' => $deadline ? \Carbon\CarbonImmutable::parse($deadline)->utc() : null,
+                'deadline_at' => $deadline ? CarbonImmutable::parse($deadline)->utc() : null,
                 'status' => 'open',
                 'created_by_participant_id' => $participant->id,
             ]);
@@ -171,7 +173,7 @@ class DecisionService
 
         return $this->present($me, $d) + [
             'can_decide' => $mine->isAdmin() && $d->status === 'open',
-            'arguments' => $d->arguments->sortBy('id')->map(fn (\Modules\Chat\Models\ChatDecisionArgument $a) => [
+            'arguments' => $d->arguments->sortBy('id')->map(fn (ChatDecisionArgument $a) => [
                 'id' => $a->id,
                 'stance' => $a->stance,
                 'option_id' => $a->option_id,
