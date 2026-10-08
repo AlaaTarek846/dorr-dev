@@ -276,6 +276,14 @@ class AdminPermissionSeeder extends Seeder
                 'module_name' => 'system_users',
                 'actions' => ['view', 'update'],
             ],
+            'support-help-nodes' => [
+                'module_name' => 'system_users',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status'],
+            ],
+            'support-quick-replies' => [
+                'module_name' => 'system_users',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
+            ],
             'support-tickets' => [
                 'module_name' => 'system_users',
                 'actions' => ['view', 'reply', 'change-status'],

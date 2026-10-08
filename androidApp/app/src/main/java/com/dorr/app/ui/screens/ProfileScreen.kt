@@ -140,7 +140,7 @@ import com.dorr.app.ui.theme.appearanceColor
 private enum class ProfileSub {
     NONE, PERSONAL_DATA, NOTIFICATIONS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
-    INVITE, RATE, SUPPORT, TICKET,
+    INVITE, RATE, SUPPORT, TICKET, QUICK_CHAT,
 }
 
 private data class MenuEntry(
@@ -182,7 +182,7 @@ fun ProfileScreen(
             ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
             ProfileSub.LEGAL -> ProfileSub.SETTINGS
             ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
-            ProfileSub.TICKET -> ProfileSub.SUPPORT
+            ProfileSub.TICKET, ProfileSub.QUICK_CHAT -> ProfileSub.SUPPORT
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
         }
@@ -272,6 +272,12 @@ fun ProfileScreen(
             ProfileSub.SUPPORT -> SupportMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onOpenTicket = { subScreen = ProfileSub.TICKET },
+                onOpenQuickChat = { subScreen = ProfileSub.QUICK_CHAT },
+            )
+            // The quick chat: guided help that ends in "solved" or a ticket (the ticket screen hosts both).
+            ProfileSub.QUICK_CHAT -> SupportTicketScreen(
+                onBack = { subScreen = ProfileSub.SUPPORT },
+                startQuickChat = true,
             )
             ProfileSub.TICKET -> SupportTicketScreen(
                 onBack = { subScreen = ProfileSub.SUPPORT },
@@ -727,12 +733,14 @@ private fun SettingsMenuScreen(
 private fun SupportMenuScreen(
     onBack: () -> Unit,
     onOpenTicket: () -> Unit,
+    onOpenQuickChat: () -> Unit,
 ) {
     var showFaqSheet by remember { mutableStateOf(false) }
     AccountListScreen(
         title = stringResource(R.string.support_title),
         onBack = onBack,
         items = listOf(
+            MenuEntry(Icons.Rounded.SupportAgent, R.string.support_quick_chat_title, R.string.support_quick_chat_sub, onClick = onOpenQuickChat),
             MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = onOpenTicket),
             MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
         ),

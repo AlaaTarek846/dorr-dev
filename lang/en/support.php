@@ -5,6 +5,9 @@
  * (Dashboard → Support settings). Placeholders: :id (ticket number), :hours (working hours).
  */
 return [
+    // The guided help menu of the app (before a ticket is opened).
+    'help_greeting' => 'Hi! We are here to help. Pick one of the options below to get started.',
+
     'auto_ack' => 'Thank you for contacting Dorr support. We received your ticket #:id and our team usually replies within a few hours. You can add more details or photos here meanwhile.',
     'auto_away' => 'Our support team is offline right now. Working hours: :hours. We will reply to ticket #:id as soon as we are back.',
 

@@ -17,6 +17,7 @@ class SupportTicketResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'number' => $this->number,
             'title' => $this->title,
             'body' => $this->body,
             'image_url' => $this->imageUrl(),

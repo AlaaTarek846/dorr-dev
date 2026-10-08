@@ -8,11 +8,11 @@ use App\Models\Flag;
 use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
-use Modules\Chat\Models\ChatConversation;
-use Modules\Chat\Models\ChatParticipant;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -74,7 +74,7 @@ class ChatMessageToolsTest extends TestCase
         $this->artisan('chat:send-reminders')->assertSuccessful();
         $this->artisan('chat:send-reminders')->assertSuccessful();
         // Pushes go out deferred — after the command, like in production.
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
         Http::assertSentCount(2); // Alice's message + the one reminder
         Http::assertSent(fn ($r) => ($r['data']['event'] ?? null) === 'chat.reminder.due' && $r['contents']['en'] === 'Book a taxi' && $r['include_player_ids'] === ['bob-phone']);
 
@@ -222,7 +222,7 @@ class ChatMessageToolsTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

@@ -47,6 +47,10 @@ class SupportTicketController extends Controller implements HasMiddleware
             $query->where('status', $request->string('status')->toString());
         }
 
+        if ($request->filled('user_id')) {
+            $query->where('user_id', (int) $request->query('user_id'));
+        }
+
         if ($request->filled('mine')) {
             $query->where('admin_id', $request->user('admin_api')?->getKey());
         }
@@ -55,6 +59,7 @@ class SupportTicketController extends Controller implements HasMiddleware
             $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $term).'%';
             $query->where(function ($q) use ($like, $term) {
                 $q->where('title', 'like', $like)
+                    ->orWhere('number', 'like', $like)
                     ->orWhere('id', ctype_digit(ltrim($term, '#')) ? (int) ltrim($term, '#') : 0)
                     ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like)->orWhere('phone', 'like', $like));
             });
@@ -106,8 +111,13 @@ class SupportTicketController extends Controller implements HasMiddleware
     public function quickReplies(): JsonResponse
     {
         return ApiResponse::success(
-            SupportQuickReply::query()->where('status', true)->orderBy('sort_order')->orderBy('id')
-                ->get(['id', 'shortcut', 'title', 'body']),
+            SupportQuickReply::query()->active()->with('translations')->orderBy('sort_order')->orderBy('id')->get()
+                ->map(fn (SupportQuickReply $reply) => [
+                    'id' => $reply->id,
+                    'shortcut' => $reply->shortcut,
+                    'title' => $reply->translated('title'),
+                    'body' => $reply->translated('body'),
+                ])->values(),
             __('api.retrieved'),
         );
     }

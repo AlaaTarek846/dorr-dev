@@ -333,47 +333,54 @@ fun SupportChatScreen(
 private fun TicketStatusBar(ticket: SupportTicketDto, busy: Boolean, onBack: () -> Unit, onClose: () -> Unit, onReopen: () -> Unit) {
     val accent = settingsAccent()
     val card = if (settingsNight()) AccountDark.card else settingsCard()
-    Row(
+    val cardShape = RoundedCornerShape(22.dp)
+    Column(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 10.dp, vertical = 8.dp)
-            .clip(RoundedCornerShape(20.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .clip(cardShape)
             .background(card)
-            .border(1.dp, settingsMut().copy(alpha = 0.15f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 6.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .border(1.dp, settingsMut().copy(alpha = 0.15f), cardShape)
+            .padding(horizontal = 10.dp, vertical = 10.dp),
     ) {
-        Box(
-            Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = settingsInk(), modifier = Modifier.size(22.dp)) }
-        Box(
-            Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) { Icon(Icons.Rounded.SupportAgent, null, tint = accent, modifier = Modifier.size(24.dp)) }
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
+        // Row 1: back, the support icon and the ticket's title.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(settingsMut().copy(alpha = 0.10f)).clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = settingsInk(), modifier = Modifier.size(20.dp)) }
+            Spacer(Modifier.width(10.dp))
+            Box(
+                Modifier.size(38.dp).clip(CircleShape).background(accent.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.SupportAgent, null, tint = accent, modifier = Modifier.size(22.dp)) }
+            Spacer(Modifier.width(10.dp))
             Text(
                 ticket.title.orEmpty().ifBlank { stringResource(R.string.support_agent_default) },
-                color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                color = settingsInk(), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold,
                 maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("#${ticket.id}", color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
-                Spacer(Modifier.width(8.dp))
-                SupportStatusChip(ticket.status)
+        }
+        Box(Modifier.padding(vertical = 10.dp).fillMaxWidth().height(1.dp).background(settingsMut().copy(alpha = 0.12f)))
+        // Row 2: the ticket's number, its status, and the one action that fits.
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "#${ticket.displayNumber}",
+                color = settingsMut(), fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(settingsMut().copy(alpha = 0.10f)).padding(horizontal = 8.dp, vertical = 3.dp),
+            )
+            Spacer(Modifier.width(8.dp))
+            SupportStatusChip(ticket.status)
+            Spacer(Modifier.weight(1f))
+            if (busy) {
+                CircularProgressIndicator(color = accent, strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
+            } else if (ticket.acceptsReplies) {
+                TextAction(stringResource(R.string.support_close), Icons.Rounded.Lock, onClose)
+            } else {
+                TextAction(stringResource(R.string.support_reopen), Icons.Rounded.LockOpen, onReopen)
             }
         }
-        Spacer(Modifier.width(8.dp))
-        if (busy) {
-            CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
-        } else if (ticket.acceptsReplies) {
-            TextAction(stringResource(R.string.support_close), Icons.Rounded.Lock, onClose)
-        } else {
-            TextAction(stringResource(R.string.support_reopen), Icons.Rounded.LockOpen, onReopen)
-        }
-        Spacer(Modifier.width(4.dp))
     }
 }
 
