@@ -327,12 +327,10 @@ internal fun CompetitionHeading(name: String?, logo: String?, country: String?, 
 fun SportsHomeCard(onOpen: () -> Unit, modifier: Modifier = Modifier) {
     val context = androidx.compose.ui.platform.LocalContext.current
     var home by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf<com.dorr.app.network.SpHomeDto?>(null) }
-    var off by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
     LaunchedEffect(Unit) {
         SportsLive.start(context)
-        runCatching { ApiClient.sports.home(spAuth(), spZone()).data }.onSuccess { home = it }.onFailure { off = true }
+        runCatching { ApiClient.sports.home(spAuth(), spZone()).data }.onSuccess { home = it }
     }
-    if (off) return
     val now = rememberTicker()
     val next = home?.mine?.firstOrNull()?.let { SportsLive.fresh(it) }
     val source = remember { MutableInteractionSource() }

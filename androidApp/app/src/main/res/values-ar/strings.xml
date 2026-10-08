@@ -40,6 +40,7 @@
     <string name="otp_error_generic">كود التحقق غير صحيح أو انتهت صلاحيته. حاول مرة أخرى.</string>
 
     <string name="home_greeting">مرحباً، %1$s</string>
+    <string name="home_welcome_back">أهلاً بعودتك</string>
     <string name="home_wallet_balance">رصيد المحفظة</string>
     <string name="home_wallet_topup">شحن +</string>
     <string name="home_active_jobs">الطلبات النشطة</string>
@@ -437,8 +438,11 @@
     <string name="rate_label_4">جيد جداً</string>
     <string name="rate_label_5">ممتاز</string>
     <string name="rate_comment_label">تعليق</string>
-    <string name="rate_comment_hint">ما الذي يمكننا تحسينه؟</string>
+    <string name="rate_comment_hint">اختياري — من 5 إلى 300 حرف</string>
+    <string name="rate_comment_length">التعليق من 5 إلى 300 حرف، أو اتركه فارغاً</string>
     <string name="rate_submit">إرسال التقييم</string>
+    <string name="rate_update">تحديث التقييم</string>
+    <string name="rate_updated">تم تحديث التقييم</string>
     <string name="rate_pick_stars">اختر عدد النجوم أولاً</string>
     <string name="rate_thanks">شكراً لتقييمك</string>
     <string name="support_title">الدعم والمساعدة</string>
@@ -463,7 +467,7 @@
     <string name="support_ticket_sent">تم إرسال طلب الدعم.</string>
     <string name="support_ticket_need_fields">أضف العنوان والوصف</string>
     <string name="support_ticket_failed">تعذّر إرسال الطلب</string>
-    <string name="rate_already">لقد قيّمت التطبيق من قبل. شكراً لك!</string>
+    <string name="rate_already">شكراً لك. تقدر تعدّل النجوم أو تمسح التعليق في أي وقت.</string>
     <string name="rate_failed">تعذّر إرسال التقييم، حاول مرة أخرى</string>
 
     <!-- DORR Discover (spec 169–182) -->
