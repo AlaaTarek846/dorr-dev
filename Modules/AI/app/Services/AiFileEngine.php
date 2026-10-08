@@ -3,14 +3,15 @@
 namespace Modules\AI\Services;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Modules\AI\Exceptions\AiFileException;
 use Modules\AI\Jobs\ProcessAiFileJob;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiFile;
 use Modules\AI\Models\AiMessage;
-use Modules\AI\Models\AiFileProcessing;
-use Modules\AI\Services\AiConversationFileScope;
+use Modules\AI\Repositories\AiFileRepository;
 use Modules\AI\Services\FileProcessors\AiFileProcessorManager;
 
 /**
@@ -51,7 +52,7 @@ class AiFileEngine
     public function __construct(
         protected AiFileProcessorManager $processors,
         protected AiConversationFileScope $conversationFiles,
-        protected \Modules\AI\Repositories\AiFileRepository $files,
+        protected AiFileRepository $files,
     ) {}
 
     /**
@@ -141,7 +142,7 @@ class AiFileEngine
      */
     public function storeUploadedFile(
         Authenticatable $owner,
-        \Illuminate\Http\UploadedFile $uploadedFile,
+        UploadedFile $uploadedFile,
         ?AiConversation $conversation = null,
         ?AiMessage $message = null,
     ): AiFile {
@@ -179,9 +180,9 @@ class AiFileEngine
     }
 
     /**
-     * @throws \Modules\AI\Exceptions\AiFileException when either cap
-     *         (0/null disables that dimension) would be exceeded by
-     *         accepting this upload.
+     * @throws AiFileException when either cap
+     *                         (0/null disables that dimension) would be exceeded by
+     *                         accepting this upload.
      */
     protected function assertWithinOwnerQuota(Authenticatable $owner, int $incomingSize): void
     {
@@ -195,11 +196,11 @@ class AiFileEngine
         $totals = $this->files->usageTotalsForOwner($owner);
 
         if ($maxFiles > 0 && $totals['files'] >= $maxFiles) {
-            throw \Modules\AI\Exceptions\AiFileException::forReason('file_quota_exceeded');
+            throw AiFileException::forReason('file_quota_exceeded');
         }
 
         if ($maxBytes > 0 && ($totals['bytes'] + $incomingSize) > $maxBytes) {
-            throw \Modules\AI\Exceptions\AiFileException::forReason('file_quota_exceeded');
+            throw AiFileException::forReason('file_quota_exceeded');
         }
     }
 

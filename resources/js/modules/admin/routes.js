@@ -404,6 +404,18 @@ export default [
                 meta: { middleware: [auth], permission: 'support-tickets.view' },
             },
             {
+                path: 'support-settings',
+                name: 'admin.support-settings',
+                component: page('support/settings'),
+                meta: { middleware: [auth], permission: 'support-settings.view' },
+            },
+            {
+                path: 'support-settings',
+                name: 'admin.support-settings',
+                component: page('support/settings'),
+                meta: { middleware: [auth], permission: 'support-settings.view' },
+            },
+            {
                 path: 'ratings',
                 name: 'admin.ratings.index',
                 component: page('rating/index'),

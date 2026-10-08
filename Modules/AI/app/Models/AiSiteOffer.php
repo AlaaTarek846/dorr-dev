@@ -28,7 +28,7 @@ class AiSiteOffer extends Model
     }
 
     /**
-     * @return array{price: float, currency: string}|null  null = not sold in this country
+     * @return array{price: float, currency: string}|null null = not sold in this country
      */
     public function priceFor(?Country $country): ?array
     {

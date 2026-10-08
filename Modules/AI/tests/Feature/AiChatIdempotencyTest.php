@@ -4,7 +4,7 @@ namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Modules\AI\Http\Resources\AiMessageResource;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiCodeExecution;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiKnowledgeSource;
@@ -12,7 +12,6 @@ use Modules\AI\Models\AiMessage;
 use Modules\AI\Models\AiRequest;
 use Modules\AI\Models\AiRequestCitation;
 use Modules\AI\Services\AiChatService;
-use Modules\Admin\Models\Admin;
 use ReflectionMethod;
 use Tests\TestCase;
 

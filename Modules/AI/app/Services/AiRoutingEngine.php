@@ -10,7 +10,6 @@ use Modules\AI\Models\AiProvider;
 use Modules\AI\Models\AiRoutingPolicy;
 use Modules\AI\Models\AiRoutingRule;
 use Modules\AI\Repositories\AiProviderRepository;
-use Modules\AI\Services\AiRequiredCapabilityResolver;
 
 /**
  * The real per-request routing engine (Phase 4 tables) that decides which

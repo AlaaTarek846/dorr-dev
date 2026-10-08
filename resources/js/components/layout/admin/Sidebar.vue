@@ -467,6 +467,13 @@
                             </router-link>
                         </li>
 
+                        <li v-if="can('support-settings.view')" class="slide">
+                            <router-link :to="{ name: 'admin.support-settings' }" class="side-menu__item">
+                                <i class="ri-robot-2-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('support.settings.nav') }}</span>
+                            </router-link>
+                        </li>
+
                         <li v-if="can('ratings.view')" class="slide">
                             <router-link :to="{ name: 'admin.ratings.index' }" class="side-menu__item">
                                 <i class="ri-star-line side-menu__icon"></i>
@@ -679,7 +686,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('referral-codes.view') || can('referrals.view')),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('referral-codes.view') || can('referrals.view')),
 );
 
 /**

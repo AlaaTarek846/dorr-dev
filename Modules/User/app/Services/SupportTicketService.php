@@ -25,11 +25,16 @@ use Modules\User\Models\User;
  */
 class SupportTicketService
 {
-    public function __construct(private readonly SupportNotifier $notifier) {}
+    public function __construct(
+        private readonly SupportNotifier $notifier,
+        private readonly SupportAutoReplyService $autoReplies,
+    ) {}
 
     public function open(User $user, string $title, string $body, ?UploadedFile $image): SupportTicket
     {
-        $ticket = DB::transaction(function () use ($user, $title, $body, $image) {
+        $first = null;
+
+        $ticket = DB::transaction(function () use ($user, $title, $body, $image, &$first) {
             $path = $image?->store('support-tickets/'.$user->getKey(), 'public');
 
             $ticket = SupportTicket::query()->create([
@@ -42,7 +47,7 @@ class SupportTicketService
             ]);
 
             // What the customer wrote is the first message of the conversation.
-            $ticket->messages()->create([
+            $first = $ticket->messages()->create([
                 'user_id' => $user->getKey(),
                 'sender' => SupportMessage::SENDER_USER,
                 'body' => $body,
@@ -55,8 +60,10 @@ class SupportTicketService
         });
 
         $this->notifier->ticketOpened($ticket);
+        // The acknowledgement (or the away note) right away, and the FAQ answer once the response is sent.
+        $this->autoReplies->ticketOpened($ticket, $first);
 
-        return $ticket->load('latestMessage');
+        return $ticket->refresh()->load('latestMessage');
     }
 
     public function customerReply(User $user, SupportTicket $ticket, ?string $body, ?UploadedFile $image): SupportMessage
@@ -69,6 +76,7 @@ class SupportTicketService
         ], $body, $image, 'support-messages/'.$ticket->getKey());
 
         $this->notifier->customerReplied($ticket->refresh(), $message);
+        $this->autoReplies->customerWrote($ticket, $message);
 
         return $message;
     }
@@ -91,6 +99,26 @@ class SupportTicketService
         $this->notifier->agentReplied($ticket->refresh(), $message);
 
         return $message;
+    }
+
+    /**
+     * The customer's answer to an automatic FAQ reply: "that solved it" closes the ticket; "I still need a
+     * person" stops the automatic replies on it and tells the support team someone is waiting.
+     */
+    public function autoReplyFeedback(SupportTicket $ticket, bool $solved): SupportTicket
+    {
+        $this->assertAcceptsReplies($ticket);
+
+        if ($solved) {
+            return $this->move($ticket, SupportTicketStatus::Closed, null, 'user');
+        }
+
+        if ($ticket->auto_reply_stopped_at === null) {
+            $ticket->forceFill(['auto_reply_stopped_at' => now()])->save();
+            $this->notifier->customerWantsAgent($ticket->refresh());
+        }
+
+        return $ticket;
     }
 
     /**

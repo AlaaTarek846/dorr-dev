@@ -11,7 +11,9 @@ class AiBenchmarkRun extends Model
     use HasFactory;
 
     public const STATUS_RUNNING = 'running';
+
     public const STATUS_COMPLETED = 'completed';
+
     public const STATUS_FAILED = 'failed';
 
     protected $table = 'ai_benchmark_runs';

@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Services\Sites;
 
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Modules\AI\Models\AiSiteProject;
@@ -22,7 +23,7 @@ class AiSiteResponder
      * @param  bool  $hosted  published site: indexable and briefly cacheable; the preview is private (noindex, no-store)
      * @param  bool  $redirectRoot  send "/x" to "/x/" so relative links resolve
      */
-    public function respond(Request $request, AiSiteProject $project, AiSiteVersion $version, string $path, bool $hosted, bool $redirectRoot): Response|\Illuminate\Http\RedirectResponse
+    public function respond(Request $request, AiSiteProject $project, AiSiteVersion $version, string $path, bool $hosted, bool $redirectRoot): Response|RedirectResponse
     {
         // The site root can be reached with or without a trailing slash. Redirecting "/x" to "/x/" loops
         // behind the stock Laravel .htaccess (it strips trailing slashes), so the root is served as-is and

@@ -5,10 +5,10 @@ namespace Modules\AI\Tests\Feature;
 use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiConversationAttachment;
 use Modules\AI\Models\AiMessage;
-use Modules\Admin\Models\Admin;
 use Modules\User\Models\User;
 use Tests\TestCase;
 

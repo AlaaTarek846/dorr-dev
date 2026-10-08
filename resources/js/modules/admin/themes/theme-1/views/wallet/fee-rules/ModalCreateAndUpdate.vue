@@ -21,7 +21,7 @@
                     </div>
                 </div>
 
-                <form @submit.prevent="submit">
+                <form class="wallet-scroll-form" @submit.prevent="submit">
                     <div class="modal-body px-4 pb-2">
                         <CatalogTranslationTabs
                             :languages="storableLanguages"
@@ -644,8 +644,8 @@ setupCatalogModalWatcher({
     },
 });
 
-onMounted(async () => {
-    await ensureLanguagesLoaded();
+onMounted(() => {
+    // The languages, countries and payment methods are loaded when the modal opens (onOpen), not with the page.
     modalElement.value?.addEventListener('hidden.bs.modal', onModalHidden);
 });
 

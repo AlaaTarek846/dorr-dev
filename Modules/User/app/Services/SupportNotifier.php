@@ -120,6 +120,48 @@ class SupportNotifier
         );
     }
 
+    /**
+     * An automatic reply was posted (acknowledgement, away note, FAQ answer): live to both sides. Only the
+     * FAQ answer is pushed to the customer's phone — the other two arrive while they are still on the ticket.
+     */
+    public function autoReplied(SupportTicket $ticket, SupportMessage $message, bool $push = false): void
+    {
+        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+
+        $this->toCustomer($ticket, SupportRealtimeEvent::MESSAGE, ['ticket' => $this->forCustomer($ticket), 'message' => $this->message($message)]);
+        $this->toAdmins(SupportRealtimeEvent::MESSAGE, $this->supportAdmins(), ['ticket' => $this->forAdmin($ticket), 'message' => $this->message($message)]);
+
+        if ($push) {
+            $this->center->send(
+                $ticket->user,
+                'support.ticket.auto_reply',
+                'support_ticket_auto_title',
+                'support_ticket_auto_body',
+                ['id' => $ticket->id, 'title' => $ticket->title],
+                ['type' => 'support', 'ticket_id' => $ticket->id],
+            );
+        }
+    }
+
+    /** The customer read the automatic answer and still wants a person: the support team is told. */
+    public function customerWantsAgent(SupportTicket $ticket): void
+    {
+        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $admins = $this->supportAdmins();
+
+        $this->toCustomer($ticket, SupportRealtimeEvent::TICKET_UPDATED, ['ticket' => $this->forCustomer($ticket)]);
+        $this->toAdmins(SupportRealtimeEvent::TICKET_UPDATED, $admins, ['ticket' => $this->forAdmin($ticket)]);
+        $this->center->send(
+            $ticket->admin !== null ? collect([$ticket->admin]) : $admins,
+            'support.ticket.wants_agent',
+            'support_ticket_wants_agent_title',
+            'support_ticket_wants_agent_body',
+            ['id' => $ticket->id, 'name' => $this->customerName($ticket)],
+            ['type' => 'support', 'ticket_id' => $ticket->id],
+            push: false,
+        );
+    }
+
     // ---------------------------------------------------------------- plumbing
 
     /**

@@ -4,6 +4,7 @@ namespace Modules\AI\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Lang;
 use Modules\AI\Models\AiSiteProject;
 
 /** @mixin AiSiteProject */
@@ -25,7 +26,7 @@ class AiSiteProjectResource extends JsonResource
             'is_disabled' => $this->isDisabled(),
             'brief' => $this->brief,
             'last_error' => $this->last_error,
-            'last_error_message' => $this->last_error && \Illuminate\Support\Facades\Lang::has('ai.site_'.$this->last_error) ? __('ai.site_'.$this->last_error) : null,
+            'last_error_message' => $this->last_error && Lang::has('ai.site_'.$this->last_error) ? __('ai.site_'.$this->last_error) : null,
             'current_version_id' => $this->current_version_id,
             'generations_left' => $this->whenLoaded('purchase', fn () => $this->purchase?->generationsLeft()),
             'versions' => $this->whenLoaded('versions', fn () => $this->versions->sortByDesc('number')->values()->map(fn ($v) => [

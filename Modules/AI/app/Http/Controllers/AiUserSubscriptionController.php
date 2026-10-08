@@ -5,6 +5,7 @@ namespace Modules\AI\Http\Controllers;
 use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Modules\AI\Exceptions\AiSubscriptionException;
 use Modules\AI\Http\Requests\AiAutoRenewRequest;
@@ -118,7 +119,7 @@ class AiUserSubscriptionController extends Controller
 
         $current = $this->activeSubscriptionOrFail($owner);
 
-        if ($current instanceof \Illuminate\Http\JsonResponse) {
+        if ($current instanceof JsonResponse) {
             return $current;
         }
 
@@ -136,7 +137,7 @@ class AiUserSubscriptionController extends Controller
         $owner = $this->owner($request);
         $current = $this->activeSubscriptionOrFail($owner);
 
-        if ($current instanceof \Illuminate\Http\JsonResponse) {
+        if ($current instanceof JsonResponse) {
             return $current;
         }
 
@@ -155,7 +156,7 @@ class AiUserSubscriptionController extends Controller
     }
 
     /**
-     * @return AiSubscription|\Illuminate\Http\JsonResponse
+     * @return AiSubscription|JsonResponse
      */
     protected function activeSubscriptionOrFail(Authenticatable $owner)
     {

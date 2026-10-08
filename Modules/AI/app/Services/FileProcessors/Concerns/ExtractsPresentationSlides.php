@@ -4,11 +4,12 @@ namespace Modules\AI\Services\FileProcessors\Concerns;
 
 use PhpOffice\PhpPresentation\PhpPresentation;
 use PhpOffice\PhpPresentation\Shape\Chart;
+use PhpOffice\PhpPresentation\Shape\RichText;
 use PhpOffice\PhpPresentation\Shape\RichText\Paragraph;
 use PhpOffice\PhpPresentation\Shape\RichText\TextElement;
-use PhpOffice\PhpPresentation\Shape\RichText;
 use PhpOffice\PhpPresentation\Shape\Table;
 use PhpOffice\PhpPresentation\Slide;
+use PhpOffice\PhpPresentation\Style\Bullet;
 
 /**
  * Phase 4 (doc S6/S21): walks a loaded `PhpPresentation` object - built
@@ -212,8 +213,8 @@ trait ExtractsPresentationSlides
             try {
                 $bulletType = $paragraph->getBulletStyle()?->getBulletType();
 
-                if ($bulletType === \PhpOffice\PhpPresentation\Style\Bullet::TYPE_BULLET
-                    || $bulletType === \PhpOffice\PhpPresentation\Style\Bullet::TYPE_NUMERIC) {
+                if ($bulletType === Bullet::TYPE_BULLET
+                    || $bulletType === Bullet::TYPE_NUMERIC) {
                     return null;
                 }
             } catch (\Throwable) {
@@ -285,8 +286,8 @@ trait ExtractsPresentationSlides
 
             try {
                 $bulletType = $paragraph->getBulletStyle()?->getBulletType();
-                $isNumbered = $bulletType === \PhpOffice\PhpPresentation\Style\Bullet::TYPE_NUMERIC;
-                $isBulleted = $bulletType === \PhpOffice\PhpPresentation\Style\Bullet::TYPE_BULLET;
+                $isNumbered = $bulletType === Bullet::TYPE_NUMERIC;
+                $isBulleted = $bulletType === Bullet::TYPE_BULLET;
             } catch (\Throwable) {
                 // Bullet style detection is best-effort (doc S10/S19) -
                 // an undetectable bullet just becomes a plain paragraph

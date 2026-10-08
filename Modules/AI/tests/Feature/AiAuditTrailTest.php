@@ -4,9 +4,11 @@ namespace Modules\AI\Tests\Feature;
 
 use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Modules\AI\Models\AiAuditEvent;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Services\AiAuditTrail;
+use Modules\AI\Services\AiChatService;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -84,7 +86,7 @@ class AiAuditTrailTest extends TestCase
             'title' => 'Export audit test',
         ]);
 
-        app(\Modules\AI\Services\AiChatService::class)->exportOwnerData($owner);
+        app(AiChatService::class)->exportOwnerData($owner);
 
         $this->assertDatabaseHas('ai_audit_events', [
             'owner_type' => $owner->getMorphClass(),
@@ -102,7 +104,7 @@ class AiAuditTrailTest extends TestCase
             'title' => 'Erase audit test',
         ]);
 
-        app(\Modules\AI\Services\AiChatService::class)->eraseOwnerData($owner);
+        app(AiChatService::class)->eraseOwnerData($owner);
 
         $this->assertDatabaseHas('ai_audit_events', [
             'owner_type' => $owner->getMorphClass(),
@@ -116,7 +118,7 @@ class AiAuditTrailTest extends TestCase
     {
         // Simulate a broken audit sink (e.g. the table is unavailable) by
         // dropping it, then prove record() does not throw.
-        \Illuminate\Support\Facades\Schema::drop('ai_audit_events');
+        Schema::drop('ai_audit_events');
 
         $owner = $this->makeUser();
 

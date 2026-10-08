@@ -122,5 +122,9 @@ return [
     'support_ticket_customer_status_reopened_body' => 'أعاد :name فتح التذكرة رقم :id.',
     'support_ticket_customer_status_resolved_body' => 'حدد :name التذكرة رقم :id كمحلولة.',
     'support_ticket_customer_status_closed_body' => 'أغلق :name التذكرة رقم :id.',
+    'support_ticket_auto_title' => 'وجدنا إجابة لتذكرتك',
+    'support_ticket_auto_body' => 'وجدنا إجابة للتذكرة "#:id :title". افتحها لقراءتها، وأخبرنا إن كنت ما زلت بحاجة لموظف.',
+    'support_ticket_wants_agent_title' => 'عميل ينتظر موظفاً',
+    'support_ticket_wants_agent_body' => 'قرأ :name الرد الآلي على التذكرة رقم :id وما زال يحتاج موظفاً.',
 
 ];

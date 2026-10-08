@@ -227,7 +227,7 @@ fun MainScreen(
             // Also hidden while the AI Assistant is open: it is its own full-screen space, and with
             // the bar gone Scaffold's bottom padding shrinks to zero so AiChatHost reaches the edge.
             AnimatedVisibility(
-                visible = !aiChatOpen && !(chatOpen && com.dorr.app.chat.ChatStore.immersive),
+                visible = !aiChatOpen && !com.dorr.app.ui.screens.profile.SupportChatState.open && !(chatOpen && com.dorr.app.chat.ChatStore.immersive),
                 enter = slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(220)),
                 exit = slideOutVertically(tween(260, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180)),
             ) {

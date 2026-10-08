@@ -484,4 +484,11 @@
     <string name="support_attach">إرفاق صورة</string>
     <string name="support_load_earlier">رسائل أقدم</string>
     <string name="support_reply_toast">ردّ الدعم على التذكرة #%1$d</string>
+    <string name="support_auto_reply">رد آلي</string>
+    <string name="support_auto_ack">تأكيد الاستلام</string>
+    <string name="support_auto_away">خارج أوقات العمل</string>
+    <string name="support_auto_faq">من الأسئلة الشائعة</string>
+    <string name="support_auto_prefix">رد آلي: </string>
+    <string name="support_auto_solved">حلّ مشكلتي</string>
+    <string name="support_auto_need_agent">ما زلت أحتاج موظفاً</string>
 </resources>

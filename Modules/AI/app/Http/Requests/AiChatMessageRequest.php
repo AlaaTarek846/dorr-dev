@@ -56,7 +56,7 @@ class AiChatMessageRequest extends FormRequest
                 // the extension/client-declared type - this checks the
                 // file's actual bytes so a renamed executable/script
                 // can't ride through as a "photo.jpg".
-                new SafeUploadedFile(),
+                new SafeUploadedFile,
             ],
 
             // Phase 10 (doc S13/S28): explicit multi-file selection for

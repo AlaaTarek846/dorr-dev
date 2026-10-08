@@ -484,4 +484,11 @@
     <string name="support_attach">Attach a photo</string>
     <string name="support_load_earlier">Earlier messages</string>
     <string name="support_reply_toast">Support replied on ticket #%1$d</string>
+    <string name="support_auto_reply">Automatic reply</string>
+    <string name="support_auto_ack">Received</string>
+    <string name="support_auto_away">Away</string>
+    <string name="support_auto_faq">From the FAQs</string>
+    <string name="support_auto_prefix">Automatic: </string>
+    <string name="support_auto_solved">That solved it</string>
+    <string name="support_auto_need_agent">I still need a person</string>
 </resources>

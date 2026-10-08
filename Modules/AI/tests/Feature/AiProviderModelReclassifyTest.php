@@ -5,8 +5,8 @@ namespace Modules\AI\Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
-use Modules\AI\Repositories\AiProviderRepository;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Repositories\AiProviderRepository;
 use Tests\TestCase;
 
 /**
@@ -85,7 +85,7 @@ class AiProviderModelReclassifyTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertOk();
 
@@ -124,7 +124,7 @@ class AiProviderModelReclassifyTest extends TestCase
             'model' => 'gpt-4o-mini',
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertStatus(422);
     }
@@ -187,7 +187,7 @@ class AiProviderModelReclassifyTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertOk();
 
@@ -247,7 +247,7 @@ class AiProviderModelReclassifyTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertOk();
 
@@ -321,7 +321,7 @@ class AiProviderModelReclassifyTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertOk();
 
@@ -331,6 +331,7 @@ class AiProviderModelReclassifyTest extends TestCase
             return ($request['model'] ?? null) === 'gpt-4o-mini';
         });
     }
+
     /**
      * Admin-requested fix (no new field): "Reclassify with AI" must use
      * the provider's own plain `model` column - the one the admin already
@@ -381,7 +382,7 @@ class AiProviderModelReclassifyTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertOk();
 
@@ -427,7 +428,7 @@ class AiProviderModelReclassifyTest extends TestCase
             ], 200),
         ]);
 
-        $response = $this->postJson("/api/admin/v1/ai-providers/openai/models/reclassify");
+        $response = $this->postJson('/api/admin/v1/ai-providers/openai/models/reclassify');
 
         $response->assertOk();
 

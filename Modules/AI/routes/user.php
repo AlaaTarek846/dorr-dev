@@ -1,15 +1,15 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 use Modules\AI\Http\Controllers\AiChatController;
 use Modules\AI\Http\Controllers\AiConversationFileController;
-use Modules\AI\Http\Controllers\AiRealtimeController;
-use Modules\AI\Http\Controllers\AiSiteProjectController;
-use Modules\AI\Http\Controllers\AiSiteHostingController;
-use Modules\AI\Http\Controllers\AiUserSubscriptionController;
-use Modules\AI\Http\Controllers\AiUserLanguagePreferenceSelfController;
 use Modules\AI\Http\Controllers\AiFileUploadController;
+use Modules\AI\Http\Controllers\AiRealtimeController;
+use Modules\AI\Http\Controllers\AiSiteHostingController;
+use Modules\AI\Http\Controllers\AiSiteProjectController;
+use Modules\AI\Http\Controllers\AiUserLanguagePreferenceSelfController;
+use Modules\AI\Http\Controllers\AiUserSubscriptionController;
+use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
 Route::middleware(['locale', 'auth:user_api', 'throttle:ai-chat-general'])->prefix('user/v1/ai-chat')->group(function () {
     Route::get('status', [AiChatController::class, 'status']);

@@ -3,13 +3,13 @@
 namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiBenchmarkCase;
 use Modules\AI\Models\AiBenchmarkResult;
 use Modules\AI\Models\AiBenchmarkRun;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Services\AiBenchmarkRunner;
 use Modules\AI\Services\AiGateway;
-use Modules\Admin\Models\Admin;
 use Tests\TestCase;
 
 /**

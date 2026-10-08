@@ -113,7 +113,6 @@ class AiProvider extends Model
             );
     }
 
-
     /**
      * Best active, registered model of this provider that has every
      * capability in $required, ordered by sort_order. Null when the

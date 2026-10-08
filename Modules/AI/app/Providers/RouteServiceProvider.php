@@ -4,6 +4,7 @@ namespace Modules\AI\Providers;
 
 use Illuminate\Foundation\Support\Providers\RouteServiceProvider as ServiceProvider;
 use Illuminate\Support\Facades\Route;
+use Modules\AI\Http\Controllers\AiSiteServeController;
 
 class RouteServiceProvider extends ServiceProvider
 {
@@ -82,7 +83,7 @@ class RouteServiceProvider extends ServiceProvider
 
         Route::middleware(['throttle:240,1'])
             ->prefix((string) config('ai.sites.hosting.path_prefix', 'sites'))
-            ->get('{name}/{path?}', [\Modules\AI\Http\Controllers\AiSiteServeController::class, 'hosted'])
+            ->get('{name}/{path?}', [AiSiteServeController::class, 'hosted'])
             ->where('name', '[a-z0-9-]{3,63}')
             ->where('path', '.*')
             ->name('ai-sites-hosted.show');

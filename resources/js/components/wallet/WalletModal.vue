@@ -1,6 +1,6 @@
 <template>
     <div ref="modalElement" class="modal fade" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" :class="size ? `modal-${size}` : ''">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable" :class="[size ? `modal-${size}` : '', { 'wallet-modal--smooth': smooth }]">
             <div class="modal-content">
                 <div class="modal-header wallet-modal-header">
                     <div class="d-flex align-items-center justify-content-between w-100 gap-3">
@@ -26,6 +26,8 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     title: { type: String, default: '' },
     size: { type: String, default: 'lg' },
+    /** Smooth, contained scrolling with a slim scrollbar and softly faded top / bottom edges (long modals). */
+    smooth: { type: Boolean, default: false },
 });
 
 const emit = defineEmits(['close']);
@@ -87,6 +89,46 @@ onUnmounted(() => {
 
 .wallet-modal-close:hover {
     opacity: 1;
+}
+
+/* Long modals: the body scrolls smoothly inside the dialog, never the page behind it, with a clearly visible themed
+   bar. (The ::-webkit-scrollbar rules are for Chromium / Brave / Edge / Safari; Chromium ignores them once
+   scrollbar-width / scrollbar-color are set, so those live in the @supports block for Firefox only.) */
+.wallet-modal--smooth .modal-body {
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    scroll-padding-block: 1rem;
+    padding-block: 1rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.wallet-modal--smooth .modal-body::-webkit-scrollbar {
+    width: 12px;
+}
+
+.wallet-modal--smooth .modal-body::-webkit-scrollbar-track {
+    margin-block: 6px;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.1);
+}
+
+.wallet-modal--smooth .modal-body::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    border-radius: 999px;
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.6);
+    background-clip: padding-box;
+}
+
+.wallet-modal--smooth .modal-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(var(--primary-rgb, 132, 90, 223), 0.85);
+    background-clip: padding-box;
+}
+
+@supports not selector(::-webkit-scrollbar) {
+    .wallet-modal--smooth .modal-body {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(var(--primary-rgb, 132, 90, 223), 0.6) rgba(var(--primary-rgb, 132, 90, 223), 0.1);
+    }
 }
 
 .wallet-modal-footer {

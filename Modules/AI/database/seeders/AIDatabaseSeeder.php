@@ -3,21 +3,21 @@
 namespace Modules\AI\Database\Seeders;
 
 use App\Models\Currency;
+use App\Models\Flag;
+use App\Models\Language;
 use Illuminate\Database\Seeder;
-use Modules\AI\Models\AiGateway;
-use Modules\AI\Models\AiIntent;
-use Modules\AI\Models\AiPlan;
+use Modules\AI\Models\AiBenchmarkCase;
 use Modules\AI\Models\AiDataPolicy;
 use Modules\AI\Models\AiDomainPolicy;
-use Modules\AI\Models\AiBenchmarkCase;
+use Modules\AI\Models\AiGateway;
+use Modules\AI\Models\AiIntent;
+use Modules\AI\Models\AiLanguageVariant;
+use Modules\AI\Models\AiPlan;
 use Modules\AI\Models\AiProviderDataRule;
+use Modules\AI\Models\AiRoutingPolicy;
 use Modules\AI\Models\AiSafetyPolicy;
 use Modules\AI\Models\AiSafetyRule;
 use Modules\AI\Models\AiSecurityPolicy;
-use App\Models\Flag;
-use App\Models\Language;
-use Modules\AI\Models\AiLanguageVariant;
-use Modules\AI\Models\AiRoutingPolicy;
 use Modules\AI\Repositories\AiProviderRepository;
 
 class AIDatabaseSeeder extends Seeder
@@ -258,6 +258,7 @@ class AIDatabaseSeeder extends Seeder
             ],
         );
     }
+
     /**
      * Seeds a starter set of AI safety policies and rules (Phase 5) so the
      * admin moderation screens have a realistic baseline instead of empty
@@ -306,6 +307,7 @@ class AIDatabaseSeeder extends Seeder
             );
         }
     }
+
     /**
      * Seeds default security and data policies (Phase 6) so the admin
      * screens have a sane baseline (auth/authorization/tenant isolation

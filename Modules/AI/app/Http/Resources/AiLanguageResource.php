@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Http\Resources;
 
+use App\Enums\TextDirection;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -26,7 +27,7 @@ class AiLanguageResource extends JsonResource
             'id' => $this->id,
             'code' => $this->code,
             'name' => $this->translatedName(),
-            'direction' => $this->direction instanceof \App\Enums\TextDirection ? $this->direction->value : $this->direction,
+            'direction' => $this->direction instanceof TextDirection ? $this->direction->value : $this->direction,
             'ai_enabled' => (bool) $this->ai_enabled,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

@@ -365,7 +365,11 @@ private fun SupportTicketCard(ticket: SupportTicketDto, onOpen: () -> Unit, modi
                         Icon(Icons.Rounded.Image, null, tint = settingsMut(), modifier = Modifier.size(14.dp).padding(end = 2.dp))
                     }
                     Text(
-                        (if (last.sender == "support") stringResource(R.string.support_agent_prefix) else "") +
+                        (when (last.sender) {
+                            "support" -> stringResource(R.string.support_agent_prefix)
+                            "system" -> stringResource(R.string.support_auto_prefix)
+                            else -> ""
+                        }) +
                             (last.body?.takeIf { it.isNotBlank() } ?: stringResource(R.string.support_photo)),
                         color = if (unread) settingsInk() else settingsMut(),
                         fontSize = 12.sp,

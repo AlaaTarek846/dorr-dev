@@ -92,9 +92,9 @@ class AiRealtimeService
         // conversation-level instructions do in the text chat's own
         // systemMessages().
         $languageDirective = $this->languageResolver->resolve($owner);
-        $effectiveInstructions = implode("
+        $effectiveInstructions = implode('
 
-", array_filter([$languageDirective, $instructions]));
+', array_filter([$languageDirective, $instructions]));
 
         $result = $this->gateway->createRealtimeSession($provider, $model->model_key, [
             'instructions' => $effectiveInstructions !== '' ? $effectiveInstructions : null,

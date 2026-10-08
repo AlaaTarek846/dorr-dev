@@ -187,16 +187,16 @@ class AiDomainPipelineService
      */
     public function correctionPrompt(AiCodeExecution $execution): string
     {
-        return "The code you just gave me was executed in a real sandbox and failed.
+        return 'The code you just gave me was executed in a real sandbox and failed.
 
-"
-            ."Exit code: ".($execution->exit_code ?? 'n/a')."
-"
-            ."stderr:
-".Str::limit((string) $execution->stderr, 1500)."
+'
+            .'Exit code: '.($execution->exit_code ?? 'n/a').'
+'
+            .'stderr:
+'.Str::limit((string) $execution->stderr, 1500).'
 
-"
-            ."Please fix the code and reply again with the corrected version in a single fenced code block.";
+'
+            .'Please fix the code and reply again with the corrected version in a single fenced code block.';
     }
 
     /**
@@ -206,20 +206,20 @@ class AiDomainPipelineService
     public function executionNote(AiCodeExecution $execution): string
     {
         if ($execution->status === AiCodeExecution::STATUS_UNAVAILABLE) {
-            return "
+            return '
 
-".__('ai.sandbox_execution_unavailable');
+'.__('ai.sandbox_execution_unavailable');
         }
 
         if ($execution->isSuccessful()) {
-            return "
+            return '
 
-".__('ai.sandbox_execution_success');
+'.__('ai.sandbox_execution_success');
         }
 
-        return "
+        return '
 
-".__('ai.sandbox_execution_failed', [
+'.__('ai.sandbox_execution_failed', [
             'error' => Str::limit((string) $execution->stderr, 800),
         ]);
     }

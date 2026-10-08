@@ -3,9 +3,9 @@
 namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Services\AiChatService;
-use Modules\Admin\Models\Admin;
 use ReflectionMethod;
 use Tests\TestCase;
 

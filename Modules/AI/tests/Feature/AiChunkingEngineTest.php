@@ -9,6 +9,7 @@ use Modules\AI\Jobs\ProcessAiFileJob;
 use Modules\AI\Models\AiFile;
 use Modules\AI\Models\AiFileChunk;
 use Modules\AI\Services\Chunking\AiChunkingEngine;
+use Modules\AI\Services\Chunking\AiChunkingException;
 use Modules\AI\Services\FileProcessors\AiFileProcessorManager;
 use Modules\User\Models\User;
 use Tests\TestCase;
@@ -233,11 +234,11 @@ class AiChunkingEngineTest extends TestCase
 
         $file = $this->makeReadyMarkdownFile(str_repeat('word ', 50));
 
-        $this->expectException(\Modules\AI\Services\Chunking\AiChunkingException::class);
+        $this->expectException(AiChunkingException::class);
 
         try {
             app(AiChunkingEngine::class)->chunk($file);
-        } catch (\Modules\AI\Services\Chunking\AiChunkingException $e) {
+        } catch (AiChunkingException $e) {
             $this->assertSame('CHUNKING_TOO_LARGE', $e->errorCode);
 
             throw $e;

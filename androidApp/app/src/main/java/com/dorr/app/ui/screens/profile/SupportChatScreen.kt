@@ -38,6 +38,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.AddPhotoAlternate
 import androidx.compose.material.icons.rounded.Close
@@ -71,6 +72,7 @@ import com.dorr.app.R
 import com.dorr.app.chat.ChatRealtime
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.SupportAutoReplyFeedbackRequest
 import com.dorr.app.network.SupportMessageDto
 import com.dorr.app.network.SupportStatusRequest
 import com.dorr.app.network.SupportTicketDto
@@ -88,6 +90,11 @@ import java.time.format.FormatStyle
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
+
+/** True while a support conversation is on screen: the main bottom bar steps aside so the chat gets the whole screen. */
+object SupportChatState {
+    var open by androidx.compose.runtime.mutableStateOf(false)
+}
 
 private sealed interface ConversationRow {
     data class Day(val label: String) : ConversationRow
@@ -122,6 +129,10 @@ fun SupportChatScreen(
     var statusBusy by remember { mutableStateOf(false) }
     var confirmClose by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
+    androidx.compose.runtime.DisposableEffect(Unit) {
+        SupportChatState.open = true
+        onDispose { SupportChatState.open = false }
+    }
     val reconnectTick = collectReconnectTick()
     val failed = stringResource(R.string.support_chat_failed)
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> if (uri != null) imageUri = uri }
@@ -184,6 +195,20 @@ fun SupportChatScreen(
         }
     }
 
+    fun autoFeedback(solved: Boolean) {
+        if (statusBusy) return
+        statusBusy = true
+        scope.launch {
+            try {
+                ApiClient.support.autoReplyFeedback("Bearer ${AuthSession.token.orEmpty()}", ticket.id, SupportAutoReplyFeedbackRequest(solved)).data?.let { update(it) }
+            } catch (e: Exception) {
+                Toast.makeText(context, e.apiFailure().message ?: failed, Toast.LENGTH_LONG).show()
+            } finally {
+                statusBusy = false
+            }
+        }
+    }
+
     fun setStatus(status: String) {
         if (statusBusy) return
         statusBusy = true
@@ -215,6 +240,8 @@ fun SupportChatScreen(
     }
 
     val rows = remember(messages) { conversationRows(messages) }
+    // The feedback buttons belong to the last message only when it is an automatic FAQ answer.
+    val lastFaqId = messages.lastOrNull()?.takeIf { it.isAuto && it.autoKind == "faq" }?.id
     LaunchedEffect(rows.size) {
         if (rows.isNotEmpty()) listState.animateScrollToItem(rows.lastIndex)
         // Everything on screen counts as read.
@@ -224,8 +251,8 @@ fun SupportChatScreen(
     Box(Modifier.fillMaxSize().imePadding()) {
         PinkBackdrop(Modifier.fillMaxSize())
         Column(Modifier.fillMaxSize()) {
-            SubHeader(stringResource(R.string.support_chat_ticket_title, ticket.id), onBack)
             TicketStatusBar(
+                onBack = onBack,
                 ticket = ticket,
                 busy = statusBusy,
                 onClose = { confirmClose = true },
@@ -263,7 +290,13 @@ fun SupportChatScreen(
                     items(rows, key = { if (it is ConversationRow.Day) "d-${it.label}" else "m-${(it as ConversationRow.Msg).message.id}" }) { row ->
                         when (row) {
                             is ConversationRow.Day -> DayChip(row.label, Modifier.animateItem())
-                            is ConversationRow.Msg -> SupportBubble(row.message, Modifier.animateItem())
+                            is ConversationRow.Msg -> {
+                                SupportBubble(row.message, Modifier.animateItem())
+                                // Under the newest FAQ answer: did it solve the problem?
+                                if (row.message.id == lastFaqId && ticket.acceptsReplies && !ticket.autoReplyStopped) {
+                                    AutoReplyFeedback(busy = statusBusy, onSolved = { autoFeedback(true) }, onNeedAgent = { autoFeedback(false) })
+                                }
+                            }
                         }
                     }
                 }
@@ -297,17 +330,42 @@ fun SupportChatScreen(
 
 /** The status under the header: a coloured chip, the ticket's title, and the one action that fits. */
 @Composable
-private fun TicketStatusBar(ticket: SupportTicketDto, busy: Boolean, onClose: () -> Unit, onReopen: () -> Unit) {
+private fun TicketStatusBar(ticket: SupportTicketDto, busy: Boolean, onBack: () -> Unit, onClose: () -> Unit, onReopen: () -> Unit) {
+    val accent = settingsAccent()
+    val card = if (settingsNight()) AccountDark.card else settingsCard()
     Row(
-        Modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(bottom = 8.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(card)
+            .border(1.dp, settingsMut().copy(alpha = 0.15f), RoundedCornerShape(20.dp))
+            .padding(horizontal = 6.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(Modifier.weight(1f)) {
-            Text(ticket.title.orEmpty(), color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-            Spacer(Modifier.height(4.dp))
-            SupportStatusChip(ticket.status)
-        }
+        Box(
+            Modifier.size(38.dp).clip(CircleShape).clickable(onClick = onBack),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, null, tint = settingsInk(), modifier = Modifier.size(22.dp)) }
+        Box(
+            Modifier.size(42.dp).clip(CircleShape).background(accent.copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) { Icon(Icons.Rounded.SupportAgent, null, tint = accent, modifier = Modifier.size(24.dp)) }
         Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(
+                ticket.title.orEmpty().ifBlank { stringResource(R.string.support_agent_default) },
+                color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
+                maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(4.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("#${ticket.id}", color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.width(8.dp))
+                SupportStatusChip(ticket.status)
+            }
+        }
+        Spacer(Modifier.width(8.dp))
         if (busy) {
             CircularProgressIndicator(color = settingsAccent(), strokeWidth = 2.dp, modifier = Modifier.size(20.dp))
         } else if (ticket.acceptsReplies) {
@@ -315,6 +373,7 @@ private fun TicketStatusBar(ticket: SupportTicketDto, busy: Boolean, onClose: ()
         } else {
             TextAction(stringResource(R.string.support_reopen), Icons.Rounded.LockOpen, onReopen)
         }
+        Spacer(Modifier.width(4.dp))
     }
 }
 
@@ -343,11 +402,11 @@ private fun DayChip(label: String, modifier: Modifier = Modifier) {
 @Composable
 private fun SupportBubble(message: SupportMessageDto, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val mine = message.sender != "support"
+    val mine = message.sender == "user"
     val shape = RoundedCornerShape(
-        topStart = 16.dp, topEnd = 16.dp,
-        bottomStart = if (mine) 16.dp else 4.dp,
-        bottomEnd = if (mine) 4.dp else 16.dp,
+        topStart = 20.dp, topEnd = 20.dp,
+        bottomStart = if (mine) 20.dp else 5.dp,
+        bottomEnd = if (mine) 5.dp else 20.dp,
     )
     val textColor = if (mine) Color.White else settingsInk()
     val visible = remember(message.id) { androidx.compose.animation.core.MutableTransitionState(false).apply { targetState = true } }
@@ -361,11 +420,36 @@ private fun SupportBubble(message: SupportMessageDto, modifier: Modifier = Modif
                 Modifier
                     .widthIn(max = 290.dp)
                     .clip(shape)
-                    .background(if (mine) settingsAccent() else if (settingsNight()) AccountDark.card else settingsCard())
-                    .then(if (mine) Modifier else Modifier.border(1.dp, settingsMut().copy(alpha = 0.2f), shape))
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .background(
+                        when {
+                            mine -> settingsAccent()
+                            message.isAuto -> settingsAccent().copy(alpha = 0.09f)
+                            settingsNight() -> AccountDark.card
+                            else -> settingsCard()
+                        },
+                    )
+                    .then(
+                        when {
+                            mine -> Modifier
+                            message.isAuto -> Modifier.border(1.dp, settingsAccent().copy(alpha = 0.35f), shape)
+                            else -> Modifier.border(1.dp, settingsMut().copy(alpha = 0.18f), shape)
+                        },
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
             ) {
-                if (!mine) {
+                if (message.isAuto) {
+                    Text(
+                        stringResource(R.string.support_auto_reply) + " · " + stringResource(
+                            when (message.autoKind) {
+                                "away" -> R.string.support_auto_away
+                                "faq" -> R.string.support_auto_faq
+                                else -> R.string.support_auto_ack
+                            },
+                        ),
+                        color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
+                        modifier = Modifier.padding(bottom = 3.dp),
+                    )
+                } else if (!mine) {
                     Text(
                         message.agentName?.takeIf { it.isNotBlank() } ?: stringResource(R.string.support_agent_default),
                         color = settingsAccent(), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
@@ -385,7 +469,7 @@ private fun SupportBubble(message: SupportMessageDto, modifier: Modifier = Modif
                     )
                 }
                 if (!message.body.isNullOrBlank()) {
-                    Text(message.body, color = textColor, fontSize = 14.sp, lineHeight = 20.sp)
+                    Text(message.body, color = textColor, fontSize = 14.5.sp, lineHeight = 21.sp)
                 }
                 Text(
                     timeOf(message.createdAt).orEmpty(),
@@ -394,6 +478,15 @@ private fun SupportBubble(message: SupportMessageDto, modifier: Modifier = Modif
                 )
             }
         }
+    }
+}
+
+/** Under an automatic FAQ answer: the customer says whether it was enough. */
+@Composable
+private fun AutoReplyFeedback(busy: Boolean, onSolved: () -> Unit, onNeedAgent: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 2.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        TextAction(stringResource(R.string.support_auto_solved), Icons.Rounded.Lock) { if (!busy) onSolved() }
+        TextAction(stringResource(R.string.support_auto_need_agent), Icons.Rounded.SupportAgent) { if (!busy) onNeedAgent() }
     }
 }
 
@@ -426,7 +519,15 @@ private fun Composer(
         }
         return
     }
-    Column(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 14.dp).padding(top = 6.dp, bottom = 14.dp)) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+            .background(if (settingsNight()) AccountDark.card else settingsCard())
+            .navigationBarsPadding()
+            .padding(horizontal = 12.dp)
+            .padding(top = 10.dp, bottom = 10.dp),
+    ) {
         if (imageUri != null) {
             Box(Modifier.padding(bottom = 8.dp).size(76.dp).clip(RoundedCornerShape(12.dp))) {
                 AsyncImage(model = imageUri, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())

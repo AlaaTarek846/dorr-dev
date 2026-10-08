@@ -3,6 +3,7 @@
 namespace Modules\AI\Services;
 
 use App\Services\BaseService;
+use Illuminate\Database\Eloquent\Model;
 use Modules\AI\Http\Resources\AiFileResource;
 use Modules\AI\Repositories\AiFileRepository;
 
@@ -27,7 +28,7 @@ class AiFileService extends BaseService
      * never on the paginated list() path, so the list endpoint's
      * performance is unaffected.
      */
-    public function show(int|string $id): \Illuminate\Database\Eloquent\Model
+    public function show(int|string $id): Model
     {
         return parent::show($id)->loadMissing(['chunks', 'conversationFiles']);
     }

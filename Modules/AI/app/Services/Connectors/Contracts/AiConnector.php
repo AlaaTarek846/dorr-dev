@@ -24,13 +24,13 @@ interface AiConnector
      *
      * @param  list<array{role: string, content: string}>  $messages
      * @param  bool  $useWebSearch  When true, the caller has already
-     *   confirmed (via AiRequiredCapabilityResolver + the routing
-     *   engine's capability match) that this exact request needs live
-     *   web results AND that $provider's model is actually registered
-     *   with the "web_search" capability. A connector with no real
-     *   hosted web-search integration for its provider simply ignores
-     *   this flag rather than faking search results - matching the
-     *   embed()/editImage() honesty precedent below.
+     *                              confirmed (via AiRequiredCapabilityResolver + the routing
+     *                              engine's capability match) that this exact request needs live
+     *                              web results AND that $provider's model is actually registered
+     *                              with the "web_search" capability. A connector with no real
+     *                              hosted web-search integration for its provider simply ignores
+     *                              this flag rather than faking search results - matching the
+     *                              embed()/editImage() honesty precedent below.
      * @return array{success: bool, message: string, content: ?string}
      */
     public function sendChat(AiProvider $provider, array $messages, bool $useWebSearch = false): array;

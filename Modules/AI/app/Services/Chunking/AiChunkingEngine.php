@@ -36,6 +36,7 @@ class AiChunkingEngine
      * always safe.
      *
      * @return list<AiFileChunk>
+     *
      * @throws AiChunkingException
      */
     public function chunk(AiFile $file): array
@@ -81,6 +82,7 @@ class AiChunkingEngine
 
     /**
      * @return list<AiFileChunk>
+     *
      * @throws AiChunkingException
      */
     protected function chunkVersion(AiFile $file, int $contentVersion): array

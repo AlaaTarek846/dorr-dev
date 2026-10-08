@@ -3,6 +3,7 @@
 namespace Modules\AI\Services;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Modules\AI\Models\AiKnowledgeChunk;
 use Modules\AI\Models\AiKnowledgeSource;
@@ -108,7 +109,7 @@ class AiKnowledgeRetriever
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, AiKnowledgeSource>
+     * @return Collection<int, AiKnowledgeSource>
      */
     protected function candidateSources(Authenticatable $owner, ?string $domain)
     {

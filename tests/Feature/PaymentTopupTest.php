@@ -7,15 +7,20 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Factory;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\Provider\Models\Provider;
 use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
+use Modules\Wallet\Enums\PaymentMethodType;
 use Modules\Wallet\Enums\PaymentTransactionStatus;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
 use Modules\Wallet\Exceptions\FinancialCategoryNotFoundException;
+use Modules\Wallet\Models\FinancialCategory;
 use Modules\Wallet\Models\FinancialEntry;
 use Modules\Wallet\Models\PaymentGatewayLog;
 use Modules\Wallet\Models\PaymentMethod;
@@ -24,9 +29,9 @@ use Modules\Wallet\Models\Wallet;
 use Modules\Wallet\Models\WalletFeeRule;
 use Modules\Wallet\Models\WalletTransaction;
 use Modules\Wallet\Models\WebhookInboxEntry;
-use Modules\Wallet\Enums\PaymentMethodType;
 use Modules\Wallet\Services\FeeService;
 use Modules\Wallet\Services\PinService;
+use Modules\Wallet\Services\WalletService;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
@@ -84,7 +89,7 @@ class PaymentTopupTest extends TestCase
     private function fakeMyFatoorah(bool $paid = true, float $value = 100.00): void
     {
         // Http::fake() stubs are first-match-wins, so a re-fake must start clean.
-        Http::swap(new \Illuminate\Http\Client\Factory);
+        Http::swap(new Factory);
         Http::fake([
             'mf.test/v2/SendPayment' => Http::response(['IsSuccess' => true, 'Data' => ['InvoiceURL' => 'https://pay.test/inv/1', 'InvoiceId' => 555]]),
             'mf.test/v2/GetPaymentStatus' => Http::response(['IsSuccess' => true, 'Data' => [
@@ -95,7 +100,7 @@ class PaymentTopupTest extends TestCase
         ]);
     }
 
-    private function initiate(int $amountMinor = 10000, string $key = 'key-12345678', array $headers = []): \Illuminate\Testing\TestResponse
+    private function initiate(int $amountMinor = 10000, string $key = 'key-12345678', array $headers = []): TestResponse
     {
         return $this->postJson('/api/provider/v1/wallet/topups', [
             'payment_method_id' => $this->method->id,
@@ -111,7 +116,7 @@ class PaymentTopupTest extends TestCase
         return PaymentTransaction::query()->where('uuid', $uuid)->firstOrFail();
     }
 
-    private function gatewayCallback(PaymentTransaction $payment): \Illuminate\Testing\TestResponse
+    private function gatewayCallback(PaymentTransaction $payment): TestResponse
     {
         return $this->get("/api/wallet/payments/{$payment->uuid}/callback?paymentId=PAY-1");
     }
@@ -483,7 +488,7 @@ class PaymentTopupTest extends TestCase
     {
         $this->rule('1.0000');
         FinancialEntry::query()->delete();
-        \Modules\Wallet\Models\FinancialCategory::query()->where('slug', 'topup_fee')->forceDelete();
+        FinancialCategory::query()->where('slug', 'topup_fee')->forceDelete();
         $payment = $this->paymentAfterInitiate();
 
         // The callback service swallows nothing about the DB transaction: the
@@ -551,7 +556,7 @@ class PaymentTopupTest extends TestCase
     {
         $urpay = $this->makeMethod('ur', 'urpay', []);
         $payment = PaymentTransaction::create([
-            'uuid' => (string) \Illuminate\Support\Str::uuid(), 'payment_method_id' => $urpay->id, 'owner_type' => 'provider',
+            'uuid' => (string) Str::uuid(), 'payment_method_id' => $urpay->id, 'owner_type' => 'provider',
             'owner_id' => $this->provider->id, 'country_id' => $this->saudi->id, 'currency_id' => $this->saudi->currency_id,
             'requested_amount_minor' => 5000, 'status' => 'pending', 'gateway_reference' => 'REQ-1',
             'idempotency_key' => 'k1', 'request_hash' => str_repeat('a', 64),
@@ -632,7 +637,7 @@ class PaymentTopupTest extends TestCase
     {
         $payment = $this->paymentAfterInitiate();
         $this->gatewayCallback($payment);
-        app(\Modules\Wallet\Services\WalletService::class)->debit(
+        app(WalletService::class)->debit(
             $this->wallet(), 4000, WalletBucket::Withdrawable, WalletTransactionType::Withdrawal,
         );
         $this->admin(['online-transactions.refund', 'online-transactions.view']);
@@ -688,6 +693,25 @@ class PaymentTopupTest extends TestCase
             ->assertJsonPath('data.operation', 'topup');
     }
 
+    public function test_the_fee_rule_list_carries_the_tab_counts_and_what_the_table_shows_in_one_request(): void
+    {
+        $this->admin(['wallet-fee-rules.create', 'wallet-fee-rules.view', 'wallet-fee-rules.change-status']);
+
+        $this->postJson('/api/admin/v1/wallet-fee-rules', $this->rulePayload())->assertCreated();
+        $second = $this->postJson('/api/admin/v1/wallet-fee-rules', $this->rulePayload())->assertCreated()->json('data.id');
+        $this->patchJson("/api/admin/v1/wallet-fee-rules/{$second}/status", ['status' => false])->assertOk();
+
+        // Without the flag the list has no counts; with it, they come as `status_counts` — of the whole list, not of the current page.
+        $this->getJson('/api/admin/v1/wallet-fee-rules?per_page=1&page=1')->assertOk()->assertJsonMissingPath('status_counts');
+        $this->getJson('/api/admin/v1/wallet-fee-rules?per_page=1&page=1&status_counts=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('status_counts', ['total' => 2, 'active' => 1, 'inactive' => 1])
+            ->assertJsonPath('pagination.total', 2)
+            // the table shows these without loading the countries / payment methods lists
+            ->assertJsonStructure(['data' => [['country_code', 'payment_method_name']]]);
+    }
+
     public function test_a_nonzero_percent_must_be_confirmed(): void
     {
         $this->admin(['wallet-fee-rules.create']);
@@ -714,4 +738,3 @@ class PaymentTopupTest extends TestCase
         $this->postJson('/api/admin/v1/wallet-fee-rules', $this->rulePayload())->assertForbidden();
     }
 }
-

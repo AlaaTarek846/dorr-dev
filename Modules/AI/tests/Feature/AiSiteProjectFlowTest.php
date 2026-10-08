@@ -6,10 +6,13 @@ use App\Enums\UserStatus;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\AI\Exceptions\AiSiteException;
@@ -19,8 +22,18 @@ use Modules\AI\Models\AiProvider;
 use Modules\AI\Models\AiSiteOffer;
 use Modules\AI\Models\AiSiteProject;
 use Modules\AI\Models\AiSubscription;
+use Modules\AI\Repositories\AiProviderRepository;
+use Modules\AI\Services\AiGateway;
+use Modules\AI\Services\AiModelResolver;
+use Modules\AI\Services\Sites\AiSiteEntitlementService;
+use Modules\AI\Services\Sites\AiSiteFileGuard;
 use Modules\AI\Services\Sites\AiSiteGenerationService;
 use Modules\AI\Services\Sites\AiSiteProjectService;
+use Modules\AI\Services\Sites\AiSitePromptBuilder;
+use Modules\AI\Services\Sites\AiSiteResponder;
+use Modules\AI\Services\Sites\AiSiteResponseParser;
+use Modules\AI\Services\Sites\AiSiteStorage;
+use Modules\AI\Services\Sites\AiSiteTokenizer;
 use Modules\User\Models\User;
 use Modules\Wallet\Models\Wallet;
 use Modules\Wallet\Services\WalletService;
@@ -62,7 +75,7 @@ class AiSiteProjectFlowTest extends TestCase
     {
         $a = $this->app;
 
-        $generator = new class($a->make(\Modules\AI\Services\AiGateway::class), $a->make(\Modules\AI\Repositories\AiProviderRepository::class), $a->make(\Modules\AI\Services\AiModelResolver::class), $a->make(\Modules\AI\Services\Sites\AiSitePromptBuilder::class), $a->make(\Modules\AI\Services\Sites\AiSiteResponseParser::class), $a->make(\Modules\AI\Services\Sites\AiSiteFileGuard::class), $a->make(\Modules\AI\Services\Sites\AiSiteStorage::class), $a->make(\Modules\AI\Services\Sites\AiSiteEntitlementService::class)) extends AiSiteGenerationService
+        $generator = new class($a->make(AiGateway::class), $a->make(AiProviderRepository::class), $a->make(AiModelResolver::class), $a->make(AiSitePromptBuilder::class), $a->make(AiSiteResponseParser::class), $a->make(AiSiteFileGuard::class), $a->make(AiSiteStorage::class), $a->make(AiSiteEntitlementService::class)) extends AiSiteGenerationService
         {
             public string $answer = '';
 
@@ -151,11 +164,11 @@ class AiSiteProjectFlowTest extends TestCase
     }
 
     /** TestCase::get() trims a trailing slash, which the real site root URL has - so go through the kernel. */
-    private function getRaw(string $uri): \Illuminate\Testing\TestResponse
+    private function getRaw(string $uri): TestResponse
     {
-        $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
+        $kernel = $this->app->make(Kernel::class);
 
-        return \Illuminate\Testing\TestResponse::fromBaseResponse($kernel->handle(\Illuminate\Http\Request::create($uri)));
+        return TestResponse::fromBaseResponse($kernel->handle(Request::create($uri)));
     }
 
     private function reason(callable $fn): ?string
@@ -336,7 +349,8 @@ class AiSiteProjectFlowTest extends TestCase
 
     public function test_relative_links_are_made_absolute_but_anchors_and_external_ones_are_not(): void
     {
-        $out = (new class(app(\Modules\AI\Services\Sites\AiSiteStorage::class), app(\Modules\AI\Services\Sites\AiSiteTokenizer::class)) extends \Modules\AI\Services\Sites\AiSiteResponder {
+        $out = (new class(app(AiSiteStorage::class), app(AiSiteTokenizer::class)) extends AiSiteResponder
+        {
             public function run(string $html, string $base): string
             {
                 return $this->absolutizeLinks($html, $base);

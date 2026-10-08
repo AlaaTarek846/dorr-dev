@@ -4,9 +4,10 @@ namespace Modules\AI\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Modules\AI\Models\AiProviderModel;
 
 /**
- * @mixin \Modules\AI\Models\AiProviderModel
+ * @mixin AiProviderModel
  */
 class AiProviderModelResource extends JsonResource
 {

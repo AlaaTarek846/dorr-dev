@@ -2,15 +2,16 @@
 
 namespace Modules\AI\Tests\Unit\FileProcessors;
 
+use Modules\AI\Services\FileProcessors\AiFileProcessorManager;
+use Modules\AI\Services\FileProcessors\AudioFileProcessor;
 use Modules\AI\Services\FileProcessors\CsvFileProcessor;
 use Modules\AI\Services\FileProcessors\ExcelFileProcessor;
 use Modules\AI\Services\FileProcessors\HtmlFileProcessor;
 use Modules\AI\Services\FileProcessors\JsonFileProcessor;
 use Modules\AI\Services\FileProcessors\MarkdownFileProcessor;
+use Modules\AI\Services\FileProcessors\PdfFileProcessor;
 use Modules\AI\Services\FileProcessors\PptFileProcessor;
 use Modules\AI\Services\FileProcessors\PptxFileProcessor;
-use Modules\AI\Services\FileProcessors\PdfFileProcessor;
-use Modules\AI\Services\FileProcessors\AudioFileProcessor;
 use Modules\AI\Services\FileProcessors\RasterImageFileProcessor;
 use Modules\AI\Services\FileProcessors\SvgImageFileProcessor;
 use Modules\AI\Services\FileProcessors\TextFileProcessor;
@@ -18,6 +19,7 @@ use Modules\AI\Services\FileProcessors\TsvFileProcessor;
 use Modules\AI\Services\FileProcessors\VideoFileProcessor;
 use Modules\AI\Services\FileProcessors\WordFileProcessor;
 use Modules\AI\Services\FileProcessors\XmlFileProcessor;
+use Tests\TestCase;
 
 /**
  * Doc S31: proves AiFileProcessorManager resolves every Phase 1 + Phase 2
@@ -42,7 +44,7 @@ use Modules\AI\Services\FileProcessors\XmlFileProcessor;
  * content-level behavior) - this test only proves MIME->processor
  * resolution, not that deeper delegation.
  */
-class AiFileProcessorManagerTest extends \Tests\TestCase
+class AiFileProcessorManagerTest extends TestCase
 {
     /**
      * @return array<string, array{0: string, 1: class-string}>
@@ -90,7 +92,7 @@ class AiFileProcessorManagerTest extends \Tests\TestCase
      */
     public function test_resolves_the_expected_processor_for_each_supported_mime_type(string $mimeType, string $expectedProcessor): void
     {
-        $processor = app(\Modules\AI\Services\FileProcessors\AiFileProcessorManager::class)->for($mimeType);
+        $processor = app(AiFileProcessorManager::class)->for($mimeType);
 
         $this->assertNotNull($processor);
         $this->assertInstanceOf($expectedProcessor, $processor);
@@ -98,7 +100,7 @@ class AiFileProcessorManagerTest extends \Tests\TestCase
 
     public function test_an_unsupported_mime_type_resolves_to_null_not_an_exception(): void
     {
-        $manager = app(\Modules\AI\Services\FileProcessors\AiFileProcessorManager::class);
+        $manager = app(AiFileProcessorManager::class);
 
         $this->assertNull($manager->for('video/x-flv'));
         $this->assertFalse($manager->supports('video/x-flv'));

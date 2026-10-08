@@ -3,10 +3,10 @@
 namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Services\AiChatUsageGuard;
 use Modules\AI\Services\AiToolRegistry;
 use Modules\AI\Services\Tools\AiUsageStatusTool;
-use Modules\Admin\Models\Admin;
 use Tests\TestCase;
 
 /**

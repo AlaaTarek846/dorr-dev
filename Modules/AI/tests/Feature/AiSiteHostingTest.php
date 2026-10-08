@@ -6,13 +6,17 @@ use App\Enums\UserStatus;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\AI\Exceptions\AiSiteException;
 use Modules\AI\Http\Middleware\ServeHostedSiteMiddleware;
+use Modules\AI\Http\Resources\AiSiteHostingResource;
 use Modules\AI\Models\AiSiteHosting;
 use Modules\AI\Models\AiSiteHostingPlan;
 use Modules\AI\Models\AiSiteProject;
@@ -70,7 +74,7 @@ class AiSiteHostingTest extends TestCase
     private function site(User $user, string $body = 'v1'): AiSiteProject
     {
         $project = AiSiteProject::query()->create([
-            'owner_type' => $user->getMorphClass(), 'owner_id' => $user->id, 'title' => 'Site', 'slug' => \Illuminate\Support\Str::random(40),
+            'owner_type' => $user->getMorphClass(), 'owner_id' => $user->id, 'title' => 'Site', 'slug' => Str::random(40),
             'status' => 'ready', 'access_type' => 'plan',
             'brief' => ['title' => 'Site', 'contact' => ['phone' => '+201001234567']],
         ]);
@@ -115,11 +119,11 @@ class AiSiteHostingTest extends TestCase
         return null;
     }
 
-    private function getRaw(string $uri): \Illuminate\Testing\TestResponse
+    private function getRaw(string $uri): TestResponse
     {
-        $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
+        $kernel = $this->app->make(Kernel::class);
 
-        return \Illuminate\Testing\TestResponse::fromBaseResponse($kernel->handle(Request::create($uri)));
+        return TestResponse::fromBaseResponse($kernel->handle(Request::create($uri)));
     }
 
     // ------------------------------------------------------------------ names
@@ -189,7 +193,7 @@ class AiSiteHostingTest extends TestCase
         $this->assertSame('already_hosted', $this->reason(fn () => $this->host($owner, $project, null, 'another')));
 
         $empty = AiSiteProject::query()->create([
-            'owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->id, 'title' => 'Empty', 'slug' => \Illuminate\Support\Str::random(40),
+            'owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->id, 'title' => 'Empty', 'slug' => Str::random(40),
             'status' => 'failed', 'access_type' => 'plan', 'brief' => ['title' => 'Empty'],
         ]);
         $this->assertSame('no_version_yet', $this->reason(fn () => $this->host($owner, $empty, null, 'empty-site')));
@@ -214,7 +218,7 @@ class AiSiteHostingTest extends TestCase
 
         $project = $this->addVersion($project, 'second');
         $this->assertStringContainsString('first', $this->getRaw('/sites/ahmed-plumbing/')->getContent());
-        $this->assertTrue((new \Modules\AI\Http\Resources\AiSiteHostingResource($hosting->fresh()->load('project')))->toArray(Request::create('/api/x'))['has_unpublished_changes']);
+        $this->assertTrue((new AiSiteHostingResource($hosting->fresh()->load('project')))->toArray(Request::create('/api/x'))['has_unpublished_changes']);
 
         app(AiSiteHostingService::class)->publish($hosting->fresh());
         $this->assertStringContainsString('second', $this->getRaw('/sites/ahmed-plumbing/')->getContent());

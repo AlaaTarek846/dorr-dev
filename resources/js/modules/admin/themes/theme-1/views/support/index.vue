@@ -51,6 +51,9 @@
                     <span class="badge bg-success-transparent d-inline-flex align-items-center gap-1" :title="t('support.live_hint')">
                         <span class="support-live-dot"></span>{{ t('support.live') }}
                     </span>
+                    <router-link v-if="can('support-settings.view')" :to="{ name: 'admin.support-settings' }" class="btn btn-sm btn-light">
+                        <i class="ri-robot-2-line me-1"></i>{{ t('support.settings.nav') }}
+                    </router-link>
                     <button type="button" class="btn btn-sm btn-light" :title="t('support.refresh')" @click="reload">
                         <i class="ri-refresh-line"></i>
                     </button>
@@ -105,7 +108,7 @@
                                     </td>
                                     <td class="support-cell-title">{{ row.title }}</td>
                                     <td class="support-cell-preview text-muted">
-                                        <i v-if="row.last_message" :class="row.last_message.sender === 'support' ? 'ri-customer-service-2-line' : 'ri-user-line'" class="me-1"></i>
+                                        <i v-if="row.last_message" :class="row.last_message.sender === 'system' ? 'ri-robot-2-line' : (row.last_message.sender === 'support' ? 'ri-customer-service-2-line' : 'ri-user-line')" class="me-1"></i>
                                         <span v-if="row.last_message?.body">{{ row.last_message.body }}</span>
                                         <span v-else-if="row.last_message?.has_image"><i class="ri-image-line me-1"></i>{{ t('support.photo') }}</span>
                                     </td>
@@ -146,6 +149,7 @@ import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import WalletPageHeader from '../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../components/wallet/WalletPagination.vue';
+import { usePermission } from '../../../../../../composables/usePermission';
 import useSupportRealtime from '../../../../../../composables/useSupportRealtime';
 import useToast from '../../../../../../composables/useToast';
 import useWalletList from '../../../../../../composables/useWalletList';
@@ -155,6 +159,7 @@ import { statusClass } from './supportStatus';
 
 const { t, locale } = useI18n();
 const { showSuccess } = useToast();
+const { can } = usePermission();
 
 const statuses = ['opened', 'reopened', 'resolved', 'closed'];
 const statusCards = [

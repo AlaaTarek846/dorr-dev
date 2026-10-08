@@ -24,7 +24,7 @@ class AiXlsxDocumentRenderer
      */
     public function render(string $title, array $blocks): string
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle($this->safeSheetTitle($title));
         $sheet->setRightToLeft(true);

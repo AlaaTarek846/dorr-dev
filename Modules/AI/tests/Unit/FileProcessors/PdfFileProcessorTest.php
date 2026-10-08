@@ -5,6 +5,7 @@ namespace Modules\AI\Tests\Unit\FileProcessors;
 use Modules\AI\Services\AiDocumentTextExtractor;
 use Modules\AI\Services\FileProcessors\PdfFileProcessor;
 use PHPUnit\Framework\TestCase;
+use Smalot\PdfParser\Parser;
 
 /**
  * Phase 2: proves the honest degrade path (see PdfFileProcessor's own
@@ -44,7 +45,7 @@ class PdfFileProcessorTest extends TestCase
 
     public function test_without_smalot_a_real_pdf_degrades_to_one_whole_document_block_with_honest_warnings(): void
     {
-        if (class_exists(\Smalot\PdfParser\Parser::class)) {
+        if (class_exists(Parser::class)) {
             $this->markTestSkipped('smalot/pdfparser is installed - the page-aware path is covered by its own test instead.');
         }
 
@@ -78,7 +79,7 @@ class PdfFileProcessorTest extends TestCase
             ."1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj\n"
             ."2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj\n"
             ."3 0 obj << /Type /Page /Parent 2 0 R /Contents 4 0 R >> endobj\n"
-            ."4 0 obj << /Length ".strlen($stream)." >> stream\n{$stream}\nendstream endobj\n"
+            .'4 0 obj << /Length '.strlen($stream)." >> stream\n{$stream}\nendstream endobj\n"
             ."trailer << /Root 1 0 R >>\n%%EOF";
     }
 }

@@ -21,20 +21,20 @@ class AiChunkDraft
 {
     /**
      * @param  array<string, mixed>  $metadata  Doc S12/S46: structured
-     *                                           source references
-     *                                           (page/section/sheet_name/
-     *                                           row_start/row_end/
-     *                                           slide_number/
-     *                                           timestamp_start/
-     *                                           timestamp_end/path/
-     *                                           language/...) - format-
-     *                                           specific, so kept as one
-     *                                           flexible bag rather than
-     *                                           a dozen mostly-null
-     *                                           typed columns (same
-     *                                           reasoning `ai_files.metadata`
-     *                                           already uses - see this
-     *                                           phase's report).
+     *                                          source references
+     *                                          (page/section/sheet_name/
+     *                                          row_start/row_end/
+     *                                          slide_number/
+     *                                          timestamp_start/
+     *                                          timestamp_end/path/
+     *                                          language/...) - format-
+     *                                          specific, so kept as one
+     *                                          flexible bag rather than
+     *                                          a dozen mostly-null
+     *                                          typed columns (same
+     *                                          reasoning `ai_files.metadata`
+     *                                          already uses - see this
+     *                                          phase's report).
      */
     public function __construct(
         public readonly int $index,

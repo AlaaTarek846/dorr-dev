@@ -5,8 +5,8 @@ namespace Modules\AI\Services\Sites;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Modules\AI\Exceptions\AiSiteException;
 use Modules\AI\Models\AiPlan;
-use Modules\AI\Models\AiSitePurchase;
 use Modules\AI\Models\AiSiteProject;
+use Modules\AI\Models\AiSitePurchase;
 use Modules\AI\Models\AiSiteVersion;
 use Modules\AI\Models\AiSubscription;
 

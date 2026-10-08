@@ -3,6 +3,7 @@
 namespace Modules\AI\Tests\Unit\FileProcessors;
 
 use Modules\AI\Services\FileProcessors\PptFileProcessor;
+use PhpOffice\PhpPresentation\IOFactory;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -44,7 +45,7 @@ class PptFileProcessorTest extends TestCase
 
     public function test_without_phppresentation_installed_it_fails_honestly_instead_of_faking_success(): void
     {
-        if (class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is installed.');
         }
 
@@ -59,7 +60,7 @@ class PptFileProcessorTest extends TestCase
 
     public function test_a_file_that_is_not_a_real_legacy_ppt_binary_fails_cleanly(): void
     {
-        if (! class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is not installed yet - run: composer require phpoffice/phppresentation');
         }
 

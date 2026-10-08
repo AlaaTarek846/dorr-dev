@@ -49,6 +49,13 @@ interface SupportApi {
         @Body body: SupportStatusRequest,
     ): ApiEnvelope<SupportTicketDto>
 
+    @POST("mobile/v1/support-tickets/{id}/auto-reply-feedback")
+    suspend fun autoReplyFeedback(
+        @Header("Authorization") authorization: String,
+        @Path("id") id: Int,
+        @Body body: SupportAutoReplyFeedbackRequest,
+    ): ApiEnvelope<SupportTicketDto>
+
     /** Newest page first (`order=desc`): a long conversation opens at its end, older pages follow. */
     @GET("mobile/v1/support-tickets/{id}/messages")
     suspend fun messages(
@@ -84,6 +91,8 @@ data class SupportTicketDto(
     /** `opened`, `reopened`, `resolved` or `closed`. */
     val status: String?,
     @SerializedName("accepts_replies") val acceptsReplies: Boolean = true,
+    /** The customer said an automatic answer was not enough: no more automatic replies. */
+    @SerializedName("auto_reply_stopped") val autoReplyStopped: Boolean = false,
     @SerializedName("last_message") val lastMessage: SupportLastMessageDto? = null,
     @SerializedName("last_message_at") val lastMessageAt: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
@@ -92,12 +101,16 @@ data class SupportTicketDto(
 data class SupportMessageDto(
     val id: Int,
     @SerializedName("ticket_id") val ticketId: Int? = null,
-    /** `user` (me) or `support`. */
+    /** `user` (me), `support` or `system` (an automatic reply). */
     val sender: String? = null,
     val body: String? = null,
     @SerializedName("image_url") val imageUrl: String? = null,
     @SerializedName("agent_name") val agentName: String? = null,
+    @SerializedName("is_auto") val isAuto: Boolean = false,
+    /** `ack`, `away` or `faq`. */
+    @SerializedName("auto_kind") val autoKind: String? = null,
     @SerializedName("created_at") val createdAt: String? = null,
 )
 
 data class SupportStatusRequest(val status: String)
+data class SupportAutoReplyFeedbackRequest(val solved: Boolean)

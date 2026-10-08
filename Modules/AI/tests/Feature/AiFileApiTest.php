@@ -127,7 +127,7 @@ class AiFileApiTest extends TestCase
     protected function realZipBytes(): string
     {
         $path = tempnam(sys_get_temp_dir(), 'zip');
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         $zip->open($path, \ZipArchive::OVERWRITE);
         $zip->addFromString('a.txt', 'hello');
         $zip->close();

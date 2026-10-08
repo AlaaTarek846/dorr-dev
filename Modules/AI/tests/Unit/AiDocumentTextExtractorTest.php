@@ -110,23 +110,23 @@ class AiDocumentTextExtractorTest extends TestCase
         // sequence (a lone continuation byte followed by an invalid
         // standalone byte), mimicking what a custom/CID embedded font
         // actually produces.
-        $compressed = gzcompress("BT /F1 24 Tf 100 700 Td (Hello ÿ World) Tj ET");
+        $compressed = gzcompress('BT /F1 24 Tf 100 700 Td (Hello ÿ World) Tj ET');
 
         $objects = [
-            "1 0 obj
+            '1 0 obj
 << /Type /Catalog /Pages 2 0 R >>
 endobj
-",
-            "2 0 obj
+',
+            '2 0 obj
 << /Type /Pages /Kids [3 0 R] /Count 1 >>
 endobj
-",
-            "3 0 obj
+',
+            '3 0 obj
 << /Type /Page /Parent 2 0 R /Contents 4 0 R >>
 endobj
-",
-            "4 0 obj
-<< /Length ".strlen($compressed)." /Filter /FlateDecode >>
+',
+            '4 0 obj
+<< /Length '.strlen($compressed)." /Filter /FlateDecode >>
 stream
 {$compressed}
 endstream
@@ -134,10 +134,10 @@ endobj
 ",
         ];
 
-        file_put_contents($path, "%PDF-1.4
-".implode('', $objects)."trailer
+        file_put_contents($path, '%PDF-1.4
+'.implode('', $objects).'trailer
 << /Size 5 /Root 1 0 R >>
-%%EOF");
+%%EOF');
 
         $text = $this->extractor->extract($path, 'application/pdf');
 

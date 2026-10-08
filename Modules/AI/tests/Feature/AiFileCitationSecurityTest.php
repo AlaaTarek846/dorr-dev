@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use Modules\AI\Models\AiFileCitation;
 use Tests\TestCase;
 
 /**
@@ -43,7 +44,7 @@ class AiFileCitationSecurityTest extends TestCase
 
     public function test_citation_model_has_no_owner_scoped_query_method_implying_it_is_never_queried_directly_by_id_alone(): void
     {
-        $this->assertFalse(method_exists(\Modules\AI\Models\AiFileCitation::class, 'findForOwner'));
+        $this->assertFalse(method_exists(AiFileCitation::class, 'findForOwner'));
     }
 
     public function test_retrieval_engine_resolves_file_scope_before_touching_chunks(): void

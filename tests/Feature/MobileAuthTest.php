@@ -7,6 +7,7 @@ use App\Enums\VerificationType;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
+use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\User\Models\User;
 use Tests\TestCase;
@@ -337,7 +338,7 @@ class MobileAuthTest extends TestCase
             'status' => UserStatus::Active,
         ]);
         foreach (['this-phone', 'other-phone'] as $id) {
-            \App\Models\NotificationDevice::query()->create(['owner_type' => $user->getMorphClass(), 'owner_id' => $user->id, 'player_id' => $id, 'platform' => 'android']);
+            NotificationDevice::query()->create(['owner_type' => $user->getMorphClass(), 'owner_id' => $user->id, 'player_id' => $id, 'platform' => 'android']);
         }
 
         $token = $user->createToken('mobile-app')->plainTextToken;

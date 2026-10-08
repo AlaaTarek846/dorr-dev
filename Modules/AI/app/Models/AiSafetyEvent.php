@@ -38,6 +38,7 @@ class AiSafetyEvent extends Model
     {
         return $this->belongsTo(AiSafetyRule::class, 'safety_rule_id');
     }
+
     public function request(): BelongsTo
     {
         return $this->belongsTo(AiRequest::class, 'request_id');

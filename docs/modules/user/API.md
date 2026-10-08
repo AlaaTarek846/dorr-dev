@@ -64,6 +64,8 @@ in `App\Traits\SendsPhoneOtp`. A user cannot reach authenticated endpoints until
 | POST | `/support-tickets` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::store |
 | GET | `/support-tickets/{ticket}` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::show |
 | PATCH | `/support-tickets/{ticket}/status` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::status |
+| POST | `/support-tickets/{ticket}/auto-reply-feedback` | auth:user_api + ensure-phone-verified | MobileSupportTicketController::autoReplyFeedback |
+| GET/PUT | `/api/admin/v1/support-settings` (+ `/quick-replies` CRUD) | admin_api, `support-settings.view|update` | SupportSettingController |
 | GET | `/support-tickets/{ticket}/messages` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::messages |
 | POST | `/support-tickets/{ticket}/messages` | auth:user_api + ensure-phone-verified | Mobile\SupportTicketController::sendMessage |
 | GET | `/api/admin/v1/support-tickets` (+ `/{id}`, `/{id}/messages`, `/{id}/activities`) | admin_api, `support-tickets.view` | SupportTicketController |

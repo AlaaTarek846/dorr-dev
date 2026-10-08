@@ -3,8 +3,8 @@
 namespace Modules\AI\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Modules\AI\Http\Requests\Concerns\TranslatesSiteAttributes;
 use Illuminate\Validation\Rule;
+use Modules\AI\Http\Requests\Concerns\TranslatesSiteAttributes;
 
 class AiSiteHostingPlanRequest extends FormRequest
 {

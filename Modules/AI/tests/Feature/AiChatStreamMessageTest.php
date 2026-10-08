@@ -7,6 +7,7 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\AI\Services\AiChatService;
 use Modules\User\Models\User;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Tests\TestCase;
 
 /**
@@ -41,7 +42,7 @@ class AiChatStreamMessageTest extends TestCase
         ]);
     }
 
-    protected function captureStreamedOutput(\Symfony\Component\HttpFoundation\StreamedResponse $response): string
+    protected function captureStreamedOutput(StreamedResponse $response): string
     {
         // AiChatService::emitSseEvent() deliberately calls ob_flush() after
         // every event - correct for a real request (it pushes each SSE

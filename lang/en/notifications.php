@@ -122,5 +122,9 @@ return [
     'support_ticket_customer_status_reopened_body' => ':name reopened ticket #:id.',
     'support_ticket_customer_status_resolved_body' => ':name marked ticket #:id as resolved.',
     'support_ticket_customer_status_closed_body' => ':name closed ticket #:id.',
+    'support_ticket_auto_title' => 'An answer to your ticket',
+    'support_ticket_auto_body' => 'We found an answer to ticket "#:id :title". Open it to read it — and tell us if you still need a person.',
+    'support_ticket_wants_agent_title' => 'A customer is waiting for an agent',
+    'support_ticket_wants_agent_body' => ':name read the automatic answer on ticket #:id and still needs a person.',
 
 ];

@@ -5,8 +5,8 @@ namespace Modules\AI\Services;
 use Modules\AI\Enums\AiProviderKey;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Models\AiProviderDataRule;
-use Modules\AI\Models\AiProviderModel;
 use Modules\AI\Models\AiProviderLog;
+use Modules\AI\Models\AiProviderModel;
 use Modules\AI\Models\AiRequest;
 use Modules\AI\Services\Connectors\AnthropicConnector;
 use Modules\AI\Services\Connectors\Contracts\AiConnector;
@@ -42,8 +42,8 @@ class AiGateway
     /**
      * @param  list<array{role: string, content: string}>  $messages
      * @param  bool  $useWebSearch  See AiConnector::sendChat()'s docblock -
-     *   only ever true when the caller already confirmed $provider's
-     *   model is registered with the "web_search" capability.
+     *                              only ever true when the caller already confirmed $provider's
+     *                              model is registered with the "web_search" capability.
      * @return array{success: bool, message: string, content: ?string}
      */
     public function chat(AiProvider $provider, array $messages, ?AiRequest $context = null, bool $useWebSearch = false): array
@@ -373,9 +373,9 @@ class AiGateway
                 $note = $content['image']['file_name'] ?? null;
 
                 return ['role' => $message['role'], 'content' => $note
-                    ? $text."
+                    ? $text.'
 
-[".__('ai.attachment_note', ['name' => $note, 'type' => $content['image']['mime'] ?? ''])."]"
+['.__('ai.attachment_note', ['name' => $note, 'type' => $content['image']['mime'] ?? '']).']'
                     : $text];
             }
 

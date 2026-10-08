@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-07  
+**Last updated:** 2026-10-08  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -23,6 +23,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 - Translation-based catalog pattern
 - AI gateway with multiple providers
 - Provider profiles with service category linkage
+- Support automatic replies (acknowledgement, away note, FAQ answers through the AI gateway; admin `support-settings`, quick replies, mobile feedback buttons)
 - Provider dashboard API: `/api/provider/v1/*` (auth, registration, profile, password reset, `countries/dropdown`)
 - Provider admin API: `/api/admin/v1/providers*` (CRUD, trash, status) via `Modules/Provider/routes/admin.php`
 - Provider OAuth web routes + shared Google/Apple callback via `social_auth_panel` session

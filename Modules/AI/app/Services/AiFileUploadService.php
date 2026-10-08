@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Services;
 
+use App\Support\Api\ApiResponse;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
@@ -11,7 +12,6 @@ use Modules\AI\Http\Resources\AiFileResource;
 use Modules\AI\Models\AiFile;
 use Modules\AI\Repositories\AiConversationRepository;
 use Modules\AI\Repositories\AiFileRepository;
-use App\Support\Api\ApiResponse;
 
 /**
  * Acceptance criteria doc S4/S14: the customer-facing File Engine API

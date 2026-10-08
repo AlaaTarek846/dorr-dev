@@ -3,6 +3,7 @@
 namespace Modules\AI\Models;
 
 use App\Models\Country;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -32,13 +33,13 @@ class AiSiteHostingPlan extends Model
     }
 
     /** One period later than $from. */
-    public function periodEnd(\Carbon\CarbonInterface $from): \Carbon\CarbonInterface
+    public function periodEnd(CarbonInterface $from): CarbonInterface
     {
         return $this->period === self::PERIOD_YEARLY ? $from->copy()->addYear() : $from->copy()->addMonth();
     }
 
     /**
-     * @return array{price: float, currency: string}|null  null = not sold in this country
+     * @return array{price: float, currency: string}|null null = not sold in this country
      */
     public function priceFor(?Country $country): ?array
     {

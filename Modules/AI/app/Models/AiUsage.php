@@ -18,7 +18,6 @@ class AiUsage extends Model
     // crash risk, not a dormant one.
     protected $table = 'ai_usage';
 
-
     const TYPE_ESTIMATED = 'estimated';
 
     const TYPE_ACTUAL = 'actual';

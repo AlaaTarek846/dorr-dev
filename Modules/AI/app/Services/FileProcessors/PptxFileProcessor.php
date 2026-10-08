@@ -42,7 +42,7 @@ class PptxFileProcessor implements AiFileProcessorInterface
             return AiFileProcessingResult::failed('unsupported_mime_type');
         }
 
-        if (! class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             return AiFileProcessingResult::failed(
                 static::DOCUMENT_TYPE === 'ppt' ? 'PPT_PROCESSOR_UNAVAILABLE' : 'PPTX_PROCESSOR_UNAVAILABLE'
             );

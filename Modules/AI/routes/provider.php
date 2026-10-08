@@ -1,13 +1,13 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 use Modules\AI\Http\Controllers\AiChatController;
 use Modules\AI\Http\Controllers\AiConversationFileController;
 use Modules\AI\Http\Controllers\AiRealtimeController;
-use Modules\AI\Http\Controllers\AiSiteProjectController;
 use Modules\AI\Http\Controllers\AiSiteHostingController;
+use Modules\AI\Http\Controllers\AiSiteProjectController;
 use Modules\AI\Http\Controllers\AiUserSubscriptionController;
+use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
 // Same AiChatController as routes/user.php - AI chat is shared between the
 // User and Provider dashboards. ai_conversations.owner is polymorphic, see

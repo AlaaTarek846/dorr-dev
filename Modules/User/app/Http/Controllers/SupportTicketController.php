@@ -15,6 +15,7 @@ use Modules\User\Http\Requests\StoreSupportMessageRequest;
 use Modules\User\Http\Requests\SupportTicketStatusRequest;
 use Modules\User\Http\Resources\AdminSupportTicketResource;
 use Modules\User\Http\Resources\SupportMessageResource;
+use Modules\User\Models\SupportQuickReply;
 use Modules\User\Models\SupportTicket;
 use Modules\User\Services\SupportTicketService;
 
@@ -33,7 +34,7 @@ class SupportTicketController extends Controller implements HasMiddleware
     {
         return AdminPermissionMiddleware::fromActionMethodMap('support-tickets', [
             ['view', ['index', 'show', 'messages', 'activities']],
-            ['reply', ['sendMessage']],
+            ['reply', ['sendMessage', 'quickReplies']],
             ['change-status', ['status']],
         ]);
     }
@@ -97,6 +98,18 @@ class SupportTicketController extends Controller implements HasMiddleware
         $message = $this->service->agentReply($admin, $supportTicket, $request->validated('body'), $request->file('image'));
 
         return $this->service->messageResponse($message, __('api.support_message_sent'));
+    }
+
+    /**
+     * The active quick replies, for the "/" menu of the reply box (the agent edits and sends them in their own name).
+     */
+    public function quickReplies(): JsonResponse
+    {
+        return ApiResponse::success(
+            SupportQuickReply::query()->where('status', true)->orderBy('sort_order')->orderBy('id')
+                ->get(['id', 'shortcut', 'title', 'body']),
+            __('api.retrieved'),
+        );
     }
 
     public function status(SupportTicketStatusRequest $request, SupportTicket $supportTicket): JsonResponse

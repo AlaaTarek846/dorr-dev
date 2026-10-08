@@ -5,9 +5,9 @@ namespace Modules\AI\Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
-use Modules\Admin\Models\Admin;
 use Tests\TestCase;
 
 /**

@@ -30,7 +30,7 @@ class AiChatVoiceAttachmentValidationTest extends TestCase
 {
     public function test_the_attachment_mimes_rule_accepts_the_apps_own_voice_note_extension(): void
     {
-        $rules = (new AiChatMessageRequest())->rules();
+        $rules = (new AiChatMessageRequest)->rules();
         $attachmentRules = $rules['attachment'];
 
         $mimesRule = collect($attachmentRules)->first(fn ($rule) => is_string($rule) && str_starts_with($rule, 'mimes:'));
@@ -43,7 +43,7 @@ class AiChatVoiceAttachmentValidationTest extends TestCase
 
     public function test_the_content_sniffed_allowlist_accepts_the_apps_own_voice_note_container(): void
     {
-        $rule = new SafeUploadedFile();
+        $rule = new SafeUploadedFile;
         $reflection = new \ReflectionClass($rule);
         $property = $reflection->getProperty('allowedRealMimes');
         $property->setAccessible(true);

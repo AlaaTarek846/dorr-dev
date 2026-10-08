@@ -5,9 +5,9 @@ namespace Modules\AI\Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
+use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Services\AiGateway;
-use Modules\Admin\Models\Admin;
 use Tests\TestCase;
 
 /**
@@ -33,7 +33,7 @@ class AiVoiceGatewayTest extends TestCase
 {
     use RefreshDatabase;
 
-    protected function makeProvider(): \Modules\AI\Models\AiProvider
+    protected function makeProvider(): AiProvider
     {
         $repository = app(AiProviderRepository::class);
 
