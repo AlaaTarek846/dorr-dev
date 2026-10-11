@@ -285,6 +285,7 @@ import WalletModal from '../../../../../../../components/wallet/WalletModal.vue'
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
+import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, formatDateTime } from '../../../../../../../utils/walletMoney';
@@ -390,4 +391,7 @@ async function runAction(kind) {
 watch(() => ({ ...filters }), loadSummary, { deep: true });
 
 onMounted(reload);
+
+// A clicked notification arrives as ?payment=ID.
+useOpenFromQuery('payment', (id) => openDetail(id));
 </script>

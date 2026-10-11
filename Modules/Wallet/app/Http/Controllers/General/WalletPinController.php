@@ -11,8 +11,8 @@ use Modules\Wallet\Exceptions\RecoveryException;
 use Modules\Wallet\Http\Requests\WalletPinRequest;
 use Modules\Wallet\Services\DeviceTrustService;
 use Modules\Wallet\Services\PinService;
-use Modules\Wallet\Services\WalletRecoveryService;
 use Modules\Wallet\Services\WalletNotifier;
+use Modules\Wallet\Services\WalletRecoveryService;
 
 /**
  * Wallet PIN endpoints, mounted under both mobile/user and provider groups.

@@ -37,7 +37,7 @@ final class GatewayChargeRequest
             return null;
         }
 
-        $digits = preg_replace('/\D/', '',$this->customerPhone);
+        $digits = preg_replace('/\D/', '', $this->customerPhone);
         $dial = ltrim((string) $this->customerDialCode, '+');
 
         if ($dial !== '' && str_starts_with($this->customerPhone, '+') && str_starts_with($digits, $dial)) {

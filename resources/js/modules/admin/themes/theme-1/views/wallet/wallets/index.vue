@@ -328,6 +328,7 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import useFormFields from '../../../../../../../composables/useFormFields';
 import useToast from '../../../../../../../composables/useToast';
 import useValidation from '../../../../../../../composables/useValidation';
+import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, parseMajor } from '../../../../../../../utils/walletMoney';
@@ -412,6 +413,13 @@ function open(row) {
     resetAdjust();
     loadTx(1);
 }
+
+// A clicked notification arrives as ?wallet=ID: load that wallet and open its modal.
+useOpenFromQuery('wallet', async (id) => {
+    const { data } = await adminAxios.get(`/api/admin/v1/wallets/${id}`);
+
+    open(data.data);
+});
 
 const txPerPage = ref(10);
 watch(txPerPage, () => loadTx(1));
