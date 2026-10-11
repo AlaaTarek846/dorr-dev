@@ -22,7 +22,7 @@ class ReconcileWallets extends Command
 {
     protected $signature = 'wallet:reconcile';
 
-    protected $description = "Recomputes wallet balances from wallet_transactions and flags any mismatch; releases expired wallet_holds.";
+    protected $description = 'Recomputes wallet balances from wallet_transactions and flags any mismatch; releases expired wallet_holds.';
 
     public function handle(WalletService $wallets): int
     {

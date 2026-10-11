@@ -431,6 +431,7 @@ class PaymentTopupTest extends TestCase
         $this->assertSame('wallet_topup_paid_title', $notifications[0]->data['title']);
         $this->assertSame('wallet_topup_paid_bonus_body', $notifications[0]->data['message']);
         $this->assertSame($payment->uuid, $notifications[0]->data['data']['payment_uuid']);
+        $this->assertSame($payment->id, $notifications[0]->data['data']['payment_id']);
     }
 
     public function test_a_failed_topup_is_announced(): void

@@ -7,6 +7,7 @@ use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Modules\Wallet\Services\FinancialEntryQueryService;
 
 /**
@@ -19,7 +20,7 @@ class FinancialEntryController extends Controller implements HasMiddleware
     public function __construct(private readonly FinancialEntryQueryService $entries) {}
 
     /**
-     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     * @return list<Middleware>
      */
     public static function middleware(): array
     {

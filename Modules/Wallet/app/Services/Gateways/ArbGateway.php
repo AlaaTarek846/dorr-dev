@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Modules\Wallet\Contracts\PaymentGateway;
 use Modules\Wallet\Exceptions\PaymentGatewayException;
+use Modules\Wallet\Exceptions\UnsupportedGatewayOperationException;
 use Modules\Wallet\Support\Payments\GatewayCallbackResult;
 use Modules\Wallet\Support\Payments\GatewayChargeRequest;
 use Modules\Wallet\Support\Payments\GatewayChargeResult;
@@ -176,7 +177,7 @@ class ArbGateway implements PaymentGateway
     public function refund(string $gatewayReference, int $amountMinor, array $context = []): GatewayCallbackResult
     {
         // Not present in Jawad's ARBPaymentService — not faking it here.
-        throw new \Modules\Wallet\Exceptions\UnsupportedGatewayOperationException('arb', 'refund');
+        throw new UnsupportedGatewayOperationException('arb', 'refund');
     }
 
     public function translateError(?string $code, ?string $fallback, string $locale): string

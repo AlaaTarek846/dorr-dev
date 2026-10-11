@@ -6,9 +6,9 @@ use Modules\Wallet\Http\Controllers\Admin\OnlineTransactionController;
 use Modules\Wallet\Http\Controllers\Admin\PaymentMethodController;
 use Modules\Wallet\Http\Controllers\Admin\PinRecoveryRequestController;
 use Modules\Wallet\Http\Controllers\Admin\WalletController;
-use Modules\Wallet\Http\Controllers\Admin\WithdrawalRequestController;
 use Modules\Wallet\Http\Controllers\Admin\WalletFeeRuleController;
 use Modules\Wallet\Http\Controllers\Admin\WalletSettingController;
+use Modules\Wallet\Http\Controllers\Admin\WithdrawalRequestController;
 
 Route::middleware('locale')->prefix('admin/v1')->group(function () {
     Route::middleware('auth:admin_api')->group(function () {
@@ -38,7 +38,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('wallet-settings/{country}', [WalletSettingController::class, 'show']);
         Route::put('wallet-settings/{country}', [WalletSettingController::class, 'update']);
 
-        Route::get('withdrawal-requests',[WithdrawalRequestController::class, 'index']);
+        Route::get('withdrawal-requests', [WithdrawalRequestController::class, 'index']);
         Route::get('withdrawal-requests/{withdrawal_request}', [WithdrawalRequestController::class, 'show']);
         Route::get('withdrawal-requests/{withdrawal_request}/receipt', [WithdrawalRequestController::class, 'receipt']);
         Route::post('withdrawal-requests/{withdrawal_request}/approve', [WithdrawalRequestController::class, 'approve']);

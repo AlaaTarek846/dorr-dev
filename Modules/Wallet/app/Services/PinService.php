@@ -3,6 +3,7 @@
 namespace Modules\Wallet\Services;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Modules\Wallet\Exceptions\PinFrozenException;
 use Modules\Wallet\Exceptions\PinLockedException;
 use Modules\Wallet\Exceptions\PinMismatchException;
@@ -43,7 +44,7 @@ class PinService
      * The end of a temporary lock (too many wrong PINs), while it lasts — so the app can show the
      * countdown straight away on reopening, instead of the keypad until the next wrong try.
      */
-    public function lockedUntil(Model $owner): ?\Illuminate\Support\Carbon
+    public function lockedUntil(Model $owner): ?Carbon
     {
         $until = $this->find($owner)?->locked_until;
 
@@ -85,10 +86,10 @@ class PinService
     }
 
     /**
-     * @throws PinNotSetException     no PIN exists yet — caller should offer PIN creation instead
-     * @throws PinFrozenException     permanently locked — needs a person to clear it
-     * @throws PinLockedException     temporarily locked (lifts itself)
-     * @throws PinMismatchException   wrong PIN (also registers the failure)
+     * @throws PinNotSetException no PIN exists yet — caller should offer PIN creation instead
+     * @throws PinFrozenException permanently locked — needs a person to clear it
+     * @throws PinLockedException temporarily locked (lifts itself)
+     * @throws PinMismatchException wrong PIN (also registers the failure)
      */
     public function verify(Model $owner, string $pin): void
     {

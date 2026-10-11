@@ -85,7 +85,7 @@ class Wallet extends Model
     /**
      * Deliberately not an Eloquent morphTo() — see OwnerType's docblock.
      */
-    public function owner(): ?\Illuminate\Database\Eloquent\Model
+    public function owner(): ?Model
     {
         return OwnerType::modelClassFor($this->owner_type)::query()->find($this->owner_id);
     }

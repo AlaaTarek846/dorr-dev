@@ -35,8 +35,8 @@ class TransferRecipientResolver
     /**
      * @return array<string, mixed>
      *
-     * @throws ValidationException  malformed phone (country rules) — a field error
-     * @throws TransferException    nobody payable behind these details
+     * @throws ValidationException malformed phone (country rules) — a field error
+     * @throws TransferException nobody payable behind these details
      */
     public function byPhone(User $sender, Country $country, string $rawPhone): array
     {

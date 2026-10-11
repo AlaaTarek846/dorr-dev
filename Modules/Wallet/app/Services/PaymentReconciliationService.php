@@ -24,7 +24,7 @@ class PaymentReconciliationService
     /**
      * @param  array{type: string, id: int|null}|null  $triggeredBy
      *
-     * @throws TopupException  not reconcilable, or the gateway can't be asked
+     * @throws TopupException not reconcilable, or the gateway can't be asked
      */
     public function reconcile(PaymentTransaction $payment, ?array $triggeredBy = null): PaymentTransaction
     {
