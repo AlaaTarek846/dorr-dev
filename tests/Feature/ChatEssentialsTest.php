@@ -8,12 +8,18 @@ use App\Models\Flag;
 use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatTheme;
 use Modules\Chat\Services\ChatPushNotifier;
+use Modules\Chat\Services\ChatThemeService;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -232,22 +238,22 @@ class ChatEssentialsTest extends TestCase
 
     public function test_my_own_wallpaper_and_colours_for_one_chat_only_i_see_them(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
-        $default = \Modules\Chat\Models\ChatTheme::query()->create(['sender_color' => '#111111', 'receiver_color' => '#EEEEEE', 'is_default' => true]);
-        app(\Modules\Chat\Services\ChatThemeService::class)->flush();
+        Storage::fake('public');
+        $default = ChatTheme::query()->create(['sender_color' => '#111111', 'receiver_color' => '#EEEEEE', 'is_default' => true]);
+        app(ChatThemeService::class)->flush();
         $chat = $this->direct($this->alice, $this->bob);
 
         // A picture from my gallery: drawn over the default theme, dimmed a little, its colours kept.
         $this->as($this->alice);
-        $applied = $this->post("/api/mobile/v1/chat/conversations/{$chat}/wallpaper", ['image' => \Illuminate\Http\UploadedFile::fake()->image('beach.jpg', 1080, 1920)], $this->headers() + ['Accept' => 'application/json'])
+        $applied = $this->post("/api/mobile/v1/chat/conversations/{$chat}/wallpaper", ['image' => UploadedFile::fake()->image('beach.jpg', 1080, 1920)], $this->headers() + ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('data.theme.applied.is_custom', true)
-            ->assertJsonPath('data.theme.applied.dim', \Modules\Chat\Services\ChatThemeService::DEFAULT_DIM)
+            ->assertJsonPath('data.theme.applied.dim', ChatThemeService::DEFAULT_DIM)
             ->assertJsonPath('data.theme.applied.sender_color', '#111111')
             ->json('data.theme.applied');
         $this->assertStringContainsString('/storage/chat/wallpapers/', $applied['wallpaper']);
-        $first = \Modules\Chat\Models\ChatParticipant::query()->where('participant_id', $this->alice->id)->latest('id')->first()->custom_theme['wallpaper_path'];
-        \Illuminate\Support\Facades\Storage::disk('public')->assertExists($first);
+        $first = ChatParticipant::query()->where('participant_id', $this->alice->id)->latest('id')->first()->custom_theme['wallpaper_path'];
+        Storage::disk('public')->assertExists($first);
 
         // My bubble colours and a darker dim; the picture stays.
         $this->patchJson("/api/mobile/v1/chat/conversations/{$chat}/settings", ['custom_theme' => ['sender_color' => '#7C3AED', 'receiver_color' => '#FDE68A', 'dim' => 40]], $this->headers())
@@ -266,15 +272,15 @@ class ChatEssentialsTest extends TestCase
 
         // A new picture replaces the old one (deleted from storage).
         $this->as($this->alice);
-        $this->post("/api/mobile/v1/chat/conversations/{$chat}/wallpaper", ['image' => \Illuminate\Http\UploadedFile::fake()->image('city.png', 800, 1600)], $this->headers() + ['Accept' => 'application/json'])->assertOk();
-        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($first);
-        $second = \Modules\Chat\Models\ChatParticipant::query()->where('participant_id', $this->alice->id)->latest('id')->first()->custom_theme['wallpaper_path'];
+        $this->post("/api/mobile/v1/chat/conversations/{$chat}/wallpaper", ['image' => UploadedFile::fake()->image('city.png', 800, 1600)], $this->headers() + ['Accept' => 'application/json'])->assertOk();
+        Storage::disk('public')->assertMissing($first);
+        $second = ChatParticipant::query()->where('participant_id', $this->alice->id)->latest('id')->first()->custom_theme['wallpaper_path'];
 
         // Remove just the picture: the colours stay.
         $this->patchJson("/api/mobile/v1/chat/conversations/{$chat}/settings", ['custom_theme' => ['wallpaper' => null]], $this->headers())->assertOk()
             ->assertJsonPath('data.theme.custom.wallpaper', null)
             ->assertJsonPath('data.theme.applied.sender_color', '#7C3AED');
-        \Illuminate\Support\Facades\Storage::disk('public')->assertMissing($second);
+        Storage::disk('public')->assertMissing($second);
 
         // "Back to the theme": my look is gone entirely.
         $this->patchJson("/api/mobile/v1/chat/conversations/{$chat}/settings", ['custom_theme' => null], $this->headers())->assertOk()
@@ -284,7 +290,7 @@ class ChatEssentialsTest extends TestCase
 
     public function test_the_custom_look_is_validated(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
         $chat = $this->direct($this->alice, $this->bob);
         $this->as($this->alice);
 
@@ -292,7 +298,7 @@ class ChatEssentialsTest extends TestCase
         $this->patchJson("/api/mobile/v1/chat/conversations/{$chat}/settings", ['custom_theme' => ['dim' => 95]], $this->headers())->assertStatus(422);
         // A wallpaper only arrives as an upload, never as a link to anything.
         $this->patchJson("/api/mobile/v1/chat/conversations/{$chat}/settings", ['custom_theme' => ['wallpaper' => 'https://evil.example/x.jpg']], $this->headers())->assertStatus(422);
-        $this->post("/api/mobile/v1/chat/conversations/{$chat}/wallpaper", ['image' => \Illuminate\Http\UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])->assertStatus(422);
+        $this->post("/api/mobile/v1/chat/conversations/{$chat}/wallpaper", ['image' => UploadedFile::fake()->create('notes.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])->assertStatus(422);
 
         // No theme at all + only colours: drawn on Dorr's look with my colours.
         $this->patchJson("/api/mobile/v1/chat/conversations/{$chat}/settings", ['custom_theme' => ['background_color' => '#0F172A']], $this->headers())->assertOk()
@@ -305,11 +311,11 @@ class ChatEssentialsTest extends TestCase
 
     public function test_a_sticker_made_from_my_photo_is_kept_and_sent(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
         $chat = $this->direct($this->alice, $this->bob);
         $this->as($this->alice);
 
-        $made = $this->post('/api/mobile/v1/chat/stickers/mine', ['image' => \Illuminate\Http\UploadedFile::fake()->image('me.png', 512, 512), 'emoji' => '😄'], $this->headers() + ['Accept' => 'application/json'])
+        $made = $this->post('/api/mobile/v1/chat/stickers/mine', ['image' => UploadedFile::fake()->image('me.png', 512, 512), 'emoji' => '😄'], $this->headers() + ['Accept' => 'application/json'])
             ->assertCreated()->assertJsonPath('data.width', 512)->json('data');
 
         $this->getJson('/api/mobile/v1/chat/stickers', $this->headers())->assertOk()
@@ -336,13 +342,13 @@ class ChatEssentialsTest extends TestCase
 
     public function test_my_sticker_must_be_a_small_transparent_image(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
         $this->as($this->alice);
         $post = fn ($file) => $this->post('/api/mobile/v1/chat/stickers/mine', ['image' => $file], $this->headers() + ['Accept' => 'application/json']);
 
-        $post(\Illuminate\Http\UploadedFile::fake()->image('photo.jpg', 512, 512))->assertStatus(422);      // no transparency
-        $post(\Illuminate\Http\UploadedFile::fake()->image('huge.png', 3000, 3000))->assertStatus(422);     // too big
-        $post(\Illuminate\Http\UploadedFile::fake()->image('ok.webp', 512, 512))->assertCreated();
+        $post(UploadedFile::fake()->image('photo.jpg', 512, 512))->assertStatus(422);      // no transparency
+        $post(UploadedFile::fake()->image('huge.png', 3000, 3000))->assertStatus(422);     // too big
+        $post(UploadedFile::fake()->image('ok.webp', 512, 512))->assertCreated();
     }
 
     // ================================================================ helpers
@@ -370,7 +376,7 @@ class ChatEssentialsTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

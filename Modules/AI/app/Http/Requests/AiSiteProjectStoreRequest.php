@@ -3,8 +3,8 @@
 namespace Modules\AI\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
-use Modules\AI\Http\Requests\Concerns\TranslatesSiteAttributes;
 use Illuminate\Validation\Rule;
+use Modules\AI\Http\Requests\Concerns\TranslatesSiteAttributes;
 use Modules\AI\Services\Sites\AiSiteTokenizer;
 
 /** The one-shot "tell us everything about your site" brief. */

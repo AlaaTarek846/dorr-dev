@@ -5,8 +5,10 @@ namespace Modules\Chat\Http\Resources;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\ConversationStatus;
+use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Services\ChatThemeService;
@@ -49,7 +51,7 @@ class ConversationResource extends JsonResource
         // A message request I sent to someone I don't have saved (from a public story, say): their
         // number shows once they accept it (docs/remaining_chat.md ج.1).
         if ($peerProfile !== null && ! ($peerProfile['is_contact'] ?? false)
-            && $conversation->status !== \Modules\Chat\Enums\ConversationStatus::Accepted
+            && $conversation->status !== ConversationStatus::Accepted
             && $conversation->created_by_type === $me->participant_type && (int) $conversation->created_by_id === (int) $me->participant_id) {
             $peerProfile['phone'] = null;
         }
@@ -163,7 +165,7 @@ class ConversationResource extends JsonResource
             'id' => $message->uuid,
             'type' => $message->type->value,
             // A sensitive message never shows in the list.
-            'body' => $gone || $message->is_sensitive || ($message->type === \Modules\Chat\Enums\MessageType::MomentCard && data_get($message->meta, 'card.reveal_at') && \Illuminate\Support\Carbon::parse(data_get($message->meta, 'card.reveal_at'))->isFuture())
+            'body' => $gone || $message->is_sensitive || ($message->type === MessageType::MomentCard && data_get($message->meta, 'card.reveal_at') && Carbon::parse(data_get($message->meta, 'card.reveal_at'))->isFuture())
                 ? null : Str::limit((string) $message->body, 120),
             'is_sensitive' => (bool) $message->is_sensitive,
             'sender' => $context->profile($message->sender_type, $message->sender_id),

@@ -4,6 +4,7 @@ namespace Modules\User\Http\Controllers;
 
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Services\General\LoginCountry;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -37,7 +38,7 @@ class UserAuthController extends Controller
 
         $user->tokens()->delete();
 
-        app(\App\Services\General\LoginCountry::class)->remember($user);
+        app(LoginCountry::class)->remember($user);
         $token = $user->createToken('user-api')->plainTextToken;
 
         return ApiResponse::success([

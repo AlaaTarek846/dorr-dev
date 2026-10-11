@@ -38,11 +38,21 @@ class ChatNotificationExtension : INotificationServiceExtension {
             event.notification.setExtender { builder -> builder.setSilent(true) }
             return
         }
-        // This chat has its own tone (or "none") picked on this phone.
+        // This chat has its own tone (or "none") picked on this phone; and local intelligence
+        // (spec 156): its kind, my words, codes and money kept off the lock screen — all here.
         if (data.optString("type") == "chat") {
             val conversationId = data.optString("conversation_uuid")
-            if (conversationId.isNotBlank() && ChatTones.get(event.context, conversationId) != null) {
-                event.notification.setExtender { builder -> builder.also { ChatTones.apply(event.context, conversationId, it) } }
+            val tone = conversationId.isNotBlank() && ChatTones.get(event.context, conversationId) != null
+            val local = LocalIntelligence.enabled(event.context)
+            if (tone || local) {
+                val title = event.notification.title
+                val body = event.notification.body
+                event.notification.setExtender { builder ->
+                    builder.also {
+                        if (tone) ChatTones.apply(event.context, conversationId, it)
+                        if (local) LocalIntelligence.apply(event.context, it, title, body)
+                    }
+                }
             }
             return
         }

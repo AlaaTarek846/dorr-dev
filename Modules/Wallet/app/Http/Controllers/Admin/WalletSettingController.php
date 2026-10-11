@@ -8,6 +8,7 @@ use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Modules\Wallet\Exceptions\WithdrawalException;
 use Modules\Wallet\Models\WalletSetting;
@@ -21,7 +22,7 @@ use Modules\Wallet\Models\WalletSetting;
 class WalletSettingController extends Controller implements HasMiddleware
 {
     /**
-     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     * @return list<Middleware>
      */
     public static function middleware(): array
     {
@@ -31,10 +32,21 @@ class WalletSettingController extends Controller implements HasMiddleware
         ]);
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        return ApiResponse::success(
-            WalletSetting::query()->with('country:id,code')->orderBy('country_id')->get()->map(fn (WalletSetting $s) => $this->present($s)),
+        $perPage = max(1, min((int) $request->input('per_page', 15), 50));
+        $search = trim((string) $request->query('search', ''));
+
+        // One row per country (200+): paged, and searchable by country code.
+        $paginator = WalletSetting::query()
+            ->with('country.translations')
+            ->when($search !== '', fn ($q) => $q->whereHas('country', fn ($c) => $c->where('code', 'like', '%'.str_replace(['%', '_'], ['\\%', '\\_'], $search).'%')))
+            ->orderBy('country_id')
+            ->paginate($perPage);
+
+        return ApiResponse::fromPaginator(
+            $paginator,
+            collect($paginator->items())->map(fn (WalletSetting $s) => $this->present($s))->all(),
             __('api.retrieved'),
         );
     }
@@ -68,14 +80,14 @@ class WalletSettingController extends Controller implements HasMiddleware
         $setting = $this->findFor($country);
         $setting->update($data);
 
-        return ApiResponse::success($this->present($setting->refresh()->load('country:id,code')), __('api.updated'));
+        return ApiResponse::success($this->present($setting->refresh()->load('country.translations')), __('api.updated'));
     }
 
     private function findFor(int $countryId): WalletSetting
     {
         Country::query()->findOrFail($countryId);
 
-        return WalletSetting::query()->with('country:id,code')->where('country_id', $countryId)->first()
+        return WalletSetting::query()->with('country.translations')->where('country_id', $countryId)->first()
             ?? throw WithdrawalException::settingsMissing();
     }
 
@@ -84,7 +96,11 @@ class WalletSettingController extends Controller implements HasMiddleware
      */
     private function present(WalletSetting $setting): array
     {
-        return ['country_code' => $setting->country?->code] + $setting->only([
+        return [
+            'country_code' => $setting->country?->code,
+            // The country's name in the admin's language (its code until it has a translation), for the table.
+            'country_name' => $setting->country?->translatedName() ?? $setting->country?->code,
+        ] + $setting->only([
             'country_id', 'min_topup_minor', 'max_topup_minor', 'min_withdrawal_minor', 'max_withdrawal_minor',
             'transfer_max_per_transaction_minor', 'transfer_max_per_day_minor', 'transfer_max_per_month_minor',
             'transfers_enabled', 'transfer_fee_percent', 'transfer_fee_payer',

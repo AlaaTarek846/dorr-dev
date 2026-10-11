@@ -79,7 +79,7 @@
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
         <WalletModal :show="showModal" :title="detail ? `#${detail.id} · ${t('wallet.withdrawals.request')}` : ''" @close="close">
@@ -205,6 +205,7 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import useToast from '../../../../../../../composables/useToast';
 import useFormFields from '../../../../../../../composables/useFormFields';
 import useValidation from '../../../../../../../composables/useValidation';
+import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, formatDateTime } from '../../../../../../../utils/walletMoney';
@@ -214,7 +215,7 @@ const { can } = usePermission();
 const { showSuccess, showWarning } = useToast();
 
 // Pending first: that is what a reviewer opens this screen for.
-const { rows, loading, pagination, filters, fetch } = useWalletList('withdrawal-requests', { defaults: { status: 'pending' } });
+const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('withdrawal-requests', { defaults: { status: 'pending' } });
 
 const canApprove = computed(() => can('withdrawal-requests.approve'));
 const canReject = computed(() => can('withdrawal-requests.reject'));
@@ -372,4 +373,7 @@ async function downloadReceipt() {
 }
 
 onMounted(() => fetch(1));
+
+// A clicked notification arrives as ?withdrawal=ID.
+useOpenFromQuery('withdrawal', (id) => open(id));
 </script>

@@ -10,8 +10,10 @@ use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
@@ -152,7 +154,7 @@ class ChatAiToolsTest extends TestCase
         $this->travelTo(Carbon::parse('2026-10-09 07:01', 'UTC'));
         $this->artisan('chat:task-reminders')->assertSuccessful();
         $this->artisan('chat:task-reminders')->assertSuccessful();
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
         $this->assertCount(1, collect(Http::recorded())->filter(fn ($pair) => ($pair[0]['data']['event'] ?? null) === 'chat.task.due'));
 
         $this->as($this->alice);
@@ -245,7 +247,7 @@ class ChatAiToolsTest extends TestCase
         return $this->postJson('/api/mobile/v1/chat/conversations/direct', ['participant_id' => $other->id], $this->headers())->assertOk()->json('data.id');
     }
 
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

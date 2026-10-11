@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Models;
 
+use App\Models\Currency;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -18,6 +19,6 @@ class AiSiteHostingPlanPrice extends Model
 
     public function currency(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\Currency::class);
+        return $this->belongsTo(Currency::class);
     }
 }

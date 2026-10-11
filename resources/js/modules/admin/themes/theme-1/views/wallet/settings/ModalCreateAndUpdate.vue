@@ -110,6 +110,7 @@
                                     :filter-placeholder="t('search_placeholder')"
                                     id="ws-fee-payer"
                                     v-model="form.transfer_fee_payer"
+                                    :placeholder="t('wallet.settings.transfer_fee_payer')"
                                     :options="feePayerOptions"
                                     option-label="label"
                                     option-value="value"

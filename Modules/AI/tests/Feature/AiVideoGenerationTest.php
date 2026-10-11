@@ -15,6 +15,7 @@ use Modules\AI\Models\AiPlan;
 use Modules\AI\Models\AiRequest;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Services\AiChatService;
+use Modules\AI\Services\AiMediaQuotaService;
 use Modules\AI\Services\AiVideoGenerationService;
 use ReflectionMethod;
 use Tests\TestCase;
@@ -167,7 +168,7 @@ class AiVideoGenerationTest extends TestCase
 
         $this->assertSame(__('ai.video_generation_failed'), $response->getData(true)['data']['assistant_message']['content']);
         $this->assertSame('failed', AiMediaGeneration::query()->firstOrFail()->status);
-        $this->assertSame(0, app(\Modules\AI\Services\AiMediaQuotaService::class)->usedToday($owner, 'video'));
+        $this->assertSame(0, app(AiMediaQuotaService::class)->usedToday($owner, 'video'));
         Queue::assertNothingPushed();
     }
 
@@ -208,7 +209,7 @@ class AiVideoGenerationTest extends TestCase
         $attachment = $message->attachments->first();
         $this->assertSame('video/mp4', $attachment->mime_type);
         Storage::disk('public')->assertExists($attachment->file_path);
-        $this->assertSame(1, app(\Modules\AI\Services\AiMediaQuotaService::class)->usedToday($owner, 'video'));
+        $this->assertSame(1, app(AiMediaQuotaService::class)->usedToday($owner, 'video'));
     }
 
     public function test_provider_failure_marks_failed_and_frees_the_quota(): void
@@ -223,7 +224,7 @@ class AiVideoGenerationTest extends TestCase
         $this->assertSame('failed', $generation->status);
         $this->assertTrue((bool) $generation->message->is_error);
         $this->assertSame(__('ai.video_generation_failed'), $generation->message->content);
-        $this->assertSame(0, app(\Modules\AI\Services\AiMediaQuotaService::class)->usedToday($owner, 'video'));
+        $this->assertSame(0, app(AiMediaQuotaService::class)->usedToday($owner, 'video'));
     }
 
     public function test_a_job_that_runs_too_long_times_out_without_calling_the_provider(): void

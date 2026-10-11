@@ -3,6 +3,9 @@
 namespace Modules\AI\Tests\Unit\FileProcessors;
 
 use Modules\AI\Services\FileProcessors\PptxFileProcessor;
+use PhpOffice\PhpPresentation\IOFactory;
+use PhpOffice\PhpPresentation\PhpPresentation;
+use PhpOffice\PhpPresentation\Style\Bullet;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -44,7 +47,7 @@ class PptxFileProcessorTest extends TestCase
 
     public function test_without_phppresentation_installed_it_fails_honestly_instead_of_faking_success(): void
     {
-        if (class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is installed - see test_extracts_slides_from_a_real_pptx_file for the real path instead.');
         }
 
@@ -59,11 +62,11 @@ class PptxFileProcessorTest extends TestCase
 
     public function test_extracts_slides_titles_bullets_and_tables_from_a_real_pptx_file(): void
     {
-        if (! class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is not installed yet - run: composer require phpoffice/phppresentation');
         }
 
-        $presentation = new \PhpOffice\PhpPresentation\PhpPresentation;
+        $presentation = new PhpPresentation;
         $presentation->removeSlideByIndex(0);
 
         $slide = $presentation->createSlide();
@@ -74,11 +77,11 @@ class PptxFileProcessorTest extends TestCase
         $p1 = $body->createParagraph();
         $p1->createTextRun('Revenue increased this quarter.');
         $p2 = $body->createParagraph();
-        $p2->getBulletStyle()->setBulletType(\PhpOffice\PhpPresentation\Style\Bullet::TYPE_BULLET);
+        $p2->getBulletStyle()->setBulletType(Bullet::TYPE_BULLET);
         $p2->createTextRun('Costs decreased');
 
         $path = $this->tempDir.'/deck.pptx';
-        \PhpOffice\PhpPresentation\IOFactory::createWriter($presentation, 'PowerPoint2007')->save($path);
+        IOFactory::createWriter($presentation, 'PowerPoint2007')->save($path);
 
         $result = $this->processor->process($path, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
 
@@ -97,18 +100,18 @@ class PptxFileProcessorTest extends TestCase
 
     public function test_arabic_slide_text_is_preserved(): void
     {
-        if (! class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is not installed yet - run: composer require phpoffice/phppresentation');
         }
 
-        $presentation = new \PhpOffice\PhpPresentation\PhpPresentation;
+        $presentation = new PhpPresentation;
         $presentation->removeSlideByIndex(0);
         $slide = $presentation->createSlide();
         $body = $slide->createRichTextShape();
         $body->createParagraph()->createTextRun('الإيرادات زادت في القاهرة');
 
         $path = $this->tempDir.'/arabic.pptx';
-        \PhpOffice\PhpPresentation\IOFactory::createWriter($presentation, 'PowerPoint2007')->save($path);
+        IOFactory::createWriter($presentation, 'PowerPoint2007')->save($path);
 
         $result = $this->processor->process($path, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
 
@@ -118,11 +121,11 @@ class PptxFileProcessorTest extends TestCase
 
     public function test_hidden_slide_is_preserved_and_flagged(): void
     {
-        if (! class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is not installed yet - run: composer require phpoffice/phppresentation');
         }
 
-        $presentation = new \PhpOffice\PhpPresentation\PhpPresentation;
+        $presentation = new PhpPresentation;
         $presentation->removeSlideByIndex(0);
         $visible = $presentation->createSlide();
         $visible->createRichTextShape()->createParagraph()->createTextRun('Visible');
@@ -132,7 +135,7 @@ class PptxFileProcessorTest extends TestCase
         $hidden->createRichTextShape()->createParagraph()->createTextRun('Internal only');
 
         $path = $this->tempDir.'/hidden.pptx';
-        \PhpOffice\PhpPresentation\IOFactory::createWriter($presentation, 'PowerPoint2007')->save($path);
+        IOFactory::createWriter($presentation, 'PowerPoint2007')->save($path);
 
         $result = $this->processor->process($path, 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
 
@@ -149,7 +152,7 @@ class PptxFileProcessorTest extends TestCase
 
     public function test_corrupted_pptx_fails_cleanly(): void
     {
-        if (! class_exists(\PhpOffice\PhpPresentation\IOFactory::class)) {
+        if (! class_exists(IOFactory::class)) {
             $this->markTestSkipped('phpoffice/phppresentation is not installed yet - run: composer require phpoffice/phppresentation');
         }
 

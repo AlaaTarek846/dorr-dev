@@ -7,6 +7,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Modules\AI\Enums\AiRetrievalMode;
 use Modules\AI\Jobs\ProcessAiFileJob;
+use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiFile;
 use Modules\AI\Models\AiFileChunk;
 use Modules\AI\Services\Chunking\AiChunkingEngine;
@@ -169,8 +170,8 @@ class AiRetrievalEngineTest extends TestCase
     public function test_conversation_scope_resolves_files_attached_to_that_conversation(): void
     {
         $owner = $this->makeOwner('F');
-        $convoA = \Modules\AI\Models\AiConversation::query()->create(['owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->id, 'title' => 'A']);
-        $convoB = \Modules\AI\Models\AiConversation::query()->create(['owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->id, 'title' => 'B']);
+        $convoA = AiConversation::query()->create(['owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->id, 'title' => 'A']);
+        $convoB = AiConversation::query()->create(['owner_type' => $owner->getMorphClass(), 'owner_id' => $owner->id, 'title' => 'B']);
         $fileInConvo = $this->makeIndexedFile($owner, 'convo-file', "# Notes\n\nThis conversation's own annual leave discussion notes.", conversationId: $convoA->id);
         $fileElsewhere = $this->makeIndexedFile($owner, 'other-file', "# Other\n\nA totally different conversation's annual leave discussion notes.", conversationId: $convoB->id);
 

@@ -6,8 +6,8 @@ use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Modules\AI\Models\AiLanguageVariant;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Models\AiLanguageVariant;
 use Tests\TestCase;
 
 /**

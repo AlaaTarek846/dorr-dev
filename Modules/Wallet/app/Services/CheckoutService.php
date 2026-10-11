@@ -100,7 +100,7 @@ class CheckoutService
     {
         $this->lockPayable($checkout->fresh());
 
-        $amount = $this->grossFor($owner, $checkout->country, $method, $checkout->amount_minor);
+        $amount = $this->grossFor($owner, $checkout->country, $method, max(1, $checkout->payableMinor()));
         $payment = $this->topups->initiate($owner, $checkout->country, $method, $amount, "checkout:{$checkout->uuid}:{$idempotencyKey}", $locale);
 
         $checkout->update(['payment_transaction_id' => $payment->id, 'paid_via' => 'gateway']);
@@ -159,7 +159,7 @@ class CheckoutService
 
                 if ($method->isConfigured()) {
                     try {
-                        $charge = $this->grossFor($owner, $country, $method, $checkout->amount_minor);
+                        $charge = $this->grossFor($owner, $country, $method, max(1, $checkout->payableMinor()));
                     } catch (Throwable) {
                         $charge = null; // outside this method's limits — it can't take this one
                     }
@@ -182,6 +182,10 @@ class CheckoutService
             'title' => $checkout->title,
             'subtitle' => $checkout->subtitle,
             'amount_minor' => $checkout->amount_minor,
+            // A coupon on it (docs/sports-plan.md §5.2): what's charged is payable_minor.
+            'discount_minor' => (int) $checkout->discount_minor,
+            'payable_minor' => $checkout->payableMinor(),
+            'coupon' => $checkout->coupon_id ? ['code' => $checkout->loadMissing('coupon')->coupon?->code, 'discount_minor' => (int) $checkout->discount_minor] : null,
             'currency_code' => $country->currency?->code,
             'status' => $this->effectiveStatus($checkout)->value,
             'paid_via' => $checkout->paid_via,
@@ -190,8 +194,8 @@ class CheckoutService
             'paid_at' => $checkout->paid_at?->toISOString(),
             'wallet' => [
                 'available_minor' => $available,
-                'enough' => $available >= $checkout->amount_minor,
-                'shortfall_minor' => max(0, $checkout->amount_minor - $available),
+                'enough' => $available >= $checkout->payableMinor(),
+                'shortfall_minor' => max(0, $checkout->payableMinor() - $available),
             ],
             'payment_methods' => $methods,
             'payment' => $payment ? (new PaymentTransactionResource($payment))->resolve() : null,
@@ -248,7 +252,9 @@ class CheckoutService
         $owner = $checkout->owner();
         $wallet = $this->wallets->firstOrCreateWallet($owner, $checkout->country);
         $wallet = Wallet::query()->lockForUpdate()->findOrFail($wallet->id);
-        $amount = $checkout->amount_minor;
+        // A coupon is spent here, with the payment (exactly once); the rest is charged.
+        $discount = app(CouponService::class)->redeem($checkout);
+        $amount = max(0, $checkout->amount_minor - $discount);
 
         $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $amount);
         $fromWithdrawable = $amount - $fromSpendOnly;
@@ -275,16 +281,18 @@ class CheckoutService
             }
         }
 
-        $this->ledger->record(
-            'service_revenue',
-            FinancialEntryType::Income,
-            $amount,
-            $checkout->currency ?? $checkout->loadMissing('currency')->currency,
-            $checkout->country,
-            reference: $checkout,
-            notes: ['key' => 'wallet.notes.service_payment', 'variables' => ['title' => $checkout->title]],
-            walletTransaction: $last,
-        );
+        if ($amount > 0) {
+            $this->ledger->record(
+                'service_revenue',
+                FinancialEntryType::Income,
+                $amount,
+                $checkout->currency ?? $checkout->loadMissing('currency')->currency,
+                $checkout->country,
+                reference: $checkout,
+                notes: ['key' => 'wallet.notes.service_payment', 'variables' => ['title' => $checkout->title]],
+                walletTransaction: $last,
+            );
+        }
 
         $this->purposes->for($checkout->purpose)->fulfil($checkout);
 

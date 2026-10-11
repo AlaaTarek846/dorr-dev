@@ -3,6 +3,7 @@
 namespace Modules\AI\Tests\Unit;
 
 use Modules\AI\Services\AiRequiredCapabilityResolver;
+use Modules\AI\Support\AiChatLexicon;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -89,7 +90,7 @@ class AiRequiredCapabilityResolverTest extends TestCase
         $required = $this->resolver()->resolve('اصنع صوره فيها طفل صغير', null);
 
         $this->assertContains('image_generation', $required);
-        $this->assertFalse(\Modules\AI\Support\AiChatLexicon::wantsImageEdit('اصنع صوره فيها طفل صغير'));
+        $this->assertFalse(AiChatLexicon::wantsImageEdit('اصنع صوره فيها طفل صغير'));
     }
 
     public function test_an_attached_image_with_no_edit_wording_still_only_requires_vision(): void

@@ -280,6 +280,25 @@ class WalletEligibilityTest extends TestCase
         $this->assertTrue($this->eligibility->check($provider, $this->saudi)->eligible);
     }
 
+    public function test_the_countries_limits_list_is_paged_and_searchable_by_country_code(): void
+    {
+        $this->admin(['wallet-settings.view']);
+
+        $this->getJson('/api/admin/v1/wallet-settings?per_page=1&page=2')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('pagination.total', 2)
+            ->assertJsonPath('pagination.per_page', 1)
+            ->assertJsonPath('pagination.current_page', 2);
+
+        $this->getJson('/api/admin/v1/wallet-settings?search=eg')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.country_code', 'EG')
+            // the table shows the country's name next to its flag (its code while it has no translation)
+            ->assertJsonPath('data.0.country_name', 'EG');
+    }
+
     public function test_a_debt_limit_can_never_be_positive_and_ranges_must_make_sense(): void
     {
         $this->admin(['wallet-settings.update']);

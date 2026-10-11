@@ -4,10 +4,12 @@ namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiKnowledgeChunk;
 use Modules\AI\Models\AiKnowledgeSource;
+use Modules\AI\Models\AiProvider;
+use Modules\AI\Services\AiGateway;
 use Modules\AI\Services\AiKnowledgeRetriever;
-use Modules\Admin\Models\Admin;
 use Tests\TestCase;
 
 /**
@@ -240,7 +242,7 @@ class AiKnowledgeRetrieverTest extends TestCase
      */
     public function test_a_throwing_embed_call_degrades_to_null_instead_of_crashing(): void
     {
-        \Modules\AI\Models\AiProvider::query()->create([
+        AiProvider::query()->create([
             'key' => 'openai',
             'name' => 'OpenAI (test)',
             'is_enabled' => true,
@@ -249,7 +251,7 @@ class AiKnowledgeRetrieverTest extends TestCase
             'model' => 'gpt-4o-mini',
         ]);
 
-        $this->mock(\Modules\AI\Services\AiGateway::class, function ($mock) {
+        $this->mock(AiGateway::class, function ($mock) {
             $mock->shouldReceive('embed')->once()->andThrow(new \RuntimeException('boom'));
         });
 

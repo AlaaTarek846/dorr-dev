@@ -9,6 +9,7 @@ use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
@@ -187,7 +188,7 @@ class ChatCalendarTest extends TestCase
     {
         $this->artisan('chat:calendar-reminders')->assertSuccessful();
         $this->artisan('chat:calendar-reminders')->assertSuccessful();
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
     }
 
     /**

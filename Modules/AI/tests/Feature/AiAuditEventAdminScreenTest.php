@@ -4,10 +4,11 @@ namespace Modules\AI\Tests\Feature;
 
 use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiAuditEvent;
 use Modules\AI\Services\AiAuditTrail;
-use Modules\Admin\Models\Admin;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -95,7 +96,7 @@ class AiAuditEventAdminScreenTest extends TestCase
 
     public function test_no_write_routes_are_registered_for_the_append_only_ledger(): void
     {
-        $routes = collect(\Illuminate\Support\Facades\Route::getRoutes())->filter(
+        $routes = collect(Route::getRoutes())->filter(
             fn ($route) => str_starts_with($route->uri(), 'api/admin/v1/ai-audit-events'),
         );
 

@@ -11,6 +11,7 @@ use Modules\User\Http\Resources\SupportMessageResource;
 use Modules\User\Http\Resources\SupportTicketResource;
 use Modules\User\Models\SupportMessage;
 use Modules\User\Models\SupportTicket;
+use Modules\User\Models\User;
 
 /**
  * Tells both sides of a support ticket what just happened, three ways at once:
@@ -38,7 +39,7 @@ class SupportNotifier
             'support.ticket.created',
             'support_ticket_new_title',
             'support_ticket_new_body',
-            ['id' => $ticket->id, 'name' => $this->customerName($ticket)],
+            ['id' => $ticket->number, 'name' => $this->customerName($ticket)],
             ['type' => 'support', 'ticket_id' => $ticket->id],
             push: false,
         );
@@ -58,7 +59,7 @@ class SupportNotifier
             'support.ticket.customer_reply',
             'support_ticket_customer_reply_title',
             'support_ticket_customer_reply_body',
-            ['id' => $ticket->id, 'name' => $this->customerName($ticket)],
+            ['id' => $ticket->number, 'name' => $this->customerName($ticket)],
             ['type' => 'support', 'ticket_id' => $ticket->id],
             push: false,
         );
@@ -76,7 +77,7 @@ class SupportNotifier
             'support.ticket.reply',
             'support_ticket_reply_title',
             'support_ticket_reply_body',
-            ['id' => $ticket->id, 'title' => $ticket->title],
+            ['id' => $ticket->number, 'title' => $ticket->title],
             ['type' => 'support', 'ticket_id' => $ticket->id],
         );
     }
@@ -102,7 +103,7 @@ class SupportNotifier
                 'support.ticket.status',
                 'support_ticket_status_title',
                 'support_ticket_status_'.$status.'_body',
-                ['id' => $ticket->id, 'title' => $ticket->title],
+                ['id' => $ticket->number, 'title' => $ticket->title],
                 $data,
             );
 
@@ -114,8 +115,67 @@ class SupportNotifier
             'support.ticket.status',
             'support_ticket_customer_status_title',
             'support_ticket_customer_status_'.$status.'_body',
-            ['id' => $ticket->id, 'name' => $this->customerName($ticket)],
+            ['id' => $ticket->number, 'name' => $this->customerName($ticket)],
             $data,
+            push: false,
+        );
+    }
+
+    /**
+     * An automatic reply was posted (acknowledgement, away note, FAQ answer): live to both sides. Only the
+     * FAQ answer is pushed to the customer's phone — the other two arrive while they are still on the ticket.
+     */
+    public function autoReplied(SupportTicket $ticket, SupportMessage $message, bool $push = false): void
+    {
+        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+
+        $this->toCustomer($ticket, SupportRealtimeEvent::MESSAGE, ['ticket' => $this->forCustomer($ticket), 'message' => $this->message($message)]);
+        $this->toAdmins(SupportRealtimeEvent::MESSAGE, $this->supportAdmins(), ['ticket' => $this->forAdmin($ticket), 'message' => $this->message($message)]);
+
+        if ($push) {
+            $this->center->send(
+                $ticket->user,
+                'support.ticket.auto_reply',
+                'support_ticket_auto_title',
+                'support_ticket_auto_body',
+                ['id' => $ticket->number, 'title' => $ticket->title],
+                ['type' => 'support', 'ticket_id' => $ticket->id],
+            );
+        }
+    }
+
+    /** The customer read the automatic answer and still wants a person: the support team is told. */
+    public function customerWantsAgent(SupportTicket $ticket): void
+    {
+        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $admins = $this->supportAdmins();
+
+        $this->toCustomer($ticket, SupportRealtimeEvent::TICKET_UPDATED, ['ticket' => $this->forCustomer($ticket)]);
+        $this->toAdmins(SupportRealtimeEvent::TICKET_UPDATED, $admins, ['ticket' => $this->forAdmin($ticket)]);
+        $this->center->send(
+            $ticket->admin !== null ? collect([$ticket->admin]) : $admins,
+            'support.ticket.wants_agent',
+            'support_ticket_wants_agent_title',
+            'support_ticket_wants_agent_body',
+            ['id' => $ticket->number, 'name' => $this->customerName($ticket)],
+            ['type' => 'support', 'ticket_id' => $ticket->id],
+            push: false,
+        );
+    }
+
+    /**
+     * A customer ended the app's guided help with "I need an agent" (a ticket usually follows): the support team
+     * is told on the dashboard (in-app list + live toast) which topic they got stuck on.
+     */
+    public function helpAskedForAgent(User $user, ?string $topic): void
+    {
+        $this->center->send(
+            $this->supportAdmins(),
+            'support.help.agent',
+            'support_help_agent_title',
+            'support_help_agent_body',
+            ['name' => (string) ($user->name ?: $user->phone ?: '#'.$user->id), 'topic' => $topic ?: '-'],
+            ['type' => 'support_help', 'user_id' => $user->id],
             push: false,
         );
     }

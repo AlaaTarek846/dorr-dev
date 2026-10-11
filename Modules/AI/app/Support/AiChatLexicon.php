@@ -459,7 +459,6 @@ final class AiChatLexicon
         return false;
     }
 
-
     /**
      * Public phrase-containment check for text that is already normalized
      * (used by the learned-intent store so learned phrases follow exactly

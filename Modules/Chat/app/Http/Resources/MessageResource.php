@@ -4,6 +4,7 @@ namespace Modules\Chat\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Models\ChatMessage;
@@ -35,7 +36,7 @@ class MessageResource extends JsonResource
         $gone = $m->isGone();
         // A surprise card (spec 165): until its time, the recipient gets only its look and title.
         $sealed = $m->type === MessageType::MomentCard && ! $ctx->isMine($m)
-            && ($at = data_get($m->meta, 'card.reveal_at')) !== null && \Illuminate\Support\Carbon::parse($at)->isFuture();
+            && ($at = data_get($m->meta, 'card.reveal_at')) !== null && Carbon::parse($at)->isFuture();
 
         return [
             'id' => $m->uuid,
@@ -115,6 +116,8 @@ class MessageResource extends JsonResource
             'width' => $media->getCustomProperty('width'),
             'height' => $media->getCustomProperty('height'),
             'duration_ms' => $media->getCustomProperty('duration_ms'),
+            // Photos: a ~40px JPEG (base64) to show while data saver holds the photo back.
+            'preview' => $media->getCustomProperty('preview'),
         ])->all();
     }
 

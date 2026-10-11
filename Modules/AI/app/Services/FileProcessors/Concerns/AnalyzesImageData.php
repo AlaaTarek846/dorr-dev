@@ -145,9 +145,6 @@ trait AnalyzesImageData
      * source's own size. Returns a NEW GD image resource/object the
      * caller is responsible for destroying - the source image is left
      * untouched (doc S8: "do not overwrite the original").
-     *
-     * @param  \GdImage  $source
-     * @return \GdImage
      */
     protected function resizeWithinBounds(\GdImage $source, int $maxDimension): \GdImage
     {

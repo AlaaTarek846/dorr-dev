@@ -6,6 +6,7 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
+use Carbon\CarbonInterface;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
@@ -144,7 +145,7 @@ class ChatScheduledTest extends TestCase
 
     // ================================================================ helpers
 
-    private function schedule(string $chat, string $body, \Carbon\CarbonInterface $when): string
+    private function schedule(string $chat, string $body, CarbonInterface $when): string
     {
         return $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/scheduled", ['body' => $body, 'send_at' => $when->toIso8601String()], $this->headers())
             ->assertCreated()->json('data.id');

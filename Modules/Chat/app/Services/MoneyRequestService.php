@@ -5,6 +5,7 @@ namespace Modules\Chat\Services;
 use App\Models\Country;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Modules\Chat\Enums\ConversationStatus;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
@@ -69,7 +70,7 @@ class MoneyRequestService
             }
             $base = intdiv($total, $ids->count());
             $left = $total - $base * $ids->count();
-            $shares = $ids->map(function (int $id, int $i) use ($members, $base, $left) {
+            $shares = $ids->map(function (int $id, int $i) use ($base, $left) {
                 return ['participant_id' => $id, 'amount_minor' => $base + ($i < $left ? 1 : 0)];
             });
         } else {
@@ -164,7 +165,7 @@ class MoneyRequestService
         if ($conversation->isGroup() || $conversation->isSelf()) {
             throw new ChatException('money_request_direct_only', 422);
         }
-        if ($conversation->status === \Modules\Chat\Enums\ConversationStatus::Rejected) {
+        if ($conversation->status === ConversationStatus::Rejected) {
             throw ChatException::requestRejected();
         }
 

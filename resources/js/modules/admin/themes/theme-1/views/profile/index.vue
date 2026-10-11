@@ -520,11 +520,10 @@ function onProfileFieldInput(field) {
 }
 
 async function loadProfile() {
-    const { data } = await adminAxios.get('/api/admin/v1/me');
-    const admin = data.data ?? null;
+    // The same single /me as the rest of the panel: shared with the route guard and the header, not asked again.
+    const admin = (await authStore.loadMe(adminAxios)) ?? null;
 
     fillProfileForm(admin);
-    authStore.setSession({ admin });
     profileV$.value.$reset();
 }
 

@@ -3,9 +3,12 @@
 namespace Modules\Chat\Services;
 
 use App\Support\Media\WebpUploadConverter;
+use Carbon\CarbonImmutable;
+use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,10 +24,13 @@ use Modules\Chat\Models\ChatMessageUserState;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatPinnedMessage;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Models\ChatStarFolder;
 use Modules\Chat\Support\BannedWords;
+use Modules\Chat\Support\ImagePreview;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Messages: send (text, media, voice, location, contact, wallet receipt / QR), edit, delete for
@@ -596,7 +602,7 @@ class MessageService
     {
         $participant = $this->conversations->participantOf($me, $message->conversation);
         // A favourites folder of mine (spec 24), or none ("Favourites").
-        if ($folderId !== null && ! \Modules\Chat\Models\ChatStarFolder::query()->ownedBy($me)->whereKey($folderId)->exists()) {
+        if ($folderId !== null && ! ChatStarFolder::query()->ownedBy($me)->whereKey($folderId)->exists()) {
             throw new ChatException('star_folder_not_found', 404);
         }
 
@@ -658,7 +664,7 @@ class MessageService
      *
      * @return array{messages: int, conversations: int, from: string}
      */
-    public function receivedSince(Model $me, \Carbon\CarbonInterface $from): array
+    public function receivedSince(Model $me, CarbonInterface $from): array
     {
         $mine = ChatParticipant::query()->of($me)->whereNull('left_at')->get(['id', 'conversation_id', 'participant_type', 'participant_id']);
         $rows = ChatMessage::query()
@@ -904,7 +910,7 @@ class MessageService
      *
      * @param  list<string>  $types
      */
-    private function whereTypes(\Illuminate\Database\Eloquent\Builder|\Illuminate\Database\Query\Builder $q, array $types): void
+    private function whereTypes(Builder|\Illuminate\Database\Query\Builder $q, array $types): void
     {
         $map = [
             'text' => [MessageType::Text->value], 'image' => [MessageType::Image->value], 'video' => [MessageType::Video->value],
@@ -939,7 +945,7 @@ class MessageService
             ->when($before, fn ($q) => $q->where('id', '<', $this->findInConversation($conversation, $before)->id));
 
         if (! empty($filters['date'])) {
-            $query->where('created_at', '<', \Carbon\CarbonImmutable::parse($filters['date'])->addDay()->startOfDay());
+            $query->where('created_at', '<', CarbonImmutable::parse($filters['date'])->addDay()->startOfDay());
         }
         $media = function (\Closure $where) use ($query) {
             $query->whereHas('media', fn ($m) => $m->where('collection_name', ChatMessage::ATTACHMENTS)->where($where));
@@ -983,7 +989,7 @@ class MessageService
 
         if (($filters['sort'] ?? null) === 'size') {
             // Biggest first — one page, no paging.
-            $query->orderByDesc(\Spatie\MediaLibrary\MediaCollections\Models\Media::query()->select('size')->whereColumn('model_id', 'chat_messages.id')
+            $query->orderByDesc(Media::query()->select('size')->whereColumn('model_id', 'chat_messages.id')
                 ->where('model_type', (new ChatMessage)->getMorphClass())->where('collection_name', ChatMessage::ATTACHMENTS)->orderByDesc('size')->limit(1));
             $limit = 200;
         }
@@ -1056,7 +1062,7 @@ class MessageService
             return;
         }
 
-        $wait = $seconds - (int) floor(\Illuminate\Support\Carbon::parse($last)->diffInSeconds(now(), true));
+        $wait = $seconds - (int) floor(Carbon::parse($last)->diffInSeconds(now(), true));
 
         if ($wait > 0) {
             throw new ChatException('slow_mode', 429, ['seconds' => $wait], ['retry_after' => $wait]);
@@ -1128,7 +1134,16 @@ class MessageService
                 'duration_ms' => isset($data['duration_ms']) ? (int) $data['duration_ms'] : null,
                 'waveform' => isset($data['waveform']) ? array_map('intval', (array) $data['waveform']) : null,
             ], fn ($v) => $v !== null) ?: null,
-            MessageType::Video => isset($data['duration_ms']) ? ['duration_ms' => (int) $data['duration_ms']] : null,
+            MessageType::Video => array_filter([
+                'duration_ms' => isset($data['duration_ms']) ? (int) $data['duration_ms'] : null,
+                // Plays muted on a loop, like a GIF.
+                'gif' => ! empty($data['gif']) ? true : null,
+            ], fn ($v) => $v !== null) ?: null,
+            // A folder zipped on the phone: its name and how many files were in it.
+            MessageType::Document => filled($data['folder_name'] ?? null) ? ['folder' => [
+                'name' => Str::limit(trim((string) $data['folder_name']), 255, ''),
+                'count' => isset($data['folder_count']) ? (int) $data['folder_count'] : null,
+            ]] : null,
             MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id'])
                 // A money gift: the same receipt, drawn as a card for the occasion.
                 + (in_array($data['gift'] ?? null, self::GIFT_CARDS, true) ? ['gift' => $data['gift']] : []),
@@ -1156,6 +1171,8 @@ class MessageService
             $message->addMedia($file)
                 ->usingFileName(Str::uuid().'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin'))
                 ->usingName($file->getClientOriginalName())
+                // A photo's size and tiny preview (data saver shows it before the download).
+                ->withCustomProperties(ImagePreview::of($file))
                 ->setOrder($i + 1)
                 ->toMediaCollection(ChatMessage::ATTACHMENTS);
         }

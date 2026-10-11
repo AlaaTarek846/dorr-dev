@@ -15,6 +15,7 @@ use Modules\User\Http\Requests\StoreSupportMessageRequest;
 use Modules\User\Http\Requests\SupportTicketStatusRequest;
 use Modules\User\Http\Resources\AdminSupportTicketResource;
 use Modules\User\Http\Resources\SupportMessageResource;
+use Modules\User\Models\SupportQuickReply;
 use Modules\User\Models\SupportTicket;
 use Modules\User\Services\SupportTicketService;
 
@@ -33,7 +34,7 @@ class SupportTicketController extends Controller implements HasMiddleware
     {
         return AdminPermissionMiddleware::fromActionMethodMap('support-tickets', [
             ['view', ['index', 'show', 'messages', 'activities']],
-            ['reply', ['sendMessage']],
+            ['reply', ['sendMessage', 'quickReplies']],
             ['change-status', ['status']],
         ]);
     }
@@ -46,6 +47,10 @@ class SupportTicketController extends Controller implements HasMiddleware
             $query->where('status', $request->string('status')->toString());
         }
 
+        if ($request->filled('user_id')) {
+            $query->where('user_id', (int) $request->query('user_id'));
+        }
+
         if ($request->filled('mine')) {
             $query->where('admin_id', $request->user('admin_api')?->getKey());
         }
@@ -54,6 +59,7 @@ class SupportTicketController extends Controller implements HasMiddleware
             $like = '%'.str_replace(['%', '_'], ['\\%', '\\_'], $term).'%';
             $query->where(function ($q) use ($like, $term) {
                 $q->where('title', 'like', $like)
+                    ->orWhere('number', 'like', $like)
                     ->orWhere('id', ctype_digit(ltrim($term, '#')) ? (int) ltrim($term, '#') : 0)
                     ->orWhereHas('user', fn ($u) => $u->where('name', 'like', $like)->orWhere('phone', 'like', $like));
             });
@@ -97,6 +103,23 @@ class SupportTicketController extends Controller implements HasMiddleware
         $message = $this->service->agentReply($admin, $supportTicket, $request->validated('body'), $request->file('image'));
 
         return $this->service->messageResponse($message, __('api.support_message_sent'));
+    }
+
+    /**
+     * The active quick replies, for the "/" menu of the reply box (the agent edits and sends them in their own name).
+     */
+    public function quickReplies(): JsonResponse
+    {
+        return ApiResponse::success(
+            SupportQuickReply::query()->active()->with('translations')->orderBy('sort_order')->orderBy('id')->get()
+                ->map(fn (SupportQuickReply $reply) => [
+                    'id' => $reply->id,
+                    'shortcut' => $reply->shortcut,
+                    'title' => $reply->translated('title'),
+                    'body' => $reply->translated('body'),
+                ])->values(),
+            __('api.retrieved'),
+        );
     }
 
     public function status(SupportTicketStatusRequest $request, SupportTicket $supportTicket): JsonResponse

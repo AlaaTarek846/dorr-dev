@@ -107,7 +107,7 @@ fun StickerBubble(m: UiMessage, mine: Boolean, footer: @Composable () -> Unit) {
     val context = LocalContext.current
     val meta = m.dto.meta
     val url = meta?.str("url")
-    val pop = remember { Animatable(if (m.fresh) 0.4f else 1f) }
+    val pop = remember { Animatable(if (m.fresh && !com.dorr.app.chat.ChatLite.active) 0.4f else 1f) }
     LaunchedEffect(Unit) { if (pop.value < 1f) pop.animateTo(1f, spring(dampingRatio = 0.4f, stiffness = 320f)) }
     Column(horizontalAlignment = if (mine) Alignment.End else Alignment.Start) {
         AsyncImage(

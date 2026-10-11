@@ -70,6 +70,12 @@ object CallController {
     var phase by mutableStateOf<CallPhase?>(null)
         private set
 
+    /** This call broadcast live (spec 93): its token, status and viewers — null when it isn't. */
+    var live by mutableStateOf<com.dorr.app.network.LiveDto?>(null)
+
+    /** This call rang in (rather than me calling). */
+    private var ringingIn = false
+
     /**
      * Every phase change goes through here, so the sounds follow the call: the ringtone while it
      * rings in the open app, the ring-back tone while I'm calling, silence otherwise — and the
@@ -78,6 +84,10 @@ object CallController {
     private fun updatePhase(next: CallPhase?) {
         val changed = phase != next
         phase = next
+        // Usage stats (spec 83): a call counts from when it's through until it's over.
+        if (next == CallPhase.Incoming) ringingIn = true else if (next == CallPhase.Outgoing) ringingIn = false
+        if (changed && next == CallPhase.Active) ChatUsage.callStarted(ringingIn)
+        if (changed && next == CallPhase.Ended) ChatUsage.callEnded()
         if (changed) watch(next)
         val ctx = appContext ?: return
         when (next) {
@@ -271,7 +281,7 @@ object CallController {
 
     private suspend fun connect(join: JoinDto) {
         val context = appContext ?: return
-        val r = room ?: LiveKit.create(context).also { room = it }
+        val r = room ?: LiveKit.create(context, roomOptions()).also { room = it }
         roomJob?.cancel()
         roomJob = scope.launch {
             r.events.collect { event ->
@@ -285,6 +295,10 @@ object CallController {
                     else -> Unit
                 }
                 if (event is RoomEvent.ParticipantConnected || event is RoomEvent.ParticipantDisconnected) watchAlone()
+                // Data saver / lite mode: others' video at its lightest layer.
+                if (event is RoomEvent.TrackSubscribed && lightCalls) {
+                    (event.publication as? io.livekit.android.room.track.RemoteTrackPublication)?.setVideoQuality(io.livekit.android.room.track.VideoQuality.LOW)
+                }
             }
         }
         try {
@@ -308,6 +322,14 @@ object CallController {
         refreshVideos()
     }
 
+    /** Data saver / lite mode (spec 82, 87): my camera at 360p, 15 fps, ~450 kbps. */
+    private fun roomOptions(): io.livekit.android.RoomOptions =
+        if (!lightCalls) io.livekit.android.RoomOptions()
+        else io.livekit.android.RoomOptions(
+            videoTrackCaptureDefaults = io.livekit.android.room.track.LocalVideoTrackOptions(captureParams = io.livekit.android.room.track.VideoCaptureParameter(640, 360, 15)),
+            videoTrackPublishDefaults = io.livekit.android.room.participant.VideoTrackPublishDefaults(videoEncoding = io.livekit.android.room.track.VideoEncoding(450_000, 15)),
+        )
+
     /** Mute / unmute for real, and check it took: the publication itself is muted as a fallback. */
     private suspend fun applyMic() {
         val me = room?.localParticipant ?: return
@@ -322,12 +344,49 @@ object CallController {
         micOn = me.isMicrophoneEnabled()
     }
 
+    /** The camera track made with the background processor (spec 94), while an effect is on. */
+    private var effectTrack: LocalVideoTrack? = null
+
+    /** Blur / a picture behind me / nothing — the camera restarts through the processor when needed. */
+    fun setBackground(mode: CallEffects.Mode, bitmap: android.graphics.Bitmap? = null, preset: Int? = null) {
+        CallEffects.set(mode, bitmap, preset)
+        if (cameraOn && CallEffects.mode != CallEffects.Mode.None && effectTrack == null) {
+            scope.launch {
+                val me = room?.localParticipant ?: return@launch
+                runCatching { me.setCameraEnabled(false) }
+                applyCamera()
+            }
+        }
+    }
+
+    private suspend fun publishEffectCamera(me: io.livekit.android.room.participant.LocalParticipant) {
+        val track = me.createVideoTrack(
+            "camera",
+            io.livekit.android.room.track.LocalVideoTrackOptions(position = io.livekit.android.room.track.CameraPosition.FRONT, captureParams = if (lightCalls) io.livekit.android.room.track.VideoCaptureParameter(640, 360, 15) else io.livekit.android.room.track.VideoCaptureParameter(960, 540, 24)),
+            BackgroundProcessor(),
+        )
+        track.startCapture()
+        me.publishVideoTrack(track, io.livekit.android.room.participant.VideoTrackPublishOptions(source = Track.Source.CAMERA))
+        effectTrack = track
+    }
+
     private suspend fun applyCamera() {
         val me = room?.localParticipant ?: return
         if (cameraOn && !cameraAllowed()) {
             cameraOn = false
             return
         }
+        // An effect on: our own camera track, its frames through the background processor.
+        if (cameraOn && CallEffects.mode != CallEffects.Mode.None) {
+            try {
+                if (effectTrack == null) publishEffectCamera(me)
+                return
+            } catch (e: Exception) {
+                Log.w(TAG, "Camera with background failed", e)
+                CallEffects.set(CallEffects.Mode.None)
+            }
+        }
+        if (!cameraOn) effectTrack?.let { t -> runCatching { me.unpublishTrack(t) }; runCatching { t.stop() }; effectTrack = null }
         try {
             me.setCameraEnabled(cameraOn)
         } catch (e: Exception) {
@@ -471,6 +530,8 @@ object CallController {
         runCatching { room?.disconnect() }
         runCatching { room?.release() }
         room = null
+        effectTrack = null
+        live = null
         videos.clear()
         members.clear()
         connectedAt = null
@@ -488,6 +549,14 @@ object CallController {
     private fun onEvent(event: ChatEvent) {
         val data = event.data
         when (event.name) {
+            "chat.call.live" -> {
+                if (data.get("call_id")?.asString != call?.id) return
+                val l = data.getAsJsonObject("live") ?: return
+                live = (live ?: com.dorr.app.network.LiveDto()).copy(
+                    id = l.get("id")?.asString.orEmpty(), token = l.get("token")?.asString.orEmpty(),
+                    status = l.get("status")?.asString ?: "live", viewers = l.get("viewers")?.asInt ?: 0, audience = l.get("audience")?.asString ?: "members",
+                )
+            }
             "chat.call.ringing" -> {
                 if (phase != null && phase != CallPhase.Ended) return // busy: the caller hears it ring out
                 val dto = runCatching { gson.fromJson(data, CallDto::class.java) }.getOrNull() ?: return

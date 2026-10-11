@@ -6,6 +6,7 @@ use App\Models\Flag;
 use App\Models\Language;
 use App\Models\LegalPage;
 use App\Models\ServiceCategory;
+use Database\Seeders\Admin\AdminPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
@@ -45,7 +46,7 @@ class LegalPageManagementTest extends TestCase
     /**
      * @return list<array<string, string>>
      */
-    private function translations(string $en, string $ar = null): array
+    private function translations(string $en, ?string $ar = null): array
     {
         return [
             ['locale' => 'en', 'content' => $en],
@@ -66,7 +67,7 @@ class LegalPageManagementTest extends TestCase
         ], $overrides);
     }
 
-    private function actingAsAdmin(array $permissions = null): Admin
+    private function actingAsAdmin(?array $permissions = null): Admin
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -478,7 +479,7 @@ class LegalPageManagementTest extends TestCase
 
     public function test_the_legal_page_permissions_are_seeded(): void
     {
-        $this->seed(\Database\Seeders\Admin\AdminPermissionSeeder::class);
+        $this->seed(AdminPermissionSeeder::class);
 
         foreach (['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'] as $action) {
             $this->assertDatabaseHas('permissions', [

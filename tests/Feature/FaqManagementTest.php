@@ -6,6 +6,7 @@ use App\Models\Faq;
 use App\Models\Flag;
 use App\Models\Language;
 use App\Models\ServiceCategory;
+use Database\Seeders\Admin\AdminPermissionSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
@@ -48,7 +49,7 @@ class FaqManagementTest extends TestCase
      * @param  array<string, string>  $overrides  english => [question, answer]
      * @return list<array<string, string>>
      */
-    private function translations(array $en, array $ar = null): array
+    private function translations(array $en, ?array $ar = null): array
     {
         return [
             ['locale' => 'en', 'question' => $en[0], 'answer' => $en[1]],
@@ -86,7 +87,7 @@ class FaqManagementTest extends TestCase
         ];
     }
 
-    private function actingAsAdmin(array $permissions = null): Admin
+    private function actingAsAdmin(?array $permissions = null): Admin
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
@@ -500,7 +501,7 @@ class FaqManagementTest extends TestCase
 
     public function test_the_faq_permissions_are_seeded(): void
     {
-        $this->seed(\Database\Seeders\Admin\AdminPermissionSeeder::class);
+        $this->seed(AdminPermissionSeeder::class);
 
         foreach (['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'] as $action) {
             $this->assertDatabaseHas('permissions', [

@@ -7,12 +7,16 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\User\Models\User;
+use Modules\User\Models\UserPhoneHistory;
 use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
+use Modules\Wallet\Models\FinancialEntry;
 use Modules\Wallet\Models\Wallet;
+use Modules\Wallet\Models\WalletBeneficiary;
 use Modules\Wallet\Models\WalletSetting;
 use Modules\Wallet\Models\WalletTransaction;
 use Modules\Wallet\Services\PinService;
@@ -94,7 +98,7 @@ class WalletTransferTest extends TestCase
      * The real two-step flow: look the recipient up (that's where they are validated and
      * shown), then pay with the token. If the lookup itself is refused, that response is returned.
      */
-    private function send(string $phone, int $amount, string $key = 'key-12345678', array $extra = [], array $headers = []): \Illuminate\Testing\TestResponse
+    private function send(string $phone, int $amount, string $key = 'key-12345678', array $extra = [], array $headers = []): TestResponse
     {
         $lookup = $this->lookup(['mode' => 'phone', 'phone' => $phone]);
 
@@ -105,12 +109,12 @@ class WalletTransferTest extends TestCase
         return $this->pay($lookup->json('data.recipient_token'), $amount, $key, $extra, $headers);
     }
 
-    private function lookup(array $body, array $headers = []): \Illuminate\Testing\TestResponse
+    private function lookup(array $body, array $headers = []): TestResponse
     {
         return $this->postJson('/api/mobile/v1/wallet/transfers/lookup', $body, array_merge(['X-Country' => 'SA'], $headers));
     }
 
-    private function pay(string $token, int $amount, string $key = 'key-12345678', array $extra = [], array $headers = []): \Illuminate\Testing\TestResponse
+    private function pay(string $token, int $amount, string $key = 'key-12345678', array $extra = [], array $headers = []): TestResponse
     {
         return $this->postJson('/api/mobile/v1/wallet/transfers', [
             'recipient_token' => $token, 'amount_minor' => $amount,
@@ -635,7 +639,7 @@ class WalletTransferTest extends TestCase
         $this->assertSame(250, $fee->amount_minor);
         $this->assertSame('10.0000', (string) $fee->fee_percent);
 
-        $income = \Modules\Wallet\Models\FinancialEntry::query()->whereHas('category', fn ($q) => $q->where('slug', 'transfer_fee'))->sole();
+        $income = FinancialEntry::query()->whereHas('category', fn ($q) => $q->where('slug', 'transfer_fee'))->sole();
         $this->assertSame(250, $income->amount_minor);
     }
 
@@ -693,7 +697,7 @@ class WalletTransferTest extends TestCase
 
         // Sending to the same person again does not duplicate the row, just refreshes last_used_at.
         $this->send('500000002', 500, 'key-second-send')->assertCreated();
-        $this->assertSame(1, \Modules\Wallet\Models\WalletBeneficiary::query()->count());
+        $this->assertSame(1, WalletBeneficiary::query()->count());
     }
 
     public function test_a_failed_lookup_or_transfer_never_creates_a_beneficiary(): void
@@ -702,7 +706,7 @@ class WalletTransferTest extends TestCase
         $this->fund($this->alice, 100);
         $this->send('500000002', 10000)->assertStatus(422); // insufficient balance
 
-        $this->assertSame(0, \Modules\Wallet\Models\WalletBeneficiary::query()->count());
+        $this->assertSame(0, WalletBeneficiary::query()->count());
     }
 
     public function test_beneficiaries_are_scoped_per_country_and_per_sender(): void
@@ -719,7 +723,7 @@ class WalletTransferTest extends TestCase
     {
         $bobsOldNumber = $this->bob->phone;
         $this->bob->update(['phone' => '+966500000777']);
-        \Modules\User\Models\UserPhoneHistory::query()->create([
+        UserPhoneHistory::query()->create([
             'user_id' => $this->bob->id, 'old_phone' => $bobsOldNumber, 'new_phone' => '+966500000777',
             'ip_address' => '127.0.0.1', 'changed_at' => now()->subDays(2),
         ]);
@@ -728,7 +732,7 @@ class WalletTransferTest extends TestCase
             ->assertJsonPath('data.number_recently_changed', true);
 
         // A change from three weeks ago is old news — no warning.
-        \Modules\User\Models\UserPhoneHistory::query()->update(['changed_at' => now()->subWeeks(3)]);
+        UserPhoneHistory::query()->update(['changed_at' => now()->subWeeks(3)]);
         $this->lookup(['mode' => 'phone', 'phone' => '500000777'])->assertOk()
             ->assertJsonPath('data.number_recently_changed', false);
     }

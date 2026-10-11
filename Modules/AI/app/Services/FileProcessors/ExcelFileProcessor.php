@@ -4,6 +4,7 @@ namespace Modules\AI\Services\FileProcessors;
 
 use Modules\AI\Services\FileProcessors\Concerns\AnalyzesSpreadsheetData;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Reader\Xlsx;
 use PhpOffice\PhpSpreadsheet\Shared\Date as SharedDate;
 use PhpOffice\PhpSpreadsheet\Worksheet\Worksheet;
 
@@ -62,7 +63,7 @@ class ExcelFileProcessor implements AiFileProcessorInterface
                 $reader = IOFactory::createReaderForFile($absolutePath);
             } else {
                 // A declared .xlsx must really be one; anything else (a text file renamed) is not read as CSV.
-                $reader = new \PhpOffice\PhpSpreadsheet\Reader\Xlsx();
+                $reader = new Xlsx;
 
                 if (! $reader->canRead($absolutePath)) {
                     return AiFileProcessingResult::failed('XLSX_PARSE_FAILED');

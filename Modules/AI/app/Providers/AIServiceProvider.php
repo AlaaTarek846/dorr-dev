@@ -2,22 +2,28 @@
 
 namespace Modules\AI\Providers;
 
-use Illuminate\Database\Eloquent\Relations\Relation;
-use Nwidart\Modules\Support\ModuleServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Contracts\Http\Kernel;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Modules\AI\Console\Commands\EnforceAiDataRetention;
+use Modules\AI\Console\Commands\FailStaleAiSiteVersions;
 use Modules\AI\Console\Commands\ManageAiLearnedIntents;
 use Modules\AI\Console\Commands\NormalizeAiModels;
+use Modules\AI\Console\Commands\ProcessAiSiteHostings;
 use Modules\AI\Console\Commands\ProcessAiSubscriptionRenewals;
 use Modules\AI\Console\Commands\RunAiBenchmark;
 use Modules\AI\Console\Commands\SyncAiModels;
-use Modules\AI\Services\Chunking\AiTokenCounterInterface;
+use Modules\AI\Http\Middleware\ServeHostedSiteMiddleware;
 use Modules\AI\Services\Chunking\AiHeuristicTokenCounter;
+use Modules\AI\Services\Chunking\AiTokenCounterInterface;
 use Modules\AI\Services\Indexing\AiIndexStoreInterface;
 use Modules\AI\Services\Indexing\DatabaseIndexStore;
+use Modules\Provider\Models\Provider;
+use Modules\User\Models\User;
+use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class AIServiceProvider extends ModuleServiceProvider
 {
@@ -42,8 +48,8 @@ class AIServiceProvider extends ModuleServiceProvider
         SyncAiModels::class,
         NormalizeAiModels::class,
         ProcessAiSubscriptionRenewals::class,
-        \Modules\AI\Console\Commands\ProcessAiSiteHostings::class,
-        \Modules\AI\Console\Commands\FailStaleAiSiteVersions::class,
+        ProcessAiSiteHostings::class,
+        FailStaleAiSiteVersions::class,
         ManageAiLearnedIntents::class,
     ];
 
@@ -92,8 +98,8 @@ class AIServiceProvider extends ModuleServiceProvider
         // classes we register here, and leaves every other model in the
         // app free to keep using its full class name as before.
         Relation::morphMap([
-            'user' => \Modules\User\Models\User::class,
-            'provider' => \Modules\Provider\Models\Provider::class,
+            'user' => User::class,
+            'provider' => Provider::class,
         ]);
 
         $this->registerRateLimiters();
@@ -111,10 +117,10 @@ class AIServiceProvider extends ModuleServiceProvider
             return;
         }
 
-        $kernel = $this->app->make(\Illuminate\Contracts\Http\Kernel::class);
+        $kernel = $this->app->make(Kernel::class);
 
         if (method_exists($kernel, 'prependMiddleware')) {
-            $kernel->prependMiddleware(\Modules\AI\Http\Middleware\ServeHostedSiteMiddleware::class);
+            $kernel->prependMiddleware(ServeHostedSiteMiddleware::class);
         }
     }
 
@@ -162,8 +168,6 @@ class AIServiceProvider extends ModuleServiceProvider
 
     /**
      * Define module schedules.
-     * 
-     * @param $schedule
      */
     protected function configureSchedules(Schedule $schedule): void
     {

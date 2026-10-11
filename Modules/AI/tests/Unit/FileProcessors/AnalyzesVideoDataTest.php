@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Unit\FileProcessors;
 
+use Modules\AI\Services\FileProcessors\Concerns\AnalyzesVideoData;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Process\Process;
 
@@ -20,8 +21,9 @@ class AnalyzesVideoDataTest extends TestCase
     {
         parent::setUp();
 
-        $this->subject = new class {
-            use \Modules\AI\Services\FileProcessors\Concerns\AnalyzesVideoData;
+        $this->subject = new class
+        {
+            use AnalyzesVideoData;
 
             public function callSubtitleStreams(array $s): array
             {

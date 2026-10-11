@@ -4,7 +4,6 @@ namespace Modules\AI\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Modules\AI\Http\Resources\AiFileCitationResource;
 
 class AiMessageResource extends JsonResource
 {

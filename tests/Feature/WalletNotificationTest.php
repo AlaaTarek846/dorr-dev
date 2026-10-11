@@ -14,11 +14,12 @@ use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
+use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletDirection;
 use Modules\Wallet\Enums\WalletTransactionType;
+use Modules\Wallet\Models\Wallet;
 use Modules\Wallet\Models\WalletSetting;
-use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 use Modules\Wallet\Services\PinService;
 use Modules\Wallet\Services\WalletAdminService;
 use Modules\Wallet\Services\WalletService;
@@ -105,6 +106,10 @@ class WalletNotificationTest extends TestCase
         $this->assertSame('A*** S***', $received->data['variables']['name']);
         $this->assertStringNotContainsString('Alice', json_encode($received->data));
         $this->assertSame('wallet.transfer.received', $received->data['event']);
+
+        // Each notification says which wallet it is about, so the dashboard can open it.
+        $this->assertSame(Wallet::query()->where('owner_id', $this->alice->id)->value('id'), $sent->data['data']['wallet_id']);
+        $this->assertSame(Wallet::query()->where('owner_id', $this->bob->id)->value('id'), $received->data['data']['wallet_id']);
     }
 
     public function test_a_replayed_transfer_does_not_notify_twice(): void

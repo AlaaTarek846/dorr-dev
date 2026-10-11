@@ -3,6 +3,7 @@
 namespace Modules\AI\Services;
 
 use Modules\AI\Models\AiProvider;
+use Modules\AI\Models\AiProviderModel;
 use Modules\AI\Repositories\AiProviderRepository;
 
 /**
@@ -32,7 +33,7 @@ class AiModelResolver
      * @param  list<string>  $requiredCapabilities  Empty means "any usable provider's default model".
      * @param  list<int>  $excludeProviderIds  Providers already considered elsewhere - skipped here.
      * @param  ?callable(AiProvider): bool  $providerFilter  Extra predicate (e.g. a feature-flag/country/intent allowance) a candidate provider must also pass.
-     * @return array{provider: AiProvider, model: \Modules\AI\Models\AiProviderModel}|null
+     * @return array{provider: AiProvider, model: AiProviderModel}|null
      */
     public function resolve(
         AiProviderRepository $providers,

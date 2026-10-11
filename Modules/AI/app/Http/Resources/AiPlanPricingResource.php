@@ -23,7 +23,6 @@ class AiPlanPricingResource extends AiPlanResource
     }
 
     /**
-     * @param  iterable  $plans
      * @return list<array<string, mixed>>
      */
     public static function collectionFor(iterable $plans, ?Country $country): array

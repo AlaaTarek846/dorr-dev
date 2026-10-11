@@ -166,7 +166,7 @@ class CsvFileProcessorTest extends TestCase
     {
         config(['ai.files.spreadsheet_max_rows_per_sheet' => 5]);
 
-        $lines = ["Row"];
+        $lines = ['Row'];
 
         for ($i = 1; $i <= 50; $i++) {
             $lines[] = "Row {$i}";

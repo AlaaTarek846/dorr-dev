@@ -76,6 +76,8 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.Gif
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Lock
@@ -518,6 +520,12 @@ fun Composer(state: ConversationState) {
     }
     if (scheduledOpen) ScheduledListSheet(state) { scheduledOpen = false }
     if (attachOpen) AttachSheet(state, onDismiss = { attachOpen = false }, onPickTransfer = { attachOpen = false; transferPicker = true })
+    state.gifSource?.let { source ->
+        GifMakerDialog(source, onDismiss = { state.gifSource = null }) { clip, lengthMs, poster ->
+            state.gifSource = null
+            state.send(Outgoing("video", files = listOf(clip), extra = mapOf("gif" to 1, "duration_ms" to lengthMs), thumbnail = poster))
+        }
+    }
     if (exprOpen) ExpressionPanel(
         onDismiss = { exprOpen = false },
         onEmoji = { text += it },
@@ -613,6 +621,9 @@ private fun RecordingBar(recorder: VoiceRecorder, dragX: Float, locked: Boolean,
 
 // ------------------------------------------------------------------------------- attachments
 
+/** The biggest folder the app zips (the server's default file limit). */
+private const val FOLDER_MAX_MB = 100
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickTransfer: () -> Unit) {
@@ -646,6 +657,35 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     val document = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         onDismiss()
         uri?.let { copyToCache(context, it, "document") }?.let { f -> state.send(Outgoing(typeForMime(f.mime).let { if (it == "image" || it == "video") "document" else it }, files = listOf(f))) }
+    }
+    // A whole folder (spec 10): zipped here, sent as one document with its name and file count.
+    val zipping = stringResource(R.string.fg_zipping)
+    val folderEmpty = stringResource(R.string.fg_empty)
+    val folderTooBig = stringResource(R.string.fg_too_big, FOLDER_MAX_MB)
+    val folderFailed = stringResource(R.string.fg_failed)
+    val folder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        onDismiss()
+        uri ?: return@rememberLauncherForActivityResult
+        host.showToast(zipping)
+        host.scope.launch {
+            when (val result = com.dorr.app.chat.FolderZip.zip(context, uri, FOLDER_MAX_MB * 1024L * 1024L)) {
+                is com.dorr.app.chat.FolderZip.Result.Ok -> state.send(Outgoing(
+                    "document", files = listOf(result.zipped.file),
+                    extra = mapOf("folder_name" to result.zipped.name, "folder_count" to result.zipped.count),
+                ))
+                com.dorr.app.chat.FolderZip.Result.Empty -> host.showToast(folderEmpty)
+                com.dorr.app.chat.FolderZip.Result.TooBig -> host.showToast(folderTooBig)
+                com.dorr.app.chat.FolderZip.Result.Failed -> host.showToast(folderFailed)
+            }
+        }
+    }
+    // A GIF from a video (spec 11): the trim screen opens with it.
+    val gifVideo = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        onDismiss()
+        uri ?: return@rememberLauncherForActivityResult
+        host.scope.launch {
+            state.gifSource = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { copyToCache(context, uri, "video.mp4") }
+        }
     }
     val contact = rememberLauncherForActivityResult(ActivityResultContracts.PickContact()) { uri ->
         onDismiss()
@@ -710,6 +750,10 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     val items = listOfNotNull(
         AttachItem(Icons.Rounded.Photo, R.string.ch_attach_gallery, listOf(Color(0xFFA78BFA), Color(0xFF7C3AED))) { gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
         AttachItem(Icons.Rounded.Description, R.string.ch_attach_document, listOf(Color(0xFF60A5FA), Color(0xFF2563EB))) { document.launch(arrayOf("*/*")) },
+        AttachItem(Icons.Rounded.Folder, R.string.fg_attach_folder, listOf(Color(0xFF93C5FD), Color(0xFF1D4ED8))) { folder.launch(null) },
+        AttachItem(Icons.Rounded.Gif, R.string.fg_attach_gif, listOf(Color(0xFFC084FC), Color(0xFF9333EA))) {
+            gifVideo.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly))
+        },
         AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
         AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
         AttachItem(Icons.Rounded.LooksOne, R.string.ch_attach_view_once, listOf(Color(0xFFF472B6), Color(0xFFDB2777))) {

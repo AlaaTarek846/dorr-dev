@@ -7,9 +7,11 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
+use Modules\Chat\Models\ChatMessage;
 use Modules\User\Models\User;
 use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 use Modules\Wallet\Enums\WalletBucket;
@@ -176,7 +178,7 @@ class ChatMoneyTest extends TestCase
     {
         $this->fund($this->alice, 10000);
         $chat = $this->direct($this->alice, $this->bob);
-        $uuid = (string) \Illuminate\Support\Str::uuid();
+        $uuid = (string) Str::uuid();
         $send = fn (string $pin = '1234') => $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/send-money",
             ['amount_minor' => 2500, 'note' => 'Lunch 🍕', 'uuid' => $uuid], $this->headers() + ['X-Wallet-Pin' => $pin]);
 
@@ -188,7 +190,7 @@ class ChatMoneyTest extends TestCase
         $send()->assertCreated()->assertJsonPath('data.id', $uuid);
         $this->assertSame(2500, $this->walletOf($this->bob)->spend_only_minor);
         $this->assertSame(7500, $this->walletOf($this->alice)->withdrawable_minor);
-        $this->assertSame(1, \Modules\Chat\Models\ChatMessage::query()->where('type', 'wallet_transfer')->count());
+        $this->assertSame(1, ChatMessage::query()->where('type', 'wallet_transfer')->count());
     }
 
     public function test_sending_money_is_for_one_to_one_chats_and_never_to_someone_blocked(): void
@@ -196,14 +198,14 @@ class ChatMoneyTest extends TestCase
         $this->fund($this->alice, 10000);
         $group = $this->group($this->alice, [$this->bob, $this->carol]);
         $this->as($this->alice);
-        $this->postJson("/api/mobile/v1/chat/conversations/{$group}/send-money", ['amount_minor' => 100, 'uuid' => (string) \Illuminate\Support\Str::uuid()], $this->headers() + ['X-Wallet-Pin' => '1234'])
+        $this->postJson("/api/mobile/v1/chat/conversations/{$group}/send-money", ['amount_minor' => 100, 'uuid' => (string) Str::uuid()], $this->headers() + ['X-Wallet-Pin' => '1234'])
             ->assertStatus(422)->assertJsonPath('error_code', 'chat_money_request_direct_only');
 
         $chat = $this->direct($this->alice, $this->bob);
         $this->as($this->bob);
         $this->postJson('/api/mobile/v1/chat/blocks', ['participant_id' => $this->alice->id], $this->headers())->assertOk();
         $this->as($this->alice);
-        $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/send-money", ['amount_minor' => 100, 'uuid' => (string) \Illuminate\Support\Str::uuid()], $this->headers() + ['X-Wallet-Pin' => '1234'])
+        $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/send-money", ['amount_minor' => 100, 'uuid' => (string) Str::uuid()], $this->headers() + ['X-Wallet-Pin' => '1234'])
             ->assertForbidden();
         $this->assertSame(10000, $this->walletOf($this->alice)->withdrawable_minor);
     }

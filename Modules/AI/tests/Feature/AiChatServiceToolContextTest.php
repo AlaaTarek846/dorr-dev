@@ -3,8 +3,8 @@
 namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Modules\AI\Services\AiChatService;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Services\AiChatService;
 use ReflectionMethod;
 use Tests\TestCase;
 

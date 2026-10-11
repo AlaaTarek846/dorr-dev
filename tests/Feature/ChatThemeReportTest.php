@@ -16,6 +16,7 @@ use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatReport;
 use Modules\Chat\Models\ChatReportType;
 use Modules\Chat\Models\ChatTheme;
+use Modules\Chat\Services\ChatThemeService;
 use Modules\User\Models\User;
 use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
@@ -80,7 +81,7 @@ class ChatThemeReportTest extends TestCase
         $ocean = $this->theme('Ocean');
         $hidden = $this->theme('Hidden');
         $hidden->update(['status' => false]);
-        app(\Modules\Chat\Services\ChatThemeService::class)->flush();
+        app(ChatThemeService::class)->flush();
 
         $this->as($this->alice);
         $this->getJson('/api/mobile/v1/chat/themes', $this->headers())->assertOk()->assertJsonCount(2, 'data');
@@ -95,7 +96,7 @@ class ChatThemeReportTest extends TestCase
 
         // The admin removes the picked theme: the chat quietly goes back to the default.
         $ocean->delete();
-        app(\Modules\Chat\Services\ChatThemeService::class)->flush();
+        app(ChatThemeService::class)->flush();
         $this->getJson("/api/mobile/v1/chat/conversations/{$chat['id']}", $this->headers())->assertOk()->assertJsonPath('data.theme.applied.id', $default->id);
     }
 
@@ -189,7 +190,7 @@ class ChatThemeReportTest extends TestCase
     {
         $theme = ChatTheme::query()->create(['sender_color' => '#111111', 'receiver_color' => '#EEEEEE', 'is_default' => $default]);
         $theme->translations()->create(['locale' => 'en', 'name' => $name]);
-        app(\Modules\Chat\Services\ChatThemeService::class)->flush();
+        app(ChatThemeService::class)->flush();
 
         return $theme;
     }

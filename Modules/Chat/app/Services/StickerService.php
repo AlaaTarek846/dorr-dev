@@ -3,6 +3,7 @@
 namespace Modules\Chat\Services;
 
 use App\Support\LocaleResolver;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
@@ -11,7 +12,6 @@ use Modules\Chat\Models\ChatSticker;
 use Modules\Chat\Models\ChatStickerPack;
 use Modules\Chat\Models\ChatUserSticker;
 use Modules\Chat\Support\ParticipantType;
-use Illuminate\Database\Eloquent\Model;
 
 /**
  * Dorr's own sticker packs (the admin makes them): the list people pick from, the admin's

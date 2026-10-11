@@ -11,12 +11,17 @@ class AiBenchmarkCase extends Model
     use HasFactory;
 
     public const BEHAVIOR_ANSWER = 'answer';
+
     public const BEHAVIOR_ABSTAIN = 'abstain';
+
     public const BEHAVIOR_ASK_CLARIFICATION = 'ask_clarification';
 
     public const DIFFICULTY_EASY = 'easy';
+
     public const DIFFICULTY_HARD = 'hard';
+
     public const DIFFICULTY_ADVERSARIAL = 'adversarial';
+
     public const DIFFICULTY_INSUFFICIENT_INFO = 'insufficient_info';
 
     protected $table = 'ai_benchmark_cases';

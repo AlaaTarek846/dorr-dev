@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Tests\Feature;
 
+use Modules\AI\Models\AiFileChunk;
 use Tests\TestCase;
 
 /**
@@ -46,6 +47,6 @@ class AiFileChunkSecurityTest extends TestCase
         // loaded AiFile relation, so any future retrieval code path
         // naturally inherits the file's own authorization rather than
         // needing its own duplicate check.
-        $this->assertFalse(method_exists(\Modules\AI\Models\AiFileChunk::class, 'findForOwner'));
+        $this->assertFalse(method_exists(AiFileChunk::class, 'findForOwner'));
     }
 }

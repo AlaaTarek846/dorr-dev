@@ -289,8 +289,8 @@ fun LoginScreen(
                 }
             },
             onSubmit = ::submit,
-            modifier = Modifier
-                .fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .imePadding(),
@@ -635,23 +635,23 @@ private fun LoginContent(
                 .widthIn(max = 440.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Text(
-                text = stringResource(R.string.login_title),
+        Text(
+            text = stringResource(R.string.login_title),
                 color = accent,
                 fontWeight = FontWeight.ExtraBold,
                 fontSize = 30.sp,
                 lineHeight = 38.sp,
-                textAlign = TextAlign.Center,
-            )
+            textAlign = TextAlign.Center,
+        )
 
-            Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(8.dp))
 
-            Text(
-                text = stringResource(R.string.login_subtitle),
+        Text(
+            text = stringResource(R.string.login_subtitle),
                 fontSize = 14.sp,
                 lineHeight = 22.sp,
                 color = mut,
-                textAlign = TextAlign.Center,
+            textAlign = TextAlign.Center,
                 modifier = Modifier.widthIn(max = 260.dp),
             )
 
@@ -662,17 +662,17 @@ private fun LoginContent(
             )
 
             // Phone Input Field (56.dp height, perfectly centered, no text cutoff)
-            PhoneField(
+        PhoneField(
                 countries = countries,
                 selectedCountryId = selectedCountryId,
                 flagCode = flagCode,
-                dialCode = dialCode,
+            dialCode = dialCode,
                 menuExpanded = menuExpanded,
                 onMenuExpandedChange = onMenuExpandedChange,
                 onCountrySelected = onCountrySelected,
                 phoneStartsWith = phoneStartsWith,
-                phoneLength = phoneLength,
-                phone = phone,
+            phoneLength = phoneLength,
+            phone = phone,
                 onPhoneChange = onPhoneChange,
                 canSubmit = canSubmit,
                 onSubmit = onSubmit,
@@ -777,7 +777,7 @@ private fun LoginContent(
             val buttonShape = RoundedCornerShape(999.dp)
             val disabledOutline = accent.copy(alpha = if (night) 0.55f else 0.35f)
             val disabledLabel = if (night) accent.copy(alpha = 0.92f) else accent.copy(alpha = 0.55f)
-            Button(
+        Button(
                 onClick = onSubmit,
                 enabled = canSubmit,
                 colors = ButtonDefaults.buttonColors(
@@ -1146,12 +1146,12 @@ internal fun LanguagePicker() {
             shadowElevation = if (night) 0.dp else 6.dp,
             modifier = Modifier.clickable { if (languages.isNotEmpty()) expanded = true },
         ) {
-            Row(
-                modifier = Modifier
+    Row(
+        modifier = Modifier
                     .height(36.dp)
-                    .padding(horizontal = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
+            .padding(horizontal = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
                 Icon(
                     Icons.Rounded.Language,
                     contentDescription = null,
@@ -1190,7 +1190,7 @@ internal fun LanguagePicker() {
                     text = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             FlagImage(languageFlagCode(language))
-                            Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(8.dp))
                             Text(
                                 language.name,
                                 color = if (isSelected) (if (night) AccountDark.accent else settingsAccent()) else if (night) AccountDark.ink else Color(0xFF374151),
@@ -1228,10 +1228,10 @@ internal fun LanguagePicker() {
 
 @Composable
 private fun PhoneSep() {
-    Box(
-        modifier = Modifier
+        Box(
+            modifier = Modifier
             .padding(horizontal = 8.dp)
-            .width(1.dp)
+                .width(1.dp)
             .height(18.dp)
             .background(if (settingsNight()) AccountDark.line else Color(0xFFE5E7EB)),
     )

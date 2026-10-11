@@ -8,6 +8,7 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Modules\Wallet\Exceptions\WithdrawalException;
 use Modules\Wallet\Http\Requests\WithdrawalRequestFormRequest;
 use Modules\Wallet\Http\Resources\WithdrawalRequestResource;
@@ -23,7 +24,7 @@ class WithdrawalRequestController extends Controller implements HasMiddleware
     public function __construct(private readonly WithdrawalService $withdrawals) {}
 
     /**
-     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     * @return list<Middleware>
      */
     public static function middleware(): array
     {

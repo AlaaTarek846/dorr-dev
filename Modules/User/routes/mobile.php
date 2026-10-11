@@ -9,6 +9,7 @@ use Modules\User\Http\Controllers\Mobile\LegalPageController;
 use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
+use Modules\User\Http\Controllers\Mobile\SupportHelpController;
 use Modules\User\Http\Controllers\Mobile\SupportTicketController;
 use Modules\User\Http\Controllers\PhoneChangeController;
 
@@ -41,12 +42,15 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
         Route::post('profile/email/confirm', [MobileProfileController::class, 'confirmEmailChange']);
         Route::delete('profile/account', [MobileProfileController::class, 'deleteAccount']);
 
+        Route::get('support-help', [SupportHelpController::class, 'index']);
+        Route::post('support-help/{node}/feedback', [SupportHelpController::class, 'feedback'])->whereNumber('node')->middleware('throttle:30,1');
         Route::get('support-tickets', [SupportTicketController::class, 'index']);
         Route::post('support-tickets', [SupportTicketController::class, 'store']);
         Route::get('support-tickets/{ticket}', [SupportTicketController::class, 'show'])->whereNumber('ticket');
         Route::patch('support-tickets/{ticket}/status', [SupportTicketController::class, 'status'])->whereNumber('ticket');
         Route::get('support-tickets/{ticket}/messages', [SupportTicketController::class, 'messages'])->whereNumber('ticket');
         Route::post('support-tickets/{ticket}/messages', [SupportTicketController::class, 'sendMessage'])->whereNumber('ticket')->middleware('throttle:30,1');
+        Route::post('support-tickets/{ticket}/auto-reply-feedback', [SupportTicketController::class, 'autoReplyFeedback'])->whereNumber('ticket')->middleware('throttle:30,1');
 
         Route::get('addresses', [AddressController::class, 'index']);
         Route::post('addresses', [AddressController::class, 'store']);

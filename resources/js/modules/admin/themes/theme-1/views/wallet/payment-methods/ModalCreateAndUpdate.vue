@@ -21,7 +21,7 @@
                     </div>
                 </div>
 
-                <form @submit.prevent="submit">
+                <form class="wallet-scroll-form" @submit.prevent="submit">
                     <div class="modal-body px-4 pb-2">
                         <ul class="nav nav-tabs mb-4">
                             <li class="nav-item">
@@ -159,6 +159,7 @@
                                         :filter-placeholder="t('search_placeholder')"
                                         id="method-gateway"
                                         v-model="form.gateway"
+                                        :placeholder="t('wallet.methods.gateway')"
                                         :options="gatewayOptions"
                                         option-label="label"
                                         option-value="value"
@@ -175,6 +176,7 @@
                                         :filter-placeholder="t('search_placeholder')"
                                         id="method-type"
                                         v-model="form.type"
+                                        :placeholder="t('wallet.methods.type')"
                                         :options="typeOptions"
                                         option-label="label"
                                         option-value="value"
@@ -308,7 +310,7 @@
                                             </td>
                                             <td>
                                                 <div
-                                                    class="toggle toggle-success toggle-sm mb-0 catalog-modal-toggle"
+                                                    class="toggle toggle-success mb-0 catalog-modal-toggle"
                                                     :class="{ on: countryState[c.id].status, 'opacity-50': !countryState[c.id].enabled }"
                                                     role="button"
                                                     tabindex="0"
@@ -529,9 +531,18 @@ async function loadCountries() {
     } catch {
         countryOptions.value = [];
     }
+
+    // The form was filled (or reset) while the countries were still loading, so there was nothing to fill the
+    // per-country rows from: build them now from what that form asked for — the rows need a state each.
+    prepareCountries(lastLinked);
 }
 
+/** The countries the open record is linked to, kept for when the country list arrives after the form was filled. */
+let lastLinked = [];
+
 function prepareCountries(linked = []) {
+    lastLinked = linked;
+
     countryOptions.value.forEach((c) => {
         const link = linked.find((l) => Number(l.country_id) === Number(c.id));
 
@@ -716,8 +727,8 @@ setupCatalogModalWatcher({
     },
 });
 
-onMounted(async () => {
-    await ensureLanguagesLoaded();
+onMounted(() => {
+    // The languages and countries are loaded when the modal opens (onOpen), not with the page.
     modalElement.value?.addEventListener('hidden.bs.modal', onModalHidden);
 });
 

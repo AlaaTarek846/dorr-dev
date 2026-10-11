@@ -7,14 +7,17 @@ use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
 use App\Models\NotificationDevice;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatMoment;
+use Modules\Chat\Models\ChatPersonalMoment;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -67,7 +70,7 @@ class ChatMomentsTogetherTest extends TestCase
             ->assertJsonCount(2, 'data.members') // Alice + Carol — never the recipient.
             ->json('data.id');
 
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
         Http::assertSent(fn ($r) => str_contains($r->url(), 'onesignal') && in_array('carol-phone', $r['include_subscription_ids'] ?? $r['include_player_ids'] ?? [], true));
 
         // The recipient can't see it; a stranger can't either.
@@ -150,12 +153,12 @@ class ChatMomentsTogetherTest extends TestCase
     public function test_my_own_dates_remind_me_before_and_on_the_day_in_my_morning(): void
     {
         $this->carol->forceFill(['timezone' => 'Asia/Riyadh'])->save();
-        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-10-08 05:30', 'UTC')); // 08:30 in Riyadh
+        $this->travelTo(CarbonImmutable::parse('2026-10-08 05:30', 'UTC')); // 08:30 in Riyadh
         $this->as($this->carol);
         $this->postJson('/api/mobile/v1/chat/moments/personal', ['kind' => 'birthday', 'title' => 'Alice', 'month' => 10, 'day' => 10, 'remind_days_before' => 2], $this->headers())->assertSuccessful();
 
         $reminders = function (): array {
-            app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+            app(DeferredCallbackCollection::class)->invoke();
 
             return collect(Http::recorded())->map(fn ($pair) => $pair[0])
                 ->filter(fn ($r) => str_contains($r->url(), 'onesignal') && ($r['data']['event'] ?? null) === 'chat.moment.reminder')->values()->all();
@@ -166,7 +169,7 @@ class ChatMomentsTogetherTest extends TestCase
         $this->assertCount(0, $reminders());
 
         // 09:10 in Riyadh, two days before: once.
-        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-10-08 06:10', 'UTC'));
+        $this->travelTo(CarbonImmutable::parse('2026-10-08 06:10', 'UTC'));
         $this->artisan('chat:moment-reminders')->assertSuccessful();
         $this->artisan('chat:moment-reminders')->assertSuccessful();
         $sent = $reminders();
@@ -175,7 +178,7 @@ class ChatMomentsTogetherTest extends TestCase
         $this->assertContains('carol-phone', $sent[0]['include_subscription_ids'] ?? $sent[0]['include_player_ids'] ?? []);
 
         // On the day: once more.
-        $this->travelTo(\Carbon\CarbonImmutable::parse('2026-10-10 06:05', 'UTC'));
+        $this->travelTo(CarbonImmutable::parse('2026-10-10 06:05', 'UTC'));
         $this->artisan('chat:moment-reminders')->assertSuccessful();
         $this->artisan('chat:moment-reminders')->assertSuccessful();
         $sent = $reminders();
@@ -184,7 +187,7 @@ class ChatMomentsTogetherTest extends TestCase
 
         // Moments off for her: no more reminders (next year's would be silent too).
         $this->putJson('/api/mobile/v1/chat/moments/preferences', ['enabled' => false], $this->headers())->assertOk();
-        \Modules\Chat\Models\ChatPersonalMoment::query()->update(['reminded_day_for' => null]);
+        ChatPersonalMoment::query()->update(['reminded_day_for' => null]);
         $this->artisan('chat:moment-reminders')->assertSuccessful();
         $this->assertCount(2, $reminders());
     }

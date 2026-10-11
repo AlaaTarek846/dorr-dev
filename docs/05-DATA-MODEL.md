@@ -61,6 +61,12 @@ personal_access_tokens (Sanctum)
 
 **Relationships:** `belongsTo` Country; morphMany SocialAccount, VerificationCode; HasRoles (Spatie); `hasMany` SupportTicket.
 
+### Support help menu
+`support_help_nodes`: `parent_id` (self FK, cascade), `sort_order`, `status`; `support_help_node_translations`: `support_help_node_id`, `locale`, `title`, `answer` (nullable; unique per node + locale). A node with children is a menu; one without is an answer. `support_help_feedback`: `support_help_node_id` (nullable, null on delete), `user_id`, `solved` (false = asked for an agent), one row per press.
+
+### Support automatic replies
+`support_settings` (one row): `auto_reply_enabled`, `ack_enabled`, `ack_message` json {ar,en}, `away_enabled`, `away_message` json, `hours` json (7 days, Sunday first: open/from/to), `timezone` (default Asia/Riyadh), `away_every_hours` (6), `ai_enabled`, `ai_max_replies` (2). `support_quick_replies`: `shortcut` (unique), `sort_order`, `status`; `support_quick_reply_translations`: `support_quick_reply_id`, `locale`, `title`, `body` (unique per reply + locale). `support_messages` gains `is_auto` and `auto_kind` (ack|away|faq; `sender = system`); `support_tickets` gains `auto_reply_stopped_at`.
+
 ### `support_tickets`
 
 | Column | Notes |
@@ -69,6 +75,7 @@ personal_access_tokens (Sanctum)
 | user_id | FK → users, cascade on delete |
 | title | string |
 | body | text |
+| number | string(12), unique, random 7 digits — the number shown to customers and the team |
 | image_path | nullable, public disk `support-tickets/{userId}` |
 | status | default `open` |
 | timestamps | |
@@ -82,7 +89,7 @@ personal_access_tokens (Sanctum)
 | id | PK |
 | author_type, author_id | morph (the user who rated) |
 | rateable_type, rateable_id | nullable morph; null = the app itself. Allowed aliases: `service` (ServiceCategory), `provider` |
-| unique_key | char(64) unique — sha256 of author + target, prevents duplicate ratings (NULL morphs cannot be unique) |
+| unique_key | char(64) unique — sha256 of author + target, one row per author+target (later POSTs update it; NULL morphs cannot be unique) |
 | stars | decimal(3,2), 1–5 in 0.25 steps |
 | type | `feedback` (< 4) or `review` (≥ 4) |
 | comment | nullable text |

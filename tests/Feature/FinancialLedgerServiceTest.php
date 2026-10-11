@@ -7,6 +7,8 @@ use App\Models\Currency;
 use App\Models\Flag;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LogicException;
+use Modules\User\Models\User;
+use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 use Modules\Wallet\Enums\FinancialEntryType;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
@@ -14,7 +16,6 @@ use Modules\Wallet\Exceptions\FinancialCategoryNotFoundException;
 use Modules\Wallet\Exceptions\FinancialEntryTypeMismatchException;
 use Modules\Wallet\Models\FinancialCategory;
 use Modules\Wallet\Models\FinancialEntry;
-use Modules\User\Models\User;
 use Modules\Wallet\Services\FinancialLedgerService;
 use Modules\Wallet\Services\WalletService;
 use Tests\TestCase;
@@ -42,7 +43,7 @@ class FinancialLedgerServiceTest extends TestCase
             'is_default' => true, 'flag_id' => $flag->id, 'currency_id' => $this->currency->id, 'status' => true,
         ]);
 
-        $this->seed(\Modules\Wallet\Database\Seeders\FinancialCategorySeeder::class);
+        $this->seed(FinancialCategorySeeder::class);
     }
 
     public function test_records_an_entry_against_a_known_category(): void

@@ -239,7 +239,7 @@ class WordFileProcessor implements AiFileProcessorInterface
      */
     protected function readDocxHeadings(string $absolutePath): array
     {
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
 
         if ($zip->open($absolutePath) !== true) {
             return [];
@@ -252,7 +252,7 @@ class WordFileProcessor implements AiFileProcessorInterface
             return [];
         }
 
-        $dom = new \DOMDocument();
+        $dom = new \DOMDocument;
 
         if (! @$dom->loadXML($xml, LIBXML_NONET | LIBXML_COMPACT)) {
             return [];

@@ -1,5 +1,7 @@
 <?php
 
+use Modules\AI\Services\Tools\AiUsageStatusTool;
+
 return [
     'name' => 'AI',
 
@@ -618,7 +620,7 @@ return [
             'has_free_tier' => true,
             'pricing_note' => 'Google AI Studio keys include a free-of-charge tier with lower rate limits; higher throughput requires enabling billing.',
         ],
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Dynamic Model Registry sync (OpenAI model management rebuild)
     |--------------------------------------------------------------------------
@@ -631,11 +633,11 @@ return [
     | daily at 03:00; otherwise every N hours).
     |
     */
-    'model_sync' => [
-        'interval_hours' => (int) env('AI_MODEL_SYNC_INTERVAL_HOURS', 24),
-    ],
+        'model_sync' => [
+            'interval_hours' => (int) env('AI_MODEL_SYNC_INTERVAL_HOURS', 24),
+        ],
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Benchmark DORR (v2.0 requirements doc, section 19)
     |--------------------------------------------------------------------------
@@ -647,14 +649,14 @@ return [
     | presence, hallucination rate, per-token cost).
     |
     */
-    'benchmark' => [
-        // A run this large or larger triggers a UI warning (not a hard
-        // stop) that the sample size may be too small to certify a
-        // headline pass-rate figure per S19.5 - it never blocks the run.
-        'min_recommended_sample_size' => (int) env('AI_BENCHMARK_MIN_SAMPLE_SIZE', 30),
-    ],
+        'benchmark' => [
+            // A run this large or larger triggers a UI warning (not a hard
+            // stop) that the sample size may be too small to certify a
+            // headline pass-rate figure per S19.5 - it never blocks the run.
+            'min_recommended_sample_size' => (int) env('AI_BENCHMARK_MIN_SAMPLE_SIZE', 30),
+        ],
 
-    /*
+        /*
     |--------------------------------------------------------------------------
     | Circuit Breaker (v2.0 doc S15.4/S20.3)
     |--------------------------------------------------------------------------
@@ -667,11 +669,11 @@ return [
     | this kind of per-provider health signal.
     |
     */
-    'circuit_breaker' => [
-        'enabled' => (bool) env('AI_CIRCUIT_BREAKER_ENABLED', true),
-        'failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3),
-        'open_seconds' => (int) env('AI_CIRCUIT_BREAKER_OPEN_SECONDS', 60),
-    ],
+        'circuit_breaker' => [
+            'enabled' => (bool) env('AI_CIRCUIT_BREAKER_ENABLED', true),
+            'failure_threshold' => (int) env('AI_CIRCUIT_BREAKER_FAILURE_THRESHOLD', 3),
+            'open_seconds' => (int) env('AI_CIRCUIT_BREAKER_OPEN_SECONDS', 60),
+        ],
 
         'groq' => [
             'name' => 'Groq',
@@ -752,7 +754,7 @@ return [
         'enabled' => (bool) env('AI_TOOLS_ENABLED', true),
 
         'registry' => [
-            \Modules\AI\Services\Tools\AiUsageStatusTool::class,
+            AiUsageStatusTool::class,
         ],
 
         'triggers' => [

@@ -4,8 +4,8 @@ namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
-use Modules\AI\Models\AiProvider;
 use Modules\Admin\Models\Admin;
+use Modules\AI\Models\AiProvider;
 use Tests\TestCase;
 
 /**

@@ -15,6 +15,7 @@ use Modules\AI\Models\AiSubscriptionPayment;
 use Modules\AI\Services\AiSubscriptionBillingService;
 use Modules\AI\Services\AiSubscriptionPurchaseService;
 use Modules\User\Models\User;
+use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Exceptions\InsufficientBalanceException;
 use Modules\Wallet\Models\Wallet;
 use Modules\Wallet\Services\WalletService;
@@ -182,7 +183,7 @@ class AiSubscriptionBillingTest extends TestCase
 
         $rows = $wallet->transactions()->where('operation_id', $operationId)->get();
         $this->assertCount(2, $rows, 'a split charge must produce exactly two wallet_transactions rows sharing one operation_id');
-        $this->assertEqualsCanonicalizing(['spend_only', 'withdrawable'], $rows->pluck('bucket')->map(fn ($b) => $b instanceof \Modules\Wallet\Enums\WalletBucket ? $b->value : (string) $b)->all());
+        $this->assertEqualsCanonicalizing(['spend_only', 'withdrawable'], $rows->pluck('bucket')->map(fn ($b) => $b instanceof WalletBucket ? $b->value : (string) $b)->all());
     }
 
     public function test_subscribe_fails_when_combined_balance_is_insufficient_and_charges_nothing(): void

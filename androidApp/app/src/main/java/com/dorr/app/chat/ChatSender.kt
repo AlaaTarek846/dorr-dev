@@ -30,7 +30,7 @@ object ChatSender {
         if (out.files.isEmpty()) {
             val body = mutableMapOf<String, Any?>("type" to out.type, "uuid" to uuid, "body" to out.body, "reply_to" to replyId)
             body.putAll(out.extra)
-            return ApiClient.chat.send(chatAuth(), conversationId, body.filterValues { it != null })
+            return ApiClient.chat.send(chatAuth(), conversationId, body.filterValues { it != null }).also { ChatUsage.messageSent() }
         }
 
         val fields = mutableMapOf<String, RequestBody>()
@@ -65,7 +65,7 @@ object ChatSender {
                 }
             })
         }
-        return ApiClient.chat.sendWithFiles(chatAuth(), conversationId, fields, parts)
+        return ApiClient.chat.sendWithFiles(chatAuth(), conversationId, fields, parts).also { ChatUsage.messageSent() }
     }
 
     /** A message's stored extras read back from JSON: whole numbers are integers again (5000, not 5000.0). */

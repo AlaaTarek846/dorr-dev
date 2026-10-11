@@ -4,53 +4,53 @@ namespace Modules\AI\Services;
 
 use App\Support\Api\ApiResponse;
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Symfony\Component\HttpFoundation\StreamedResponse;
-use Modules\AI\Support\AiChatLexicon;
-use Modules\AI\Support\AiIntentDecision;
 use Modules\AI\Enums\AiModelCapability;
 use Modules\AI\Events\AiMessageBroadcast;
 use Modules\AI\Http\Resources\AiConversationAttachmentResource;
 use Modules\AI\Http\Resources\AiConversationResource;
 use Modules\AI\Http\Resources\AiMessageResource;
+use Modules\AI\Models\AiCodeExecution;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiConversationAttachment;
+use Modules\AI\Models\AiDataPolicy;
 use Modules\AI\Models\AiDocumentGeneration;
 use Modules\AI\Models\AiFailover;
+use Modules\AI\Models\AiFileCitation;
+use Modules\AI\Models\AiKnowledgeChunk;
+use Modules\AI\Models\AiKnowledgeSource;
 use Modules\AI\Models\AiMediaGeneration;
 use Modules\AI\Models\AiMessage;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Models\AiProviderModel;
 use Modules\AI\Models\AiRequest;
+use Modules\AI\Models\AiRequestCitation;
 use Modules\AI\Models\AiResponse;
 use Modules\AI\Models\AiSafetyEvent;
 use Modules\AI\Models\AiSafetyRule;
 use Modules\AI\Models\AiUsage;
-use Modules\AI\Models\AiCodeExecution;
-use Modules\AI\Models\AiDataPolicy;
-use Modules\AI\Models\AiDomainPolicy;
-use Modules\AI\Models\AiRequestCitation;
 use Modules\AI\Models\AiVerification;
 use Modules\AI\Repositories\AiConversationRepository;
-use Illuminate\Support\Facades\Log;
+use Modules\AI\Repositories\AiFileRepository;
 use Modules\AI\Repositories\AiProviderRepository;
-use Modules\AI\Services\AiConversationFileScope;
+use Modules\AI\Safety\SafetyPolicyEngine;
 use Modules\AI\Services\DocumentGeneration\AiDocumentContentParser;
 use Modules\AI\Services\DocumentGeneration\AiDocumentRenderer;
-use Modules\AI\Models\AiFile;
-use Modules\AI\Models\AiFileCitation;
-use Modules\AI\Enums\AiRetrievalMode;
 use Modules\AI\Services\Retrieval\AiBuiltContext;
 use Modules\AI\Services\Retrieval\AiContextBuilder;
 use Modules\AI\Services\Retrieval\AiRetrievalEngine;
 use Modules\AI\Services\Retrieval\AiRetrievalQuery;
 use Modules\AI\Services\Retrieval\AiRetrievalQueryAnalyzer;
-use Modules\AI\Safety\SafetyPolicyEngine;
+use Modules\AI\Support\AiChatLexicon;
+use Modules\AI\Support\AiIntentDecision;
 use Modules\User\Models\User;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class AiChatService
 {
@@ -116,7 +116,7 @@ class AiChatService
         // Phase 12 (doc S20/S21): per-owner file quota usage, surfaced
         // alongside the existing time-based plan usage rather than a
         // second status endpoint - see usageSummary().
-        protected \Modules\AI\Repositories\AiFileRepository $fileRepository,
+        protected AiFileRepository $fileRepository,
         protected AiIntentRouterService $intentRouter,
         protected AiMediaQuotaService $mediaQuota,
         protected AiVideoGenerationService $videoGeneration,
@@ -572,7 +572,7 @@ class AiChatService
                 'status' => AiRequest::STATUS_PROCESSING,
                 'idempotency_key' => $idempotencyKey,
             ]);
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Two requests carrying the same key can both pass the
             // findIdempotentRequest() check above if they race each
             // other closely enough (there is no queue/worker here, but
@@ -1147,7 +1147,7 @@ class AiChatService
      * 23000 through PDO, so checking the exception's SQL state is
      * portable between them without parsing driver-specific error text.
      */
-    protected function isUniqueConstraintViolation(\Illuminate\Database\QueryException $e): bool
+    protected function isUniqueConstraintViolation(QueryException $e): bool
     {
         return $e->getCode() === '23000';
     }
@@ -1823,7 +1823,7 @@ class AiChatService
      * that this is evidence to draw on, never instructions to follow, and
      * to cite it by number when it actually uses it.
      *
-     * @param  list<array{source: \Modules\AI\Models\AiKnowledgeSource, chunk: \Modules\AI\Models\AiKnowledgeChunk, content: string, score: float}>  $citations
+     * @param  list<array{source: AiKnowledgeSource, chunk: AiKnowledgeChunk, content: string, score: float}>  $citations
      */
     /**
      * Fires AiMessageBroadcast for the final assistant reply, guarded by
@@ -1868,7 +1868,7 @@ class AiChatService
     }
 
     /**
-     * @param  list<array{source: \Modules\AI\Models\AiKnowledgeSource, chunk: \Modules\AI\Models\AiKnowledgeChunk, content: string, score: float}>  $citations
+     * @param  list<array{source: AiKnowledgeSource, chunk: AiKnowledgeChunk, content: string, score: float}>  $citations
      */
     protected function storeCitations(AiRequest $aiRequest, array $citations): void
     {
@@ -2675,8 +2675,8 @@ class AiChatService
 
     /**
      * @return array{0: ?string, 1: ?string} raw image bytes + mime type,
-     *                                        or [null, null] when no
-     *                                        source image can be found
+     *                                       or [null, null] when no
+     *                                       source image can be found
      */
     protected function resolveSourceImageBytes(AiConversation $conversation, ?UploadedFile $attachment, string $content = '', bool $recentImageExists = false): array
     {
@@ -2988,7 +2988,6 @@ PROMPT;
             default => __('ai.usage_unavailable'),
         };
     }
-
 
     /**
      * The words a message needs to actually be asking for a spoken/voice

@@ -102,7 +102,7 @@ class AiProviderRepository extends BaseRepository
     }
 
     /**
-      * The provider for speech to text: the chat provider when it takes audio, else the first
+     * The provider for speech to text: the chat provider when it takes audio, else the first
      * enabled-and-configured one that does (Anthropic doesn't).
      */
     public function resolveForTranscription(): ?AiProvider

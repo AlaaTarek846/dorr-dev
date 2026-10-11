@@ -8,6 +8,7 @@ use App\Enums\VerificationType;
 use App\Http\Controllers\Controller;
 use App\Services\Auth\AuthFlowTokenService;
 use App\Services\Auth\VerificationCodeService;
+use App\Services\General\LoginCountry;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
@@ -139,7 +140,7 @@ class UserRegistrationController extends Controller
         $this->flowTokens->revoke($request->validated('flow_token'));
         $user->tokens()->delete();
 
-        app(\App\Services\General\LoginCountry::class)->remember($user);
+        app(LoginCountry::class)->remember($user);
         $token = $user->createToken('user-api')->plainTextToken;
 
         return ApiResponse::success([

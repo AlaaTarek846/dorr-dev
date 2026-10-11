@@ -6,6 +6,7 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Modules\Chat\Enums\ConversationStatus;
@@ -19,6 +20,7 @@ use Modules\Chat\Models\ChatFolder;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatMessageReceipt;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Models\ChatPrivacyCircle;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
@@ -121,10 +123,10 @@ class ConversationService
         // Privacy circles (spec 101): a circle's chats are listed inside it; the ones whose circle
         // hides them stay out of the main list, its filters and its search.
         if (! empty($filters['circle'])) {
-            $circle = \Modules\Chat\Models\ChatPrivacyCircle::query()->ownedBy($me)->where('uuid', $filters['circle'])->first() ?? throw new ChatException('circle_not_found', 404);
+            $circle = ChatPrivacyCircle::query()->ownedBy($me)->where('uuid', $filters['circle'])->first() ?? throw new ChatException('circle_not_found', 404);
             $query->where('privacy_circle_id', $circle->id);
         } elseif (! in_array($filter, ['requests', 'locked', 'archived'], true)) {
-            $hidden = \Modules\Chat\Models\ChatPrivacyCircle::query()->ownedBy($me)->where('hide_from_list', true)->pluck('id');
+            $hidden = ChatPrivacyCircle::query()->ownedBy($me)->where('hide_from_list', true)->pluck('id');
             if ($hidden->isNotEmpty()) {
                 $query->where(fn (Builder $q) => $q->whereNull('privacy_circle_id')->orWhereNotIn('privacy_circle_id', $hidden));
             }
@@ -492,7 +494,7 @@ class ConversationService
      * Who hears about reads: everyone in a chat or group; in a channel only its admins (they see
      * the views go up) — never thousands of followers for every follower who reads.
      *
-     * @return \Illuminate\Support\Collection<int, ChatParticipant>
+     * @return Collection<int, ChatParticipant>
      */
     private function receiptAudience(ChatConversation $conversation)
     {
@@ -573,7 +575,7 @@ class ConversationService
      * My own wallpaper for this chat (only I see it): replaces the previous one; the rest of my
      * custom look (colours, dim) stays.
      */
-    public function setWallpaper(Model $me, ChatConversation $conversation, \Illuminate\Http\UploadedFile $image): ChatParticipant
+    public function setWallpaper(Model $me, ChatConversation $conversation, UploadedFile $image): ChatParticipant
     {
         $participant = $this->participantOf($me, $conversation);
         $participant->update(['custom_theme' => app(ChatThemeService::class)->storeWallpaper($participant, $image)]);

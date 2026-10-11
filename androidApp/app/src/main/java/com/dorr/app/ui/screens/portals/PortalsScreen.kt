@@ -289,7 +289,7 @@ private fun CategoryChip(icon: String?, label: String, selected: Boolean, onClic
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            AsyncImage(icon, null, Modifier.size(18.dp))
+            AsyncImage(ApiClient.mediaUrl(icon), null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
             Spacer(Modifier.width(6.dp))
         }
         Text(label, color = fg, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -298,8 +298,8 @@ private fun CategoryChip(icon: String?, label: String, selected: Boolean, onClic
 
 @Composable
 private fun CategoryIcon(url: String?, size: androidx.compose.ui.unit.Dp) {
-    Box(Modifier.size(size).clip(RoundedCornerShape(8.dp)).background(Wa.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-        if (url != null) AsyncImage(url, null, Modifier.size(size * 0.72f)) else Icon(Icons.Rounded.Category, null, tint = Wa.Red, modifier = Modifier.size(size * 0.65f))
+    Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.28f)).background(Wa.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+        if (url != null) AsyncImage(ApiClient.mediaUrl(url), null, Modifier.fillMaxSize()) else Icon(Icons.Rounded.Category, null, tint = Wa.Red, modifier = Modifier.size(size * 0.65f))
     }
 }
 

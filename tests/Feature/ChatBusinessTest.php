@@ -8,6 +8,8 @@ use App\Models\Flag;
 use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
@@ -227,7 +229,7 @@ class ChatBusinessTest extends TestCase
     }
 
     /**
-     * @return \Illuminate\Support\Collection<int, ChatMessage>
+     * @return Collection<int, ChatMessage>
      */
     private function autoReplies(string $chat, string $kind)
     {
@@ -256,7 +258,7 @@ class ChatBusinessTest extends TestCase
         return $this->postJson('/api/mobile/v1/chat/conversations/direct', ['participant_id' => $other->id], $this->headers())->assertOk()->json('data.id');
     }
 
-    private function send(User $sender, string $conversation, string $body): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, string $body): TestResponse
     {
         $this->as($sender);
 

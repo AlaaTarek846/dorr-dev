@@ -82,6 +82,18 @@ class SupportTicketController extends Controller
         return $this->service->messageResponse($message, __('api.support_message_sent'));
     }
 
+    /**
+     * The customer's answer under an automatic FAQ reply: `solved: true` closes the ticket, `false` stops the
+     * automatic replies and tells the support team a person is needed.
+     */
+    public function autoReplyFeedback(Request $request, int $ticket): JsonResponse
+    {
+        $solved = (bool) $request->validate(['solved' => ['required', 'boolean']])['solved'];
+        $updated = $this->service->autoReplyFeedback($this->find($request, $ticket), $solved);
+
+        return ApiResponse::success(new SupportTicketResource($updated->load('latestMessage')), __('api.support_ticket_status_changed'));
+    }
+
     private function find(Request $request, int $id): SupportTicket
     {
         /** @var User $user */

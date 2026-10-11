@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Services\Indexing;
 
+use Illuminate\Support\Facades\Storage;
 use Modules\AI\Models\AiFileChunk;
 
 /**
@@ -40,8 +41,8 @@ class DatabaseIndexStore implements AiIndexStoreInterface
         foreach ($query->get() as $chunk) {
             $disk = (string) config('ai.chunking.storage_disk', config('ai.files.default_disk', 'public'));
 
-            if ($chunk->content_ref && \Illuminate\Support\Facades\Storage::disk($disk)->exists($chunk->content_ref)) {
-                \Illuminate\Support\Facades\Storage::disk($disk)->delete($chunk->content_ref);
+            if ($chunk->content_ref && Storage::disk($disk)->exists($chunk->content_ref)) {
+                Storage::disk($disk)->delete($chunk->content_ref);
             }
         }
 

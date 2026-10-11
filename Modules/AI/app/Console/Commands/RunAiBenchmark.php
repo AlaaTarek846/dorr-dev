@@ -3,9 +3,9 @@
 namespace Modules\AI\Console\Commands;
 
 use Illuminate\Console\Command;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiBenchmarkRun;
 use Modules\AI\Services\AiBenchmarkRunner;
-use Modules\Admin\Models\Admin;
 
 /**
  * v2.0 requirements doc §19: headless batch entry point for Benchmark

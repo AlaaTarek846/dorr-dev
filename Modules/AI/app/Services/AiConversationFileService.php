@@ -7,7 +7,6 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Http\JsonResponse;
 use Modules\AI\Exceptions\AiFileException;
 use Modules\AI\Http\Resources\AiFileResource;
-use Modules\AI\Models\AiFile;
 use Modules\AI\Repositories\AiConversationRepository;
 use Modules\AI\Repositories\AiFileRepository;
 

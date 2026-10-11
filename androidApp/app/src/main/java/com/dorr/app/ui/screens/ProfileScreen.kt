@@ -140,7 +140,7 @@ import com.dorr.app.ui.theme.appearanceColor
 private enum class ProfileSub {
     NONE, PERSONAL_DATA, NOTIFICATIONS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
-    INVITE, RATE, SUPPORT, TICKET,
+    INVITE, RATE, SUPPORT, TICKET, QUICK_CHAT,
 }
 
 private data class MenuEntry(
@@ -182,7 +182,7 @@ fun ProfileScreen(
             ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
             ProfileSub.LEGAL -> ProfileSub.SETTINGS
             ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
-            ProfileSub.TICKET -> ProfileSub.SUPPORT
+            ProfileSub.TICKET, ProfileSub.QUICK_CHAT -> ProfileSub.SUPPORT
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
             else -> ProfileSub.NONE
         }
@@ -242,9 +242,9 @@ fun ProfileScreen(
         },
     ) { currentSub ->
         when (currentSub) {
-            ProfileSub.PERSONAL_DATA -> {
+        ProfileSub.PERSONAL_DATA -> {
                 val subContext = LocalContext.current
-                PersonalDataScreen(
+            PersonalDataScreen(
                     onBack = { subScreen = ProfileSub.NONE },
                     onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
@@ -272,6 +272,12 @@ fun ProfileScreen(
             ProfileSub.SUPPORT -> SupportMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onOpenTicket = { subScreen = ProfileSub.TICKET },
+                onOpenQuickChat = { subScreen = ProfileSub.QUICK_CHAT },
+            )
+            // The quick chat: guided help that ends in "solved" or a ticket (the ticket screen hosts both).
+            ProfileSub.QUICK_CHAT -> SupportTicketScreen(
+                onBack = { subScreen = ProfileSub.SUPPORT },
+                startQuickChat = true,
             )
             ProfileSub.TICKET -> SupportTicketScreen(
                 onBack = { subScreen = ProfileSub.SUPPORT },
@@ -546,8 +552,8 @@ private fun ProfileMenuScreen(
                         )
                     }
                 }
-            }
-            Spacer(Modifier.height(12.dp))
+                }
+                Spacer(Modifier.height(12.dp))
         }
 
         item {
@@ -727,12 +733,14 @@ private fun SettingsMenuScreen(
 private fun SupportMenuScreen(
     onBack: () -> Unit,
     onOpenTicket: () -> Unit,
+    onOpenQuickChat: () -> Unit,
 ) {
     var showFaqSheet by remember { mutableStateOf(false) }
     AccountListScreen(
         title = stringResource(R.string.support_title),
         onBack = onBack,
         items = listOf(
+            MenuEntry(Icons.Rounded.SupportAgent, R.string.support_quick_chat_title, R.string.support_quick_chat_sub, onClick = onOpenQuickChat),
             MenuEntry(Icons.Rounded.ConfirmationNumber, R.string.support_ticket_title, R.string.support_ticket_sub, onClick = onOpenTicket),
             MenuEntry(Icons.Rounded.Help, R.string.account_faqs, R.string.account_faqs_sub) { showFaqSheet = true },
         ),
@@ -937,8 +945,8 @@ private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false, dark: Bool
         }
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(entry.label),
+        Text(
+            stringResource(entry.label),
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (entry.danger) settingsAccent() else settingsInk(),
@@ -1256,7 +1264,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 14.dp)) {
                             shown.forEach { language ->
                                 val code = language.code.lowercase()
-                                LanguageOption(
+                LanguageOption(
                                     name = language.name,
                                     flag = languageFlagCode(language),
                                     selected = code == appLanguage.code.lowercase(),

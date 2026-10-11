@@ -56,7 +56,7 @@ class ChatGroup extends Model implements HasMedia
         return $this->getSingleMediaUrl('avatar') ?: null;
     }
 
-    public function category(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function category(): BelongsTo
     {
         return $this->belongsTo(ChatCategory::class, 'category_id');
     }

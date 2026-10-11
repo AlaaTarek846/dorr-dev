@@ -37,6 +37,8 @@ object VideoTools {
     private const val TAG = "VideoTools"
     private const val SHORT_SIDE = 720
     private const val BITRATE = 2_500_000
+    private const val SAVER_SHORT_SIDE = 480
+    private const val SAVER_BITRATE = 1_200_000
 
     fun info(context: Context, file: File): VideoInfo? = runCatching {
         MediaMetadataRetriever().run {
@@ -72,20 +74,63 @@ object VideoTools {
      */
     suspend fun compress(context: Context, input: LocalFile): LocalFile {
         val meta = info(context, input.file) ?: return input
+        // Data saver (spec 82): 480p at ~1.2 Mbps.
+        val side = if (ChatDataSaver.active) SAVER_SHORT_SIDE else SHORT_SIDE
+        val rate = if (ChatDataSaver.active) SAVER_BITRATE else BITRATE
         val shortSide = minOf(meta.width, meta.height)
-        val alreadySmall = shortSide in 1..SHORT_SIDE && (meta.bitrate ?: Long.MAX_VALUE) <= BITRATE * 1.3
+        val alreadySmall = shortSide in 1..side && (meta.bitrate ?: Long.MAX_VALUE) <= rate * 1.3
         if (alreadySmall || input.file.length() < 4L * 1024 * 1024) return input
 
         val out = File(File(context.cacheDir, "chat-out").apply { mkdirs() }, "${UUID.randomUUID()}.mp4")
         // Scale so the *short* side is 720 — portrait videos stay sharp too.
-        val presentation = if (meta.width >= meta.height) Presentation.createForHeight(SHORT_SIDE)
-        else Presentation.createForWidthAndHeight(SHORT_SIDE, SHORT_SIDE * meta.height / meta.width.coerceAtLeast(1), Presentation.LAYOUT_SCALE_TO_FIT)
+        val presentation = if (meta.width >= meta.height) Presentation.createForHeight(side)
+        else Presentation.createForWidthAndHeight(side, side * meta.height / meta.width.coerceAtLeast(1), Presentation.LAYOUT_SCALE_TO_FIT)
 
+        val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(input.file)))
+            .setEffects(Effects(emptyList(), listOf(presentation)))
+            .build()
+        val ok = export(context, item, out, rate)
+
+        return if (ok && out.length() in 1 until input.file.length()) LocalFile(out, "video/mp4", input.name.substringBeforeLast('.') + ".mp4")
+        else input.also { out.delete() }
+    }
+
+    /** The longest clip that goes as a GIF (spec 11). */
+    const val GIF_MAX_MS = 6_000L
+
+    /**
+     * A GIF made from a video, WhatsApp-style: really a short MP4 — [startMs]..[endMs] (at most
+     * [GIF_MAX_MS]), no sound, 480p at ~1 Mbps — that the chat plays muted on a loop. Null when
+     * the phone couldn't make it.
+     */
+    suspend fun gifClip(context: Context, input: File, startMs: Long, endMs: Long): LocalFile? {
+        val meta = info(context, input) ?: return null
+        val end = endMs.coerceAtMost(startMs + GIF_MAX_MS)
+        if (end <= startMs) return null
+        val presentation = if (meta.width >= meta.height) Presentation.createForHeight(GIF_SHORT_SIDE)
+        else Presentation.createForWidthAndHeight(GIF_SHORT_SIDE, GIF_SHORT_SIDE * meta.height / meta.width.coerceAtLeast(1), Presentation.LAYOUT_SCALE_TO_FIT)
+        val clipped = MediaItem.Builder()
+            .setUri(Uri.fromFile(input))
+            .setClippingConfiguration(MediaItem.ClippingConfiguration.Builder().setStartPositionMs(startMs).setEndPositionMs(end).build())
+            .build()
+        val item = EditedMediaItem.Builder(clipped)
+            .setRemoveAudio(true)
+            .setEffects(Effects(emptyList(), listOf(presentation)))
+            .build()
+        val out = File(File(context.cacheDir, "chat-out").apply { mkdirs() }, "${UUID.randomUUID()}-gif.mp4")
+        return if (export(context, item, out, GIF_BITRATE) && out.length() > 0) LocalFile(out, "video/mp4", "gif.mp4") else null.also { out.delete() }
+    }
+
+    private const val GIF_SHORT_SIDE = 480
+    private const val GIF_BITRATE = 1_000_000
+
+    /** One Transformer run to H.264 (+ AAC when there's sound); false when it failed. */
+    private suspend fun export(context: Context, item: EditedMediaItem, out: File, bitrate: Int): Boolean =
         // Transformer must be driven from a thread with a Looper: the main one.
-        val ok = withContext(Dispatchers.Main) {
+        withContext(Dispatchers.Main) {
             suspendCancellableCoroutine { cont ->
                 val encoder = DefaultEncoderFactory.Builder(context)
-                    .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(BITRATE).build())
+                    .setRequestedVideoEncoderSettings(VideoEncoderSettings.Builder().setBitrate(bitrate).build())
                     .build()
                 val transformer = Transformer.Builder(context)
                     .setVideoMimeType(MimeTypes.VIDEO_H264)
@@ -97,20 +142,13 @@ object VideoTools {
                         }
 
                         override fun onError(composition: Composition, exportResult: ExportResult, exportException: ExportException) {
-                            Log.w(TAG, "Video compression failed — sending the original", exportException)
+                            Log.w(TAG, "Video export failed", exportException)
                             if (cont.isActive) cont.resume(false)
                         }
                     })
-                    .build()
-                val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(input.file)))
-                    .setEffects(Effects(emptyList(), listOf(presentation)))
                     .build()
                 runCatching { transformer.start(item, out.absolutePath) }.onFailure { if (cont.isActive) cont.resume(false) }
                 cont.invokeOnCancellation { runCatching { transformer.cancel() } }
             }
         }
-
-        return if (ok && out.length() in 1 until input.file.length()) LocalFile(out, "video/mp4", input.name.substringBeforeLast('.') + ".mp4")
-        else input.also { out.delete() }
-    }
 }

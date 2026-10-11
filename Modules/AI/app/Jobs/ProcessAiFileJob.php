@@ -13,7 +13,6 @@ use Modules\AI\Models\AiFile;
 use Modules\AI\Models\AiFileProcessing;
 use Modules\AI\Services\FileProcessors\AiFileProcessingResult;
 use Modules\AI\Services\FileProcessors\AiFileProcessorManager;
-use Modules\AI\Jobs\ChunkAndIndexAiFileJob;
 
 /**
  * Universal AI File Engine - Phase 1: the actual processing work for an

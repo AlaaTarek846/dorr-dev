@@ -139,7 +139,7 @@ class AiRealtimeSessionTest extends TestCase
             $instructions = $request->data()['session']['instructions'] ?? null;
 
             return $instructions !== null
-                && str_contains($instructions, "register/dialect of the user")
+                && str_contains($instructions, 'register/dialect of the user')
                 && str_contains($instructions, 'Saudi/Gulf');
         });
     }
@@ -175,7 +175,7 @@ class AiRealtimeSessionTest extends TestCase
             $instructions = $request->data()['session']['instructions'] ?? null;
 
             return $instructions !== null
-                && str_contains($instructions, "register/dialect of the user")
+                && str_contains($instructions, 'register/dialect of the user')
                 && str_contains($instructions, 'Keep answers under 20 seconds.');
         });
     }

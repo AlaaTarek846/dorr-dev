@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -78,7 +79,7 @@ internal fun ChCategoryChip(icon: String?, label: String, selected: Boolean, onC
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (icon != null) {
-            AsyncImage(icon, null, Modifier.size(18.dp))
+            AsyncImage(com.dorr.app.network.ApiClient.mediaUrl(icon), null, Modifier.size(20.dp).clip(RoundedCornerShape(6.dp)))
             Spacer(Modifier.width(6.dp))
         }
         Text(label, color = if (selected) Color.White else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
@@ -99,9 +100,9 @@ internal fun ChCategoryChips(categories: List<CategoryDto>, selected: Int?, allL
 @Composable
 internal fun ChCategoryHeader(category: CategoryDto?) {
     Row(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(26.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(28.dp).clip(RoundedCornerShape(8.dp)).background(Ch.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
             val icon = category?.icon
-            if (icon != null) AsyncImage(icon, null, Modifier.size(19.dp)) else Icon(Icons.Rounded.Category, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
+            if (icon != null) AsyncImage(com.dorr.app.network.ApiClient.mediaUrl(icon), null, Modifier.fillMaxSize()) else Icon(Icons.Rounded.Category, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
         }
         Spacer(Modifier.width(8.dp))
         Text(category?.name ?: stringResource(R.string.ch_channels_other), color = Ch.Ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)

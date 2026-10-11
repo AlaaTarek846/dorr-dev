@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/discover",
+    "description": "DORR Discover: trusted public events (spec 169-182).",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Discover\\": "app/",
+            "Modules\\Discover\\Database\\Factories\\": "database/factories/",
+            "Modules\\Discover\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Discover\\Tests\\": "tests/"
+        }
+    }
+}

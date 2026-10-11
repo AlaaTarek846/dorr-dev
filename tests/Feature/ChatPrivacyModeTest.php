@@ -10,6 +10,7 @@ use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatPrivacySetting;
@@ -140,7 +141,7 @@ class ChatPrivacyModeTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

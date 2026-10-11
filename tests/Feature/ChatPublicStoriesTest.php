@@ -9,11 +9,14 @@ use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatDorrStory;
 use Modules\Chat\Models\ChatSetting;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -53,6 +56,29 @@ class ChatPublicStoriesTest extends TestCase
         foreach ([[$this->alice, $this->carol], [$this->carol, $this->alice]] as [$owner, $contact]) {
             ChatContact::query()->create(['owner_type' => 'user', 'owner_id' => $owner->id, 'name' => $contact->name, 'phone' => $contact->phone, 'contact_type' => 'user', 'contact_id' => $contact->id, 'source' => 'manual']);
         }
+    }
+
+    public function test_the_home_row_loads_people_a_page_at_a_time(): void
+    {
+        foreach (range(10, 14) as $n) {
+            $person = User::create(['name' => "Person {$n}", 'phone' => "+9665000000{$n}", 'country_id' => $this->alice->country_id, 'status' => 'active', 'phone_verified_at' => now()]);
+            $this->as($person);
+            $this->post_($person, ['type' => 'text', 'body' => "Story {$n}", 'public' => true])->assertCreated();
+        }
+
+        $this->as($this->bob);
+        $first = $this->getJson('/api/mobile/v1/chat/stories/public?per_page=2&page=1', $this->headers())->assertOk();
+        $first->assertJsonCount(2, 'data.people')->assertJsonPath('data.has_more', true);
+        $second = $this->getJson('/api/mobile/v1/chat/stories/public?per_page=2&page=2', $this->headers())->assertOk();
+        $second->assertJsonCount(2, 'data.people')->assertJsonPath('data.has_more', true)->assertJsonPath('data.dorr', null);
+        $third = $this->getJson('/api/mobile/v1/chat/stories/public?per_page=2&page=3', $this->headers())->assertOk();
+        $third->assertJsonCount(1, 'data.people')->assertJsonPath('data.has_more', false);
+
+        $names = collect([$first, $second, $third])->flatMap(fn ($r) => collect($r->json('data.people'))->pluck('owner.key'))->all();
+        $this->assertCount(5, array_unique($names), 'no one twice, no one missing');
+
+        // Without per_page everyone comes at once, as before.
+        $this->getJson('/api/mobile/v1/chat/stories/public', $this->headers())->assertJsonCount(5, 'data.people')->assertJsonPath('data.has_more', false);
     }
 
     public function test_one_free_public_story_and_the_admin_sets_how_many(): void
@@ -172,7 +198,7 @@ class ChatPublicStoriesTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function post_(User $user, array $data): \Illuminate\Testing\TestResponse
+    private function post_(User $user, array $data): TestResponse
     {
         $this->as($user);
 
@@ -184,9 +210,9 @@ class ChatPublicStoriesTest extends TestCase
      */
     private function asAdmin(array $permissions): void
     {
-        $admin = \Modules\Admin\Models\Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

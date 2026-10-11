@@ -3,6 +3,7 @@
 namespace Modules\AI\Services\FileProcessors;
 
 use Modules\AI\Services\AiDocumentTextExtractor;
+use Smalot\PdfParser\Parser;
 
 /**
  * Phase 2 (Document Processing): page-aware extraction, metadata, and
@@ -38,7 +39,7 @@ class PdfFileProcessor implements AiFileProcessorInterface
             return AiFileProcessingResult::failed('unsupported_mime_type');
         }
 
-        if (class_exists(\Smalot\PdfParser\Parser::class)) {
+        if (class_exists(Parser::class)) {
             return $this->processWithSmalot($absolutePath);
         }
 
@@ -48,7 +49,7 @@ class PdfFileProcessor implements AiFileProcessorInterface
     protected function processWithSmalot(string $absolutePath): AiFileProcessingResult
     {
         try {
-            $document = (new \Smalot\PdfParser\Parser)->parseFile($absolutePath);
+            $document = (new Parser)->parseFile($absolutePath);
         } catch (\Throwable) {
             // Doc S7 ("corrupted PDF detection"): a PDF smalot cannot
             // even open is reported as a clean, named failure - never a

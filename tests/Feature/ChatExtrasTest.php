@@ -10,6 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatMessage;
@@ -262,7 +263,7 @@ class ChatExtrasTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

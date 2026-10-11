@@ -4,6 +4,7 @@ namespace Modules\AI\Tests\Feature;
 
 use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Laravel\Sanctum\Sanctum;
 use Modules\User\Models\User;
@@ -72,12 +73,12 @@ class AiChatRateLimitTest extends TestCase
 
         for ($i = 1; $i <= 15; $i++) {
             $this->assertFalse(
-                \Illuminate\Support\Facades\RateLimiter::tooManyAttempts('ai-chat-send:'.$key, 15),
+                RateLimiter::tooManyAttempts('ai-chat-send:'.$key, 15),
                 "attempt {$i} of 15 must not be blocked yet",
             );
-            \Illuminate\Support\Facades\RateLimiter::hit('ai-chat-send:'.$key, 60);
+            RateLimiter::hit('ai-chat-send:'.$key, 60);
         }
 
-        $this->assertTrue(\Illuminate\Support\Facades\RateLimiter::tooManyAttempts('ai-chat-send:'.$key, 15));
+        $this->assertTrue(RateLimiter::tooManyAttempts('ai-chat-send:'.$key, 15));
     }
 }

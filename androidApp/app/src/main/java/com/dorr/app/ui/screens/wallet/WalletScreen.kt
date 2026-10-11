@@ -141,7 +141,7 @@ internal fun WaToastHost(host: WalletHost) {
         lastIsError = host.toastError
     }
     // A notification at the top, over everything (the PIN gate included), so it never hides the keypad or the buttons.
-    Box(Modifier.fillMaxSize().padding(start = 16.dp, end = 16.dp, top = 10.dp), contentAlignment = Alignment.TopCenter) {
+    Box(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp), contentAlignment = Alignment.TopCenter) {
         AnimatedVisibility(
             visible = message != null,
             enter = slideInVertically(tween(300)) { -it } + fadeIn(tween(250)),

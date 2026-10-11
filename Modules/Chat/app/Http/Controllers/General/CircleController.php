@@ -63,7 +63,7 @@ class CircleController extends Controller
             'masked_name' => ['sometimes', 'nullable', 'string', 'max:60'],
             'emoji' => ['sometimes', 'nullable', 'string', 'max:16'],
             'color' => ['sometimes', 'nullable', 'string', 'regex:/^#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?$/'],
-            'disclosure' => ['sometimes', Rule::in(\Modules\Chat\Models\ChatPrivacyCircle::LEVELS)],
+            'disclosure' => ['sometimes', Rule::in(ChatPrivacyCircle::LEVELS)],
             'hide_from_list' => ['sometimes', 'boolean'],
             'locked' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:1000'],

@@ -46,6 +46,7 @@ class AiSafetyScan extends Model
     {
         return $this->morphTo();
     }
+
     public function request(): BelongsTo
     {
         return $this->belongsTo(AiRequest::class, 'request_id');

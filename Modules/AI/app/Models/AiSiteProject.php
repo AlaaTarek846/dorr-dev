@@ -5,6 +5,7 @@ namespace Modules\AI\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -51,7 +52,7 @@ class AiSiteProject extends Model
         return $this->hasMany(AiSiteVersion::class, 'project_id')->orderByDesc('number');
     }
 
-    public function hosting(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function hosting(): HasOne
     {
         return $this->hasOne(AiSiteHosting::class, 'project_id');
     }

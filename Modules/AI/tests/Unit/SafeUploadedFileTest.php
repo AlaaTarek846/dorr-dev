@@ -25,7 +25,7 @@ class SafeUploadedFileTest extends TestCase
     protected function fails(UploadedFile $file): bool
     {
         $failed = false;
-        (new SafeUploadedFile())->validate('attachment', $file, function () use (&$failed) {
+        (new SafeUploadedFile)->validate('attachment', $file, function () use (&$failed) {
             $failed = true;
         });
 
@@ -43,7 +43,7 @@ class SafeUploadedFileTest extends TestCase
     public function test_a_windows_executable_disguised_as_a_jpg_is_rejected(): void
     {
         // "MZ" + padding is enough to be a real PE header signature.
-        $exe = "MZ".str_repeat("\x00", 62)."\x00\x00\x00\x00";
+        $exe = 'MZ'.str_repeat("\x00", 62)."\x00\x00\x00\x00";
 
         $this->assertTrue($this->fails($this->tmpFile($exe, 'photo.jpg')));
     }

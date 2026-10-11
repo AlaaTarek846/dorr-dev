@@ -35,7 +35,7 @@ class AiUsageStatusTool implements AiToolInterface
     {
         return [
             'type' => 'object',
-            'properties' => new \stdClass(),
+            'properties' => new \stdClass,
             'required' => [],
         ];
     }

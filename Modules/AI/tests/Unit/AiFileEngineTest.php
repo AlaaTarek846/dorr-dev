@@ -89,7 +89,7 @@ class AiFileEngineTest extends TestCase
     protected function realZipBytes(): string
     {
         $path = tempnam(sys_get_temp_dir(), 'zip');
-        $zip = new \ZipArchive();
+        $zip = new \ZipArchive;
         $zip->open($path, \ZipArchive::OVERWRITE);
         $zip->addFromString('a.txt', 'hello');
         $zip->close();
@@ -211,7 +211,7 @@ class AiFileEngineTest extends TestCase
      */
     public function test_extract_text_sync_reads_a_real_xlsx_file_via_the_real_excel_processor(): void
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setCellValue('A1', 'Product');
         $sheet->setCellValue('B1', 'Price');

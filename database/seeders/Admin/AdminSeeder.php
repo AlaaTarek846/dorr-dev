@@ -48,5 +48,4 @@ class AdminSeeder extends Seeder
             $admin->services()->firstOrCreate(['service_category_id' => $categoryId]);
         }
     }
-
 }

@@ -5,7 +5,18 @@
                 <span>{{ t('wallet.common.showing', { from: pagination.from ?? 0, to: pagination.to ?? 0, total: pagination.total ?? 0 }) }}</span>
                 <i :class="arrowIcon"></i>
             </div>
-            <nav class="ms-md-auto pagination-style-4">
+            <div v-if="perPage !== null" class="d-flex align-items-center gap-2 ms-md-auto">
+                <label class="text-muted fs-13 mb-0" :for="selectId">{{ t('wallet.common.per_page') }}</label>
+                <select
+                    :id="selectId"
+                    class="form-select form-select-sm w-auto"
+                    :value="perPage"
+                    @change="emit('update:perPage', Number($event.target.value))"
+                >
+                    <option v-for="size in perPageOptions" :key="size" :value="size">{{ size }}</option>
+                </select>
+            </div>
+            <nav :class="{ 'ms-md-auto': perPage === null }" class="pagination-style-4">
                 <ul class="pagination mb-0">
                     <li class="page-item" :class="{ disabled: pagination.current_page <= 1 }">
                         <button type="button" class="page-link" @click="$emit('change', pagination.current_page - 1)">
@@ -30,9 +41,16 @@
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 
-const props = defineProps({ pagination: { type: Object, default: null } });
+const props = defineProps({
+    pagination: { type: Object, default: null },
+    /** Rows per page; leave it out for a footer without the selector. */
+    perPage: { type: Number, default: null },
+    perPageOptions: { type: Array, default: () => [15, 25, 50] },
+});
 
-defineEmits(['change']);
+const emit = defineEmits(['change', 'update:perPage']);
+
+const selectId = `wallet-per-page-${Math.random().toString(36).slice(2, 8)}`;
 
 const { t, locale } = useI18n();
 

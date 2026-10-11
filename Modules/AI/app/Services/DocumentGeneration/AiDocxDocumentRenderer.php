@@ -5,6 +5,8 @@ namespace Modules\AI\Services\DocumentGeneration;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\SimpleType\Jc;
+use PhpOffice\PhpWord\Style\ListItem;
+use PhpOffice\PhpWord\Style\Table;
 
 /**
  * Renders parsed document blocks (see AiDocumentContentParser) into a real
@@ -20,7 +22,7 @@ class AiDocxDocumentRenderer
      */
     public function render(string $title, array $blocks): string
     {
-        $phpWord = new PhpWord();
+        $phpWord = new PhpWord;
         $phpWord->setDefaultFontName('Arial');
         $phpWord->setDefaultFontSize(12);
 
@@ -99,7 +101,7 @@ class AiDocxDocumentRenderer
             // appendSpans() below), not on the list item itself.
             $run = $section->addListItemRun(
                 0,
-                ['listType' => \PhpOffice\PhpWord\Style\ListItem::TYPE_BULLET_FILLED],
+                ['listType' => ListItem::TYPE_BULLET_FILLED],
                 $this->rtlParagraphStyle(Jc::END, 80)
             );
 
@@ -170,7 +172,7 @@ class AiDocxDocumentRenderer
             'borderColor' => '999999',
             'width' => 100 * 50,
             'unit' => 'pct',
-            'layout' => \PhpOffice\PhpWord\Style\Table::LAYOUT_AUTO,
+            'layout' => Table::LAYOUT_AUTO,
         ]);
 
         $table->addRow();

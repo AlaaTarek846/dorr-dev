@@ -61,9 +61,9 @@ class SafeUploadedFile implements ValidationRule
      * @var list<string>
      */
     protected array $dangerousSignatures = [
-        "MZ",      // Windows PE executable (.exe/.dll)
+        'MZ',      // Windows PE executable (.exe/.dll)
         "\x7fELF", // Linux ELF executable
-        "#!",      // shebang script (sh/bash/python/etc.)
+        '#!',      // shebang script (sh/bash/python/etc.)
     ];
 
     public function validate(string $attribute, mixed $value, Closure $fail): void

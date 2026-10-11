@@ -224,10 +224,14 @@ internal fun myKey(): String = "user:${AuthSession.user?.id ?: 0}"
 // ------------------------------------------------------------------------------- images
 
 private var chatImageLoader: ImageLoader? = null
+private var chatLiteLoader: ImageLoader? = null
 
-/** One Coil loader for the chat (shares the API client, so media gets the dev Host header). */
+/**
+ * One Coil loader for the chat (shares the API client, so media gets the dev Host header). In lite
+ * mode (spec 87): no fade, GIFs and stickers stand still, and a smaller memory cache.
+ */
 internal fun chatImages(context: Context): ImageLoader =
-    chatImageLoader ?: ImageLoader.Builder(context.applicationContext)
+    if (com.dorr.app.chat.ChatLite.active) chatLiteImages(context) else chatImageLoader ?: ImageLoader.Builder(context.applicationContext)
         .okHttpClient(ApiClient.okHttpClient)
         .crossfade(220)
         // GIFs and animated stickers move (animated WebP too on Android 9+).
@@ -236,6 +240,14 @@ internal fun chatImages(context: Context): ImageLoader =
         }
         .build()
         .also { chatImageLoader = it }
+
+private fun chatLiteImages(context: Context): ImageLoader =
+    chatLiteLoader ?: ImageLoader.Builder(context.applicationContext)
+        .okHttpClient(ApiClient.okHttpClient)
+        .crossfade(false)
+        .memoryCache { coil.memory.MemoryCache.Builder(context.applicationContext).maxSizePercent(0.12).build() }
+        .build()
+        .also { chatLiteLoader = it }
 
 // ------------------------------------------------------------------------------- avatar
 
@@ -391,7 +403,8 @@ fun TypingDots(color: Color = Ch.Red, dot: Dp = 6.dp, modifier: Modifier = Modif
 /** Pop-in for things that just arrived (a new bubble, a list row): scale + rise + fade. */
 fun Modifier.chPopIn(enabled: Boolean, fromEnd: Boolean = false): Modifier = composed {
     val inspecting = LocalInspectionMode.current
-    val progress = remember { Animatable(if (enabled && !inspecting) 0f else 1f) }
+    // Lite mode (spec 87): bubbles just appear.
+    val progress = remember { Animatable(if (enabled && !inspecting && !com.dorr.app.chat.ChatLite.active) 0f else 1f) }
     LaunchedEffect(Unit) {
         if (progress.value < 1f) progress.animateTo(1f, spring(dampingRatio = 0.62f, stiffness = 420f))
     }

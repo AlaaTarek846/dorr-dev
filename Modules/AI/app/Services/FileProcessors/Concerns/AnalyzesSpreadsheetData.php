@@ -19,7 +19,7 @@ trait AnalyzesSpreadsheetData
      *
      * @param  list<list<mixed>>  $sampleRows  Raw, unmodified row values
      *                                         - never destroyed, only read.
-     * @return array{0: int, 1: float}  [header row index, confidence 0..1]
+     * @return array{0: int, 1: float} [header row index, confidence 0..1]
      */
     protected function detectHeaderRow(array $sampleRows, int $maxRowsToScan = 5): array
     {
@@ -111,7 +111,7 @@ trait AnalyzesSpreadsheetData
      * column name. Leading zeros (doc's own "000123" example) are
      * deliberately kept as `string`, never coerced to an integer.
      *
-     * @return array{0: string, 1: mixed}  [type, normalized value]
+     * @return array{0: string, 1: mixed} [type, normalized value]
      */
     protected function classifyScalar(mixed $raw, bool $dateFormatted = false): array
     {
@@ -238,6 +238,7 @@ trait AnalyzesSpreadsheetData
 
         return $column;
     }
+
     /**
      * Doc S19/S20 (CSV/TSV encoding): the exact same BOM/legacy-encoding
      * detection TextFileProcessor uses for plain text, shared here rather
@@ -311,7 +312,7 @@ trait AnalyzesSpreadsheetData
      * @param  list<string>  $sampleLines  Raw lines (encoding already
      *                                     normalized), BOM-free.
      * @param  list<string>  $candidates
-     * @return array{0: string, 1: float}  [delimiter, confidence 0..1]
+     * @return array{0: string, 1: float} [delimiter, confidence 0..1]
      */
     protected function detectDelimiter(array $sampleLines, array $candidates = [',', ';', "\t", '|']): array
     {

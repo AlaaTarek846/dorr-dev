@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Modules\Wallet\Models\PaymentMethod;
 use Modules\Wallet\Services\CheckoutService;
+use Modules\Wallet\Services\CouponService;
 
 /**
  * The one payment screen, for every paid thing in the app (docs/remaining_chat.md ج.0). Mounted
@@ -70,6 +71,30 @@ class CheckoutController extends Controller
             );
 
         return ApiResponse::success($this->checkouts->present($owner, $checkout), __('api.updated'));
+    }
+
+    /** POST wallet/checkouts/{uuid}/coupon {code} — the discount shows on the payment screen. */
+    public function coupon(Request $request, string $uuid, CouponService $coupons)
+    {
+        $data = $request->validate(['code' => ['required', 'string', 'max:40']]);
+        $owner = $request->user();
+        $checkout = $coupons->apply($owner, $this->checkouts->findOwn($owner, $uuid), $data['code']);
+
+        return ApiResponse::success($this->checkouts->present($owner, $checkout), __('api.updated'));
+    }
+
+    public function removeCoupon(Request $request, string $uuid, CouponService $coupons)
+    {
+        $owner = $request->user();
+        $checkout = $coupons->remove($this->checkouts->findOwn($owner, $uuid));
+
+        return ApiResponse::success($this->checkouts->present($owner, $checkout), __('api.updated'));
+    }
+
+    /** GET wallet/coupons — my coupons that can still be used. */
+    public function coupons(Request $request, CouponService $coupons)
+    {
+        return ApiResponse::success($coupons->mine($request->user()), __('api.retrieved'));
     }
 
     private function country(): Country

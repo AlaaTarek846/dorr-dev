@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Services\Chunking\Strategies;
 
+use Modules\AI\Services\AiTextChunker;
 use Modules\AI\Services\Chunking\AiChunkDraft;
 use Modules\AI\Services\Chunking\AiChunkerInterface;
 use Modules\AI\Services\Chunking\Concerns\ChunksNormalizedBlocks;
@@ -76,7 +77,7 @@ class PresentationChunker implements AiChunkerInterface
             // Oversized single slide (or group): hard-split via the
             // shared text chunker while every resulting piece still
             // carries the originating slide_number(s) (doc S26).
-            foreach (app(\Modules\AI\Services\AiTextChunker::class)->chunk($text, $maxCharacters, 0) as $piece) {
+            foreach (app(AiTextChunker::class)->chunk($text, $maxCharacters, 0) as $piece) {
                 $drafts[] = new AiChunkDraft($index++, $piece, 'presentation', [
                     'slide_number' => $slideNumbers[0] ?? null,
                     'slide_numbers' => $slideNumbers,

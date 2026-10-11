@@ -3,11 +3,11 @@
 namespace Modules\AI\Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiConversationAttachment;
 use Modules\AI\Models\AiMessage;
 use Modules\AI\Services\AiChatService;
-use Modules\Admin\Models\Admin;
 use Tests\TestCase;
 
 /**

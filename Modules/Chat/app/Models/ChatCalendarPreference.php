@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 class ChatCalendarPreference extends Model
 {
     /** What the calendar can show — each only when I leave it on. */
-    public const SOURCES = ['events', 'moments', 'personal', 'tasks', 'reminders'];
+    public const SOURCES = ['events', 'moments', 'personal', 'tasks', 'reminders', 'discover', 'sports'];
 
     /** DORR Today's sections, in their default order. */
     public const SECTIONS = ['next', 'events', 'tasks', 'reminders', 'moments', 'around'];

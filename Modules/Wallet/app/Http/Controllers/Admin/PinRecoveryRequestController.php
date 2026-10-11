@@ -8,6 +8,7 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Modules\Wallet\Http\Resources\PinRecoveryRequestResource;
 use Modules\Wallet\Models\PinRecoveryRequest;
 use Modules\Wallet\Services\WalletRecoveryService;
@@ -22,7 +23,7 @@ class PinRecoveryRequestController extends Controller implements HasMiddleware
     public function __construct(private readonly WalletRecoveryService $recovery) {}
 
     /**
-     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     * @return list<Middleware>
      */
     public static function middleware(): array
     {

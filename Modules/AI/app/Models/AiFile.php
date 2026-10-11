@@ -116,7 +116,7 @@ class AiFile extends Model
      */
     public function chunks(): HasMany
     {
-        return $this->hasMany(\Modules\AI\Models\AiFileChunk::class, 'file_id');
+        return $this->hasMany(AiFileChunk::class, 'file_id');
     }
 
     /**

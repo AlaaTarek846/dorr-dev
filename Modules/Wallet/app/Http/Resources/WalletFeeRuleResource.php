@@ -19,6 +19,9 @@ class WalletFeeRuleResource extends JsonResource
             'percent' => $this->percent,
             'country_id' => $this->country_id,
             'payment_method_id' => $this->payment_method_id,
+            // What the table shows for them, so the page needs no country / payment-method lists of its own.
+            'country_code' => $this->country?->code,
+            'payment_method_name' => $this->paymentMethod?->translatedName() ?? $this->paymentMethod?->code,
             'owner_type' => $this->owner_type,
             'min_amount_minor' => $this->min_amount_minor,
             'max_amount_minor' => $this->max_amount_minor,

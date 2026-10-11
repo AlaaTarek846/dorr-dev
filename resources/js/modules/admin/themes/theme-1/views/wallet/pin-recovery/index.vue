@@ -83,7 +83,7 @@
                     </table>
                 </div>
             </div>
-            <WalletPagination :pagination="pagination" @change="fetch" />
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
         <WalletModal :show="showModal" :title="detail ? `#${detail.id} · ${t('wallet.pinrec.request')}` : ''" @close="close">
@@ -190,6 +190,7 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import useToast from '../../../../../../../composables/useToast';
 import useFormFields from '../../../../../../../composables/useFormFields';
 import useValidation from '../../../../../../../composables/useValidation';
+import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatDateTime } from '../../../../../../../utils/walletMoney';
@@ -199,7 +200,7 @@ const { can } = usePermission();
 const { showSuccess, showWarning } = useToast();
 
 // Pending first: that is what a reviewer opens this screen for.
-const { rows, loading, pagination, filters, fetch } = useWalletList('pin-recovery-requests', { defaults: { status: 'pending' } });
+const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('pin-recovery-requests', { defaults: { status: 'pending' } });
 
 const canApprove = computed(() => can('pin-recovery-requests.approve'));
 const canReject = computed(() => can('pin-recovery-requests.reject'));
@@ -355,5 +356,8 @@ async function reject() {
 }
 
 onMounted(() => fetch(1));
+
+// A clicked notification arrives as ?request=ID.
+useOpenFromQuery('request', (id) => open(id));
 onBeforeUnmount(releaseImages);
 </script>

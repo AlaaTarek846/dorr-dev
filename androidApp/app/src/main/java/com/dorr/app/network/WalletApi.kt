@@ -188,6 +188,16 @@ interface WalletApi {
         @Path("uuid") uuid: String,
     ): ApiEnvelope<CheckoutDto>
 
+    /** A coupon on the payment screen (DORR Sports prizes, admin coupons). */
+    @POST("mobile/v1/wallet/checkouts/{uuid}/coupon")
+    suspend fun applyCoupon(@Header("Authorization") authorization: String, @Path("uuid") uuid: String, @Body body: CheckoutCouponRequest): ApiEnvelope<CheckoutDto>
+
+    @retrofit2.http.DELETE("mobile/v1/wallet/checkouts/{uuid}/coupon")
+    suspend fun removeCoupon(@Header("Authorization") authorization: String, @Path("uuid") uuid: String): ApiEnvelope<CheckoutDto>
+
+    @GET("mobile/v1/wallet/coupons")
+    suspend fun coupons(@Header("Authorization") authorization: String): ApiEnvelope<List<WalletCouponDto>>
+
     /** From the wallet, or handed to a gateway (then it settles by itself once the gateway confirms). */
     @POST("mobile/v1/wallet/checkouts/{uuid}/pay")
     suspend fun payCheckout(
@@ -413,6 +423,10 @@ data class CheckoutDto(
     val title: String,
     val subtitle: String? = null,
     @SerializedName("amount_minor") val amountMinor: Long,
+    /** A coupon on it: what's charged is [payableMinor]. */
+    @SerializedName("discount_minor") val discountMinor: Long = 0,
+    @SerializedName("payable_minor") val payableMinor: Long? = null,
+    val coupon: CheckoutCouponDto? = null,
     @SerializedName("currency_code") val currencyCode: String? = null,
     /** pending / paid / failed / expired */
     val status: String,
@@ -423,6 +437,20 @@ data class CheckoutDto(
     /** The gateway top-up it was handed to, if any. */
     val payment: TopupPaymentDto? = null,
 )
+
+data class CheckoutCouponDto(val code: String? = null, @SerializedName("discount_minor") val discountMinor: Long = 0)
+
+/** One of my coupons: `kind` percent (value = %) or fixed (value in minor units). */
+data class WalletCouponDto(
+    val code: String = "",
+    val kind: String = "fixed",
+    val value: Long = 0,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("expires_at") val expiresAt: String? = null,
+    val source: String? = null,
+)
+
+data class CheckoutCouponRequest(val code: String)
 
 data class CheckoutWalletDto(
     @SerializedName("available_minor") val availableMinor: Long,

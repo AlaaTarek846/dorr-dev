@@ -6,14 +6,15 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiConversationAttachment;
 use Modules\AI\Models\AiMessage;
+use Modules\AI\Models\AiProvider;
 use Modules\AI\Models\AiRequest;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Services\AiChatService;
 use Modules\AI\Services\AiGateway;
-use Modules\Admin\Models\Admin;
 use ReflectionMethod;
 use Tests\TestCase;
 
@@ -56,7 +57,7 @@ class AiChatImageGenerationTest extends TestCase
         ]);
     }
 
-    protected function makeProvider(): \Modules\AI\Models\AiProvider
+    protected function makeProvider(): AiProvider
     {
         $repository = app(AiProviderRepository::class);
 

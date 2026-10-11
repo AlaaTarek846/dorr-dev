@@ -5,5 +5,7 @@
     "Provider": true,
     "Wallet": true,
     "Sms": true,
-    "Chat": true
+    "Chat": true,
+    "Discover": true,
+    "Sports": true
 }

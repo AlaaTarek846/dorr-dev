@@ -7,9 +7,11 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\Language;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
@@ -98,7 +100,7 @@ class WalletPinRecoveryTest extends TestCase
         $this->postJson(self::BASE.'/recovery/confirm-email', ['code' => $this->mailedCode()], $this->headers())->assertOk();
     }
 
-    private function pinIs(string $pin, ?\Illuminate\Database\Eloquent\Model $user = null): bool
+    private function pinIs(string $pin, ?Model $user = null): bool
     {
         try {
             app(PinService::class)->verify($user ?? $this->alice, $pin);
@@ -212,12 +214,12 @@ class WalletPinRecoveryTest extends TestCase
     public function test_the_email_code_is_sent_right_away_without_a_queue_worker(): void
     {
         config(['queue.default' => 'database']);
-        \Illuminate\Support\Facades\Queue::fake();
+        Queue::fake();
 
         $this->postJson(self::BASE.'/recovery', ['method' => 'email', 'email' => 'alice@example.com'], $this->headers())->assertOk();
         Mail::assertSent(VerificationCodeMail::class, fn ($mail) => $mail->hasTo('alice@example.com'));
         Mail::assertNothingQueued();
-        \Illuminate\Support\Facades\Queue::assertNothingPushed();
+        Queue::assertNothingPushed();
 
         // Forgot the PIN later: a fresh code, straight away too.
         $this->confirmEmailWithMailedCode();

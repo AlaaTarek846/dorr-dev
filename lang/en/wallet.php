@@ -54,6 +54,11 @@ return [
         'checkout_expired' => 'This payment page expired. Please start again.',
         'checkout_insufficient_balance' => 'Your wallet balance isn\'t enough. Top up or pay another way.',
         'checkout_gateway_pending' => 'A payment for this is already in progress.',
+        'coupon_invalid' => 'This coupon code isn\'t valid.',
+        'coupon_expired' => 'This coupon has expired.',
+        'coupon_used' => 'This coupon was already used.',
+        'coupon_not_here' => 'This coupon can\'t be used for this payment.',
+        'coupon_min_amount' => 'This coupon needs a bigger amount.',
         'withdrawal_not_pending' => 'This withdrawal request was already reviewed.',
         'withdrawal_not_found' => 'Not found.',
         'withdrawal_no_receipt' => 'There is no receipt for this request.',
@@ -73,6 +78,7 @@ return [
         'manual_adjustment' => 'Manual adjustment (:reason)',
         'transfer_fee' => 'Transfer fee',
         'service_payment' => ':title',
+        'reward' => 'Prize: :title',
     ],
 
     // Statement row labels (wallet_transactions.type).
@@ -87,6 +93,7 @@ return [
         'refund' => 'Refund',
         'penalty' => 'Penalty',
         'service_payment' => 'Service payment',
+        'reward' => 'Prize',
         'service_earning' => 'Service earnings',
         'manual_adjustment' => 'Manual adjustment',
         'reversal' => 'Reversal',

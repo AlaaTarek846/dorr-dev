@@ -5,11 +5,11 @@ namespace Modules\AI\Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Events\AiMessageBroadcast;
 use Modules\AI\Models\AiConversation;
 use Modules\AI\Models\AiMessage;
 use Modules\AI\Services\AiChatService;
-use Modules\Admin\Models\Admin;
 use ReflectionMethod;
 use Tests\TestCase;
 

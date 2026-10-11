@@ -2,6 +2,8 @@
 
 namespace Modules\AI\Services;
 
+use Smalot\PdfParser\Parser;
+
 /**
  * Turns an attached document (PDF, DOCX, or plain text) into plain text
  * the chat model can actually read, closing the "document_analysis"
@@ -49,8 +51,8 @@ class AiDocumentTextExtractor
     }
 
     /**
-     * @return string|null  Extracted plain text, or null if the file type
-     *                       isn't supported or nothing could be extracted.
+     * @return string|null Extracted plain text, or null if the file type
+     *                     isn't supported or nothing could be extracted.
      */
     public function extract(string $absolutePath, string $mimeType): ?string
     {
@@ -114,9 +116,9 @@ class AiDocumentTextExtractor
 
     protected function extractPdf(string $absolutePath): ?string
     {
-        if (class_exists(\Smalot\PdfParser\Parser::class)) {
+        if (class_exists(Parser::class)) {
             try {
-                $parser = new \Smalot\PdfParser\Parser;
+                $parser = new Parser;
                 $text = $parser->parseFile($absolutePath)->getText();
 
                 return trim((string) $text) !== '' ? $text : null;

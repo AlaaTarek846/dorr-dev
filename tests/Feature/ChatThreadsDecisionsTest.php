@@ -9,7 +9,9 @@ use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\Chat\Models\ChatContact;
 use Modules\User\Models\User;
@@ -125,12 +127,12 @@ class ChatThreadsDecisionsTest extends TestCase
 
         // Still quiet: no summary yet. Morning: one summary.
         $this->artisan('chat:quiet-digest')->assertSuccessful();
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
         Http::assertNotSent(fn ($r) => ($r['data']['event'] ?? null) === 'chat.quiet.digest');
 
         $this->travelTo(Carbon::parse('2026-10-07 05:00', 'UTC')); // 08:00 in Riyadh
         $this->artisan('chat:quiet-digest')->assertSuccessful();
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
         Http::assertSent(fn ($r) => ($r['data']['event'] ?? null) === 'chat.quiet.digest' && $r['contents']['en'] === '2 messages in 1 chats');
     }
 
@@ -153,7 +155,7 @@ class ChatThreadsDecisionsTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

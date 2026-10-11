@@ -44,6 +44,7 @@ import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallMissed
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Description
+import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.Bolt
@@ -405,6 +406,14 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         "moment_card" -> com.dorr.app.ui.screens.moments.MomentCardBubble(
             dto, mine, onOpenSealed = { actions.onOpenSealed(m) }, onOpenPhoto = { actions.onOpenMedia(dto, it) },
         ) { Footer(m, mine, overlay = true) }
+        // An event from DORR Discover: a snapshot card that opens the live event.
+        "event_card" -> com.dorr.app.ui.screens.events.EventCardBubble(dto, mine) { Footer(m, mine, overlay = false) }
+        // A match from DORR Sports: live score from Pusher, opens the match.
+        "match_card" -> com.dorr.app.ui.screens.sports.MatchCardBubble(dto) { Footer(m, mine, overlay = false) }
+        // Daily intelligence (spec 149, 152, 154): its answers on the card itself.
+        "commitment", "handoff", "agreement" -> LifeCardBubble(dto, onJump = actions.onJumpTo) { Footer(m, mine, overlay = false) }
+        // A call broadcast live (spec 93).
+        "live_card" -> LiveCardBubble(dto) { Footer(m, mine, overlay = true) }
         "location" -> if (dto.liveLocation != null) {
             LiveLocationCard(dto.meta, dto.liveLocation, mine, onStop = { actions.onStopLive(m) }) { Footer(m, mine, overlay = true) }
         } else LocationCard(dto.meta, m, mine)
@@ -586,9 +595,18 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
     val local = m.localFiles
     val count = if (remote.isNotEmpty()) remote.size else local.size
     val isVideo = dto.type == "video"
+    // A clip sent as a GIF plays by itself, muted, on a loop (spec 11).
+    val gif = dto.isGifVideo()
     val shape = RoundedCornerShape(17.dp)
     // "Blur photos and videos": covered until I tap (others' media only).
     val covered = !mine && com.dorr.app.chat.ChatShield.blurMedia && !actions.isRevealed(m.id) && remote.isNotEmpty()
+    // Data saver (spec 82): others' photos wait for a tap, unless they're on the phone already;
+    // GIFs wait for a tap while saving data or in lite mode.
+    val tapped = com.dorr.app.chat.ChatDataSaver.loaded[m.id] == true
+    val holding = !isVideo && !mine && com.dorr.app.chat.ChatDataSaver.active && !tapped && remote.isNotEmpty()
+    val notOnPhone = remember(m.id) { androidx.compose.runtime.mutableStateMapOf<Int, Boolean>() }
+    val gifPlays = gif && !covered && (com.dorr.app.chat.autoplayClips || tapped)
+    val waiting = (holding && notOnPhone.isNotEmpty()) || (gif && !gifPlays && !covered)
 
     Column {
         Box(Modifier.width(260.dp).clip(shape)) {
@@ -600,21 +618,46 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
                             val ratio = if (count == 1) aspectOf(remote.getOrNull(0)) else 1f
                             Box(
                                 Modifier.weight(1f).aspectRatio(ratio).background(Ch.SurfaceMuted)
-                                    .clickable(enabled = remote.isNotEmpty()) { if (covered) actions.onReveal(m) else actions.onOpenMedia(dto, i) },
+                                    .clickable(enabled = remote.isNotEmpty()) {
+                                        when {
+                                            covered -> actions.onReveal(m)
+                                            waiting -> com.dorr.app.chat.ChatDataSaver.loaded[m.id] = true
+                                            else -> actions.onOpenMedia(dto, i)
+                                        }
+                                    },
                             ) {
                                 // Photos: the photo. Videos: their poster (the server's copy, or the one made on this phone).
                                 val model: Any? = if (isVideo) remote.getOrNull(i)?.thumbnail?.let { ApiClient.mediaUrl(it) } ?: m.localThumb
                                 else remote.getOrNull(i)?.let { ApiClient.mediaUrl(it.url) } ?: local.getOrNull(i)?.file
                                 if (model != null) {
-                                    AsyncImage(model, null, imageLoader = chatImages(context), contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().then(if (covered) Modifier.blur(28.dp) else Modifier))
+                                    // Held back: only from the phone's cache, never the network.
+                                    val request: Any = if (holding) coil.request.ImageRequest.Builder(context).data(model).networkCachePolicy(coil.request.CachePolicy.DISABLED).build() else model
+                                    AsyncImage(
+                                        request, null, imageLoader = chatImages(context), contentScale = ContentScale.Crop,
+                                        modifier = Modifier.matchParentSize().then(if (covered && !com.dorr.app.chat.ChatLite.active) Modifier.blur(28.dp) else Modifier),
+                                        onError = { if (holding) notOnPhone[i] = true },
+                                    )
+                                }
+                                if (holding && notOnPhone[i] == true) HeldPhoto(remote.getOrNull(i), Modifier.matchParentSize())
+                                if (gifPlays) {
+                                    val clip = remote.getOrNull(i)?.url?.let { ApiClient.mediaUrl(it) } ?: local.getOrNull(i)?.file?.let { Uri.fromFile(it).toString() }
+                                    if (clip != null) LoopingVideo(clip, Modifier.matchParentSize())
                                 }
                                 if (covered) {
                                     // Phones before Android 12 can't blur: a solid veil instead.
-                                    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = if (android.os.Build.VERSION.SDK_INT >= 31) 0.25f else 0.9f)), contentAlignment = Alignment.Center) {
+                                    Box(Modifier.matchParentSize().background(Color.Black.copy(alpha = if (android.os.Build.VERSION.SDK_INT >= 31 && !com.dorr.app.chat.ChatLite.active) 0.25f else 0.9f)), contentAlignment = Alignment.Center) {
                                         Icon(Icons.Rounded.VisibilityOff, null, tint = Color.White, modifier = Modifier.size(28.dp))
                                     }
                                 }
-                                if (isVideo) {
+                                if (isVideo && gif) {
+                                    GifTag(Modifier.align(Alignment.BottomStart).padding(8.dp))
+                                    if (!gifPlays && !covered && m.local != "pending") {
+                                        Box(Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
+                                            Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(32.dp))
+                                        }
+                                    }
+                                }
+                                if (isVideo && !gif) {
                                     if (m.local != "pending") {
                                         Box(Modifier.align(Alignment.Center).size(52.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.45f)), contentAlignment = Alignment.Center) {
                                             Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(32.dp))
@@ -740,9 +783,11 @@ private fun VoiceNote(m: UiMessage, mine: Boolean) {
 private fun DocumentCard(m: UiMessage, mine: Boolean) {
     val context = LocalContext.current
     val file = m.dto.attachments.firstOrNull()
-    val name = file?.name ?: m.localFiles.firstOrNull()?.name ?: ""
-    val ext = name.substringAfterLast('.', "").uppercase().take(4)
-    val pdf = file != null && ChatViewers.isPdf(name, file.mimeType)
+    // A folder sent as one zip (spec 10): its own name, and how many files were in it.
+    val folder = m.dto.folderInfo()
+    val name = folder?.first ?: file?.name ?: m.localFiles.firstOrNull()?.name ?: ""
+    val ext = if (folder != null) "ZIP" else name.substringAfterLast('.', "").uppercase().take(4)
+    val pdf = folder == null && file != null && ChatViewers.isPdf(name, file.mimeType)
     // A PDF opens inside the chat; other files in the app that handles them.
     val open = {
         file?.let {
@@ -763,14 +808,16 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
             Box(Modifier.size(42.dp).clip(RoundedCornerShape(10.dp)).background(if (mine) Color.White else Ch.Red), contentAlignment = Alignment.Center) {
                 if (m.local == "pending") UploadRing(Modifier.size(42.dp), m.progress)
                 else Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Rounded.Description, null, tint = if (mine) Ch.Red else Color.White, modifier = Modifier.size(20.dp))
+                    Icon(if (folder != null) Icons.Rounded.Folder else Icons.Rounded.Description, null, tint = if (mine) Ch.Red else Color.White, modifier = Modifier.size(20.dp))
                     if (ext.isNotEmpty()) Text(ext, color = if (mine) Ch.Red else Color.White, fontSize = 8.sp, fontWeight = FontWeight.ExtraBold)
                 }
             }
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(name, color = if (mine) Ch.OutText else Ch.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(fileSizeText(file?.size), color = if (mine) Ch.OutText.copy(alpha = 0.75f) else Ch.Mut, fontSize = 11.sp)
+                val size = fileSizeText(file?.size)
+                val count = folder?.second?.let { stringResource(R.string.fg_files, it) }
+                Text(listOfNotNull(count, size.takeIf { it.isNotBlank() }).joinToString(" · "), color = if (mine) Ch.OutText.copy(alpha = 0.75f) else Ch.Mut, fontSize = 11.sp)
             }
         }
         if (!m.dto.body.isNullOrBlank()) TextBody(m, mine) else Footer(m, mine, overlay = false, modifier = Modifier.align(Alignment.End).padding(top = 4.dp, end = 4.dp))

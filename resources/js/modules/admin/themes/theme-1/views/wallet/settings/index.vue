@@ -1,6 +1,6 @@
 <template>
     <div>
-        <WalletPageHeader :title="t('wallet.settings.title')" :total="rows.length || null" />
+        <WalletPageHeader :title="t('wallet.settings.title')" :total="pagination?.total ?? null" />
 
         <div class="alert alert-info fs-13">{{ t('wallet.settings.intro') }}</div>
 
@@ -9,13 +9,13 @@
                 <div class="d-flex flex-wrap align-items-center gap-2 catalog-toolbar-filters">
                     <div class="input-group input-group-sm catalog-toolbar-search">
                         <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
-                        <input v-model="search" type="search" class="form-control" :placeholder="t('wallet.settings.search')">
+                        <input v-model="filters.search" type="search" class="form-control" :placeholder="t('wallet.settings.search')">
                         <button
-                            v-if="search"
+                            v-if="filters.search"
                             type="button"
                             class="btn btn-light border"
                             :title="t('wallet.common.clear_search')"
-                            @click="search = ''"
+                            @click="filters.search = ''"
                         >
                             <i class="ri-close-line"></i>
                         </button>
@@ -37,7 +37,7 @@
                         </thead>
                         <tbody>
                             <TableSkeleton v-if="loading" :rows="8" :columns="6" />
-                            <tr v-else-if="!visibleRows.length">
+                            <tr v-else-if="!rows.length">
                                 <td colspan="6" class="border-0">
                                     <div class="text-center py-5">
                                         <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
@@ -49,14 +49,15 @@
                                 </td>
                             </tr>
                             <template v-else>
-                                <tr v-for="row in visibleRows" :key="row.country_id" class="crm-contact">
+                                <tr v-for="row in rows" :key="row.country_id" class="crm-contact">
                                     <td class="ps-4">
                                         <div class="d-flex align-items-center gap-2">
-                                            <span class="avatar avatar-sm avatar-rounded bg-primary-transparent">
-                                                <i class="ri-global-line text-primary"></i>
-                                            </span>
-                                            <button v-if="canUpdate" type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="edit(row)">{{ row.country_code }}</button>
-                                            <span v-else class="fw-semibold text-default">{{ row.country_code }}</span>
+                                            <FlagImage :code="row.country_code" :size="40" :width="28" :height="20" class="settings-flag" />
+                                            <div>
+                                                <button v-if="canUpdate" type="button" class="btn btn-link p-0 text-start fw-semibold text-default" @click="edit(row)">{{ row.country_name || row.country_code }}</button>
+                                                <span v-else class="fw-semibold text-default">{{ row.country_name || row.country_code }}</span>
+                                                <span class="d-block text-muted fs-11">{{ row.country_code }}</span>
+                                            </div>
                                         </div>
                                     </td>
                                     <td>{{ range(row.min_withdrawal_minor, row.max_withdrawal_minor) }}</td>
@@ -81,6 +82,7 @@
                     </table>
                 </div>
             </div>
+            <WalletPagination v-model:per-page="perPage" :pagination="pagination" @change="fetch" />
         </div>
 
         <ModalCreateAndUpdate
@@ -95,9 +97,11 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import adminAxios from '../../../../../../../api/adminAxios';
+import FlagImage from '../../../../../../../components/ui/FlagImage.vue';
 import TableSkeleton from '../../../../../../../components/ui/TableSkeleton.vue';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
+import WalletPagination from '../../../../../../../components/wallet/WalletPagination.vue';
+import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor } from '../../../../../../../utils/walletMoney';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
@@ -107,19 +111,10 @@ const { can } = usePermission();
 
 const canUpdate = computed(() => can('wallet-settings.update'));
 
-const rows = ref([]);
-const search = ref('');
-const loading = ref(false);
+const { rows, loading, pagination, filters, fetch, perPage } = useWalletList('wallet-settings', { defaults: { search: '' } });
 
 const modalShow = ref(false);
 const selectedRecord = ref(null);
-
-/** 200+ countries: filter by code so the admin isn't scrolling for one row. */
-const visibleRows = computed(() => {
-    const needle = search.value.trim().toLowerCase();
-
-    return needle ? rows.value.filter((row) => (row.country_code || '').toLowerCase().includes(needle)) : rows.value;
-});
 
 function range(min, max) {
     if (min == null && max == null) {
@@ -134,18 +129,6 @@ function debt(minor) {
     return minor ? fmtMinor(Math.abs(minor)) : t('wallet.settings.no_debt');
 }
 
-async function load() {
-    loading.value = true;
-
-    try {
-        const { data } = await adminAxios.get('/api/admin/v1/wallet-settings');
-
-        rows.value = data.data ?? [];
-    } finally {
-        loading.value = false;
-    }
-}
-
 function edit(row) {
     selectedRecord.value = { ...row };
     modalShow.value = true;
@@ -153,8 +136,16 @@ function edit(row) {
 
 function onSaved() {
     modalShow.value = false;
-    load();
+    fetch();
 }
 
-onMounted(load);
+onMounted(() => fetch(1));
 </script>
+
+<style scoped>
+.settings-flag {
+    border-radius: 3px;
+    object-fit: cover;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+}
+</style>

@@ -100,10 +100,10 @@ class AnalyzesImageDataTest extends TestCase
         // Doc S10: a heuristic, documented as such - this proves the
         // counting mechanism itself (byte-signature occurrences), not
         // that it matches every encoder's exact frame count.
-        $singleFrame = "GIF89a".str_repeat("\x00", 10);
+        $singleFrame = 'GIF89a'.str_repeat("\x00", 10);
         $this->assertSame(1, $this->subject->countGifFrames($singleFrame));
 
-        $threeFrames = "GIF89a"."\x21\xF9\x04"."\x00\x00\x00\x00"."\x21\xF9\x04"."\x00\x00\x00\x00"."\x21\xF9\x04"."\x00\x00\x00\x00";
+        $threeFrames = 'GIF89a'."\x21\xF9\x04"."\x00\x00\x00\x00"."\x21\xF9\x04"."\x00\x00\x00\x00"."\x21\xF9\x04"."\x00\x00\x00\x00";
         $this->assertSame(3, $this->subject->countGifFrames($threeFrames));
     }
 

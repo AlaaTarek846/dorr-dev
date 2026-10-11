@@ -11,11 +11,11 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\Chat\Models\ChatContact;
-use Modules\Chat\Models\ChatMessage;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -221,7 +221,7 @@ class ChatPartialItemsTest extends TestCase
         return $this->postJson('/api/mobile/v1/chat/conversations/direct', ['participant_id' => $other->id], $this->headers())->assertOk()->json('data.id');
     }
 
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

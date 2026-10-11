@@ -9,8 +9,10 @@ use App\Models\Language;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
@@ -219,7 +221,7 @@ class ChatAiTest extends TestCase
 
     public function test_commitments_are_suggestions_with_their_time_and_nothing_is_set_on_its_own(): void
     {
-        $this->travelTo(\Illuminate\Support\Carbon::parse('2026-10-06 09:00', 'UTC'));
+        $this->travelTo(Carbon::parse('2026-10-06 09:00', 'UTC'));
         $chat = $this->direct($this->bob, $this->alice);
         $promise = $this->send($this->alice, $chat, ['type' => 'text', 'body' => 'I will send you the contract on Thursday at 5 pm'])->json('data.id');
 
@@ -265,7 +267,7 @@ class ChatAiTest extends TestCase
     /**
      * @param  array<string, mixed>  $data
      */
-    private function send(User $sender, string $conversation, array $data): \Illuminate\Testing\TestResponse
+    private function send(User $sender, string $conversation, array $data): TestResponse
     {
         $this->as($sender);
 

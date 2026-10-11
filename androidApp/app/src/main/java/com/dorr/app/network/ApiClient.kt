@@ -22,12 +22,14 @@ import java.net.UnknownHostException
  * The local dev host (LOCAL_MEDIA_HOST) is what Laravel builds absolute media URLs with, so those
  * get rewritten to the reachable host below.
  */
-// Dev backend: this ngrok tunnel (https). To switch to LAN/emulator, put dorr.apiHost /
-// dorr.apiScheme in androidApp/local.properties and restore BASE_HOST from BuildConfig.
-// ngrok: ngrok http 80 --url https://<host> --host-header=dorr.test
-private const val NGROK_HOST = "zane-metazoal-max.ngrok-free.dev"
-private const val BASE_HOST = NGROK_HOST
-private const val BASE_URL = "https://$BASE_HOST/api/"
+// Set per developer in androidApp/local.properties (dorr.apiHost / dorr.apiScheme) — see app/build.gradle.kts.
+// Never hard-code a host here: a merge would swap everyone's backend.
+private const val BASE_HOST = com.dorr.app.BuildConfig.API_HOST
+private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOST/api/"
+// NOTE (LAN): a Wi-Fi IP as dorr.apiHost must be this PC's current IP (check `ipconfig`) AND be
+// listed as ServerAlias in C:/laragon/etc/apache2/sites-enabled/auto.dorr.test.conf,
+// otherwise the phone gets connection-refused or 404. Reload Apache after changing it.
+
 
 private const val LOCAL_MEDIA_HOST = "dorr.test"
 
@@ -56,6 +58,15 @@ object ApiClient {
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)
+        // Counts the requests under way (pull-to-refresh hides its indicator when they have all finished).
+        .addInterceptor { chain ->
+            RefreshCoordinator.requestStarted()
+            try {
+                chain.proceed(chain.request())
+            } finally {
+                RefreshCoordinator.requestFinished()
+            }
+        }
         // Connectivity signal first: a completed round-trip proves we are
         // online (clearing a stale offline state), while a failure before any
         // HTTP response — unknown host, refused/unreachable route — raises the
@@ -99,6 +110,8 @@ object ApiClient {
             response
         }
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+        // Usage stats (spec 83): what chats and their media really cost on the wire.
+        .addNetworkInterceptor(com.dorr.app.chat.ChatUsage.interceptor)
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -119,8 +132,12 @@ object ApiClient {
     val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
     val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
+    val life: LifeApi by lazy { retrofit.create(LifeApi::class.java) }
+    val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
+    val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }
+    val sports: SportsApi by lazy { retrofit.create(SportsApi::class.java) }
     val more: ChatMoreApi by lazy { retrofit.create(ChatMoreApi::class.java) }
     val moments: MomentsApi by lazy { retrofit.create(MomentsApi::class.java) }
 

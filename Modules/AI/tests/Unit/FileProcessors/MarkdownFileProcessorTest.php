@@ -34,7 +34,7 @@ class MarkdownFileProcessorTest extends TestCase
 
     public function test_extracts_headings_lists_links_and_code_blocks(): void
     {
-        $markdown = <<<MD
+        $markdown = <<<'MD'
         # Introduction
 
         Some content here.

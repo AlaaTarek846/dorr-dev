@@ -4,7 +4,6 @@ namespace Modules\AI\Services;
 
 use Illuminate\Support\Facades\Storage;
 use Modules\AI\Jobs\IndexAiKnowledgeSourceJob;
-use Modules\AI\Services\AiTextChunker;
 use Modules\AI\Models\AiKnowledgeChunk;
 use Modules\AI\Models\AiKnowledgeSource;
 use Modules\AI\Repositories\AiProviderRepository;

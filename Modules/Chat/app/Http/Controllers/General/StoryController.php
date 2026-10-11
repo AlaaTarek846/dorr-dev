@@ -7,6 +7,7 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Modules\Chat\Exceptions\ChatException;
+use Modules\Chat\Models\ChatDorrStory;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Models\ChatStory;
 use Modules\Chat\Services\MessageService;
@@ -50,16 +51,22 @@ class StoryController extends Controller
         return ApiResponse::created(['id' => $story->uuid, 'expires_at' => $story->expires_at?->toIso8601String()], __('api.created'));
     }
 
-    /** GET stories/public — the home page's circles. */
+    /**
+     * GET stories/public — the home page's circles. `?per_page=10&page=N` pages the people (the app loads ten at a
+     * time as the row is scrolled to its end); without `per_page` everyone comes at once.
+     */
     public function publicFeed(Request $request)
     {
-        return ApiResponse::success($this->stories->publicFeed($request->user()), __('api.retrieved'));
+        $perPage = $request->filled('per_page') ? max(1, min((int) $request->query('per_page'), 50)) : null;
+        $page = max(1, (int) $request->query('page', 1));
+
+        return ApiResponse::success($this->stories->publicFeed($request->user(), $page, $perPage), __('api.retrieved'));
     }
 
     /** POST stories/dorr/{uuid}/view */
     public function viewDorr(Request $request, string $story)
     {
-        $this->stories->viewDorr($request->user(), \Modules\Chat\Models\ChatDorrStory::query()->where('uuid', $story)->firstOrFail());
+        $this->stories->viewDorr($request->user(), ChatDorrStory::query()->where('uuid', $story)->firstOrFail());
 
         return ApiResponse::success(null, __('api.updated'));
     }

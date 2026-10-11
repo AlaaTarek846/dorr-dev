@@ -59,6 +59,29 @@
             android:theme="@style/Theme.Dorr" />
 
         <!-- "Decline" button on the call notification. -->
+        <!-- DORR Sports home-screen widgets. -->
+        <receiver
+            android:name=".widget.MyTeamWidgetReceiver"
+            android:exported="true"
+            android:label="@string/spw_myteam">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sp_widget_myteam_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.LiveWidgetReceiver"
+            android:exported="true"
+            android:label="@string/spw_live_now">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/sp_widget_live_info" />
+        </receiver>
         <receiver
             android:name=".chat.CallActionReceiver"
             android:exported="false" />

@@ -28,6 +28,16 @@ enum MessageType: string
     case Call = 'call';
     /** A greeting card (DORR Moments): the occasion's look, words, voice, photos, a gift, maybe a surprise. */
     case MomentCard = 'moment_card';
+    /** An event from DORR Discover (spec 178): meta.event is a snapshot built on the server. */
+    case EventCard = 'event_card';
+    /** A match from DORR Sports (spec 195): meta.match is a snapshot; the app shows it live. */
+    case MatchCard = 'match_card';
+    /** Daily intelligence (spec 149, 152, 154): meta is the card's live snapshot, kept by LifeService. */
+    case Commitment = 'commitment';
+    case Handoff = 'handoff';
+    case Agreement = 'agreement';
+    /** A call broadcast live (spec 93): meta.live {token, title, host, audience}. */
+    case LiveCard = 'live_card';
     case System = 'system';
 
     /**

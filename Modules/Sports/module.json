@@ -1,0 +1,11 @@
+{
+    "name": "Sports",
+    "alias": "sports",
+    "description": "DORR Sports: fixtures, live scores and standings from a licensed provider (spec 183-200).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Sports\\Providers\\SportsServiceProvider"
+    ],
+    "files": []
+}

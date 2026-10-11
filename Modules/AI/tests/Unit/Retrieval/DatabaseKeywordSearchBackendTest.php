@@ -2,13 +2,13 @@
 
 namespace Modules\AI\Tests\Unit\Retrieval;
 
+use App\Enums\UserStatus;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Modules\AI\Enums\AiRetrievalMode;
 use Modules\AI\Models\AiFileChunk;
 use Modules\AI\Services\Retrieval\AiRetrievalQuery;
 use Modules\AI\Services\Retrieval\Backends\DatabaseKeywordSearchBackend;
 use Modules\User\Models\User;
-use App\Enums\UserStatus;
 use Tests\TestCase;
 
 class DatabaseKeywordSearchBackendTest extends TestCase

@@ -29,6 +29,10 @@ sealed interface ChatDeepLink {
     data object Tasks : ChatDeepLink
     /** A DORR Calendar reminder (spec 204). */
     data object Calendar : ChatDeepLink
+    /** DORR Discover: an event I'm interested in changed, or one I shouldn't miss. */
+    data class Discover(val eventId: String?) : ChatDeepLink
+    /** DORR Sports: a match I follow (a goal, kick-off, full time…). */
+    data class Sports(val matchId: String?) : ChatDeepLink
     /** A reply or a status change on one of my support tickets. */
     data class Support(val ticketId: Int) : ChatDeepLink
 }
@@ -112,6 +116,8 @@ object ChatPush {
                 override fun onWillDisplay(event: INotificationWillDisplayEvent) {
                     val data = event.notification.additionalData
                     val conversation = data?.optString("conversation_uuid")?.takeIf { it.isNotBlank() }
+                    // A goal, a kick-off…: the home-screen widgets read the new score.
+                    if (data?.optString("type") == "sports") context?.let { com.dorr.app.widget.SportsWidgets.refreshNow(it) }
                     // Already reading that chat: the message is on screen, no banner needed.
                     if (conversation != null && conversation == openConversationId && data.optString("type") == "chat") {
                         event.preventDefault()
@@ -130,6 +136,8 @@ object ChatPush {
                         conversation != null -> ChatDeepLink.Conversation(conversation)
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks
                         data.optString("type") == "calendar" -> ChatDeepLink.Calendar
+                        data.optString("type") == "sports" -> ChatDeepLink.Sports(data.optString("match_id").takeIf { it.isNotBlank() && it != "null" })
+                        data.optString("type") == "discover" -> ChatDeepLink.Discover(data.optString("event_id").takeIf { it.isNotBlank() && it != "null" })
                         data.optString("type") == "moments" || data.optString("event") == "chat.collab.invited" -> ChatDeepLink.Moments
                         else -> null
                     }
