@@ -85,6 +85,14 @@ class ContactController extends Controller
         return ApiResponse::success($this->contacts->myQr($request->user()), __('api.retrieved'));
     }
 
+    /** `text?` — the message the chat opens with. */
+    public function chatLink(Request $request)
+    {
+        $data = $request->validate(['text' => ['nullable', 'string', 'max:500']]);
+
+        return ApiResponse::success($this->contacts->chatLink($request->user(), $data['text'] ?? null), __('api.retrieved'));
+    }
+
     public function resetQr(Request $request)
     {
         return ApiResponse::success($this->contacts->myQr($request->user(), reset: true), __('api.updated'));

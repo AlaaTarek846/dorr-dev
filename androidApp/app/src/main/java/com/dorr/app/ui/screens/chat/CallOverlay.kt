@@ -244,6 +244,10 @@ private fun CallScreen() {
                 }
             }
         }
+
+        // ------------------------------------------------------------ recording (spec 92): REC for as long as it records,
+        // and the questions that come before anything is recorded — on top of everything.
+        CallRecordingLayer(phase)
     }
 }
 
@@ -373,7 +377,7 @@ private fun ActiveControls(video: Boolean) {
         // Camera backgrounds are heavy: not in lite mode (spec 87).
         if (CallController.cameraOn && !com.dorr.app.chat.ChatLite.active) ToggleAction(Icons.Rounded.BlurOn, com.dorr.app.chat.CallEffects.mode != com.dorr.app.chat.CallEffects.Mode.None) { backgrounds = true }
         // Go live (spec 93) — or, once live, share / end it.
-        ToggleAction(Icons.Rounded.Podcasts, CallController.live?.status == "live") { if (CallController.live?.status == "live") liveShare = true else goLive = true }
+        if (com.dorr.app.chat.ChatFeatures.allows("live") || CallController.live?.status == "live") ToggleAction(Icons.Rounded.Podcasts, CallController.live?.status == "live") { if (CallController.live?.status == "live") liveShare = true else goLive = true }
         RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
     }
     if (backgrounds) CallBackgroundSheet { backgrounds = false }

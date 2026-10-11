@@ -29,6 +29,7 @@ use Modules\Chat\Http\Controllers\General\ScheduledMessageController;
 use Modules\Chat\Http\Controllers\General\StarFolderController;
 use Modules\Chat\Http\Controllers\General\StoryController;
 use Modules\Chat\Http\Controllers\General\ThemeReportController;
+use Modules\Chat\Http\Middleware\EnsureChatFeature;
 use Modules\Chat\Http\Middleware\RememberTimezone;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
@@ -137,6 +138,9 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::patch('channels/{conversation}/handle', [ChannelController::class, 'handle']);
     Route::patch('channels/{conversation}/category', [ChannelController::class, 'category']);
     Route::get('channels/{conversation}/verification', [ChannelController::class, 'verification']);
+    // Backlog 107 and 110: a channel's numbers, and the reactions it allows.
+    Route::get('channels/{conversation}/stats', [ChannelController::class, 'stats']);
+    Route::patch('channels/{conversation}/reactions', [ChannelController::class, 'reactions']);
 
     // ------------------------------------------------------------ DORR Moments (spec 157–168)
     Route::get('moments', [MomentController::class, 'index']);
@@ -203,6 +207,8 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     // ------------------------------------------------------------ broadcast lists (like WhatsApp)
     Route::get('broadcasts', [BroadcastController::class, 'index']);
     Route::post('broadcasts', [BroadcastController::class, 'store']);
+    // A list from one of my folders (labels) — backlog 129.
+    Route::post('broadcasts/from-folder', [BroadcastController::class, 'fromFolder']);
     Route::get('broadcasts/{broadcast}', [BroadcastController::class, 'show']);
     Route::patch('broadcasts/{broadcast}', [BroadcastController::class, 'update']);
     Route::delete('broadcasts/{broadcast}', [BroadcastController::class, 'destroy']);
@@ -228,6 +234,7 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     // Rate-limited: must not become a way to scan which numbers are registered.
     Route::post('contacts/lookup', [ContactController::class, 'lookup'])->middleware('throttle:20,1,chat-lookup');
     Route::get('contacts/qr', [ContactController::class, 'qr']);
+    Route::get('contacts/chat-link', [ContactController::class, 'chatLink']);
     Route::post('contacts/qr/reset', [ContactController::class, 'resetQr']);
     Route::post('contacts/qr/resolve', [ContactController::class, 'resolveQr'])->middleware('throttle:30,1,chat-lookup');
     Route::patch('contacts/{contact}', [ContactController::class, 'update']);
@@ -258,18 +265,21 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::put('folders/{folder}/conversations', [FolderController::class, 'conversations']);
 
     // ------------------------------------------------------------ stories
-    Route::get('stories', [StoryController::class, 'index']);
-    Route::post('stories', [StoryController::class, 'store'])->middleware('throttle:30,1,chat-stories');
-    Route::get('stories/public', [StoryController::class, 'publicFeed']);
-    Route::post('stories/dorr/{story}/view', [StoryController::class, 'viewDorr']);
-    Route::get('stories/privacy', [StoryController::class, 'privacy']);
-    Route::put('stories/privacy', [StoryController::class, 'updatePrivacy']);
-    Route::post('stories/mute', [StoryController::class, 'mute']);
-    Route::delete('stories/{story}', [StoryController::class, 'destroy']);
-    Route::post('stories/{story}/view', [StoryController::class, 'view']);
-    Route::put('stories/{story}/reaction', [StoryController::class, 'react']);
-    Route::post('stories/{story}/reply', [StoryController::class, 'reply']);
-    Route::get('stories/{story}/viewers', [StoryController::class, 'viewers']);
+    Route::middleware(EnsureChatFeature::class.':stories')->group(function () {
+        Route::get('stories', [StoryController::class, 'index']);
+        Route::post('stories', [StoryController::class, 'store'])->middleware('throttle:30,1,chat-stories');
+        Route::get('stories/public', [StoryController::class, 'publicFeed']);
+        Route::post('stories/dorr/{story}/view', [StoryController::class, 'viewDorr']);
+        Route::get('stories/privacy', [StoryController::class, 'privacy']);
+        Route::put('stories/privacy', [StoryController::class, 'updatePrivacy']);
+        Route::post('stories/mute', [StoryController::class, 'mute']);
+        Route::delete('stories/{story}', [StoryController::class, 'destroy']);
+        Route::post('stories/{story}/view', [StoryController::class, 'view']);
+        Route::put('stories/{story}/reaction', [StoryController::class, 'react']);
+        Route::post('stories/{story}/reply', [StoryController::class, 'reply']);
+        Route::post('stories/{story}/reshare', [StoryController::class, 'reshare']);
+        Route::get('stories/{story}/viewers', [StoryController::class, 'viewers']);
+    });
 
     // ------------------------------------------------------------ themes & reports
     Route::get('themes', [ThemeReportController::class, 'themes']);
@@ -286,6 +296,7 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     // ------------------------------------------------------------ business tools
     Route::get('business', [BusinessController::class, 'show']);
     Route::patch('business', [BusinessController::class, 'update']);
+    Route::get('business/stats', [BusinessController::class, 'stats']);
     Route::get('quick-replies', [BusinessController::class, 'quickReplies']);
     Route::post('quick-replies', [BusinessController::class, 'storeQuickReply']);
     Route::patch('quick-replies/{quickReply}', [BusinessController::class, 'updateQuickReply'])->whereNumber('quickReply');
@@ -293,23 +304,25 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
 
     // ------------------------------------------------------------ AI (one tap each — nothing goes to the AI by itself)
     Route::get('ai', [ChatAiController::class, 'capabilities']);
-    Route::post('messages/{message}/translate', [ChatAiController::class, 'translate'])->middleware('throttle:60,1,chat-ai-translate');
-    Route::post('messages/{message}/transcribe', [ChatAiController::class, 'transcribe'])->middleware('throttle:20,1,chat-ai-transcribe');
-    Route::post('conversations/{conversation}/summarize', [ChatAiController::class, 'summarize'])->middleware('throttle:10,1,chat-ai-summary');
-    Route::post('conversations/{conversation}/smart-replies', [ChatAiController::class, 'smartReplies'])->middleware('throttle:20,1,chat-ai-replies');
-    Route::post('conversations/{conversation}/ask', [ChatAiController::class, 'ask'])->middleware('throttle:20,1,chat-ai-ask');
-    Route::post('conversations/{conversation}/commitments', [ChatAiController::class, 'commitments'])->middleware('throttle:10,1,chat-ai-commitments');
-    // DORR AI tools (spec 31, 36–42, 46, 48, 49) — under the DORR AI safety rules (350–362).
-    Route::post('conversations/{conversation}/assistant', [ChatAiToolsController::class, 'assistant'])->middleware('throttle:30,1,chat-ai-assistant');
-    Route::post('ai/proofread', [ChatAiToolsController::class, 'proofread'])->middleware('throttle:30,1,chat-ai-proofread');
-    Route::post('messages/{message}/understand', [ChatAiToolsController::class, 'understand'])->middleware('throttle:30,1,chat-ai-understand');
-    Route::post('messages/{message}/simplify', [ChatAiToolsController::class, 'simplify'])->middleware('throttle:30,1,chat-ai-simplify');
-    Route::post('messages/{message}/tasks', [ChatAiToolsController::class, 'tasksFrom'])->middleware('throttle:20,1,chat-ai-tasks');
-    Route::post('conversations/{conversation}/note', [ChatAiToolsController::class, 'note'])->middleware('throttle:20,1,chat-ai-note');
-    Route::post('conversations/{conversation}/dates', [ChatAiToolsController::class, 'dates'])->middleware('throttle:10,1,chat-ai-dates');
-    Route::post('ai/important', [ChatAiToolsController::class, 'important'])->middleware('throttle:10,1,chat-ai-important');
-    Route::post('conversations/{conversation}/related-files', [ChatAiToolsController::class, 'relatedFiles'])->middleware('throttle:10,1,chat-ai-files');
-    Route::post('ai/today', [ChatAiToolsController::class, 'today'])->middleware('throttle:6,1,chat-ai-today');
+    Route::middleware(EnsureChatFeature::class.':ai')->group(function () {
+        Route::post('messages/{message}/translate', [ChatAiController::class, 'translate'])->middleware('throttle:60,1,chat-ai-translate');
+        Route::post('messages/{message}/transcribe', [ChatAiController::class, 'transcribe'])->middleware('throttle:20,1,chat-ai-transcribe');
+        Route::post('conversations/{conversation}/summarize', [ChatAiController::class, 'summarize'])->middleware('throttle:10,1,chat-ai-summary');
+        Route::post('conversations/{conversation}/smart-replies', [ChatAiController::class, 'smartReplies'])->middleware('throttle:20,1,chat-ai-replies');
+        Route::post('conversations/{conversation}/ask', [ChatAiController::class, 'ask'])->middleware('throttle:20,1,chat-ai-ask');
+        Route::post('conversations/{conversation}/commitments', [ChatAiController::class, 'commitments'])->middleware('throttle:10,1,chat-ai-commitments');
+        // DORR AI tools (spec 31, 36–42, 46, 48, 49) — under the DORR AI safety rules (350–362).
+        Route::post('conversations/{conversation}/assistant', [ChatAiToolsController::class, 'assistant'])->middleware('throttle:30,1,chat-ai-assistant');
+        Route::post('ai/proofread', [ChatAiToolsController::class, 'proofread'])->middleware('throttle:30,1,chat-ai-proofread');
+        Route::post('messages/{message}/understand', [ChatAiToolsController::class, 'understand'])->middleware('throttle:30,1,chat-ai-understand');
+        Route::post('messages/{message}/simplify', [ChatAiToolsController::class, 'simplify'])->middleware('throttle:30,1,chat-ai-simplify');
+        Route::post('messages/{message}/tasks', [ChatAiToolsController::class, 'tasksFrom'])->middleware('throttle:20,1,chat-ai-tasks');
+        Route::post('conversations/{conversation}/note', [ChatAiToolsController::class, 'note'])->middleware('throttle:20,1,chat-ai-note');
+        Route::post('conversations/{conversation}/dates', [ChatAiToolsController::class, 'dates'])->middleware('throttle:10,1,chat-ai-dates');
+        Route::post('ai/important', [ChatAiToolsController::class, 'important'])->middleware('throttle:10,1,chat-ai-important');
+        Route::post('conversations/{conversation}/related-files', [ChatAiToolsController::class, 'relatedFiles'])->middleware('throttle:10,1,chat-ai-files');
+        Route::post('ai/today', [ChatAiToolsController::class, 'today'])->middleware('throttle:6,1,chat-ai-today');
+    });
     // Favourites folders (spec 24).
     Route::get('star-folders', [StarFolderController::class, 'index']);
     Route::post('star-folders', [StarFolderController::class, 'store']);
@@ -342,6 +355,14 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::patch('tasks/{task}', [ChatAiToolsController::class, 'updateTask']);
     Route::delete('tasks/{task}', [ChatAiToolsController::class, 'destroyTask']);
 
+    // Manage storage (backlog 46–48) and export a chat (25).
+    Route::get('storage', [\Modules\Chat\Http\Controllers\General\ChatStorageController::class, 'overview']);
+    Route::get('storage/files', [\Modules\Chat\Http\Controllers\General\ChatStorageController::class, 'files']);
+    Route::post('storage/delete', [\Modules\Chat\Http\Controllers\General\ChatStorageController::class, 'delete'])->middleware('throttle:20,1,chat-storage');
+    Route::get('conversations/{conversation}/export', [\Modules\Chat\Http\Controllers\General\ChatStorageController::class, 'export'])->middleware('throttle:6,1,chat-export');
+    // What the app may offer where I am (country / city rules) — and where the phone is (kept as a city only).
+    Route::get('features', [\Modules\Chat\Http\Controllers\General\ChatFeatureController::class, 'show']);
+    Route::put('location', [\Modules\Chat\Http\Controllers\General\ChatFeatureController::class, 'locate'])->middleware('throttle:10,1,chat-location');
     // ------------------------------------------------------------ calls (LiveKit)
     Route::get('calls', [CallController::class, 'index']);
     Route::post('conversations/{conversation}/calls', [CallController::class, 'store'])->middleware('throttle:20,1,chat-calls');
@@ -362,6 +383,11 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::post('lives/watch/{token}', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'watch'])->where('token', '[A-Za-z0-9]{20,40}');
     Route::post('lives/watch/{token}/ping', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'ping'])->where('token', '[A-Za-z0-9]{20,40}');
     Route::post('lives/watch/{token}/share', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'share'])->where('token', '[A-Za-z0-9]{20,40}');
+    // Call recording, only with the yes of everyone in the call (spec 92).
+    Route::post('calls/{call}/recording', [\Modules\Chat\Http\Controllers\General\CallRecordingController::class, 'store'])->middleware('throttle:10,1,chat-recording');
+    Route::post('calls/{call}/recording/consent', [\Modules\Chat\Http\Controllers\General\CallRecordingController::class, 'consent']);
+    Route::post('calls/{call}/recording/stop', [\Modules\Chat\Http\Controllers\General\CallRecordingController::class, 'stop']);
+    Route::get('calls/{call}/recordings', [\Modules\Chat\Http\Controllers\General\CallRecordingController::class, 'index']);
     Route::post('calls/{call}/accept', [CallController::class, 'accept']);
     Route::post('calls/{call}/decline', [CallController::class, 'decline']);
     Route::post('calls/{call}/leave', [CallController::class, 'leave']);

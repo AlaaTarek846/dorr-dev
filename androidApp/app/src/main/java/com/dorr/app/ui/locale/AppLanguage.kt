@@ -136,7 +136,10 @@ fun LocalizedApp(content: @Composable () -> Unit) {
     // the persisted choice — including on cold start from stored prefs.
     SideEffect { AppLocale.current = code }
 
-    val localizedContext = remember(code, stringsRevision) {
+    // Rebuilt when the screen changes too (rotation, split screen, unfolding — the activity isn't
+    // restarted for those), so LocalConfiguration below carries the new size.
+    val screen = LocalConfiguration.current
+    val localizedContext = remember(code, stringsRevision, screen) {
         val downloaded = if (isBundledLanguage(code)) null else DownloadedTranslations.load(context, code)
         context.forLocale(code, downloaded)
     }

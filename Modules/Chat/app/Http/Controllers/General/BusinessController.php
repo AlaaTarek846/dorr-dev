@@ -40,9 +40,22 @@ class BusinessController extends Controller
             'hours.*.from' => ['required_with:hours', 'date_format:H:i'],
             'hours.*.to' => ['required_with:hours', 'date_format:H:i'],
             'timezone' => ['sometimes', 'timezone:all'],
+            // The business card (backlog 111).
+            'about' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'address' => ['sometimes', 'nullable', 'string', 'max:300'],
+            'email' => ['sometimes', 'nullable', 'email', 'max:150'],
+            'website' => ['sometimes', 'nullable', 'url', 'max:255'],
         ]);
 
         return ApiResponse::success($this->business->updateProfile($request->user(), $data)->present(), __('api.updated'));
+    }
+
+    /** `days` 7 · 30 · 90 — my messages to customers and theirs to me (backlog 116). */
+    public function stats(Request $request)
+    {
+        $data = $request->validate(['days' => ['sometimes', 'integer', 'in:7,30,90']]);
+
+        return ApiResponse::success($this->business->stats($request->user(), (int) ($data['days'] ?? 30)), __('api.retrieved'));
     }
 
     public function quickReplies(Request $request)

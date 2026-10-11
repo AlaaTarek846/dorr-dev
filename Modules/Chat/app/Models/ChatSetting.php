@@ -32,6 +32,8 @@ class ChatSetting extends Model
         'calendar_enabled',
         'calls_enabled',
         'calls_disabled_countries',
+        'call_recording_enabled',
+        'call_recording_retention_days',
         'ai_enabled',
     ];
 
@@ -56,6 +58,8 @@ class ChatSetting extends Model
             'calendar_enabled' => 'boolean',
             'calls_enabled' => 'boolean',
             'calls_disabled_countries' => 'array',
+            'call_recording_enabled' => 'boolean',
+            'call_recording_retention_days' => 'integer',
             'ai_enabled' => 'boolean',
         ];
     }
@@ -74,9 +78,8 @@ class ChatSetting extends Model
             return false;
         }
 
-        $country = $account?->getAttribute('country_id');
-
-        return $country === null || ! in_array((int) $country, array_map('intval', $this->calls_disabled_countries ?? []), true);
+        // The countries switched off here, and any country or city rule (ChatFeatures).
+        return app(\Modules\Chat\Services\ChatFeatures::class)->allows($account, 'calls');
     }
 
     /**
@@ -86,6 +89,18 @@ class ChatSetting extends Model
     public function aiEnabled(): bool
     {
         return $this->ai_enabled ?? true;
+    }
+
+    /** Call recording (spec 92): on unless the admin switched it off — it still needs the recordings bucket. */
+    public function callRecordingEnabled(): bool
+    {
+        return (bool) $this->calls_enabled && ($this->call_recording_enabled ?? true);
+    }
+
+    /** How long a recording is kept before it's deleted (30 days unless the admin changed it). */
+    public function callRecordingRetentionDays(): int
+    {
+        return max(1, (int) ($this->call_recording_retention_days ?? 30));
     }
 
     /** Public stories on the home page — on, with one free each, unless the admin changed it (a copy cached before the columns existed has neither). */

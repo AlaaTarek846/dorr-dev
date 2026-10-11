@@ -57,6 +57,32 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Call recordings (spec 92)
+    |--------------------------------------------------------------------------
+    |
+    | LiveKit Egress records a call (once everyone in it agreed) straight into
+    | this S3-compatible bucket — AWS S3, Cloudflare R2, DigitalOcean Spaces,
+    | MinIO… LiveKit Cloud has no storage of its own. Keep the bucket private:
+    | the app only ever gets a link signed for a few minutes. Without a bucket
+    | the "record" button doesn't show. `endpoint` (https://…) is for non-AWS
+    | providers, which usually also need `path_style` (R2 uses region `auto`).
+    */
+    'recordings' => [
+        'key' => env('CHAT_RECORDINGS_KEY'),
+        'secret' => env('CHAT_RECORDINGS_SECRET'),
+        'region' => env('CHAT_RECORDINGS_REGION', 'us-east-1'),
+        'bucket' => env('CHAT_RECORDINGS_BUCKET'),
+        'endpoint' => env('CHAT_RECORDINGS_ENDPOINT'),
+        'path_style' => (bool) env('CHAT_RECORDINGS_PATH_STYLE', false),
+        'prefix' => env('CHAT_RECORDINGS_PREFIX', 'call-recordings'),
+        // How long everyone has to agree before the request is dropped.
+        'consent_seconds' => (int) env('CHAT_RECORDINGS_CONSENT_SECONDS', 30),
+        // How long a playback link works.
+        'link_seconds' => (int) env('CHAT_RECORDINGS_LINK_SECONDS', 900),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Calls ringing timeout
     |--------------------------------------------------------------------------
     |

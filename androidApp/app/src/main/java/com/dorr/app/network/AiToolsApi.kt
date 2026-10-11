@@ -81,9 +81,16 @@ data class SafetyDto(
     val notice: String? = null,
 )
 
+/**
+ * DORR AI's quality gate on a free answer (spec 362): `passed` · `unverified` (shown with
+ * [notice]) · `abstained` (held back) · `skipped` (the check itself couldn't run).
+ */
+data class AiVerificationDto(val status: String = "skipped", val confidence: Double? = null, val notice: String? = null)
+
 data class AssistantAnswerDto(
     val answer: String,
     val safety: SafetyDto? = null,
+    val verification: AiVerificationDto? = null,
     val references: List<AskReferenceDto> = emptyList(),
 )
 

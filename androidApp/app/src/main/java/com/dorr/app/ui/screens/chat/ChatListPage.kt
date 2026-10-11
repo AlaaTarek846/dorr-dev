@@ -193,8 +193,9 @@ fun ChatListPage() {
     }
     LaunchedEffect(Unit) { host.refreshStories() }
 
-    // In the requests box, "back" returns to the chats — it must not close the whole chat.
-    BackHandler(enabled = host.filter in SpecialLists || searching) {
+    // In the requests box, "back" returns to the chats — it must not close the whole chat. Side by
+    // side (spec 89), the page open beside the list closes first.
+    BackHandler(enabled = (host.filter in SpecialLists || searching) && !(host.twoPane && host.detail != null)) {
         if (searching) { searching = false; query = "" } else host.filter = "all"
     }
 
@@ -252,14 +253,19 @@ fun ChatListPage() {
                     Modifier.fillMaxWidth().padding(start = 10.dp, end = 8.dp, top = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) {
-                        when {
-                            searching -> { searching = false; query = "" }
-                            host.filter in SpecialLists -> host.filter = "all"
-                            else -> host.pop()
+                    // The main chat screen has no back arrow (spec: header rule) — the tab bar and
+                    // the system back leave it; searching and the special lists step back here.
+                    if (searching || host.filter in SpecialLists) {
+                        GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) {
+                            if (searching) {
+                                searching = false
+                                query = ""
+                            } else {
+                                host.filter = "all"
+                            }
                         }
+                        Spacer(Modifier.width(8.dp))
                     }
-                    Spacer(Modifier.width(8.dp))
                     AnimatedContent(targetState = searching, label = "search", transitionSpec = {
                         (fadeIn(tween(220)) + expandHorizontally(tween(320))) togetherWith (fadeOut(tween(150)) + shrinkHorizontally(tween(260)))
                     }, modifier = Modifier.weight(1f)) { isSearching ->
@@ -359,7 +365,7 @@ fun ChatListPage() {
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         if (host.filter == "all" && searchResults == null) {
-                            item(key = "stories") { StoriesBar(onAdd = { addStory = true }) }
+                            if (com.dorr.app.chat.ChatFeatures.allows("stories")) item(key = "stories") { StoriesBar(onAdd = { addStory = true }) }
                         }
                         if (host.requestsCount > 0 && searchResults == null && host.filter == "all") {
                             item(key = "requests") {
@@ -711,6 +717,8 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
     val unread = c.unreadCount > 0 || c.markedUnread
     val compact = ChatPrefs.compactList
     val avatar = if (compact) 46.dp else 54.dp
+    // Side by side (tablet, spec 89): the chat open beside the list is marked.
+    val selected = host.twoPane && host.openConversationId == c.id
 
     Column(
         Modifier
@@ -718,7 +726,7 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
             .chStagger(index)
             // Opaque on purpose: the swipe actions live behind the row.
             .background(Ch.Bg)
-            .background(if (c.isPinned) Ch.Red.copy(alpha = 0.045f) else Color.Transparent)
+            .background(if (selected) Ch.Red.copy(alpha = 0.1f) else if (c.isPinned) Ch.Red.copy(alpha = 0.045f) else Color.Transparent)
             .combinedClickable(onClick = onClick, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() }),
     ) {
         Row(

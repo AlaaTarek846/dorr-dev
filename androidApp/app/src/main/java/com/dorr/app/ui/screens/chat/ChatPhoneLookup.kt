@@ -191,7 +191,7 @@ fun AddByPhoneSheet(initial: String = "", onDismiss: () -> Unit, onPicked: ((Pro
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(42.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
@@ -346,7 +346,7 @@ private fun examplePhone(country: CountryDto?): String {
 private fun CountryPickerSheet(countries: List<CountryDto>, onDismiss: () -> Unit, onPick: (CountryDto) -> Unit) {
     var query by remember { mutableStateOf("") }
     val shown = countries.filter { query.isBlank() || it.name.contains(query, true) || it.dialCode.contains(query.filter { c -> c.isDigit() }.ifEmpty { "~" }) || it.code.equals(query, true) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 20.dp)) {
             ChField(query, { query = it }, stringResource(R.string.ch_search_country), icon = Icons.Rounded.Search, clearable = true)
             Spacer(Modifier.height(8.dp))

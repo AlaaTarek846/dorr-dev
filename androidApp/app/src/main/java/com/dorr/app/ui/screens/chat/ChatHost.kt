@@ -97,6 +97,18 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     var forward by mutableStateOf(true)
         private set
 
+    /**
+     * A wide screen (tablet, unfolded phone, landscape — spec 89): the chat list stays on the side
+     * and every other page opens beside it. Set by ChatScreen from the space it really has.
+     */
+    var twoPane by mutableStateOf(false)
+
+    /** What opens beside the list: the page on top, unless that's the list itself. */
+    val detail: ChRoute? get() = stack.last().takeIf { it !is ChRoute.List }
+
+    /** The conversation open beside the list (marked in it). */
+    val openConversationId: String? get() = (stack.lastOrNull { it is ChRoute.Conversation } as? ChRoute.Conversation)?.id
+
     val conversations = mutableStateListOf<ConversationDto>()
     var requestsCount by mutableIntStateOf(0)
     var listLoaded by mutableStateOf(false)
@@ -137,6 +149,17 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     private val gson = Gson()
 
     fun push(route: ChRoute) {
+        // Side by side, a conversation takes the place of whatever was open beside the list (like
+        // WhatsApp on a tablet) — or, already open there, it comes back to the front.
+        if (twoPane && route is ChRoute.Conversation) {
+            val open = stack.indexOfFirst { it is ChRoute.Conversation && it.id == route.id }
+            if (open >= 0) {
+                forward = false
+                while (stack.lastIndex > open) stack.removeAt(stack.lastIndex)
+                return
+            }
+            while (stack.size > 1) stack.removeAt(stack.lastIndex)
+        }
         forward = true
         stack.add(route)
     }
@@ -152,6 +175,10 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     /** Replace the top page (e.g. "New chat" → the conversation it opened). */
     fun replace(route: ChRoute) {
+        if (twoPane && route is ChRoute.Conversation) {
+            push(route)
+            return
+        }
         forward = true
         stack[stack.lastIndex] = route
     }

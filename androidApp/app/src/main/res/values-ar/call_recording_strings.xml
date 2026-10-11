@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- تسجيل المكالمات (البند 92): بموافقة كل اللي في المكالمة بس. -->
+<resources>
+    <string name="cr_failed">حصلت مشكلة. جرّب تاني.</string>
+    <string name="cr_rec">تسجيل</string>
+    <string name="cr_record">سجّل</string>
+    <string name="cr_asking">وافق %1$d من %2$d</string>
+    <string name="cr_ask_title">تسجّل المكالمة؟</string>
+    <string name="cr_ask_body">هنسأل كل اللي في المكالمة الأول. التسجيل مش هيبدأ غير لو كلهم وافقوا، وأي حد يقدر يوقفه.</string>
+    <string name="cr_ask_yes">اسأل الكل</string>
+    <string name="cr_cancel">إلغاء</string>
+    <string name="cr_stop_title">توقّف التسجيل؟</string>
+    <string name="cr_stop_body">اللي اتسجل لحد دلوقتي هيتحفظ للي وافقوا.</string>
+    <string name="cr_stop_yes">وقّف</string>
+    <string name="cr_keep">كمّل التسجيل</string>
+    <string name="cr_consent_title">توافق على تسجيل المكالمة؟</string>
+    <string name="cr_consent_body">%1$s عايز يسجّل المكالمة. التسجيل مش هيبدأ غير لو الكل وافق، وأي حد يقدر يوقفه.</string>
+    <string name="cr_consent_body_someone">حد في المكالمة عايز يسجّلها. التسجيل مش هيبدأ غير لو الكل وافق، وأي حد يقدر يوقفه.</string>
+    <string name="cr_consent_no">مش موافق</string>
+    <string name="cr_consent_yes">موافق</string>
+    <string name="cr_seconds_left">فاضل %1$d ثانية للرد</string>
+    <string name="cr_join_title">المكالمة دي بتتسجل</string>
+    <string name="cr_join_title_asking">فيه طلب لتسجيل المكالمة دي</string>
+    <string name="cr_join_body">ادخل بس لو موافق على التسجيل. التسجيل بيسمعه بس اللي وافقوا.</string>
+    <string name="cr_join_no">مش هدخل</string>
+    <string name="cr_join_yes">موافق وادخل</string>
+    <string name="cr_note_started">التسجيل بدأ: الكل وافق.</string>
+    <string name="cr_note_declined">متسجلتش: فيه حد مش موافق.</string>
+    <string name="cr_note_expired">متسجلتش: مش الكل رد في الوقت.</string>
+    <string name="cr_note_cancelled">طلب التسجيل اتلغى.</string>
+    <string name="cr_note_failed">التسجيل منفعش.</string>
+    <string name="cr_note_saved">التسجيل وقف، واتحفظ للي وافقوا.</string>
+    <string name="cr_recorded">اتسجلت · اسمع</string>
+    <string name="cr_list_title">تسجيلات المكالمة</string>
+    <string name="cr_list_sub">بيسمعها بس اللي وافقوا، وبتتمسح بعد مدة.</string>
+    <string name="cr_list_empty">مفيش تسجيل تقدر تسمعه هنا.</string>
+    <string name="cr_list_failed">مقدرناش نجيب التسجيلات.</string>
+    <string name="cr_item">تسجيل %1$d</string>
+    <string name="cr_saving">بيتحفظ…</string>
+    <string name="cr_until">لحد %1$s</string>
+</resources>

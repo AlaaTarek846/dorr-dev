@@ -562,6 +562,12 @@ class MessageService
             throw ChatException::messageDeleted();
         }
 
+        // A channel may allow only some emojis (or none).
+        $allowed = $conversation->isChannel() ? $conversation->group?->allowed_reactions : null;
+        if ($emoji !== null && $emoji !== '' && $allowed !== null && ! in_array($emoji, $allowed, true)) {
+            throw new ChatException('reaction_not_allowed', 422);
+        }
+
         if ($emoji === null || $emoji === '') {
             ChatMessageReaction::query()->where(['message_id' => $message->id, 'participant_id' => $participant->id])->delete();
         } else {
@@ -1149,7 +1155,7 @@ class MessageService
                 + (in_array($data['gift'] ?? null, self::GIFT_CARDS, true) ? ['gift' => $data['gift']] : []),
             MessageType::WalletQr => $this->walletShare->walletQr($me, $data['country_code'] ?? null),
             // Built by StoryService::reply() from the real story — never from the client.
-            MessageType::StoryReply => $data['story_meta'] ?? throw new ChatException('story_not_found', 404),
+            MessageType::StoryReply, MessageType::StoryMention => $data['story_meta'] ?? throw new ChatException('story_not_found', 404),
             default => null,
         };
     }

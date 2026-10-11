@@ -93,6 +93,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
+import com.dorr.app.ui.screens.chat.ChSheet
 
 // =============================================================================== looks
 
@@ -497,7 +498,7 @@ private fun ShareSheet(ev: DiscEventDto, onDismiss: () -> Unit) {
     val sent = stringResource(R.string.ev_shared)
     LaunchedEffect(Unit) { chats = runCatching { ApiClient.chat.conversations(evAuth(), perPage = 60).data }.getOrNull().orEmpty().filter { it.canSend } }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.ev_share_title), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(ev.title, color = Wa.Mut, fontSize = 13.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -545,7 +546,7 @@ private fun StatusSheet(ev: DiscEventDto, onDismiss: () -> Unit, onSaved: (DiscE
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.ev_change_status), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
@@ -583,7 +584,7 @@ internal fun CityPickerSheet(onDismiss: () -> Unit, onPick: (DiscCityDto) -> Uni
     var cities by remember { mutableStateOf<List<DiscCityDto>?>(null) }
     var query by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { cities = EventsStore.allCities() }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
             Text(stringResource(R.string.ev_pick_city), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(8.dp))

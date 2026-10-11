@@ -317,5 +317,9 @@ See seeder files for initial data conventions.
 | `chat_contacts` / `chat_blocks` / `chat_privacy_settings` | Address book (E.164 phone matched to an account), blocks, privacy, QR token, last seen |
 | `chat_folders` / `chat_folder_conversations` | Personal chat folders |
 | `chat_calls` / `chat_call_participants` | LiveKit call log and ringing state |
+| `chat_call_recordings` | Call recording (spec 92): `uuid`, `call_id`, `requested_by_participant_id`, `status` (pending · recording · processing · ready · declined · expired · cancelled · failed · deleted), `consent_until`, `egress_id` (LiveKit), `file_path` (key in the recordings bucket), `size_bytes`, `duration_seconds`, `started_at`, `stopped_at`, `stopped_by_participant_id`, `expires_at` (deleted then) |
+| `chat_call_recording_consents` | One answer per person per recording: `decision` accepted · declined (unique `recording_id` + `participant_id`). Playing a recording takes an `accepted` row |
+
+`chat_settings` also has `call_recording_enabled` (default on) and `call_recording_retention_days` (default 30) — migration `2026_10_17_100000`.
 
 Participant columns (`*_type`) hold an alias (`user`, `provider`) and never a class name (see `Modules\Chat\Support\ParticipantType`).

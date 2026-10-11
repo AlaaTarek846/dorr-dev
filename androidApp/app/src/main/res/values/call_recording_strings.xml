@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Call recording (spec 92): only with the yes of everyone in the call. -->
+<resources>
+    <string name="cr_failed">Something went wrong. Try again.</string>
+    <string name="cr_rec">REC</string>
+    <string name="cr_record">Record</string>
+    <string name="cr_asking">%1$d of %2$d agreed</string>
+    <string name="cr_ask_title">Record this call?</string>
+    <string name="cr_ask_body">Everyone in the call is asked first. Recording starts only if all of them agree, and anyone can stop it.</string>
+    <string name="cr_ask_yes">Ask everyone</string>
+    <string name="cr_cancel">Cancel</string>
+    <string name="cr_stop_title">Stop recording?</string>
+    <string name="cr_stop_body">What\'s recorded so far is saved for the people who agreed.</string>
+    <string name="cr_stop_yes">Stop</string>
+    <string name="cr_keep">Keep recording</string>
+    <string name="cr_consent_title">Can this call be recorded?</string>
+    <string name="cr_consent_body">%1$s wants to record this call. It starts only if everyone agrees, and anyone can stop it.</string>
+    <string name="cr_consent_body_someone">Someone in the call wants to record it. It starts only if everyone agrees, and anyone can stop it.</string>
+    <string name="cr_consent_no">Don\'t agree</string>
+    <string name="cr_consent_yes">Agree</string>
+    <string name="cr_seconds_left">%1$d s left to answer</string>
+    <string name="cr_join_title">This call is being recorded</string>
+    <string name="cr_join_title_asking">This call is asking to be recorded</string>
+    <string name="cr_join_body">Join only if you agree to the recording. Only the people who agreed can play it.</string>
+    <string name="cr_join_no">Don\'t join</string>
+    <string name="cr_join_yes">Agree and join</string>
+    <string name="cr_note_started">Recording started: everyone agreed.</string>
+    <string name="cr_note_declined">Not recorded: someone didn\'t agree.</string>
+    <string name="cr_note_expired">Not recorded: not everyone answered in time.</string>
+    <string name="cr_note_cancelled">The recording request was taken back.</string>
+    <string name="cr_note_failed">The recording couldn\'t be made.</string>
+    <string name="cr_note_saved">Recording stopped. It\'s saved for the people who agreed.</string>
+    <string name="cr_recorded">Recorded · play</string>
+    <string name="cr_list_title">Call recordings</string>
+    <string name="cr_list_sub">Only the people who agreed can play them, and they\'re deleted after a while.</string>
+    <string name="cr_list_empty">No recording you can play here.</string>
+    <string name="cr_list_failed">Couldn\'t load the recordings.</string>
+    <string name="cr_item">Recording %1$d</string>
+    <string name="cr_saving">Saving…</string>
+    <string name="cr_until">until %1$s</string>
+</resources>

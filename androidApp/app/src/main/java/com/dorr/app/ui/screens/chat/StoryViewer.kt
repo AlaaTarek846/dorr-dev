@@ -522,7 +522,7 @@ private fun BurstEmoji(b: Burst, onDone: () -> Unit) {
 private fun ViewersSheet(story: StoryDto, onDismiss: () -> Unit) {
     var viewers by remember { mutableStateOf<List<StoryViewerDto>?>(null) }
     LaunchedEffect(story.id) { viewers = runCatching { ApiClient.chat.storyViewers(chatAuth(), story.id).data }.getOrNull().orEmpty() }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Color.White, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             val list = viewers
             Text(stringResource(R.string.st_viewers, list?.size ?: story.views ?: 0), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)

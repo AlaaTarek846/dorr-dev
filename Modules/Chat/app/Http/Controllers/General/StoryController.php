@@ -30,19 +30,29 @@ class StoryController extends Controller
     {
         $maxKb = ChatSetting::current()->max_file_size_mb * 1024;
         $data = $request->validate([
-            'type' => ['required', Rule::in(['text', 'image', 'video'])],
+            // A voice status (backlog 78): the recording, its length and its bars.
+            'type' => ['required', Rule::in(['text', 'image', 'video', 'voice'])],
             'body' => ['nullable', 'string', 'max:700'],
             'style' => ['nullable', 'array'],
             'style.background' => ['nullable', 'string', 'max:40'],
             'style.font' => ['nullable', 'string', 'max:20'],
             'style.align' => ['nullable', Rule::in(['start', 'center', 'end'])],
+            'style.waveform' => ['nullable', 'array', 'max:200'],
+            'style.waveform.*' => ['integer', 'min:0', 'max:100'],
+            // People I mention (user ids of my contacts) — they're told in our chat (backlog 84).
+            'mentions' => ['nullable', 'array', 'max:10'],
+            'mentions.*' => ['integer'],
             'duration_ms' => ['nullable', 'integer', 'min:0'],
             'allow_replies' => ['nullable', 'boolean'],
             // On the home page for everyone (one free each — chat_settings.public_stories_free).
             'public' => ['nullable', 'boolean'],
             'file' => [
                 'nullable', 'file', 'max:'.$maxKb,
-                $request->input('type') === 'video' ? 'mimes:mp4,mov,3gp,mkv,webm' : 'mimes:jpeg,jpg,png,webp,gif,heic,heif',
+                match ($request->input('type')) {
+                    'video' => 'mimes:mp4,mov,3gp,mkv,webm',
+                    'voice' => 'mimes:m4a,mp4,mp3,aac,ogg,oga,opus,wav,amr,3gp,webm',
+                    default => 'mimes:jpeg,jpg,png,webp,gif,heic,heif',
+                },
             ],
         ]);
 
@@ -91,6 +101,14 @@ class StoryController extends Controller
         $this->stories->react($request->user(), $story, $data['emoji']);
 
         return ApiResponse::success(null, __('api.updated'));
+    }
+
+    /** Someone mentioned in it shares it in their own status (backlog 85) — it doesn't name who posted it (86). */
+    public function reshare(Request $request, ChatStory $story)
+    {
+        $copy = $this->stories->reshare($request->user(), $story);
+
+        return ApiResponse::created(['id' => $copy->uuid, 'expires_at' => $copy->expires_at?->toIso8601String()], __('api.created'));
     }
 
     public function reply(Request $request, ChatStory $story)

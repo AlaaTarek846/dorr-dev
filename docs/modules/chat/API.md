@@ -330,18 +330,18 @@ Translate, voice to text, summary and suggested replies, through the AI module's
 | POST | `messages/{m}/transcribe` | | Voice / audio messages (≤25 MB): `{text}`. Throttled to 20 per minute |
 | POST | `conversations/{c}/summarize` | `unread_only?` | `{text, messages}`: 3–7 bullet points in the request language, from my latest 200 visible messages (12 000 characters, newest kept), or only those after my last read. Throttled to 10 per minute |
 | POST | `conversations/{c}/smart-replies` | | `{replies[3]}`: short replies in the chat's own language and dialect, from the last 15 messages. They're only suggestions — nothing is sent. Throttled to 20 per minute |
-| POST | `conversations/{c}/ask` | `question`, `messages?[]` (uuids I picked) | **Ask about the chat (spec 125):** `{answer, references[{id, sender, excerpt, created_at}], messages}`. Answered only from the picked messages (only those go to the AI, AT-PRIV-11) or my latest 200; `references` are the messages it rests on, to jump to. Throttled to 20 per minute |
+| POST | `conversations/{c}/ask` | `question`, `messages?[]` (uuids I picked) | **Ask about the chat (spec 125):** `{answer, safety, verification, references[{id, sender, excerpt, created_at}], messages}`. Answered only from the picked messages (only those go to the AI, AT-PRIV-11) or my latest 200; `references` are the messages it rests on, to jump to. Throttled to 20 per minute |
 | POST | `conversations/{c}/commitments` | `messages?[]`, `timezone?` | **Commitments (spec 126):** `{commitments[{text, owner, is_mine, due_at, message_id}]}` — suggestions only; nothing is set. The app's "Remind me" then calls `PUT messages/{m}/reminder`. `due_at` is read in `timezone` and answered in UTC (past times dropped). Throttled to 10 per minute |
 
 Errors: `503 chat_ai_unavailable` (switched off, or no provider), `502 chat_ai_failed` (the provider failed — its own message goes to the log only), `422 chat_ai_nothing_to_translate`, `chat_ai_not_voice`, `chat_ai_audio_too_long`, `chat_ai_nothing_to_summarize`.
 
 ### DORR AI tools (spec 31, 36–42, 46, 48, 49) and my tasks (38)
 
-Same rules: one explicit tap each, only what that tap covers goes to the AI, results are suggestions until confirmed. Free answers (`ask`, `assistant`, `understand`) go through the DORR AI safety layer and return `safety` — `null` or `{domain, specific, disclaimer, notice}` — for the app's alert card (see `docs/modules/ai/TECHNICAL-SPECIFICATION.md`). `GET ai` also returns `assistant, proofread, understand, simplify, tasks, notes, dates, important, related_files, today`. `timezone` defaults to `users.timezone`.
+Same rules: one explicit tap each, only what that tap covers goes to the AI, results are suggestions until confirmed. Free answers (`ask`, `assistant`, `understand`) go through the DORR AI safety layer and return `safety` — `null` or `{domain, specific, disclaimer, notice}` — for the app's alert card (see `docs/modules/ai/TECHNICAL-SPECIFICATION.md`). `ask` and `assistant` also pass DORR AI's quality gate (spec 362, `AiVerificationEngine`, another provider when there is one) and return `verification` — `null` when `ai.chat.verification.enabled` is off, else `{status: passed | unverified | abstained | skipped, confidence, notice}`: below the pass mark the draft goes back once with what the check found; still weak, it is shown with `notice`; very low (`abstain_threshold`), the answer is replaced by DORR AI's "not sure enough" reply and `references` is empty. `GET ai` also returns `assistant, proofread, understand, simplify, tasks, notes, dates, important, related_files, today`. `timezone` defaults to `users.timezone`.
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `conversations/{c}/assistant` | `question`, `messages?[]`, `history?[{q, a}]` (≤ 10) | **31.** DORR AI inside the chat, only for me: `{answer, safety, references[]}`. Nothing of the chat goes unless I picked messages. 30/min |
+| POST | `conversations/{c}/assistant` | `question`, `messages?[]`, `history?[{q, a}]` (≤ 10) | **31.** DORR AI inside the chat, only for me: `{answer, safety, verification, references[]}`. Nothing of the chat goes unless I picked messages. 30/min |
 | POST | `ai/proofread` | `text` (≤ 4000) | **36.** `{text, changed}` — spelling and grammar only; language, dialect, emojis, mentions and formatting kept. Nothing of the chat is read. 30/min |
 | POST | `messages/{m}/understand` | | **37 + 42.** `{intent, tone, summary, tone_note, actions[reply\|remind\|task\|note], replies[3], safety}` |
 | POST | `messages/{m}/simplify` | | **46.** `{short, points[≤6]}` (cached 7 days) |
@@ -486,12 +486,26 @@ One calendar of only the sources I keep on: my appointments (`events`), occasion
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `conversations/{c}/calls` `{type: audio\|video}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call |
-| POST | `calls/{id}/accept` · `decline` · `leave` | Accept returns `join` |
-| GET | `calls/{id}/token` | Rejoin an ongoing call |
+| POST | `conversations/{c}/calls` `{type: audio\|video, recording_consent?}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call (`recording_consent` when it records — see below) |
+| POST | `calls/{id}/accept` `{recording_consent?}` · `decline` · `leave` | Accept returns `join` |
+| GET | `calls/{id}/token?recording_consent=1` | Rejoin an ongoing call |
 | GET | `calls` · `calls/{id}` | Call log |
 
+Every call payload also has `recording_available` (the record button shows only then), `recording` (asking or recording right now, the state below, or `null`) and `recordings_count` (recordings of this call I agreed to).
+
 Calls can be switched off per country (`calls_disabled_countries` in chat settings, by the account's `country_id`): the caller gets `403 chat_calls_unavailable_country`, calling someone there gets `403 chat_calls_unavailable_peer_country`, and in a group members there simply aren't rung.
+
+### Features by country and city (spec "أمان 2", shared requirement 10)
+`chat_feature_rules` switch a feature on or off for a country or one of its cities (`ChatFeatures`). The order: the admin's switch for the whole feature (`calls_enabled`, `stories_enabled`, `ai_enabled`) → a rule for the city the phone is in → a rule for the account's country → on. `calls_disabled_countries` still counts as a country rule for calls. Where calls are off, `voice_rooms` and `live` are off too. Categories of users are not part of it yet (decision 2026-10-11).
+
+The city is the admin's (Discover) city nearest the phone, within 60 km: the app sends its approximate location, the server keeps only the city (`chat_privacy_settings.city_id`, `city_seen_at`) — never the coordinates — and forgets it after 30 days.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `features` | — | `{features{calls, voice_rooms, live, stories, ai: bool}, city{id, name}\|null}` — the app hides what's off |
+| PUT | `location` | `{latitude, longitude}` | The same, after keeping the nearest city (none farther than 60 km). Throttled 10/min |
+
+Off where I am: stories and the AI tools answer `403 chat_feature_unavailable` (`GET ai` itself answers `enabled: false`), voice rooms `403 chat_feature_unavailable`, a live can't start (`403`) and a viewer gets `join: null`; calls keep `chat_calls_unavailable_country` / `chat_calls_unavailable_peer_country` (now "where you are"), and `can_call` on a conversation follows the same rules.
 
 The token is a LiveKit JWT (HS256) for one room and one identity (`user:{id}`), signed with `LIVEKIT_API_SECRET`. `chat:expire-calls` runs every minute and turns a call that rang longer than `CHAT_CALL_RING_TIMEOUT_SECONDS` (45) into a missed call.
 
@@ -526,14 +540,30 @@ Errors: `chat_live_not_in_call` (409), `chat_live_ended` (409), `chat_live_not_f
 
 **Camera backgrounds (spec 94)** are made on the phone only (blur, or a picture behind me): ML Kit selfie segmentation in a LiveKit `VideoProcessor`. Nothing goes to the server.
 
-**Call recording (spec 92)** isn't built: it needs LiveKit Egress, a storage place and a retention period — **NEEDS-DECISION**.
+### Call recording (spec 92, safety rule 1)
+Nothing is recorded until **everyone in the call** said yes. Someone in the call asks (asking is their yes); everyone else in it answers within `CHAT_RECORDINGS_CONSENT_SECONDS` (30). One "no", or the time running out, and LiveKit is never asked. The last yes starts **LiveKit Egress** (`StartRoomCompositeEgress`: the whole room — cameras in a grid for a video call, voices only for a voice call — as one MP4) straight into our S3-compatible bucket. Someone joining a call that records (or asks to) gets `409 chat_recording_consent_required` with `data.recording` and joins only with `recording_consent: true`, which is their yes. Anyone in the call can stop it; it also stops when the call ends. Only the people who agreed can play it, through a link signed for `CHAT_RECORDINGS_LINK_SECONDS` (900). The file is deleted after the admin's `call_recording_retention_days` (30).
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `calls/{call}/recording` | — | `201` the state: `{id, call_id, status, requested_by, agreed[], declined[], waiting_for[], consent_until, started_at, stopped_at}` (participant keys `user:{id}`). The same one if someone already asked. Throttled 10/min |
+| POST | `calls/{call}/recording/consent` | `{accept}` | The state: `declined` on a no, `recording` once everyone in the call said yes |
+| POST | `calls/{call}/recording/stop` | — | The state: `processing` (or `cancelled` while still asking) |
+| GET | `calls/{call}/recordings` | — | The recordings of this call I agreed to: `[{id, call_id, type: audio \| video, status, duration_seconds, size_bytes, started_at, stopped_at, expires_at, url}]` — `url` once `ready` |
+
+`status`: `pending` → `recording` → `processing` → `ready` → `deleted`, or `declined` · `expired` · `cancelled` · `failed`. `chat:call-recordings` (every minute) drops requests that ran out of time, asks LiveKit (`ListEgress`) which files are saved, and deletes files past their retention. The call's line in the chat gets `meta.recorded = true`.
+
+Errors: `chat_recording_unavailable` (422 — no bucket, LiveKit not set up, or switched off), `chat_recording_not_in_call` (409), `chat_recording_not_asking` (409), `chat_recording_not_running` (409), `chat_recording_consent_required` (409). Event `chat.call.recording {call_id, recording}` (the state) to everyone the call rang.
+
+**Setup:** a private bucket in `.env` — `CHAT_RECORDINGS_KEY`, `CHAT_RECORDINGS_SECRET`, `CHAT_RECORDINGS_REGION`, `CHAT_RECORDINGS_BUCKET`, and for non-AWS storage `CHAT_RECORDINGS_ENDPOINT` (https) and `CHAT_RECORDINGS_PATH_STYLE=true` (Cloudflare R2: region `auto`). LiveKit Cloud has no storage of its own. Links and deletes are signed with AWS Signature V4 (`Support\RecordingStorage`), so there's no AWS SDK.
 
 ## Admin
 
 | Method | Path | Permission |
 |---|---|---|
 | GET | `/api/admin/v1/chat-settings` | `chat-settings.view` |
-| PUT | `/api/admin/v1/chat-settings` (also `calls_disabled_countries[]` country ids, `ai_enabled`) | `chat-settings.update` |
+| GET | `/api/admin/v1/chat-feature-rules` · `chat-feature-rules/options` (`{features[], countries[{id, code, name}], cities[{id, country_id, name}]}` — Discover's cities) | `chat-settings.view` |
+| POST | `/api/admin/v1/chat-feature-rules` `{feature, country_id, city_id?, enabled, note?}` (one rule per feature + country + city; the city must belong to the country) · PUT `chat-feature-rules/{id}` `{enabled, note?}` · DELETE | `chat-settings.update` |
+| PUT | `/api/admin/v1/chat-settings` (also `calls_disabled_countries[]` country ids, `ai_enabled`, `call_recording_enabled`, `call_recording_retention_days` 1–365; GET also answers the read-only `call_recording_storage_ready`) | `chat-settings.update` |
 | GET | `/api/admin/v1/chat-themes` · `chat-themes/{id}` | `chat-themes.view` |
 | POST | `/api/admin/v1/chat-themes` (multipart: `translations[i][locale/name]`, `sender_color`, `receiver_color`, `background_color`, `is_dark`, `is_default`, `status`, `sort_order`, `wallpaper`) | `chat-themes.create` |
 | POST | `/api/admin/v1/chat-themes/{id}` (same fields + `remove_wallpaper`) | `chat-themes.update` |
@@ -599,5 +629,6 @@ Commitment reminders: `chat:commitment-reminders` every minute (once, `remind_mi
 | `chat.call.ringing` / `accepted` / `declined` / `left` / `ended` | `call_id`, `conversation_id`, `status`, `participant`, `duration_seconds`. `ringing` adds `caller` and the full call |
 | `chat.voice.updated` | `conversation_id`, `room_id`, `count` — who's in a voice room changed |
 | `chat.call.live` | `call_id`, `live{id, token, status, viewers, audience}` |
+| `chat.call.recording` | `call_id`, `recording` — asked for, answered, started, stopped, saved (spec 92) |
 
 Push (OneSignal) goes out for new messages, respecting mute, locked chats, and `notification_preview`, and for incoming and missed calls. `data.type` is `chat` or `chat_call`.

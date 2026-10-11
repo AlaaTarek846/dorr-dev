@@ -193,7 +193,7 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, qui
     val days = remember { mutableStateListOf<Int>().apply { addAll(current?.days ?: (0..6).toList()) } }
     var picking by remember { mutableStateOf<Boolean?>(null) } // true = from
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(if (quiet) R.string.ch_quiet else R.string.ch_privacy_schedule), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(if (quiet) R.string.ch_quiet_sub else R.string.ch_privacy_schedule_sub), color = Ch.Mut, fontSize = 13.sp)

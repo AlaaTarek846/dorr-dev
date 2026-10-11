@@ -1461,7 +1461,11 @@
         "cancel": "Cancel",
         "confirm_suspend": "Suspend this subscription?",
         "confirm_reactivate": "Reactivate this subscription?",
-        "confirm_cancel": "Cancel this subscription? It will no longer renew."
+        "confirm_cancel": "Cancel this subscription? It will no longer renew.",
+        "details": "Subscription details",
+        "price": "Price",
+        "days_left": "Days left",
+        "grace_ends": "Grace ends"
     },
     "ai_usage_sessions": {
         "title": "AI Usage Sessions",
@@ -3119,7 +3123,14 @@
             "note_moments": "Occasions, greeting cards and their effects. Turning them off never affects messaging.",
             "section_calendar": "Calendar (DORR Today)",
             "calendar_enabled": "Calendar on",
-            "note_calendar": "Personal appointments, the today page and their reminders. Turning it off never affects messaging."
+            "note_calendar": "Personal appointments, the today page and their reminders. Turning it off never affects messaging.",
+            "section_call_recording": "Call recording",
+            "call_recording_enabled": "On",
+            "note_call_recording": "A call is recorded only after everyone in it agrees, and anyone can stop it. Only the people who agreed can play the recording.",
+            "call_recording_retention_days": "Keep recordings for",
+            "hint_call_recording_retention_days": "Then the file is deleted from storage for good.",
+            "recording_storage_ready": "Storage connected",
+            "recording_storage_missing": "Storage isn't set up: add the CHAT_RECORDINGS_* keys (an S3-compatible bucket) to .env. Until then the record button doesn't show."
         },
         "themes": {
             "title": "Chat themes",
@@ -3205,6 +3216,32 @@
             "portals": "Portals",
             "saved": "Category saved.",
             "confirm_delete": "Delete \"{name}\"? Its channels and portals stay, without a category."
+        },
+        "feature_rules": {
+            "title": "Features by country and city",
+            "hint": "Turn a chat feature on or off for a whole country or for one of its cities. A city's rule beats its country's, and no rule means on. The app learns the city from the phone's location (only the city is kept); without it, the country's rule applies. Where calls are off, voice rooms and lives are off too.",
+            "add": "Add a rule",
+            "all": "All",
+            "feature": "Feature",
+            "country": "Country",
+            "city": "City",
+            "whole_country": "The whole country",
+            "city_hint": "Cities come from the Discover city list.",
+            "state": "State",
+            "on": "On",
+            "off": "Off",
+            "note": "Note",
+            "note_hint": "Why (a licence, a pilot…)",
+            "empty": "No rules — every feature is on everywhere.",
+            "saved": "Rule saved",
+            "confirm_delete": "Delete this rule? The feature goes back to the next rule up (or on).",
+            "features": {
+                "calls": "Voice and video calls",
+                "voice_rooms": "Voice rooms",
+                "live": "Live broadcast",
+                "stories": "Stories",
+                "ai": "DORR AI in the chat"
+            }
         },
         "packages": {
             "title": "Subscription packages",

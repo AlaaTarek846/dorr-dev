@@ -276,7 +276,7 @@ private fun FollowPill(following: Boolean, busy: Boolean, onClick: () -> Unit) {
 private fun ChannelPreviewSheet(channel: ChannelCardDto, onDismiss: () -> Unit, onFollowed: (ConversationDto) -> Unit) {
     val host = LocalChat.current
     var busy by remember { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val pop = remember { Animatable(0.6f) }
             LaunchedEffect(Unit) { pop.animateTo(1f, spring(dampingRatio = 0.45f, stiffness = 300f)) }
@@ -326,7 +326,7 @@ fun ChannelCreateSheet(onDismiss: () -> Unit, onCreated: (ConversationDto) -> Un
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { photo = it ?: photo }
     val handleOk = handle.isEmpty() || Regex("^[a-z0-9_]{3,32}$").matches(handle)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(stringResource(R.string.ch_channel_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))

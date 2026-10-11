@@ -285,7 +285,7 @@ fun PollCard(m: UiMessage, mine: Boolean, onVote: (Int) -> Unit, onShowVotes: ()
 fun PollVotesSheet(message: MessageDto, onDismiss: () -> Unit) {
     var rows by remember { mutableStateOf<List<PollOptionVotersDto>?>(null) }
     LaunchedEffect(message.id) { rows = runCatching { ApiClient.chat.votes(chatAuth(), message.id).data }.getOrNull().orEmpty() }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.Poll, Ch.Red)
@@ -328,7 +328,7 @@ fun PollComposerSheet(onDismiss: () -> Unit, onSend: (question: String, options:
     var multiple by remember { mutableStateOf(false) }
     val filled = options.map { it.trim() }.filter { it.isNotEmpty() }.distinct()
     val ready = question.isNotBlank() && filled.size >= 2
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 620.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.Poll, Color(0xFFF59E0B))
@@ -563,7 +563,7 @@ private fun liveLabel(until: Long, now: Long): String {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LocationShareSheet(onDismiss: () -> Unit, onCurrent: () -> Unit, onLive: (Int) -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_attach_location), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
@@ -612,7 +612,7 @@ fun JoinGroupSheet(token: String, onDismiss: () -> Unit) {
             failed = e.apiFailure().message ?: ""
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 30.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             val p = preview
             when {
@@ -743,7 +743,7 @@ fun JoinRequestsSheet(conversationId: String, onDismiss: () -> Unit, onChanged: 
             }
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.HourglassTop, Color(0xFFF59E0B))

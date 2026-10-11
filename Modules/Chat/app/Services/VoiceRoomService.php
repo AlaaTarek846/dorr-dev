@@ -65,6 +65,9 @@ class VoiceRoomService
         if (! $settings->callsAllowedFor($me)) {
             throw new ChatException('calls_unavailable_country', 403);
         }
+        if (! app(ChatFeatures::class)->allows($me, 'voice_rooms')) {
+            throw new ChatException('feature_unavailable', 403);
+        }
         $room = $this->roomOf($me, $conversation);
         $mine = $this->conversations->participantOf($me, $conversation, true);
         $url = LiveKitToken::url() ?? throw ChatException::callsNotConfigured();

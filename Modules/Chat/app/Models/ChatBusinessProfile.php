@@ -28,6 +28,10 @@ class ChatBusinessProfile extends Model
         'away_mode',
         'hours',
         'timezone',
+        'about',
+        'address',
+        'email',
+        'website',
     ];
 
     protected function casts(): array
@@ -104,6 +108,10 @@ class ChatBusinessProfile extends Model
             'away_mode' => $this->away_mode ?: self::AWAY_OUTSIDE_HOURS,
             'hours' => self::normalizeHours($this->hours),
             'timezone' => $this->timezone ?: 'UTC',
+            'about' => $this->about,
+            'address' => $this->address,
+            'email' => $this->email,
+            'website' => $this->website,
         ];
     }
 
@@ -114,14 +122,21 @@ class ChatBusinessProfile extends Model
      */
     public function presentPublic(): ?array
     {
-        if (! $this->hasHours()) {
+        $card = array_filter(['about' => $this->about, 'address' => $this->address, 'email' => $this->email, 'website' => $this->website], fn ($v) => filled($v));
+        if (! $this->hasHours() && $card === []) {
             return null;
         }
 
-        return [
+        return ($this->hasHours() ? [
             'hours' => self::normalizeHours($this->hours),
             'timezone' => $this->timezone ?: 'UTC',
             'open_now' => $this->isOpenAt(now()),
+        ] : ['hours' => null, 'timezone' => null, 'open_now' => null]) + [
+            // The business card (backlog 111).
+            'about' => $this->about,
+            'address' => $this->address,
+            'email' => $this->email,
+            'website' => $this->website,
         ];
     }
 

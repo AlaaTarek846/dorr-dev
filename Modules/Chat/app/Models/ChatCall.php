@@ -51,6 +51,12 @@ class ChatCall extends Model
         return $this->hasMany(ChatCallParticipant::class, 'call_id');
     }
 
+    /** Its recordings (spec 92) — usually none, at most one asking or recording at a time. */
+    public function recordings(): HasMany
+    {
+        return $this->hasMany(ChatCallRecording::class, 'call_id');
+    }
+
     public function durationSeconds(): ?int
     {
         if ($this->answered_at === null) {

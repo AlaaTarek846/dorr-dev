@@ -39,6 +39,9 @@ class ChatPrivacySetting extends Model
         'call_hours',
         'qr_token',
         'last_seen_at',
+        'default_disappearing_seconds',
+        'silence_unknown_callers',
+        'status_except',
     ];
 
     /**
@@ -108,6 +111,9 @@ class ChatPrivacySetting extends Model
     protected function casts(): array
     {
         return [
+            // The city nearest the phone, for city rules (ChatFeatures) — never the coordinates.
+            'city_id' => 'integer',
+            'city_seen_at' => 'datetime',
             'last_seen' => PrivacyAudience::class,
             'profile_photo' => PrivacyAudience::class,
             'who_can_message' => PrivacyAudience::class,
@@ -129,6 +135,9 @@ class ChatPrivacySetting extends Model
             'contexts' => 'array',
             'always_through' => 'array',
             'call_hours' => 'array',
+            'default_disappearing_seconds' => 'integer',
+            'silence_unknown_callers' => 'boolean',
+            'status_except' => 'array',
         ];
     }
 

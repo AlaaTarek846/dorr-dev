@@ -88,12 +88,16 @@ object ChatViewers {
     var video by mutableStateOf<String?>(null)
     var pdf by mutableStateOf<PdfTarget?>(null)
 
+    /** A call whose recordings (the ones I agreed to) are listed — spec 92. */
+    var recordings by mutableStateOf<String?>(null)
+
     fun isPdf(name: String?, mime: String?): Boolean =
         mime == "application/pdf" || name?.endsWith(".pdf", ignoreCase = true) == true
 }
 
 @Composable
 fun ChatViewersHost() {
+    ChatViewers.recordings?.let { callId -> CallRecordingsSheet(callId) { ChatViewers.recordings = null } }
     ChatViewers.video?.let { url -> VideoPlayerDialog(url) { ChatViewers.video = null } }
     ChatViewers.pdf?.let { target -> PdfViewerDialog(target) { ChatViewers.pdf = null } }
 }

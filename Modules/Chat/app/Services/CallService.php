@@ -46,11 +46,12 @@ class CallService
     ) {}
 
     /**
-     * Start a call — or, in a group with a call already going, join that one instead.
+     * Start a call — or, in a group with a call already going, join that one instead
+     * (`$recordingConsent`: my yes, when that call is recording — spec 92).
      *
      * @return array{call: ChatCall, join: array<string, mixed>}
      */
-    public function start(Model $me, ChatConversation $conversation, CallType $type): array
+    public function start(Model $me, ChatConversation $conversation, CallType $type, bool $recordingConsent = false): array
     {
         $settings = ChatSetting::current();
 
@@ -81,7 +82,7 @@ class CallService
 
         if ($active !== null) {
             if ($conversation->isGroup()) {
-                return ['call' => $active, 'join' => $this->accept($me, $active)['join']];
+                return ['call' => $active, 'join' => $this->accept($me, $active, $recordingConsent)['join']];
             }
             throw ChatException::callBusy();
         }
@@ -107,7 +108,14 @@ class CallService
         // call is rolled back, and since ringing is sent after commit, no phone ever rings.
         $join = null;
 
-        $call = DB::transaction(function () use ($me, $mine, $conversation, $type, $others, &$join) {
+        // People who silence callers they never saved: their phone doesn't ring (WhatsApp list 60).
+        $silenced = $conversation->isGroup() ? collect() : $others->filter(function (ChatParticipant $p) use ($me) {
+            $account = $p->participant();
+
+            return $account !== null && $this->privacy->peek($account)->silence_unknown_callers && ! $this->privacy->hasInContacts($account, $me);
+        })->pluck('id');
+
+        $call = DB::transaction(function () use ($me, $mine, $conversation, $type, $others, $silenced, &$join) {
             $call = ChatCall::query()->create([
                 'conversation_id' => $conversation->id,
                 'type' => $type,
@@ -118,14 +126,15 @@ class CallService
             ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $mine->id, 'status' => CallParticipantStatus::Joined, 'joined_at' => now()]);
 
             foreach ($others as $other) {
-                ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $other->id, 'status' => CallParticipantStatus::Ringing]);
+                ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $other->id, 'status' => CallParticipantStatus::Ringing, 'silenced' => $silenced->contains($other->id)]);
             }
+            $ringing = $others->reject(fn (ChatParticipant $p) => $silenced->contains($p->id))->values();
 
             $join = $this->joinInfo($me, $mine, $call);
 
             $payload = $this->payload($me, $call) + ['caller' => $this->directory->profile($me, $mine->participant_type, $mine->participant_id)];
-            $this->broadcaster->toParticipants($others, 'chat.call.ringing', $payload);
-            $this->push->call((string) ($payload['caller']['account_name'] ?? ''), $type === CallType::Video, $others, [
+            $this->broadcaster->toParticipants($ringing, 'chat.call.ringing', $payload);
+            $this->push->call((string) ($payload['caller']['account_name'] ?? ''), $type === CallType::Video, $ringing, [
                 'event' => 'chat.call.ringing', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid, 'call_type' => $type->value,
             ], $mine->key());
 
@@ -136,9 +145,11 @@ class CallService
     }
 
     /**
+     * `$recordingConsent`: my yes to the recording, when the call is recording or asking to (spec 92).
+     *
      * @return array{call: ChatCall, join: array<string, mixed>}
      */
-    public function accept(Model $me, ChatCall $call): array
+    public function accept(Model $me, ChatCall $call, bool $recordingConsent = false): array
     {
         [$row, $callRow] = $this->rowsFor($me, $call);
 
@@ -148,6 +159,8 @@ class CallService
         if (! ChatSetting::current()->callsAllowedFor($me)) {
             throw new ChatException('calls_unavailable_country', 403);
         }
+        // A call that records: nobody joins it without agreeing.
+        $this->recordings()->assertMayJoin($call, $row, $recordingConsent);
 
         $join = DB::transaction(function () use ($me, $call, $row, $callRow) {
             $callRow->update(['status' => CallParticipantStatus::Joined, 'joined_at' => $callRow->joined_at ?? now(), 'left_at' => null]);
@@ -225,7 +238,12 @@ class CallService
             }
         });
 
-        return $call->refresh();
+        // The ones still in may all have agreed to the recording now.
+        if (! $call->refresh()->status->isFinal()) {
+            $this->recordings()->participantLeft($call);
+        }
+
+        return $call;
     }
 
     /**
@@ -233,13 +251,14 @@ class CallService
      *
      * @return array<string, mixed>
      */
-    public function token(Model $me, ChatCall $call): array
+    public function token(Model $me, ChatCall $call, bool $recordingConsent = false): array
     {
         [$row] = $this->rowsFor($me, $call);
 
         if ($call->status->isFinal()) {
             throw ChatException::callNotActive();
         }
+        $this->recordings()->assertMayJoin($call, $row, $recordingConsent);
 
         return $this->joinInfo($me, $row, $call);
     }
@@ -271,7 +290,7 @@ class CallService
 
         return ChatCall::query()
             ->whereIn('id', ChatCallParticipant::query()->whereIn('participant_id', $rows)->select('call_id'))
-            ->with(['conversation.group', 'conversation.participants', 'callParticipants'])
+            ->with(['conversation.group', 'conversation.participants', 'callParticipants', 'recordings'])
             ->latest('id')->paginate($perPage);
     }
 
@@ -293,6 +312,8 @@ class CallService
             'type' => $call->type->value,
             'status' => $call->status->value,
             'is_outgoing' => in_array($call->initiator_participant_id, $myRows, true),
+            // Didn't ring for me: an unknown caller, silenced by my setting.
+            'silenced' => (bool) $call->callParticipants->first(fn (ChatCallParticipant $cp) => in_array($cp->participant_id, $myRows, true))?->silenced,
             'initiator' => $initiator ? $this->directory->profile($viewer, $initiator->participant_type, $initiator->participant_id) : null,
             'participants' => $call->callParticipants->map(fn (ChatCallParticipant $cp) => [
                 'profile' => $cp->participant ? $this->directory->profile($viewer, $cp->participant->participant_type, $cp->participant->participant_id) : null,
@@ -302,7 +323,7 @@ class CallService
             'ended_at' => $call->ended_at?->toIso8601String(),
             'duration_seconds' => $call->durationSeconds(),
             'created_at' => $call->created_at?->toIso8601String(),
-        ];
+        ] + $this->recordings()->summary($call, $myRows); // spec 92: may it be recorded, what's asking / recording now, how many I can play
     }
 
     // ---------------------------------------------------------------- helpers
@@ -343,11 +364,18 @@ class CallService
         ];
     }
 
+    /** Call recording lives on its own (spec 92); resolved late, like CallLiveService. */
+    private function recordings(): CallRecordingService
+    {
+        return app(CallRecordingService::class);
+    }
+
     private function finish(ChatCall $call, CallStatus $status): void
     {
         $call->update(['status' => $status, 'ended_at' => now()]);
-        // Its live broadcast ends with it (spec 93).
+        // Its live broadcast ends with it (spec 93), and so does a recording (spec 92).
         app(CallLiveService::class)->callEnded($call);
+        $this->recordings()->callEnded($call);
 
         $call->callParticipants()->where('status', CallParticipantStatus::Ringing->value)
             ->update(['status' => CallParticipantStatus::Missed->value]);
@@ -368,18 +396,21 @@ class CallService
                 'call_type' => $call->type->value,
                 'status' => $status->value,
                 'duration_seconds' => $call->durationSeconds(),
-            ],
+            ] + ($this->recordings()->wasRecorded($call) ? ['recorded' => true] : []),
         ]);
         $this->messages->afterNewMessage($conversation, $message, $initiator, []);
 
         $this->broadcastState($call->refresh(), 'chat.call.ended', null);
 
         if (in_array($status, [CallStatus::Missed, CallStatus::Cancelled], true)) {
-            $missed = ChatParticipant::query()->whereIn('id', $call->callParticipants()->where('status', CallParticipantStatus::Missed->value)->pluck('participant_id'))->get();
+            $rows = $call->callParticipants()->where('status', CallParticipantStatus::Missed->value)->get(['participant_id', 'silenced']);
+            $missed = ChatParticipant::query()->whereIn('id', $rows->where('silenced', false)->pluck('participant_id'))->get();
             $caller = $initiator->participant();
-            $this->push->missedCall((string) ($caller->name ?? ''), $call->type === CallType::Video, $missed, [
-                'event' => 'chat.call.missed', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid,
-            ]);
+            $data = ['event' => 'chat.call.missed', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid];
+            $this->push->missedCall((string) ($caller->name ?? ''), $call->type === CallType::Video, $missed, $data);
+            // A silenced call: a quiet line only, so it's not a surprise in the call log.
+            $quiet = ChatParticipant::query()->whereIn('id', $rows->where('silenced', true)->pluck('participant_id'))->get();
+            $this->push->silencedCall((string) ($caller->name ?? ''), $quiet, $data);
         }
     }
 

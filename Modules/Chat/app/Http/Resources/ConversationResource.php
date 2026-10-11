@@ -90,6 +90,8 @@ class ConversationResource extends JsonResource
                 // Moderation: members wait this long between messages (0 = off); the banned
                 // words list is only shown to the admins who manage it.
                 'slow_mode_seconds' => (int) $group->slow_mode_seconds,
+                // A channel: the emojis followers may react with (null = any, [] = none).
+                'allowed_reactions' => $group->allowed_reactions,
                 'banned_words' => $me->isActive() && $me->isAdmin() ? array_values($group->banned_words ?? []) : null,
                 // The admins' badge; members don't see who's waiting.
                 'pending_join_requests' => $group->approve_joins && $me->isActive() && $me->isAdmin()
