@@ -79,13 +79,28 @@ class AiSiteProjectFlowTest extends TestCase
         {
             public string $answer = '';
 
+            public bool $firstModelRetired = false;
+
+            public array $called = [];
+
             protected function resolveTarget(): array
             {
-                return ['provider' => new AiProvider, 'model_key' => 'fake-model'];
+                return ['provider' => new AiProvider, 'model_key' => $this->firstModelRetired ? 'old-model' : 'fake-model'];
+            }
+
+            protected function resolveAlternative(array $skip): ?array
+            {
+                return in_array('new-model', $skip, true) ? null : ['provider' => new AiProvider, 'model_key' => 'new-model'];
             }
 
             protected function callModel(array $target, array $messages): array
             {
+                $this->called[] = $target['model_key'];
+
+                if ($target['model_key'] === 'old-model') {
+                    return ['success' => false, 'message' => 'The model `gpt-5-codex` has been deprecated, learn more', 'content' => null];
+                }
+
                 return ['success' => true, 'message' => '', 'content' => $this->answer];
             }
         };
@@ -255,6 +270,18 @@ class AiSiteProjectFlowTest extends TestCase
         $this->assertNotNull($project->current_version_id);
         $this->assertSame('completed', $project->currentVersion->status);
         Storage::disk('local')->assertExists($project->currentVersion->path().'/index.html');
+    }
+
+    public function test_a_retired_model_falls_back_to_another_one(): void
+    {
+        $this->generator->firstModelRetired = true;
+        $project = $this->build($this->planUser());
+
+        $version = $project->fresh()->versions()->latest('id')->first();
+
+        $this->assertSame('completed', $version->status);
+        $this->assertSame('new-model', $version->model_key);
+        $this->assertSame(['old-model', 'new-model'], $this->generator->called);
     }
 
     public function test_a_bad_edit_keeps_the_last_good_version_live(): void
