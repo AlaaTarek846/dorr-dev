@@ -1,5 +1,13 @@
 package com.dorr.app.ui.screens.aichat
 
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material3.Icon
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -99,9 +107,16 @@ internal fun SiteHostingCard(night: Boolean, ink: Color, mut: Color, surface: Co
         }
     }
 
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(14.dp)) {
-        Text(stringResource(R.string.ai_sites_hosting_title), color = ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-        Spacer(Modifier.height(8.dp))
+    val c = sitePalette()
+    SiteCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Ai.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Language, contentDescription = null, tint = Ai.Red, modifier = Modifier.size(20.dp))
+            }
+            Spacer(Modifier.width(10.dp))
+            Text(stringResource(R.string.ai_sites_hosting_title), color = ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+        }
+        Spacer(Modifier.height(12.dp))
 
         val info = plans
         val current = hosting
@@ -163,33 +178,64 @@ internal fun SiteHostingCard(night: Boolean, ink: Color, mut: Color, surface: Co
                 Text(stringResource(R.string.ai_sites_hosting_unavailable), color = mut, fontSize = 12.5.sp)
 
             else -> {
-                Text(stringResource(R.string.ai_sites_hosting_intro), color = mut, fontSize = 12.5.sp)
-                Spacer(Modifier.height(8.dp))
-                info.plans.filter { it.available }.forEach { plan ->
-                    val on = selected?.id == plan.id
+                Text(stringResource(R.string.ai_sites_hosting_intro), color = mut, fontSize = 12.5.sp, lineHeight = 19.sp)
+                Spacer(Modifier.height(12.dp))
+
+                val available = info.plans.filter { it.available }
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    available.forEach { plan ->
+                        val on = selected?.id == plan.id
+                        val shape = RoundedCornerShape(16.dp)
+                        Column(
+                            Modifier.weight(1f).clip(shape)
+                                .background(if (on) Ai.Red.copy(alpha = 0.1f) else c.field)
+                                .border(if (on) 1.5.dp else 1.dp, if (on) Ai.Red else c.line, shape)
+                                .clickable { selected = plan }.padding(14.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Box(
+                                    Modifier.size(18.dp).clip(CircleShape).border(2.dp, if (on) Ai.Red else c.mut, CircleShape),
+                                    contentAlignment = Alignment.Center,
+                                ) { if (on) Box(Modifier.size(8.dp).clip(CircleShape).background(Ai.Red)) }
+                                Spacer(Modifier.width(8.dp))
+                                Text(plan.name, color = ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+                            }
+                            Spacer(Modifier.height(10.dp))
+                            Text("${plan.price ?: ""}", color = if (on) Ai.Red else ink, fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
+                            Text(
+                                "${plan.currency.orEmpty()} / " +
+                                    stringResource(if (plan.period == "yearly") R.string.ai_sites_hosting_yearly else R.string.ai_sites_hosting_monthly),
+                                color = mut, fontSize = 11.5.sp,
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                SiteField(
+                    stringResource(R.string.ai_sites_hosting_name), name,
+                    { name = it.lowercase().trim(); nameOk = false; nameCheck = null },
+                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Uri,
+                )
+
+                // The address is always Latin: force LTR so the slashes and dots keep their order inside an RTL screen.
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                     Row(
-                        Modifier.fillMaxWidth().padding(vertical = 3.dp).clip(RoundedCornerShape(12.dp))
-                            .background(if (on) Ai.Red.copy(alpha = 0.15f) else Ai.Red.copy(alpha = 0.05f))
-                            .clickable { selected = plan }.padding(12.dp),
+                        Modifier.fillMaxWidth().padding(top = 4.dp).clip(RoundedCornerShape(12.dp)).background(c.field).padding(horizontal = 12.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(plan.name, color = ink, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Icon(Icons.Rounded.Language, contentDescription = null, tint = Ai.Red, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
                         Text(
-                            "${plan.price ?: ""} ${plan.currency.orEmpty()} / " +
-                                stringResource(if (plan.period == "yearly") R.string.ai_sites_hosting_yearly else R.string.ai_sites_hosting_monthly),
-                            color = Ai.Red, fontWeight = FontWeight.Bold, fontSize = 12.5.sp,
+                            if (info.mode == "subdomain") "${name.ifBlank { "name" }}.${info.domain.orEmpty()}" else "sites/${name.ifBlank { "name" }}",
+                            color = ink, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
                         )
                     }
                 }
 
-                SiteField(stringResource(R.string.ai_sites_hosting_name), name, { name = it.lowercase().trim(); nameOk = false; nameCheck = null })
-                Text(
-                    if (info.mode == "subdomain") "${name.ifBlank { "name" }}.${info.domain.orEmpty()}" else "/sites/${name.ifBlank { "name" }}",
-                    color = mut, fontSize = 11.5.sp,
-                )
-
-                nameCheck?.let { Text(it, color = if (nameOk) Color(0xFF16A34A) else Color(0xFFDC2626), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp)) }
-                Spacer(Modifier.height(8.dp))
+                nameCheck?.let { Text(it, color = if (nameOk) c.success else c.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp)) }
+                if (nameOk) Text(stringResource(R.string.ai_sites_hosting_name_ok), color = c.success, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 8.dp))
+                Spacer(Modifier.height(14.dp))
 
                 val plan = selected
                 if (!nameOk) {
@@ -208,11 +254,12 @@ internal fun SiteHostingCard(night: Boolean, ink: Color, mut: Color, surface: Co
                     PrimaryButton(stringResource(R.string.ai_sites_hosting_subscribe), enabled = !busy && plan != null) {
                         if (plan != null) askPin(HostingPin.Subscribe(plan, name))
                     }
+                    if (plan == null) Text(stringResource(R.string.ai_sites_hosting_pick_plan), color = mut, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp))
                 }
             }
         }
 
-        error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp)) }
+        error?.let { Text(it, color = c.danger, fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp)) }
     }
 
     if (noPin) {

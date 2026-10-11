@@ -2,6 +2,7 @@
 
 namespace Modules\AI\Services\Sites;
 
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Modules\AI\Exceptions\AiSiteException;
 use Modules\AI\Models\AiProvider;
@@ -57,7 +58,36 @@ class AiSiteGenerationService
                 ? $this->prompts->forEdit((array) $project->brief, $base, (string) $version->instruction)
                 : $this->prompts->forGenerate((array) $project->brief);
 
+            $startedAt = microtime(true);
+            Log::info('ai.site_generation_started', [
+                'version_id' => $version->id, 'number' => $version->number, 'kind' => $version->kind,
+                'model' => $target['model_key'], 'prompt_bytes' => strlen((string) json_encode($messages)),
+            ]);
             $result = $this->callModel($target, $messages);
+
+            // A model that was retired or renamed at the provider ("gpt-5-codex has been deprecated") would
+            // otherwise fail every build while other registered models work: try the next coding-capable one.
+            $skip = [];
+
+            while (! ($result['success'] ?? false) && $this->modelIsUnavailable((string) ($result['message'] ?? '')) && count($skip) < 3) {
+                $skip[] = $target['model_key'];
+                Log::warning('ai.site_model_unavailable', ['model' => $target['model_key'], 'message' => Str::limit((string) ($result['message'] ?? ''), 300)]);
+
+                $alternative = $this->resolveAlternative($skip);
+
+                if ($alternative === null) {
+                    break;
+                }
+
+                $target = $alternative;
+                $result = $this->callModel($target, $messages);
+            }
+
+            Log::info('ai.site_generation_model_replied', [
+                'version_id' => $version->id, 'success' => (bool) ($result['success'] ?? false),
+                'seconds' => round(microtime(true) - $startedAt, 1), 'bytes' => strlen((string) ($result['content'] ?? '')),
+                'message' => Str::limit((string) ($result['message'] ?? ''), 300),
+            ]);
 
             if (! $result['success'] || blank($result['content'] ?? null)) {
                 $version->forceFill(['error_message' => Str::limit((string) ($result['message'] ?? ''), 500)])->save();
@@ -95,10 +125,22 @@ class AiSiteGenerationService
                 'current_version_id' => $version->id,
                 'last_error' => null,
             ])->save();
+            Log::info('ai.site_generation_completed', ['version_id' => $version->id, 'files' => count($written['manifest']), 'bytes' => $written['total']]);
         } catch (AiSiteException $e) {
+            // Failures used to be silent (only a short code reached the customer), which made a slow or
+            // rejected model call impossible to diagnose from the log.
+            Log::warning('ai.site_generation_failed', [
+                'version_id' => $version->id,
+                'kind' => $version->kind,
+                'reason' => $e->reason,
+                'detail' => $version->fresh()?->error_message,
+                'model' => $target['model_key'] ?? null,
+                'seconds' => isset($startedAt) ? round(microtime(true) - $startedAt, 1) : null,
+            ]);
             $this->fail($version, $project, $e->reason);
         } catch (\Throwable $e) {
             report($e);
+            Log::warning('ai.site_generation_error', ['version_id' => $version->id, 'kind' => $version->kind, 'error' => $e->getMessage()]);
             $version->forceFill(['error_message' => Str::limit($e->getMessage(), 500)])->save();
             $this->fail($version, $project, 'generation_failed');
         }
@@ -128,6 +170,46 @@ class AiSiteGenerationService
         if ($wasCounted && $project->access_type === AiSiteProject::ACCESS_PURCHASE && $project->purchase !== null) {
             $this->entitlements->refundPurchase($project->purchase);
         }
+    }
+
+    /** True when the provider says the model itself is gone/retired/unknown (not a transient or content error). */
+    protected function modelIsUnavailable(string $message): bool
+    {
+        return preg_match('/deprecat|decommission|no longer (available|supported)|does not exist|model_not_found|not found|unknown model|invalid model|retired/i', $message) === 1;
+    }
+
+    /**
+     * Another usable model (coding-capable first, then any chat model) that is not in $skip.
+     *
+     * @param  list<string>  $skip  model keys already tried
+     * @return array{provider: AiProvider, model_key: string}|null
+     */
+    protected function resolveAlternative(array $skip): ?array
+    {
+        foreach ([['coding'], []] as $required) {
+            foreach ($this->providers->all() as $provider) {
+                if (! $provider->isUsableForChat()) {
+                    continue;
+                }
+
+                $model = $provider->activeModels()->get()->first(
+                    fn ($m) => ! in_array($m->model_key, $skip, true) && ($required === [] ? $m->hasAllCapabilities(['chat']) : $m->hasAllCapabilities($required)),
+                );
+
+                if ($model === null) {
+                    continue;
+                }
+
+                $clone = tap(clone $provider, function (AiProvider $p) use ($model) {
+                    $p->model = $model->model_key;
+                    $p->max_tokens = (int) config('ai.sites.max_output_tokens', 16000);
+                });
+
+                return ['provider' => $clone, 'model_key' => $model->model_key];
+            }
+        }
+
+        return null;
     }
 
     /**
