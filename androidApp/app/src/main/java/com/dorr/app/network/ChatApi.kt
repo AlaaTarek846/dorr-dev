@@ -169,7 +169,7 @@ interface ChatApi {
 
     /** My personal status: `emoji?`, `text?`, `until?` (ISO), `audience?` (everyone · contacts · nobody). */
     @PUT("mobile/v1/chat/status")
-    suspend fun setStatus(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<PrivacyDto>
+    suspend fun setStatus(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<PrivacyDto>
 
     @DELETE("mobile/v1/chat/status")
     suspend fun clearStatus(@Header("Authorization") auth: String): ApiEnvelope<PrivacyDto>
@@ -384,6 +384,14 @@ interface ChatApi {
 
     @GET("mobile/v1/chat/ai")
     suspend fun aiCapabilities(@Header("Authorization") auth: String): ApiEnvelope<AiCapabilitiesDto>
+
+    /** What's on where I am (the admin's rules by country and city). */
+    @GET("mobile/v1/chat/features")
+    suspend fun features(@Header("Authorization") auth: String): ApiEnvelope<ChatFeaturesDto>
+
+    /** `{latitude, longitude}` — the server keeps only the nearest city. */
+    @PUT("mobile/v1/chat/location")
+    suspend fun locate(@Header("Authorization") auth: String, @Body body: com.google.gson.JsonObject): ApiEnvelope<ChatFeaturesDto>
 
     /** Into my language unless `to` says another (ar, en, fr…). */
     @POST("mobile/v1/chat/messages/{id}/translate")
@@ -631,6 +639,8 @@ data class MyStatusDto(
     val text: String? = null,
     val until: String? = null,
     val audience: String = "contacts",
+    /** Hidden from these people (participant keys). */
+    val except: List<String> = emptyList(),
     val active: Boolean = false,
 )
 
@@ -1034,6 +1044,10 @@ data class PrivacyDto(
     @SerializedName("who_can_urgent") val whoCanUrgent: String? = null,
     val status: MyStatusDto? = null,
     @SerializedName("privacy_mode") val privacyMode: PrivacyModeDto? = null,
+    /** New chats I start disappear after this (null = off). */
+    @SerializedName("default_disappearing_seconds") val defaultDisappearingSeconds: Int? = null,
+    /** Calls from people I never saved don't ring. */
+    @SerializedName("silence_unknown_callers") val silenceUnknownCallers: Boolean = false,
 )
 
 /** Privacy mode: on now (until a time, or by the daily schedule), and the schedule. */
@@ -1144,6 +1158,8 @@ data class CallDto(
     val recording: CallRecordingStateDto? = null,
     /** Recordings of this call I agreed to (and can play). */
     @SerializedName("recordings_count") val recordingsCount: Int = 0,
+    /** Didn't ring for me: an unknown caller, silenced by my setting. */
+    val silenced: Boolean = false,
 )
 
 /**
@@ -1248,3 +1264,8 @@ data class ConversationCircleDto(
 data class ThreadInfoDto(val count: Int, @SerializedName("last_at") val lastAt: String? = null)
 
 data class QuietDto(val on: Boolean = false, val schedule: PrivacyScheduleDto? = null, val scope: String = "all")
+
+data class FeatureCityDto(val id: Int = 0, val name: String? = null)
+
+/** `features`: calls · voice_rooms · live · stories · ai → on / off where I am. */
+data class ChatFeaturesDto(val features: Map<String, Boolean> = emptyMap(), val city: FeatureCityDto? = null)

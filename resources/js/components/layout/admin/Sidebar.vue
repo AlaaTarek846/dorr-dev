@@ -790,6 +790,7 @@ const chatAdminItems = [
     { route: 'admin.chat.portals', permission: 'chat-portals.view', icon: 'ri-store-2-line', label: 'chat.portals.title' },
     { route: 'admin.chat.packages', permission: 'chat-packages.view', icon: 'ri-vip-crown-2-line', label: 'chat.packages.title' },
     { route: 'admin.chat.categories', permission: 'chat-categories.view', icon: 'ri-price-tag-3-line', label: 'chat.categories.title' },
+    { route: 'admin.chat.feature-rules', permission: 'chat-settings.view', icon: 'ri-map-pin-range-line', label: 'chat.feature_rules.title' },
     { route: 'admin.chat.themes', permission: 'chat-themes.view', icon: 'ri-palette-line', label: 'chat.themes.title' },
     { route: 'admin.chat.stickers', permission: 'chat-stickers.view', icon: 'ri-emotion-sticker-line', label: 'chat.stickers.title' },
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },

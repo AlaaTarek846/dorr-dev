@@ -38,6 +38,9 @@ class CallLiveService
 
     public function start(Model $me, ChatCall $call, ?string $title, string $audience): ChatCallLive
     {
+        if (! app(ChatFeatures::class)->allows($me, 'live')) {
+            throw new ChatException('feature_unavailable', 403);
+        }
         $conversation = $call->conversation;
         $mine = $this->conversations->participantOf($me, $conversation, true);
         $inCall = $call->callParticipants()->where('participant_id', $mine->id)->where('status', CallParticipantStatus::Joined->value)->exists();
@@ -91,7 +94,8 @@ class CallLiveService
     {
         $live = $this->byToken($token);
         $this->assertMayWatch($me, $live);
-        if (! $live->isLive()) {
+        // Lives switched off where the viewer is: they see it's on, but can't join.
+        if (! $live->isLive() || ! app(ChatFeatures::class)->allows($me, 'live')) {
             return ['live' => $this->present($me, $live), 'join' => null];
         }
         $type = ParticipantType::aliasFor($me);

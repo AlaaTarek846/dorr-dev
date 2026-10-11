@@ -16,6 +16,9 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
     Route::middleware('auth:admin_api')->group(function () {
         Route::get('chat-settings', [ChatSettingController::class, 'show']);
         Route::put('chat-settings', [ChatSettingController::class, 'update']);
+        // Features on or off by country or city.
+        Route::get('chat-feature-rules/options', [\Modules\Chat\Http\Controllers\Admin\ChatFeatureRuleController::class, 'options']);
+        Route::apiResource('chat-feature-rules', \Modules\Chat\Http\Controllers\Admin\ChatFeatureRuleController::class)->except(['show']);
 
         // POST for update: multipart (wallpaper upload).
         Route::get('chat-themes', [ChatThemeController::class, 'index']);

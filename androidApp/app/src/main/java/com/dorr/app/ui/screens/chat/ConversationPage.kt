@@ -324,7 +324,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
             }
             PinnedBanner(state) { jumpTo(it) }
             // A group's voice room with people in it (spec 91).
-            if (state.conversation?.isGroup == true) VoiceRoomBar(state.id, state.conversation?.title)
+            if (state.conversation?.isGroup == true && com.dorr.app.chat.ChatFeatures.allows("voice_rooms")) VoiceRoomBar(state.id, state.conversation?.title)
             SummarizePill(summaryOffered && ChatAi.summarize) { summaryOffered = false; summaryOpen = true }
             // Someone I haven't saved: "Add" (then they see my stories too).
             c?.let { NotInContactsBanner(it) { fresh -> state.conversation = fresh; host.upsert(fresh) } }
@@ -504,7 +504,7 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
             .clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Ch.HeaderBrush),
     ) {
         Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 10.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack, size = 38.dp) { host.pop() }
+            ChBack(onBack = { host.pop() }, size = 38.dp, logoWidth = 44.dp)
             Spacer(Modifier.width(8.dp))
             Row(
                 Modifier.weight(1f).clip(RoundedCornerShape(16.dp)).clickable { host.push(ChRoute.Info(state.id)) }.padding(vertical = 2.dp),
@@ -548,7 +548,7 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
             GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
             Spacer(Modifier.width(6.dp))
             // The group's standing voice room (spec 91).
-            if (c != null && c.isGroup && !c.isRequest && c.canCall != false) {
+            if (c != null && c.isGroup && !c.isRequest && c.canCall != false && com.dorr.app.chat.ChatFeatures.allows("voice_rooms")) {
                 val host = LocalChat.current
                 GlassIcon(Icons.Rounded.GraphicEq, size = 38.dp) { host.push(ChRoute.VoiceRoom(state.id, c.title)) }
                 Spacer(Modifier.width(6.dp))
@@ -747,7 +747,7 @@ internal fun MediaViewer(message: MessageDto, start: Int, onClose: () -> Unit) {
 private fun MessageInfoSheet(message: MessageDto, onDismiss: () -> Unit) {
     var info by remember { mutableStateOf<com.dorr.app.network.MessageInfoDto?>(null) }
     LaunchedEffect(message.id) { info = runCatching { ApiClient.chat.info(chatAuth(), message.id).data }.getOrNull() }
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_message_info), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))

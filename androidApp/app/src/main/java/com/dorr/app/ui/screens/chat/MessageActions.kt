@@ -305,7 +305,7 @@ private fun ActionRow(icon: ImageVector, text: String, danger: Boolean = false, 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>, danger: Boolean = false, subtitle: String? = null, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
             Text(title, color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             subtitle?.let { Text(it, color = Ch.Mut, fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp)) }
@@ -330,7 +330,7 @@ internal fun ChoiceSheet(title: String, options: List<Pair<String, () -> Unit>>,
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EmojiSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         LazyVerticalGrid(GridCells.Fixed(8), Modifier.fillMaxWidth().heightIn(max = 360.dp).padding(horizontal = 12.dp).padding(bottom = 24.dp)) {
             items(MoreReactions) { emoji ->
                 Box(Modifier.size(44.dp).clip(CircleShape).clickable { onPick(emoji) }, contentAlignment = Alignment.Center) { Text(emoji, fontSize = 26.sp) }
@@ -345,7 +345,7 @@ private fun EmojiSheet(onDismiss: () -> Unit, onPick: (String) -> Unit) {
 private fun ForwardSheet(exclude: String, onDismiss: () -> Unit, onSend: (List<String>) -> Unit) {
     val host = LocalChat.current
     val selected = remember { mutableStateListOf<String>() }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.ch_forward_to), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))

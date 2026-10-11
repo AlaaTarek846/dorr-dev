@@ -531,6 +531,12 @@ export default [
                 meta: { middleware: [auth], permission: 'chat-settings.view' },
             },
             {
+                path: 'chat/feature-rules',
+                name: 'admin.chat.feature-rules',
+                component: page('chat/feature-rules/index'),
+                meta: { middleware: [auth], permission: 'chat-settings.view' },
+            },
+            {
                 path: 'chat/themes',
                 name: 'admin.chat.themes',
                 component: page('chat/themes/index'),

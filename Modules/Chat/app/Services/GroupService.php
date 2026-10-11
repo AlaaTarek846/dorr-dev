@@ -61,7 +61,8 @@ class GroupService
                 'status' => ConversationStatus::Accepted,
                 'created_by_type' => ParticipantType::aliasFor($me),
                 'created_by_id' => $me->getKey(),
-                'disappearing_seconds' => $disappearingSeconds,
+                // Picked for this group, else my default timer (WhatsApp list 58).
+                'disappearing_seconds' => $disappearingSeconds ?? app(ChatPrivacy::class)->peek($me)->default_disappearing_seconds,
             ]);
 
             $group = ChatGroup::query()->create([

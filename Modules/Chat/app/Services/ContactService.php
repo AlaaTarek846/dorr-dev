@@ -167,12 +167,32 @@ class ContactService
     }
 
     /**
+     * "Click to chat" (backlog 130): my QR's payload and a web link with a message ready to send.
+     *
+     * @return array{token: string, payload: string, link: string, text: ?string}
+     */
+    public function chatLink(Model $me, ?string $text): array
+    {
+        $token = $this->privacy->qrToken($me);
+        $query = filled($text) ? '?text='.rawurlencode(trim((string) $text)) : '';
+
+        return [
+            'token' => $token,
+            'payload' => config('chat.qr_prefix').$token.$query,
+            'link' => url('/c/'.$token).$query,
+            'text' => filled($text) ? trim((string) $text) : null,
+        ];
+    }
+
+    /**
      * Who is behind a scanned chat QR code.
      */
     public function resolveQr(Model $me, string $payload): Model
     {
         $prefix = (string) config('chat.qr_prefix');
         $token = str_starts_with($payload, $prefix) ? substr($payload, strlen($prefix)) : $payload;
+        // A "click to chat" link carries a ready message after the token (?text=…).
+        $token = strtok($token, '?') ?: '';
 
         $setting = $token !== '' ? ChatPrivacySetting::query()->where('qr_token', $token)->first() : null;
 

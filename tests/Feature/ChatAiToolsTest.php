@@ -42,6 +42,9 @@ class ChatAiToolsTest extends TestCase
 
     private string $classification = '{"domain": "none", "specific": false}';
 
+    /** What DORR AI's verifier says (null: the reply itself, which reads as nothing to check). */
+    private ?string $verdict = null;
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -66,7 +69,13 @@ class ChatAiToolsTest extends TestCase
             'api.openai.com/v1/chat/completions' => function ($request) {
                 $system = (string) ($request['messages'][0]['content'] ?? '');
 
-                return Http::response(['choices' => [['message' => ['content' => str_starts_with($system, 'You classify a request') ? $this->classification : $this->reply]]]]);
+                $content = match (true) {
+                    str_starts_with($system, 'You classify a request') => $this->classification,
+                    str_starts_with($system, 'You are a strict fact-checking verifier') && $this->verdict !== null => $this->verdict,
+                    default => $this->reply,
+                };
+
+                return Http::response(['choices' => [['message' => ['content' => $content]]]]);
             },
             'api.onesignal.com/*' => Http::response(['id' => 'n1']),
         ]);
@@ -98,6 +107,31 @@ class ChatAiToolsTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.safety.domain', 'medicine')
             ->assertJsonPath('data.safety.notice', __('ai.safety.notice.medicine'));
+    }
+
+    public function test_the_assistant_answer_goes_through_the_dorr_ai_quality_gate(): void
+    {
+        $chat = $this->direct($this->alice, $this->bob);
+        $this->as($this->alice);
+        $ask = fn () => $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/assistant", ['question' => 'When was the company founded?'], $this->headers())->assertOk();
+
+        // Checked and fine: as it is.
+        $this->reply = '{"answer": "It was founded in 1998.", "refs": []}';
+        $this->verdict = '{"claims": [{"claim": "Founded in 1998", "supported": true, "confidence": 0.9}], "completeness": 0.9, "issues": []}';
+        $ask()->assertJsonPath('data.answer', 'It was founded in 1998.')->assertJsonPath('data.verification.status', 'passed')->assertJsonPath('data.verification.notice', null);
+
+        // Weak twice: sent back once with what was found, then shown with the "check it" notice.
+        $this->verdict = '{"claims": [{"claim": "Founded in 1998", "supported": true, "confidence": 0.6}, {"claim": "By two brothers", "supported": false, "confidence": 0.4}], "completeness": 0.8, "issues": ["The founders are not supported"]}';
+        $ask()->assertJsonPath('data.verification.status', 'unverified')->assertJsonPath('data.verification.notice', __('ai.verification_low_confidence_notice'));
+        Http::assertSent(fn ($r) => str_contains(json_encode($r->data(), JSON_UNESCAPED_UNICODE), 'The founders are not supported'));
+
+        // Very low confidence: held back, nothing referenced.
+        $this->verdict = '{"claims": [{"claim": "Founded in 1998", "supported": false, "confidence": 0.2}], "completeness": 0.3, "issues": ["Invented date"]}';
+        $ask()->assertJsonPath('data.verification.status', 'abstained')->assertJsonPath('data.answer', __('ai.verification_abstain_reply'))->assertJsonPath('data.references', []);
+
+        // The AI module's own switch turns the gate off.
+        config(['ai.chat.verification.enabled' => false]);
+        $ask()->assertJsonPath('data.verification', null)->assertJsonPath('data.answer', 'It was founded in 1998.');
     }
 
     public function test_proofreading_fixes_only_the_text_i_am_writing(): void

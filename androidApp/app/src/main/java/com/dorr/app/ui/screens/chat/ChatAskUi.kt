@@ -88,7 +88,7 @@ fun AiAskSheet(conversationId: String, messageIds: List<String>?, onDismiss: () 
     var error by remember { mutableStateOf<String?>(null) }
     val networkError = stringResource(R.string.ch_error_network)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             AiHeader(
                 stringResource(R.string.ch_ai_ask),
@@ -126,6 +126,8 @@ fun AiAskSheet(conversationId: String, messageIds: List<String>?, onDismiss: () 
                         Text(a.answer, color = Ch.Ink, fontSize = 15.sp, lineHeight = 22.sp)
                         // DORR AI safety (spec 350–362): the approved card, when the question needs it.
                         SafetyCard(a.safety, Modifier.padding(top = 10.dp))
+                        // DORR AI's quality gate: a note when the answer couldn't be fully checked.
+                        VerificationNote(a.verification, Modifier.padding(top = 8.dp))
                         if (a.references.isNotEmpty()) {
                             Spacer(Modifier.height(10.dp))
                             Text(stringResource(R.string.ch_ai_ask_sources), color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold)
@@ -176,7 +178,7 @@ fun AiCommitmentsSheet(conversationId: String, onDismiss: () -> Unit, onJump: (S
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             AiHeader(stringResource(R.string.ch_ai_commitments), stringResource(R.string.ch_ai_commitments_sub))
             Spacer(Modifier.height(12.dp))

@@ -284,6 +284,8 @@ class ConversationService
                 'direct_key' => $key,
                 'created_by_type' => ParticipantType::aliasFor($me),
                 'created_by_id' => $me->getKey(),
+                // My default timer, if I set one (WhatsApp list 58).
+                'disappearing_seconds' => $this->privacy->peek($me)->default_disappearing_seconds,
             ]);
 
             $mine = $this->addParticipant($conversation, $me, ParticipantRole::Member);

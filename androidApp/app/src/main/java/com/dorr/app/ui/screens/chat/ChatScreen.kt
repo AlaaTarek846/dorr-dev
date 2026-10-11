@@ -60,6 +60,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.res.stringResource
+import com.dorr.app.R
+import kotlinx.coroutines.launch
 
 /**
  * The chat, as one visit: a stack of pages that slide over each other (a conversation comes in
@@ -96,6 +99,40 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
 
     // Which AI tools the server offers (the ✨ buttons only show for those).
     LaunchedEffect(Unit) { ChatAi.load() }
+    // What's on where I am (country / city rules) — the city from the phone's approximate
+    // location, asked for once after our own explanation.
+    val featureContext = androidx.compose.ui.platform.LocalContext.current
+    val featureScope = rememberCoroutineScope()
+    var explainLocation by remember { mutableStateOf(false) }
+    val locationAsk = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) {
+        com.dorr.app.chat.ChatFeatures.forceLocate(featureContext)
+        featureScope.launch { com.dorr.app.chat.ChatFeatures.refresh(featureContext) }
+    }
+    LaunchedEffect(Unit) {
+        com.dorr.app.chat.ChatFeatures.refresh(featureContext)
+        if (com.dorr.app.chat.ChatFeatures.shouldAsk(featureContext)) explainLocation = true
+    }
+    if (explainLocation) {
+        ChoiceSheet(
+            title = stringResource(R.string.cf_location_title),
+            subtitle = stringResource(R.string.cf_location_sub),
+            options = listOf(
+                stringResource(R.string.cf_location_ok) to {
+                    explainLocation = false
+                    com.dorr.app.chat.ChatFeatures.markAsked(featureContext)
+                    locationAsk.launch(android.Manifest.permission.ACCESS_COARSE_LOCATION)
+                },
+                stringResource(R.string.cf_location_later) to {
+                    explainLocation = false
+                    com.dorr.app.chat.ChatFeatures.markAsked(featureContext)
+                },
+            ),
+            onDismiss = {
+                explainLocation = false
+                com.dorr.app.chat.ChatFeatures.markAsked(featureContext)
+            },
+        )
+    }
     // My reading and upload choices (spec 6, 13).
     ChatPrefs.load(androidx.compose.ui.platform.LocalContext.current)
 

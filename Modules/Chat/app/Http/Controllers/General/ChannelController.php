@@ -97,6 +97,24 @@ class ChannelController extends Controller
         return ApiResponse::success($this->channels->verification($request->user(), $conversation, $country), __('api.retrieved'));
     }
 
+    /** `{reactions: [emoji…] | null}` — null lets followers react with anything, [] with nothing. */
+    public function reactions(Request $request, ChatConversation $conversation)
+    {
+        $data = $request->validate(['reactions' => ['present', 'nullable', 'array', 'max:12'], 'reactions.*' => ['string', 'max:16']]);
+        $me = $request->user();
+        $this->channels->setReactions($me, $conversation, $data['reactions']);
+
+        return ApiResponse::success($this->conversations->show($me, $conversation->refresh()), __('api.updated'));
+    }
+
+    /** `days` 7 · 30 · 90 */
+    public function stats(Request $request, ChatConversation $conversation)
+    {
+        $data = $request->validate(['days' => ['sometimes', 'integer', 'in:7,30,90']]);
+
+        return ApiResponse::success($this->channels->stats($request->user(), $conversation, (int) ($data['days'] ?? 30)), __('api.retrieved'));
+    }
+
     public function handle(Request $request, ChatConversation $conversation)
     {
         $data = $request->validate(['handle' => ['present', 'nullable', 'string', 'max:40']]);

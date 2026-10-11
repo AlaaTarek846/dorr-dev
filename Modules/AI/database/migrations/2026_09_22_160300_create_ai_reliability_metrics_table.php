@@ -35,8 +35,8 @@ return new class extends Migration
                 ->nullOnDelete()
                 ->comment('الخطة اللي المقاييس دي محسوبة عليها');
 
-            $table->timestamp('period_start')->comment('بداية الفترة الزمنية اللي المقاييس دي بتغطيها');
-            $table->timestamp('period_end')->comment('نهاية الفترة الزمنية اللي المقاييس دي بتغطيها');
+            $table->dateTime('period_start')->comment('بداية الفترة الزمنية اللي المقاييس دي بتغطيها');
+            $table->dateTime('period_end')->comment('نهاية الفترة الزمنية اللي المقاييس دي بتغطيها');
 
             $table->decimal('success_rate', 5, 2)->default(0)->comment('نسبة الطلبات الناجحة خلال الفترة (%)');
             $table->decimal('error_rate', 5, 2)->default(0)->comment('نسبة الطلبات الفاشلة خلال الفترة (%)');

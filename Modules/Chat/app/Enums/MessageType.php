@@ -25,6 +25,8 @@ enum MessageType: string
     case WalletTransfer = 'wallet_transfer';
     case WalletQr = 'wallet_qr';
     case StoryReply = 'story_reply';
+    /** Someone mentioned me in their status (backlog 84): meta is the story's snapshot, like a reply's. */
+    case StoryMention = 'story_mention';
     case Call = 'call';
     /** A greeting card (DORR Moments): the occasion's look, words, voice, photos, a gift, maybe a surprise. */
     case MomentCard = 'moment_card';

@@ -24,6 +24,16 @@ class BroadcastController extends Controller
         return ApiResponse::success($rows->values(), __('api.retrieved'));
     }
 
+    /** `{folder_id, name?}` — the people of a folder's one-to-one chats (backlog 129). */
+    public function fromFolder(Request $request)
+    {
+        $data = $request->validate(['folder_id' => ['required', 'integer'], 'name' => ['nullable', 'string', 'max:100']]);
+        $me = $request->user();
+        $list = $this->broadcasts->fromFolder($me, (int) $data['folder_id'], $data['name'] ?? null);
+
+        return ApiResponse::created($this->broadcasts->present($me, $list, true), __('api.created'));
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([

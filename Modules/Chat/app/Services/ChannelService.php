@@ -269,6 +269,54 @@ class ChannelService
         }
     }
 
+    /**
+     * The emojis followers may react with: null = any, [] = none (backlog 110). Admins only.
+     *
+     * @param  list<string>|null  $emojis
+     */
+    public function setReactions(Model $me, ChatConversation $conversation, ?array $emojis): void
+    {
+        $this->assertChannelAdmin($me, $conversation);
+        $conversation->group->update(['allowed_reactions' => $emojis === null ? null : array_values(array_unique(array_filter($emojis, fn ($e) => is_string($e) && $e !== '')))]);
+        app(\Modules\Chat\Services\ChatBroadcaster::class)->toParticipants($conversation->activeParticipants()->get(), 'chat.conversation.updated', ['conversation_id' => $conversation->uuid]);
+    }
+
+    /**
+     * A channel's numbers for its admins (backlog 107): followers now, who came and went, posts,
+     * how many followers saw them (views are read receipts) and the posts seen most.
+     *
+     * @return array<string, mixed>
+     */
+    public function stats(Model $me, ChatConversation $conversation, int $days): array
+    {
+        $this->assertChannelAdmin($me, $conversation);
+        $since = now()->subDays($days);
+        $followers = $conversation->activeParticipants()->count();
+        $posts = $conversation->messages()->whereNotNull('sender_type')->whereNull('deleted_for_everyone_at')->where('created_at', '>=', $since)->get(['id', 'type', 'body', 'created_at']);
+        $views = \Modules\Chat\Models\ChatMessageReceipt::query()->whereIn('message_id', $posts->pluck('id'))->whereNotNull('read_at')
+            ->selectRaw('message_id, count(*) as views')->groupBy('message_id')->pluck('views', 'message_id');
+        $totalViews = (int) $views->sum();
+
+        return [
+            'days' => $days,
+            'followers' => $followers,
+            'joined' => $conversation->participants()->where('joined_at', '>=', $since)->count(),
+            'left' => $conversation->participants()->where('left_at', '>=', $since)->count(),
+            'posts' => $posts->count(),
+            'views' => $totalViews,
+            'average_views' => $posts->isEmpty() ? 0 : (int) round($totalViews / $posts->count()),
+            // Of the followers, how many a post reaches on average.
+            'reach_percent' => $posts->isEmpty() || $followers === 0 ? 0 : (int) min(100, round($totalViews / $posts->count() / $followers * 100)),
+            'top_posts' => $posts->sortByDesc(fn ($p) => $views[$p->id] ?? 0)->take(5)->map(fn ($p) => [
+                'id' => \Modules\Chat\Models\ChatMessage::query()->whereKey($p->id)->value('uuid'),
+                'type' => $p->type->value,
+                'preview' => \Illuminate\Support\Str::limit((string) $p->body, 80) ?: __('chat.preview.'.$p->type->value),
+                'views' => (int) ($views[$p->id] ?? 0),
+                'created_at' => $p->created_at?->toIso8601String(),
+            ])->values()->all(),
+        ];
+    }
+
     private function assertChannelAdmin(Model $me, ChatConversation $conversation): void
     {
         $this->assertChannel($conversation);
