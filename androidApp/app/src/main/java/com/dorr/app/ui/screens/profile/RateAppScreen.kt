@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -62,12 +63,13 @@ import kotlinx.coroutines.launch
 @Composable
 fun RateAppScreen(onBack: () -> Unit) {
     val context = LocalContext.current
+    val keyboard = LocalSoftwareKeyboardController.current
     val scope = rememberCoroutineScope()
     // Quarter-star steps: 1, 1.25, 1.5 ... 5 (0 = not chosen yet).
     var stars by remember { mutableFloatStateOf(0f) }
     var comment by remember { mutableStateOf("") }
-    // Each person rates the app once: the server says whether they already did.
     var alreadyRated by remember { mutableStateOf(false) }
+    var offeredStoreReview by remember { mutableStateOf(false) }
     var sending by remember { mutableStateOf(false) }
     val failed = stringResource(R.string.rate_failed)
 
@@ -78,12 +80,15 @@ fun RateAppScreen(onBack: () -> Unit) {
                     stars = it.stars.toFloat()
                     comment = it.comment.orEmpty()
                     alreadyRated = true
+                    if (it.stars >= 4.0) offeredStoreReview = true
                 }
             }
     }
     val accent = settingsAccent()
     val pickStars = stringResource(R.string.rate_pick_stars)
     val thanks = stringResource(R.string.rate_thanks)
+    val updated = stringResource(R.string.rate_updated)
+    val commentLength = stringResource(R.string.rate_comment_length)
 
     Box(Modifier.fillMaxSize()) {
         PinkBackdrop(Modifier.fillMaxSize())
@@ -117,7 +122,7 @@ fun RateAppScreen(onBack: () -> Unit) {
                 Spacer(Modifier.height(18.dp))
                 StarPicker(
                     value = stars,
-                    enabled = !alreadyRated,
+                    enabled = true,
                     activeColor = accent,
                     idleColor = settingsMut().copy(alpha = 0.45f),
                     onChange = { stars = it },
@@ -144,20 +149,10 @@ fun RateAppScreen(onBack: () -> Unit) {
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
                     )
-                    if (comment.isNotBlank()) {
-                        Text(
-                            comment,
-                            color = settingsInk(),
-                            fontSize = 14.sp,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
-                        )
-                    }
-                    return@Column
                 }
                 DorrTextField(
                     value = comment,
-                    onValueChange = { if (it.length <= 500) comment = it },
+                    onValueChange = { if (it.length <= 300) comment = it },
                     label = stringResource(R.string.rate_comment_label),
                     placeholder = stringResource(R.string.rate_comment_hint),
                     icon = Icons.Rounded.Notes,
@@ -165,25 +160,47 @@ fun RateAppScreen(onBack: () -> Unit) {
                     minLines = 4,
                     minHeight = 120.dp,
                 )
-                Spacer(Modifier.height(18.dp))
-                SettingsPrimaryButton(text = stringResource(R.string.rate_submit)) {
+                Text(
+                    "${comment.trim().length} / 300",
+                    color = settingsMut(),
+                    fontSize = 12.sp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp, bottom = 4.dp),
+                )
+                Spacer(Modifier.height(14.dp))
+                SettingsPrimaryButton(
+                    text = stringResource(if (alreadyRated) R.string.rate_update else R.string.rate_submit),
+                    loading = sending,
+                ) {
                     if (sending) return@SettingsPrimaryButton
                     if (stars < 1f) {
                         Toast.makeText(context, pickStars, Toast.LENGTH_SHORT).show()
                         return@SettingsPrimaryButton
                     }
+                    val trimmed = comment.trim()
+                    if (trimmed.isNotEmpty() && trimmed.length !in 5..300) {
+                        Toast.makeText(context, commentLength, Toast.LENGTH_SHORT).show()
+                        return@SettingsPrimaryButton
+                    }
+                    keyboard?.hide()
                     sending = true
+                    val wasRated = alreadyRated
                     scope.launch {
                         runCatching {
                             ApiClient.ratings.submit(
                                 "Bearer ${AuthSession.token.orEmpty()}",
-                                SubmitRatingRequest(stars, comment.trim().ifBlank { null }),
+                                SubmitRatingRequest(stars, trimmed),
                             )
                         }.onSuccess { envelope ->
                             alreadyRated = true
-                            Toast.makeText(context, thanks, Toast.LENGTH_SHORT).show()
-                            // Only a saved 4–5 star rating invites the store review; 1–3 stay internal feedback.
-                            if (envelope.data?.promptStoreReview == true) context.findActivity()?.let { launchStoreReview(it) }
+                            comment = envelope.data?.comment.orEmpty()
+                            Toast.makeText(context, if (wasRated) updated else thanks, Toast.LENGTH_SHORT).show()
+                            // Play only the first time this rating becomes 4–5 stars.
+                            if (envelope.data?.promptStoreReview == true && !offeredStoreReview) {
+                                offeredStoreReview = true
+                                context.findActivity()?.let { launchStoreReview(it) }
+                            }
                         }.onFailure {
                             Toast.makeText(context, it.apiFailure().message ?: failed, Toast.LENGTH_SHORT).show()
                         }

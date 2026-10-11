@@ -15,15 +15,19 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.AdminPanelSettings
 import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.AutoAwesome
@@ -203,166 +207,122 @@ internal fun rememberServicesLoader(
 private val serviceDisplayOrder = compareBy<ServiceDto>({ it.sortOrder }, { it.id })
 private val childDisplayOrder = compareBy<ServiceChildDto>({ it.sortOrder }, { it.id })
 
-/** Home preview of the dashboard services: the first few, with "view all" opening the full page. */
+/**
+ * Home preview of the dashboard services: a header ("Services" + a "View all" pill) over one horizontal row of small
+ * cards — the service's image when the API sends one, otherwise its icon. The full page opens from "View all".
+ */
 @Composable
 fun ServicesSection(
     onViewAll: () -> Unit,
     onOpenService: (ServiceDto, Color) -> Unit,
-    // Real, observed bug fix (2026-10-04): this preview grid (Home tab's
-    // own "services" section) used to route EVERY card - including "AI
-    // Assistant" - through onOpenService, landing on the generic
-    // ServiceDetailScreen instead of actually opening the assistant.
-    // ServicesScreen.kt (the full "Services" tab) already special-cases
-    // moduleName == "ai_assistant" the same way; this param lets the Home
-    // preview do the identical thing instead of duplicating that branch
-    // with no way to reach it. Defaults to null so any other caller of
-    // this composable keeps its previous behavior unchanged.
+    // Real, observed bug fix (2026-10-04): this preview (Home tab's own "services" section) used to route EVERY
+    // card - including "AI Assistant" - through onOpenService, landing on the generic ServiceDetailScreen instead
+    // of actually opening the assistant. ServicesScreen.kt (the full "Services" tab) special-cases
+    // moduleName == "ai_assistant" the same way; this param lets the Home preview do the identical thing.
+    // Defaults to null so any other caller of this composable keeps its previous behavior unchanged.
     onOpenAi: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val loader = rememberServicesLoader(homeDashboardOnly = true)
+    val accent = if (settingsNight()) AccountDark.accent else settingsAccent()
 
     Column(modifier = modifier) {
-        SectionHeader(
-            total = (loader.state as? ServicesState.Loaded)?.services?.size ?: 0,
-            onViewAll = onViewAll,
-        )
-        Spacer(Modifier.height(12.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.services_title),
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = settingsInk(),
+                modifier = Modifier.weight(1f),
+            )
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .clickable(onClick = onViewAll)
+                    .padding(start = 8.dp, end = 4.dp, top = 5.dp, bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(stringResource(R.string.home_stories_all), color = accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = accent, modifier = Modifier.size(18.dp))
+            }
+        }
 
         when (val s = loader.state) {
-            ServicesState.Loading -> ServicesSkeleton()
-            ServicesState.Error -> ServicesError(onRetry = loader.reload)
+            ServicesState.Loading -> ServicesRowSkeleton()
+            ServicesState.Error -> Box(Modifier.padding(horizontal = 20.dp)) { ServicesError(onRetry = loader.reload) }
             is ServicesState.Loaded -> if (s.services.isNotEmpty()) {
-                ServiceGrid(
-                    services = s.services.take(COLLAPSED_COUNT),
-                    onClick = { service, color ->
-                        if (service.moduleName == "ai_assistant" && onOpenAi != null) {
-                            onOpenAi()
-                        } else {
-                            onOpenService(service, color)
-                        }
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(total: Int, onViewAll: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            modifier = Modifier
-                .width(4.dp)
-                .height(20.dp)
-                .background(if (settingsNight()) AccountDark.accent else settingsAccent(), RoundedCornerShape(2.dp)),
-        )
-        Spacer(Modifier.width(8.dp))
-        Text(
-            stringResource(R.string.services_title),
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            color = settingsInk(),
-            modifier = Modifier.weight(1f),
-        )
-        if (total > COLLAPSED_COUNT) {
-            TextButton(onClick = onViewAll) {
-                Text(
-                    stringResource(R.string.services_view_all, total),
-                    color = if (settingsNight()) AccountDark.accent else settingsAccent(),
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ServiceGrid(services: List<ServiceDto>, onClick: (ServiceDto, Color) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        services.chunked(COLUMNS).forEachIndexed { rowIndex, row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                row.forEachIndexed { colIndex, service ->
-                    val index = rowIndex * COLUMNS + colIndex
-                    val color = palette[index % palette.size]
-                    ServiceTile(
-                        service = service,
-                        color = color,
-                        index = index,
-                        onClick = { onClick(service, color) },
-                        modifier = Modifier.weight(1f),
-                    )
+                LazyRow(
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    itemsIndexed(s.services, key = { _, service -> service.id }) { index, service ->
+                        val color = palette[index % palette.size]
+                        ServiceChip(
+                            service = service,
+                            color = color,
+                            onClick = {
+                                if (service.moduleName == "ai_assistant" && onOpenAi != null) onOpenAi() else onOpenService(service, color)
+                            },
+                        )
+                    }
                 }
-                // Keep the last row's tiles the same width as full rows.
-                repeat(COLUMNS - row.size) { Spacer(Modifier.weight(1f)) }
             }
         }
     }
 }
 
+/** One small service card: the image (or the icon when there is none) over its name. */
 @Composable
-private fun ServiceTile(
-    service: ServiceDto,
-    color: Color,
-    index: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val enter = remember(service.id) { Animatable(0f) }
-    LaunchedEffect(service.id) {
-        enter.animateTo(1f, tween(320, delayMillis = (index % COLUMNS + index / COLUMNS) * 45))
-    }
-
-    val shape = RoundedCornerShape(20.dp)
+private fun ServiceChip(service: ServiceDto, color: Color, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
     Column(
-        modifier = modifier
-            .alpha(enter.value)
-            .scale(0.92f + 0.08f * enter.value)
-            .then(
-                if (settingsNight()) Modifier
-                else Modifier.shadow(8.dp, shape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
-            )
+        modifier = Modifier
+            .width(88.dp)
             .clip(shape)
             .background(settingsCard())
-            .border(1.dp, if (settingsNight()) AccountDark.line else Color.Transparent, shape)
-            .clickable(onClick = onClick),
+            .border(1.dp, if (settingsNight()) AccountDark.line else settingsInk().copy(alpha = 0.10f), shape)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            ServiceMediaStrip(
-                image = service.image,
-                icon = serviceIcon(service.moduleName),
-                height = 76.dp,
-            )
-            val childCount = service.children?.size ?: 0
-            if (childCount > 0) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                        .size(20.dp)
-                        .background(if (settingsNight()) AccountDark.accent else settingsAccent(), CircleShape)
-                        .border(1.5.dp, settingsCard(), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text("$childCount", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                }
-            }
-        }
+        ServiceAvatar(service.image, serviceIcon(service.moduleName), color, size = 46)
+        Spacer(Modifier.height(6.dp))
         Text(
             service.name,
-            style = MaterialTheme.typography.bodySmall,
+            fontSize = 11.5.sp,
+            lineHeight = 14.sp,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
             maxLines = 2,
             minLines = 2,
             overflow = TextOverflow.Ellipsis,
             color = settingsInk(),
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 12.dp),
         )
+    }
+}
+
+@Composable
+private fun ServicesRowSkeleton() {
+    val pulse by rememberInfiniteTransition(label = "services-row").animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.9f,
+        animationSpec = infiniteRepeatable(tween(800, easing = LinearEasing), RepeatMode.Reverse),
+        label = "pulse",
+    )
+    Row(Modifier.padding(horizontal = 20.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        repeat(4) {
+            Box(
+                Modifier
+                    .width(88.dp)
+                    .height(98.dp)
+                    .alpha(pulse)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (settingsNight()) AccountDark.line else AppColors.border),
+            )
+        }
     }
 }
 

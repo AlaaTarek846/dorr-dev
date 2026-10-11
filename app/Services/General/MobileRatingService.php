@@ -8,12 +8,11 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Validation\ValidationException;
 use Modules\User\Models\User;
 
 /**
- * The mobile side of ratings. A person rates a given thing (the app, or an entity from [Rating::RATEABLES]) once:
- * a second attempt is refused, and the app shows the rating they already gave.
+ * The mobile side of ratings. One row per person per thing (the app, or an entity from [Rating::RATEABLES]):
+ * the first POST creates it, later POSTs update the same stars and comment.
  */
 class MobileRatingService
 {
@@ -40,9 +39,16 @@ class MobileRatingService
     {
         $rateable = $this->resolveRateable($data['rateable_type'] ?? null, $data['rateable_id'] ?? null);
         $uniqueKey = Rating::uniqueKeyFor($user, $rateable);
+        $stars = round((float) $data['stars'], 2);
+        $comment = array_key_exists('comment', $data)
+            ? (filled($data['comment']) ? trim((string) $data['comment']) : null)
+            : null;
+        $commentProvided = array_key_exists('comment', $data);
 
-        if (Rating::query()->where('unique_key', $uniqueKey)->exists()) {
-            throw $this->alreadyRated();
+        $existing = Rating::query()->where('unique_key', $uniqueKey)->first();
+
+        if ($existing !== null) {
+            return $this->persistUpdate($existing, $stars, $comment, $commentProvided);
         }
 
         try {
@@ -52,16 +58,29 @@ class MobileRatingService
                 'rateable_type' => $rateable?->getMorphClass(),
                 'rateable_id' => $rateable?->getKey(),
                 'unique_key' => $uniqueKey,
-                'stars' => round((float) $data['stars'], 2),
-                'type' => Rating::typeForStars((float) $data['stars']),
-                'comment' => filled($data['comment'] ?? null) ? trim((string) $data['comment']) : null,
+                'stars' => $stars,
+                'type' => Rating::typeForStars($stars),
+                'comment' => $comment,
             ]);
         } catch (UniqueConstraintViolationException) {
-            // Two taps at once: the database key decides.
-            throw $this->alreadyRated();
+            $existing = Rating::query()->where('unique_key', $uniqueKey)->firstOrFail();
+
+            return $this->persistUpdate($existing, $stars, $comment, $commentProvided);
         }
 
         return ApiResponse::success(new MobileRatingResource($rating), __('api.rating_saved'), 201);
+    }
+
+    private function persistUpdate(Rating $rating, float $stars, ?string $comment, bool $commentProvided): JsonResponse
+    {
+        $rating->stars = $stars;
+        $rating->type = Rating::typeForStars($stars);
+        if ($commentProvided) {
+            $rating->comment = $comment;
+        }
+        $rating->save();
+
+        return ApiResponse::success(new MobileRatingResource($rating->fresh()), __('api.rating_updated'));
     }
 
     private function resolveRateable(?string $alias, ?int $id): ?Model
@@ -73,12 +92,5 @@ class MobileRatingService
         $class = Rating::RATEABLES[$alias] ?? null;
 
         return $class !== null ? $class::query()->find($id) : null;
-    }
-
-    private function alreadyRated(): ValidationException
-    {
-        return ValidationException::withMessages([
-            'rating' => [__('api.rating_already_submitted')],
-        ]);
     }
 }

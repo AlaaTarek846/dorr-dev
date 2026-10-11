@@ -3,6 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
 
 /**
  * Coupons (decision 2026-10-06, docs/sports-plan.md §5.2): a discount — a percentage or a fixed
@@ -56,7 +57,7 @@ return new class extends Migration
         });
 
         if (Schema::hasTable('financial_categories')) {
-            (new \Modules\Wallet\Database\Seeders\FinancialCategorySeeder)->run();
+            (new FinancialCategorySeeder)->run();
         }
     }
 

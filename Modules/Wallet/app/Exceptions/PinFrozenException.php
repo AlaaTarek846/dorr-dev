@@ -2,10 +2,12 @@
 
 namespace Modules\Wallet\Exceptions;
 
+use Modules\Wallet\Services\WalletRecoveryService;
+
 /**
  * The wallet PIN is permanently frozen: a wrong attempt right after a temporary (15-minute) lock had
  * already been served once. Distinct from {@see PinLockedException} — a temporary lock lifts itself; this
- * one doesn't. The only way out is {@see \Modules\Wallet\Services\WalletRecoveryService::requestSecurityUnfreeze()}
+ * one doesn't. The only way out is {@see WalletRecoveryService::requestSecurityUnfreeze()}
  * (a selfie + an ID photo, reviewed by a person) — self-service recovery (password/birth date/e-mail/document)
  * is refused too while frozen, since the freeze exists precisely because whoever is holding the phone
  * couldn't prove they know the PIN.

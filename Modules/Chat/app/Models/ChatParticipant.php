@@ -107,7 +107,7 @@ class ChatParticipant extends Model
     }
 
     /** My privacy circle for this chat (spec 98). */
-    public function privacyCircle(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    public function privacyCircle(): BelongsTo
     {
         return $this->belongsTo(ChatPrivacyCircle::class, 'privacy_circle_id');
     }

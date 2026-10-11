@@ -43,8 +43,8 @@ class DeviceTrustService
     }
 
     /**
-     * @throws DeviceIdRequiredException  no X-Device-Id was sent — nothing to trust
-     * @throws ValidationException        wrong / expired / too many tries
+     * @throws DeviceIdRequiredException no X-Device-Id was sent — nothing to trust
+     * @throws ValidationException wrong / expired / too many tries
      */
     public function confirm(Model $owner, string $code, ?string $deviceId): void
     {

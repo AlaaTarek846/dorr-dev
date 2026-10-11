@@ -58,6 +58,15 @@ object ApiClient {
         .connectTimeout(20, TimeUnit.SECONDS)
         .readTimeout(90, TimeUnit.SECONDS)
         .writeTimeout(90, TimeUnit.SECONDS)
+        // Counts the requests under way (pull-to-refresh hides its indicator when they have all finished).
+        .addInterceptor { chain ->
+            RefreshCoordinator.requestStarted()
+            try {
+                chain.proceed(chain.request())
+            } finally {
+                RefreshCoordinator.requestFinished()
+            }
+        }
         // Connectivity signal first: a completed round-trip proves we are
         // online (clearing a stale offline state), while a failure before any
         // HTTP response — unknown host, refused/unreachable route — raises the

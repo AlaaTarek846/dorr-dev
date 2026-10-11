@@ -190,6 +190,7 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import useToast from '../../../../../../../composables/useToast';
 import useFormFields from '../../../../../../../composables/useFormFields';
 import useValidation from '../../../../../../../composables/useValidation';
+import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { formatDateTime } from '../../../../../../../utils/walletMoney';
@@ -355,5 +356,8 @@ async function reject() {
 }
 
 onMounted(() => fetch(1));
+
+// A clicked notification arrives as ?request=ID.
+useOpenFromQuery('request', (id) => open(id));
 onBeforeUnmount(releaseImages);
 </script>

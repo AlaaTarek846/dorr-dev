@@ -7,6 +7,7 @@ use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletDirection;
@@ -25,7 +26,7 @@ class WalletController extends Controller implements HasMiddleware
     ) {}
 
     /**
-     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     * @return list<Middleware>
      */
     public static function middleware(): array
     {

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,7 +61,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -265,7 +265,13 @@ fun MainScreen(
         // consumeWindowInsets: the tab bar already covers the navigation-bar area, so pages below
         // it (chat composer, stories reply, buttons) must not add the system bars / keyboard a
         // second time — that is what pushed the chat button under the phone's buttons before.
-        Box(Modifier.padding(padding).consumeWindowInsets(padding)) {
+        // The page runs on under the bar's headroom (the band above the bar, either side of the "+" button), so that band is
+        // transparent — the page shows through — instead of the screen's plain background.
+        val contentPadding = PaddingValues(
+            top = padding.calculateTopPadding(),
+            bottom = (padding.calculateBottomPadding() - BOTTOM_BAR_HEADROOM).coerceAtLeast(0.dp),
+        )
+        Box(Modifier.padding(contentPadding).consumeWindowInsets(padding)) {
             AnimatedContent(
                 targetState = currentTab,
                 label = "mainTab",
@@ -275,6 +281,8 @@ fun MainScreen(
                     ContentTransform(enter, exit, sizeTransform = null)
                 },
             ) { tab ->
+                // Every tab (and the screens opened inside it) can be pulled down to reload what it shows.
+                com.dorr.app.ui.components.PullToRefreshHost {
                 when (tab) {
                     0 -> HomeScreen(
                         onOpenAccount = { currentTab = 3 },
@@ -309,6 +317,7 @@ fun MainScreen(
                     )
                     else -> PlaceholderScreen()
                 }
+                }
             }
             AnimatedVisibility(
                 visible = walletOpen,
@@ -321,9 +330,7 @@ fun MainScreen(
                     targetOffsetY = { it },
                 ) + fadeOut(animationSpec = tween(260)),
             ) {
-                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
-                    WalletScreen(onExit = { walletOpen = false })
-                }
+                OverlayCatchBehind { com.dorr.app.ui.components.PullToRefreshHost { WalletScreen(onExit = { walletOpen = false }) } }
             }
             // The chat sits above the tab bar, like the wallet — the home bar stays on every chat page.
             AnimatedVisibility(
@@ -331,7 +338,7 @@ fun MainScreen(
                 enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
                 exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
             ) {
-                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                OverlayCatchBehind {
                     com.dorr.app.ui.screens.chat.ChatScreen(
                         onExit = { chatOpen = false },
                         openWalletQr = { payload ->
@@ -349,7 +356,7 @@ fun MainScreen(
                 enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
                 exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
             ) {
-                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                OverlayCatchBehind {
                     com.dorr.app.ui.screens.aichat.AiChatHost(onExit = { aiChatOpen = false })
                 }
             }
@@ -457,6 +464,9 @@ private class GravityWellShape(private val wellWidth: Float, private val depth: 
     }
 }
 
+/** The transparent band above the bottom bar that the centre button rises into. */
+private val BOTTOM_BAR_HEADROOM = 26.dp
+
 @Composable
 private fun DorrBottomNavigationBar(
     currentTab: Int,
@@ -468,7 +478,7 @@ private fun DorrBottomNavigationBar(
     val barHeight = 64.dp
     val fabSize = 54.dp
     // Room above the bar for the button's top (it rises out of the well).
-    val headroom = 26.dp
+    val headroom = BOTTOM_BAR_HEADROOM
     val wellWidth = 156.dp
     // The gap between the button and the bottom of the well.
     val wellGap = 7.dp
@@ -653,18 +663,19 @@ private fun TabItem(
  * alone does not stop Compose from also dispatching a tap to whatever
  * clickable sits at the same screen position in that hidden tab content,
  * so a button inside the wallet/chat/AI screen could ALSO trigger
- * something behind it ("بدوس على اي حاجة في المساعد الذكي او الشات...
- * بيفتح حاجات تانية"). This swallows every pointer event anywhere in the
- * overlay's own bounds before it can reach a sibling underneath - applied
- * to the overlay's root Box, so its own buttons (deeper in the tree) still
- * get first crack at each gesture and work completely normally; only
- * whatever a descendant left unconsumed is absorbed here instead of
- * leaking through.
+ * something behind it. A clickable sits *behind* the overlay (not on
+ * the same node): leftover taps hit it, while scroll and buttons on
+ * top keep their pointer stream.
  */
-private fun Modifier.swallowClicksBehind(): Modifier = this.pointerInput(Unit) {
-    awaitPointerEventScope {
-        while (true) {
-            awaitPointerEvent().changes.forEach { it.consume() }
-        }
+@Composable
+private fun OverlayCatchBehind(content: @Composable () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = source, indication = null, onClick = {}),
+        )
+        content()
     }
 }

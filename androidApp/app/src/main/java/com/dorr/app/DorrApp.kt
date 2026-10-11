@@ -1,13 +1,17 @@
 package com.dorr.app
 
 import android.app.Application
+import android.os.Build
 import coil.ImageLoader
 import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
+import coil.decode.ImageDecoderDecoder
+import coil.decode.SvgDecoder
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AppearanceStore
 import com.dorr.app.network.AuthSession
-import com.dorr.app.network.DeviceId
 import com.dorr.app.network.CountryCache
+import com.dorr.app.network.DeviceId
 import com.dorr.app.network.OnboardingStore
 
 class DorrApp : Application(), ImageLoaderFactory {
@@ -20,8 +24,12 @@ class DorrApp : Application(), ImageLoaderFactory {
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
         .okHttpClient { ApiClient.okHttpClient }
         .components {
-            add(coil.decode.SvgDecoder.Factory())
-            if (android.os.Build.VERSION.SDK_INT >= 28) add(coil.decode.ImageDecoderDecoder.Factory()) else add(coil.decode.GifDecoder.Factory())
+            add(SvgDecoder.Factory())
+            if (Build.VERSION.SDK_INT >= 28) {
+                add(ImageDecoderDecoder.Factory())
+            } else {
+                add(GifDecoder.Factory())
+            }
         }
         .build()
 

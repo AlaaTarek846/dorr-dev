@@ -2,18 +2,20 @@
 
 namespace Modules\Chat\Models;
 
+use App\Traits\HasMediaTrait;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 use Modules\Chat\Support\ParticipantType;
+use Spatie\MediaLibrary\HasMedia;
 
 /**
  * A text message written now and sent at `send_at` by `chat:send-scheduled`.
  */
-class ChatScheduledMessage extends Model implements \Spatie\MediaLibrary\HasMedia
+class ChatScheduledMessage extends Model implements HasMedia
 {
-    use \App\Traits\HasMediaTrait;
+    use HasMediaTrait;
 
     public const PENDING = 'pending';
 

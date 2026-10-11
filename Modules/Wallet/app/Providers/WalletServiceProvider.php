@@ -4,11 +4,11 @@ namespace Modules\Wallet\Providers;
 
 use App\Models\Country;
 use Illuminate\Console\Scheduling\Schedule;
-use Nwidart\Modules\Support\ModuleServiceProvider;
 use Modules\Wallet\Console\ExpireStalePayments;
 use Modules\Wallet\Console\ReconcileWallets;
 use Modules\Wallet\Observers\WalletSettingObserver;
 use Modules\Wallet\Support\Payments\CheckoutPurposes;
+use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class WalletServiceProvider extends ModuleServiceProvider
 {
@@ -61,8 +61,6 @@ class WalletServiceProvider extends ModuleServiceProvider
 
     /**
      * Define module schedules.
-     *
-     * @param $schedule
      */
     protected function configureSchedules(Schedule $schedule): void
     {

@@ -7,6 +7,7 @@ use App\Support\Admin\AdminPermissionMiddleware;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
+use Illuminate\Routing\Controllers\Middleware;
 use Modules\Wallet\Http\Resources\OnlineTransactionResource;
 use Modules\Wallet\Models\PaymentTransaction;
 use Modules\Wallet\Services\OnlineTransactionService;
@@ -27,7 +28,7 @@ class OnlineTransactionController extends Controller implements HasMiddleware
     ) {}
 
     /**
-     * @return list<\Illuminate\Routing\Controllers\Middleware>
+     * @return list<Middleware>
      */
     public static function middleware(): array
     {

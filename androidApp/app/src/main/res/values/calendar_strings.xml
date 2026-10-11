@@ -4,6 +4,9 @@
     <string name="cal_home_count">%1$d things today</string>
     <string name="cal_home_free">Your day is free</string>
     <string name="cal_home_add">Tap to plan your day</string>
+    <string name="cal_home_label">Calendar</string>
+    <string name="cal_home_things">items</string>
+    <string name="cal_home_open">Open</string>
     <string name="cal_today">Today</string>
     <string name="cal_week">Week</string>
     <string name="cal_month">Month</string>
