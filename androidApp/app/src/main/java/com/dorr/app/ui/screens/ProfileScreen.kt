@@ -242,9 +242,9 @@ fun ProfileScreen(
         },
     ) { currentSub ->
         when (currentSub) {
-            ProfileSub.PERSONAL_DATA -> {
+        ProfileSub.PERSONAL_DATA -> {
                 val subContext = LocalContext.current
-                PersonalDataScreen(
+            PersonalDataScreen(
                     onBack = { subScreen = ProfileSub.NONE },
                     onSaved = { message -> Toast.makeText(subContext, message, Toast.LENGTH_SHORT).show() },
                 )
@@ -552,8 +552,8 @@ private fun ProfileMenuScreen(
                         )
                     }
                 }
-            }
-            Spacer(Modifier.height(12.dp))
+                }
+                Spacer(Modifier.height(12.dp))
         }
 
         item {
@@ -945,8 +945,8 @@ private fun MenuRow(entry: MenuEntry, mirrorChevron: Boolean = false, dark: Bool
         }
         Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                stringResource(entry.label),
+        Text(
+            stringResource(entry.label),
                 fontSize = 13.5.sp,
                 fontWeight = FontWeight.Bold,
                 color = if (entry.danger) settingsAccent() else settingsInk(),
@@ -1264,7 +1264,7 @@ private fun LanguageDialog(onDismiss: () -> Unit) {
                         Column(verticalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.padding(bottom = 14.dp)) {
                             shown.forEach { language ->
                                 val code = language.code.lowercase()
-                                LanguageOption(
+                LanguageOption(
                                     name = language.name,
                                     flag = languageFlagCode(language),
                                     selected = code == appLanguage.code.lowercase(),

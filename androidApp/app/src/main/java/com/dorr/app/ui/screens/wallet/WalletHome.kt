@@ -3,6 +3,7 @@ package com.dorr.app.ui.screens.wallet
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -38,16 +39,17 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.rounded.ContentCopy
-import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material.icons.rounded.PauseCircle
 import androidx.compose.material.icons.rounded.Public
-import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Icon
@@ -72,6 +74,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -83,6 +86,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.WalletBalanceDto
+import com.dorr.app.network.WalletCountry
 import com.dorr.app.network.WalletTransactionDto
 import com.dorr.app.network.collectReconnectTick
 import kotlinx.coroutines.delay
@@ -146,9 +150,6 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
     ) {
         val balance = host.balance
 
-        // Which wallet (country) I'm using — a tap shows my other wallets.
-        if (balance != null) WalletPickerCard(balance, Modifier.padding(bottom = 12.dp).waRise(0))
-
         Box(Modifier.waRise(0)) {
             if (balance != null) {
                 WaHeroCard(balance, host)
@@ -156,13 +157,22 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
                 WaSkeleton(Modifier.fillMaxWidth().height(172.dp), RoundedCornerShape(24.dp))
             }
         }
+        if (balance != null) {
+            val current = balance.countryCode?.uppercase()
+            val here = WalletCountry.here?.uppercase()
+            if (current != null && here != null && current != here) {
+                WaNote(stringResource(R.string.wa_wallet_away_note, countryName(current)), icon = Icons.Rounded.Info, modifier = Modifier.padding(top = 8.dp))
+            }
+        }
 
-        if (balance?.walletNumber != null) MyNumberCard(balance, host)
-
-        Row(Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 0.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            HomeAction(Icons.Rounded.Add, stringResource(R.string.wa_action_topup), 1, Modifier.weight(1f)) { host.push(WaRoute.Topup) }
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 0.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HomeAction(stringResource(R.string.wa_action_topup), 1, Modifier.weight(1f), { host.push(WaRoute.Topup) }) {
+                Icon(painterResource(R.drawable.ic_ms_add_card), null, tint = Wa.Red, modifier = Modifier.size(22.dp))
+            }
             HomeAction(Icons.Rounded.NorthEast, stringResource(R.string.wa_action_transfer), 2, Modifier.weight(1f)) { host.push(WaRoute.Transfer) }
-            HomeAction(Icons.Rounded.History, stringResource(R.string.wa_action_history), 3, Modifier.weight(1f)) { host.push(WaRoute.History) }
+            HomeAction(stringResource(R.string.wa_action_history), 3, Modifier.weight(1f), { host.push(WaRoute.History) }) {
+                Icon(painterResource(R.drawable.ic_ms_credit_card_clock), null, tint = Wa.Red, modifier = Modifier.size(22.dp))
+            }
             HomeAction(Icons.Rounded.Settings, stringResource(R.string.wa_action_pin), 4, Modifier.weight(1f)) { host.push(WaRoute.PinSettings) }
         }
 
@@ -224,9 +234,16 @@ fun WalletHome(initialRecent: List<WalletTransactionDto>? = null) {
 
 @Composable
 private fun HomeAction(icon: ImageVector, label: String, index: Int, modifier: Modifier, onClick: () -> Unit) {
+    HomeAction(label, index, modifier, onClick) {
+        Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
+private fun HomeAction(label: String, index: Int, modifier: Modifier, onClick: () -> Unit, icon: @Composable () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.93f)
-    val shape = RoundedCornerShape(20.dp)
+    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier
             .waRise(index)
@@ -235,25 +252,33 @@ private fun HomeAction(icon: ImageVector, label: String, index: Int, modifier: M
             .background(Wa.Surface)
             .border(1.dp, Wa.Red.copy(alpha = 0.3f), shape)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
-            .padding(top = 18.dp, bottom = 14.dp, start = 4.dp, end = 4.dp),
+            .padding(top = 10.dp, bottom = 8.dp, start = 2.dp, end = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(26.dp))
-        Text(label, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        icon()
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
-/** The balance card in the brand gradient: wallet icon + label, the big count-up number, and the two balance parts. */
+/** The balance card — same order as the reference: number + actions, total chip, amount, then the two parts. */
 @Composable
 private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
-    val currency = balance.currencyCode.orEmpty()
+    val context = LocalContext.current
+    val currencyCode = balance.currencyCode.orEmpty()
     val hidden = host.hideBalance
-    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    // The number sits at the reading start of the card: right in Arabic, left in English.
-    val numberAlign = if (rtl) TextAlign.Right else TextAlign.Left
+    val number = balance.walletNumberFormatted ?: groupWalletNumber(balance.walletNumber.orEmpty())
+    var pickWallet by remember { mutableStateOf(false) }
+    val copiedText = stringResource(R.string.wa_number_copied)
+    val shareText = stringResource(R.string.wa_qr_share_text, number)
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1600)
+            copied = false
+        }
+    }
 
-    // Count up from what was last shown to the current total.
     val inspecting = LocalInspectionMode.current
     val shown = remember { Animatable(if (inspecting) balance.totalMinor.toFloat() else host.shownTotal.toFloat()) }
     LaunchedEffect(balance.totalMinor) {
@@ -262,136 +287,167 @@ private fun WaHeroCard(balance: WalletBalanceDto, host: WalletHost) {
     }
 
     val shape = RoundedCornerShape(24.dp)
+    val barShape = RoundedCornerShape(18.dp)
     Box(
         Modifier
             .fillMaxWidth()
-            .shadow(18.dp, shape, ambientColor = Wa.Red.copy(alpha = 0.35f), spotColor = Wa.Red.copy(alpha = 0.5f))
+            .shadow(14.dp, shape, ambientColor = Wa.Red.copy(alpha = 0.22f), spotColor = Wa.Red.copy(alpha = 0.32f))
             .clip(shape)
-            .background(Wa.HeroBrush)
-            .border(1.dp, Color.White.copy(alpha = 0.16f), shape),
+            .background(Wa.HeroBrush),
     ) {
-        // One soft decorative disc.
-        Box(Modifier.size(190.dp).offset(x = 60.dp, y = (-70).dp).align(Alignment.TopEnd).background(Color(0x14FFFFFF), CircleShape))
+        Box(Modifier.size(150.dp).offset(x = (-30).dp, y = 50.dp).align(Alignment.BottomStart).background(Color(0x10FFFFFF), CircleShape))
 
-        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(22.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.wa_total_balance),
-                    color = Color.White.copy(alpha = 0.88f), fontSize = 14.sp, fontWeight = FontWeight.Medium,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(currency, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Text(
+                            stringResource(R.string.wa_wallet_number),
+                            color = Color.White.copy(alpha = 0.68f),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        WalletFlag(balance.countryCode, Modifier.size(width = 16.dp, height = 11.dp))
+                    }
+                    if (number.isNotBlank()) {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            Text(
+                                number,
+                                color = Color.White,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(top = 2.dp),
+                            )
+                        }
+                    }
+                }
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                        HeroCircle(if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy) {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                            clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
+                            copied = true
+                            host.showToast(copiedText)
+                        }
+                        HeroCircle(Icons.Outlined.QrCode2) { host.push(WaRoute.MyQr) }
+                        HeroCircle(Icons.Rounded.Share) {
+                            val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
+                            context.startActivity(Intent.createChooser(send, null))
+                        }
+                        HeroCircle(Icons.Rounded.SwapHoriz) { pickWallet = true }
+                    }
+                }
+            }
+
+            Box(Modifier.fillMaxWidth().padding(top = 10.dp, bottom = 10.dp).height(1.dp).background(Color.White.copy(alpha = 0.16f)))
+
+            Row(
+                Modifier
+                    .clip(RoundedCornerShape(50))
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(50))
+                    .padding(horizontal = 9.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(12.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(stringResource(R.string.wa_total_balance), color = Color.White.copy(alpha = 0.92f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                Text(
-                    if (hidden) "******" else money(shown.value.toLong()),
-                    color = Color.White, fontSize = 34.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-1).sp,
-                    textAlign = numberAlign, maxLines = 1,
-                    modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 10.dp),
-                )
+                Row(
+                    Modifier.padding(top = 6.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Text(
+                        if (hidden) "******" else money(shown.value.toLong()),
+                        color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp,
+                        maxLines = 1,
+                    )
+                    if (currencyCode.isNotBlank()) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(currencyCode, color = Color.White.copy(alpha = 0.82f), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 3.dp))
+                    }
+                }
             }
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                HeroPart(Icons.Rounded.AccountBalance, stringResource(R.string.wa_withdrawable), if (hidden) "****" else money(balance.withdrawableMinor), Modifier.weight(1f)) { host.openSheet(WaSheet.Explain) }
-                HeroPart(Icons.Rounded.CardGiftcard, stringResource(R.string.wa_spend_only), if (hidden) "****" else money(balance.spendOnlyMinor), Modifier.weight(1f)) { host.openSheet(WaSheet.Explain) }
+
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(barShape)
+                    .background(Color.White.copy(alpha = 0.12f))
+                    .padding(vertical = 9.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HeroPart(
+                    Icons.Rounded.Check,
+                    stringResource(R.string.wa_withdrawable),
+                    if (hidden) "****" else "${money(balance.withdrawableMinor)} $currencyCode",
+                    Modifier.weight(1f),
+                ) { host.openSheet(WaSheet.Explain) }
+                Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = 0.22f)))
+                HeroPart(
+                    Icons.Rounded.CardGiftcard,
+                    stringResource(R.string.wa_spend_only),
+                    if (hidden) "****" else "${money(balance.spendOnlyMinor)} $currencyCode",
+                    Modifier.weight(1f),
+                ) { host.openSheet(WaSheet.Explain) }
             }
             if (balance.heldMinor > 0) {
-                Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     Icon(Icons.Rounded.PauseCircle, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(16.dp))
                     Text(
-                        stringResource(R.string.wa_held_temporarily) + " " + (if (hidden) "****" else money(balance.heldMinor)) + " " + currency,
+                        stringResource(R.string.wa_held_temporarily) + " " + (if (hidden) "****" else money(balance.heldMinor)) + " " + currencyCode,
                         color = Color.White.copy(alpha = 0.92f), fontSize = 12.sp,
                     )
                 }
             }
         }
     }
+    if (pickWallet) WalletPickerSheet(balance) { pickWallet = false }
 }
 
-/** A glass tile inside the balance card: icon + label (with an info mark) and its amount below. */
+@Composable
+private fun HeroCircle(icon: ImageVector, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(32.dp)
+            .clip(CircleShape)
+            .border(1.dp, Color.White.copy(alpha = 0.40f), CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(16.dp))
+    }
+}
+
+/** One half of the glass bar: icon + label, amount under it. */
 @Composable
 private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: Modifier, onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.96f)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier
             .scale(scale)
-            .clip(shape)
-            .background(Color(0x1FFFFFFF))
-            .border(1.dp, Color.White.copy(alpha = 0.14f), shape)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 10.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(16.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(15.dp))
             Spacer(Modifier.width(6.dp))
-            Text(label, color = Color.White.copy(alpha = 0.88f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            Icon(Icons.Rounded.Info, null, tint = Color.White.copy(alpha = 0.5f), modifier = Modifier.size(14.dp))
+            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Text(
-                value, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
                 textAlign = if (rtl) TextAlign.Right else TextAlign.Left,
-                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
             )
         }
-    }
-}
-
-/** "Your wallet number" with copy and QR — the number others send to. */
-@Composable
-private fun MyNumberCard(balance: WalletBalanceDto, host: WalletHost) {
-    val context = LocalContext.current
-    val number = balance.walletNumberFormatted ?: groupWalletNumber(balance.walletNumber.orEmpty())
-    val copiedText = stringResource(R.string.wa_number_copied)
-    var copied by remember { mutableStateOf(false) }
-
-    LaunchedEffect(copied) {
-        if (copied) {
-            delay(1600)
-            copied = false
-        }
-    }
-
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 12.dp)
-            .waRise(1)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Wa.Surface)
-            .border(1.dp, Wa.Red.copy(alpha = 0.3f), RoundedCornerShape(20.dp))
-            .padding(horizontal = 14.dp, vertical = 14.dp),
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            WaIconWell(Icons.Rounded.AccountBalanceWallet, Tone.Red, size = 46.dp)
-            Box(Modifier.weight(1f)) {
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    WaFitText(number, color = Wa.Ink, maxSize = 22.sp, letterSpacing = 0.6.sp, modifier = Modifier.fillMaxWidth())
-                }
-            }
-            WaOutlineCircleButton(Icons.Rounded.QrCode2, { host.push(WaRoute.MyQr) })
-            WaOutlineCircleButton(
-                if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy,
-                {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
-                    copied = true
-                    host.showToast(copiedText)
-                },
-                tint = if (copied) Wa.Green else Wa.Red,
-            )
-        }
-        Text(
-            stringResource(R.string.wa_my_number_caption, countryName(balance.countryCode)),
-            color = Wa.Mut,
-            fontSize = 11.5.sp,
-            lineHeight = 16.sp,
-            modifier = Modifier.padding(top = 8.dp),
-        )
     }
 }
 
@@ -462,44 +518,39 @@ internal fun WaTxRow(tx: WalletTransactionDto, host: WalletHost, withDay: Boolea
 private fun WaTxRowCompact(tx: WalletTransactionDto, host: WalletHost) {
     val (icon, _) = txMeta(tx.type)
     val credit = tx.direction == "credit"
-    val party = tx.counterparty?.let { it.name?.takeIf(String::isNotBlank) ?: it.phone }
-    val note = tx.note?.takeIf { it.isNotBlank() && it != tx.typeLabel }
-    val subtitle = party ?: note
     val currency = host.balance?.currencyCode.orEmpty()
 
     Row(
         Modifier
             .fillMaxWidth()
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { host.openSheet(WaSheet.Tx(tx)) }
-            .padding(vertical = 9.dp),
+            .padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        WaIconWell(icon, Tone.Red, size = 42.dp, iconSize = 20.dp)
+        WaIconWell(icon, Tone.Red, size = 36.dp, iconSize = 16.dp)
         Column(Modifier.weight(1f)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(tx.typeLabel, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (tx.bucket == "spend_only") {
-                    Text(
-                        stringResource(R.string.wa_services_only_badge),
-                        color = Wa.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f)).padding(horizontal = 7.dp, vertical = 2.dp),
-                    )
-                }
-            }
-            if (!subtitle.isNullOrBlank()) {
-                Text(subtitle, color = Wa.Mut, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tx.typeLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (tx.bucket == "spend_only") {
+                Text(
+                    stringResource(R.string.wa_services_only_badge),
+                    color = Wa.Red, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .padding(top = 3.dp)
+                        .clip(RoundedCornerShape(7.dp))
+                        .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f))
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                )
             }
         }
         Column(horizontalAlignment = Alignment.End) {
-            // The amount and its currency read together, left to right: "+ 30,000.00 SAR".
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
                 Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text((if (credit) "+ " else "- ") + money(tx.amountMinor), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = if (credit) Wa.Green else Wa.Ink)
+                    Text((if (credit) "+ " else "- ") + money(tx.amountMinor), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (credit) Wa.Green else Wa.Ink)
                     if (currency.isNotBlank()) Text(currency, color = Wa.Mut, fontSize = 11.sp, modifier = Modifier.padding(bottom = 1.dp))
                 }
             }
-            Text(dayText(tx.createdAt) + " - " + timeOf(tx.createdAt), color = Wa.Soft, fontSize = 11.sp)
+            Text(dayText(tx.createdAt) + "، " + timeOf(tx.createdAt), color = Wa.Soft, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
         }
     }
 }

@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.border
@@ -29,16 +31,14 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalance
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.CardGiftcard
 import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.ChevronLeft
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.OpenInNew
 import androidx.compose.material.icons.rounded.Phone
-import androidx.compose.material.icons.rounded.Receipt
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Science
 import androidx.compose.material.icons.rounded.Shield
@@ -57,8 +57,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -69,6 +67,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -221,9 +220,18 @@ fun WalletTopup(initialMethods: List<PaymentMethodDto>? = null, initialAmount: S
     WaPage(
         title = stringResource(R.string.wa_topup_title),
         onBack = { host.pop() },
+        ctaDock = true,
+        ctaReserve = 220.dp,
         cta = {
+            QuoteCard(
+                amountMinor = quote?.paidAmountMinor ?: amountMinor ?: 0L,
+                feeMinor = quote?.feeMinor ?: 0L,
+                bonusMinor = quote?.bonusMinor ?: 0L,
+                currency = currency,
+                methodName = paying?.name ?: paying?.code,
+            )
             WaButton(
-                text = if (amountMinor != null && quote != null) stringResource(R.string.wa_pay_amount, money(amountMinor), currency) else stringResource(R.string.wa_continue),
+                text = stringResource(R.string.wa_continue_pay),
                 onClick = {
                     screenError = null
                     host.requestPin(
@@ -258,22 +266,42 @@ fun WalletTopup(initialMethods: List<PaymentMethodDto>? = null, initialAmount: S
                     )
                 },
                 enabled = quote != null && !checkingPin,
-                icon = Icons.Rounded.Lock,
+                icon = Icons.Rounded.ChevronLeft,
+                iconAfter = true,
+                spread = true,
             )
             WaCtaHint(stringResource(R.string.wa_secure_payments), Icons.Rounded.Shield)
         },
     ) {
         Box(Modifier.waRise(0)) {
+            val added = quote?.totalCreditedMinor ?: amountMinor ?: 0L
+            val expected = (host.balance?.totalMinor ?: 0L) + added
             WaAmountEntry(
-                label = stringResource(R.string.wa_topup_how_much), amountText = amountText, onAmountChange = { amountText = it },
-                currency = currency, quick = QUICK_AMOUNTS, invalid = amountText.isNotBlank() && amountMinor == null,
+                label = stringResource(R.string.wa_topup_how_much),
+                amountText = amountText,
+                onAmountChange = { amountText = it },
+                currency = currency,
+                quick = QUICK_AMOUNTS,
+                invalid = amountText.isNotBlank() && amountMinor == null,
+                hero = true,
+                subtitle = stringResource(R.string.wa_topup_how_much_sub),
+                footerLabel = stringResource(R.string.wa_topup_expected),
+                footerValue = if (host.hideBalance) "****" else money(expected) + " " + currency,
             )
         }
 
-        WaSectionTitle(stringResource(R.string.wa_pay_method), Modifier.waRise(1))
+        Row(Modifier.fillMaxWidth().padding(top = 18.dp, bottom = 8.dp).waRise(1), verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.wa_pay_method), color = Wa.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.wa_pay_method_sub), color = Wa.Mut, fontSize = 11.sp, modifier = Modifier.padding(top = 1.dp))
+            }
+            methods?.size?.let { n ->
+                Text(stringResource(R.string.wa_pay_methods_n, n), color = Wa.Mut, fontSize = 11.sp)
+            }
+        }
         Column(Modifier.waRise(2)) {
             when {
-                methods == null -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(70.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
+                methods == null -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(56.dp).padding(bottom = 8.dp), RoundedCornerShape(16.dp)) }
                 methods.orEmpty().isEmpty() -> WaCard(Modifier.fillMaxWidth()) {
                     WaEmpty(Icons.Rounded.CreditCard, Tone.Gray, stringResource(R.string.wa_no_methods), stringResource(R.string.wa_no_methods_text))
                 }
@@ -285,7 +313,6 @@ fun WalletTopup(initialMethods: List<PaymentMethodDto>? = null, initialAmount: S
             }
         }
 
-        quote?.let { QuoteCard(it, currency) }
         quoteError?.let { WaError(it) }
         WaError(screenError)
     }
@@ -298,83 +325,101 @@ private fun MethodCard(method: PaymentMethodDto, selected: Boolean, onClick: () 
     val source = remember { MutableInteractionSource() }
     val pressScale by rememberPressScale(source, 0.98f)
     val soon = method.comingSoon
+    val shape = RoundedCornerShape(16.dp)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(bottom = 10.dp)
+            .padding(bottom = 8.dp)
             .scale(pressScale)
             .alpha(if (soon) 0.72f else 1f)
-            .shadow(8.dp, RoundedCornerShape(20.dp), ambientColor = Color(0x0D111928), spotColor = Color(0x14111928))
-            .clip(RoundedCornerShape(20.dp))
-            .background(if (selected) (if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.08f)) else if (soon) (if (walletNight()) Wa.Surface else Color(0xFFF7F8FA)) else Wa.Surface)
-            .border(2.dp, if (selected) Wa.Red else Color.Transparent, RoundedCornerShape(20.dp))
+            .clip(shape)
+            .background(
+                when {
+                    selected -> if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.06f)
+                    soon -> if (walletNight()) Wa.Surface else Color(0xFFF7F8FA)
+                    else -> Wa.Surface
+                },
+            )
+            .border(1.dp, if (selected) Wa.Red else Wa.Line, shape)
             .clickable(interactionSource = source, indication = null, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        WaIconWell(icon, if (soon) Tone.Gray else tone)
+        WaIconWell(icon, if (soon) Tone.Gray else tone, size = 36.dp, iconSize = 16.dp)
         Column(Modifier.weight(1f)) {
-            Text(method.name ?: method.code, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
+            Text(method.name ?: method.code, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
                 stringResource(if (soon) R.string.wa_method_soon_sub else if (method.gateway == "sandbox") R.string.wa_method_sandbox_sub else R.string.wa_method_secure_sub),
-                fontSize = 11.5.sp, color = Wa.Mut, modifier = Modifier.padding(top = 2.dp),
+                fontSize = 11.sp, color = Wa.Mut, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp),
             )
         }
         if (soon) {
             Text(
-                stringResource(R.string.wa_soon_badge), color = Color(0xFFB45309), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
-                modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFFEF3C7)).padding(horizontal = 11.dp, vertical = 4.dp),
+                stringResource(R.string.wa_soon_badge), color = Color(0xFFB45309), fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Color(0xFFFEF3C7)).padding(horizontal = 8.dp, vertical = 3.dp),
             )
         } else {
             Box(
-                Modifier.size(24.dp).clip(CircleShape).background(if (selected) Wa.Red else Color.Transparent).border(2.dp, if (selected) Wa.Red else if (walletNight()) Wa.Line else Color(0xFFD1D5DB), CircleShape),
+                Modifier.size(20.dp).clip(CircleShape).background(if (selected) Wa.Red else Color.Transparent).border(1.5.dp, if (selected) Wa.Red else if (walletNight()) Wa.Line else Color(0xFFD1D5DB), CircleShape),
                 contentAlignment = Alignment.Center,
-            ) { if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
+            ) { if (selected) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(12.dp)) }
         }
     }
 }
 
 @Composable
-private fun QuoteRow(icon: ImageVector, label: String, value: String, total: Boolean = false) {
-    Row(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = if (total) 6.dp else 0.dp)
-            .let {
-                if (!total) it.padding(vertical = 7.dp)
-                else it.clip(RoundedCornerShape(16.dp)).background(
-                    if (walletNight()) Brush.linearGradient(listOf(com.dorr.app.ui.screens.AccountDark.well, com.dorr.app.ui.screens.AccountDark.card))
-                    else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
-                ).padding(12.dp)
-            },
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(icon, null, tint = if (total) Wa.Ink else Wa.Mut, modifier = Modifier.size(16.dp))
-            Text(label, color = if (total) Wa.Ink else Wa.Mut, fontSize = 14.sp, fontWeight = if (total) FontWeight.ExtraBold else FontWeight.Normal)
-        }
-        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-            Text(value, fontWeight = FontWeight.ExtraBold, fontSize = if (total) 18.sp else 14.sp, color = if (total) Wa.Red else Wa.Ink)
+private fun RowScope.QuoteStat(label: String, value: String, valueColor: Color = Wa.Ink, ltr: Boolean = false) {
+    Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(label, color = Wa.Mut, fontSize = 10.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        val valueMod = Modifier.padding(top = 2.dp)
+        if (ltr) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Text(value, color = valueColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = valueMod)
+            }
+        } else {
+            Text(value, color = valueColor, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = valueMod)
         }
     }
 }
 
 @Composable
-private fun QuoteCard(quote: TopupQuoteDto, currency: String) {
-    WaSectionTitle(stringResource(R.string.wa_quote_title))
-    WaCard(Modifier.fillMaxWidth(), padding = 16.dp) {
-        QuoteRow(Icons.Rounded.CreditCard, stringResource(R.string.wa_quote_you_pay), money(quote.paidAmountMinor) + " " + currency)
-        if (quote.feeMinor > 0) QuoteRow(Icons.Rounded.Receipt, stringResource(R.string.wa_quote_fee), "− " + money(quote.feeMinor) + " " + currency)
-        if (quote.bonusMinor > 0) {
-            QuoteRow(Icons.Rounded.CardGiftcard, stringResource(R.string.wa_quote_bonus), "+ " + money(quote.bonusMinor) + " " + currency)
-            Row(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Icon(Icons.Rounded.AutoAwesome, null, tint = Wa.Mut, modifier = Modifier.size(14.dp).padding(top = 2.dp))
-                Text(stringResource(R.string.wa_quote_bonus_note), color = Wa.Mut, fontSize = 11.5.sp, lineHeight = 20.sp)
+private fun QuoteCard(amountMinor: Long, feeMinor: Long, bonusMinor: Long, currency: String, methodName: String?) {
+    val free = feeMinor <= 0L
+    val shape = RoundedCornerShape(18.dp)
+    Column(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(shape)
+                .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color.White)
+                .border(1.dp, Wa.Line, shape)
+                .padding(horizontal = 8.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            QuoteStat(
+                stringResource(R.string.wa_quote_amount),
+                money(amountMinor) + " " + currency,
+                ltr = true,
+            )
+            Box(Modifier.width(1.dp).height(22.dp).background(Wa.Line.copy(alpha = 0.7f)))
+            QuoteStat(
+                stringResource(R.string.wa_quote_fee_short),
+                if (free) stringResource(R.string.wa_quote_fee_free) else "− " + money(feeMinor) + " " + currency,
+                valueColor = if (free) Color(0xFF059669) else Wa.Ink,
+            )
+            Box(Modifier.width(1.dp).height(22.dp).background(Wa.Line.copy(alpha = 0.7f)))
+            QuoteStat(
+                stringResource(R.string.wa_pay_method),
+                methodName ?: "—",
+            )
+        }
+        if (bonusMinor > 0) {
+            Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.AutoAwesome, null, tint = Wa.Mut, modifier = Modifier.size(12.dp))
+                Text(stringResource(R.string.wa_quote_bonus) + " + " + money(bonusMinor) + " " + currency, color = Wa.Mut, fontSize = 10.sp)
             }
         }
-        QuoteRow(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.wa_quote_you_get), money(quote.totalCreditedMinor) + " " + currency, total = true)
     }
 }
 
