@@ -16,12 +16,13 @@ import com.dorr.app.network.OnboardingStore
 
 class DorrApp : Application(), ImageLoaderFactory {
     /**
-     * Every AsyncImage uses the API OkHttp client (same Host / ngrok headers as media
-     * URLs) plus SVG and animated GIF / WebP. Coil's default loader would skip those
-     * interceptors and get ngrok's HTML warning instead of image bytes.
+     * Every AsyncImage in the app goes through the API's own OkHttpClient (bug fix 2026-09-29):
+     * Coil's default loader built its own client without ApiClient's interceptors, so over the
+     * ngrok dev tunnel images came back as ngrok's HTML warning page and showed blank. It also
+     * decodes SVG icons (chat categories…) and animated GIFs.
      */
     override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
-        .okHttpClient(ApiClient.okHttpClient)
+        .okHttpClient { ApiClient.okHttpClient }
         .components {
             add(SvgDecoder.Factory())
             if (Build.VERSION.SDK_INT >= 28) {
@@ -35,6 +36,10 @@ class DorrApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         AuthSession.attach(this)
+        // Data saver, lite mode and usage stats (spec 82, 87, 83) are read before anything loads.
+        com.dorr.app.chat.ChatDataSaver.attach(this)
+        com.dorr.app.chat.ChatLite.attach(this)
+        com.dorr.app.chat.ChatUsage.attach(this)
         com.dorr.app.network.ReferralStore.attach(this)
         com.dorr.app.network.ReferralInstallReferrer.capture(this)
         DeviceId.attach(this)

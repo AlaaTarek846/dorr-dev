@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Forward
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.BookmarkAdd
@@ -107,6 +108,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
     val decisionMade = stringResource(R.string.ch_decision_made)
     val savedToNotes = stringResource(R.string.ch_saved_to_notes)
     var reminding by remember { mutableStateOf(false) }
+    var toAction by remember { mutableStateOf(false) }
     val noteSaved = stringResource(R.string.ct_note_saved)
     var confirmDelete by remember { mutableStateOf(false) }
     var pinPicker by remember { mutableStateOf(false) }
@@ -183,6 +185,8 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                     close()
                     host.push(ChRoute.Thread(dto.conversationId, dto.id))
                 }
+                // Into something to do (spec 148): commitment, handoff, agreement, task, appointment, reminder, decision.
+                if (dto.type !in setOf("system", "call", "commitment", "handoff", "agreement") && !dto.isDeleted && state.conversation?.isChannel != true) ActionRow(Icons.Rounded.Bolt, stringResource(R.string.lf_turn_into)) { toAction = true }
                 // In a group: put it to a vote, for the decisions log (spec 119–120).
                 if (state.conversation?.type == "group" && dto.type !in setOf("system", "call", "poll") && !dto.isDeleted) ActionRow(Icons.Rounded.Gavel, stringResource(R.string.ch_make_decision)) {
                     close()
@@ -233,6 +237,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
     }
 
     if (reminding) ScheduleSheet(onDismiss = { reminding = false; close() }) { at -> state.remind(dto, at) }
+    if (toAction) ToActionSheet(state, dto, onDismiss = { toAction = false; close() }, onReminder = { reminding = true })
     if (confirmDelete) ChoiceSheet(
         title = stringResource(R.string.ch_delete_title),
         options = buildList {

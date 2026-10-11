@@ -37,6 +37,9 @@ class ChatServiceProvider extends ModuleServiceProvider
         SendQuietDigests::class,
         SendMomentReminders::class,
         SendTaskReminders::class,
+        \Modules\Chat\Console\SendCommitmentReminders::class,
+        \Modules\Chat\Console\SendAttentionDigests::class,
+        \Modules\Chat\Console\SweepVoiceRooms::class,
         SendCalendarReminders::class,
     ];
 
@@ -84,6 +87,9 @@ class ChatServiceProvider extends ModuleServiceProvider
         $schedule->command(SendQuietDigests::class)->everyMinute()->withoutOverlapping();
         $schedule->command(SendMomentReminders::class)->everyTenMinutes()->withoutOverlapping();
         $schedule->command(SendTaskReminders::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(\Modules\Chat\Console\SendCommitmentReminders::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(\Modules\Chat\Console\SendAttentionDigests::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(\Modules\Chat\Console\SweepVoiceRooms::class)->everyMinute()->withoutOverlapping();
         $schedule->command(SendCalendarReminders::class)->everyMinute()->withoutOverlapping();
     }
 }

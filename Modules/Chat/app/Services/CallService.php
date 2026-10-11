@@ -127,7 +127,7 @@ class CallService
             $this->broadcaster->toParticipants($others, 'chat.call.ringing', $payload);
             $this->push->call((string) ($payload['caller']['account_name'] ?? ''), $type === CallType::Video, $others, [
                 'event' => 'chat.call.ringing', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid, 'call_type' => $type->value,
-            ]);
+            ], $mine->key());
 
             return $call;
         });
@@ -346,6 +346,8 @@ class CallService
     private function finish(ChatCall $call, CallStatus $status): void
     {
         $call->update(['status' => $status, 'ended_at' => now()]);
+        // Its live broadcast ends with it (spec 93).
+        app(CallLiveService::class)->callEnded($call);
 
         $call->callParticipants()->where('status', CallParticipantStatus::Ringing->value)
             ->update(['status' => CallParticipantStatus::Missed->value]);

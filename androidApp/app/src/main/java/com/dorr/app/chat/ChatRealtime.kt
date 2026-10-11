@@ -45,6 +45,10 @@ object ChatRealtime {
         "chat.receipt", "chat.reaction", "chat.typing", "chat.presence",
         "chat.conversation.updated", "chat.pins.updated",
         "chat.call.ringing", "chat.call.accepted", "chat.call.declined", "chat.call.left", "chat.call.ended",
+        // A group's voice room changed (spec 91).
+        "chat.voice.updated",
+        // My call went live / its viewers changed (spec 93).
+        "chat.call.live",
         "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction",
         "chat.poll.updated", "chat.view_once.opened", "chat.location.moved",
         "chat.group.join_requests", "chat.group.join_decided",

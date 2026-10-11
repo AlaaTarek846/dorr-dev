@@ -60,6 +60,20 @@ sealed interface ChRoute {
     data object PrivacyCenter : ChRoute
     /** A group decision's room (spec 153). */
     data class DecisionRoom(val id: String) : ChRoute
+    /** My commitments and handoffs (spec 149, 152). */
+    data object Commitments : ChRoute
+    /** My communication rules: context, attention, always through, calls (spec 146, 151, 155). */
+    data object CommRules : ChRoute
+    /** What needs something from me (spec 147). */
+    data object LifeInbox : ChRoute
+    /** Data saver and lite mode (spec 82, 87). */
+    data object DataPerformance : ChRoute
+    /** Usage stats (spec 83). */
+    data object Usage : ChRoute
+    /** A group's standing voice room (spec 91). */
+    data class VoiceRoom(val conversationId: String, val title: String?) : ChRoute
+    /** Watching a call broadcast live (spec 93). */
+    data class LiveViewer(val token: String) : ChRoute
 }
 
 /** The full-screen story viewer: which people's stories it pages through, and where it starts. */
@@ -271,6 +285,7 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
                 val id = conversationId ?: return
                 val senderKey = message.getAsJsonObject("sender")?.str("key")
                 val mine = senderKey == myKey()
+                if (!mine && message.get("system")?.isJsonObject != true) com.dorr.app.chat.ChatUsage.messageReceived()
                 val existing = find(id)
                 if (existing == null) {
                     scope.launch { reload(id) }

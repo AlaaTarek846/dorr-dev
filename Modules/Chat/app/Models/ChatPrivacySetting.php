@@ -30,6 +30,13 @@ class ChatPrivacySetting extends Model
         'privacy_schedule',
         'quiet_schedule',
         'quiet_scope',
+        'attention',
+        'digest_minutes',
+        'context',
+        'context_until',
+        'contexts',
+        'always_through',
+        'call_hours',
         'qr_token',
         'last_seen_at',
     ];
@@ -116,6 +123,22 @@ class ChatPrivacySetting extends Model
             'read_receipts' => 'boolean',
             'block_screenshots' => 'boolean',
             'last_seen_at' => 'datetime',
+            'attention' => 'array',
+            'digest_minutes' => 'integer',
+            'context_until' => 'datetime',
+            'contexts' => 'array',
+            'always_through' => 'array',
+            'call_hours' => 'array',
         ];
+    }
+
+    /** My privacy context now (spec 151): switched on, and not run out. */
+    public function activeContext(?\Carbon\CarbonInterface $at = null): ?string
+    {
+        if ($this->context === null || ($this->context_until !== null && $this->context_until->lte($at ?? now()))) {
+            return null;
+        }
+
+        return $this->context;
     }
 }

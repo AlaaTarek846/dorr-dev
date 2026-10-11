@@ -26,6 +26,7 @@ use Modules\Chat\Models\ChatPinnedMessage;
 use Modules\Chat\Models\ChatSetting;
 use Modules\Chat\Models\ChatStarFolder;
 use Modules\Chat\Support\BannedWords;
+use Modules\Chat\Support\ImagePreview;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
@@ -1133,7 +1134,16 @@ class MessageService
                 'duration_ms' => isset($data['duration_ms']) ? (int) $data['duration_ms'] : null,
                 'waveform' => isset($data['waveform']) ? array_map('intval', (array) $data['waveform']) : null,
             ], fn ($v) => $v !== null) ?: null,
-            MessageType::Video => isset($data['duration_ms']) ? ['duration_ms' => (int) $data['duration_ms']] : null,
+            MessageType::Video => array_filter([
+                'duration_ms' => isset($data['duration_ms']) ? (int) $data['duration_ms'] : null,
+                // Plays muted on a loop, like a GIF.
+                'gif' => ! empty($data['gif']) ? true : null,
+            ], fn ($v) => $v !== null) ?: null,
+            // A folder zipped on the phone: its name and how many files were in it.
+            MessageType::Document => filled($data['folder_name'] ?? null) ? ['folder' => [
+                'name' => Str::limit(trim((string) $data['folder_name']), 255, ''),
+                'count' => isset($data['folder_count']) ? (int) $data['folder_count'] : null,
+            ]] : null,
             MessageType::WalletTransfer => $this->walletShare->transferReceipt($me, (string) $data['wallet_transaction_id'])
                 // A money gift: the same receipt, drawn as a card for the occasion.
                 + (in_array($data['gift'] ?? null, self::GIFT_CARDS, true) ? ['gift' => $data['gift']] : []),
@@ -1161,6 +1171,8 @@ class MessageService
             $message->addMedia($file)
                 ->usingFileName(Str::uuid().'.'.strtolower($file->getClientOriginalExtension() ?: $file->extension() ?: 'bin'))
                 ->usingName($file->getClientOriginalName())
+                // A photo's size and tiny preview (data saver shows it before the download).
+                ->withCustomProperties(ImagePreview::of($file))
                 ->setOrder($i + 1)
                 ->toMediaCollection(ChatMessage::ATTACHMENTS);
         }

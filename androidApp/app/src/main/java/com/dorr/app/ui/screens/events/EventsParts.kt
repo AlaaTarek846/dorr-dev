@@ -273,6 +273,28 @@ internal fun EventDetail(id: String, onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val roomMade = stringResource(R.string.ev_room_made)
+    val coverSaved = stringResource(R.string.ev_cover_saved)
+    val coverReview = stringResource(R.string.ev_cover_review)
+    var uploading by remember { mutableStateOf(false) }
+    val pickCover = rememberCoverPicker { uri ->
+        val ev = e ?: return@rememberCoverPicker
+        uploading = true
+        scope.launch {
+            val part = EventCover.part(context, uri)
+            if (part != null) {
+                runCatching { ApiClient.events.updateEvent(evAuth(), ev.id, emptyMap(), part, evZone()).data }
+                    .onSuccess { r ->
+                        r?.let { e = it }
+                        EventsStore.changed()
+                        // Not a verified organizer: the event waits for review again with its new photo.
+                        Toast.makeText(context, if (r?.reviewStatus == "pending") coverReview else coverSaved, Toast.LENGTH_LONG).show()
+                    }
+                    .onFailure { Toast.makeText(context, it.apiFailure().message, Toast.LENGTH_LONG).show() }
+            }
+            uploading = false
+        }
+    }
+    LaunchedEffect(sheet) { if (sheet == "cover") { sheet = null; pickCover() } }
     LaunchedEffect(id) {
         runCatching { ApiClient.events.event(evAuth(), id, evZone()).data }.onSuccess { e = it; missing = it == null }.onFailure { missing = true }
     }
@@ -316,7 +338,7 @@ internal fun EventDetail(id: String, onBack: () -> Unit) {
             else -> DetailBody(ev, onLink = open, onSheet = { sheet = it }, onNotify = { on ->
                 e = ev.copy(notify = on)
                 scope.launch { runCatching { ApiClient.events.interest(evAuth(), ev.id, JsonObject().apply { addProperty("notify", on) }, evZone()) } }
-            })
+            }, uploading = uploading)
         }
         Spacer(Modifier.height(24.dp))
     }
@@ -342,7 +364,7 @@ internal fun EventDetail(id: String, onBack: () -> Unit) {
 }
 
 @Composable
-private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (String) -> Unit, onNotify: (Boolean) -> Unit) {
+private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (String) -> Unit, onNotify: (Boolean) -> Unit, uploading: Boolean = false) {
     val context = LocalContext.current
     // Hero.
     Box(Modifier.fillMaxWidth().height(196.dp).waRise(0).clip(RoundedCornerShape(26.dp)).background(categoryBrush(ev.category))) {
@@ -352,6 +374,8 @@ private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (St
             ev.category?.name?.let { Text(listOfNotNull(ev.category.emoji, it).joinToString(" "), color = Color(0xFF111928), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(CircleShape).background(Color.White).padding(horizontal = 10.dp, vertical = 5.dp)) }
             if (ev.familyFriendly) Text("👨‍👩‍👧", fontSize = 13.sp, modifier = Modifier.clip(CircleShape).background(Color.White).padding(horizontal = 8.dp, vertical = 4.dp))
         }
+        // My own event: a new cover from my gallery.
+        if (ev.mine) ChangeCoverPill(uploading, Modifier.align(Alignment.BottomEnd).padding(12.dp)) { onSheet("cover") }
     }
 
     // Trust: who it's from.
