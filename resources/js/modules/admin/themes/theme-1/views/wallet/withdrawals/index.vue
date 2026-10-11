@@ -205,6 +205,7 @@ import WalletPagination from '../../../../../../../components/wallet/WalletPagin
 import useToast from '../../../../../../../composables/useToast';
 import useFormFields from '../../../../../../../composables/useFormFields';
 import useValidation from '../../../../../../../composables/useValidation';
+import useOpenFromQuery from '../../../../../../../composables/useOpenFromQuery';
 import useWalletList from '../../../../../../../composables/useWalletList';
 import { usePermission } from '../../../../../../../composables/usePermission';
 import { fmtMinor, formatDateTime } from '../../../../../../../utils/walletMoney';
@@ -372,4 +373,7 @@ async function downloadReceipt() {
 }
 
 onMounted(() => fetch(1));
+
+// A clicked notification arrives as ?withdrawal=ID.
+useOpenFromQuery('withdrawal', (id) => open(id));
 </script>

@@ -8,19 +8,24 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -34,8 +39,8 @@ import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Phone
-import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material3.Icon
@@ -84,6 +89,7 @@ import com.dorr.app.network.formattedDial
 import com.dorr.app.network.resolveForPhone
 import com.dorr.app.network.UserCountryDto
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private enum class TransferMode { PHONE, WALLET }
@@ -221,6 +227,8 @@ fun WalletTransfer() {
         if (parts.isNotEmpty()) append(": ").append(parts.joinToString(" "))
     }
 
+    val typing = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
     WaPage(
         title = stringResource(R.string.wa_transfer_title),
         onBack = { host.pop() },
@@ -251,24 +259,37 @@ fun WalletTransfer() {
             WaCtaHint(stringResource(R.string.wa_transfer_review_hint), Icons.Rounded.Shield)
         },
     ) {
-        // Which wallet sends (a tap switches to another of mine), then what that means.
-        balance?.let { WalletPickerCard(it, Modifier.padding(bottom = 10.dp).waRise(0)) }
-        // Country banner: just the rule, in one line.
-        WaCard(Modifier.fillMaxWidth().waRise(0), padding = 12.dp) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                WaIconWell(Icons.Rounded.Public, Tone.Blue)
-                Text(stringResource(R.string.wa_transfer_banner_title, country), fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = Wa.Ink)
+        if (!typing) {
+            val noticeShape = RoundedCornerShape(18.dp)
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .waRise(0)
+                    .clip(noticeShape)
+                    .background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Color(0xFFF0F6FF))
+                    .border(1.dp, if (walletNight()) Wa.Line else Color(0xFFC9DCF5), noticeShape)
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(Icons.Rounded.Info, null, tint = Color(0xFF3B82F6), modifier = Modifier.padding(top = 2.dp).size(18.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.wa_transfer_banner_title, country), fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Wa.Ink)
+                    Text(
+                        stringResource(R.string.wa_transfer_banner_text, balance?.currencyCode.orEmpty(), country),
+                        color = Wa.Mut, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 4.dp),
+                    )
+                }
             }
-        }
+            Spacer(Modifier.height(10.dp))
+            balance?.let { WalletPickerCard(it, Modifier.padding(bottom = 10.dp).waRise(0)) }
 
-        // Scan call-to-action.
-        Spacer(Modifier.height(12.dp))
-        ScanCta(Modifier.waRise(1)) { host.push(WaRoute.Scanner) }
+            ScanCta(Modifier.waRise(1)) { host.push(WaRoute.Scanner) }
 
-        Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp).waRise(1), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.weight(1f).height(1.dp).background(Wa.Line))
-            Text(stringResource(R.string.wa_or_manual), color = Wa.Soft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            Box(Modifier.weight(1f).height(1.dp).background(Wa.Line))
+            Row(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp).waRise(1), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.weight(1f).height(1.dp).background(Wa.Line))
+                Text(stringResource(R.string.wa_or_manual), color = Wa.Soft, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Box(Modifier.weight(1f).height(1.dp).background(Wa.Line))
+            }
         }
 
         Segmented(
@@ -356,16 +377,15 @@ private fun Segmented(options: List<Pair<String, androidx.compose.ui.graphics.ve
             Modifier
                 .align(Alignment.CenterStart)
                 .width(tabWidth)
-                .height(44.dp)
+                .height(40.dp)
                 .graphicsLayer { translationX = (if (rtl) -1 else 1) * fraction * tabPx }
-                .shadow(6.dp, RoundedCornerShape(14.dp), ambientColor = Color(0x1A111928), spotColor = Color(0x26111928))
                 .clip(RoundedCornerShape(14.dp))
-                .background(Wa.Surface),
+                .background(Wa.Red),
         )
         Row(Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, (label, icon) ->
                 val on = index == selected
-                val tint by animateColorAsState(if (on) Wa.Red else Wa.Mut, label = "segTint")
+                val tint by animateColorAsState(if (on) Color.White else Wa.Mut, label = "segTint")
                 Row(
                     Modifier
                         .weight(1f)
@@ -383,6 +403,7 @@ private fun Segmented(options: List<Pair<String, androidx.compose.ui.graphics.ve
 }
 
 /** A labelled input with a state icon (✓ / ✕) and a hint that turns red when wrong. */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun InputCard(
     label: String,
@@ -399,6 +420,8 @@ private fun InputCard(
     modifier: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
+    val bringIntoView = remember { BringIntoViewRequester() }
+    val scope = rememberCoroutineScope()
     val isError = errorMessage != null || state == FieldState.Bad
     // The reason a field was refused arrives as a notification, not as a box under the field.
     val host = LocalWallet.current
@@ -415,7 +438,7 @@ private fun InputCard(
         label = "inputBorder",
     )
     // No card around the field: just its label, the bordered number box and the hint.
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxWidth().bringIntoViewRequester(bringIntoView)) {
         Text(label, color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp, start = 2.dp))
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             Row(
@@ -449,7 +472,13 @@ private fun InputCard(
                     textStyle = TextStyle(fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Wa.Ink, letterSpacing = 0.5.sp),
                     keyboardOptions = KeyboardOptions(keyboardType = keyboard),
                     cursorBrush = SolidColor(Wa.Red),
-                    modifier = Modifier.weight(1f).onFocusChanged { focused = it.isFocused },
+                    modifier = Modifier.weight(1f).onFocusChanged {
+                        focused = it.isFocused
+                        if (it.isFocused) scope.launch {
+                            delay(120)
+                            bringIntoView.bringIntoView()
+                        }
+                    },
                     decorationBox = { inner ->
                         Box(contentAlignment = Alignment.CenterStart) {
                             if (value.isEmpty()) Text(placeholder, color = if (walletNight()) Wa.Soft else Color(0xFFD1D5DB), fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp)

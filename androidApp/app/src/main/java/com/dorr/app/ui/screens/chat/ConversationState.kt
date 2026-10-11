@@ -91,6 +91,8 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
     /** Text for the composer (a reply I picked from an AI suggestion). */
     var composerInsert by mutableStateOf<String?>(null)
     var editing by mutableStateOf<MessageDto?>(null)
+    /** A video picked to become a GIF: the trim screen is open (spec 11). */
+    var gifSource by mutableStateOf<LocalFile?>(null)
     var focused by mutableStateOf<UiMessage?>(null)
     var pinned by mutableStateOf<List<MessageDto>>(emptyList())
 

@@ -4,6 +4,7 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Schema;
+use Modules\Chat\Database\Seeders\ChatMomentsSeeder;
 
 /**
  * DORR Moments (spec 157–168, docs/remaining_chat.md): occasions as data, never in the app's code.
@@ -100,7 +101,7 @@ return new class extends Migration
         Cache::forget('chat.settings');
 
         // The starting catalog, so a fresh deploy has occasions without running seeders.
-        (new \Modules\Chat\Database\Seeders\ChatMomentsSeeder)->run();
+        (new ChatMomentsSeeder)->run();
     }
 
     public function down(): void

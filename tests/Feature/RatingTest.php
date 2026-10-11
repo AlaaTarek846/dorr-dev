@@ -19,8 +19,8 @@ use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
- * Ratings: the mobile side (rate the app or an entity once, 1–3 stars stay internal feedback, 4–5 may prompt the
- * store's in-app review) and the dashboard side (list / show / delete behind `ratings.*` permissions).
+ * Ratings: the mobile side (one row per person per thing; later POSTs update it; 1–3 stars stay internal feedback,
+ * 4–5 may prompt the store's in-app review) and the dashboard side (list / show / delete behind `ratings.*` permissions).
  */
 class RatingTest extends TestCase
 {
@@ -135,16 +135,26 @@ class RatingTest extends TestCase
         $this->assertSame(3, Rating::query()->where('type', Rating::TYPE_FEEDBACK)->count());
     }
 
-    public function test_a_second_rating_for_the_same_thing_is_refused(): void
+    public function test_a_second_rating_for_the_same_thing_updates_it(): void
     {
-        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4], $this->asUser())->assertCreated();
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'comment' => 'Great'], $this->asUser())->assertCreated();
 
-        $this->postJson('/api/mobile/v1/ratings', ['stars' => 1], $this->asUser())
-            ->assertUnprocessable()
-            ->assertJsonValidationErrors('rating');
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 2.5, 'comment' => 'Changed my mind'], $this->asUser())
+            ->assertOk()
+            ->assertJsonPath('data.stars', 2.5)
+            ->assertJsonPath('data.type', 'feedback')
+            ->assertJsonPath('data.comment', 'Changed my mind')
+            ->assertJsonPath('data.prompt_store_review', false);
 
         $this->assertSame(1, Rating::query()->count());
-        $this->assertEquals(4, Rating::query()->first()->stars, 'the first rating is kept');
+        $this->assertEquals(2.5, (float) Rating::query()->first()->stars);
+        $this->assertSame('Changed my mind', Rating::query()->first()->comment);
+
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 3, 'comment' => ''], $this->asUser())
+            ->assertOk()
+            ->assertJsonPath('data.comment', null);
+
+        $this->assertNull(Rating::query()->first()->comment);
     }
 
     public function test_the_same_person_can_rate_different_things_once_each(): void
@@ -159,9 +169,10 @@ class RatingTest extends TestCase
             ->assertJsonPath('data.rateable_id', $service->id);
 
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 5, 'rateable_type' => 'service', 'rateable_id' => $service->id], $this->asUser())
-            ->assertUnprocessable();
+            ->assertOk()
+            ->assertJsonPath('data.stars', 5);
 
-        $this->assertDatabaseHas('ratings', ['rateable_type' => ServiceCategory::class, 'rateable_id' => $service->id, 'stars' => 3]);
+        $this->assertDatabaseHas('ratings', ['rateable_type' => ServiceCategory::class, 'rateable_id' => $service->id, 'stars' => 5]);
         $this->assertSame(2, Rating::query()->count());
     }
 
@@ -182,13 +193,13 @@ class RatingTest extends TestCase
             ->assertJsonPath('data.rated', false)
             ->assertJsonPath('data.rating', null);
 
-        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'comment' => 'Nice'], $this->asUser())->assertCreated();
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'comment' => 'Great'], $this->asUser())->assertCreated();
 
         $this->getJson('/api/mobile/v1/ratings/mine', $this->asUser())
             ->assertOk()
             ->assertJsonPath('data.rated', true)
             ->assertJsonPath('data.rating.stars', 4)
-            ->assertJsonPath('data.rating.comment', 'Nice');
+            ->assertJsonPath('data.rating.comment', 'Great');
 
         // Another person has not rated yet.
         $this->getJson('/api/mobile/v1/ratings/mine', $this->asUser($this->makeUser('+966509998877')))
@@ -206,7 +217,8 @@ class RatingTest extends TestCase
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 4.1], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('stars');
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 0.75], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('stars');
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 'five'], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('stars');
-        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'comment' => str_repeat('x', 501)], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('comment');
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'comment' => 'abcd'], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('comment');
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'comment' => str_repeat('x', 301)], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('comment');
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'rateable_type' => 'galaxy', 'rateable_id' => 1], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('rateable_type');
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'rateable_type' => 'service'], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('rateable_id');
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 4, 'rateable_type' => 'service', 'rateable_id' => 9999], $this->asUser())->assertUnprocessable()->assertJsonValidationErrors('rateable_id');
@@ -242,7 +254,7 @@ class RatingTest extends TestCase
         $service = ServiceCategory::create(['module_name' => 'ride', 'status' => true, 'sort_order' => 0]);
 
         $this->postJson('/api/mobile/v1/ratings', ['stars' => 5, 'comment' => 'Great'], $this->asUser())->assertCreated();
-        $this->postJson('/api/mobile/v1/ratings', ['stars' => 2, 'comment' => 'Slow', 'rateable_type' => 'service', 'rateable_id' => $service->id], $this->asUser())->assertCreated();
+        $this->postJson('/api/mobile/v1/ratings', ['stars' => 2, 'comment' => 'Too slow', 'rateable_type' => 'service', 'rateable_id' => $service->id], $this->asUser())->assertCreated();
     }
 
     public function test_admin_lists_and_shows_ratings_with_their_author_and_target(): void
@@ -259,13 +271,13 @@ class RatingTest extends TestCase
         $this->assertSame('Great', $rows[5]['comment']);
         $this->assertNull($rows[5]['rateable'], 'the app itself has no target');
         $this->assertSame('+966501234567', $rows[5]['author']['phone']);
-        $this->assertSame('User', $rows[5]['author']['type']);
+        $this->assertSame('user', $rows[5]['author']['type']);
         $this->assertSame('service', $rows[2]['rateable']['type']);
         $this->assertSame('feedback', $rows[2]['type']);
 
         $this->getJson('/api/admin/v1/ratings/'.$rows[2]['id'])
             ->assertOk()
-            ->assertJsonPath('data.comment', 'Slow');
+            ->assertJsonPath('data.comment', 'Too slow');
     }
 
     public function test_admin_ratings_need_the_view_permission(): void

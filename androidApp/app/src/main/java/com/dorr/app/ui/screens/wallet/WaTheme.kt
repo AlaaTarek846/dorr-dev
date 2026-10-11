@@ -68,6 +68,7 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import com.dorr.app.R
+import com.dorr.app.ui.theme.CairoFontFamily
 import com.dorr.app.ui.theme.LocalThemeState
 import com.dorr.app.ui.theme.appearanceColor
 
@@ -221,7 +222,7 @@ fun WaCircleButton(
     ) { Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(20.dp)) }
 }
 
-/** Round button drawn as a thin ring in the brand colour (the wallet header on the home page). */
+/** Header circle matching settings: filled 34.dp surface, 16.dp icon. */
 @Composable
 fun WaOutlineCircleButton(
     icon: ImageVector,
@@ -231,17 +232,23 @@ fun WaOutlineCircleButton(
     contentDescription: String? = null,
     iconModifier: Modifier = Modifier,
 ) {
+    val night = walletNight()
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.9f)
     Box(
         modifier
-            .size(40.dp)
+            .size(34.dp)
             .scale(scale)
+            .then(
+                if (night) Modifier
+                else Modifier.shadow(6.dp, CircleShape, ambientColor = Color(0x14001B53), spotColor = Color(0x14001B53)),
+            )
             .clip(CircleShape)
-            .border(1.dp, tint.copy(alpha = 0.45f), CircleShape)
+            .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Wa.Surface)
+            .then(if (night) Modifier.border(1.dp, com.dorr.app.ui.screens.AccountDark.line, CircleShape) else Modifier)
             .clickable(interactionSource = source, indication = null, onClick = onClick),
         contentAlignment = Alignment.Center,
-    ) { Icon(icon, contentDescription, tint = tint, modifier = iconModifier.size(20.dp)) }
+    ) { Icon(icon, contentDescription, tint = tint, modifier = iconModifier.size(16.dp)) }
 }
 
 enum class WaButtonStyle { Primary, Ghost, Quiet }
@@ -255,6 +262,8 @@ fun WaButton(
     style: WaButtonStyle = WaButtonStyle.Primary,
     icon: ImageVector? = null,
     loading: Boolean = false,
+    iconAfter: Boolean = false,
+    spread: Boolean = false,
 ) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.97f)
@@ -284,20 +293,23 @@ fun WaButton(
     }
 
     Row(
-        decorated.clickable(interactionSource = source, indication = null, enabled = active, onClick = onClick),
-        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        decorated
+            .clickable(interactionSource = source, indication = null, enabled = active, onClick = onClick)
+            .then(if (spread) Modifier.padding(horizontal = 22.dp) else Modifier),
+        horizontalArrangement = if (spread) Arrangement.SpaceBetween else Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         if (loading) {
             CircularProgressIndicator(color = contentColor, strokeWidth = 2.5.dp, modifier = Modifier.size(20.dp))
         } else {
-            if (icon != null) Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
+            if (icon != null && !iconAfter) Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
             Text(
                 text,
                 color = contentColor,
                 fontSize = if (style == WaButtonStyle.Quiet) 14.sp else 16.sp,
                 fontWeight = FontWeight.ExtraBold,
             )
+            if (icon != null && iconAfter) Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
         }
     }
 }
@@ -400,6 +412,10 @@ fun WaPage(
     dark: Boolean = false,
     /** Ring-style round buttons and a larger title (the wallet home). */
     outlined: Boolean = false,
+    /** Extra space under the scroll so a taller pinned bar does not cover the last cards. */
+    ctaReserve: Dp = 110.dp,
+    /** Solid bottom bar with a top shadow (summary + action). */
+    ctaDock: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val night = dark || walletNight()
@@ -421,51 +437,50 @@ fun WaPage(
                 Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(title, color = Wa.Red, fontSize = if (outlined) 28.sp else 22.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
+                Text(
+                    title,
+                    color = Wa.Red,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = CairoFontFamily,
+                    modifier = Modifier.weight(1f),
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     actions()
-                    if (outlined) {
-                        WaOutlineCircleButton(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            onBack,
-                            contentDescription = stringResource(R.string.common_back),
-                            iconModifier = Modifier.graphicsLayer { scaleX = -1f },
-                        )
-                    } else Box(
-                        Modifier
-                            .size(34.dp)
-                            .then(
-                                if (night) Modifier
-                                else Modifier.shadow(6.dp, CircleShape, ambientColor = Wa.Red.copy(alpha = 0.08f), spotColor = Wa.Red.copy(alpha = 0.08f)),
-                            )
-                            .clip(CircleShape)
-                            .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Wa.Surface)
-                            .clickable(onClick = onBack),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowBack,
-                            contentDescription = stringResource(R.string.common_back),
-                            tint = Wa.Red,
-                            modifier = Modifier.size(16.dp).graphicsLayer { scaleX = -1f },
-                        )
-                    }
+                    WaOutlineCircleButton(
+                        Icons.AutoMirrored.Rounded.ArrowBack,
+                        onBack,
+                        contentDescription = stringResource(R.string.common_back),
+                        iconModifier = Modifier.graphicsLayer { scaleX = -1f },
+                    )
                 }
             }
             val body = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .let { if (scroll) it.verticalScroll(rememberScrollState()) else it }
-                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = if (cta != null) 110.dp else if (!scroll) 0.dp else 28.dp)
+                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = if (cta != null) ctaReserve else if (!scroll) 0.dp else 28.dp)
             Column(body, content = content)
         }
         if (cta != null) {
+            val dockShape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp)
             Column(
                 Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .background(Brush.verticalGradient(listOf(Wa.Bg.copy(alpha = 0f), Wa.Bg), startY = 0f, endY = 90f))
-                    .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 16.dp),
+                    .then(
+                        if (ctaDock) {
+                            Modifier
+                                .shadow(22.dp, dockShape, ambientColor = Color(0x1A111928), spotColor = Color(0x33111928))
+                                .clip(dockShape)
+                                .background(if (night) com.dorr.app.ui.screens.AccountDark.card else Wa.Surface)
+                                .padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 16.dp)
+                        } else {
+                            Modifier
+                                .background(Brush.verticalGradient(listOf(Wa.Bg.copy(alpha = 0f), Wa.Bg), startY = 0f, endY = 90f))
+                                .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 16.dp)
+                        },
+                    ),
                 content = cta,
             )
         }

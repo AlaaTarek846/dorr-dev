@@ -26,8 +26,8 @@ class FinancialLedgerService
      * @param  array{key: string, variables?: array<string, mixed>}|null  $notes
      * @param  array{type: string, id: int|null}|null  $createdBy
      *
-     * @throws FinancialCategoryNotFoundException  unknown slug — no silent fallback (unlike Jawad's hardcoded category_id => 1)
-     * @throws FinancialEntryTypeMismatchException  $type doesn't match the category's own type
+     * @throws FinancialCategoryNotFoundException unknown slug — no silent fallback (unlike Jawad's hardcoded category_id => 1)
+     * @throws FinancialEntryTypeMismatchException $type doesn't match the category's own type
      */
     public function record(
         string $categorySlug,

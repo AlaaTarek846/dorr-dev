@@ -4,6 +4,9 @@
     <string name="cal_home_count">عندك %1$d حاجات النهاردة</string>
     <string name="cal_home_free">يومك فاضي</string>
     <string name="cal_home_add">دوس ونظّم يومك</string>
+    <string name="cal_home_label">التقويم</string>
+    <string name="cal_home_things">حاجات</string>
+    <string name="cal_home_open">فتح</string>
     <string name="cal_today">اليوم</string>
     <string name="cal_week">الأسبوع</string>
     <string name="cal_month">الشهر</string>

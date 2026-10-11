@@ -1,40 +1,58 @@
 package com.dorr.app.ui.components
 
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.dorr.app.ui.screens.profile.settingsAccent
-import com.dorr.app.ui.theme.AppColors
 
-/** Growing-pill page indicator — same shape/timing as the reference app's banner + carousel dots. */
+/**
+ * Banner page dots — selected looks like a radio: a filled centre inside a ring.
+ * Inactive are small grey circles.
+ */
 @Composable
 fun DotIndicator(count: Int, activeIndex: Int, modifier: Modifier = Modifier) {
-    Row(modifier = modifier, horizontalArrangement = Arrangement.Center) {
+    val accent = settingsAccent()
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         repeat(count) { index ->
-            val active = index == activeIndex
-            val width by animateDpAsState(if (active) 22.dp else 8.dp, tween(300), label = "dotWidth")
-            Box(
-                modifier = Modifier
-                    .padding(horizontal = 3.dp)
-                    .width(width)
-                    .height(8.dp)
-                    .background(
-                        if (active) settingsAccent() else AppColors.border,
-                        RoundedCornerShape(4.dp),
-                    ),
-            )
+            if (index == activeIndex) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 5.dp)
+                        .size(12.dp)
+                        .border(1.6.dp, accent, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(CircleShape)
+                            .background(accent),
+                    )
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 5.dp)
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFFD1D5DB)),
+                )
+            }
         }
     }
 }

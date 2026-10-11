@@ -71,6 +71,8 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 |---|---|
 | `text` | `body` |
 | `image` / `video` / `audio` / `document` | `files[]`. `body` becomes the caption. Video can add `duration_ms` |
+| `document` — a folder (spec 10) | `files[]` = one zip made on the phone, `folder_name`, `folder_count` (1–100 000). `meta.folder = {name, count}`; the push says "📁 Folder". `folder_name` on any other type → 422 |
+| `video` — a GIF (spec 11) | `files[]` = a short silent clip (the app trims it to ≤ 6 s, 480p, no sound), `gif = 1`, `duration_ms`. `meta.gif = true`: the apps play it muted on a loop; the push says "🎞️ GIF". `gif` on any other type → 422 |
 | `voice` | `files[]`, `duration_ms`, `waveform[]` (0–100, up to 200 bars) |
 | `location` | `latitude`, `longitude`, `location_name`, `address`, `live_seconds` (900\|3600\|28800 for a live one) |
 | `contact` | `contact_name`, `contact_phones[]` |
@@ -83,6 +85,8 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 | `wallet_qr` | `country_code` (optional, defaults to the request's country). The server builds the card from **my own** wallet |
 
 `image` / `video` / `voice` can add `view_once` (the file is handed out once per recipient by `messages/{m}/open`, then deleted by `chat:purge`).
+
+**Attachment shape:** `id`, `url`, `name`, `mime_type`, `size`, `width`, `height`, `duration_ms`, `thumbnail` (a video's poster), `preview`. For a photo the server stores its `width` / `height` and `preview` — a ~40px JPEG in base64 (under 1KB) that the app shows, softened, while data saver holds the photo back (spec 82). `null` for anything else.
 
 **Message shape:** `id`, `conversation_id`, `type`, `body`, `meta`, `attachments[]`, `sender` (profile), `is_mine`, `status` (sent\|delivered\|read, my messages only), `reply_to`, `is_forwarded`, `forwarded_many_times`, `mentions[]`, `is_edited`, `is_deleted`, `expires_at`, `reactions {summary, mine, total}`, `is_starred`, `system {event, actor, targets, text}`, `created_at`, plus what the extra types need: `poll`, `payment`, `view_once`, `view_once_opened`, `live_location`, `link_preview`.
 
@@ -161,7 +165,7 @@ Moving or stopping a location that is not mine, not a `location` message, or alr
 |---|---|---|---|
 | GET | `stories` | | `{mine, recent, muted}`. Each item is `{owner, stories[], all_seen, last_at, block_screenshots}`, and unseen come first |
 | POST | `stories` | `type` = text\|image\|video, `body`, `style[background]`, `style[font]`, `duration_ms`, `allow_replies`, `public`, `file` | Video is limited to `story_video_max_seconds`. Stories expire after `story_duration_hours`. `public`: also on the home page for everyone, up to `public_stories_free` running (`chat_public_story_limit` with `data.max`; `chat_public_stories_disabled` when the admin turned them off) |
-| GET | `stories/public` | | The home page: `{enabled, quota: {free, used}, mine, dorr, people[]}`. `dorr` is Dorr's own stories as one group (`owner.type` = `dorr`, stories with `is_dorr`, `link_url`, `link_label`). `people` = everyone's public stories, the unseen first (most viewed + reacted first), the seen at the back; muted and blocked people left out. **`owner.phone` is null** unless I saved them or a direct chat between us was accepted |
+| GET | `stories/public` | `page`, `per_page` | The home page: `{enabled, quota: {free, used}, mine, dorr, people[], has_more}`. With `per_page` (the app uses 10) the people come a page at a time (later pages: `mine` and `dorr` null); without it, everyone at once. `dorr` is Dorr's own stories as one group (`owner.type` = `dorr`, stories with `is_dorr`, `link_url`, `link_label`). `people` = everyone's public stories, the unseen first (most viewed + reacted first), the seen at the back; muted and blocked people left out. **`owner.phone` is null** unless I saved them or a direct chat between us was accepted |
 | POST | `stories/dorr/{id}/view` | | One of Dorr's stories watched (counted once per person) |
 | PATCH | `privacy` | also `quiet_schedule` `{from, to, days[], timezone}` (null = off), `quiet_scope` = all\|groups | **Smart quiet (spec 115):** in those times, messages that aren't urgent make no notification; `chat:quiet-digest` (every minute) sends one summary when the time is over. Calls and urgent messages come through. `privacy` answers `quiet: {on, schedule, scope}` |
 | DELETE | `stories/{id}` | | Mine only |
@@ -491,6 +495,39 @@ Calls can be switched off per country (`calls_disabled_countries` in chat settin
 
 The token is a LiveKit JWT (HS256) for one room and one identity (`user:{id}`), signed with `LIVEKIT_API_SECRET`. `chat:expire-calls` runs every minute and turns a call that rang longer than `CHAT_CALL_RING_TIMEOUT_SECONDS` (45) into a missed call.
 
+### Voice rooms (spec 91)
+Every group and channel has one standing voice room (made on first use). A group: everyone speaks (`speak_policy = everyone`). A channel: its admins speak and the others listen until a host lets them (`approved`). Hosts are the chat's admins. Who may speak is in the LiveKit token (`canPublish`) and changed live through LiveKit's RoomService API (`UpdateParticipant` / `RemoveParticipant`, admin token). The same country switch as calls applies.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `conversations/{c}/voice-room` | — | `{id, conversation_id, title, speak_policy: everyone \| approved, count, members[{participant_id, key, name, avatar, role: host \| speaker \| listener, hand_raised}], me{in_room, role, can_manage}}` |
+| POST | `conversations/{c}/voice-room/join` | — | `{room, join{url, room, token}}` (throttled 30/min) |
+| POST | `voice-rooms/{id}/leave` · `/ping` | — | ping every ~30 s; nobody seen for 90 s is dropped by `chat:voice-rooms-sweep` (every minute) |
+| POST | `voice-rooms/{id}/hand` | `{raised}` | The room |
+| POST | `voice-rooms/{id}/members/{participant}/role` | `{role: speaker \| listener}` — a host | The room. A host stays a host (`chat_voice_host_stays`) |
+| POST | `voice-rooms/{id}/members/{participant}/remove` | — a host | The room |
+| PATCH | `voice-rooms/{id}` | `{speak_policy?, title?}` — a host | The room. Back to `everyone`: every listener becomes a speaker |
+
+Errors: `chat_voice_groups_only` (422), `chat_voice_not_in_room` (409). Event `chat.voice.updated {conversation_id, room_id, count, …}` to the chat's members on every join, leave and change.
+
+### A call broadcast live (spec 93)
+Someone in the call (in a group, an admin) puts it live: the people in the call keep talking, viewers only watch and listen — their token can't publish (`canPublish = false`, `canPublishData = false`) and keeps them hidden (`hidden = true`, identity `viewer:{type}:{id}`). `audience`: `members` (this chat's members only) or `link` (anyone in DORR with the link). The live ends with the call, or by hand.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `calls/{call}/live` | `{title?, audience: members \| link}` | `201 {id, token, link: dorr://live/{token}, title, audience, status: live \| ended, host{name, avatar}, viewers, viewers_peak, started_at, ended_at}` |
+| POST | `lives/{id}/end` | — | The live (the call goes on) |
+| GET | `lives/watch/{token}` | — | The live |
+| POST | `lives/watch/{token}` | — | `{live, join{url, room, token} \| null}` — `null` once it ended |
+| POST | `lives/watch/{token}/ping` | — | The live; a viewer counts while seen in the last 60 s |
+| POST | `lives/watch/{token}/share` | `{conversation_ids[]}` | `{sent}` — posts a `live_card` message (`meta.live{token, title, host, audience}`). Members-only lives go only into their own chat |
+
+Errors: `chat_live_not_in_call` (409), `chat_live_ended` (409), `chat_live_not_found` (404), `chat_live_members_only` (403). Event `chat.call.live {call_id, live{id, token, status, viewers, audience}}` to the people in the call.
+
+**Camera backgrounds (spec 94)** are made on the phone only (blur, or a picture behind me): ML Kit selfie segmentation in a LiveKit `VideoProcessor`. Nothing goes to the server.
+
+**Call recording (spec 92)** isn't built: it needs LiveKit Egress, a storage place and a retention period — **NEEDS-DECISION**.
+
 ## Admin
 
 | Method | Path | Permission |
@@ -517,6 +554,37 @@ Only one theme can be the default: saving one as default clears the others, and 
 
 ---
 
+## Daily intelligence: commitments, handoffs, agreements (spec 148, 149, 152, 154)
+Each one is made from a message (or in a chat), posts its card (message types `commitment` · `handoff` · `agreement`, `meta` = the same shape as the answer, re-sent with `chat.message.updated` on every change) and keeps a history (`log[{action, by, data, at}]`). Nothing happens before the right person confirms (AT-LIFE-01). Errors: `chat_life_not_yours` (403), `chat_life_closed` (409), `chat_life_not_member`, `chat_life_unavailable` (channels, system messages), `chat_agreement_changed` (409, answer the current `version`), `chat_agreement_parties`, `chat_agreement_terms`.
+
+| Method | Path | Body / query | Returns |
+|---|---|---|---|
+| POST | `messages/{m}/commitment` · `conversations/{c}/commitment` | `{title? (required without a message), assignee? (participant id; direct chat: the other one by default), due_at?, remind_minutes?: 0 · 15 · 30 · 60 · 120 · 1440}` | `201 {id, title, status: proposed \| accepted (taken on myself), due_at, remind_minutes, by, assignee{participant_id, key, name, avatar}, source{id, type, preview}}` |
+| POST | `commitments/{id}/respond` | `{accept}` — the one responsible | The commitment (`accepted` · `declined`) |
+| POST | `commitments/{id}/done` · `commitments/{id}/cancel` | — | done: the one responsible, after accepting · cancel: either side, while open |
+| GET | `commitments` | `scope`: mine · theirs · all, `open` (default 1) | The list, with `conversation{id, type, name}` |
+| GET | `commitments/{id}` | — | The commitment + `log` |
+| POST | `messages/{m}/handoff` | `{to_participant_id}` (a member here: the card is here) or `{to_user_id}` (the message is forwarded to our direct chat under the forwarding rules, the card answers it there), `note?` | `201 {id, note, status: pending, from, to, source}` |
+| POST | `handoffs/{id}/{accept\|decline\|done\|cancel}` | — | accept / decline / done: the one it was handed to · cancel: the sender, while pending |
+| GET | `handoffs` | `scope`: received · sent, `open` | The list |
+| POST | `conversations/{c}/agreements` | `{title, terms[{label, value}] (1–12), parties?[] (a group: who must agree, me included), source? (message id)}` | `201 {id, title, terms, version: 1, status: proposed, by, parties[{…, decision, at}], source, record_only: true}` — proposing is agreeing |
+| POST | `agreements/{id}/answer` | `{accept, version}` | `agreed` once every party accepted this version (a system line tells the chat), `declined` on a no |
+| PUT | `agreements/{id}` | `{title?, terms[]}` — a party | A new `version`; every approval starts over (the one who changed it agrees) |
+| POST | `agreements/{id}/cancel` | — — the one who proposed it | `cancelled` |
+| GET | `agreements/{id}` | — | The agreement + `log` (with `before` / `terms` on every change) |
+
+### My communication rules and the life inbox (spec 146, 147, 151, 155)
+| Method | Path | Body / query | Returns |
+|---|---|---|---|
+| GET | `attention` | — | `{attention{contacts, strangers, groups, mentions, channels, money, urgent: now \| digest \| later}, digest_minutes, context{key, until}\|null, contexts[{key, attention, disclosure: all\|name\|none\|null, calls: everyone\|through\|nobody, custom}], always_through[{key, name, avatar}], call_hours{from, to, days, timezone}\|null, who_can_call, who_can_urgent, quiet{schedule, scope, on}, sources}` |
+| PUT | `attention` | `{attention?, digest_minutes?: 15·30·60·120·240, always_through?[participant keys], call_hours?\|null, contexts?{key: {attention?, disclosure?, calls?}}}` | The same |
+| PUT | `attention/context` | `{context: home·work·meeting·travel·private\|null, minutes?}` (no minutes: until I change it) | The same |
+| GET | `life-inbox` | `timezone` | `{reply[], pay[], approve[], follow[], appointments[], message_requests, counts{…}, total}` — each item `{kind, id?, title, by, due_at?, amount_minor?, currency?, message_id?, conversation_id, chat, at, late?}`. Kinds: needs_reply · mention · money_request · bill_split · commitment · handoff · agreement · join_request · decision · my_commitment · my_handoff · waiting_for · appointment · task. Only chats an overview may read |
+
+**How a message notifies (ChatPushNotifier + AttentionPolicy):** a chat I muted stays muted (urgent excepted) → people in `always_through` get through everything else → quiet time (spec 115) → my attention for the source, shifted by my active context: `now` notifies, `digest` waits for the summary (`chat:attention-digest`, every `digest_minutes` from the first one waiting, never in quiet time), `later` sends only a counter update (`hidden = 1`) → the context's `disclosure` makes the notification show less (the stricter level wins). Calls: outside `call_hours`, or in a context whose `calls` isn't `everyone`, a call doesn't ring (it shows as missed); `always_through` always rings. Nothing here changes what anyone may send — that stays `who_can_message` / `who_can_call` / `who_can_urgent`.
+
+Commitment reminders: `chat:commitment-reminders` every minute (once, `remind_minutes` before `due_at`, only when accepted). An agreement never pays, books or charges anything.
+
 ## Real-time (Pusher, private channel `Modules.User.Models.User.{id}`)
 
 | Event | Payload |
@@ -529,5 +597,7 @@ Only one theme can be the default: saving one as default clears the others, and 
 | `chat.conversation.updated` | `conversation_id` (+`status`). The app re-fetches the conversation |
 | `chat.pins.updated` | `conversation_id` |
 | `chat.call.ringing` / `accepted` / `declined` / `left` / `ended` | `call_id`, `conversation_id`, `status`, `participant`, `duration_seconds`. `ringing` adds `caller` and the full call |
+| `chat.voice.updated` | `conversation_id`, `room_id`, `count` — who's in a voice room changed |
+| `chat.call.live` | `call_id`, `live{id, token, status, viewers, audience}` |
 
 Push (OneSignal) goes out for new messages, respecting mute, locked chats, and `notification_preview`, and for incoming and missed calls. `data.type` is `chat` or `chat_call`.

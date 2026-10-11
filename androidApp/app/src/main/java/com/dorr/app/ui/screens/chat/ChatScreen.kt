@@ -41,6 +41,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
@@ -145,6 +146,8 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             ChatViewersHost()
             privateSummary?.let { PrivacySummaryDialog(it) { privateSummary = null } }
             OfflineBanner()
+            // In a voice room while elsewhere in the chat: it stays with me (spec 91).
+            Box(Modifier.fillMaxSize().statusBarsPadding(), contentAlignment = Alignment.TopCenter) { VoiceMiniBar() }
             ChatToast(host)
             // A group invite link was tapped: preview + "Join" / "Ask to join".
             host.joinToken?.let { token -> JoinGroupSheet(token) { host.joinToken = null } }
@@ -201,6 +204,13 @@ private fun ChatPages(host: ChatHost) {
             ChRoute.CatchUp -> CatchUpPage()
             ChRoute.PrivacyCenter -> PrivacyCenterPage()
             is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
+            ChRoute.Commitments -> CommitmentsPage()
+            ChRoute.CommRules -> CommRulesPage()
+            ChRoute.LifeInbox -> LifeInboxPage()
+            ChRoute.DataPerformance -> DataPerformancePage()
+            ChRoute.Usage -> UsagePage()
+            is ChRoute.VoiceRoom -> VoiceRoomPage(route.conversationId, route.title)
+            is ChRoute.LiveViewer -> LiveViewerPage(route.token)
         }
     }
 }

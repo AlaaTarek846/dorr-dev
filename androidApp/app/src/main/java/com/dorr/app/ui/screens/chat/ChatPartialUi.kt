@@ -145,6 +145,8 @@ object ChatPrefs {
      */
     fun photoBudget(context: Context): Pair<Int, Int> {
         load(context)
+        // Data saver (spec 82) wins over the quality picked here.
+        if (com.dorr.app.chat.ChatDataSaver.active) return 1024 to 70
         return when (uploadQuality) {
             "high" -> 2560 to 90
             "saver" -> 1024 to 70

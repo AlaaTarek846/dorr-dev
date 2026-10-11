@@ -162,5 +162,8 @@ fun collectReconnectTick(): Int {
     val context = LocalContext.current
     val monitor = remember(context) { NetworkMonitor.getInstance(context) }
     val tick by monitor.reconnectTick.collectAsState()
-    return tick
+    // A pull-to-refresh counts as one more "reload now" (see RefreshCoordinator): every screen that keys its load on
+    // this value reloads on a pull, with nothing else to wire.
+    val pulled by RefreshCoordinator.pullTick.collectAsState()
+    return tick + pulled
 }

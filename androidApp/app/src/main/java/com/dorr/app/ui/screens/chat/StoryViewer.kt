@@ -404,7 +404,7 @@ private fun StoryContent(story: StoryDto, playing: Boolean, onVideoReady: (Long)
             val url = ApiClient.mediaUrl(story.media?.url)
             // A blurred, zoomed copy fills the edges of photos that aren't phone-shaped.
             AsyncImage(url, null, imageLoader = chatImages(context), contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.55f }.then(if (android.os.Build.VERSION.SDK_INT >= 31) Modifier.blur(40.dp) else Modifier))
+                modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.55f }.then(if (android.os.Build.VERSION.SDK_INT >= 31 && !com.dorr.app.chat.ChatLite.active) Modifier.blur(40.dp) else Modifier))
             // Ken Burns: a very slow zoom while it's on screen.
             val zoom by animateFloatAsState(if (playing) 1.08f else 1f, tween(if (playing) PHOTO_MS.toInt() else 300, easing = LinearEasing), label = "kenburns")
             AsyncImage(url, null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom })

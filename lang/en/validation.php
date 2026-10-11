@@ -31,6 +31,11 @@ return [
     'email' => 'The :attribute field must be a valid email address.',
     'regex' => 'The :attribute format is invalid.',
 
+    'view_once_media_only' => 'Only a photo, video or voice message can be sent to view once.',
+    'live_location_only' => 'Only a location can be shared live.',
+    'folder_document_only' => 'A folder is sent as a document.',
+    'gif_video_only' => 'Only a video can be sent as a GIF.',
+
     'custom' => [
         'code' => [
             'unique' => 'This code is already in use.',

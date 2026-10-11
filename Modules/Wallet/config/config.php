@@ -1,5 +1,9 @@
 <?php
 
+use Modules\Admin\Models\Admin;
+use Modules\Provider\Models\Provider;
+use Modules\User\Models\User;
+
 return [
     'name' => 'Wallet',
 
@@ -18,9 +22,9 @@ return [
     | docs/wallet-structure.md §1.1. Do not add a class entry for them.
     */
     'morph_map' => [
-        'user' => \Modules\User\Models\User::class,
-        'provider' => \Modules\Provider\Models\Provider::class,
-        'admin' => \Modules\Admin\Models\Admin::class,
+        'user' => User::class,
+        'provider' => Provider::class,
+        'admin' => Admin::class,
     ],
 
     'platform_owner_type' => 'platform',

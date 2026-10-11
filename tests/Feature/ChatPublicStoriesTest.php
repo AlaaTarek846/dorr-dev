@@ -58,6 +58,29 @@ class ChatPublicStoriesTest extends TestCase
         }
     }
 
+    public function test_the_home_row_loads_people_a_page_at_a_time(): void
+    {
+        foreach (range(10, 14) as $n) {
+            $person = User::create(['name' => "Person {$n}", 'phone' => "+9665000000{$n}", 'country_id' => $this->alice->country_id, 'status' => 'active', 'phone_verified_at' => now()]);
+            $this->as($person);
+            $this->post_($person, ['type' => 'text', 'body' => "Story {$n}", 'public' => true])->assertCreated();
+        }
+
+        $this->as($this->bob);
+        $first = $this->getJson('/api/mobile/v1/chat/stories/public?per_page=2&page=1', $this->headers())->assertOk();
+        $first->assertJsonCount(2, 'data.people')->assertJsonPath('data.has_more', true);
+        $second = $this->getJson('/api/mobile/v1/chat/stories/public?per_page=2&page=2', $this->headers())->assertOk();
+        $second->assertJsonCount(2, 'data.people')->assertJsonPath('data.has_more', true)->assertJsonPath('data.dorr', null);
+        $third = $this->getJson('/api/mobile/v1/chat/stories/public?per_page=2&page=3', $this->headers())->assertOk();
+        $third->assertJsonCount(1, 'data.people')->assertJsonPath('data.has_more', false);
+
+        $names = collect([$first, $second, $third])->flatMap(fn ($r) => collect($r->json('data.people'))->pluck('owner.key'))->all();
+        $this->assertCount(5, array_unique($names), 'no one twice, no one missing');
+
+        // Without per_page everyone comes at once, as before.
+        $this->getJson('/api/mobile/v1/chat/stories/public', $this->headers())->assertJsonCount(5, 'data.people')->assertJsonPath('data.has_more', false);
+    }
+
     public function test_one_free_public_story_and_the_admin_sets_how_many(): void
     {
         $this->post_($this->alice, ['type' => 'text', 'body' => 'Grand opening today!', 'public' => true])->assertCreated();

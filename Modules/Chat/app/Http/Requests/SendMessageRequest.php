@@ -44,6 +44,12 @@ class SendMessageRequest extends FormRequest
             'waveform' => ['nullable', 'array', 'max:200'],
             'waveform.*' => ['integer', 'min:0', 'max:100'],
 
+            // A folder sent as one zip (spec 10): the app zips it and says what was inside.
+            'folder_name' => ['nullable', 'string', 'max:255'],
+            'folder_count' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            // A short silent clip that loops like a GIF (spec 11).
+            'gif' => ['nullable', 'boolean'],
+
             'latitude' => ['required_if:type,location', 'nullable', 'numeric', 'between:-90,90'],
             'longitude' => ['required_if:type,location', 'nullable', 'numeric', 'between:-180,180'],
             'location_name' => ['nullable', 'string', 'max:200'],
@@ -105,6 +111,14 @@ class SendMessageRequest extends FormRequest
 
             if ($this->filled('live_seconds') && $this->input('type') !== MessageType::Location->value) {
                 $validator->errors()->add('live_seconds', __('validation.live_location_only'));
+            }
+
+            if ($this->filled('folder_name') && $this->input('type') !== MessageType::Document->value) {
+                $validator->errors()->add('folder_name', __('validation.folder_document_only'));
+            }
+
+            if ($this->boolean('gif') && $this->input('type') !== MessageType::Video->value) {
+                $validator->errors()->add('gif', __('validation.gif_video_only'));
             }
         });
     }

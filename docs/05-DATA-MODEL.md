@@ -89,7 +89,7 @@ personal_access_tokens (Sanctum)
 | id | PK |
 | author_type, author_id | morph (the user who rated) |
 | rateable_type, rateable_id | nullable morph; null = the app itself. Allowed aliases: `service` (ServiceCategory), `provider` |
-| unique_key | char(64) unique — sha256 of author + target, prevents duplicate ratings (NULL morphs cannot be unique) |
+| unique_key | char(64) unique — sha256 of author + target, one row per author+target (later POSTs update it; NULL morphs cannot be unique) |
 | stars | decimal(3,2), 1–5 in 0.25 steps |
 | type | `feedback` (< 4) or `review` (≥ 4) |
 | comment | nullable text |

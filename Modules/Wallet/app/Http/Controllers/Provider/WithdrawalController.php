@@ -5,6 +5,7 @@ namespace Modules\Wallet\Http\Controllers\Provider;
 use App\Http\Controllers\Controller;
 use App\Models\Country;
 use App\Support\Api\ApiResponse;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Modules\Wallet\Exceptions\WithdrawalException;
 use Modules\Wallet\Http\Requests\WithdrawalRequestFormRequest;
@@ -78,7 +79,7 @@ class WithdrawalController extends Controller
         return $country;
     }
 
-    private function ownRequests(Request $request): \Illuminate\Database\Eloquent\Builder
+    private function ownRequests(Request $request): Builder
     {
         $owner = $request->user();
 

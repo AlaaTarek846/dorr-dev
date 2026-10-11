@@ -55,6 +55,8 @@ class DatabaseSeeder extends Seeder
             ProviderSeeder::class,
             AIDatabaseSeeder::class,
             SupportDatabaseSeeder::class,
+            // Last: competitions and today's matches from API-Sports (3 requests; skipped in tests or without a key).
+            \Modules\Sports\Database\Seeders\SportsProviderSeeder::class,
         ]);
     }
 }

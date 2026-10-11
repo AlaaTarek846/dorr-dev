@@ -3,8 +3,10 @@
 namespace Modules\Chat\Services;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Modules\AI\Models\AiProvider;
@@ -171,7 +173,7 @@ class ChatAiService
         });
         // Kept for me, so searching my chats finds what was said (spec 20).
         $participant = $this->conversations->participantOf($me, $message->conversation);
-        \Illuminate\Support\Facades\DB::table('chat_message_transcripts')->updateOrInsert(
+        DB::table('chat_message_transcripts')->updateOrInsert(
             ['message_id' => $message->id, 'participant_id' => $participant->id],
             ['text' => $text, 'updated_at' => now(), 'created_at' => now()],
         );
@@ -282,7 +284,7 @@ class ChatAiService
             $due = null;
             if (is_string($item['due'] ?? null) && $item['due'] !== '') {
                 try {
-                    $due = \Illuminate\Support\Carbon::parse($item['due'], $timezone)->utc();
+                    $due = Carbon::parse($item['due'], $timezone)->utc();
                 } catch (Throwable) {
                     $due = null;
                 }

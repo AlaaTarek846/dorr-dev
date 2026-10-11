@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Modules\Wallet\Enums\PinRecoveryReason;
 use Modules\Wallet\Enums\PinRecoveryStatus;
 use Modules\Wallet\Enums\RecoveryMethod;
@@ -181,7 +182,7 @@ class WalletRecoveryService
     /**
      * Confirms the address with the 4-digit code that was mailed to it.
      *
-     * @throws \Illuminate\Validation\ValidationException  wrong / expired / too many tries
+     * @throws ValidationException wrong / expired / too many tries
      */
     public function confirmEmail(Model $owner, string $code): WalletRecoveryMethod
     {
@@ -239,7 +240,7 @@ class WalletRecoveryService
      *
      * @param  array<string, mixed>  $input  password | birth_date | code
      *
-     * @throws RecoveryException|PinNotSetException|\Illuminate\Validation\ValidationException
+     * @throws RecoveryException|PinNotSetException|ValidationException
      */
     public function recover(Model $owner, array $input, string $newPin): void
     {
@@ -427,7 +428,7 @@ class WalletRecoveryService
     {
         try {
             $this->codes->send($owner, VerificationType::WalletRecovery, $email);
-        } catch (\Illuminate\Validation\ValidationException $e) {
+        } catch (ValidationException $e) {
             throw $e; // resend cooldown
         } catch (Throwable $e) {
             Log::error('[WalletRecovery] could not send the e-mail code: '.$e->getMessage());

@@ -8,6 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Modules\Chat\Enums\MessageType;
+use Modules\Chat\Models\ChatBlock;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroupDecision;
 use Modules\Chat\Models\ChatMessage;
@@ -254,7 +255,7 @@ class ChatOverviewService
             'circles' => ['count' => $circles->count(), 'locked' => $circles->where('locked', true)->count(), 'hidden' => $circles->where('hide_from_list', true)->count()],
             'locked_chats' => (clone $mine)->where('is_locked', true)->count(),
             'pin_locked_chats' => (clone $mine)->whereNotNull('lock_pin_hash')->count(),
-            'blocked' => \Modules\Chat\Models\ChatBlock::query()->where('blocker_type', ParticipantType::aliasFor($me))->where('blocker_id', $me->getKey())->count(),
+            'blocked' => ChatBlock::query()->where('blocker_type', ParticipantType::aliasFor($me))->where('blocker_id', $me->getKey())->count(),
             'username' => $me->chat_username ?? null,
             'ai' => ['enabled' => ChatSetting::current()->aiEnabled(), 'reads' => __('chat.privacy_center.ai_reads')],
         ];

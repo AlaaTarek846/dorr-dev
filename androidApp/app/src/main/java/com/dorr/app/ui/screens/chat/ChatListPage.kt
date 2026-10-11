@@ -65,6 +65,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.Security
+import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material.icons.rounded.TextFields
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.TaskAlt
@@ -97,6 +98,8 @@ import androidx.compose.material.icons.rounded.Gif
 import androidx.compose.material.icons.rounded.Poll
 import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.PushPin
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Inbox
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Search
@@ -453,10 +456,13 @@ private fun ListMenu() {
             MenuItem(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr)) { open = false; host.push(ChRoute.MyQr) }
             // DORR AI across my chats (spec 41, 49) and my tasks (38).
             // "What I missed" (spec 123), the privacy center (127), reading comfort (6, 13).
+            MenuItem(Icons.Rounded.Inbox, stringResource(R.string.li_title)) { open = false; host.push(ChRoute.LifeInbox) }
             MenuItem(Icons.Rounded.History, stringResource(R.string.cp_catch_up)) { open = false; host.push(ChRoute.CatchUp) }
             if (ChatAi.today) MenuItem(Icons.Rounded.AutoAwesome, stringResource(R.string.ct_today)) { open = false; todayOpen = true }
             if (ChatAi.important) MenuItem(Icons.Rounded.PriorityHigh, stringResource(R.string.ct_important)) { open = false; importantOpen = true }
             MenuItem(Icons.Rounded.TaskAlt, stringResource(R.string.ct_tasks)) { open = false; host.push(ChRoute.Tasks) }
+            MenuItem(Icons.Rounded.PushPin, stringResource(R.string.lf_my_commitments)) { open = false; host.push(ChRoute.Commitments) }
+            MenuItem(Icons.Rounded.Tune, stringResource(R.string.at_title)) { open = false; host.push(ChRoute.CommRules) }
             MenuItem(Icons.Rounded.Star, stringResource(R.string.ch_starred_title)) { open = false; host.push(ChRoute.Starred) }
             MenuItem(Icons.Rounded.BookmarkAdd, stringResource(R.string.ch_follow_ups_title)) { open = false; host.push(ChRoute.ReadLater) }
             MenuItem(Icons.Rounded.Mood, stringResource(R.string.ch_status_title)) { open = false; statusSheet = true }
@@ -464,6 +470,7 @@ private fun ListMenu() {
             MenuItem(Icons.Rounded.Shield, stringResource(R.string.ch_privacy_title)) { open = false; host.push(ChRoute.Privacy) }
             MenuItem(Icons.Rounded.Security, stringResource(R.string.cp_privacy_center)) { open = false; host.push(ChRoute.PrivacyCenter) }
             MenuItem(Icons.Rounded.TextFields, stringResource(R.string.cp_comfort)) { open = false; comfort = true }
+            MenuItem(Icons.Rounded.Speed, stringResource(R.string.pf_title)) { open = false; host.push(ChRoute.DataPerformance) }
             MenuItem(Icons.Rounded.Storefront, stringResource(R.string.ch_business_title)) { open = false; host.push(ChRoute.Business) }
             MenuItem(Icons.Rounded.Lock, stringResource(R.string.ch_locked_chats)) {
                 open = false

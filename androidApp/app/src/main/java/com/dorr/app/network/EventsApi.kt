@@ -7,6 +7,9 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.Multipart
+import retrofit2.http.Part
+import retrofit2.http.PartMap
 import retrofit2.http.POST
 import retrofit2.http.PUT
 import retrofit2.http.Path
@@ -95,6 +98,27 @@ interface EventsApi {
     /** The event's own local time in `starts_at` ("2026-11-05 20:00"), read in the city's zone. */
     @POST("mobile/v1/discover/organizer/events")
     suspend fun submit(@Header("Authorization") auth: String, @Body body: JsonObject, @Query("timezone") timezone: String): ApiEnvelope<DiscEventDto>
+
+    /** The same with a cover photo (multipart: the fields and `cover`). */
+    @Multipart
+    @POST("mobile/v1/discover/organizer/events")
+    suspend fun submitWithCover(
+        @Header("Authorization") auth: String,
+        @PartMap fields: Map<String, @JvmSuppressWildcards okhttp3.RequestBody>,
+        @Part cover: okhttp3.MultipartBody.Part,
+        @Query("timezone") timezone: String,
+    ): ApiEnvelope<DiscEventDto>
+
+    /** An organizer's own event: any field, and the cover (multipart). */
+    @Multipart
+    @POST("mobile/v1/discover/organizer/events/{id}")
+    suspend fun updateEvent(
+        @Header("Authorization") auth: String,
+        @Path("id") id: String,
+        @PartMap fields: Map<String, @JvmSuppressWildcards okhttp3.RequestBody>,
+        @Part cover: okhttp3.MultipartBody.Part?,
+        @Query("timezone") timezone: String,
+    ): ApiEnvelope<DiscEventDto>
 
     /** `{status, note?, starts_at?}` */
     @POST("mobile/v1/discover/organizer/events/{id}/status")

@@ -43,7 +43,10 @@ The endpoints are in [API.md](API.md).
 
 **Tests:** `tests/Feature/DiscoverTest.php` (8 tests: AT-DISC-01/02/03, home and calendar, chat card, poll and room, AI, alerts, admin switches).
 
+## Cover photos (2026-10-11)
+- Organizers add a cover with a new event and change it from their event's page (Android: gallery picker, shrunk to 1600 px JPEG, multipart `cover` on `organizer/events` and `organizer/events/{id}`). A new cover from an organizer who isn't auto-published sends the event back to review.
+- `cover` URLs carry `?v={media id}`: a replaced cover keeps its file name, so phones would otherwise show the cached old one.
+
 ## Not done / later
-- Android: organizers can't upload a cover from the app yet. The admin can.
 - Web user app: deferred (mobile first). The API is ready.
 - No external event feed or importer. If one is added, it should write events with `source = admin` (or a new source) through `OrganizerService::fields()` and `assertNotDuplicate()`.

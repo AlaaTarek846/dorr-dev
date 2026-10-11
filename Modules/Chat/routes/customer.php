@@ -1,33 +1,42 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use Modules\Chat\Http\Controllers\General\BusinessController;
-use Modules\Chat\Http\Controllers\General\CallController;
 use Modules\Chat\Http\Controllers\General\BroadcastController;
 use Modules\Chat\Http\Controllers\General\ChannelController;
 use Modules\Chat\Http\Controllers\General\CircleController;
 use Modules\Chat\Http\Controllers\General\DecisionController;
+use Modules\Chat\Http\Controllers\General\LifeController;
 use Modules\Chat\Http\Controllers\General\MomentController;
 use Modules\Chat\Http\Controllers\General\MomentExtrasController;
 use Modules\Chat\Http\Controllers\General\PortalController;
 use Modules\Chat\Http\Controllers\General\ChatAiController;
+use Modules\Chat\Http\Controllers\General\BusinessController;
 use Modules\Chat\Http\Controllers\General\CalendarController;
+use Modules\Chat\Http\Controllers\General\CallController;
+use Modules\Chat\Http\Controllers\General\ChannelController;
 use Modules\Chat\Http\Controllers\General\ChatAccessController;
-use Modules\Chat\Http\Controllers\General\ChatOverviewController;
-use Modules\Chat\Http\Controllers\General\StarFolderController;
+use Modules\Chat\Http\Controllers\General\ChatAiController;
 use Modules\Chat\Http\Controllers\General\ChatAiToolsController;
+use Modules\Chat\Http\Controllers\General\ChatOverviewController;
+use Modules\Chat\Http\Controllers\General\CircleController;
 use Modules\Chat\Http\Controllers\General\ContactController;
-use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\ConversationController;
+use Modules\Chat\Http\Controllers\General\DecisionController;
+use Modules\Chat\Http\Controllers\General\ExpressionController;
 use Modules\Chat\Http\Controllers\General\FolderController;
 use Modules\Chat\Http\Controllers\General\GroupController;
 use Modules\Chat\Http\Controllers\General\MessageController;
 use Modules\Chat\Http\Controllers\General\MessageExtrasController;
+use Modules\Chat\Http\Controllers\General\MomentController;
+use Modules\Chat\Http\Controllers\General\MomentExtrasController;
+use Modules\Chat\Http\Controllers\General\PortalController;
 use Modules\Chat\Http\Controllers\General\PrivacyController;
 use Modules\Chat\Http\Controllers\General\RealtimeConfigController;
 use Modules\Chat\Http\Controllers\General\ScheduledMessageController;
+use Modules\Chat\Http\Controllers\General\StarFolderController;
 use Modules\Chat\Http\Controllers\General\StoryController;
 use Modules\Chat\Http\Controllers\General\ThemeReportController;
+use Modules\Chat\Http\Middleware\RememberTimezone;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
 /*
@@ -37,7 +46,7 @@ use Modules\Wallet\Http\Middleware\RequiresWalletPin;
  *
  * {conversation}, {message} and {call} are uuids; {contact}, {folder} and {participant} are ids.
  */
-Route::prefix('chat')->middleware(\Modules\Chat\Http\Middleware\RememberTimezone::class)->group(function () {
+Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::get('realtime-config', RealtimeConfigController::class);
 
     // ------------------------------------------------------------ conversations
@@ -172,6 +181,25 @@ Route::prefix('chat')->middleware(\Modules\Chat\Http\Middleware\RememberTimezone
     Route::post('decisions/{decision}/arguments', [DecisionController::class, 'argue'])->middleware('throttle:30,1,chat-decision-args');
     Route::delete('decisions/{decision}/arguments/{argument}', [DecisionController::class, 'removeArgument'])->whereNumber('argument');
 
+    // ------------------------------------------------------------ daily intelligence (spec 148, 149, 152, 154)
+    Route::post('messages/{message}/commitment', [LifeController::class, 'commitFromMessage'])->middleware('throttle:30,1,chat-life');
+    Route::post('conversations/{conversation}/commitment', [LifeController::class, 'commit'])->middleware('throttle:30,1,chat-life');
+    Route::get('commitments', [LifeController::class, 'commitments']);
+    Route::get('commitments/{commitment}', [LifeController::class, 'commitment']);
+    Route::post('commitments/{commitment}/respond', [LifeController::class, 'respond']);
+    Route::post('commitments/{commitment}/done', [LifeController::class, 'done']);
+    Route::post('commitments/{commitment}/cancel', [LifeController::class, 'cancel']);
+    Route::post('messages/{message}/handoff', [LifeController::class, 'handOff'])->middleware('throttle:30,1,chat-life');
+    Route::get('handoffs', [LifeController::class, 'handoffs']);
+    Route::post('handoffs/{handoff}/{action}', [LifeController::class, 'moveHandoff'])->whereIn('action', ['accept', 'decline', 'done', 'cancel']);
+    Route::post('conversations/{conversation}/agreements', [LifeController::class, 'propose'])->middleware('throttle:30,1,chat-life');
+    Route::get('agreements/{agreement}', [LifeController::class, 'agreement']);
+    Route::post('agreements/{agreement}/answer', [LifeController::class, 'answer']);
+    Route::put('agreements/{agreement}', [LifeController::class, 'amend']);
+    Route::post('agreements/{agreement}/cancel', [LifeController::class, 'cancelAgreement']);
+    // The life inbox (spec 147).
+    Route::get('life-inbox', [LifeController::class, 'inbox']);
+
     // ------------------------------------------------------------ privacy circles (spec 98–103)
     Route::get('circles', [CircleController::class, 'index']);
     Route::post('circles', [CircleController::class, 'store']);
@@ -213,6 +241,10 @@ Route::prefix('chat')->middleware(\Modules\Chat\Http\Middleware\RememberTimezone
     Route::delete('contacts/{contact}', [ContactController::class, 'destroy']);
 
     // ------------------------------------------------------------ privacy, blocks, presence
+    // My communication rules (spec 146, 151, 155).
+    Route::get('attention', [\Modules\Chat\Http\Controllers\General\AttentionController::class, 'show']);
+    Route::put('attention', [\Modules\Chat\Http\Controllers\General\AttentionController::class, 'update']);
+    Route::put('attention/context', [\Modules\Chat\Http\Controllers\General\AttentionController::class, 'context']);
     Route::get('privacy', [PrivacyController::class, 'show']);
     Route::patch('privacy', [PrivacyController::class, 'update']);
     Route::put('status', [PrivacyController::class, 'setStatus']);
@@ -321,6 +353,22 @@ Route::prefix('chat')->middleware(\Modules\Chat\Http\Middleware\RememberTimezone
     Route::get('calls', [CallController::class, 'index']);
     Route::post('conversations/{conversation}/calls', [CallController::class, 'store'])->middleware('throttle:20,1,chat-calls');
     Route::get('calls/{call}', [CallController::class, 'show']);
+    // Standing voice rooms (spec 91).
+    Route::get('conversations/{conversation}/voice-room', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'show']);
+    Route::post('conversations/{conversation}/voice-room/join', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'join'])->middleware('throttle:30,1,chat-voice');
+    Route::post('voice-rooms/{room}/leave', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'leave']);
+    Route::post('voice-rooms/{room}/ping', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'ping']);
+    Route::post('voice-rooms/{room}/hand', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'hand']);
+    Route::post('voice-rooms/{room}/members/{participant}/role', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'role'])->whereNumber('participant');
+    Route::post('voice-rooms/{room}/members/{participant}/remove', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'remove'])->whereNumber('participant');
+    Route::patch('voice-rooms/{room}', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'update']);
+    // A call broadcast live (spec 93).
+    Route::post('calls/{call}/live', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'start']);
+    Route::post('lives/{live}/end', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'end']);
+    Route::get('lives/watch/{token}', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'show'])->where('token', '[A-Za-z0-9]{20,40}');
+    Route::post('lives/watch/{token}', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'watch'])->where('token', '[A-Za-z0-9]{20,40}');
+    Route::post('lives/watch/{token}/ping', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'ping'])->where('token', '[A-Za-z0-9]{20,40}');
+    Route::post('lives/watch/{token}/share', [\Modules\Chat\Http\Controllers\General\CallLiveController::class, 'share'])->where('token', '[A-Za-z0-9]{20,40}');
     Route::post('calls/{call}/accept', [CallController::class, 'accept']);
     Route::post('calls/{call}/decline', [CallController::class, 'decline']);
     Route::post('calls/{call}/leave', [CallController::class, 'leave']);

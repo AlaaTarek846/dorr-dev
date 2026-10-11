@@ -49,7 +49,8 @@
                     <li
                         v-for="(notification, index) in notifications"
                         :key="notification.id || index"
-                        class="dropdown-item py-2 px-3 border-bottom"
+                        class="dropdown-item py-2 px-3 border-bottom cursor-pointer"
+                        @click="openItem(notification, index, $event)"
                     >
                         <div class="d-flex align-items-start">
                             <div class="pe-2">
@@ -125,11 +126,13 @@
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../api/adminAxios';
+import { useRouter } from 'vue-router';
 import { useAuthStore } from '../../../stores/auth';
 import { useToastStore } from '../../../stores/toast';
 import { notificationIcon, notificationLink } from '../../../utils/notificationLink';
 
 const { t } = useI18n();
+const router = useRouter();
 const authStore = useAuthStore();
 const toastStore = useToastStore();
 
@@ -151,6 +154,33 @@ async function fetchUnreadNotifications() {
         }
     } catch (error) {
         console.warn('[NotificationDropdown] Failed to fetch unread notifications:', error);
+    }
+}
+
+// The whole row opens what the notification is about; the dropdown closes behind it.
+function openItem(notification, index, event) {
+    // The row's own link and buttons do their own thing.
+    if (event.target.closest('a, button')) {
+        return;
+    }
+
+    // Clicking a notification reads it: it leaves the list and the badge count drops, whether or not it leads somewhere.
+    if (! notification.id || String(notification.id).startsWith('temp-')) {
+        // Just arrived live and not saved with its real id yet: drop it from the list here.
+        notifications.value = notifications.value.filter((item) => item !== notification);
+        count.value = Math.max(0, count.value - 1);
+    } else {
+        clearItem(notification.id, index);
+    }
+
+    const target = notificationLink(notification);
+
+    if (target) {
+        router.push(target);
+
+        const toggle = document.getElementById('notificationDropdownToggle');
+
+        window.bootstrap?.Dropdown?.getInstance(toggle)?.hide();
     }
 }
 
@@ -193,6 +223,9 @@ function handleIncomingNotification(notification) {
 
     notifications.value.unshift(newNotificationItem);
     count.value += 1;
+
+    // The live item has no stored id yet: swap it for the saved row so reading it works.
+    setTimeout(fetchUnreadNotifications, 1500);
 
     toastStore.push({
         message: `${title}: ${message}`,
@@ -254,6 +287,9 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.cursor-pointer {
+    cursor: pointer;
+}
 .header-notification-text {
     display: block;
     margin-top: 2px;

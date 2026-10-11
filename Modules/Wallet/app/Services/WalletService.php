@@ -257,7 +257,7 @@ class WalletService
      */
     public function release(WalletHold $hold, string $reasonKey): WalletHold
     {
-        return DB::transaction(function () use ($hold, $reasonKey) {
+        return DB::transaction(function () use ($hold) {
             $lockedHold = $this->lockHold($hold);
             $this->assertActive($lockedHold);
 

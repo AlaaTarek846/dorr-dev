@@ -27,9 +27,13 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
@@ -39,8 +43,9 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Image
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.QrCode2
+import androidx.compose.material.icons.rounded.QrCodeScanner
 import androidx.compose.material.icons.rounded.Share
-import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.Verified
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -60,7 +65,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -121,79 +128,172 @@ fun WalletMyQr() {
     val shareText = stringResource(R.string.wa_qr_share_text, number)
     val country = countryName(balance?.countryCode)
 
+    val currency = balance?.currencyCode.orEmpty()
+    val pill = RoundedCornerShape(50)
+
     WaPage(title = stringResource(R.string.wa_my_qr_title), onBack = { host.pop() }) {
-        Box(
+        val hero = RoundedCornerShape(28.dp)
+        Column(
             Modifier
                 .fillMaxWidth()
                 .waRise(0)
-                .then(if (walletNight()) Modifier else Modifier.shadow(10.dp, Wa.CardShape, ambientColor = Color(0x1A111928), spotColor = Color(0x26111928)))
-                .clip(Wa.CardShape)
-                .background(Wa.Surface)
-                .then(if (walletNight()) Modifier.border(1.dp, Wa.Line, Wa.CardShape) else Modifier),
+                .shadow(16.dp, hero, ambientColor = Wa.Red.copy(alpha = 0.28f), spotColor = Wa.Red.copy(alpha = 0.36f))
+                .clip(hero)
+                .background(Wa.HeroBrush)
+                .padding(top = 12.dp, bottom = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            Box(
-                Modifier.fillMaxWidth().height(120.dp).background(
-                    if (walletNight()) Brush.verticalGradient(listOf(Wa.Red.copy(alpha = 0.2f), Color.Transparent))
-                    else Brush.linearGradient(listOf(Wa.Red.copy(alpha = 0.16f), Wa.Red.copy(alpha = 0.04f))),
-                ),
-            )
-            Column(Modifier.fillMaxWidth().padding(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Row(
-                    Modifier.clip(RoundedCornerShape(999.dp)).background(if (walletNight()) com.dorr.app.ui.screens.AccountDark.well else Wa.Red.copy(alpha = 0.14f)).padding(horizontal = 12.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    Modifier.size(28.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.16f)),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Wa.Red, modifier = Modifier.size(15.dp))
-                    Text(stringResource(R.string.wa_your_wallet_in, country), color = Wa.Red, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
+                    Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White, modifier = Modifier.size(14.dp))
                 }
-                Spacer(Modifier.height(16.dp))
+                Column(Modifier.weight(1f).padding(horizontal = 8.dp)) {
+                    Text(stringResource(R.string.wa_qr_digital_title), color = Color.White.copy(alpha = 0.7f), fontSize = 10.sp, fontWeight = FontWeight.Medium)
+                    Text(stringResource(R.string.wa_qr_digital_sub), color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 1.dp))
+                }
+                Row(
+                    Modifier.clip(pill).background(Color.White.copy(alpha = 0.16f)).padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(Icons.Rounded.Verified, null, tint = Color.White, modifier = Modifier.size(12.dp))
+                    Text(stringResource(R.string.wa_qr_verified), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Spacer(Modifier.height(14.dp))
+            Box(
+                Modifier
+                    .widthIn(max = 196.dp)
+                    .fillMaxWidth(0.56f)
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(18.dp))
+                    .background(Color.White)
+                    .padding(10.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (matrix != null) {
+                    QrCanvas(matrix)
+                } else {
+                    Text(stringResource(R.string.wa_qr_failed), color = Wa.Mut, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.wa_wallet_number), color = Color.White.copy(alpha = 0.62f), fontSize = 11.sp)
+            if (number.isNotBlank()) {
+                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                    Text(number, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(top = 4.dp))
+                }
+            }
+            Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp).height(18.dp)) {
+                Canvas(Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(1.dp).align(Alignment.Center)) {
+                    drawLine(
+                        Color.White.copy(alpha = 0.32f),
+                        Offset(0f, size.height / 2),
+                        Offset(size.width, size.height / 2),
+                        strokeWidth = 1.5.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(5f, 7f)),
+                    )
+                }
                 Box(
                     Modifier
-                        .widthIn(max = 250.dp)
-                        .fillMaxWidth(0.66f)
-                        .aspectRatio(1f)
-                        .shadow(16.dp, RoundedCornerShape(26.dp), ambientColor = Color(0x24111928), spotColor = Color(0x24111928))
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color.White)
-                        .padding(10.dp),
-                ) {
-                    if (matrix != null) QrCanvas(matrix) else Text(stringResource(R.string.wa_qr_failed), color = Wa.Mut, fontSize = 13.sp)
-                }
-                Spacer(Modifier.height(14.dp))
-                CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-                    WaFitText(number, color = Wa.Ink, maxSize = 21.sp, letterSpacing = 2.sp)
-                }
-                Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    WaGlassChip(country, Icons.Rounded.Public, dark = true)
-                    WaGlassChip(balance?.currencyCode.orEmpty(), Icons.Rounded.AccountBalanceWallet, dark = true)
-                }
-                Text(stringResource(R.string.wa_my_qr_hint), color = Wa.Mut, fontSize = 12.5.sp, lineHeight = 21.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 12.dp))
+                        .size(18.dp)
+                        .offset(x = (-9).dp)
+                        .align(Alignment.CenterStart)
+                        .clip(CircleShape)
+                        .background(Wa.Bg),
+                )
+                Box(
+                    Modifier
+                        .size(18.dp)
+                        .offset(x = 9.dp)
+                        .align(Alignment.CenterEnd)
+                        .clip(CircleShape)
+                        .background(Wa.Bg),
+                )
+            }
+            Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                QrMetaPill(Icons.Rounded.Public, country.ifBlank { "—" }, Modifier.weight(1f))
+                QrMetaPill(Icons.Rounded.AccountBalanceWallet, currency.ifBlank { "—" }, Modifier.weight(1f))
             }
         }
 
-        Row(Modifier.fillMaxWidth().padding(vertical = 14.dp).waRise(1), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.weight(1f)) {
-                WaButton(stringResource(R.string.wa_copy_number), {
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
-                    host.showToast(copied)
-                }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.ContentCopy)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .padding(top = 14.dp)
+                .waRise(1)
+                .clip(RoundedCornerShape(18.dp))
+                .background(Wa.Surface)
+                .border(1.dp, Wa.Line, RoundedCornerShape(18.dp))
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(
+                Modifier.padding(end = 10.dp).size(36.dp).clip(CircleShape).background(Wa.Red.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(Icons.Rounded.QrCodeScanner, null, tint = Wa.Red, modifier = Modifier.size(18.dp))
             }
-            Box(Modifier.weight(1f)) {
-                WaButton(stringResource(R.string.wa_save_image), {
-                    if (payload != null) {
-                        val ok = runCatching { MediaStore.Images.Media.insertImage(context.contentResolver, qrBitmap(payload), "dorr-wallet-$number", null) }.getOrNull() != null
-                        if (ok) host.showToast(saved)
-                    }
-                }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Download, enabled = payload != null)
+            Text(stringResource(R.string.wa_my_qr_hint), color = Wa.Ink, fontSize = 12.5.sp, lineHeight = 20.sp, modifier = Modifier.weight(1f))
+        }
+
+        QrPillButton(stringResource(R.string.wa_copy_number), Icons.Rounded.ContentCopy, filled = true, modifier = Modifier.padding(top = 14.dp).waRise(2)) {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
+            host.showToast(copied)
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp).waRise(3), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            QrPillButton(stringResource(R.string.wa_save_download), Icons.Rounded.Download, filled = false, modifier = Modifier.weight(1f), enabled = payload != null) {
+                if (payload != null) {
+                    val ok = runCatching { MediaStore.Images.Media.insertImage(context.contentResolver, qrBitmap(payload), "dorr-wallet-$number", null) }.getOrNull() != null
+                    if (ok) host.showToast(saved)
+                }
+            }
+            QrPillButton(stringResource(R.string.wa_share), Icons.Rounded.Share, filled = false, modifier = Modifier.weight(1f)) {
+                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
+                context.startActivity(Intent.createChooser(send, null))
             }
         }
-        WaButton(stringResource(R.string.wa_share), {
-            val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
-            context.startActivity(Intent.createChooser(send, null))
-        }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Share)
+    }
+}
 
-        Spacer(Modifier.height(14.dp))
-        WaNote(stringResource(R.string.wa_my_qr_safe_note), Modifier.waRise(2), icon = Icons.Rounded.Shield)
+@Composable
+private fun QrMetaPill(icon: ImageVector, value: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = 0.14f))
+            .padding(horizontal = 12.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(15.dp))
+        Spacer(Modifier.size(7.dp))
+        Text(value, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+    }
+}
+
+@Composable
+private fun QrPillButton(text: String, icon: ImageVector, filled: Boolean, modifier: Modifier = Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(50)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(52.dp)
+            .clip(shape)
+            .then(if (filled) Modifier.background(Wa.HeroBrush) else Modifier.background(Wa.Surface).border(1.dp, Wa.Ink.copy(alpha = 0.18f), shape))
+            .clickable(interactionSource = source, indication = null, enabled = enabled, onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(text, color = if (filled) Color.White else Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.size(8.dp))
+        Icon(icon, null, tint = if (filled) Color.White else Wa.Ink, modifier = Modifier.size(18.dp))
     }
 }
 

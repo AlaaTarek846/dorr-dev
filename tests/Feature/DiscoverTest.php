@@ -9,8 +9,10 @@ use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiProvider;
 use Modules\AI\Repositories\AiProviderRepository;
 use Modules\Chat\Models\ChatContact;
@@ -20,9 +22,11 @@ use Modules\Discover\Database\Seeders\DiscoverSeeder;
 use Modules\Discover\Models\DiscoverCategory;
 use Modules\Discover\Models\DiscoverCity;
 use Modules\Discover\Models\DiscoverEvent;
+use Modules\Discover\Models\DiscoverEventRoom;
 use Modules\Discover\Models\DiscoverOrganizer;
 use Modules\Discover\Models\DiscoverSetting;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
 use Tests\TestCase;
 
 /**
@@ -133,6 +137,31 @@ class DiscoverTest extends TestCase
     }
 
     // ------------------------------------------------------------------ AT-DISC-01
+
+    public function test_an_organizer_sends_a_cover_with_the_event_and_changes_it_from_the_app(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
+
+        // Multipart, as the app sends it: the fields (booleans as 1/0) and the photo.
+        $data = ['is_free' => '1', 'family_friendly' => '0'] + $this->eventData('Oud night');
+        $created = $this->post('/api/mobile/v1/discover/organizer/events', $data + ['cover' => \Illuminate\Http\UploadedFile::fake()->image('cover.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
+            ->assertCreated();
+        $id = $created->json('data.id');
+        $first = $created->json('data.cover');
+        $this->assertNotNull($first);
+
+        // Only a new cover: everything else stays, and it's reviewed again (not verified).
+        $updated = $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => \Illuminate\Http\UploadedFile::fake()->image('new.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.title', 'Oud night')->assertJsonPath('data.review_status', 'pending');
+        $this->assertNotNull($updated->json('data.cover'));
+        $this->assertNotSame($first, $updated->json('data.cover'));
+
+        // Not an image: refused.
+        $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => \Illuminate\Http\UploadedFile::fake()->create('cover.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])
+            ->assertStatus(422);
+    }
 
     public function test_a_status_change_reaches_only_the_interested_who_asked_and_is_kept_in_the_history(): void
     {
@@ -251,7 +280,7 @@ class DiscoverTest extends TestCase
         $this->artisan('discover:close-rooms')->assertSuccessful();
         $this->assertTrue($group->refresh()->only_admins_send);
         $this->assertDatabaseHas('discover_event_rooms', ['conversation_id' => $group->conversation_id]);
-        $this->assertNotNull(\Modules\Discover\Models\DiscoverEventRoom::query()->first()->closed_at);
+        $this->assertNotNull(DiscoverEventRoom::query()->first()->closed_at);
     }
 
     // ------------------------------------------------------------------ AI (178)
@@ -362,7 +391,7 @@ class DiscoverTest extends TestCase
     private function pushes(string $event): array
     {
         // Pushes from console commands wait in Laravel's deferred callbacks.
-        app(\Illuminate\Support\Defer\DeferredCallbackCollection::class)->invoke();
+        app(DeferredCallbackCollection::class)->invoke();
 
         return collect(Http::recorded())->map(fn ($pair) => $pair[0])
             ->filter(fn ($r) => str_contains($r->url(), 'onesignal') && ($r['data']['event'] ?? null) === $event)
@@ -374,9 +403,9 @@ class DiscoverTest extends TestCase
      */
     private function asAdmin(array $permissions, string $email = 'a@example.com'): void
     {
-        $admin = \Modules\Admin\Models\Admin::query()->firstOrCreate(['email' => $email], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
+        $admin = Admin::query()->firstOrCreate(['email' => $email], ['name' => 'A', 'password' => 'secret123', 'status' => 'active']);
         foreach ($permissions as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo($permissions);
         Sanctum::actingAs($admin, [], 'admin_api');

@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
@@ -41,7 +42,7 @@ import com.dorr.app.ui.screens.profile.settingsNight
  * of chats that have unread messages popping in (and updating live as messages arrive).
  */
 @Composable
-fun HomeChatButton(onClick: () -> Unit) {
+fun HomeChatButton(onClick: () -> Unit, onBrand: Boolean = false) {
     var unread by remember { mutableIntStateOf(0) }
 
     suspend fun refresh() {
@@ -59,22 +60,23 @@ fun HomeChatButton(onClick: () -> Unit) {
 
     val night = settingsNight()
     val accent = if (night) AccountDark.accent else settingsAccent()
+    val iconTint = if (onBrand) Color.White else accent
     Box {
         Box(
             Modifier
-                .size(34.dp)
-                .then(if (night) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = accent.copy(alpha = 0.08f)))
+                .size(if (onBrand) 32.dp else 34.dp)
+                .then(if (night || onBrand) Modifier else Modifier.shadow(6.dp, CircleShape, spotColor = accent.copy(alpha = 0.08f)))
                 .clip(CircleShape)
-                .background(settingsCard())
-                .then(if (night) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
+                .background(if (onBrand) Color.White.copy(alpha = 0.18f) else settingsCard())
+                .then(if (night && !onBrand) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier)
                 .clickable(onClick = onClick),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 Icons.Rounded.ChatBubble,
                 contentDescription = stringResource(R.string.ch_open_chats),
-                tint = accent,
-                modifier = Modifier.size(18.dp),
+                tint = iconTint,
+                modifier = Modifier.size(if (onBrand) 15.dp else 18.dp),
             )
         }
         AnimatedVisibility(

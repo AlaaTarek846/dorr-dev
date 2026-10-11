@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-08  
+**Last updated:** 2026-10-11  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -56,7 +56,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 
 - **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
-- **Ratings (2026-10-06):** polymorphic `ratings` + mobile API + admin page + Android Play In-App Review; see CHANGELOG.
+- **Ratings (2026-10-08):** polymorphic `ratings` + mobile API (POST creates then updates the same row) + admin page + Android Play In-App Review; see CHANGELOG.
 
 - **Support tickets, live (2026-10-07):** tickets are a conversation with status (opened / reopened / resolved / closed), assigned agent and history; the app (`SupportTicketScreen`, `SupportChatScreen`) and the dashboard page `support/` update live over Pusher, with in-app + OneSignal notifications via `NotificationCenter`. The general live chat was removed. See CHANGELOG. **NEEDS-DECISION:** manual assignment of a ticket to another agent (today the first agent to answer takes it).
 - **Android Settings — invite / rate / support (2026-10-06):** Settings has Share with friends, Rate the app, and Support & help (tickets + FAQ sheet).
@@ -77,6 +77,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - Smart quiet with an end-of-quiet summary (115, `chat:quiet-digest` every minute).
   - Migrations `2026_10_06_100000`–`100400`. Tests: `ChatBroadcastTest`, `ChatCirclesTest`, `ChatThreadsDecisionsTest`.
   - Android: `ChatOrganizeUi.kt` (threads, decisions, circles, broadcasts) and the quiet sheet in `ChatShieldUi.kt`.
+- **Calls, media and performance in the chat (2026-10-11, wave 5 in `docs/remaining_chat.md`):** standing voice rooms for every group and channel (spec 91 — `VoiceRoomService`, `LiveKitRooms` over LiveKit's RoomService API, `chat:voice-rooms-sweep` every minute, event `chat.voice.updated`); a call broadcast live to watch-only viewers (93 — `CallLiveService`, viewer tokens that can't publish and stay hidden, `live_card` messages, event `chat.call.live`); camera backgrounds in video calls, all on the phone (94 — ML Kit selfie segmentation in a LiveKit `VideoProcessor`, `CallEffects.kt`); a folder sent as one zip (10 — `folder_name` / `folder_count` → `meta.folder`, `FolderZip.kt`); a video made into a GIF (11 — a ≤6 s silent 480p clip with `gif = 1` → `meta.gif`, played muted on a loop); data saver (82 — photos on a tap with the server's ~40px `preview`, which `Support\ImagePreview` stores with each photo's `width` / `height`; lighter uploads and 360p calls), lite mode for modest phones (87 — automatic at ≤3 GB memory) and usage stats on the phone (83 — `ChatUsage`, an OkHttp network interceptor plus TrafficStats for calls). Migrations `2026_10_16_100000`–`100100`. Tests: `ChatVoiceRoomTest` (2), `ChatCallLiveTest` (1), `ChatFolderGifTest` (3), Android `FolderGifTest` (3). **NEEDS-DECISION:** call recording (92) needs LiveKit Egress, storage and a retention period.
+- **Daily intelligence in the chat (2026-10-11, spec 146–156, plan in `docs/remaining_chat.md`):** commitments, handoffs and agreements from any message (`LifeService`, cards `commitment` · `handoff` · `agreement`, `chat_life_log`, `chat:commitment-reminders`); my communication rules — attention per source, privacy contexts, always-through people, call hours (`AttentionPolicy` in `ChatPushNotifier` and calls, `chat:attention-digest`); the life inbox (`LifeInboxService`, `GET life-inbox`); local private intelligence on Android (`LocalIntelligence` in the OneSignal extension). Tests: `ChatLifeTest` (5), `ChatAttentionTest` (3), Android `LocalIntelligenceTest`.
+- **Discover covers from the app (2026-10-11):** organizers add / change an event's cover from Android; cover URLs carry `?v=`.
 - **DORR Sports (2026-10-13, spec 183–200, `Modules/Sports`, plan in `docs/sports-plan.md`):**
   - **Provider:** API-Sports (one key, one daily budget for every sport, `API_SPORTS_KEY` / `API_SPORTS_DAILY_LIMIT`). Only the server calls it. Every request is counted in `sports_api_usage`.
   - **Engine:**

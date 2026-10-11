@@ -40,7 +40,7 @@ class WalletNotifier
             'wallet_topup_paid_title',
             $bonus > 0 ? 'wallet_topup_paid_bonus_body' : 'wallet_topup_paid_body',
             ['amount' => $this->money($credited, $currency), 'bonus' => $this->money($bonus, $currency)],
-            ['type' => 'wallet', 'payment_uuid' => $payment->uuid],
+            ['type' => 'wallet', 'payment_uuid' => $payment->uuid, 'payment_id' => $payment->id],
         );
     }
 
@@ -52,7 +52,7 @@ class WalletNotifier
             'wallet_topup_failed_title',
             'wallet_topup_failed_body',
             ['amount' => $this->money($payment->requested_amount_minor, $payment->currency?->code)],
-            ['type' => 'wallet', 'payment_uuid' => $payment->uuid],
+            ['type' => 'wallet', 'payment_uuid' => $payment->uuid, 'payment_id' => $payment->id],
         );
     }
 
@@ -64,7 +64,7 @@ class WalletNotifier
             'wallet_topup_refunded_title',
             'wallet_topup_refunded_body',
             ['amount' => $this->money($payment->requested_amount_minor, $payment->currency?->code)],
-            ['type' => 'wallet', 'payment_uuid' => $payment->uuid],
+            ['type' => 'wallet', 'payment_uuid' => $payment->uuid, 'payment_id' => $payment->id],
         );
     }
 
@@ -87,7 +87,7 @@ class WalletNotifier
             'wallet_transfer_sent_title',
             'wallet_transfer_sent_body',
             ['amount' => $amount, 'name' => MaskedName::of($recipient?->name)],
-            ['type' => 'wallet', 'direction' => WalletDirection::Debit->value],
+            ['type' => 'wallet', 'direction' => WalletDirection::Debit->value, 'wallet_id' => $from->id],
         );
 
         $this->center->send(
@@ -96,7 +96,7 @@ class WalletNotifier
             'wallet_transfer_received_title',
             'wallet_transfer_received_body',
             ['amount' => $amount, 'name' => MaskedName::of($sender?->name)],
-            ['type' => 'wallet', 'direction' => WalletDirection::Credit->value],
+            ['type' => 'wallet', 'direction' => WalletDirection::Credit->value, 'wallet_id' => $to->id],
         );
     }
 
@@ -264,7 +264,7 @@ class WalletNotifier
             $credit ? 'wallet_adjusted_credit_title' : 'wallet_adjusted_debit_title',
             $credit ? 'wallet_adjusted_credit_body' : 'wallet_adjusted_debit_body',
             ['amount' => $this->money($amountMinor, $wallet->currency?->code), 'reason' => $reason],
-            ['type' => 'wallet'],
+            ['type' => 'wallet', 'wallet_id' => $wallet->id],
         );
     }
 

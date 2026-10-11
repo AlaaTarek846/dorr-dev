@@ -2,6 +2,7 @@
 
 namespace Modules\Wallet\Services\Gateways;
 
+use Illuminate\Http\Client\Response;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Modules\Wallet\Contracts\PaymentGateway;
@@ -123,7 +124,7 @@ class MyFatoorahGateway implements PaymentGateway
         return $fallback !== null && $fallback !== '' ? $fallback : __('wallet.errors.gateway_generic', [], $locale);
     }
 
-    private function call(array $credentials, string $endpoint, array $payload): \Illuminate\Http\Client\Response
+    private function call(array $credentials, string $endpoint, array $payload): Response
     {
         $apiUrl = $credentials['api_url'] ?? null;
         $apiKey = $credentials['api_key'] ?? null;

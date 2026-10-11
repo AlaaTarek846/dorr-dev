@@ -59,7 +59,7 @@ class PrivacySettingsRequest extends FormRequest
             'quiet_schedule.days' => ['sometimes', 'array'],
             'quiet_schedule.days.*' => ['integer', 'between:0,6'],
             'quiet_schedule.timezone' => ['sometimes', 'timezone:all'],
-            'quiet_scope' => ['sometimes', \Illuminate\Validation\Rule::in(['all', 'groups'])],
+            'quiet_scope' => ['sometimes', Rule::in(['all', 'groups'])],
             'read_receipts' => ['sometimes', 'boolean'],
             'block_screenshots' => ['sometimes', 'boolean'],
             // What a chat push shows: all (name and text) · name (name, "New message") · none.

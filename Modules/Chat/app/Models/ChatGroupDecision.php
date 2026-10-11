@@ -4,6 +4,7 @@ namespace Modules\Chat\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 /** A decision in a group (spec 119–120): made from a message, voted on, approved by an admin. */
 class ChatGroupDecision extends Model
@@ -26,7 +27,7 @@ class ChatGroupDecision extends Model
     }
 
     /** Everyone's arguments in the decision room (spec 153). */
-    public function arguments(): \Illuminate\Database\Eloquent\Relations\HasMany
+    public function arguments(): HasMany
     {
         return $this->hasMany(ChatDecisionArgument::class, 'decision_id');
     }

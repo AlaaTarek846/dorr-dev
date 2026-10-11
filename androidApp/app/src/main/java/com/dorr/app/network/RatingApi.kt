@@ -7,8 +7,8 @@ import retrofit2.http.Header
 import retrofit2.http.POST
 
 /**
- * App rating under /api/mobile/v1/ratings. One rating per user: GET tells whether it was already
- * given, POST saves it (a second POST is refused with 422).
+ * App rating under /api/mobile/v1/ratings. One row per user: GET tells whether it exists, POST
+ * creates it or updates the same stars and comment.
  */
 interface RatingApi {
     @GET("mobile/v1/ratings/mine")
