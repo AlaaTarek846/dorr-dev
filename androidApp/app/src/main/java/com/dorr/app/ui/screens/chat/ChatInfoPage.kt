@@ -389,10 +389,10 @@ fun ChatInfoPage(id: String) {
         }
 
         // Compact header that fades in once the hero scrolls away.
-        Box(Modifier.fillMaxWidth().graphicsLayer { alpha = headerAlpha }.background(Ch.HeaderBrush).padding(start = 66.dp, top = 22.dp, bottom = 18.dp)) {
+        Box(Modifier.fillMaxWidth().graphicsLayer { alpha = headerAlpha }.background(Ch.HeaderBrush).padding(start = 132.dp, top = 22.dp, bottom = 18.dp)) {
             Text(conversation?.title.orEmpty(), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, maxLines = 1)
         }
-        Box(Modifier.padding(12.dp)) { GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) { host.pop() } }
+        Box(Modifier.padding(12.dp)) { ChBack(onBack = { host.pop() }) }
     }
 
     // ------------------------------------------------------------ sheets

@@ -80,6 +80,7 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.dorr.app.ui.screens.chat.ChSheet
 
 /*
  * Predictions, contests and prizes (196), the community rating (199), sharing a match and
@@ -362,7 +363,7 @@ internal fun ShareMatchSheet(m: SpMatchDto, onDismiss: () -> Unit) {
     val context = LocalContext.current
     val sent = stringResource(R.string.sp_shared)
     LaunchedEffect(Unit) { chats = runCatching { ApiClient.chat.conversations(spAuth(), perPage = 60).data }.getOrNull().orEmpty().filter { it.canSend } }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.sp_share_title), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))

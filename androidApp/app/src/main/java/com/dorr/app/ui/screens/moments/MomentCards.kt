@@ -129,6 +129,7 @@ import java.time.OffsetDateTime
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.dorr.app.ui.screens.chat.ChSheet
 
 /*
  * Greeting cards (DORR Moments, spec 161–167): the composer — occasion look, my words (or three
@@ -272,13 +273,13 @@ fun MomentCardSheet(
         return true
     }
 
-    ModalBottomSheet(
+    ChSheet(
         onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
     ) {
         if (chatId == null && toUser != null) {
             Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
-            return@ModalBottomSheet
+            return@ChSheet
         }
         if (chatId == null) {
             WhoFor { c ->
@@ -288,7 +289,7 @@ fun MomentCardSheet(
                         .onFailure { error = it.apiFailure().message }
                 }
             }
-            return@ModalBottomSheet
+            return@ChSheet
         }
         AnimatedContent(step, label = "cardStep", transitionSpec = { (fadeIn(tween(220)) + scaleIn(initialScale = 0.94f)) togetherWith fadeOut(tween(150)) }) { now ->
             if (now == 1) {

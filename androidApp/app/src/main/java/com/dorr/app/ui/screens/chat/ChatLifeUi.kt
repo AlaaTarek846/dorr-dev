@@ -335,7 +335,7 @@ internal fun ToActionSheet(state: ConversationState, message: MessageDto, onDism
             return
         }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.lf_turn_into), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.lf_turn_into_sub), color = Ch.Mut, fontSize = 12.5.sp)
@@ -395,7 +395,7 @@ internal fun CommitmentSheet(state: ConversationState, message: MessageDto?, onD
     LaunchedEffect(isGroup) { if (isGroup) state.loadMembers() }
     if (picking) { ScheduleSheet(onDismiss = { picking = false }) { due = it }; return }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text("📌 " + stringResource(R.string.lf_commitment), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.lf_commitment_sub), color = Ch.Mut, fontSize = 12.5.sp)
@@ -468,7 +468,7 @@ internal fun HandoffSheet(state: ConversationState, message: MessageDto, onDismi
         }
         return
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text("🤝 " + stringResource(R.string.lf_handoff), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.lf_handoff_sub), color = Ch.Mut, fontSize = 12.5.sp)
@@ -510,7 +510,7 @@ internal fun AgreementSheet(conversationId: String, members: List<LifePersonDto>
     val presets = listOf(R.string.lf_t_scope, R.string.lf_t_date, R.string.lf_t_price, R.string.lf_t_place, R.string.lf_t_notes).map { stringResource(it) }
     LaunchedEffect(Unit) { if (terms.isEmpty()) { terms.add(presets[0] to ""); terms.add(presets[1] to "") } }
     val sent = stringResource(R.string.lf_agreement_sent)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text("📝 " + stringResource(if (existing == null) R.string.lf_agreement else R.string.lf_change_terms), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(if (existing == null) R.string.lf_agreement_sub else R.string.lf_change_sub), color = Ch.Mut, fontSize = 12.5.sp)
@@ -562,7 +562,7 @@ internal fun AgreementSheet(conversationId: String, members: List<LifePersonDto>
 private fun AgreementHistorySheet(id: String, onDismiss: () -> Unit) {
     var a by remember { mutableStateOf<AgreementDto?>(null) }
     LaunchedEffect(id) { a = runCatching { ApiClient.life.agreement(chatAuth(), id).data }.getOrNull() }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.lf_history), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))

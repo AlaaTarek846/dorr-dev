@@ -102,7 +102,7 @@ internal fun StartLiveSheet(onDismiss: () -> Unit) {
     var title by remember { mutableStateOf("") }
     var audience by remember { mutableStateOf("members") }
     var busy by remember { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text("🔴 " + stringResource(R.string.lv_go_live), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.lv_go_live_sub), color = Ch.Mut, fontSize = 12.5.sp)
@@ -155,7 +155,7 @@ internal fun LiveShareSheet(live: LiveDto, onDismiss: () -> Unit) {
     LaunchedEffect(Unit) { chats = runCatching { ApiClient.chat.conversations(chatAuth(), perPage = 40).data.orEmpty() }.getOrNull().orEmpty() }
     val shared = stringResource(R.string.lv_shared)
     val copied = stringResource(R.string.ch_copied)
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 22.dp)) {
             Text(stringResource(R.string.lv_share), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(if (live.audience == "members") R.string.lv_share_members else R.string.lv_share_link), color = Ch.Mut, fontSize = 12.5.sp)

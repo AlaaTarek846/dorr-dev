@@ -95,6 +95,34 @@ class BusinessService
         return ChatBusinessProfile::query()->where('owner_type', $type)->where('owner_id', $owner->getKey())->first()?->presentPublic();
     }
 
+    /**
+     * My messages in one-to-one chats over the last `$days`: sent, delivered, read, and what
+     * customers sent me (backlog 116 — WhatsApp Business's message statistics).
+     *
+     * @return array{days: int, sent: int, delivered: int, read: int, received: int, chats: int}
+     */
+    public function stats(Model $me, int $days): array
+    {
+        $this->assertEnabled($me);
+        $since = now()->subDays($days);
+        $mine = ChatParticipant::query()->of($me)->whereHas('conversation', fn ($q) => $q->where('type', \Modules\Chat\Enums\ConversationType::Direct->value)->where('direct_key', 'not like', 'self|%'))->get(['id', 'conversation_id']);
+        $sent = ChatMessage::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))
+            ->where('sender_type', ParticipantType::aliasFor($me))->where('sender_id', $me->getKey())->where('created_at', '>=', $since);
+        $sentIds = (clone $sent)->pluck('id');
+        $receipts = \Modules\Chat\Models\ChatMessageReceipt::query()->whereIn('message_id', $sentIds)->whereNotIn('participant_id', $mine->pluck('id'));
+
+        return [
+            'days' => $days,
+            'sent' => $sentIds->count(),
+            'delivered' => (clone $receipts)->whereNotNull('delivered_at')->distinct()->count('message_id'),
+            'read' => (clone $receipts)->whereNotNull('read_at')->distinct()->count('message_id'),
+            'received' => ChatMessage::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))->whereNotNull('sender_type')
+                ->where(fn ($q) => $q->where('sender_type', '!=', ParticipantType::aliasFor($me))->orWhere('sender_id', '!=', $me->getKey()))
+                ->where('created_at', '>=', $since)->count(),
+            'chats' => ChatMessage::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))->where('created_at', '>=', $since)->distinct()->count('conversation_id'),
+        ];
+    }
+
     // ---------------------------------------------------------------- quick replies
 
     /**

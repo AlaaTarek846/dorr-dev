@@ -3217,6 +3217,32 @@
             "saved": "Category saved.",
             "confirm_delete": "Delete \"{name}\"? Its channels and portals stay, without a category."
         },
+        "feature_rules": {
+            "title": "Features by country and city",
+            "hint": "Turn a chat feature on or off for a whole country or for one of its cities. A city's rule beats its country's, and no rule means on. The app learns the city from the phone's location (only the city is kept); without it, the country's rule applies. Where calls are off, voice rooms and lives are off too.",
+            "add": "Add a rule",
+            "all": "All",
+            "feature": "Feature",
+            "country": "Country",
+            "city": "City",
+            "whole_country": "The whole country",
+            "city_hint": "Cities come from the Discover city list.",
+            "state": "State",
+            "on": "On",
+            "off": "Off",
+            "note": "Note",
+            "note_hint": "Why (a licence, a pilot…)",
+            "empty": "No rules — every feature is on everywhere.",
+            "saved": "Rule saved",
+            "confirm_delete": "Delete this rule? The feature goes back to the next rule up (or on).",
+            "features": {
+                "calls": "Voice and video calls",
+                "voice_rooms": "Voice rooms",
+                "live": "Live broadcast",
+                "stories": "Stories",
+                "ai": "DORR AI in the chat"
+            }
+        },
         "packages": {
             "title": "Subscription packages",
             "add": "Add package",

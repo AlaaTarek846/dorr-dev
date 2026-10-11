@@ -22,6 +22,11 @@ class PrivacySettingsRequest extends FormRequest
     {
         $data = $this->validated();
 
+        // 0 = no default timer (an app may not be able to send null).
+        if (array_key_exists('default_disappearing_seconds', $data) && (int) $data['default_disappearing_seconds'] === 0) {
+            $data['default_disappearing_seconds'] = null;
+        }
+
         if (array_key_exists('notification_preview', $data)) {
             $data['notification_privacy'] ??= $data['notification_preview'] ? 'all' : 'none';
             unset($data['notification_preview']);
@@ -61,6 +66,10 @@ class PrivacySettingsRequest extends FormRequest
             'quiet_schedule.timezone' => ['sometimes', 'timezone:all'],
             'quiet_scope' => ['sometimes', Rule::in(['all', 'groups'])],
             'read_receipts' => ['sometimes', 'boolean'],
+            // New chats I start disappear after this (WhatsApp's default timer).
+            'default_disappearing_seconds' => ['sometimes', 'nullable', Rule::in([0, 86400, 604800, 7776000])],
+            // Calls from people I never saved don't ring; they show as silenced in my calls.
+            'silence_unknown_callers' => ['sometimes', 'boolean'],
             'block_screenshots' => ['sometimes', 'boolean'],
             // What a chat push shows: all (name and text) · name (name, "New message") · none.
             'notification_privacy' => ['sometimes', Rule::in(['all', 'name', 'none'])],

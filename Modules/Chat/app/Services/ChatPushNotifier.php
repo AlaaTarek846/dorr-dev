@@ -321,6 +321,20 @@ class ChatPushNotifier
     }
 
     /**
+     * A call that didn't ring (an unknown caller, silenced by my setting): one quiet line.
+     *
+     * @param  Collection<int, ChatParticipant>  $recipients
+     * @param  array<string, mixed>  $data
+     */
+    public function silencedCall(string $callerName, Collection $recipients, array $data): void
+    {
+        if ($recipients->isEmpty()) {
+            return;
+        }
+        $this->send($recipients, ['en' => $callerName], $this->inEveryLanguage('chat.push.silenced_call'), $data + ['type' => 'chat_call', 'silent' => '1']);
+    }
+
+    /**
      * @param  Collection<int, ChatParticipant>  $recipients
      * @param  array<string, mixed>  $data
      */

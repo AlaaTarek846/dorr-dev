@@ -24,7 +24,7 @@ return new class extends Migration
             $table->foreignId('provider_id')->constrained('ai_providers')->cascadeOnDelete()
                 ->comment('مزود الذكاء الاصطناعي اللي اتعملله المزامنة دي');
 
-            $table->timestamp('started_at')
+            $table->dateTime('started_at')
                 ->comment('وقت بداية عملية المزامنة');
 
             $table->timestamp('completed_at')->nullable()

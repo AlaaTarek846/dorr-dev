@@ -78,9 +78,8 @@ class ChatSetting extends Model
             return false;
         }
 
-        $country = $account?->getAttribute('country_id');
-
-        return $country === null || ! in_array((int) $country, array_map('intval', $this->calls_disabled_countries ?? []), true);
+        // The countries switched off here, and any country or city rule (ChatFeatures).
+        return app(\Modules\Chat\Services\ChatFeatures::class)->allows($account, 'calls');
     }
 
     /**

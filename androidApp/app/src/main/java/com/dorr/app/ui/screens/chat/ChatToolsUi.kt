@@ -85,6 +85,9 @@ fun StatusSheet(onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }
     var hours by remember { mutableStateOf<Int?>(null) } // null = until I clear it
     var audience by remember { mutableStateOf("contacts") }
+    // Hidden from these people (WhatsApp list 54).
+    var except by remember { mutableStateOf<List<String>>(emptyList()) }
+    var pickExcept by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     val networkError = stringResource(R.string.ch_error_network)
     LaunchedEffect(Unit) {
@@ -92,6 +95,7 @@ fun StatusSheet(onDismiss: () -> Unit) {
             loaded = p
             p.status?.takeIf { it.active }?.let { emoji = it.emoji.orEmpty(); text = it.text.orEmpty() }
             audience = p.status?.audience ?: "contacts"
+            except = p.status?.except.orEmpty()
         }
     }
 
@@ -108,7 +112,11 @@ fun StatusSheet(onDismiss: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    if (pickExcept) {
+        ExceptPicker(except, onDismiss = { pickExcept = false }) { except = it; pickExcept = false }
+        return
+    }
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.ch_status_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.ch_status_sub), color = Ch.Mut, fontSize = 13.sp)
@@ -139,14 +147,23 @@ fun StatusSheet(onDismiss: () -> Unit) {
                 listOf("everyone" to R.string.ch_everyone, "contacts" to R.string.ch_my_contacts, "nobody" to R.string.ch_nobody)
                     .forEach { (value, label) -> Chip(stringResource(label), selected = audience == value) { audience = value } }
             }
+            if (audience != "nobody") {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "🙈 " + (if (except.isEmpty()) stringResource(R.string.bk_status_hide_from) else stringResource(R.string.bk_status_hidden_from, except.size)),
+                    color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { pickExcept = true }.padding(vertical = 6.dp),
+                )
+            }
             Spacer(Modifier.height(18.dp))
             ChPrimaryButton(stringResource(R.string.ch_save), modifier = Modifier.fillMaxWidth(), enabled = !busy && (emoji.isNotBlank() || text.isNotBlank())) {
                 save {
-                    ApiClient.chat.setStatus(chatAuth(), buildMap {
+                    ApiClient.chat.setStatus(chatAuth(), buildMap<String, Any> {
                         if (emoji.isNotBlank()) put("emoji", emoji.trim())
                         if (text.isNotBlank()) put("text", text.trim())
                         hours?.let { put("until", ZonedDateTime.now().plusHours(it.toLong()).format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)) }
                         put("audience", audience)
+                        put("except", except)
                     })
                 }
             }
@@ -158,6 +175,13 @@ fun StatusSheet(onDismiss: () -> Unit) {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ExceptPicker(keys: List<String>, onDismiss: () -> Unit, onDone: (List<String>) -> Unit) {
+    PeoplePickerSheet(keys.mapNotNull { it.removePrefix("user:").toIntOrNull() }.toSet(), onDismiss = onDismiss) { ids ->
+        onDone(ids.map { "user:$it" })
     }
 }
 

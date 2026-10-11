@@ -381,7 +381,7 @@ private fun QuickReplySheet(reply: QuickReplyDto?, onDismiss: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(if (reply == null) R.string.ch_quick_reply_new else R.string.ch_quick_reply_edit), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(14.dp))
@@ -487,7 +487,7 @@ fun ScheduleSheet(onDismiss: () -> Unit, onPick: (ZonedDateTime) -> Unit) {
         DateTimePickDialogs(onDismiss = onDismiss) { onPick(it); onDismiss() }
         return
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.ch_schedule_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.ch_schedule_sub), color = Ch.Mut, fontSize = 13.sp)
@@ -557,7 +557,7 @@ fun ScheduledListSheet(state: ConversationState, onDismiss: () -> Unit) {
         if (state.scheduled.isEmpty()) onDismiss()
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp).verticalScroll(rememberScrollState())) {
             Text(stringResource(R.string.ch_scheduled_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))
@@ -643,7 +643,7 @@ fun BannedWordsSheet(conversation: ConversationDto, onDismiss: () -> Unit, onSav
         input = ""
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.ch_banned_words), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.ch_banned_words_sub), color = Ch.Mut, fontSize = 13.sp)
@@ -710,7 +710,7 @@ fun InviteLinkSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.ch_invite_link), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))

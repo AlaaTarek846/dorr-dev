@@ -17,9 +17,9 @@ class ChatAiController extends Controller
 {
     public function __construct(private readonly ChatAiService $ai) {}
 
-    public function capabilities()
+    public function capabilities(Request $request)
     {
-        return ApiResponse::success($this->ai->capabilities(), __('api.retrieved'));
+        return ApiResponse::success($this->ai->capabilities($request->user()), __('api.retrieved'));
     }
 
     public function translate(Request $request, ChatMessage $message)

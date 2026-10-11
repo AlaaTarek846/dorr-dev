@@ -133,7 +133,7 @@ internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -
     Column(Modifier.fillMaxSize().background(Ch.Bg)) {
         Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(bottomStart = 26.dp, bottomEnd = 26.dp)).background(Ch.HeaderBrush)) {
             Row(Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp, top = 12.dp, bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
-                GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack, onClick = onBack)
+                ChBack(onBack)
                 Spacer(Modifier.width(12.dp))
                 Text(title, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
                 actions()
@@ -384,7 +384,7 @@ internal fun InviteSheet(entry: ContactEntry, contactCountry: String?, onDismiss
     )
     fun chooser() = open(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, text), null))
 
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ChAvatar(null, entry.name, entry.phone, size = 46.dp)

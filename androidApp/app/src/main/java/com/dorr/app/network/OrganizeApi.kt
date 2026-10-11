@@ -160,7 +160,7 @@ data class BroadcastResultDto(val sent: Int, val skipped: List<ProfileDto> = emp
 
 data class AskReferenceDto(val id: String, val sender: String? = null, val excerpt: String = "", @SerializedName("created_at") val createdAt: String? = null)
 
-data class AskAnswerDto(val answer: String, val references: List<AskReferenceDto> = emptyList(), val messages: Int = 0, val safety: SafetyDto? = null)
+data class AskAnswerDto(val answer: String, val references: List<AskReferenceDto> = emptyList(), val messages: Int = 0, val safety: SafetyDto? = null, val verification: AiVerificationDto? = null)
 
 data class CommitmentDto(
     val text: String,

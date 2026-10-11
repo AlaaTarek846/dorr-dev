@@ -102,7 +102,8 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.time.format.FormatStyle
+import com.dorr.app.ui.screens.chat.ChSheet
 
 /*
  * DORR Moments in the app (spec 160, 168): the home page's banner, the Moments page (on now,
@@ -398,7 +399,7 @@ private fun PersonalSheet(existing: PersonalMomentDto?, onDismiss: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(auth(), registered = 1).data }.getOrNull().orEmpty().filter { it.profile != null } }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(if (existing == null) R.string.mo_add_personal else R.string.mo_edit_personal), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))

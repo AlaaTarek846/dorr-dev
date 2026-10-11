@@ -860,7 +860,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         return
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
             items.chunked(3).forEachIndexed { row, chunk ->
                 Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -899,7 +899,7 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
         list = runCatching { ApiClient.wallet.transactions(chatAuth(), page = 1, perPage = 30, direction = "debit").data }.getOrNull()
             .orEmpty().filter { it.type == "transfer_out" }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 30.dp)) {
             Text(stringResource(R.string.ch_pick_transfer), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))

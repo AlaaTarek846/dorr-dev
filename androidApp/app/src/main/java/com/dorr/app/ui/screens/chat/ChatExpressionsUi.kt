@@ -173,7 +173,7 @@ fun ExpressionPanel(onDismiss: () -> Unit, onEmoji: (String) -> Unit, onPick: (E
     LaunchedEffect(Unit) { library = runCatching { ApiClient.chat.stickers(chatAuth()).data }.getOrNull() ?: StickerLibraryDto() }
     var making by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = sheet, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp)) {
         Column(Modifier.fillMaxWidth().height(460.dp)) {
             TabsRow(tab) { tab = it }
             AnimatedContent(tab, label = "exprTab", transitionSpec = {

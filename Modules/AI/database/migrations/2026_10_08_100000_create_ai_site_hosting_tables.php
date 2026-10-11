@@ -50,8 +50,8 @@ return new class extends Migration
             $table->unsignedBigInteger('country_id')->nullable()->comment('دولة السعر وقت الاشتراك، تُستخدم في التجديد');
             $table->boolean('auto_renew')->default(true);
             $table->boolean('admin_suspended')->default(false)->comment('إيقاف من الأدمن (إساءة)، لا يرفعه تجديد العميل');
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->dateTime('starts_at');
+            $table->dateTime('ends_at');
             $table->timestamp('grace_ends_at')->nullable();
             $table->timestamp('suspended_at')->nullable();
             $table->timestamp('cancelled_at')->nullable();
@@ -68,8 +68,8 @@ return new class extends Migration
             $table->decimal('amount', 12, 2);
             $table->string('currency', 8);
             $table->string('wallet_operation_id')->nullable();
-            $table->timestamp('period_start');
-            $table->timestamp('period_end');
+            $table->dateTime('period_start');
+            $table->dateTime('period_end');
             $table->timestamps();
         });
     }

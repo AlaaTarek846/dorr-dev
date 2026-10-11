@@ -98,7 +98,7 @@ internal fun ContactActionsSheet(name: String, phones: List<String>, onDismiss: 
         return
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             ChAvatar(onDorr?.avatar, name, onDorr?.key ?: phone, size = 72.dp, ring = onDorr != null)
             Spacer(Modifier.height(10.dp))

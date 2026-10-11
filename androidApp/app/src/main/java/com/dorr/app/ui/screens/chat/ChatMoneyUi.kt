@@ -299,7 +299,7 @@ fun ChatPaySheet(message: MessageDto, onDismiss: () -> Unit, onPaid: (MessageDto
     val host = LocalChat.current
     val p = message.payment ?: return
     var done by remember { mutableStateOf(false) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         AnimatedContent(done, label = "payDone", transitionSpec = { (fadeIn(tween(220)) + scaleIn(initialScale = 0.9f)) togetherWith fadeOut(tween(150)) }) { finished ->
             if (finished) {
                 PaidCelebration(p.money(p.due), message.sender?.name.orEmpty(), R.string.ch_money_paid_title)
@@ -393,7 +393,7 @@ fun SendMoneySheet(conversationId: String, peerName: String, onDismiss: () -> Un
     val uuid = remember { java.util.UUID.randomUUID().toString() }
     val minor = parseAmountToMinor(amount)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         AnimatedContent(step, label = "sendMoney", transitionSpec = { (fadeIn(tween(220)) + scaleIn(initialScale = 0.92f)) togetherWith fadeOut(tween(150)) }) { now ->
             when (now) {
                 0 -> Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 22.dp).padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -453,7 +453,7 @@ fun RequestMoneySheet(peerName: String, onDismiss: () -> Unit, onSend: (amountMi
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     val minor = parseAmountToMinor(amount)
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 22.dp).padding(bottom = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.size(58.dp).clip(CircleShape).background(Brush.linearGradient(MoneyGreen)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Rounded.RequestQuote, null, tint = Color.White, modifier = Modifier.size(30.dp))
@@ -490,7 +490,7 @@ fun SplitBillSheet(members: List<MemberDto>, onDismiss: () -> Unit, onSend: (tot
     val customSum = picked.sumOf { parseAmountToMinor(custom[it].orEmpty()) ?: 0L }
     val ready = total > 0 && picked.size >= 2 && (equal || customSum == total)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 680.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(44.dp).clip(CircleShape).background(Brush.linearGradient(MoneyGreen)), contentAlignment = Alignment.Center) {

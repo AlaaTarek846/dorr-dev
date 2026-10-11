@@ -202,7 +202,7 @@ fun ThemePickerSheet(conversation: ConversationDto, onDismiss: () -> Unit, onApp
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.ch_chat_theme), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.padding(horizontal = 20.dp))
             Text(stringResource(R.string.ch_chat_theme_sub), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 20.dp, vertical = 2.dp))
@@ -407,7 +407,7 @@ fun ReportSheet(conversation: ConversationDto, onDismiss: () -> Unit, onReported
     val canBlock = !conversation.isGroup && conversation.peer != null && conversation.iBlocked != true
     val canLeave = conversation.isGroup && conversation.isMember
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().heightIn(max = 640.dp).verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.Danger.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {

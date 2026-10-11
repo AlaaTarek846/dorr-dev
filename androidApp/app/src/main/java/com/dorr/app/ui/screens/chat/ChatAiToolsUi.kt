@@ -42,6 +42,7 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.Delete
 import androidx.compose.material.icons.rounded.Description
 import androidx.compose.material.icons.rounded.FormatQuote
+import androidx.compose.material.icons.rounded.FactCheck
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.HealthAndSafety
 import androidx.compose.material.icons.rounded.Code
@@ -141,6 +142,20 @@ fun SafetyCard(safety: SafetyDto?, modifier: Modifier = Modifier) {
     }
 }
 
+/** The quality gate's note under an answer it couldn't fully check (spec 362) — the server's words. */
+@Composable
+fun VerificationNote(verification: com.dorr.app.network.AiVerificationDto?, modifier: Modifier = Modifier) {
+    val notice = verification?.notice ?: return
+    Row(
+        modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Ch.SurfaceMuted).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.Top,
+    ) {
+        Icon(Icons.Rounded.FactCheck, null, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(notice, color = Ch.Mut, fontSize = 12.5.sp, lineHeight = 17.sp, modifier = Modifier.weight(1f))
+    }
+}
+
 @Composable
 private fun Loading() {
     Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { AiShimmer(Ch.Ink) }
@@ -214,7 +229,7 @@ fun AiAssistantSheet(conversationId: String, messageIds: List<String>?, onDismis
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
             AiHeader(
                 stringResource(R.string.ct_assistant),
@@ -238,6 +253,7 @@ fun AiAssistantSheet(conversationId: String, messageIds: List<String>?, onDismis
                                 else -> {
                                     Text(a.answer, color = Ch.Ink, fontSize = 14.5.sp, lineHeight = 21.sp)
                                     SafetyCard(a.safety, Modifier.padding(top = 10.dp))
+                                    VerificationNote(a.verification, Modifier.padding(top = 8.dp))
                                     a.references.forEach { ref -> RefRow(ref) { onDismiss(); onJump(ref.id) } }
                                     Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                                         SmallAction(Icons.Rounded.ContentCopy, stringResource(R.string.ch_copy)) { copy(context, a.answer) }
@@ -332,7 +348,7 @@ fun AiUnderstandSheet(message: MessageDto, onDismiss: () -> Unit, onReply: (Stri
         runCatching { ApiClient.aiTools.understand(chatAuth(), message.id).data }.onSuccess { result = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_understand), message.sender?.name)
             Spacer(Modifier.height(12.dp))
@@ -417,7 +433,7 @@ fun AiSimplifySheet(message: MessageDto, onDismiss: () -> Unit) {
     LaunchedEffect(message.id) {
         runCatching { ApiClient.aiTools.simplify(chatAuth(), message.id).data }.onSuccess { result = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_simplify), message.sender?.name)
             Spacer(Modifier.height(12.dp))
@@ -459,7 +475,7 @@ fun AiTasksFromSheet(message: MessageDto, onDismiss: () -> Unit) {
             .onSuccess { items = it; picked.addAll(it.indices) }
             .onFailure { error = it.apiFailure().message ?: networkError }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_make_tasks), null)
             Spacer(Modifier.height(12.dp))
@@ -516,7 +532,7 @@ fun AiDatesSheet(conversationId: String, onDismiss: () -> Unit, onJump: (String)
         runCatching { ApiClient.aiTools.dates(chatAuth(), conversationId, JsonObject().apply { addProperty("timezone", zone()) }).data?.dates.orEmpty() }
             .onSuccess { items = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_dates), stringResource(R.string.ct_dates_sub))
             Spacer(Modifier.height(12.dp))
@@ -578,7 +594,7 @@ fun AiRelatedFilesSheet(conversationId: String, onDismiss: () -> Unit, onJump: (
     LaunchedEffect(conversationId) {
         runCatching { ApiClient.aiTools.relatedFiles(chatAuth(), conversationId).data?.files.orEmpty() }.onSuccess { items = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_files), stringResource(R.string.ct_files_sub))
             Spacer(Modifier.height(12.dp))
@@ -616,7 +632,7 @@ fun AiImportantSheet(conversationId: String?, onDismiss: () -> Unit, onOpen: (co
         runCatching { ApiClient.aiTools.important(chatAuth(), JsonObject().apply { conversationId?.let { addProperty("conversation_id", it) } }).data }
             .onSuccess { result = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_important), stringResource(if (conversationId == null) R.string.ct_important_sub_all else R.string.ct_important_sub_chat))
             Spacer(Modifier.height(12.dp))
@@ -656,7 +672,7 @@ fun AiTodaySheet(onDismiss: () -> Unit, onOpen: (conversationId: String, message
     LaunchedEffect(Unit) {
         runCatching { ApiClient.aiTools.today(chatAuth(), JsonObject().apply { addProperty("timezone", zone()) }).data }.onSuccess { result = it }.onFailure { error = it.apiFailure().message ?: networkError }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             AiHeader(stringResource(R.string.ct_today), result?.let { stringResource(R.string.ct_today_sub, it.messages, it.chats) })
             Spacer(Modifier.height(12.dp))

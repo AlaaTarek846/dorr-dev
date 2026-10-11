@@ -107,7 +107,8 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.time.format.FormatStyle
+import com.dorr.app.ui.screens.chat.ChSheet
 
 /*
  * DORR Moments together and kept: group cards everyone signs (spec 163) and capsules — albums
@@ -177,7 +178,7 @@ private fun CreateCollabSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty().filter { it.profile != null } }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.mo_collab_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
@@ -454,7 +455,7 @@ private fun NewCapsuleSheet(onDismiss: () -> Unit, onCreated: (CapsuleDto) -> Un
     var title by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf(CapsuleEmojis.first()) }
     var error by remember { mutableStateOf<String?>(null) }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.mo_capsule_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
@@ -548,7 +549,7 @@ fun CapsulePickerSheet(messageId: String, onDismiss: () -> Unit) {
         NewCapsuleSheet(onDismiss = { creating = false }) { keep(it.id) }
         return
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.mo_capsule_keep), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.mo_capsule_keep_sub), color = Ch.Mut, fontSize = 12.5.sp)
