@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.wallet
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -66,6 +67,9 @@ fun WaSheetHost(host: WalletHost) {
     // Keep the last content while the panel slides away, so it doesn't collapse mid-animation.
     var lastSheet by remember { mutableStateOf<WaSheet?>(null) }
     if (host.sheet != null) lastSheet = host.sheet
+    val sheetVisible = remember { MutableTransitionState(false) }
+    sheetVisible.targetState = open
+    val holding = sheetVisible.currentState || sheetVisible.targetState
 
     AnimatedVisibility(visible = open, enter = fadeIn(tween(250)), exit = fadeOut(tween(250))) {
         Box(
@@ -75,9 +79,14 @@ fun WaSheetHost(host: WalletHost) {
                 .clickable(interactionSource = MutableInteractionSource(), indication = null) { host.closeSheet() },
         )
     }
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+    // fillMaxSize only while a sheet is on screen, so a closed host does not eat scroll.
+    // Without it the panel is only as tall as itself and sits at the top of the wallet.
+    Box(
+        Modifier.fillMaxWidth().then(if (holding) Modifier.fillMaxSize() else Modifier),
+        contentAlignment = Alignment.BottomCenter,
+    ) {
         AnimatedVisibility(
-            visible = open,
+            visibleState = sheetVisible,
             enter = slideInVertically(tween(380)) { it } + fadeIn(tween(200)),
             exit = slideOutVertically(tween(280)) { it } + fadeOut(tween(200)),
         ) {

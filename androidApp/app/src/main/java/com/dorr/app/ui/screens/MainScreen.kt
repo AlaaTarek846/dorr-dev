@@ -60,7 +60,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.shadow
@@ -324,9 +323,7 @@ fun MainScreen(
                     targetOffsetY = { it },
                 ) + fadeOut(animationSpec = tween(260)),
             ) {
-                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
-                    com.dorr.app.ui.components.PullToRefreshHost { WalletScreen(onExit = { walletOpen = false }) }
-                }
+                OverlayCatchBehind { WalletScreen(onExit = { walletOpen = false }) }
             }
             // The chat sits above the tab bar, like the wallet — the home bar stays on every chat page.
             AnimatedVisibility(
@@ -334,7 +331,7 @@ fun MainScreen(
                 enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
                 exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
             ) {
-                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                OverlayCatchBehind {
                     com.dorr.app.ui.screens.chat.ChatScreen(
                         onExit = { chatOpen = false },
                         openWalletQr = { payload ->
@@ -352,7 +349,7 @@ fun MainScreen(
                 enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
                 exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
             ) {
-                Box(Modifier.fillMaxSize().swallowClicksBehind()) {
+                OverlayCatchBehind {
                     com.dorr.app.ui.screens.aichat.AiChatHost(onExit = { aiChatOpen = false })
                 }
             }
@@ -656,18 +653,19 @@ private fun TabItem(
  * alone does not stop Compose from also dispatching a tap to whatever
  * clickable sits at the same screen position in that hidden tab content,
  * so a button inside the wallet/chat/AI screen could ALSO trigger
- * something behind it ("بدوس على اي حاجة في المساعد الذكي او الشات...
- * بيفتح حاجات تانية"). This swallows every pointer event anywhere in the
- * overlay's own bounds before it can reach a sibling underneath - applied
- * to the overlay's root Box, so its own buttons (deeper in the tree) still
- * get first crack at each gesture and work completely normally; only
- * whatever a descendant left unconsumed is absorbed here instead of
- * leaking through.
+ * something behind it. A clickable sits *behind* the overlay (not on
+ * the same node): leftover taps hit it, while scroll and buttons on
+ * top keep their pointer stream.
  */
-private fun Modifier.swallowClicksBehind(): Modifier = this.pointerInput(Unit) {
-    awaitPointerEventScope {
-        while (true) {
-            awaitPointerEvent().changes.forEach { it.consume() }
-        }
+@Composable
+private fun OverlayCatchBehind(content: @Composable () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .clickable(interactionSource = source, indication = null, onClick = {}),
+        )
+        content()
     }
 }
