@@ -160,7 +160,11 @@ data class AiSiteProjectDto(
     @SerializedName("last_error_message") val lastErrorMessage: String? = null,
     @SerializedName("generations_left") val generationsLeft: Int? = null,
     val versions: List<AiSiteVersionDto> = emptyList(),
-)
+) {
+    /** Gson bypasses Kotlin defaults: the list endpoint omits `versions`, so the field can be null at runtime. */
+    @Suppress("USELESS_CAST", "UNCHECKED_CAST")
+    val versionList: List<AiSiteVersionDto> get() = (versions as List<AiSiteVersionDto>?).orEmpty()
+}
 
 data class AiSiteHostingPlansDto(
     val enabled: Boolean = true,
