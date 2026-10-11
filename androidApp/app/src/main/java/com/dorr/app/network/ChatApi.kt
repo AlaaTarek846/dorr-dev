@@ -806,6 +806,8 @@ data class AttachmentDto(
     @SerializedName("duration_ms") val durationMs: Long?,
     /** Videos: the poster frame. */
     val thumbnail: String? = null,
+    /** Photos: a tiny blurred-looking JPEG (base64), shown while data saver holds the photo back. */
+    val preview: String? = null,
 )
 
 data class ReplyPreviewDto(

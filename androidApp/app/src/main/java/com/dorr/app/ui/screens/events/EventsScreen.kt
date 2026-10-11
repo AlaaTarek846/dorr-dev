@@ -1,5 +1,7 @@
 package com.dorr.app.ui.screens.events
 
+import android.net.Uri
+
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
@@ -797,6 +799,8 @@ private fun EvSubmit(onBack: () -> Unit) {
     var source by remember { mutableStateOf("") }
     var familyOk by remember { mutableStateOf(false) }
     var description by remember { mutableStateOf("") }
+    var cover by remember { mutableStateOf<Uri?>(null) }
+    val pickCover = rememberCoverPicker { cover = it }
     var picking by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -825,7 +829,11 @@ private fun EvSubmit(onBack: () -> Unit) {
                         listOf("venue" to venue, "address" to address, "booking_url" to booking, "source_url" to source, "description" to description)
                             .forEach { (k, v) -> if (v.isNotBlank()) addProperty(k, v.trim()) }
                     }
-                    runCatching { ApiClient.events.submit(evAuth(), body, evZone()).data }
+                    val coverPart = cover?.let { EventCover.part(context, it) }
+                    runCatching {
+                        if (coverPart != null) ApiClient.events.submitWithCover(evAuth(), EventCover.fields(body), coverPart, evZone()).data
+                        else ApiClient.events.submit(evAuth(), body, evZone()).data
+                    }
                         .onSuccess { e ->
                             Toast.makeText(context, if (e?.reviewStatus == "approved") sentLive else sentPending, Toast.LENGTH_LONG).show()
                             EventsStore.changed()
@@ -837,6 +845,8 @@ private fun EvSubmit(onBack: () -> Unit) {
             }, enabled = title.trim().length >= 3 && categoryId != null && city != null, loading = busy, icon = Icons.Rounded.Add)
         },
     ) {
+        CoverField(cover, onPick = pickCover, onRemove = { cover = null })
+        Spacer(Modifier.height(12.dp))
         DorrTextField(title, { title = it.take(160) }, label = stringResource(R.string.ev_f_title), modifier = Modifier.fillMaxWidth())
         WaSectionTitle(stringResource(R.string.ev_f_category), topPadding = 14.dp)
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -134,6 +134,31 @@ class DiscoverTest extends TestCase
 
     // ------------------------------------------------------------------ AT-DISC-01
 
+    public function test_an_organizer_sends_a_cover_with_the_event_and_changes_it_from_the_app(): void
+    {
+        \Illuminate\Support\Facades\Storage::fake('public');
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
+
+        // Multipart, as the app sends it: the fields (booleans as 1/0) and the photo.
+        $data = ['is_free' => '1', 'family_friendly' => '0'] + $this->eventData('Oud night');
+        $created = $this->post('/api/mobile/v1/discover/organizer/events', $data + ['cover' => \Illuminate\Http\UploadedFile::fake()->image('cover.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
+            ->assertCreated();
+        $id = $created->json('data.id');
+        $first = $created->json('data.cover');
+        $this->assertNotNull($first);
+
+        // Only a new cover: everything else stays, and it's reviewed again (not verified).
+        $updated = $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => \Illuminate\Http\UploadedFile::fake()->image('new.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
+            ->assertOk()->assertJsonPath('data.title', 'Oud night')->assertJsonPath('data.review_status', 'pending');
+        $this->assertNotNull($updated->json('data.cover'));
+        $this->assertNotSame($first, $updated->json('data.cover'));
+
+        // Not an image: refused.
+        $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => \Illuminate\Http\UploadedFile::fake()->create('cover.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])
+            ->assertStatus(422);
+    }
+
     public function test_a_status_change_reaches_only_the_interested_who_asked_and_is_kept_in_the_history(): void
     {
         $event = $this->adminEvent('Riyadh Season opening', 'Riyadh', '2026-11-10 19:00');

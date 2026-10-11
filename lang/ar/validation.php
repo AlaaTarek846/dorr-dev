@@ -41,6 +41,11 @@ return [
     'digits_between' => 'يجب أن يكون حقل :attribute بين :min و :max أرقام.',
     'regex' => 'صيغة حقل :attribute غير صحيحة.',
 
+    'view_once_media_only' => 'العرض مرة واحدة للصور والفيديو والرسائل الصوتية بس.',
+    'live_location_only' => 'المشاركة المباشرة للموقع بس.',
+    'folder_document_only' => 'المجلد بيتبعت كمستند.',
+    'gif_video_only' => 'الفيديو بس اللي ينفع يتبعت GIF.',
+
     'custom' => [
         'code' => [
             'unique' => 'هذا الكود مستخدم بالفعل.',

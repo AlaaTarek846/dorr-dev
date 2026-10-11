@@ -103,6 +103,8 @@ dependencies {
     implementation("com.pusher:pusher-java-client:2.4.4")
     // Chat calls (voice / video) — LiveKit Cloud now, self-hosted LiveKit later (same SDK).
     implementation("io.livekit:livekit-android:2.5.0")
+    // Camera backgrounds in video calls (blur / a picture), found on the phone (spec 94).
+    implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
     // Realtime Voice (AI Assistant live call, Phase 7): direct WebRTC to OpenAI's
     // /v1/realtime/calls edge using the short-lived client_secret our backend mints
     // (AiRealtimeController). This is a SEPARATE WebRTC artifact from whatever

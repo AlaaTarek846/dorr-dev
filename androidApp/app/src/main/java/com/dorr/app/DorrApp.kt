@@ -10,10 +10,15 @@ import com.dorr.app.network.DeviceId
 import com.dorr.app.network.CountryCache
 import com.dorr.app.network.OnboardingStore
 
-class DorrApp : Application(), coil.ImageLoaderFactory {
-    /** Every AsyncImage: SVG icons and animated GIFs, through the API's client (same dev headers). */
-    override fun newImageLoader(): coil.ImageLoader = coil.ImageLoader.Builder(this)
-        .okHttpClient { com.dorr.app.network.ApiClient.okHttpClient }
+class DorrApp : Application(), ImageLoaderFactory {
+    /**
+     * Every AsyncImage in the app goes through the API's own OkHttpClient (bug fix 2026-09-29):
+     * Coil's default loader built its own client without ApiClient's interceptors, so over the
+     * ngrok dev tunnel images came back as ngrok's HTML warning page and showed blank. It also
+     * decodes SVG icons (chat categories…) and animated GIFs.
+     */
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .okHttpClient { ApiClient.okHttpClient }
         .components {
             add(coil.decode.SvgDecoder.Factory())
             if (android.os.Build.VERSION.SDK_INT >= 28) add(coil.decode.ImageDecoderDecoder.Factory()) else add(coil.decode.GifDecoder.Factory())
@@ -23,6 +28,10 @@ class DorrApp : Application(), coil.ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         AuthSession.attach(this)
+        // Data saver, lite mode and usage stats (spec 82, 87, 83) are read before anything loads.
+        com.dorr.app.chat.ChatDataSaver.attach(this)
+        com.dorr.app.chat.ChatLite.attach(this)
+        com.dorr.app.chat.ChatUsage.attach(this)
         com.dorr.app.network.ReferralStore.attach(this)
         com.dorr.app.network.ReferralInstallReferrer.capture(this)
         DeviceId.attach(this)
@@ -39,26 +48,5 @@ class DorrApp : Application(), coil.ImageLoaderFactory {
         AppearanceStore.attach(this)
         // The font chosen in the appearance settings (downloaded once, then from the phone).
         CountryCache.load(this)
-    }
-
-    /**
-     * Bug fix (2026-09-29, real observed bug): sent/attached images in the
-     * AI chat (and every other AsyncImage in the app) never appeared.
-     * ApiClient.kt's own doc comment on okHttpClient claims it is "shared
-     * with the image loader so media requests get the same dev Host
-     * header" - but nothing ever actually wired that up: Coil's default
-     * global ImageLoader builds its OWN internal OkHttpClient with none
-     * of ApiClient's interceptors. Over the ngrok tunnel used for local
-     * dev, a request missing the "ngrok-skip-browser-warning" header
-     * gets ngrok's HTML interstitial warning page back instead of the
-     * image bytes, so Coil silently fails to decode it and the bubble
-     * renders blank. Registering this factory makes Coil's app-wide
-     * ImageLoader use the exact same OkHttpClient (and therefore the
-     * same headers/Host handling) as every other API/media call.
-     */
-    override fun newImageLoader(): ImageLoader {
-        return ImageLoader.Builder(this)
-            .okHttpClient(ApiClient.okHttpClient)
-            .build()
     }
 }

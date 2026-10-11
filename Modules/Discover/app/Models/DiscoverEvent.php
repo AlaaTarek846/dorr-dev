@@ -87,9 +87,19 @@ class DiscoverEvent extends Model implements HasMedia
         return $this->source === 'admin' || ($this->organizer?->isVerified() ?? false);
     }
 
+    /**
+     * A new cover is saved under the same name (cover.webp), so the address carries its version:
+     * phones that cached the old one load the new one.
+     */
     public function coverUrl(): ?string
     {
-        return $this->getSingleMediaUrl(self::COVER) ?: null;
+        $url = $this->getSingleMediaUrl(self::COVER);
+        if ($url === '') {
+            return null;
+        }
+        $id = $this->getFirstMedia(self::COVER)?->id;
+
+        return $id === null ? $url : $url.(str_contains($url, '?') ? '&' : '?').'v='.$id;
     }
 
     public static function dedupeKey(string $title, int $cityId, ?string $localDate): string

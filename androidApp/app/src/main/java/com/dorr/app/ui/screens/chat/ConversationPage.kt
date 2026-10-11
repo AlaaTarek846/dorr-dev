@@ -52,6 +52,7 @@ import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
@@ -310,7 +311,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
         // The wallpaper behind the whole page — header corners and the composer float over it
         // (no white strip under the rounded header, no white band around the message box).
         ThemedWallpaper(chatTheme)
-        Column(Modifier.fillMaxSize().imePadding().then(if (blurred > 0.5f && Build.VERSION.SDK_INT >= 31) Modifier.blur(blurred.dp) else Modifier)) {
+        Column(Modifier.fillMaxSize().imePadding().then(if (blurred > 0.5f && Build.VERSION.SDK_INT >= 31 && !com.dorr.app.chat.ChatLite.active) Modifier.blur(blurred.dp) else Modifier)) {
             AnimatedContent(targetState = searching, label = "convHeader", transitionSpec = {
                 (fadeIn(tween(220)) + slideInVertically { -it / 3 }) togetherWith (fadeOut(tween(150)) + slideOutVertically { -it / 3 })
             }) { isSearching ->
@@ -322,6 +323,8 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 SearchKindChips(searchKinds) { k -> searchKinds = if (k in searchKinds) searchKinds - k else searchKinds + k }
             }
             PinnedBanner(state) { jumpTo(it) }
+            // A group's voice room with people in it (spec 91).
+            if (state.conversation?.isGroup == true) VoiceRoomBar(state.id, state.conversation?.title)
             SummarizePill(summaryOffered && ChatAi.summarize) { summaryOffered = false; summaryOpen = true }
             // Someone I haven't saved: "Add" (then they see my stories too).
             c?.let { NotInContactsBanner(it) { fresh -> state.conversation = fresh; host.upsert(fresh) } }
@@ -544,6 +547,12 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
             }
             GlassIcon(Icons.Rounded.Search, size = 38.dp, onClick = onSearch)
             Spacer(Modifier.width(6.dp))
+            // The group's standing voice room (spec 91).
+            if (c != null && c.isGroup && !c.isRequest && c.canCall != false) {
+                val host = LocalChat.current
+                GlassIcon(Icons.Rounded.GraphicEq, size = 38.dp) { host.push(ChRoute.VoiceRoom(state.id, c.title)) }
+                Spacer(Modifier.width(6.dp))
+            }
             // No calls with myself, nor where calls are switched off (my or their country).
             if (c != null && !c.isRequest && c.canSend && !c.isSelf && c.canCall != false) {
                 Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {

@@ -101,6 +101,8 @@ object ApiClient {
             response
         }
         .addInterceptor(HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BASIC })
+        // Usage stats (spec 83): what chats and their media really cost on the wire.
+        .addNetworkInterceptor(com.dorr.app.chat.ChatUsage.interceptor)
         .build()
 
     private val retrofit = Retrofit.Builder()
@@ -121,6 +123,8 @@ object ApiClient {
     val aiSites: AiSitesApi by lazy { retrofit.create(AiSitesApi::class.java) }
     val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
+    val life: LifeApi by lazy { retrofit.create(LifeApi::class.java) }
+    val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
     val events: EventsApi by lazy { retrofit.create(EventsApi::class.java) }

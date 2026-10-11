@@ -48,6 +48,7 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **Headers sent on every request:** `Accept: application/json`, `X-Locale`, `X-Device-Id`.
 - **Referral:** `GET mobile/v1/referrals/my-code` / `POST .../track`. Share uses the server code. A pending code (typed, shared, or Play Install Referrer later) is sent once after login; the backend is idempotent.
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
+- **Data and performance (chat menu → "Data and performance", spec 82, 87, 83):** data saver (`ChatDataSaver`: off / mobile data / always) holds others' photos until tapped (Coil cache-only first, then the server's `preview`), stops GIF clips playing by themselves, sends lighter photos and videos, and makes calls 360p. Lite mode (`ChatLite`: auto at ≤3 GB memory / on / off) drops bubble animations, blur, animated GIFs and stickers, and camera backgrounds. Usage stats (`ChatUsage`) count on the phone only: an OkHttp **network** interceptor measures chat API calls and media, split mobile / Wi-Fi, and a call's data is the app's own traffic (TrafficStats) while it lasts. All three load in `DorrApp.onCreate`.
 
 ## Backend host (dev)
 

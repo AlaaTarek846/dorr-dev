@@ -48,6 +48,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CallEnd
 import androidx.compose.material.icons.rounded.Cameraswitch
+import androidx.compose.material.icons.rounded.BlurOn
+import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
@@ -225,6 +227,13 @@ private fun CallScreen() {
         // ------------------------------------------------------------ my camera (drag it anywhere, it snaps to a corner)
         if (local != null && remote != null && phase == CallPhase.Active && !grouped) LocalPreview(local)
 
+        // ------------------------------------------------------------ live (spec 93): LIVE · viewers
+        CallController.live?.takeIf { it.status == "live" && phase == CallPhase.Active }?.let { l ->
+            var sharing by remember { mutableStateOf(false) }
+            Box(Modifier.align(Alignment.TopCenter)) { LiveBadge(l) { sharing = true } }
+            if (sharing) LiveShareSheet(l) { sharing = false }
+        }
+
         // ------------------------------------------------------------ controls
         Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 36.dp)) {
             if (phase == CallPhase.Incoming) {
@@ -342,6 +351,9 @@ private fun IncomingControls(onDecline: () -> Unit, onAccept: () -> Unit) {
 @Composable
 private fun ActiveControls(video: Boolean) {
     val context = LocalContext.current
+    var backgrounds by remember { mutableStateOf(false) }
+    var goLive by remember { mutableStateOf(false) }
+    var liveShare by remember { mutableStateOf(false) }
     val cameraAsk = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) CallController.toggleCamera()
         else android.widget.Toast.makeText(context, context.getString(R.string.ch_call_camera_denied), android.widget.Toast.LENGTH_SHORT).show()
@@ -357,8 +369,16 @@ private fun ActiveControls(video: Boolean) {
             else CallController.toggleCamera()
         }
         if (CallController.cameraOn) ToggleAction(Icons.Rounded.Cameraswitch, false) { CallController.flipCamera() }
+        // Blur or a picture behind me (spec 94), made on the phone.
+        // Camera backgrounds are heavy: not in lite mode (spec 87).
+        if (CallController.cameraOn && !com.dorr.app.chat.ChatLite.active) ToggleAction(Icons.Rounded.BlurOn, com.dorr.app.chat.CallEffects.mode != com.dorr.app.chat.CallEffects.Mode.None) { backgrounds = true }
+        // Go live (spec 93) — or, once live, share / end it.
+        ToggleAction(Icons.Rounded.Podcasts, CallController.live?.status == "live") { if (CallController.live?.status == "live") liveShare = true else goLive = true }
         RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
     }
+    if (backgrounds) CallBackgroundSheet { backgrounds = false }
+    if (goLive) StartLiveSheet { goLive = false }
+    CallController.live?.takeIf { liveShare }?.let { l -> LiveShareSheet(l) { liveShare = false } }
 }
 
 @Composable

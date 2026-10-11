@@ -115,6 +115,8 @@ class MessageResource extends JsonResource
             'width' => $media->getCustomProperty('width'),
             'height' => $media->getCustomProperty('height'),
             'duration_ms' => $media->getCustomProperty('duration_ms'),
+            // Photos: a ~40px JPEG (base64) to show while data saver holds the photo back.
+            'preview' => $media->getCustomProperty('preview'),
         ])->all();
     }
 
