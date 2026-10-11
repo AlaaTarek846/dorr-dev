@@ -108,7 +108,7 @@ fun WaPinPad(
     val shake = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val host = LocalWallet.current
+    val host = LocalWalletOrNull.current
     val night = dark || walletNight()
 
     // Ticks the countdown while locked; clears itself when time is up — never fires a request on its own.
@@ -141,7 +141,7 @@ fun WaPinPad(
             busy = false
             when (result) {
                 is PadResult.Error -> {
-                    if (result.message.isNotBlank()) host.showError(result.message)
+                    if (result.message.isNotBlank()) { if (host != null) host.showError(result.message) else error = result.message }
                     value = ""
                     bad = true
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -199,7 +199,7 @@ fun WaPinPad(
             Spacer(Modifier.height(10.dp))
             Text(title, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = if (night) com.dorr.app.ui.screens.AccountDark.ink else Wa.Ink, textAlign = TextAlign.Center)
             Spacer(Modifier.height(4.dp))
-            Text(sub, color = if (night) com.dorr.app.ui.screens.AccountDark.mut else Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
+            Text(error.ifBlank { sub }, color = if (error.isNotBlank()) Color(0xFFDC2626) else if (night) com.dorr.app.ui.screens.AccountDark.mut else Wa.Mut, fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.heightIn(min = 20.dp))
             Row(
                 Modifier.padding(top = 16.dp).graphicsLayer { translationX = shake.value * 6.dp.toPx() },
                 horizontalArrangement = Arrangement.spacedBy(16.dp),
