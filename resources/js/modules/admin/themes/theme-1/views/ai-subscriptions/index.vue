@@ -140,6 +140,9 @@
                                         </td>
                                         <td>
                                             <div class="d-flex align-items-center gap-1">
+                                                <button type="button" class="btn btn-sm btn-info-light btn-icon" :title="t('ai_subscriptions.details')" @click="openDetails(subscription.id)">
+                                                    <i class="ri-eye-line"></i>
+                                                </button>
                                                 <input
                                                     v-model.number="extendDays[subscription.id]"
                                                     type="number"
@@ -202,6 +205,62 @@
             </div>
         </div>
 
+        <!-- one subscription: who, which plan, dates, grace, price — and the actions -->
+        <WalletModal :show="showDetails" :title="detail ? `#${detail.id} · ${t('ai_subscriptions.details')}` : ''" size="lg" @close="closeDetails">
+            <div v-if="detailLoading" class="text-center py-5"><span class="spinner-border"></span></div>
+            <template v-else-if="detail">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.owner') }}</span>
+                        <span class="d-block fw-semibold">{{ ownerDisplayName(detail.owner) }}</span>
+                        <span class="d-block text-muted fs-11">{{ t(`ai_subscriptions.${detail.owner?.type}`) }} #{{ detail.owner?.id }}</span>
+                    </div>
+                    <div class="col-md-6">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.plan') }}</span>
+                        <span class="d-block fw-semibold">{{ detail.plan?.name ?? '-' }}</span>
+                        <span v-if="detail.current_plan_price != null" class="d-block text-muted fs-11">{{ t('ai_subscriptions.price') }}: {{ detail.current_plan_price }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.status') }}</span>
+                        <span class="badge" :class="statusBadgeClass(detail.status)">{{ t(`ai_subscriptions.status_${detail.status}`) }}</span>
+                        <span v-if="detail.in_grace_period" class="badge bg-warning-transparent ms-1">{{ t('ai_subscriptions.in_grace_period') }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.auto_renew') }}</span>
+                        <span class="badge" :class="detail.auto_renew ? 'bg-success-transparent' : 'bg-secondary-transparent'">
+                            {{ detail.auto_renew ? t('ai_subscriptions.auto_renew_on') : t('ai_subscriptions.auto_renew_off') }}
+                        </span>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.days_left') }}</span>
+                        <span class="fw-semibold">{{ detail.days_remaining ?? '-' }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.starts_at') }}</span>
+                        <span>{{ formatDate(detail.starts_at) }}</span>
+                    </div>
+                    <div class="col-md-4">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.ends_at') }}</span>
+                        <span>{{ detail.ends_at ? formatDate(detail.ends_at) : '-' }}</span>
+                    </div>
+                    <div v-if="detail.grace_ends_at" class="col-md-4">
+                        <span class="d-block text-muted fs-12">{{ t('ai_subscriptions.grace_ends') }}</span>
+                        <span>{{ formatDate(detail.grace_ends_at) }}</span>
+                    </div>
+                </div>
+
+                <hr>
+
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <input v-model.number="extendDays[detail.id]" type="number" min="1" class="form-control form-control-sm" style="width: 130px" :placeholder="t('ai_subscriptions.extend_days_placeholder')">
+                    <button type="button" class="btn btn-sm btn-primary-light" :disabled="busyId === detail.id" @click="extend(detail)">{{ t('ai_subscriptions.extend') }}</button>
+                    <button v-if="detail.status === 'active'" type="button" class="btn btn-sm btn-warning-light" :disabled="busyId === detail.id" @click="suspend(detail)">{{ t('ai_subscriptions.suspend') }}</button>
+                    <button v-if="detail.status === 'suspended'" type="button" class="btn btn-sm btn-success-light" :disabled="busyId === detail.id" @click="reactivate(detail)">{{ t('ai_subscriptions.reactivate') }}</button>
+                    <button v-if="['active', 'suspended'].includes(detail.status)" type="button" class="btn btn-sm btn-danger-light" :disabled="busyId === detail.id" @click="cancelSubscription(detail)">{{ t('ai_subscriptions.cancel') }}</button>
+                </div>
+            </template>
+        </WalletModal>
+
         <ConfirmDeleteModal
             :show="actionConfirm.state.show"
             :title="actionConfirm.state.title"
@@ -224,6 +283,8 @@ import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
 import useToast, { extractApiErrorMessage, extractApiMessage } from '../../../../../../composables/useToast';
 
 import AdminPaginationFooter from '../../../../../../components/admin/AdminPaginationFooter.vue';
+import WalletModal from '../../../../../../components/wallet/WalletModal.vue';
+import useOpenFromQuery from '../../../../../../composables/useOpenFromQuery';
 import useAdminPagination from '../../../../../../composables/useAdminPagination';
 import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete';
 
@@ -237,6 +298,9 @@ const loading = ref(true);
 const overview = ref(null);
 const busyId = ref(null);
 const extendDays = reactive({});
+const showDetails = ref(false);
+const detail = ref(null);
+const detailLoading = ref(false);
 
 function formatDate(value) {
     if (! value) return '-';
@@ -276,6 +340,27 @@ async function loadOverview() {
     }
 }
 
+async function openDetails(id) {
+    showDetails.value = true;
+    detail.value = null;
+    detailLoading.value = true;
+
+    try {
+        const { data } = await adminAxios.get(`/api/admin/v1/ai-subscriptions/${id}`);
+
+        detail.value = data.data ?? null;
+    } catch (error) {
+        showDetails.value = false;
+        showError(extractApiErrorMessage(error, t('toast.error')));
+    } finally {
+        detailLoading.value = false;
+    }
+}
+
+function closeDetails() {
+    showDetails.value = false;
+}
+
 async function runAction(subscription, url, successMessage, payload = {}) {
     busyId.value = subscription.id;
 
@@ -286,6 +371,10 @@ async function runAction(subscription, url, successMessage, payload = {}) {
         if (updated) {
             const index = subscriptions.value.findIndex((s) => s.id === subscription.id);
             if (index !== -1) subscriptions.value[index] = updated;
+
+            if (detail.value?.id === updated.id) {
+                detail.value = updated;
+            }
         }
 
         showSuccess(extractApiMessage(response, successMessage));
@@ -374,4 +463,7 @@ onMounted(() => {
     loadSubscriptions();
     loadOverview();
 });
+
+// A clicked notification arrives as ?subscription=ID.
+useOpenFromQuery('subscription', (id) => openDetails(id));
 </script>

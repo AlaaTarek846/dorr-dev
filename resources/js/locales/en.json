@@ -1461,7 +1461,11 @@
         "cancel": "Cancel",
         "confirm_suspend": "Suspend this subscription?",
         "confirm_reactivate": "Reactivate this subscription?",
-        "confirm_cancel": "Cancel this subscription? It will no longer renew."
+        "confirm_cancel": "Cancel this subscription? It will no longer renew.",
+        "details": "Subscription details",
+        "price": "Price",
+        "days_left": "Days left",
+        "grace_ends": "Grace ends"
     },
     "ai_usage_sessions": {
         "title": "AI Usage Sessions",

@@ -44,6 +44,12 @@ export function notificationLink(notification) {
         }
         // A ticket opens its conversation on the support page; a customer who asked for an agent in the quick chat
         // opens their latest ticket (the one they open right after, when it exists).
+        // AI subscription events (subscribed, renewed, grace, suspended…): the subscriptions page with that subscription's modal.
+        case 'ai_subscription': {
+            const id = notification.data.subscription_id;
+
+            return { name: 'admin.ai-subscriptions.index', query: id ? { subscription: id } : {} };
+        }
         case 'support':
             return { name: 'admin.support-tickets.index', query: { ticket: notification.data.ticket_id } };
         case 'support_help':
@@ -62,6 +68,7 @@ export function notificationIcon(notification) {
     if (event.startsWith('wallet.pin')) return 'bx bx-lock-alt';
     if (event.startsWith('wallet.')) return 'bx bx-wallet';
     if (event.startsWith('support.')) return 'bx bx-support';
+    if (event.startsWith('ai_subscription.')) return 'bx bx-bot';
 
     return 'bx bx-bell';
 }
