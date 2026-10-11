@@ -229,6 +229,8 @@ fun MainScreen(
     // Declared after the tab handler so an open service page closes first.
     BackHandler(enabled = serviceDetail != null) { serviceDetail = null }
 
+    // The tab bar is hidden inside a chat, the AI assistant and the support conversation (they get the whole screen).
+    val tabBarVisible = !aiChatOpen && !com.dorr.app.ui.screens.profile.SupportChatState.open && !(chatOpen && com.dorr.app.chat.ChatStore.immersive)
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
@@ -237,7 +239,7 @@ fun MainScreen(
             // Also hidden while the AI Assistant is open: it is its own full-screen space, and with
             // the bar gone Scaffold's bottom padding shrinks to zero so AiChatHost reaches the edge.
             AnimatedVisibility(
-                visible = !aiChatOpen && !com.dorr.app.ui.screens.profile.SupportChatState.open && !(chatOpen && com.dorr.app.chat.ChatStore.immersive),
+                visible = tabBarVisible,
                 enter = slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it } + fadeIn(tween(220)),
                 exit = slideOutVertically(tween(260, easing = FastOutSlowInEasing)) { it } + fadeOut(tween(180)),
             ) {
@@ -269,7 +271,9 @@ fun MainScreen(
         // transparent — the page shows through — instead of the screen's plain background.
         val contentPadding = PaddingValues(
             top = padding.calculateTopPadding(),
-            bottom = (padding.calculateBottomPadding() - BOTTOM_BAR_HEADROOM).coerceAtLeast(0.dp),
+            // Only while the tab bar shows: without it the bottom padding is the system navigation bar itself, and the
+            // page (a chat's text box) must stay above it, not run under it.
+            bottom = if (tabBarVisible) (padding.calculateBottomPadding() - BOTTOM_BAR_HEADROOM).coerceAtLeast(0.dp) else padding.calculateBottomPadding(),
         )
         Box(Modifier.padding(contentPadding).consumeWindowInsets(padding)) {
             AnimatedContent(
