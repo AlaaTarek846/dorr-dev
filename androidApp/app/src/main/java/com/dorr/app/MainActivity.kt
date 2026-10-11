@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
@@ -101,10 +102,31 @@ class MainActivity : FragmentActivity() {
                     LocalAppearance provides appearance,
                     LocalDorrFontFamily provides appearance.fontFamily,
                 ) {
-                    DorrTheme(darkTheme = themeState.isDark ?: isSystemInDarkTheme()) {
+                    val night = themeState.isDark ?: isSystemInDarkTheme()
+                    // The status bar (and the navigation bar below) follow the app's colours: dark with light icons at night, white with dark icons by day
+                    // (it used to stay white, a pale strip over the dark screens).
+                    DisposableEffect(night) {
+                        enableEdgeToEdge(
+                            statusBarStyle = if (night) {
+                                SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                            } else {
+                                SystemBarStyle.light(AndroidColor.WHITE, AndroidColor.WHITE)
+                            },
+                            // The navigation bar at the bottom follows the app's theme too (it followed the phone's, so its buttons
+                            // could be dark on a dark screen or light on a light one).
+                            navigationBarStyle = if (night) {
+                                SystemBarStyle.dark(AndroidColor.TRANSPARENT)
+                            } else {
+                                SystemBarStyle.light(AndroidColor.TRANSPARENT, AndroidColor.TRANSPARENT)
+                            },
+                        )
+                        onDispose {}
+                    }
+                    DorrTheme(darkTheme = night) {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
-                            color = MaterialTheme.colorScheme.background,
+                            // Behind the status bar: the same dark the screens use at night.
+                            color = if (night) com.dorr.app.ui.screens.AccountDark.bg else MaterialTheme.colorScheme.background,
                         ) {
                             Box(
                                 modifier = Modifier
