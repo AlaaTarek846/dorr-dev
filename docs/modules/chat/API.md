@@ -486,10 +486,12 @@ One calendar of only the sources I keep on: my appointments (`events`), occasion
 
 | Method | Path | Notes |
 |---|---|---|
-| POST | `conversations/{c}/calls` `{type: audio\|video}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call |
-| POST | `calls/{id}/accept` · `decline` · `leave` | Accept returns `join` |
-| GET | `calls/{id}/token` | Rejoin an ongoing call |
+| POST | `conversations/{c}/calls` `{type: audio\|video, recording_consent?}` | Returns `call` plus `join {url, room, token}`. In a group with a call already running, you join that call (`recording_consent` when it records — see below) |
+| POST | `calls/{id}/accept` `{recording_consent?}` · `decline` · `leave` | Accept returns `join` |
+| GET | `calls/{id}/token?recording_consent=1` | Rejoin an ongoing call |
 | GET | `calls` · `calls/{id}` | Call log |
+
+Every call payload also has `recording_available` (the record button shows only then), `recording` (asking or recording right now, the state below, or `null`) and `recordings_count` (recordings of this call I agreed to).
 
 Calls can be switched off per country (`calls_disabled_countries` in chat settings, by the account's `country_id`): the caller gets `403 chat_calls_unavailable_country`, calling someone there gets `403 chat_calls_unavailable_peer_country`, and in a group members there simply aren't rung.
 
@@ -526,14 +528,28 @@ Errors: `chat_live_not_in_call` (409), `chat_live_ended` (409), `chat_live_not_f
 
 **Camera backgrounds (spec 94)** are made on the phone only (blur, or a picture behind me): ML Kit selfie segmentation in a LiveKit `VideoProcessor`. Nothing goes to the server.
 
-**Call recording (spec 92)** isn't built: it needs LiveKit Egress, a storage place and a retention period — **NEEDS-DECISION**.
+### Call recording (spec 92, safety rule 1)
+Nothing is recorded until **everyone in the call** said yes. Someone in the call asks (asking is their yes); everyone else in it answers within `CHAT_RECORDINGS_CONSENT_SECONDS` (30). One "no", or the time running out, and LiveKit is never asked. The last yes starts **LiveKit Egress** (`StartRoomCompositeEgress`: the whole room — cameras in a grid for a video call, voices only for a voice call — as one MP4) straight into our S3-compatible bucket. Someone joining a call that records (or asks to) gets `409 chat_recording_consent_required` with `data.recording` and joins only with `recording_consent: true`, which is their yes. Anyone in the call can stop it; it also stops when the call ends. Only the people who agreed can play it, through a link signed for `CHAT_RECORDINGS_LINK_SECONDS` (900). The file is deleted after the admin's `call_recording_retention_days` (30).
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| POST | `calls/{call}/recording` | — | `201` the state: `{id, call_id, status, requested_by, agreed[], declined[], waiting_for[], consent_until, started_at, stopped_at}` (participant keys `user:{id}`). The same one if someone already asked. Throttled 10/min |
+| POST | `calls/{call}/recording/consent` | `{accept}` | The state: `declined` on a no, `recording` once everyone in the call said yes |
+| POST | `calls/{call}/recording/stop` | — | The state: `processing` (or `cancelled` while still asking) |
+| GET | `calls/{call}/recordings` | — | The recordings of this call I agreed to: `[{id, call_id, type: audio \| video, status, duration_seconds, size_bytes, started_at, stopped_at, expires_at, url}]` — `url` once `ready` |
+
+`status`: `pending` → `recording` → `processing` → `ready` → `deleted`, or `declined` · `expired` · `cancelled` · `failed`. `chat:call-recordings` (every minute) drops requests that ran out of time, asks LiveKit (`ListEgress`) which files are saved, and deletes files past their retention. The call's line in the chat gets `meta.recorded = true`.
+
+Errors: `chat_recording_unavailable` (422 — no bucket, LiveKit not set up, or switched off), `chat_recording_not_in_call` (409), `chat_recording_not_asking` (409), `chat_recording_not_running` (409), `chat_recording_consent_required` (409). Event `chat.call.recording {call_id, recording}` (the state) to everyone the call rang.
+
+**Setup:** a private bucket in `.env` — `CHAT_RECORDINGS_KEY`, `CHAT_RECORDINGS_SECRET`, `CHAT_RECORDINGS_REGION`, `CHAT_RECORDINGS_BUCKET`, and for non-AWS storage `CHAT_RECORDINGS_ENDPOINT` (https) and `CHAT_RECORDINGS_PATH_STYLE=true` (Cloudflare R2: region `auto`). LiveKit Cloud has no storage of its own. Links and deletes are signed with AWS Signature V4 (`Support\RecordingStorage`), so there's no AWS SDK.
 
 ## Admin
 
 | Method | Path | Permission |
 |---|---|---|
 | GET | `/api/admin/v1/chat-settings` | `chat-settings.view` |
-| PUT | `/api/admin/v1/chat-settings` (also `calls_disabled_countries[]` country ids, `ai_enabled`) | `chat-settings.update` |
+| PUT | `/api/admin/v1/chat-settings` (also `calls_disabled_countries[]` country ids, `ai_enabled`, `call_recording_enabled`, `call_recording_retention_days` 1–365; GET also answers the read-only `call_recording_storage_ready`) | `chat-settings.update` |
 | GET | `/api/admin/v1/chat-themes` · `chat-themes/{id}` | `chat-themes.view` |
 | POST | `/api/admin/v1/chat-themes` (multipart: `translations[i][locale/name]`, `sender_color`, `receiver_color`, `background_color`, `is_dark`, `is_default`, `status`, `sort_order`, `wallpaper`) | `chat-themes.create` |
 | POST | `/api/admin/v1/chat-themes/{id}` (same fields + `remove_wallpaper`) | `chat-themes.update` |
@@ -599,5 +615,6 @@ Commitment reminders: `chat:commitment-reminders` every minute (once, `remind_mi
 | `chat.call.ringing` / `accepted` / `declined` / `left` / `ended` | `call_id`, `conversation_id`, `status`, `participant`, `duration_seconds`. `ringing` adds `caller` and the full call |
 | `chat.voice.updated` | `conversation_id`, `room_id`, `count` — who's in a voice room changed |
 | `chat.call.live` | `call_id`, `live{id, token, status, viewers, audience}` |
+| `chat.call.recording` | `call_id`, `recording` — asked for, answered, started, stopped, saved (spec 92) |
 
 Push (OneSignal) goes out for new messages, respecting mute, locked chats, and `notification_preview`, and for incoming and missed calls. `data.type` is `chat` or `chat_call`.

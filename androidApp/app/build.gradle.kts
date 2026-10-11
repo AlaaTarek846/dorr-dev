@@ -32,13 +32,21 @@ android {
         //   gradlew assembleDebug -Pdorr.apiHost=dorr-app.com -Pdorr.apiScheme=https
         val apiHost = (findProperty("dorr.apiHost") as String?) ?: local.getProperty("dorr.apiHost", "unafraid-occupy-geography.ngrok-free.dev")
         val apiScheme = (findProperty("dorr.apiScheme") as String?) ?: local.getProperty("dorr.apiScheme", "https")
+        // Only the CPU types real phones have (arm64 + 32-bit arm): x86 / x86_64 are for emulators and
+        // tripled the native libraries (~85 MB of a 200 MB APK). An emulator build asks for them:
+        //   gradlew assembleDebug -Pdorr.abis=arm64-v8a,x86_64
+        // (a Play App Bundle also sends each phone only its own CPU type.)
+        val abis = (findProperty("dorr.abis") as String?) ?: local.getProperty("dorr.abis", "arm64-v8a,armeabi-v7a")
+        ndk { abiFilters += abis.split(",").map { it.trim() }.filter { it.isNotEmpty() } }
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // Unused library code and resources are removed (no renaming: see proguard-rules.pro).
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -105,19 +113,8 @@ dependencies {
     implementation("io.livekit:livekit-android:2.5.0")
     // Camera backgrounds in video calls (blur / a picture), found on the phone (spec 94).
     implementation("com.google.mlkit:segmentation-selfie:16.0.0-beta6")
-    // Realtime Voice (AI Assistant live call, Phase 7): direct WebRTC to OpenAI's
-    // /v1/realtime/calls edge using the short-lived client_secret our backend mints
-    // (AiRealtimeController). This is a SEPARATE WebRTC artifact from whatever
-    // livekit-android pulls in transitively for LiveKit calls above -- if Gradle
-    // reports a duplicate native library / duplicate class for libjingle_peerconnection
-    // (or similar) when this is built, resolve it by excluding livekit-android's own
-    // webrtc transitive dependency (its group is io.livekit / io.github.webrtc-sdk
-    // depending on the release) rather than removing this line -- this module talks to
-    // OpenAI directly and cannot reuse a LiveKit-scoped connection.
-    implementation("io.github.webrtc-sdk:android:125.6422.04")
-    // Realtime event payloads over the WebRTC data channel are small JSON blobs;
-    // org.json (bundled in the Android platform) is used to parse them, no new
-    // dependency needed for that part.
+    // Realtime Voice (AI Assistant live call, Phase 7) uses the WebRTC that livekit-android already
+    // ships (package livekit.org.webrtc) -- a second WebRTC artifact here added ~11 MB per CPU type.
     // Phone notifications (chat messages, calls, wallet…) — the server already sends through OneSignal.
     implementation("com.onesignal:OneSignal:5.1.6")
     // Chat videos are re-encoded on the phone before upload (720p H.264) — Google's own transcoder.

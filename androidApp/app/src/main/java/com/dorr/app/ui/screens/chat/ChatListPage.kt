@@ -193,8 +193,9 @@ fun ChatListPage() {
     }
     LaunchedEffect(Unit) { host.refreshStories() }
 
-    // In the requests box, "back" returns to the chats — it must not close the whole chat.
-    BackHandler(enabled = host.filter in SpecialLists || searching) {
+    // In the requests box, "back" returns to the chats — it must not close the whole chat. Side by
+    // side (spec 89), the page open beside the list closes first.
+    BackHandler(enabled = (host.filter in SpecialLists || searching) && !(host.twoPane && host.detail != null)) {
         if (searching) { searching = false; query = "" } else host.filter = "all"
     }
 
@@ -711,6 +712,8 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
     val unread = c.unreadCount > 0 || c.markedUnread
     val compact = ChatPrefs.compactList
     val avatar = if (compact) 46.dp else 54.dp
+    // Side by side (tablet, spec 89): the chat open beside the list is marked.
+    val selected = host.twoPane && host.openConversationId == c.id
 
     Column(
         Modifier
@@ -718,7 +721,7 @@ private fun ConversationRow(c: ConversationDto, index: Int, onLongClick: () -> U
             .chStagger(index)
             // Opaque on purpose: the swipe actions live behind the row.
             .background(Ch.Bg)
-            .background(if (c.isPinned) Ch.Red.copy(alpha = 0.045f) else Color.Transparent)
+            .background(if (selected) Ch.Red.copy(alpha = 0.1f) else if (c.isPinned) Ch.Red.copy(alpha = 0.045f) else Color.Transparent)
             .combinedClickable(onClick = onClick, onLongClick = { haptic.performHapticFeedback(HapticFeedbackType.LongPress); onLongClick() }),
     ) {
         Row(

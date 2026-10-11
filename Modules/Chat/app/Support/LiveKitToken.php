@@ -60,6 +60,19 @@ class LiveKitToken
         return self::sign(['iss' => $key, 'sub' => 'dorr-server', 'nbf' => $now - 10, 'exp' => $now + 600, 'video' => ['room' => $room, 'roomAdmin' => true]], $secret);
     }
 
+    /** A short token for the server itself to record rooms (LiveKit Egress, spec 92). */
+    public static function recorder(): string
+    {
+        $key = (string) config('chat.livekit.api_key');
+        $secret = (string) config('chat.livekit.api_secret');
+        if ($key === '' || $secret === '') {
+            throw ChatException::callsNotConfigured();
+        }
+        $now = time();
+
+        return self::sign(['iss' => $key, 'sub' => 'dorr-server', 'nbf' => $now - 10, 'exp' => $now + 600, 'video' => ['roomRecord' => true]], $secret);
+    }
+
     /** @param  array<string, mixed>  $claims */
     private static function sign(array $claims, string $secret): string
     {

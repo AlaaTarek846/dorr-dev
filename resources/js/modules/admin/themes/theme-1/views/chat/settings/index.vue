@@ -20,6 +20,9 @@
                         </div>
                         <div class="card-body">
                             <p v-if="section.note" class="text-muted fs-12 mb-0">{{ t(`chat.settings.note_${section.key}`) }}</p>
+                            <div v-if="section.storage" class="fs-12 mt-2 mb-3" :class="form.call_recording_storage_ready ? 'text-success' : 'text-warning'">
+                                <i :class="form.call_recording_storage_ready ? 'ri-checkbox-circle-line' : 'ri-error-warning-line'" class="me-1"></i>{{ t(form.call_recording_storage_ready ? 'chat.settings.recording_storage_ready' : 'chat.settings.recording_storage_missing') }}
+                            </div>
                             <div class="row g-3">
                                 <div v-for="f in section.fields" :key="f.key" class="col-sm-6">
                                     <label class="form-label fs-13">{{ t(`chat.settings.${f.key}`) }}</label>
@@ -145,6 +148,18 @@ const sections = [
         countries: 'calls_disabled_countries',
         fields: [
             { key: 'max_call_participants', min: 2, max: 100, unit: 'members' },
+        ],
+    },
+    {
+        // Call recording (spec 92): only once everyone in the call agrees; files are deleted after the retention days.
+        key: 'call_recording',
+        icon: 'ri-record-circle-line',
+        toggle: 'call_recording_enabled',
+        note: true,
+        // Shows whether the recordings bucket is set up (CHAT_RECORDINGS_* in .env).
+        storage: true,
+        fields: [
+            { key: 'call_recording_retention_days', min: 1, max: 365, unit: 'days', hint: true },
         ],
     },
     {

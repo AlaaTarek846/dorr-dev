@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Modules\Chat\Models\ChatSetting;
+use Modules\Chat\Support\RecordingStorage;
 
 /**
  * The chat limits screen (docs/chat-plan.md §10.0): group size, file size, edit window… One
@@ -57,6 +58,9 @@ class ChatSettingController extends Controller implements HasMiddleware
             // Countries where calls are off (internet calls need a licence in some places).
             'calls_disabled_countries' => ['sometimes', 'nullable', 'array'],
             'calls_disabled_countries.*' => ['integer', 'distinct', 'exists:countries,id'],
+            // Call recording (spec 92), only with everyone's yes; files are deleted after these days.
+            'call_recording_enabled' => ['sometimes', 'boolean'],
+            'call_recording_retention_days' => ['sometimes', 'integer', 'min:1', 'max:365'],
             // AI in the chat: translate, voice to text, summary, suggested replies.
             'ai_enabled' => ['sometimes', 'boolean'],
         ]);
@@ -76,6 +80,12 @@ class ChatSettingController extends Controller implements HasMiddleware
      */
     private function present(ChatSetting $setting): array
     {
-        return ['calls_disabled_countries' => array_values($setting->calls_disabled_countries ?? [])] + $setting->only((new ChatSetting)->getFillable());
+        return [
+            'calls_disabled_countries' => array_values($setting->calls_disabled_countries ?? []),
+            'call_recording_enabled' => $setting->call_recording_enabled ?? true,
+            'call_recording_retention_days' => $setting->callRecordingRetentionDays(),
+            // Read only: recordings need the bucket keys in .env (CHAT_RECORDINGS_*).
+            'call_recording_storage_ready' => app(RecordingStorage::class)->configured(),
+        ] + $setting->only((new ChatSetting)->getFillable());
     }
 }

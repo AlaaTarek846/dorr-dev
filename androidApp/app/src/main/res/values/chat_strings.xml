@@ -806,4 +806,7 @@
     <string name="ch_ai_commitment_remind">Remind me</string>
     <string name="ch_ai_commitment_done">Reminder set</string>
     <string name="ch_ai_commitment_reminded">Reminder set on that message</string>
+    <!-- Wide screens (spec 89): beside the list before a chat is opened. -->
+    <string name="ch_pane_title">Pick a chat</string>
+    <string name="ch_pane_sub">It opens here, next to your chats.</string>
 </resources>

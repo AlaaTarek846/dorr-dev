@@ -244,6 +244,10 @@ private fun CallScreen() {
                 }
             }
         }
+
+        // ------------------------------------------------------------ recording (spec 92): REC for as long as it records,
+        // and the questions that come before anything is recorded — on top of everything.
+        CallRecordingLayer(phase)
     }
 }
 

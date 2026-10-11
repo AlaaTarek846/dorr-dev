@@ -46,11 +46,12 @@ class CallService
     ) {}
 
     /**
-     * Start a call — or, in a group with a call already going, join that one instead.
+     * Start a call — or, in a group with a call already going, join that one instead
+     * (`$recordingConsent`: my yes, when that call is recording — spec 92).
      *
      * @return array{call: ChatCall, join: array<string, mixed>}
      */
-    public function start(Model $me, ChatConversation $conversation, CallType $type): array
+    public function start(Model $me, ChatConversation $conversation, CallType $type, bool $recordingConsent = false): array
     {
         $settings = ChatSetting::current();
 
@@ -81,7 +82,7 @@ class CallService
 
         if ($active !== null) {
             if ($conversation->isGroup()) {
-                return ['call' => $active, 'join' => $this->accept($me, $active)['join']];
+                return ['call' => $active, 'join' => $this->accept($me, $active, $recordingConsent)['join']];
             }
             throw ChatException::callBusy();
         }
@@ -136,9 +137,11 @@ class CallService
     }
 
     /**
+     * `$recordingConsent`: my yes to the recording, when the call is recording or asking to (spec 92).
+     *
      * @return array{call: ChatCall, join: array<string, mixed>}
      */
-    public function accept(Model $me, ChatCall $call): array
+    public function accept(Model $me, ChatCall $call, bool $recordingConsent = false): array
     {
         [$row, $callRow] = $this->rowsFor($me, $call);
 
@@ -148,6 +151,8 @@ class CallService
         if (! ChatSetting::current()->callsAllowedFor($me)) {
             throw new ChatException('calls_unavailable_country', 403);
         }
+        // A call that records: nobody joins it without agreeing.
+        $this->recordings()->assertMayJoin($call, $row, $recordingConsent);
 
         $join = DB::transaction(function () use ($me, $call, $row, $callRow) {
             $callRow->update(['status' => CallParticipantStatus::Joined, 'joined_at' => $callRow->joined_at ?? now(), 'left_at' => null]);
@@ -225,7 +230,12 @@ class CallService
             }
         });
 
-        return $call->refresh();
+        // The ones still in may all have agreed to the recording now.
+        if (! $call->refresh()->status->isFinal()) {
+            $this->recordings()->participantLeft($call);
+        }
+
+        return $call;
     }
 
     /**
@@ -233,13 +243,14 @@ class CallService
      *
      * @return array<string, mixed>
      */
-    public function token(Model $me, ChatCall $call): array
+    public function token(Model $me, ChatCall $call, bool $recordingConsent = false): array
     {
         [$row] = $this->rowsFor($me, $call);
 
         if ($call->status->isFinal()) {
             throw ChatException::callNotActive();
         }
+        $this->recordings()->assertMayJoin($call, $row, $recordingConsent);
 
         return $this->joinInfo($me, $row, $call);
     }
@@ -271,7 +282,7 @@ class CallService
 
         return ChatCall::query()
             ->whereIn('id', ChatCallParticipant::query()->whereIn('participant_id', $rows)->select('call_id'))
-            ->with(['conversation.group', 'conversation.participants', 'callParticipants'])
+            ->with(['conversation.group', 'conversation.participants', 'callParticipants', 'recordings'])
             ->latest('id')->paginate($perPage);
     }
 
@@ -302,7 +313,7 @@ class CallService
             'ended_at' => $call->ended_at?->toIso8601String(),
             'duration_seconds' => $call->durationSeconds(),
             'created_at' => $call->created_at?->toIso8601String(),
-        ];
+        ] + $this->recordings()->summary($call, $myRows); // spec 92: may it be recorded, what's asking / recording now, how many I can play
     }
 
     // ---------------------------------------------------------------- helpers
@@ -343,11 +354,18 @@ class CallService
         ];
     }
 
+    /** Call recording lives on its own (spec 92); resolved late, like CallLiveService. */
+    private function recordings(): CallRecordingService
+    {
+        return app(CallRecordingService::class);
+    }
+
     private function finish(ChatCall $call, CallStatus $status): void
     {
         $call->update(['status' => $status, 'ended_at' => now()]);
-        // Its live broadcast ends with it (spec 93).
+        // Its live broadcast ends with it (spec 93), and so does a recording (spec 92).
         app(CallLiveService::class)->callEnded($call);
+        $this->recordings()->callEnded($call);
 
         $call->callParticipants()->where('status', CallParticipantStatus::Ringing->value)
             ->update(['status' => CallParticipantStatus::Missed->value]);
@@ -368,7 +386,7 @@ class CallService
                 'call_type' => $call->type->value,
                 'status' => $status->value,
                 'duration_seconds' => $call->durationSeconds(),
-            ],
+            ] + ($this->recordings()->wasRecorded($call) ? ['recorded' => true] : []),
         ]);
         $this->messages->afterNewMessage($conversation, $message, $initiator, []);
 

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.rounded.CallMade
 import androidx.compose.material.icons.rounded.CallMissed
 import androidx.compose.material.icons.rounded.CallReceived
 import androidx.compose.material.icons.rounded.DoneAll
+import androidx.compose.material.icons.rounded.FiberManualRecord
 import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.NotificationsActive
@@ -205,6 +206,14 @@ fun CallsPage() {
                                 Spacer(Modifier.width(4.dp))
                                 Text(listTime(call.createdAt) + " " + clockTime(call.createdAt) + (call.durationSeconds?.let { "  ·  " + durationText(it * 1000L) } ?: ""), color = Ch.Mut, fontSize = 12.5.sp)
                             }
+                        }
+                        // Recordings of this call I agreed to (spec 92).
+                        if (call.recordingsCount > 0) {
+                            Box(
+                                Modifier.size(42.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.08f)).clickable { ChatViewers.recordings = call.id },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Rounded.FiberManualRecord, null, tint = Ch.Red, modifier = Modifier.size(16.dp)) }
+                            Spacer(Modifier.width(8.dp))
                         }
                         Box(
                             Modifier.size(42.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.08f))

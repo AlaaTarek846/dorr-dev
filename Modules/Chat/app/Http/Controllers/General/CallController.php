@@ -29,11 +29,12 @@ class CallController extends Controller
         return ApiResponse::success($page->getCollection()->map(fn (ChatCall $c) => $this->calls->payload($me, $c))->values(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
+    /** `{type, recording_consent?}` — the consent is my yes when I hop into a group call that records (spec 92). */
     public function store(Request $request, ChatConversation $conversation)
     {
-        $data = $request->validate(['type' => ['required', Rule::enum(CallType::class)]]);
+        $data = $request->validate(['type' => ['required', Rule::enum(CallType::class)], 'recording_consent' => ['sometimes', 'boolean']]);
         $me = $request->user();
-        $result = $this->calls->start($me, $conversation, CallType::from($data['type']));
+        $result = $this->calls->start($me, $conversation, CallType::from($data['type']), (bool) ($data['recording_consent'] ?? false));
 
         return ApiResponse::created(['call' => $this->calls->payload($me, $result['call']), 'join' => $result['join']], __('api.created'));
     }
@@ -46,10 +47,11 @@ class CallController extends Controller
         return ApiResponse::success($this->calls->payload($me, $call), __('api.retrieved'));
     }
 
+    /** `{recording_consent?}` — needed when the call records or asks to (409 `chat_recording_consent_required` without it). */
     public function accept(Request $request, ChatCall $call)
     {
         $me = $request->user();
-        $result = $this->calls->accept($me, $call);
+        $result = $this->calls->accept($me, $call, $request->boolean('recording_consent'));
 
         return ApiResponse::success(['call' => $this->calls->payload($me, $result['call']), 'join' => $result['join']], __('api.updated'));
     }
@@ -70,6 +72,6 @@ class CallController extends Controller
 
     public function token(Request $request, ChatCall $call)
     {
-        return ApiResponse::success(['join' => $this->calls->token($request->user(), $call)], __('api.retrieved'));
+        return ApiResponse::success(['join' => $this->calls->token($request->user(), $call, $request->boolean('recording_consent'))], __('api.retrieved'));
     }
 }

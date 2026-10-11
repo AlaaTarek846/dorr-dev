@@ -49,7 +49,7 @@ The web page supports optimistic sending with the same `uuid` rule as the app (r
 | `app/Services/ChatBroadcaster.php` / `ChatPushNotifier.php` | Pusher (via Laravel Broadcasting) and OneSignal |
 | `app/Support/ParticipantDirectory.php` | Batch-loaded profiles, using the viewer's own contact names and respecting photo privacy |
 | `app/Support/ParticipantType.php` | `user` / `provider` aliases. Enabled types live in `config('chat.enabled_participants')` |
-| `app/Console` | `chat:expire-calls` (every minute) and `chat:purge` (hourly) |
+| `app/Console` | `chat:expire-calls` (every minute), `chat:purge` (hourly), and `chat:call-recordings` (every minute: requests that ran out of time, saved files, retention) among others |
 
 ## Rules worth knowing
 - A person's own settings on a chat (pin, mute, archive, lock, clear, delete, unread, theme) live on **their** `chat_participants` row.
@@ -58,7 +58,11 @@ The web page supports optimistic sending with the same `uuid` rule as the app (r
 - Read receipts are mutual in direct chats. Groups always show them.
 - Realtime is sent only after the database commits, and never through the Pusher SDK directly, so moving to a self-hosted server later is only a config change.
 
+## Call recording (spec 92)
+`CallRecordingService`, `Support\LiveKitEgress`, `Support\RecordingStorage`, tables `chat_call_recordings` + `chat_call_recording_consents`. A recording starts only once everyone in the call said yes. Someone joining later agrees first or doesn't get in, and anyone can stop it. LiveKit Egress writes one MP4 straight into a private S3-compatible bucket. Only the people who agreed can play it (signed links), and it's deleted after `call_recording_retention_days`. Endpoints in [API.md](API.md#call-recording-spec-92-safety-rule-1). Android: the REC badge, the questions and the recordings sheet are in `ChatCallRecordingUi.kt`, and the state is in `CallController`.
+
 ## Deployment
 - `.env`: `LIVEKIT_URL`, `LIVEKIT_API_KEY`, `LIVEKIT_API_SECRET`, plus the Pusher and OneSignal keys that already exist.
+- Call recording: `CHAT_RECORDINGS_KEY`, `CHAT_RECORDINGS_SECRET`, `CHAT_RECORDINGS_REGION`, `CHAT_RECORDINGS_BUCKET` (+ `CHAT_RECORDINGS_ENDPOINT` and `CHAT_RECORDINGS_PATH_STYLE=true` for R2 / Spaces / MinIO). Without them the record button doesn't show. Admin → Chat settings shows whether the storage is connected.
 - PHP `upload_max_filesize` / `post_max_size` must be at least `max_file_size_mb` (100MB by default).
 - The scheduler must run (`schedule:run` every minute).

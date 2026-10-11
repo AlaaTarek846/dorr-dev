@@ -20,14 +20,22 @@ import androidx.compose.runtime.LaunchedEffect
 import com.dorr.app.ui.theme.LocalThemeState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudOff
+import androidx.compose.material.icons.rounded.Forum
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -48,6 +56,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -140,7 +149,23 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             }
             // A little room above the home bar: its raised centre button pokes ~8dp up and would
             // otherwise sit on the composer / the last row.
-            Box(Modifier.fillMaxSize().padding(bottom = 12.dp)) { ChatPages(host) }
+            BoxWithConstraints(Modifier.fillMaxSize().padding(bottom = 12.dp)) {
+                // Room for two (a tablet, an unfolded phone, landscape — spec 89): the list stays on
+                // the side and pages open beside it. Measured from the real space, so split screen and
+                // folding follow too.
+                val twoPane = maxWidth >= TWO_PANE_MIN_WIDTH
+                SideEffect { host.twoPane = twoPane }
+                if (twoPane) {
+                    val listWidth = (maxWidth * 0.38f).coerceIn(320.dp, 420.dp)
+                    Row(Modifier.fillMaxSize()) {
+                        Box(Modifier.width(listWidth).fillMaxHeight()) { ChatListPage() }
+                        Box(Modifier.width(1.dp).fillMaxHeight().background(Ch.Line))
+                        Box(Modifier.weight(1f).fillMaxHeight()) { ChatPages(host, host.detail) }
+                    }
+                } else {
+                    ChatPages(host, host.current)
+                }
+            }
             StoryViewerOverlay()
             // A video played / a PDF read inside the app.
             ChatViewersHost()
@@ -166,12 +191,16 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
     }
 }
 
+/** From this width the chat list and the open page sit side by side (spec 89). */
+private val TWO_PANE_MIN_WIDTH = 700.dp
+
+/** The page on top — or, beside the list on a wide screen, `null` until something is opened there. */
 @Composable
-private fun ChatPages(host: ChatHost) {
+private fun ChatPages(host: ChatHost, target: ChRoute?) {
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val sign = if (rtl) -1 else 1
     AnimatedContent(
-        targetState = host.current,
+        targetState = target,
         transitionSpec = {
             val forward = host.forward
             val enter = slideInHorizontally(spring(dampingRatio = 0.9f, stiffness = 380f)) { full -> (if (forward) sign else -sign) * full / 3 } + fadeIn(tween(260))
@@ -180,38 +209,59 @@ private fun ChatPages(host: ChatHost) {
         },
         label = "chatPages",
     ) { route ->
-        when (route) {
-            ChRoute.List -> ChatListPage()
-            is ChRoute.Conversation -> ConversationPage(route)
-            is ChRoute.Info -> ChatInfoPage(route.id)
-            is ChRoute.Media -> ChatMediaPage(route)
-            ChRoute.NewChat -> NewChatPage()
-            ChRoute.Channels -> ChannelsPage()
-            is ChRoute.NewGroup -> NewGroupPage(route.addTo)
-            ChRoute.MyQr -> MyQrPage()
-            ChRoute.Privacy -> PrivacyPage()
-            ChRoute.Business -> BusinessPage()
-            ChRoute.Starred -> StarredPage()
-            ChRoute.ReadLater -> FollowUpsPage()
-            ChRoute.Calls -> CallsPage()
-            is ChRoute.StoryComposer -> StoryComposerPage(route.media)
-            ChRoute.StoryPrivacy -> StoryPrivacyPage()
-            is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
-            is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
-            ChRoute.Broadcasts -> BroadcastsPage()
-            is ChRoute.Broadcast -> BroadcastPage(route.id)
-            ChRoute.Tasks -> TasksPage()
-            ChRoute.CatchUp -> CatchUpPage()
-            ChRoute.PrivacyCenter -> PrivacyCenterPage()
-            is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
-            ChRoute.Commitments -> CommitmentsPage()
-            ChRoute.CommRules -> CommRulesPage()
-            ChRoute.LifeInbox -> LifeInboxPage()
-            ChRoute.DataPerformance -> DataPerformancePage()
-            ChRoute.Usage -> UsagePage()
-            is ChRoute.VoiceRoom -> VoiceRoomPage(route.conversationId, route.title)
-            is ChRoute.LiveViewer -> LiveViewerPage(route.token)
+        if (route == null) ChatPanePlaceholder() else ChatPage(route)
+    }
+}
+
+/** Beside the list, before a chat is opened. */
+@Composable
+private fun ChatPanePlaceholder() {
+    Box(Modifier.fillMaxSize().background(Ch.Bg), contentAlignment = Alignment.Center) {
+        Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(Modifier.size(84.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Forum, null, tint = Ch.Red, modifier = Modifier.size(40.dp))
+            }
+            Spacer(Modifier.height(18.dp))
+            Text(androidx.compose.ui.res.stringResource(com.dorr.app.R.string.ch_pane_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(6.dp))
+            Text(androidx.compose.ui.res.stringResource(com.dorr.app.R.string.ch_pane_sub), color = Ch.Mut, fontSize = 14.sp, textAlign = TextAlign.Center)
         }
+    }
+}
+
+@Composable
+private fun ChatPage(route: ChRoute) {
+    when (route) {
+        ChRoute.List -> ChatListPage()
+        is ChRoute.Conversation -> ConversationPage(route)
+        is ChRoute.Info -> ChatInfoPage(route.id)
+        is ChRoute.Media -> ChatMediaPage(route)
+        ChRoute.NewChat -> NewChatPage()
+        ChRoute.Channels -> ChannelsPage()
+        is ChRoute.NewGroup -> NewGroupPage(route.addTo)
+        ChRoute.MyQr -> MyQrPage()
+        ChRoute.Privacy -> PrivacyPage()
+        ChRoute.Business -> BusinessPage()
+        ChRoute.Starred -> StarredPage()
+        ChRoute.ReadLater -> FollowUpsPage()
+        ChRoute.Calls -> CallsPage()
+        is ChRoute.StoryComposer -> StoryComposerPage(route.media)
+        ChRoute.StoryPrivacy -> StoryPrivacyPage()
+        is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)
+        is ChRoute.Decisions -> DecisionsPage(route.conversationId, route.isAdmin)
+        ChRoute.Broadcasts -> BroadcastsPage()
+        is ChRoute.Broadcast -> BroadcastPage(route.id)
+        ChRoute.Tasks -> TasksPage()
+        ChRoute.CatchUp -> CatchUpPage()
+        ChRoute.PrivacyCenter -> PrivacyCenterPage()
+        is ChRoute.DecisionRoom -> DecisionRoomPage(route.id)
+        ChRoute.Commitments -> CommitmentsPage()
+        ChRoute.CommRules -> CommRulesPage()
+        ChRoute.LifeInbox -> LifeInboxPage()
+        ChRoute.DataPerformance -> DataPerformancePage()
+        ChRoute.Usage -> UsagePage()
+        is ChRoute.VoiceRoom -> VoiceRoomPage(route.conversationId, route.title)
+        is ChRoute.LiveViewer -> LiveViewerPage(route.token)
     }
 }
 

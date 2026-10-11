@@ -131,6 +131,20 @@
 
 ---
 
+## ADR-012: Call Recording via LiveKit Egress, with Everyone's Consent
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-10-11 |
+| **Status** | Accepted (implemented) |
+| **Context** | Spec 92 and safety rule 1: record voice and video calls only with the explicit yes of every party, never when anyone refuses or doesn't answer, and with a clear indicator the whole time. Calls run on LiveKit Cloud |
+| **Options** | 1. Record on the phone (voice only; mixing remote audio is fragile, video isn't practical). 2. **LiveKit Egress** (room composite) into object storage |
+| **Decision** | LiveKit Egress `StartRoomCompositeEgress` → one MP4 (camera grid for video, voices for voice) uploaded straight into a **private S3-compatible bucket** (`CHAT_RECORDINGS_*`: AWS S3, Cloudflare R2, Spaces, MinIO). Consent: a recording starts only when every person currently in the call has an `accepted` row. A request lasts 30 s, and one "no" ends it. Joining a call that records or asks to is refused (`409`) without `recording_consent`, which is that person's yes. Anyone in the call stops it. Only people with an `accepted` row play it, through presigned links (15 min). Retention is an admin setting (default 30 days), purged by `chat:call-recordings` |
+| **Reason** | The only way to record video, it needs nothing on the phone, and the server alone decides when recording starts. LiveKit Cloud has no storage of its own. The links and the delete are signed with AWS Signature V4 in a few lines (`Support\RecordingStorage`), like the LiveKit JWT, so there's no AWS SDK |
+| **Consequences** | Needs a bucket and its keys (no button without them). LiveKit bills egress minutes. Completion is polled (`ListEgress`, every minute, and when someone opens the recordings) rather than a LiveKit webhook. Recordings aren't end-to-end encrypted (calls aren't either) |
+
+---
+
 ## NEEDS-DECISION
 
 | Topic | Question |

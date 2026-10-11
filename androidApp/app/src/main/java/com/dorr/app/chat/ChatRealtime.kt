@@ -49,6 +49,8 @@ object ChatRealtime {
         "chat.voice.updated",
         // My call went live / its viewers changed (spec 93).
         "chat.call.live",
+        // My call's recording: asked for, agreed, started, stopped, saved (spec 92).
+        "chat.call.recording",
         "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction",
         "chat.poll.updated", "chat.view_once.opened", "chat.location.moved",
         "chat.group.join_requests", "chat.group.join_decided",

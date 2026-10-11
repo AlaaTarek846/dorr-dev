@@ -50,6 +50,9 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 - **Data and performance (chat menu → "Data and performance", spec 82, 87, 83):** data saver (`ChatDataSaver`: off / mobile data / always) holds others' photos until tapped (Coil cache-only first, then the server's `preview`), stops GIF clips playing by themselves, sends lighter photos and videos, and makes calls 360p. Lite mode (`ChatLite`: auto at ≤3 GB memory / on / off) drops bubble animations, blur, animated GIFs and stickers, and camera backgrounds. Usage stats (`ChatUsage`) count on the phone only: an OkHttp **network** interceptor measures chat API calls and media, split mobile / Wi-Fi, and a call's data is the app's own traffic (TrafficStats) while it lasts. All three load in `DorrApp.onCreate`.
 
+- **Tablets and wide screens (spec 89):** from 700 dp wide (`TWO_PANE_MIN_WIDTH`, measured with `BoxWithConstraints`, so split screen and folding count) the chat shows its list and the open page side by side. `ChatHost.twoPane` makes opening a conversation replace the one beside the list. `detail` is what shows there (a placeholder when nothing is open), and the list marks `openConversationId`. `MainActivity` declares `configChanges` for orientation, size and keyboard, so turning or resizing re-lays the app out instead of restarting it: open chats, typed text and the call screen stay. `LocalizedApp` rebuilds its locale context from the new configuration. Nothing may count on the activity being recreated for those changes.
+- **Call recording (spec 92):** `CallController.recording` / `recordingAvailable` / `joinConsent`, UI in `ChatCallRecordingUi.kt`: the REC badge (always shown, never hidden with the controls), "N of M agreed" while asking, the yes / no question with a countdown, "agree and join" when the server answers `409 chat_recording_consent_required`, and the recordings sheet (`ChatViewers.recordings`) from a call line marked `recorded` or the call log (`recordings_count`).
+
 - **Pull to refresh:** wrap a screen's scrollable content in `PullToRefreshHost` (`ui/components/PullToRefresh.kt`, used by every tab in `MainScreen` and by the wallet) and key its load on `collectReconnectTick()` — `RefreshCoordinator` adds a pull tick to that value and hides the indicator when the in-flight API requests (counted by an OkHttp interceptor) have finished. Screens that load once with `LaunchedEffect(Unit)` do not reload on a pull until keyed on the tick.
 ## Backend host (dev)
 
@@ -70,10 +73,14 @@ Media URLs built by Laravel with `dorr.test` are rewritten to the reachable host
 3. New UI string → `values/strings.xml` **and** `values-ar/strings.xml`.
 4. Colors/fonts from the appearance tokens, not hard-coded.
 5. Chat details live in [../chat/README.md](../chat/README.md); wallet plan in [../../wallet-plan.md](../../wallet-plan.md).
-6. Build check: `./gradlew assembleDebug` from `androidApp/`.
+6. Build check: `./gradlew assembleDebug` from `androidApp/` with JDK 17–21 (Gradle 8.9 doesn't run on JDK 25).
 7. Update this file and `docs/10-CHANGELOG.md` when behavior changes.
+
+## App size
+
+Native libraries were most of a 200 MB APK. Now: `abiFilters` = `arm64-v8a,armeabi-v7a` (property `dorr.abis`; emulator builds add `x86_64`), one WebRTC (LiveKit's, package `livekit.org.webrtc`; don't add `io.github.webrtc-sdk`), and release builds shrink with R8 (`-dontobfuscate`, `com.dorr.app.**` kept because Gson/Retrofit read it by reflection). Still the biggest: ML Kit selfie segmentation `libxeno_native.so` (~20 MB per CPU type, camera backgrounds in calls) and WebRTC (~11 MB). Release APK ≈ 67 MB; a Play bundle sends each phone one CPU type.
 
 ## Known issues
 
 - `androidApp/.gradle/` was untracked from git (2026-09-30); `.gitignore` already ignores it and `build/`.
-- No Android unit/UI tests.
+- Few Android tests: JVM unit tests only (`app/src/test`, e.g. `ChatTwoPaneTest`, `FolderGifTest`), no UI tests.

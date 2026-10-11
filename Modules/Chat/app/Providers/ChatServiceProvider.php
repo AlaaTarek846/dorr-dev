@@ -40,6 +40,7 @@ class ChatServiceProvider extends ModuleServiceProvider
         \Modules\Chat\Console\SendCommitmentReminders::class,
         \Modules\Chat\Console\SendAttentionDigests::class,
         \Modules\Chat\Console\SweepVoiceRooms::class,
+        \Modules\Chat\Console\SyncCallRecordings::class,
         SendCalendarReminders::class,
     ];
 
@@ -90,6 +91,7 @@ class ChatServiceProvider extends ModuleServiceProvider
         $schedule->command(\Modules\Chat\Console\SendCommitmentReminders::class)->everyMinute()->withoutOverlapping();
         $schedule->command(\Modules\Chat\Console\SendAttentionDigests::class)->everyMinute()->withoutOverlapping();
         $schedule->command(\Modules\Chat\Console\SweepVoiceRooms::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(\Modules\Chat\Console\SyncCallRecordings::class)->everyMinute()->withoutOverlapping();
         $schedule->command(SendCalendarReminders::class)->everyMinute()->withoutOverlapping();
     }
 }

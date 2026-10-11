@@ -10,8 +10,10 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.ApiFailure
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.CallDto
+import com.dorr.app.network.CallRecordingStateDto
 import com.dorr.app.network.JoinDto
 import com.dorr.app.network.ProfileDto
 import com.dorr.app.network.apiFailure
@@ -72,6 +74,37 @@ object CallController {
 
     /** This call broadcast live (spec 93): its token, status and viewers — null when it isn't. */
     var live by mutableStateOf<com.dorr.app.network.LiveDto?>(null)
+
+    // Recording (spec 92): nothing is recorded until everyone in the call said yes.
+
+    /** Asking everyone (`pending`) or `recording` right now; null when neither. */
+    var recording by mutableStateOf<CallRecordingStateDto?>(null)
+        private set
+
+    /** The call may be recorded (the server has the storage and the admin left it on). */
+    var recordingAvailable by mutableStateOf(false)
+        private set
+
+    /** When this phone first saw it recording — the REC timer. */
+    var recordingSince by mutableStateOf<Long?>(null)
+        private set
+
+    /**
+     * Joining waits for my yes: the call records (or asks to), and the server lets nobody in
+     * without agreeing. Null when it isn't asking.
+     */
+    var joinConsent by mutableStateOf<CallRecordingStateDto?>(null)
+        private set
+
+    /** What became of the recording ("recording", "declined", "expired", "processing"…), shown once. */
+    var recordingNote by mutableStateOf<String?>(null)
+
+    /** A server message about recording (e.g. it isn't available), shown once. */
+    var recordingError by mutableStateOf<String?>(null)
+
+    /** Joins again with my yes — set while [joinConsent] waits. */
+    private var joinAgain: (() -> Unit)? = null
+    private var lastRecording: Pair<String, String>? = null
 
     /** This call rang in (rather than me calling). */
     private var ringingIn = false
@@ -152,18 +185,34 @@ object CallController {
         micOn = true
         error = null
         updatePhase(CallPhase.Outgoing)
-        scope.launch {
-            try {
-                val session = ApiClient.chat.startCall(auth(), conversationId, mapOf("type" to if (video) "video" else "audio")).data ?: error("no session")
-                call = session.call
-                // A group call already running: we joined it straight away.
-                if (session.call.status == "ongoing") updatePhase(CallPhase.Connecting)
-                session.join?.let { connect(it) }
-            } catch (e: Exception) {
-                error = e.apiFailure().message
-                end(localOnly = true)
+        scope.launch { startSession(conversationId, video, recordingConsent = false) }
+    }
+
+    private suspend fun startSession(conversationId: String, video: Boolean, recordingConsent: Boolean) {
+        try {
+            val body = buildMap {
+                put("type", if (video) "video" else "audio")
+                if (recordingConsent) put("recording_consent", "1")
             }
+            val session = ApiClient.chat.startCall(auth(), conversationId, body).data ?: error("no session")
+            take(session.call)
+            // A group call already running: we joined it straight away.
+            if (session.call.status == "ongoing") updatePhase(CallPhase.Connecting)
+            session.join?.let { connect(it) }
+        } catch (e: Exception) {
+            val failure = e.apiFailure()
+            // That group call records: hopping in takes my yes.
+            if (askToJoin(failure) { scope.launch { startSession(conversationId, video, recordingConsent = true) } }) return
+            error = failure.message
+            end(localOnly = true)
         }
+    }
+
+    /** The call as the server sent it, with its recording state. */
+    private fun take(dto: CallDto) {
+        call = dto
+        recordingAvailable = dto.recordingAvailable
+        showRecording(dto.recording)
     }
 
     /**
@@ -197,7 +246,7 @@ object CallController {
         scope.launch {
             val dto = runCatching { ApiClient.chat.call(auth(), callId).data }.getOrNull() ?: return@launch
             if (dto.status != "ringing" || dto.isOutgoing) return@launch
-            call = dto
+            take(dto)
             isVideo = dto.type == "video"
             cameraOn = isVideo
             speakerOn = isVideo
@@ -209,19 +258,101 @@ object CallController {
         }
     }
 
-    fun accept() {
+    fun accept() = accept(recordingConsent = false)
+
+    private fun accept(recordingConsent: Boolean) {
         val current = call ?: return
         updatePhase(CallPhase.Connecting)
         scope.launch {
             try {
-                val session = ApiClient.chat.acceptCall(auth(), current.id).data ?: error("no session")
-                call = session.call
+                val body: Map<String, Any> = if (recordingConsent) mapOf("recording_consent" to true) else emptyMap()
+                val session = ApiClient.chat.acceptCall(auth(), current.id, body).data ?: error("no session")
+                take(session.call)
                 session.join?.let { connect(it) }
             } catch (e: Exception) {
-                error = e.apiFailure().message
+                val failure = e.apiFailure()
+                // The call records (or asks to): answering takes my yes.
+                if (askToJoin(failure) { accept(recordingConsent = true) }) return@launch
+                error = failure.message
                 end(localOnly = true)
             }
         }
+    }
+
+    /**
+     * The server let me in only with a yes to the recording: ask, and hold the call (no ringing,
+     * no connect timeout) until I answer [answerJoinConsent].
+     */
+    private fun askToJoin(failure: ApiFailure, again: () -> Unit): Boolean {
+        if (failure.errorCode != "chat_recording_consent_required") return false
+        updatePhase(CallPhase.Connecting)
+        watchJob?.cancel()
+        joinAgain = again
+        joinConsent = recording ?: CallRecordingStateDto(status = "recording")
+        return true
+    }
+
+    /** Join with my yes to the recording — or don't join (an incoming call is declined). */
+    fun answerJoinConsent(agree: Boolean) {
+        val again = joinAgain
+        joinConsent = null
+        joinAgain = null
+        when {
+            agree && again != null -> {
+                watch(CallPhase.Connecting)
+                again()
+            }
+            ringingIn -> decline()
+            else -> end(localOnly = true)
+        }
+    }
+
+    // ------------------------------------------------------------------ recording (spec 92)
+
+    /** Ask everyone in the call to agree to recording it — my asking is my yes. */
+    fun requestRecording() = recordingAction { ApiClient.chat.requestRecording(auth(), it) }
+
+    /** My answer when someone asked to record. */
+    fun answerRecording(accept: Boolean) = recordingAction { ApiClient.chat.answerRecording(auth(), it, mapOf("accept" to accept)) }
+
+    /** Stop the recording, or take the request back (anyone in the call can). */
+    fun stopRecording() = recordingAction { ApiClient.chat.stopRecording(auth(), it) }
+
+    /** I'm one of the people the request waits for. */
+    fun mustAnswerRecording(): Boolean = recording?.let { it.status == "pending" && myKey() in it.waitingFor } == true
+
+    /** Who someone in the call is ("user:7" → their name), for "Ahmed wants to record". */
+    fun nameOf(key: String?): String? = key?.let { k -> members.firstOrNull { it.key == k }?.name ?: title.takeIf { k == peerKey } }
+
+    private fun myKey() = "user:${AuthSession.user?.id ?: 0}"
+
+    private fun recordingAction(request: suspend (String) -> com.dorr.app.network.ApiEnvelope<CallRecordingStateDto>) {
+        val id = call?.id ?: return
+        scope.launch {
+            try {
+                showRecording(request(id).data)
+            } catch (e: Exception) {
+                recordingError = e.apiFailure().message ?: appContext?.getString(com.dorr.app.R.string.cr_failed)
+            }
+        }
+    }
+
+    /** The recording's new state, from an answer or the real-time event — each change noted once. */
+    private fun showRecording(state: CallRecordingStateDto?) {
+        val open = state?.takeIf { it.status == "pending" || it.status == "recording" }
+        if (open?.status == "recording" && recording?.status != "recording") {
+            val started = open.startedAt?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+            recordingSince = (started ?: System.currentTimeMillis()).coerceAtMost(System.currentTimeMillis())
+        }
+        if (open?.status != "recording") recordingSince = null
+        recording = open
+        state ?: return
+        val now = state.id to state.status
+        // Only what happens while I'm in the call (not what it was when it rang), and not my own "no".
+        val inCall = phase == CallPhase.Active || phase == CallPhase.Connecting
+        val myNo = state.status == "declined" && myKey() in state.declined
+        if (lastRecording != now && inCall && state.status != "pending" && !myNo) recordingNote = state.status
+        lastRecording = now
     }
 
     fun decline() {
@@ -532,6 +663,12 @@ object CallController {
         room = null
         effectTrack = null
         live = null
+        recording = null
+        recordingAvailable = false
+        recordingSince = null
+        joinConsent = null
+        joinAgain = null
+        lastRecording = null
         videos.clear()
         members.clear()
         connectedAt = null
@@ -557,11 +694,16 @@ object CallController {
                     status = l.get("status")?.asString ?: "live", viewers = l.get("viewers")?.asInt ?: 0, audience = l.get("audience")?.asString ?: "members",
                 )
             }
+            // Asked for, agreed, started, stopped, saved (spec 92).
+            "chat.call.recording" -> {
+                if (data.get("call_id")?.asString != call?.id) return
+                showRecording(runCatching { gson.fromJson(data.getAsJsonObject("recording"), CallRecordingStateDto::class.java) }.getOrNull())
+            }
             "chat.call.ringing" -> {
                 if (phase != null && phase != CallPhase.Ended) return // busy: the caller hears it ring out
                 val dto = runCatching { gson.fromJson(data, CallDto::class.java) }.getOrNull() ?: return
                 val caller = runCatching { gson.fromJson(data.getAsJsonObject("caller"), ProfileDto::class.java) }.getOrNull()
-                call = dto
+                take(dto)
                 isVideo = dto.type == "video"
                 cameraOn = isVideo
                 speakerOn = isVideo
