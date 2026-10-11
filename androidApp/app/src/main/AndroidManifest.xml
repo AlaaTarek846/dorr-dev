@@ -37,10 +37,14 @@
              served over HTTPS, or scope it with a network security config
              that only allows cleartext for the dev host. -->
 
+        <!-- Turning a tablet, resizing a split screen, unfolding a phone or attaching a keyboard
+             re-lays the app out (Compose follows the new size) instead of restarting the screen, so
+             an open chat, a half-typed message or a call screen stay as they were (spec 89). -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Dorr.Splash"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

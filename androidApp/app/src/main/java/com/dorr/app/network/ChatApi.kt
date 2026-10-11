@@ -549,8 +549,22 @@ interface ChatApi {
     @GET("mobile/v1/chat/calls/{id}")
     suspend fun call(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CallDto>
 
+    /** `recording_consent`: my yes, needed when the call records or asks to (409 `chat_recording_consent_required`). */
     @POST("mobile/v1/chat/calls/{id}/accept")
-    suspend fun acceptCall(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CallSessionDto>
+    suspend fun acceptCall(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any> = emptyMap()): ApiEnvelope<CallSessionDto>
+
+    // Call recording, only with the yes of everyone in the call (spec 92).
+    @POST("mobile/v1/chat/calls/{id}/recording")
+    suspend fun requestRecording(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CallRecordingStateDto>
+
+    @POST("mobile/v1/chat/calls/{id}/recording/consent")
+    suspend fun answerRecording(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<CallRecordingStateDto>
+
+    @POST("mobile/v1/chat/calls/{id}/recording/stop")
+    suspend fun stopRecording(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CallRecordingStateDto>
+
+    @GET("mobile/v1/chat/calls/{id}/recordings")
+    suspend fun callRecordings(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<CallRecordingDto>>
 
     @POST("mobile/v1/chat/calls/{id}/decline")
     suspend fun declineCall(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CallSessionDto>
@@ -1124,6 +1138,44 @@ data class CallDto(
     @SerializedName("ended_at") val endedAt: String?,
     @SerializedName("duration_seconds") val durationSeconds: Int?,
     @SerializedName("created_at") val createdAt: String?,
+    /** It may be recorded (the server has the storage and the admin left it on) — spec 92. */
+    @SerializedName("recording_available") val recordingAvailable: Boolean = false,
+    /** Asking everyone or recording right now; null when neither. */
+    val recording: CallRecordingStateDto? = null,
+    /** Recordings of this call I agreed to (and can play). */
+    @SerializedName("recordings_count") val recordingsCount: Int = 0,
+)
+
+/**
+ * A call recording being asked for or made (spec 92): participant keys ("user:7") of who asked,
+ * who said yes or no, and who still has to answer.
+ * `status`: pending · recording · processing · ready · declined · expired · cancelled · failed · deleted.
+ */
+data class CallRecordingStateDto(
+    val id: String = "",
+    @SerializedName("call_id") val callId: String? = null,
+    val status: String = "",
+    @SerializedName("requested_by") val requestedBy: String? = null,
+    val agreed: List<String> = emptyList(),
+    val declined: List<String> = emptyList(),
+    @SerializedName("waiting_for") val waitingFor: List<String> = emptyList(),
+    @SerializedName("consent_until") val consentUntil: String? = null,
+    @SerializedName("started_at") val startedAt: String? = null,
+    @SerializedName("stopped_at") val stoppedAt: String? = null,
+)
+
+/** A recording I agreed to; `url` plays it for a few minutes once it's saved (`ready`). */
+data class CallRecordingDto(
+    val id: String = "",
+    @SerializedName("call_id") val callId: String? = null,
+    /** audio · video */
+    val type: String? = null,
+    val status: String = "",
+    @SerializedName("duration_seconds") val durationSeconds: Int? = null,
+    @SerializedName("size_bytes") val sizeBytes: Long? = null,
+    @SerializedName("started_at") val startedAt: String? = null,
+    @SerializedName("expires_at") val expiresAt: String? = null,
+    val url: String? = null,
 )
 
 data class StoryStyleDto(val background: String? = null, val font: String? = null, val align: String? = null)

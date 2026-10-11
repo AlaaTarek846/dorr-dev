@@ -13,4 +13,5 @@ Read `docs/modules/android/README.md` first. API base: `/api/mobile/v1/*` (guard
 - Colors and font from appearance tokens (`Ch.palette`, `AppFont`), no hard-coded brand colors
 - Fields use `DorrTextField` / chat `ChField`
 - Do not commit `.gradle/` or `build/` output
-- Verify with `./gradlew assembleDebug` from `androidApp/`
+- Verify with `./gradlew assembleDebug` from `androidApp/` (Gradle 8.9 needs JDK 17–21; it doesn't run on JDK 25)
+- Wide screens (spec 89): `MainActivity` handles rotation / resizing itself (`configChanges`), so never rely on the activity being recreated; size layouts from the real space (`BoxWithConstraints`), and the chat goes side by side from 700 dp (`ChatHost.twoPane`)

@@ -3123,7 +3123,14 @@
             "note_moments": "Occasions, greeting cards and their effects. Turning them off never affects messaging.",
             "section_calendar": "Calendar (DORR Today)",
             "calendar_enabled": "Calendar on",
-            "note_calendar": "Personal appointments, the today page and their reminders. Turning it off never affects messaging."
+            "note_calendar": "Personal appointments, the today page and their reminders. Turning it off never affects messaging.",
+            "section_call_recording": "Call recording",
+            "call_recording_enabled": "On",
+            "note_call_recording": "A call is recorded only after everyone in it agrees, and anyone can stop it. Only the people who agreed can play the recording.",
+            "call_recording_retention_days": "Keep recordings for",
+            "hint_call_recording_retention_days": "Then the file is deleted from storage for good.",
+            "recording_storage_ready": "Storage connected",
+            "recording_storage_missing": "Storage isn't set up: add the CHAT_RECORDINGS_* keys (an S3-compatible bucket) to .env. Until then the record button doesn't show."
         },
         "themes": {
             "title": "Chat themes",

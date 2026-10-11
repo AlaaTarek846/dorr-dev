@@ -816,4 +816,7 @@
     <string name="ch_ai_commitment_remind">ذكّرني</string>
     <string name="ch_ai_commitment_done">اتعمل تذكير</string>
     <string name="ch_ai_commitment_reminded">اتعمل تذكير على الرسالة دي</string>
+    <!-- الشاشات العريضة (البند 89): جنب القايمة قبل ما تفتح محادثة. -->
+    <string name="ch_pane_title">اختار محادثة</string>
+    <string name="ch_pane_sub">هتفتح هنا، جنب محادثاتك.</string>
 </resources>

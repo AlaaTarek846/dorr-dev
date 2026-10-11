@@ -1012,6 +1012,8 @@ private fun CallLine(meta: JsonObject?, m: UiMessage, mine: Boolean) {
                 if (duration != null && duration > 0) Text(durationText(duration * 1000L) + "  ", color = if (mine) Ch.OutText.copy(alpha = 0.8f) else Ch.Mut, fontSize = 12.sp)
                 Footer(m, mine, overlay = false)
             }
+            // Recorded with everyone's yes (spec 92): the people who agreed can play it.
+            if (meta?.get("recorded")?.takeIf { !it.isJsonNull }?.asBoolean == true) RecordedLink(meta.str("call_id"), mine)
         }
     }
 }
