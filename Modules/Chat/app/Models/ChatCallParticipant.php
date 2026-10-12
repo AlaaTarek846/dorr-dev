@@ -8,7 +8,7 @@ use Modules\Chat\Enums\CallParticipantStatus;
 
 class ChatCallParticipant extends Model
 {
-    protected $fillable = ['call_id', 'participant_id', 'status', 'joined_at', 'left_at'];
+    protected $fillable = ['call_id', 'participant_id', 'status', 'joined_at', 'left_at', 'silenced'];
 
     protected function casts(): array
     {
@@ -16,6 +16,7 @@ class ChatCallParticipant extends Model
             'status' => CallParticipantStatus::class,
             'joined_at' => 'datetime',
             'left_at' => 'datetime',
+            'silenced' => 'boolean',
         ];
     }
 

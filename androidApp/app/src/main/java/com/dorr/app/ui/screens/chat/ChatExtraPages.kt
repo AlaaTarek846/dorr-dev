@@ -32,6 +32,8 @@ import androidx.compose.material.icons.rounded.GroupAdd
 import androidx.compose.material.icons.rounded.Message
 import androidx.compose.material.icons.rounded.NotificationsActive
 import androidx.compose.material.icons.rounded.Screenshot
+import androidx.compose.material.icons.rounded.PhoneDisabled
+import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.Videocam
@@ -73,6 +75,7 @@ fun PrivacyPage() {
     var blocked by remember { mutableStateOf<List<BlockDto>>(emptyList()) }
     var picker by remember { mutableStateOf<Pair<String, String>?>(null) }
     var notificationPicker by remember { mutableStateOf(false) }
+    var timerPicker by remember { mutableStateOf(false) }
     var summary by remember { mutableStateOf<com.dorr.app.network.PrivacySummaryDto?>(null) }
 
     LaunchedEffect(Unit) {
@@ -103,6 +106,9 @@ fun PrivacyPage() {
                     Card {
                         ToggleRow(Icons.Rounded.DoneAll, stringResource(R.string.ch_read_receipts), p.readReceipts, subtitle = stringResource(R.string.ch_read_receipts_sub)) { save("read_receipts", it) }
                         ToggleRow(Icons.Rounded.Screenshot, stringResource(R.string.ch_block_screenshots), p.blockScreenshots) { save("block_screenshots", it) }
+                        // WhatsApp's default timer, and silencing callers I never saved.
+                        SettingRow(Icons.Rounded.Timer, stringResource(R.string.bk_default_timer), value = stringResource(timerLabel(p.defaultDisappearingSeconds))) { timerPicker = true }
+                        ToggleRow(Icons.Rounded.PhoneDisabled, stringResource(R.string.bk_silence_unknown), p.silenceUnknownCallers, subtitle = stringResource(R.string.bk_silence_unknown_sub)) { save("silence_unknown_callers", it) }
                         // What a notification shows: name and message · name only · nothing.
                         val level = p.notificationPrivacy ?: if (p.notificationPreview) "all" else "none"
                         SettingRow(Icons.Rounded.NotificationsActive, stringResource(R.string.ch_notification_preview), value = stringResource(notificationLevelLabel(level))) { notificationPicker = true }
@@ -132,6 +138,17 @@ fun PrivacyPage() {
     }
 
     summary?.let { PrivacySummaryDialog(it) { summary = null } }
+    if (timerPicker) {
+        val current = privacy?.defaultDisappearingSeconds
+        ChoiceSheet(
+            title = stringResource(R.string.bk_default_timer),
+            subtitle = stringResource(R.string.bk_default_timer_sub),
+            options = listOf<Int?>(null, 86400, 604800, 7776000).map { value ->
+                (if (value == current) "✓  " else "") + stringResource(timerLabel(value)) to { save("default_disappearing_seconds", value ?: 0); Unit }
+            },
+            onDismiss = { timerPicker = false },
+        )
+    }
     if (notificationPicker) {
         val current = privacy?.notificationPrivacy ?: "all"
         ChoiceSheet(
@@ -153,6 +170,13 @@ fun PrivacyPage() {
             onDismiss = { picker = null },
         )
     }
+}
+
+private fun timerLabel(seconds: Int?): Int = when (seconds) {
+    86400 -> R.string.bk_timer_24h
+    604800 -> R.string.bk_timer_7d
+    7776000 -> R.string.bk_timer_90d
+    else -> R.string.bk_timer_off
 }
 
 private fun notificationLevelLabel(level: String): Int = when (level) {
@@ -205,6 +229,11 @@ fun CallsPage() {
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(listTime(call.createdAt) + " " + clockTime(call.createdAt) + (call.durationSeconds?.let { "  ·  " + durationText(it * 1000L) } ?: ""), color = Ch.Mut, fontSize = 12.5.sp)
+                                // Didn't ring: an unknown caller, silenced by my setting.
+                                if (call.silenced) {
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("🔕 " + stringResource(R.string.bk_silenced), color = Ch.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
                             }
                         }
                         // Recordings of this call I agreed to (spec 92).

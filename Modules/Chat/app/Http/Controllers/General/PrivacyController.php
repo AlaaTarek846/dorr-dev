@@ -52,6 +52,9 @@ class PrivacyController extends Controller
             'text' => ['nullable', 'string', 'max:100'],
             'until' => ['nullable', 'date', 'after:now'],
             'audience' => ['sometimes', Rule::enum(PrivacyAudience::class)],
+            // Hidden from these people even when they'd see it (participant keys, "user:12").
+            'except' => ['sometimes', 'array', 'max:500'],
+            'except.*' => ['string', 'max:40'],
         ]);
         if (blank($data['emoji'] ?? null) && blank($data['text'] ?? null)) {
             throw new ChatException('status_empty', 422);
@@ -62,7 +65,8 @@ class PrivacyController extends Controller
             'status_emoji' => $data['emoji'] ?? null,
             'status_text' => isset($data['text']) ? trim($data['text']) : null,
             'status_until' => $data['until'] ?? null,
-        ] + (isset($data['audience']) ? ['status_audience' => $data['audience']] : []));
+        ] + (isset($data['audience']) ? ['status_audience' => $data['audience']] : [])
+          + (array_key_exists('except', $data) ? ['status_except' => array_values(array_unique($data['except'])) ?: null] : []));
 
         return ApiResponse::success($this->present($settings->refresh()), __('api.updated'));
     }
@@ -186,8 +190,11 @@ class PrivacyController extends Controller
                 'text' => $s->status_text,
                 'until' => $s->status_until?->toIso8601String(),
                 'audience' => $s->status_audience?->value ?? 'contacts',
+                'except' => array_values($s->status_except ?? []),
                 'active' => $s->activeStatus() !== null,
             ],
+            'default_disappearing_seconds' => $s->default_disappearing_seconds,
+            'silence_unknown_callers' => (bool) $s->silence_unknown_callers,
             'read_receipts' => (bool) ($s->read_receipts ?? true),
             'block_screenshots' => (bool) $s->block_screenshots,
             'notification_privacy' => $s->notification_privacy ?: 'all',

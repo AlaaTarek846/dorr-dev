@@ -102,6 +102,7 @@ import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import com.dorr.app.ui.screens.chat.ChSheet
 
 /** "30 min", "1 h", "1 day" — a reminder offset. */
 @Composable
@@ -130,7 +131,7 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
     }
     val color = typeColor(item)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
@@ -230,7 +231,7 @@ internal fun EventEditorSheet(existing: CalItemDto?, day: LocalDate, onDismiss: 
     val added = stringResource(R.string.cal_saved)
     val dupe = stringResource(R.string.cal_duplicate)
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
             Text(stringResource(if (existing == null) R.string.cal_add else R.string.cal_edit), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(12.dp))

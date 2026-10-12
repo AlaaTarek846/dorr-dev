@@ -28,6 +28,7 @@ class ChatGroup extends Model implements HasMedia
         'category_id',
         'verified_until',
         'verified_by_admin',
+        'allowed_reactions',
     ];
 
     protected function casts(): array
@@ -43,6 +44,7 @@ class ChatGroup extends Model implements HasMedia
             'slow_mode_seconds' => 'integer',
             'banned_words' => 'array',
             'invite_expires_at' => 'datetime',
+            'allowed_reactions' => 'array',
         ];
     }
 

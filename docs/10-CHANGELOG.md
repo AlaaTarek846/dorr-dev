@@ -9,6 +9,8 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Changed
+- GitHub deploy (`deploy.yml`): after `npm install` on Ubuntu, install the Linux native binaries (rollup, lightningcss, Tailwind oxide, esbuild) that a Windows lockfile omits, so `vite build` can run.
+- Admin sidebar Chat screens (reports, themes, settings, …) show only when the header service is Chat (`service_categories.module_name = chat`), same as AI with `ai_assistant`. They no longer stay under General, and the placeholder inbox/groups/channels/archive menu is gone.
 - Android Home: the top greeting bar uses appearance colors (same wallet / chat / notifications icons), then ads, stories, an improved today-calendar card, moments, wallet, and services.
 - Android Home today card when the day is empty: the small label is "Your day is free" / "يومك فاضي", and the main line is today's date (`Thursday, 8 October` in English).
 - **Ratings:** a later `POST /api/mobile/v1/ratings` updates the same row (stars and comment, empty comment clears it) instead of 422. Android Rate screen stays editable after the first save. Play In-App Review still only the first time the rating is 4–5 stars. Optional comment is 5–300 characters (placeholder no longer “what should we improve”).

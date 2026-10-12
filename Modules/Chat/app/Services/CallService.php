@@ -108,7 +108,14 @@ class CallService
         // call is rolled back, and since ringing is sent after commit, no phone ever rings.
         $join = null;
 
-        $call = DB::transaction(function () use ($me, $mine, $conversation, $type, $others, &$join) {
+        // People who silence callers they never saved: their phone doesn't ring (WhatsApp list 60).
+        $silenced = $conversation->isGroup() ? collect() : $others->filter(function (ChatParticipant $p) use ($me) {
+            $account = $p->participant();
+
+            return $account !== null && $this->privacy->peek($account)->silence_unknown_callers && ! $this->privacy->hasInContacts($account, $me);
+        })->pluck('id');
+
+        $call = DB::transaction(function () use ($me, $mine, $conversation, $type, $others, $silenced, &$join) {
             $call = ChatCall::query()->create([
                 'conversation_id' => $conversation->id,
                 'type' => $type,
@@ -119,14 +126,15 @@ class CallService
             ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $mine->id, 'status' => CallParticipantStatus::Joined, 'joined_at' => now()]);
 
             foreach ($others as $other) {
-                ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $other->id, 'status' => CallParticipantStatus::Ringing]);
+                ChatCallParticipant::query()->create(['call_id' => $call->id, 'participant_id' => $other->id, 'status' => CallParticipantStatus::Ringing, 'silenced' => $silenced->contains($other->id)]);
             }
+            $ringing = $others->reject(fn (ChatParticipant $p) => $silenced->contains($p->id))->values();
 
             $join = $this->joinInfo($me, $mine, $call);
 
             $payload = $this->payload($me, $call) + ['caller' => $this->directory->profile($me, $mine->participant_type, $mine->participant_id)];
-            $this->broadcaster->toParticipants($others, 'chat.call.ringing', $payload);
-            $this->push->call((string) ($payload['caller']['account_name'] ?? ''), $type === CallType::Video, $others, [
+            $this->broadcaster->toParticipants($ringing, 'chat.call.ringing', $payload);
+            $this->push->call((string) ($payload['caller']['account_name'] ?? ''), $type === CallType::Video, $ringing, [
                 'event' => 'chat.call.ringing', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid, 'call_type' => $type->value,
             ], $mine->key());
 
@@ -304,6 +312,8 @@ class CallService
             'type' => $call->type->value,
             'status' => $call->status->value,
             'is_outgoing' => in_array($call->initiator_participant_id, $myRows, true),
+            // Didn't ring for me: an unknown caller, silenced by my setting.
+            'silenced' => (bool) $call->callParticipants->first(fn (ChatCallParticipant $cp) => in_array($cp->participant_id, $myRows, true))?->silenced,
             'initiator' => $initiator ? $this->directory->profile($viewer, $initiator->participant_type, $initiator->participant_id) : null,
             'participants' => $call->callParticipants->map(fn (ChatCallParticipant $cp) => [
                 'profile' => $cp->participant ? $this->directory->profile($viewer, $cp->participant->participant_type, $cp->participant->participant_id) : null,
@@ -393,11 +403,14 @@ class CallService
         $this->broadcastState($call->refresh(), 'chat.call.ended', null);
 
         if (in_array($status, [CallStatus::Missed, CallStatus::Cancelled], true)) {
-            $missed = ChatParticipant::query()->whereIn('id', $call->callParticipants()->where('status', CallParticipantStatus::Missed->value)->pluck('participant_id'))->get();
+            $rows = $call->callParticipants()->where('status', CallParticipantStatus::Missed->value)->get(['participant_id', 'silenced']);
+            $missed = ChatParticipant::query()->whereIn('id', $rows->where('silenced', false)->pluck('participant_id'))->get();
             $caller = $initiator->participant();
-            $this->push->missedCall((string) ($caller->name ?? ''), $call->type === CallType::Video, $missed, [
-                'event' => 'chat.call.missed', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid,
-            ]);
+            $data = ['event' => 'chat.call.missed', 'call_id' => $call->uuid, 'conversation_uuid' => $conversation->uuid];
+            $this->push->missedCall((string) ($caller->name ?? ''), $call->type === CallType::Video, $missed, $data);
+            // A silenced call: a quiet line only, so it's not a surprise in the call log.
+            $quiet = ChatParticipant::query()->whereIn('id', $rows->where('silenced', true)->pluck('participant_id'))->get();
+            $this->push->silencedCall((string) ($caller->name ?? ''), $quiet, $data);
         }
     }
 

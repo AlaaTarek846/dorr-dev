@@ -253,14 +253,19 @@ fun ChatListPage() {
                     Modifier.fillMaxWidth().padding(start = 10.dp, end = 8.dp, top = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) {
-                        when {
-                            searching -> { searching = false; query = "" }
-                            host.filter in SpecialLists -> host.filter = "all"
-                            else -> host.pop()
+                    // The main chat screen has no back arrow (spec: header rule) — the tab bar and
+                    // the system back leave it; searching and the special lists step back here.
+                    if (searching || host.filter in SpecialLists) {
+                        GlassIcon(Icons.AutoMirrored.Rounded.ArrowBack) {
+                            if (searching) {
+                                searching = false
+                                query = ""
+                            } else {
+                                host.filter = "all"
+                            }
                         }
+                        Spacer(Modifier.width(8.dp))
                     }
-                    Spacer(Modifier.width(8.dp))
                     AnimatedContent(targetState = searching, label = "search", transitionSpec = {
                         (fadeIn(tween(220)) + expandHorizontally(tween(320))) togetherWith (fadeOut(tween(150)) + shrinkHorizontally(tween(260)))
                     }, modifier = Modifier.weight(1f)) { isSearching ->
@@ -360,7 +365,7 @@ fun ChatListPage() {
                         modifier = Modifier.fillMaxSize(),
                     ) {
                         if (host.filter == "all" && searchResults == null) {
-                            item(key = "stories") { StoriesBar(onAdd = { addStory = true }) }
+                            if (com.dorr.app.chat.ChatFeatures.allows("stories")) item(key = "stories") { StoriesBar(onAdd = { addStory = true }) }
                         }
                         if (host.requestsCount > 0 && searchResults == null && host.filter == "all") {
                             item(key = "requests") {

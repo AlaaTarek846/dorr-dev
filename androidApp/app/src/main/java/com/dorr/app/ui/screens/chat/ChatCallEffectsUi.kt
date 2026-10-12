@@ -59,7 +59,7 @@ internal fun CallBackgroundSheet(onDismiss: () -> Unit) {
         }.getOrNull()
         if (bmp != null) { CallController.setBackground(CallEffects.Mode.Image, bmp); onDismiss() }
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
             Text(stringResource(R.string.ce_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.ce_sub), color = Ch.Mut, fontSize = 12.5.sp)

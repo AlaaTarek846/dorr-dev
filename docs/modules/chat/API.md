@@ -330,18 +330,18 @@ Translate, voice to text, summary and suggested replies, through the AI module's
 | POST | `messages/{m}/transcribe` | | Voice / audio messages (≤25 MB): `{text}`. Throttled to 20 per minute |
 | POST | `conversations/{c}/summarize` | `unread_only?` | `{text, messages}`: 3–7 bullet points in the request language, from my latest 200 visible messages (12 000 characters, newest kept), or only those after my last read. Throttled to 10 per minute |
 | POST | `conversations/{c}/smart-replies` | | `{replies[3]}`: short replies in the chat's own language and dialect, from the last 15 messages. They're only suggestions — nothing is sent. Throttled to 20 per minute |
-| POST | `conversations/{c}/ask` | `question`, `messages?[]` (uuids I picked) | **Ask about the chat (spec 125):** `{answer, references[{id, sender, excerpt, created_at}], messages}`. Answered only from the picked messages (only those go to the AI, AT-PRIV-11) or my latest 200; `references` are the messages it rests on, to jump to. Throttled to 20 per minute |
+| POST | `conversations/{c}/ask` | `question`, `messages?[]` (uuids I picked) | **Ask about the chat (spec 125):** `{answer, safety, verification, references[{id, sender, excerpt, created_at}], messages}`. Answered only from the picked messages (only those go to the AI, AT-PRIV-11) or my latest 200; `references` are the messages it rests on, to jump to. Throttled to 20 per minute |
 | POST | `conversations/{c}/commitments` | `messages?[]`, `timezone?` | **Commitments (spec 126):** `{commitments[{text, owner, is_mine, due_at, message_id}]}` — suggestions only; nothing is set. The app's "Remind me" then calls `PUT messages/{m}/reminder`. `due_at` is read in `timezone` and answered in UTC (past times dropped). Throttled to 10 per minute |
 
 Errors: `503 chat_ai_unavailable` (switched off, or no provider), `502 chat_ai_failed` (the provider failed — its own message goes to the log only), `422 chat_ai_nothing_to_translate`, `chat_ai_not_voice`, `chat_ai_audio_too_long`, `chat_ai_nothing_to_summarize`.
 
 ### DORR AI tools (spec 31, 36–42, 46, 48, 49) and my tasks (38)
 
-Same rules: one explicit tap each, only what that tap covers goes to the AI, results are suggestions until confirmed. Free answers (`ask`, `assistant`, `understand`) go through the DORR AI safety layer and return `safety` — `null` or `{domain, specific, disclaimer, notice}` — for the app's alert card (see `docs/modules/ai/TECHNICAL-SPECIFICATION.md`). `GET ai` also returns `assistant, proofread, understand, simplify, tasks, notes, dates, important, related_files, today`. `timezone` defaults to `users.timezone`.
+Same rules: one explicit tap each, only what that tap covers goes to the AI, results are suggestions until confirmed. Free answers (`ask`, `assistant`, `understand`) go through the DORR AI safety layer and return `safety` — `null` or `{domain, specific, disclaimer, notice}` — for the app's alert card (see `docs/modules/ai/TECHNICAL-SPECIFICATION.md`). `ask` and `assistant` also pass DORR AI's quality gate (spec 362, `AiVerificationEngine`, another provider when there is one) and return `verification` — `null` when `ai.chat.verification.enabled` is off, else `{status: passed | unverified | abstained | skipped, confidence, notice}`: below the pass mark the draft goes back once with what the check found; still weak, it is shown with `notice`; very low (`abstain_threshold`), the answer is replaced by DORR AI's "not sure enough" reply and `references` is empty. `GET ai` also returns `assistant, proofread, understand, simplify, tasks, notes, dates, important, related_files, today`. `timezone` defaults to `users.timezone`.
 
 | Method | Path | Body | Notes |
 |---|---|---|---|
-| POST | `conversations/{c}/assistant` | `question`, `messages?[]`, `history?[{q, a}]` (≤ 10) | **31.** DORR AI inside the chat, only for me: `{answer, safety, references[]}`. Nothing of the chat goes unless I picked messages. 30/min |
+| POST | `conversations/{c}/assistant` | `question`, `messages?[]`, `history?[{q, a}]` (≤ 10) | **31.** DORR AI inside the chat, only for me: `{answer, safety, verification, references[]}`. Nothing of the chat goes unless I picked messages. 30/min |
 | POST | `ai/proofread` | `text` (≤ 4000) | **36.** `{text, changed}` — spelling and grammar only; language, dialect, emojis, mentions and formatting kept. Nothing of the chat is read. 30/min |
 | POST | `messages/{m}/understand` | | **37 + 42.** `{intent, tone, summary, tone_note, actions[reply\|remind\|task\|note], replies[3], safety}` |
 | POST | `messages/{m}/simplify` | | **46.** `{short, points[≤6]}` (cached 7 days) |
@@ -495,6 +495,18 @@ Every call payload also has `recording_available` (the record button shows only 
 
 Calls can be switched off per country (`calls_disabled_countries` in chat settings, by the account's `country_id`): the caller gets `403 chat_calls_unavailable_country`, calling someone there gets `403 chat_calls_unavailable_peer_country`, and in a group members there simply aren't rung.
 
+### Features by country and city (spec "أمان 2", shared requirement 10)
+`chat_feature_rules` switch a feature on or off for a country or one of its cities (`ChatFeatures`). The order: the admin's switch for the whole feature (`calls_enabled`, `stories_enabled`, `ai_enabled`) → a rule for the city the phone is in → a rule for the account's country → on. `calls_disabled_countries` still counts as a country rule for calls. Where calls are off, `voice_rooms` and `live` are off too. Categories of users are not part of it yet (decision 2026-10-11).
+
+The city is the admin's (Discover) city nearest the phone, within 60 km: the app sends its approximate location, the server keeps only the city (`chat_privacy_settings.city_id`, `city_seen_at`) — never the coordinates — and forgets it after 30 days.
+
+| Method | Path | Body | Returns |
+|---|---|---|---|
+| GET | `features` | — | `{features{calls, voice_rooms, live, stories, ai: bool}, city{id, name}\|null}` — the app hides what's off |
+| PUT | `location` | `{latitude, longitude}` | The same, after keeping the nearest city (none farther than 60 km). Throttled 10/min |
+
+Off where I am: stories and the AI tools answer `403 chat_feature_unavailable` (`GET ai` itself answers `enabled: false`), voice rooms `403 chat_feature_unavailable`, a live can't start (`403`) and a viewer gets `join: null`; calls keep `chat_calls_unavailable_country` / `chat_calls_unavailable_peer_country` (now "where you are"), and `can_call` on a conversation follows the same rules.
+
 The token is a LiveKit JWT (HS256) for one room and one identity (`user:{id}`), signed with `LIVEKIT_API_SECRET`. `chat:expire-calls` runs every minute and turns a call that rang longer than `CHAT_CALL_RING_TIMEOUT_SECONDS` (45) into a missed call.
 
 ### Voice rooms (spec 91)
@@ -549,6 +561,8 @@ Errors: `chat_recording_unavailable` (422 — no bucket, LiveKit not set up, or 
 | Method | Path | Permission |
 |---|---|---|
 | GET | `/api/admin/v1/chat-settings` | `chat-settings.view` |
+| GET | `/api/admin/v1/chat-feature-rules` · `chat-feature-rules/options` (`{features[], countries[{id, code, name}], cities[{id, country_id, name}]}` — Discover's cities) | `chat-settings.view` |
+| POST | `/api/admin/v1/chat-feature-rules` `{feature, country_id, city_id?, enabled, note?}` (one rule per feature + country + city; the city must belong to the country) · PUT `chat-feature-rules/{id}` `{enabled, note?}` · DELETE | `chat-settings.update` |
 | PUT | `/api/admin/v1/chat-settings` (also `calls_disabled_countries[]` country ids, `ai_enabled`, `call_recording_enabled`, `call_recording_retention_days` 1–365; GET also answers the read-only `call_recording_storage_ready`) | `chat-settings.update` |
 | GET | `/api/admin/v1/chat-themes` · `chat-themes/{id}` | `chat-themes.view` |
 | POST | `/api/admin/v1/chat-themes` (multipart: `translations[i][locale/name]`, `sender_color`, `receiver_color`, `background_color`, `is_dark`, `is_default`, `status`, `sort_order`, `wallpaper`) | `chat-themes.create` |

@@ -106,7 +106,8 @@ class ParticipantDirectory
             'is_me' => $isMe,
             'is_deleted' => false,
             // "🏖️ On holiday until Sunday" — while it lasts, and only for its audience.
-            'status' => $isMe || $this->mayView($key, $viewerKey, 'status_audience') ? ($this->privacy[$key] ?? null)?->activeStatus() : null,
+            'status' => $isMe || ($this->mayView($key, $viewerKey, 'status_audience') && ! in_array($viewerKey, (array) (($this->privacy[$key] ?? null)?->status_except ?? []), true))
+                ? ($this->privacy[$key] ?? null)?->activeStatus() : null,
         ];
     }
 

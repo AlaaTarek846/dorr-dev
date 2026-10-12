@@ -77,13 +77,14 @@ class ChatAiToolsService
         }
         $messages[] = ['role' => 'user', 'content' => $context.'Question: '.Str::limit(trim($question), 1000)];
 
-        $safe = $this->ai->askSafely($messages, $question);
+        $safe = $this->ai->askSafely($messages, $question, verify: true);
         $json = $this->ai->json($safe['raw']);
         $answer = is_string($json['answer'] ?? null) ? $this->ai->safety()->finish($json['answer'], $safe['risk'])['text'] : $safe['text'];
 
         return [
             'answer' => $answer,
             'safety' => $safe['safety'],
+            'verification' => $safe['verification'],
             'references' => $numbered->isEmpty() ? [] : $this->ai->references($me, $numbered, (array) ($json['refs'] ?? [])),
         ];
     }

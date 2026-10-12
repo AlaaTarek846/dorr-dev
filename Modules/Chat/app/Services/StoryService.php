@@ -45,7 +45,7 @@ class StoryService
     /**
      * @param  array<string, mixed>  $data  type, body, style, duration_ms, allow_replies
      */
-    public function create(Model $owner, array $data, ?UploadedFile $file): ChatStory
+    public function create(Model $owner, array $data, ?UploadedFile $file, ?\Spatie\MediaLibrary\MediaCollections\Models\Media $copyMedia = null): ChatStory
     {
         $settings = $this->assertEnabled();
         $type = $data['type'];
@@ -66,26 +66,35 @@ class StoryService
         if ($type === 'text' && trim((string) ($data['body'] ?? '')) === '') {
             throw ChatException::emptyMessage();
         }
-        if ($type !== 'text' && $file === null) {
+        if ($type !== 'text' && $file === null && $copyMedia === null) {
             throw new ChatException('attachment_required', 422);
         }
-        if ($type === 'video' && (int) ($data['duration_ms'] ?? 0) > $settings->story_video_max_seconds * 1000 + 500) {
+        if (in_array($type, ['video', 'voice'], true) && (int) ($data['duration_ms'] ?? 0) > $settings->story_video_max_seconds * 1000 + 500) {
             throw ChatException::storyVideoTooLong($settings->story_video_max_seconds);
         }
+        // Mentions: only people I saved, and they always get to see it.
+        $mentioned = $this->mentionable($owner, (array) ($data['mentions'] ?? []));
 
-        return DB::transaction(function () use ($owner, $data, $type, $file, $settings, $public) {
+        return DB::transaction(function () use ($owner, $data, $type, $file, $settings, $public, $mentioned, $copyMedia) {
             $story = ChatStory::query()->create([
                 'owner_type' => ParticipantType::aliasFor($owner),
                 'owner_id' => $owner->getKey(),
                 'type' => $type,
                 'body' => isset($data['body']) ? trim((string) $data['body']) ?: null : null,
-                'style' => $type === 'text' ? ($data['style'] ?? null) : null,
-                'duration_ms' => $type === 'video' ? ($data['duration_ms'] ?? null) : null,
+                'style' => match ($type) {
+                    'text' => $data['style'] ?? null,
+                    // A voice status: its colour and its bars.
+                    'voice' => array_filter(['background' => $data['style']['background'] ?? null, 'waveform' => $data['style']['waveform'] ?? null], fn ($v) => $v !== null) ?: null,
+                    default => null,
+                },
+                'duration_ms' => in_array($type, ['video', 'voice'], true) ? ($data['duration_ms'] ?? null) : null,
+                'mentions' => $mentioned->map(fn (Model $m) => ParticipantType::key($m))->values()->all() ?: null,
                 'allow_replies' => (bool) ($data['allow_replies'] ?? true),
                 'is_public' => $public,
                 'expires_at' => now()->addHours($settings->story_duration_hours),
             ]);
 
+            $copyMedia?->copy($story, ChatStory::MEDIA);
             if ($file !== null) {
                 config(['media-library.max_file_size' => $settings->max_file_size_mb * 1024 * 1024]);
                 $file = WebpUploadConverter::convert($file);
@@ -95,6 +104,12 @@ class StoryService
             }
 
             $recipients = $this->audienceOf($owner);
+            foreach ($mentioned as $person) {
+                $pair = [ParticipantType::aliasFor($person), (int) $person->getKey()];
+                if (! in_array($pair, $recipients, true)) {
+                    $recipients[] = $pair;
+                }
+            }
             foreach (array_chunk($recipients, 500) as $chunk) {
                 DB::table('chat_story_recipients')->insert(array_map(fn ($r) => [
                     'story_id' => $story->id, 'participant_type' => $r[0], 'participant_id' => $r[1],
@@ -106,6 +121,9 @@ class StoryService
                 'chat.story.posted',
                 ['owner' => ParticipantType::key($owner), 'story_id' => $story->uuid],
             );
+
+            // Everyone mentioned hears about it in our chat (and may share it again).
+            DB::afterCommit(fn () => $mentioned->each(fn (Model $person) => $this->tellMentioned($owner, $person, $story)));
 
             return $story;
         });
@@ -214,7 +232,7 @@ class StoryService
 
         foreach ($groups as $ownerKey => $list) {
             $isMine = $ownerKey === $mineKey;
-            $items = $list->map(fn (ChatStory $s) => $this->present($s, $views->get($s->id), $isMine, $isMine ? $this->viewCounts($list) : []))->values()->all();
+            $items = $list->map(fn (ChatStory $s) => $this->present($s, $views->get($s->id), $isMine, $isMine ? $this->viewCounts($list) : [], ParticipantType::key($viewer)))->values()->all();
             [$type, $id] = explode(':', $ownerKey, 2);
             $row = [
                 'owner' => $this->directory->profile($viewer, $type, $id),
@@ -464,6 +482,78 @@ class StoryService
     }
 
     /**
+     * The people I may mention: my saved contacts on DORR (at most ten), never myself.
+     *
+     * @param  list<int|string>  $userIds
+     * @return \Illuminate\Support\Collection<int, Model>
+     */
+    private function mentionable(Model $owner, array $userIds): \Illuminate\Support\Collection
+    {
+        if ($userIds === []) {
+            return collect();
+        }
+        $privacy = app(ChatPrivacy::class);
+
+        return \Modules\User\Models\User::query()->whereIn('id', array_slice(array_map('intval', $userIds), 0, 10))->get()
+            ->reject(fn (Model $u) => ParticipantType::key($u) === ParticipantType::key($owner))
+            ->filter(fn (Model $u) => $privacy->hasInContacts($owner, $u) && ! $privacy->isBlockedBetween($owner, $u))
+            ->values();
+    }
+
+    /** A `story_mention` message in our chat, with the story's snapshot. */
+    private function tellMentioned(Model $owner, Model $person, ChatStory $story): void
+    {
+        try {
+            $participant = app(ConversationService::class)->openDirect($owner, $person);
+            app(MessageService::class)->send($owner, $participant->conversation, [
+                'type' => 'story_mention',
+                'story_meta' => $this->snapshot($story) + ['mentioned' => ParticipantType::key($person)],
+            ]);
+        } catch (ChatException $e) {
+            // Their privacy doesn't let me write to them: the mention stays in the story only.
+        }
+    }
+
+    /** @return array<string, mixed> */
+    private function snapshot(ChatStory $story): array
+    {
+        $media = $story->getFirstMedia(ChatStory::MEDIA);
+
+        return [
+            'story_id' => $story->uuid,
+            'story_type' => $story->type,
+            'text' => $story->type === 'text' ? Str::limit((string) $story->body, 200) : $story->body,
+            'style' => $story->style,
+            'thumbnail' => $media !== null && str_starts_with((string) $media->mime_type, 'image/') ? $media->getUrl() : null,
+            'owner' => $story->ownerKey(),
+            'expires_at' => $story->expires_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * Share a status that mentions me in my own (backlog 85): a copy of it under my name — it
+     * doesn't say whose it was (86).
+     */
+    public function reshare(Model $me, ChatStory $story): ChatStory
+    {
+        $this->assertCanSee($me, $story);
+        if (! in_array(ParticipantType::key($me), (array) ($story->mentions ?? []), true)) {
+            throw new ChatException('story_not_mentioned', 403);
+        }
+        $media = $story->getFirstMedia(ChatStory::MEDIA);
+        $copy = $this->create($me, [
+            'type' => $story->type,
+            'body' => $story->body,
+            'style' => $story->type === 'voice' ? ['background' => $story->style['background'] ?? null, 'waveform' => $story->style['waveform'] ?? null] : $story->style,
+            'duration_ms' => $story->duration_ms,
+            'allow_replies' => true,
+        ], null, $media);
+        $copy->update(['reshared_from_id' => $story->id]);
+
+        return $copy;
+    }
+
+    /**
      * Reply → a `story_reply` message in our direct chat, carrying a snapshot of the story (it
      * still reads right after the story itself is gone).
      */
@@ -601,7 +691,7 @@ class StoryService
      * @param  array<int, array{views: int, reactions: int}>  $counts
      * @return array<string, mixed>
      */
-    private function present(ChatStory $s, ?ChatStoryView $myView, bool $isMine, array $counts): array
+    private function present(ChatStory $s, ?ChatStoryView $myView, bool $isMine, array $counts, ?string $viewerKey = null): array
     {
         $media = $s->getFirstMedia(ChatStory::MEDIA);
 
@@ -618,6 +708,10 @@ class StoryService
             'allow_replies' => $s->allow_replies,
             'is_public' => (bool) $s->is_public,
             'is_mine' => $isMine,
+            // Mentions (backlog 84): whom I mentioned in mine; whether this one mentions me.
+            'mentions' => $isMine ? count($s->mentions ?? []) : null,
+            'mentioned_me' => ! $isMine && $viewerKey !== null && in_array($viewerKey, (array) ($s->mentions ?? []), true),
+            'reshared' => $s->reshared_from_id !== null,
             'seen' => $isMine || $myView !== null,
             'my_reaction' => $myView?->reaction,
             'views' => $isMine ? ($counts[$s->id]['views'] ?? 0) : null,

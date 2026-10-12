@@ -107,7 +107,7 @@ fun FolderChatsSheet(folder: FolderDto, onDismiss: () -> Unit) {
     }
     val shown = all.orEmpty().filter { query.isBlank() || it.title.orEmpty().contains(query.trim(), ignoreCase = true) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Text(stringResource(R.string.ch_folder_pick_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(folder.name, color = Ch.Mut, fontSize = 13.sp)
@@ -176,7 +176,7 @@ fun ChannelInviteSheet(channel: ConversationDto, onDismiss: () -> Unit) {
     }
     val shown = contacts.orEmpty().filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) || it.phone.contains(query.filter { c -> c.isDigit() }.ifEmpty { "~" }) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Campaign, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
@@ -282,7 +282,7 @@ fun ChatActionsSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
     }
 
     val unread = conversation.unreadCount > 0 || conversation.markedUnread
-    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ChAvatar(conversation.avatar, conversation.title, conversation.peer?.key ?: conversation.id, size = 46.dp, isGroup = conversation.isGroup)

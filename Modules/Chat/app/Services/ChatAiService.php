@@ -14,6 +14,7 @@ use Modules\AI\Repositories\AiProviderRepository;
 use Modules\AI\Safety\RiskAssessment;
 use Modules\AI\Safety\SafetyPolicyEngine;
 use Modules\AI\Services\AiGateway;
+use Modules\AI\Services\AiVerificationEngine;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatConversation;
@@ -56,6 +57,7 @@ class ChatAiService
         private readonly AiProviderRepository $providers,
         private readonly AiGateway $gateway,
         private readonly SafetyPolicyEngine $safety,
+        private readonly AiVerificationEngine $verifier,
     ) {}
 
     /**
@@ -63,9 +65,10 @@ class ChatAiService
      *
      * @return array{enabled: bool, translate: bool, summarize: bool, smart_replies: bool, transcribe: bool}
      */
-    public function capabilities(): array
+    public function capabilities(?Model $me = null): array
     {
-        $on = ChatSetting::current()->aiEnabled();
+        // The admin's switch, and any country or city rule for where I am (ChatFeatures).
+        $on = app(ChatFeatures::class)->allows($me, 'ai');
         $chat = $on && $this->providers->resolveActiveForChat() !== null;
         $audio = $on && $this->providers->resolveForTranscription() !== null;
 
@@ -234,7 +237,7 @@ class ChatAiService
                 .'Use only the numbered messages given — if they do not hold the answer, say so plainly. Never invent anything. '
                 .'Reply with JSON only: {"answer": "<short answer>", "refs": [<numbers of the messages the answer is based on>]}.'],
             ['role' => 'user', 'content' => $lines->implode("\n")."\n\nQuestion: ".Str::limit(trim($question), 500)],
-        ], $question);
+        ], $question, verify: true);
 
         $json = $this->json($safe['raw']);
         $answer = is_string($json['answer'] ?? null) ? $this->safety->finish($json['answer'], $safe['risk'])['text'] : $safe['text'];
@@ -242,6 +245,7 @@ class ChatAiService
         return [
             'answer' => $answer,
             'safety' => $safe['safety'],
+            'verification' => $safe['verification'],
             'references' => $this->references($me, $numbered, (array) ($json['refs'] ?? [])),
             'messages' => $numbered->count(),
         ];
@@ -515,21 +519,105 @@ class ChatAiService
     /**
      * A free answer under the DORR AI rules (spec 350–362): the request is classified first, its
      * rules go in as instructions, and the approved texts come back separately in `safety` (for
-     * the alert card). `raw` is the model's own reply (for JSON answers).
+     * the alert card). `raw` is the model's own reply (for JSON answers). [$verify] runs it
+     * through the quality gate too (see qualityGate()).
      *
      * @param  list<array{role: string, content: string}>  $messages
-     * @return array{text: string, raw: string, safety: ?array<string, mixed>, risk: RiskAssessment}
+     * @return array{text: string, raw: string, safety: ?array<string, mixed>, risk: RiskAssessment, verification: ?array{status: string, confidence: ?float, notice: ?string}}
      */
-    public function askSafely(array $messages, string $request): array
+    public function askSafely(array $messages, string $request, bool $verify = false): array
     {
         if (! ChatSetting::current()->aiEnabled() || ($provider = $this->providers->resolveActiveForChat()) === null) {
             throw new ChatException('ai_unavailable', 503);
         }
 
         $risk = $this->safety->classify($request, $provider);
-        $raw = $this->answer($provider, $this->gateway->chat($provider, $this->safety->instruct($messages, $risk)));
+        $instructed = $this->safety->instruct($messages, $risk);
+        $raw = $this->answer($provider, $this->gateway->chat($provider, $instructed));
+        $verification = null;
+        if ($verify) {
+            [$raw, $verification] = $this->qualityGate($provider, $instructed, $raw);
+        }
 
-        return ['raw' => $raw, 'risk' => $risk] + $this->safety->finish($raw, $risk);
+        return ['raw' => $raw, 'risk' => $risk, 'verification' => $verification] + $this->safety->finish($raw, $risk);
+    }
+
+    /**
+     * The DORR AI quality gate (spec 362), which the chat inherits (spec ب.2): DORR AI's own
+     * verifier checks the draft — another provider when there is one, so two models catch each
+     * other's mistakes. Below the pass mark the draft goes back once with what was found; still
+     * weak, it is shown with a "check it" notice, or held back when confidence is very low. The
+     * AI module's own switch and thresholds apply (`ai.chat.verification.*`).
+     *
+     * @param  list<array{role: string, content: string}>  $messages
+     * @return array{0: string, 1: ?array{status: string, confidence: ?float, notice: ?string}}
+     */
+    private function qualityGate(AiProvider $provider, array $messages, string $raw): array
+    {
+        if (! config('ai.chat.verification.enabled', true)) {
+            return [$raw, null];
+        }
+
+        $checker = $this->providers->all()->first(fn (AiProvider $p) => $p->id !== $provider->id && $p->isUsableForChat()) ?? $provider;
+        $question = (string) (collect($messages)->last(fn (array $m) => $m['role'] === 'user')['content'] ?? '');
+        $attempts = max(1, (int) config('ai.chat.verification.max_attempts', 2));
+        $pass = (float) config('ai.chat.verification.pass_threshold', 0.6);
+        $abstain = (float) config('ai.chat.verification.abstain_threshold', 0.35);
+        $confidence = 0.0;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            $verdict = $this->verifier->verify($checker, $question, $this->answerOf($raw));
+            if ($verdict['engine_error']) {
+                return [$raw, ['status' => 'skipped', 'confidence' => null, 'notice' => null]];
+            }
+            $confidence = (float) $verdict['confidence_score'];
+            if ($confidence >= $pass && $verdict['issues'] === []) {
+                return [$raw, ['status' => 'passed', 'confidence' => $confidence, 'notice' => null]];
+            }
+            if ($attempt === $attempts) {
+                break;
+            }
+            // Back once, with what the check found.
+            $issues = $verdict['issues'] ?: array_values(array_filter(array_map(
+                fn (array $c) => $c['supported'] ? null : 'Unsupported: '.$c['claim'],
+                $verdict['claims'],
+            )));
+            try {
+                $raw = $this->answer($provider, $this->gateway->chat($provider, [
+                    ...$messages,
+                    ['role' => 'assistant', 'content' => $raw],
+                    ['role' => 'user', 'content' => "A fact-checker reviewed your answer and found:\n- ".implode("\n- ", $issues ?: ['Some claims could not be verified.'])
+                        ."\nCorrect it. Do not state anything you cannot support. Keep exactly the same reply format."],
+                ]));
+            } catch (ChatException) {
+                break;
+            }
+        }
+
+        if ($confidence < $abstain) {
+            return [$this->withAnswer($raw, __('ai.verification_abstain_reply')), ['status' => 'abstained', 'confidence' => $confidence, 'notice' => null]];
+        }
+
+        return [$raw, ['status' => 'unverified', 'confidence' => $confidence, 'notice' => __('ai.verification_low_confidence_notice')]];
+    }
+
+    /** The answer itself: the `answer` of a JSON reply, or the reply. */
+    private function answerOf(string $raw): string
+    {
+        $answer = $this->json($raw)['answer'] ?? null;
+
+        return is_string($answer) ? $answer : $raw;
+    }
+
+    /** The same reply with its answer replaced (and nothing referenced any more). */
+    private function withAnswer(string $raw, string $answer): string
+    {
+        $json = $this->json($raw);
+        if (! is_string($json['answer'] ?? null)) {
+            return $answer;
+        }
+
+        return (string) json_encode(['answer' => $answer, 'refs' => []], JSON_UNESCAPED_UNICODE);
     }
 
     public function safety(): SafetyPolicyEngine

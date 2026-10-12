@@ -26,9 +26,15 @@ jobs:
           cache: 'npm'
 
       # public/build مش موجود في git، فلازم يتبنى هنا ويترفع للسيرفر
+      # lockfile من ويندوز بيسقط باينريات لينكس؛ نركّبها صراحة بعد npm install
       - name: 🏗️ Build frontend
         run: |
-          npm ci
+          npm install --no-audit --no-fund
+          npm install --no-save --no-audit --no-fund \
+            @esbuild/linux-x64@0.28.2 \
+            @rollup/rollup-linux-x64-gnu@4.63.3 \
+            @tailwindcss/oxide-linux-x64-gnu@4.3.3 \
+            lightningcss-linux-x64-gnu@1.32.0
           npm run build
 
       - name: 📦 Pack build output
