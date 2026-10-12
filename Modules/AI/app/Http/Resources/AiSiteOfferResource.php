@@ -14,16 +14,18 @@ class AiSiteOfferResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
-        $admin = str_starts_with((string) $request->path(), 'admin/');
+        $admin = $request->is('api/admin/*', 'admin/*');
         $price = $admin ? null : $this->priceFor(currentCountry());
 
         return [
             'id' => $this->id,
             'name' => $this->name,
             'code' => $this->code,
+            'kind' => $this->kind,
             'description' => $this->description,
             'generations_included' => $this->generations_included,
             'is_active' => $this->is_active,
+            'is_free' => $this->is_free,
             'sort_order' => $this->sort_order,
             $this->mergeWhen(! $admin, [
                 'price' => $price['price'] ?? null,

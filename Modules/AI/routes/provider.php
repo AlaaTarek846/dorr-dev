@@ -6,6 +6,7 @@ use Modules\AI\Http\Controllers\AiConversationFileController;
 use Modules\AI\Http\Controllers\AiRealtimeController;
 use Modules\AI\Http\Controllers\AiSiteHostingController;
 use Modules\AI\Http\Controllers\AiSiteProjectController;
+use Modules\AI\Http\Controllers\AiSiteServiceRequestController;
 use Modules\AI\Http\Controllers\AiUserSubscriptionController;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
@@ -81,6 +82,8 @@ Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-g
     Route::get('/', [AiSiteProjectController::class, 'index']);
     Route::get('{project}', [AiSiteProjectController::class, 'show'])->whereNumber('project');
     Route::get('{project}/download', [AiSiteProjectController::class, 'download'])->whereNumber('project');
+    Route::get('{project}/edit-packs', [AiSiteProjectController::class, 'editPacks'])->whereNumber('project');
+    Route::get('{project}/source-download', [AiSiteProjectController::class, 'sourceDownload'])->whereNumber('project');
     Route::delete('{project}', [AiSiteProjectController::class, 'destroy'])->whereNumber('project');
 });
 
@@ -93,6 +96,8 @@ Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-s
 
 Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-sites')->group(function () {
     Route::post('purchase', [AiSiteProjectController::class, 'purchase']);
+    Route::post('{project}/edit-packs', [AiSiteProjectController::class, 'buyEditPack'])->whereNumber('project');
+    Route::post('{project}/source-download', [AiSiteProjectController::class, 'buySourceDownload'])->whereNumber('project');
 });
 
 // Site hosting (sub-domain, monthly/yearly). Money-moving calls need the wallet PIN.
@@ -107,4 +112,24 @@ Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-g
 Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-sites')->group(function () {
     Route::post('{project}/hosting', [AiSiteHostingController::class, 'subscribe'])->whereNumber('project');
     Route::post('{project}/hosting/renew', [AiSiteHostingController::class, 'renew'])->whereNumber('project');
+});
+
+// "Build it with a person": brief -> quote -> accept (PIN) -> instalments (PIN) -> handover, plus the conversation.
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-general'])->prefix('provider/v1/ai-site-requests')->group(function () {
+    Route::get('info', [AiSiteServiceRequestController::class, 'info']);
+    Route::get('/', [AiSiteServiceRequestController::class, 'index']);
+    Route::get('{id}', [AiSiteServiceRequestController::class, 'show'])->whereNumber('id');
+    Route::get('{id}/messages', [AiSiteServiceRequestController::class, 'messages'])->whereNumber('id');
+});
+
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send'])->prefix('provider/v1/ai-site-requests')->group(function () {
+    Route::post('/', [AiSiteServiceRequestController::class, 'store']);
+    Route::post('{id}/cancel', [AiSiteServiceRequestController::class, 'cancel'])->whereNumber('id');
+    Route::post('{id}/decline', [AiSiteServiceRequestController::class, 'decline'])->whereNumber('id');
+    Route::post('{id}/messages', [AiSiteServiceRequestController::class, 'sendMessage'])->whereNumber('id');
+});
+
+Route::middleware(['locale', 'country', 'auth:provider_api', 'throttle:ai-chat-send', RequiresWalletPin::class])->prefix('provider/v1/ai-site-requests')->group(function () {
+    Route::post('{id}/accept', [AiSiteServiceRequestController::class, 'accept'])->whereNumber('id');
+    Route::post('{id}/installments/{installment}/pay', [AiSiteServiceRequestController::class, 'pay'])->whereNumber(['id', 'installment']);
 });

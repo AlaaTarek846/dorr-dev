@@ -28,7 +28,7 @@ class AiSiteProjectResource extends JsonResource
             'last_error' => $this->last_error,
             'last_error_message' => $this->last_error && Lang::has('ai.site_'.$this->last_error) ? __('ai.site_'.$this->last_error) : null,
             'current_version_id' => $this->current_version_id,
-            'generations_left' => $this->whenLoaded('purchase', fn () => $this->purchase?->generationsLeft()),
+            'generations_left' => $this->whenLoaded('purchase', fn () => ($this->purchase?->generationsLeft() ?? 0) + $this->packGenerationsLeft()),
             'versions' => $this->whenLoaded('versions', fn () => $this->versions->sortByDesc('number')->values()->map(fn ($v) => [
                 'id' => $v->id,
                 'number' => $v->number,

@@ -110,6 +110,30 @@ export default [
                 meta: { middleware: [auth] },
             },
             {
+                path: 'ai-site-requests',
+                name: 'admin.ai-site-requests.index',
+                component: page('ai-site-requests/index'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'ai-site-requests/:id(\\d+)',
+                name: 'admin.ai-site-requests.show',
+                component: page('ai-site-requests/show'),
+                meta: { middleware: [auth] },
+            },
+            {
+                path: 'ai-site-edit-packs',
+                name: 'admin.ai-site-edit-packs.index',
+                component: page('ai-site-offers/index'),
+                meta: { middleware: [auth], kind: 'edit_pack' },
+            },
+            {
+                path: 'ai-site-download',
+                name: 'admin.ai-site-download.index',
+                component: page('ai-site-download/index'),
+                meta: { middleware: [auth] },
+            },
+            {
                 path: 'ai-site-hosting-plans',
                 name: 'admin.ai-site-hosting-plans.index',
                 component: page('ai-site-hosting-plans/index'),

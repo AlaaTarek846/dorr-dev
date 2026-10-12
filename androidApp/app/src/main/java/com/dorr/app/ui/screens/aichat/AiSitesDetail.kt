@@ -24,6 +24,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.material3.Icon
+import androidx.compose.material.icons.rounded.Public
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.Icons
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -52,6 +59,7 @@ import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.chat.chatAuth
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 @Composable
 private fun DetailHero(p: AiSiteProjectDto) {
@@ -120,6 +128,36 @@ private fun VersionRow(v: AiSiteVersionDto, canRestore: Boolean, busy: Boolean, 
     }
 }
 
+/** Edit / versions / publishing as three tabs, so the page is no longer one long scroll of cards. */
+@Composable
+private fun SiteTabs(selected: Int, onSelect: (Int) -> Unit) {
+    val c = sitePalette()
+    val items = listOf(
+        Icons.Rounded.Edit to R.string.ai_sites_tab_edit,
+        Icons.Rounded.History to R.string.ai_sites_tab_versions,
+        Icons.Rounded.Public to R.string.ai_sites_tab_publish,
+    )
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(c.surface).border(1.dp, c.line, RoundedCornerShape(18.dp)).padding(5.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        items.forEachIndexed { index, (icon, label) ->
+            val on = index == selected
+            Row(
+                Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
+                    .then(if (on) Modifier.background(siteGradient()) else Modifier)
+                    .clickable { onSelect(index) }.padding(vertical = 11.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icon, contentDescription = null, tint = if (on) Color.White else c.mut, modifier = Modifier.size(17.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(label), color = if (on) Color.White else c.mut, fontSize = 12.5.sp, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold, maxLines = 1)
+            }
+        }
+    }
+}
+
 @Composable
 internal fun SitesDetail(night: Boolean, id: Int, onDeleted: () -> Unit) {
     val c = sitePalette()
@@ -133,6 +171,8 @@ internal fun SitesDetail(night: Boolean, id: Int, onDeleted: () -> Unit) {
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var editsBlocked by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
 
     suspend fun refresh() {
         runCatching { ApiClient.aiSites.project(chatAuth(), id).data }.onSuccess { project = it }
@@ -150,12 +190,19 @@ internal fun SitesDetail(night: Boolean, id: Int, onDeleted: () -> Unit) {
         }
     }
 
-    LaunchedEffect(id) {
-        refresh()
-        // A build runs in the background on the server; keep checking until it settles.
-        while (project?.status == "generating" || project == null) {
-            delay(4000)
-            refresh()
+    // True while the server is still building: the project or any of its versions is not settled yet.
+    val building = project.let { current ->
+        current == null || current.status == "generating" ||
+            current.versionList.any { it.status == "processing" || it.status == "pending" }
+    }
+
+    // Keyed on `building` so polling starts again by itself when an edit or retry flips the project to
+    // "generating" after the screen was already idle (a loop keyed only on the id ended once and never resumed).
+    LaunchedEffect(id, building) {
+        if (project == null) refresh()
+        while (building) {
+            delay(3000)
+            withTimeoutOrNull(15_000) { refresh() }
         }
     }
 
@@ -201,37 +248,57 @@ internal fun SitesDetail(night: Boolean, id: Int, onDeleted: () -> Unit) {
             PrimaryButton(stringResource(R.string.ai_sites_retry), enabled = !busy) { act { ApiClient.aiSites.retry(chatAuth(), id).data } }
         }
 
-        if (hasSite && idle) {
+        val tabbed = hasSite && !p.isDisabled
+        val section = if (tabbed) tab else 1
+
+        if (tabbed) {
             Spacer(Modifier.height(16.dp))
-            SiteCard {
-                SiteSectionTitle(stringResource(R.string.ai_sites_edit_title), stringResource(R.string.ai_sites_edit_sub))
-                Spacer(Modifier.height(8.dp))
-                SiteField(stringResource(R.string.ai_sites_edit_hint), instruction, { instruction = it }, singleLine = false, minLines = 3)
-                Spacer(Modifier.height(6.dp))
-                PrimaryButton(stringResource(R.string.ai_sites_edit_send), enabled = !busy && instruction.trim().length >= 3) {
-                    val text = instruction.trim()
-                    instruction = ""
-                    act { ApiClient.aiSites.edit(chatAuth(), id, text).data }
-                }
-            }
+            SiteTabs(selected = tab, onSelect = { tab = it })
         }
 
-        if (p.versionList.isNotEmpty()) {
-            Spacer(Modifier.height(16.dp))
-            SiteCard {
-                SiteSectionTitle(stringResource(R.string.ai_sites_versions))
-                Spacer(Modifier.height(4.dp))
-                p.versionList.forEach { v ->
-                    VersionRow(v, canRestore = !v.isCurrent && v.status == "completed" && idle, busy = busy) {
-                        act { ApiClient.aiSites.restore(chatAuth(), id, v.number).data }
+        when (section) {
+            0 -> {
+                if (idle) {
+                    Spacer(Modifier.height(14.dp))
+                    SiteCard {
+                        SiteSectionTitle(stringResource(R.string.ai_sites_edit_title), stringResource(R.string.ai_sites_edit_sub))
+                        Spacer(Modifier.height(8.dp))
+                        if (editsBlocked) {
+                            Text(stringResource(R.string.ai_sites_packs_blocked_hint), color = c.danger, fontSize = 12.sp, lineHeight = 18.sp)
+                            Spacer(Modifier.height(6.dp))
+                        }
+                        SiteField(stringResource(R.string.ai_sites_edit_hint), instruction, { instruction = it }, singleLine = false, minLines = 3)
+                        Spacer(Modifier.height(6.dp))
+                        PrimaryButton(stringResource(R.string.ai_sites_edit_send), enabled = !busy && !editsBlocked && instruction.trim().length >= 3) {
+                            val text = instruction.trim()
+                            instruction = ""
+                            act { ApiClient.aiSites.edit(chatAuth(), id, text).data }
+                        }
+                    }
+                    Spacer(Modifier.height(14.dp))
+                    SiteEditPacksCard(night, p.id, reloadKey = p.versionList.joinToString { "${it.id}${it.status}" }, onBought = { scope.launch { refresh() } }) { editsBlocked = it }
+                }
+            }
+
+            1 -> if (p.versionList.isNotEmpty()) {
+                Spacer(Modifier.height(14.dp))
+                SiteCard {
+                    SiteSectionTitle(stringResource(R.string.ai_sites_versions))
+                    Spacer(Modifier.height(4.dp))
+                    p.versionList.forEach { v ->
+                        VersionRow(v, canRestore = !v.isCurrent && v.status == "completed" && idle, busy = busy) {
+                            act { ApiClient.aiSites.restore(chatAuth(), id, v.number).data }
+                        }
                     }
                 }
             }
-        }
 
-        if (hasSite && !p.isDisabled) {
-            Spacer(Modifier.height(16.dp))
-            SiteHostingCard(night, c.ink, c.mut, c.surface, p.id)
+            else -> {
+                Spacer(Modifier.height(14.dp))
+                SiteSourceCard(night, p.id)
+                Spacer(Modifier.height(14.dp))
+                SiteHostingCard(night, c.ink, c.mut, c.surface, p.id)
+            }
         }
 
         Spacer(Modifier.height(20.dp))
