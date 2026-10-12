@@ -68,6 +68,7 @@ import androidx.compose.material.icons.rounded.Campaign
 import androidx.compose.material.icons.rounded.Dialpad
 import androidx.compose.material.icons.rounded.QrCode2
 import androidx.compose.material.icons.rounded.QrCodeScanner
+import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Groups
@@ -126,6 +127,9 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.compose.material.icons.rounded.Message
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 
 /** The frame of every secondary chat page: brand header with back + title, content below. */
 @Composable
@@ -144,14 +148,25 @@ internal fun ChPage(title: String, onBack: () -> Unit, actions: @Composable () -
 }
 
 /** Opens (or creates) the direct chat with someone and moves to it. */
-internal fun ChatHost.openChatWith(profile: ProfileDto) {
+internal fun ChatHost.openChatWith(profile: ProfileDto, draft: String? = null, keepCurrent: Boolean = false) {
     scope.launch {
         try {
             val conversation = ApiClient.chat.openDirect(chatAuth(), OpenDirectRequest(profile.id, profile.type)).data ?: return@launch
-            replace(ChRoute.Conversation(conversation.id, conversation))
+            // A "click to chat" link's message waits in the composer (backlog 130).
+            if (!draft.isNullOrBlank()) com.dorr.app.chat.ChatStore.saveDraft(conversation.id, draft)
+            if (keepCurrent) push(ChRoute.Conversation(conversation.id, conversation)) else replace(ChRoute.Conversation(conversation.id, conversation))
         } catch (e: Exception) {
             e.apiFailure().message?.let { showToast(it) }
         }
+    }
+}
+
+/** A "click to chat" link or QR (dorr://chat/{token}?text=…): that person's chat, the message ready. */
+internal fun ChatHost.openChatLink(payload: String, keepCurrent: Boolean = true) {
+    scope.launch {
+        runCatching { ApiClient.chat.resolveQr(chatAuth(), mapOf("payload" to payload)).data }
+            .onSuccess { profile -> profile?.let { openChatWith(it, android.net.Uri.parse(payload).getQueryParameter("text"), keepCurrent) } }
+            .onFailure { e -> e.apiFailure().message?.let { showToast(it) } }
     }
 }
 
@@ -219,16 +234,21 @@ fun NewChatPage() {
         permissionDenied = !granted
         if (granted) sync()
     }
+    var joinByCode by remember { mutableStateOf(false) }
+    val badCode = stringResource(R.string.ch_join_code_bad)
+    if (joinByCode) TextInputSheet(stringResource(R.string.ch_join_code), action = stringResource(R.string.ch_join_code_go), icon = Icons.Rounded.Key, onDismiss = { joinByCode = false }) { text ->
+        inviteTokenOf(text)?.let { host.joinToken = it } ?: host.showToast(badCode)
+    }
     val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         val text = result.contents ?: return@rememberLauncherForActivityResult
         // A group's invite QR: the join sheet (join / ask to join), not a person.
-        if (text.startsWith("dorr://chat/join/")) {
-            host.joinToken = text.removePrefix("dorr://chat/join/")
+        if (text.startsWith("dorr://chat/join/") || Regex("^https?://[^/]+/j/").containsMatchIn(text)) {
+            inviteTokenOf(text)?.let { host.joinToken = it }
             return@rememberLauncherForActivityResult
         }
         scope.launch {
             runCatching { ApiClient.chat.resolveQr(chatAuth(), mapOf("payload" to text)).data }
-                .onSuccess { it?.let { p -> host.openChatWith(p) } }
+                .onSuccess { it?.let { p -> host.openChatWith(p, android.net.Uri.parse(text).getQueryParameter("text")) } }
                 .onFailure { host.showToast(it.apiFailure().message ?: invalidQr) }
         }
     }
@@ -280,6 +300,24 @@ fun NewChatPage() {
                         scanner.launch(ScanOptions().setPrompt(context.getString(R.string.ch_scan_prompt)).setBeepEnabled(false).setOrientationLocked(false))
                     }
                     ShortcutTile(Icons.Rounded.QrCode2, stringResource(R.string.ch_my_qr), 3, Modifier.weight(1f)) { host.push(ChRoute.MyQr) }
+                }
+            }
+            // A group or channel by its invite code or link (typed or pasted).
+            item {
+                Row(
+                    Modifier.fillMaxWidth().chStagger(4).shadow(4.dp, RoundedCornerShape(20.dp)).clip(RoundedCornerShape(20.dp)).background(Ch.Surface)
+                        .clickable { joinByCode = true }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Key, null, tint = Ch.Red, modifier = Modifier.size(24.dp))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.ch_join_code), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                        Text(stringResource(R.string.ch_join_code_sub), color = Ch.Mut, fontSize = 12.5.sp, maxLines = 1)
+                    }
+                    Icon(Icons.AutoMirrored.Rounded.ArrowForward, null, tint = Ch.Soft, modifier = Modifier.size(20.dp))
                 }
             }
             // Broadcast lists: one message, each person gets it in our own chat (like WhatsApp).
@@ -598,8 +636,13 @@ fun NewGroupPage(addTo: String?) {
         try {
             val ids = selected.mapNotNull { it.profile?.id }
             if (addTo != null) {
-                ApiClient.chat.addMembers(chatAuth(), addTo, mapOf("members" to ids))
-                host.pop()
+                // The answer says who couldn't be added (their privacy): say so instead of
+                // closing as if it worked — the invite link still lets them in.
+                val result = ApiClient.chat.addMembers(chatAuth(), addTo, mapOf("members" to ids)).data?.takeIf { it.isJsonObject }?.asJsonObject
+                val notAdded = result?.arr("not_added")?.size() ?: 0
+                val added = result?.arr("added")?.size() ?: 0
+                if (notAdded > 0) host.showToast(context.getString(R.string.ch_not_added, notAdded) + if (added == 0) " — " + context.getString(R.string.ch_try_invite_link) else "")
+                if (added > 0 || notAdded == 0) host.pop()
             } else {
                 val fields = mutableMapOf<String, RequestBody>(
                     "name" to name.trim().toRequestBody("text/plain".toMediaTypeOrNull()),
@@ -617,7 +660,7 @@ fun NewGroupPage(addTo: String?) {
                 }
             }
         } catch (e: Exception) {
-            e.apiFailure().message?.let { host.showToast(it) }
+            host.showToast(e.apiFailure().message ?: context.getString(R.string.ch_error_network))
         }
         busy = false
     }
@@ -766,6 +809,15 @@ fun MyQrPage() {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
     var qr by remember { mutableStateOf<QrDto?>(null) }
+    // "Click to chat" (backlog 130): a message ready in the chat the link or QR opens.
+    var ready by remember { mutableStateOf("") }
+    var link by remember { mutableStateOf<com.dorr.app.network.ChatLinkDto?>(null) }
+    LaunchedEffect(ready, qr?.token) {
+        kotlinx.coroutines.delay(400)
+        link = runCatching { ApiClient.backlog.chatLink(chatAuth(), ready.trim().ifEmpty { null }).data }.getOrNull()
+    }
+    val copied = stringResource(R.string.bk_copied)
+    val context = LocalContext.current
     val resetDone = stringResource(R.string.ch_qr_reset_done)
     LaunchedEffect(Unit) { qr = runCatching { ApiClient.chat.myQr(chatAuth()).data }.getOrNull() }
     val spin = rememberInfiniteTransition(label = "qrRing")
@@ -773,7 +825,7 @@ fun MyQrPage() {
     val me = com.dorr.app.network.AuthSession.user
 
     ChPage(stringResource(R.string.ch_my_qr_title), onBack = { host.pop() }) {
-        Column(Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(contentAlignment = Alignment.Center) {
                 // A slowly turning brand ring behind the card.
                 Box(Modifier.size(300.dp).rotate(angle).clip(RoundedCornerShape(44.dp)).background(Brush.sweepGradient(listOf(Ch.Red, Color(0xFFFF8A4C), Color(0xFFDB2777), Ch.Red))))
@@ -781,7 +833,8 @@ fun MyQrPage() {
                     Modifier.size(290.dp).clip(RoundedCornerShape(40.dp)).background(Ch.Surface).padding(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center,
                 ) {
-                    val bmp = remember(qr?.payload) { qr?.payload?.let { runCatching { qrImage(it) }.getOrNull() } }
+                    val payload = link?.payload ?: qr?.payload
+                    val bmp = remember(payload) { payload?.let { runCatching { qrImage(it) }.getOrNull() } }
                     if (bmp != null) {
                         Box(contentAlignment = Alignment.Center) {
                             Image(bmp.asImageBitmap(), null, modifier = Modifier.size(210.dp))
@@ -807,6 +860,32 @@ fun MyQrPage() {
                 Icon(Icons.Rounded.Refresh, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.ch_reset_qr), color = Ch.Red, fontWeight = FontWeight.ExtraBold)
+            }
+
+            // ------------------------------------------------ click to chat (backlog 130)
+            Spacer(Modifier.height(22.dp))
+            Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Ch.Surface).padding(16.dp)) {
+                Text(stringResource(R.string.bk_chat_link), color = Ch.Ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                Text(stringResource(R.string.bk_chat_link_sub), color = Ch.Mut, fontSize = 12.5.sp)
+                Spacer(Modifier.height(10.dp))
+                ChField(ready, { ready = it.take(500) }, stringResource(R.string.bk_chat_link_text), icon = Icons.Rounded.Message)
+                link?.let { l ->
+                    Text(l.link, color = Ch.Red, fontSize = 12.5.sp, maxLines = 2, modifier = Modifier.padding(top = 8.dp))
+                    Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        BkChip(stringResource(R.string.bk_copy_link), false) {
+                            (context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .setPrimaryClip(android.content.ClipData.newPlainText("DORR", l.link))
+                            host.showToast(copied)
+                        }
+                        BkChip(stringResource(R.string.bk_share_link), false) {
+                            runCatching {
+                                context.startActivity(android.content.Intent.createChooser(
+                                    android.content.Intent(android.content.Intent.ACTION_SEND).setType("text/plain").putExtra(android.content.Intent.EXTRA_TEXT, l.link), null,
+                                ).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                            }
+                        }
+                    }
+                }
             }
         }
     }

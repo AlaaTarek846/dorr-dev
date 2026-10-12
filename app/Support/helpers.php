@@ -189,7 +189,8 @@ if (! function_exists('sendPushNotification')) {
      * @param  string|array  $message  Notification body. Pass a string for a single locale,
      *                                 or a locale-keyed array for multi-lang:
      *                                 ['en' => 'Hello', 'ar' => 'مرحبا', 'fr' => 'Bonjour']
-     * @param  string|array  $playerIds  OneSignal player ID(s) to target
+     * @param  string|array|null  $playerIds  OneSignal player ID(s) to target
+     * @param  string|null  $type  'All Users' sends to everyone (OneSignal's "All" segment)
      * @param  string|array  $title  Optional title. Same format as $message.
      * @param  array|null  $data  Extra key-value data forwarded to the device
      * @param  string|null  $image  Big picture / large icon URL
@@ -208,7 +209,8 @@ if (! function_exists('sendPushNotification')) {
      */
     function sendPushNotification(
         string|array $message,
-        string|array $playerIds,
+        string|array|null $playerIds,
+        ?string $type = null,
         string|array $title = '',
         ?array $data = null,
         ?string $image = null,
@@ -228,9 +230,8 @@ if (! function_exists('sendPushNotification')) {
         }
 
         // Normalise player IDs
-        $ids = is_array($playerIds) ? $playerIds : [$playerIds];
-        $ids = array_filter($ids); // drop null / empty
-        if (empty($ids)) {
+        $ids = array_values(array_filter(is_array($playerIds) ? $playerIds : [$playerIds])); // drop null / empty
+        if (empty($ids) && $type !== 'All Users') {
             return false;
         }
 
@@ -240,18 +241,22 @@ if (! function_exists('sendPushNotification')) {
 
         $params = [
             'app_id' => $appId,
-            'include_player_ids' => $ids,
             'contents' => $contents,
         ];
+        if ($ids) {
+            $params['include_player_ids'] = $ids;
+        }
+        if ($type == 'All Users') {
+            $params['included_segments'] = ['All'];
+        }
+
 
         if ($headings) {
             $params['headings'] = $headings;
         }
 
-        if ($image) {
-            $params['big_picture'] = $image;
-            $params['large_icon'] = $image;
-        }
+            $params['big_picture'] = $image?? "https://dorr-app.com/dorr.jpg";
+            $params['large_icon'] = $image?? "https://dorr-app.com/dorr.jpg";
 
         if ($url) {
             $params['url'] = $url;
@@ -286,6 +291,13 @@ if (! function_exists('sendPushNotification')) {
                     'status' => $response->status(),
                     'body' => $response->body(),
                 ]);
+
+                return false;
+            }
+
+            // OneSignal answers 200 even when no phone got it ("All included players are not subscribed").
+            if ($response->json('errors') && ! $response->json('id')) {
+                Log::warning('[sendPushNotification] Nobody received it.', ['errors' => $response->json('errors')]);
 
                 return false;
             }

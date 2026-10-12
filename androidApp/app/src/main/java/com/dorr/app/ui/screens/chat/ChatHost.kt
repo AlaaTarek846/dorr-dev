@@ -70,6 +70,10 @@ sealed interface ChRoute {
     data object DataPerformance : ChRoute
     /** Usage stats (spec 83). */
     data object Usage : ChRoute
+    /** Manage storage (backlog 46–48): all my chats, or one chat's files. */
+    data class Storage(val conversationId: String? = null, val title: String? = null) : ChRoute
+    /** A channel's numbers (backlog 107). */
+    data class ChannelStats(val conversationId: String) : ChRoute
     /** A group's standing voice room (spec 91). */
     data class VoiceRoom(val conversationId: String, val title: String?) : ChRoute
     /** Watching a call broadcast live (spec 93). */
@@ -308,9 +312,9 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
         val conversationId = data.str("conversation_id")
         when (event.name) {
             "chat.message.sent" -> {
-                val message = data.getAsJsonObject("message") ?: return
+                val message = data.obj("message") ?: return
                 val id = conversationId ?: return
-                val senderKey = message.getAsJsonObject("sender")?.str("key")
+                val senderKey = message.obj("sender")?.str("key")
                 val mine = senderKey == myKey()
                 if (!mine && message.get("system")?.isJsonObject != true) com.dorr.app.chat.ChatUsage.messageReceived()
                 val existing = find(id)
@@ -325,7 +329,7 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
                         isMine = mine,
                         status = if (mine) "sent" else null,
                         isDeleted = false,
-                        system = message.getAsJsonObject("system")?.str("event"),
+                        system = message.obj("system")?.str("event"),
                         createdAt = message.str("created_at"),
                     )
                     val countsAsUnread = !mine && id != openConversationId && senderKey != null
@@ -362,7 +366,7 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
             "chat.story.posted", "chat.story.deleted", "chat.story.viewed", "chat.story.reaction" -> scope.launch { refreshStories() }
             "chat.presence" -> {
                 val who = data.str("participant") ?: return
-                presence[who] = PresenceDto(online = data.get("online")?.asBoolean == true, lastSeenAt = data.str("last_seen_at"))
+                presence[who] = PresenceDto(online = data.bool("online") == true, lastSeenAt = data.str("last_seen_at"))
             }
             // Admins: the "asking to join" badge changed.
             "chat.group.join_requests" -> conversationId?.let { id -> scope.launch { reload(id) } }
@@ -430,6 +434,26 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
     }
 }
 
+/**
+ * The code in a group / channel invite, however it came: the web link (https://…/j/CODE), the
+ * app's link (dorr://chat/join/CODE), or the code typed by itself. Null when it's none of these.
+ */
+internal fun inviteTokenOf(text: String): String? {
+    val t = text.trim()
+    Regex("""(?:dorr://chat/join/|https?://[^\s/]+/j/)([A-Za-z0-9]{8,64})""").find(t)?.let { return it.groupValues[1] }
+    return t.takeIf { Regex("[A-Za-z0-9]{8,64}").matches(it) }
+}
+
 internal fun JsonObject.str(name: String): String? = get(name)?.takeIf { !it.isJsonNull }?.let { runCatching { it.asString }.getOrNull() }
+
+// Reading a message's `meta` never throws: a missing or null field (JSON null) is just null.
+// `getAsJsonObject` / `.asBoolean` on a null field crashed the bubble — and with it the whole chat,
+// every time it was opened.
+internal fun JsonObject.obj(name: String): JsonObject? = get(name)?.takeIf { it.isJsonObject }?.asJsonObject
+internal fun JsonObject.arr(name: String): com.google.gson.JsonArray? = get(name)?.takeIf { it.isJsonArray }?.asJsonArray
+internal fun JsonObject.bool(name: String): Boolean? = get(name)?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asBoolean }.getOrNull() }
+internal fun JsonObject.int(name: String): Int? = get(name)?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asInt }.getOrNull() }
+internal fun JsonObject.long(name: String): Long? = get(name)?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asLong }.getOrNull() }
+internal fun JsonObject.dbl(name: String): Double? = get(name)?.takeIf { it.isJsonPrimitive }?.let { runCatching { it.asDouble }.getOrNull() }
 
 val LocalChat = staticCompositionLocalOf<ChatHost> { error("ChatHost missing — wrap chat pages in ChatScreen") }

@@ -74,16 +74,34 @@ object ChatRealtime {
     private var userId: Int? = null
     private var heartbeat: Job? = null
 
+    /** Asking the server for the settings right now (so the foreground doesn't ask twice). */
+    @Volatile
+    private var starting = false
+
     /** Connect (idempotent) for the signed-in user. */
     fun start() {
         val token = AuthSession.token ?: return
         val id = AuthSession.user?.id ?: return
-        if (pusher != null && userId == id) return
+        if ((pusher != null || starting) && userId == id) return
         stop()
         userId = id
+        com.dorr.app.CrashReports.setUser(id)
+        starting = true
 
         scope.launch {
-            val config = runCatching { ApiClient.chat.realtimeConfig("Bearer $token").data }.getOrNull()
+            // A failed first try (no network yet at start-up) used to leave the whole session with
+            // no live chat and no push: try again a few times, waiting longer each time.
+            var config: com.dorr.app.network.RealtimeConfigDto? = null
+            var wait = 2_000L
+            for (attempt in 1..6) {
+                config = runCatching { ApiClient.chat.realtimeConfig("Bearer $token").data }
+                    .onFailure { Log.w(TAG, "Real-time config failed (try $attempt)", it) }.getOrNull()
+                if (config != null || userId != id) break
+                delay(wait)
+                wait = (wait * 2).coerceAtMost(30_000L)
+            }
+            if (userId != id) return@launch
+            starting = false
             // The same answer carries the push app id: start notifications and register this phone.
             ChatPush.ensure(config?.oneSignalAppId)
             if (config == null || !config.enabled || config.key.isNullOrBlank()) {
@@ -168,6 +186,7 @@ object ChatRealtime {
         runCatching { pusher?.disconnect() }
         pusher = null
         userId = null
+        starting = false
         _connected.value = false
     }
 
@@ -179,6 +198,8 @@ object ChatRealtime {
     /** App came to the foreground: say "online" now and every minute (the server forgets after 90s). */
     fun onForeground() {
         inForeground = true
+        // Never connected this session (the server didn't answer): try again now.
+        if (pusher == null) start()
         val token = AuthSession.token ?: return
         heartbeat?.cancel()
         heartbeat = scope.launch {

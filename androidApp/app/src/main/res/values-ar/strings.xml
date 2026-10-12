@@ -1328,4 +1328,15 @@
     <string name="bk_story_mention_line">ذكرك في حالته</string>
     <string name="bk_story_mention_mine">ذكرته في حالتك</string>
     <string name="bk_video_too_big_slow">الفيديو ده كبير على النت البطيء (الحد 64 ميجا).</string>
+    <string name="vr_note_mic_on">الميكروفون مفتوح وبيسمعوك</string>
+    <string name="vr_note_mic_off">في الغرفة · الميكروفون مقفول</string>
+    <string name="vr_note_listening">بتسمع في الغرفة</string>
+    <string name="vr_mute">اقفل المايك</string>
+    <string name="vr_unmute">افتح المايك</string>
+    <string name="vr_leave">اخرج</string>
+    <string name="ch_try_invite_link">ابعتلهم لينك الدعوة بتاع الجروب</string>
+    <string name="ch_join_code">انضم بكود أو لينك</string>
+    <string name="ch_join_code_sub">دعوة لجروب أو قناة: اكتب الكود أو الصق اللينك</string>
+    <string name="ch_join_code_go">انضم</string>
+    <string name="ch_join_code_bad">ده مش كود أو لينك دعوة</string>
 </resources>
