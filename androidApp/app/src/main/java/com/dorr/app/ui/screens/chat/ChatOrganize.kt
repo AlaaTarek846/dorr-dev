@@ -6,7 +6,6 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.rounded.Unarchive
 import androidx.compose.material.icons.rounded.PushPin
@@ -72,8 +71,7 @@ import kotlinx.coroutines.launch
 @Composable
 private fun PickRow(index: Int, avatar: String?, title: String, subtitle: String?, key: String?, isGroup: Boolean, checked: Boolean, onToggle: () -> Unit) {
     Row(
-        // The whole row ticks (a checkbox for accessibility), not just the circle.
-        Modifier.fillMaxWidth().chStagger(index % 14).clip(RoundedCornerShape(16.dp)).toggleable(checked, role = androidx.compose.ui.semantics.Role.Checkbox) { onToggle() }.padding(vertical = 8.dp, horizontal = 6.dp),
+        Modifier.fillMaxWidth().chStagger(index % 14).clip(RoundedCornerShape(16.dp)).clickable(onClick = onToggle).padding(vertical = 8.dp, horizontal = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         ChAvatar(avatar, title, key, size = 42.dp, isGroup = isGroup)

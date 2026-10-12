@@ -81,8 +81,6 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import java.util.Locale
 import com.dorr.app.ui.screens.chat.ChSheet
-import com.dorr.app.ui.screens.chat.obj
-import com.dorr.app.ui.screens.chat.str
 
 /*
  * Predictions, contests and prizes (196), the community rating (199), sharing a match and
@@ -406,10 +404,10 @@ internal suspend fun makeRoom(m: SpMatchDto, members: List<Int>): String? =
 @Composable
 fun MatchCardBubble(dto: MessageDto, footer: @Composable () -> Unit) {
     val snap = dto.meta?.get("match")?.takeIf { it.isJsonObject }?.asJsonObject ?: return
-    fun team(key: String): SpTeamDto? = snap.obj(key)?.let { t ->
+    fun team(key: String): SpTeamDto? = snap.getAsJsonObject(key)?.let { t ->
         SpTeamDto(id = t.get("id")?.takeIf { !it.isJsonNull }?.asInt ?: 0, name = t.get("name")?.takeIf { !it.isJsonNull }?.asString, logo = t.get("logo")?.takeIf { !it.isJsonNull }?.asString, color = t.get("color")?.takeIf { !it.isJsonNull }?.asString)
     }
-    val id = snap.str("id") ?: return
+    val id = snap.get("id")?.asString ?: return
     val home = team("home")
     val away = team("away")
     val live = SportsLive.latest[id]

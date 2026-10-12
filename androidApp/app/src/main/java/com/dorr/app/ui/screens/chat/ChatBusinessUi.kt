@@ -110,10 +110,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
-import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.Place
-import androidx.compose.material.icons.rounded.Email
-import androidx.compose.material.icons.rounded.Language
 
 // =============================================================================== quick replies cache
 
@@ -188,11 +184,6 @@ fun BusinessPage() {
     var awayOn by remember { mutableStateOf(false) }
     var away by remember { mutableStateOf("") }
     var awayMode by remember { mutableStateOf("outside_hours") }
-    // The business card (backlog 111).
-    var about by remember { mutableStateOf("") }
-    var address by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var website by remember { mutableStateOf("") }
     val days = remember { mutableStateListOf<BusinessDayDto>() }
     var saving by remember { mutableStateOf(false) }
     var editingReply by remember { mutableStateOf<QuickReplyDto?>(null) }
@@ -210,10 +201,6 @@ fun BusinessPage() {
                 awayOn = b.profile.awayEnabled
                 away = b.profile.awayMessage.orEmpty()
                 awayMode = b.profile.awayMode
-                about = b.profile.about.orEmpty()
-                address = b.profile.address.orEmpty()
-                email = b.profile.email.orEmpty()
-                website = b.profile.website.orEmpty()
                 days.clear()
                 days.addAll(b.profile.hours.ifEmpty { List(7) { BusinessDayDto(false, "09:00", "17:00") } })
                 QuickReplies.set(b.quickReplies)
@@ -233,9 +220,6 @@ fun BusinessPage() {
                     mapOf(
                         "welcome_enabled" to welcomeOn, "welcome_message" to welcome.trim(),
                         "away_enabled" to awayOn, "away_message" to away.trim(), "away_mode" to awayMode,
-                        "about" to about.trim().ifEmpty { null }, "address" to address.trim().ifEmpty { null },
-                        "email" to email.trim().ifEmpty { null },
-                        "website" to website.trim().ifEmpty { null }?.let { if (it.startsWith("http")) it else "https://$it" },
                         "hours" to days.toList(),
                         // The hours are in my own time zone.
                         "timezone" to ZoneId.systemDefault().id,
@@ -261,23 +245,6 @@ fun BusinessPage() {
         }
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize().imePadding()) {
             item { Text(stringResource(R.string.ch_business_intro), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 6.dp)) }
-
-            // ------------------------------------------------------------ the business card (backlog 111)
-            item { SectionTitle(stringResource(R.string.bk_business_card)) }
-            item {
-                Card {
-                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        ChField(about, { about = it.take(500) }, stringResource(R.string.bk_business_about), icon = Icons.Rounded.Info)
-                        ChField(address, { address = it.take(300) }, stringResource(R.string.bk_business_address), icon = Icons.Rounded.Place)
-                        ChField(email, { email = it.take(150) }, stringResource(R.string.bk_business_email), icon = Icons.Rounded.Email)
-                        ChField(website, { website = it.take(255) }, stringResource(R.string.bk_business_website), icon = Icons.Rounded.Language)
-                    }
-                }
-            }
-
-            // ------------------------------------------------------------ message statistics (backlog 116)
-            item { SectionTitle(stringResource(R.string.bk_business_stats)) }
-            item { BusinessStatsCard() }
 
             // ------------------------------------------------------------ opening hours
             item { SectionTitle(stringResource(R.string.ch_business_hours)) }
@@ -789,7 +756,7 @@ fun InviteLinkSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
 /** Under a business's name: "Open now" / "Closed · opens 09:00". */
 @Composable
 internal fun businessStatus(business: BusinessHoursDto): String {
-    if (business.openNow == true) return stringResource(R.string.ch_business_open_now)
+    if (business.openNow) return stringResource(R.string.ch_business_open_now)
     val next = nextOpening(business) ?: return stringResource(R.string.ch_business_closed_now)
     return stringResource(R.string.ch_business_opens_at, next)
 }

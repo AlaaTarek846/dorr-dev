@@ -30,7 +30,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material3.Icon
@@ -274,10 +273,10 @@ internal fun StoryThumb(story: com.dorr.app.network.StoryDto, size: Dp) {
     }
 }
 
-/** "Text", "Photo or video" or "Voice" — the ways to post. */
+/** "Text" or "Photo or video" — the two ways to post. */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun StoryAddSheet(onDismiss: () -> Unit, onText: () -> Unit, onMedia: () -> Unit, onVoice: () -> Unit) {
+fun StoryAddSheet(onDismiss: () -> Unit, onText: () -> Unit, onMedia: () -> Unit) {
     com.dorr.app.ui.locale.LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = androidx.compose.foundation.shape.RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 34.dp)) {
             Text(stringResource(R.string.st_add_status), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
@@ -285,7 +284,6 @@ fun StoryAddSheet(onDismiss: () -> Unit, onText: () -> Unit, onMedia: () -> Unit
             androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
                 AddTile(Icons.Rounded.Edit, stringResource(R.string.st_text), StoryLook.brush("sunset"), 0, Modifier.weight(1f)) { onDismiss(); onText() }
                 AddTile(Icons.Rounded.PhotoCamera, stringResource(R.string.st_photo_video), StoryLook.brush("dorr"), 1, Modifier.weight(1f)) { onDismiss(); onMedia() }
-                AddTile(Icons.Rounded.Mic, stringResource(R.string.bk_voice_status), StoryLook.brush("ocean"), 2, Modifier.weight(1f)) { onDismiss(); onVoice() }
             }
         }
     }

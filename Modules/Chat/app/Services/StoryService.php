@@ -21,7 +21,6 @@ use Modules\Chat\Models\ChatStory;
 use Modules\Chat\Models\ChatStoryView;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
-use Modules\Chat\Support\SharedMedia;
 
 /**
  * Stories / Status (docs/chat-plan.md §10.1).
@@ -95,9 +94,7 @@ class StoryService
                 'expires_at' => now()->addHours($settings->story_duration_hours),
             ]);
 
-            if ($copyMedia !== null) {
-                SharedMedia::attach($copyMedia, $story, ChatStory::MEDIA);
-            }
+            $copyMedia?->copy($story, ChatStory::MEDIA);
             if ($file !== null) {
                 config(['media-library.max_file_size' => $settings->max_file_size_mb * 1024 * 1024]);
                 $file = WebpUploadConverter::convert($file);

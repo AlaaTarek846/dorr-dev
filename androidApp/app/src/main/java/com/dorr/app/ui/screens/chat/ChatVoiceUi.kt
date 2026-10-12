@@ -63,8 +63,6 @@ import androidx.core.content.ContextCompat
 import com.dorr.app.R
 import com.dorr.app.chat.ChatRealtime
 import com.dorr.app.chat.VoiceRoomController
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
-import androidx.compose.material.icons.rounded.PhoneInTalk
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.VoiceMemberDto
 import kotlinx.coroutines.launch
@@ -229,11 +227,6 @@ fun VoiceRoomPage(conversationId: String, title: String?) {
                 } else {
                     RoundButton(if (VoiceRoomController.micOn) Icons.Rounded.Mic else Icons.Rounded.MicOff, if (VoiceRoomController.micOn) VoiceTeal else Color.White.copy(alpha = 0.16f), 58) { VoiceRoomController.toggleMic() }
                 }
-                // The loudspeaker, or the earpiece / headset.
-                RoundButton(
-                    if (VoiceRoomController.speakerOn) Icons.AutoMirrored.Rounded.VolumeUp else Icons.Rounded.PhoneInTalk,
-                    if (VoiceRoomController.speakerOn) VoiceTeal else Color.White.copy(alpha = 0.16f), 58,
-                ) { VoiceRoomController.toggleSpeaker() }
                 RoundButton(Icons.Rounded.CallEnd, Color(0xFFDC2626), 58) { VoiceRoomController.leave(); host.pop() }
             }
         }

@@ -433,14 +433,9 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                     val current = messages.firstOrNull { it.id == message.id } ?: return@let
                     replaceMessage(message.id, current.copy(dto = current.dto.copy(poll = fresh.poll)))
                 }
-            } catch (e: CancellationException) {
-                throw e
             } catch (e: Exception) {
                 replaceMessage(message.id, message)
-                // Never silent: a vote that didn't count says why (it used to just spring back).
-                android.util.Log.w("DorrChat", "vote failed", e)
-                com.dorr.app.CrashReports.record(e)
-                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+                e.apiFailure().message?.let { host.showToast(it) }
             }
         }
     }
@@ -518,13 +513,6 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 val index = messages.indexOfFirst { it.id == uuid }
                 if (index >= 0) messages[index] = messages[index].copy(local = "failed")
                 android.util.Log.w("DorrChat", "send ${out.type} failed", e)
-                // Too big for the slow line now: final until I retry (on Wi-Fi, say).
-                if (e is com.dorr.app.chat.VideoTooBigException) {
-                    autoRetries.remove(uuid)
-                    com.dorr.app.chat.ChatOutbox.rejected(uuid)
-                    if (!quiet) host.showToast(context.getString(com.dorr.app.R.string.bk_video_too_big_slow))
-                    return@launch
-                }
                 // Slow mode (the app didn't know yet — e.g. just switched on): it goes by itself
                 // once the wait is over, and the send button counts down meanwhile.
                 if (failure.errorCode == "chat_slow_mode") {
@@ -713,7 +701,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
             // One of my scheduled messages went out, failed, or changed on another device.
             "chat.scheduled.changed" -> scope.launch { refreshScheduled() }
             "chat.message.sent" -> {
-                val dto = parseMessage(event.data.obj("message")) ?: return
+                val dto = parseMessage(event.data.getAsJsonObject("message")) ?: return
                 // A reply in a thread: it stays in the thread; its message counts one more.
                 if (dto.threadRoot != null) {
                     val i = messages.indexOfFirst { it.dto.id == dto.threadRoot }
@@ -740,7 +728,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 }
             }
             "chat.message.updated", "chat.message.deleted" -> {
-                val dto = parseMessage(event.data.obj("message")) ?: return
+                val dto = parseMessage(event.data.getAsJsonObject("message")) ?: return
                 val old = messages.firstOrNull { it.id == dto.id } ?: return
                 // A money card is drawn per viewer (can I pay? my share): the broadcast is the
                 // requester's view, so read my own version of it.
@@ -763,7 +751,7 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 val index = messages.indexOfFirst { it.id == messageId }
                 if (index < 0) return
                 val summary = runCatching {
-                    (event.data.arr("summary") ?: com.google.gson.JsonArray()).map { gson.fromJson(it, ReactionSummaryDto::class.java) }
+                    event.data.getAsJsonArray("summary").map { gson.fromJson(it, ReactionSummaryDto::class.java) }
                 }.getOrDefault(emptyList())
                 val old = messages[index].dto
                 val mine = if (event.data.str("participant") == myKey()) event.data.str("emoji") else old.reactions.mine
@@ -775,14 +763,14 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 if (index < 0) return
                 val old = messages[index].dto
                 val poll = old.poll ?: return
-                val counts = event.data.obj("counts")
+                val counts = event.data.getAsJsonObject("counts")
                 val mineNow = if (event.data.str("participant") == myKey()) {
-                    event.data.arr("option_ids")?.mapNotNull { runCatching { it.asInt }.getOrNull() } ?: poll.myVotes
+                    event.data.getAsJsonArray("option_ids")?.mapNotNull { runCatching { it.asInt }.getOrNull() } ?: poll.myVotes
                 } else poll.myVotes
                 messages[index] = messages[index].copy(dto = old.copy(poll = poll.copy(
-                    options = poll.options.map { o -> o.copy(votes = counts?.int(o.id.toString()) ?: 0) },
+                    options = poll.options.map { o -> o.copy(votes = counts?.get(o.id.toString())?.asInt ?: 0) },
                     myVotes = mineNow,
-                    voters = event.data.int("voters") ?: poll.voters,
+                    voters = event.data.get("voters")?.asInt ?: poll.voters,
                 )))
             }
             // My view-once was opened (or I opened it on another device): it can't be opened again.

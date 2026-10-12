@@ -163,15 +163,6 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
                 if ((host.current as? ChRoute.Conversation)?.id != link.id) host.push(ChRoute.Conversation(link.id))
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
-            // A "click to chat" link from outside the app (backlog 130).
-            if (link is com.dorr.app.chat.ChatDeepLink.Join) {
-                host.joinToken = link.token
-                com.dorr.app.chat.ChatPush.consumeDeepLink()
-            }
-            if (link is com.dorr.app.chat.ChatDeepLink.ChatLink) {
-                host.openChatLink(link.payload)
-                com.dorr.app.chat.ChatPush.consumeDeepLink()
-            }
             // A task whose time came (spec 38): my tasks.
             if (link == com.dorr.app.chat.ChatDeepLink.Tasks) {
                 if (host.current != ChRoute.Tasks) host.push(ChRoute.Tasks)
@@ -306,8 +297,6 @@ private fun ChatPage(route: ChRoute) {
         ChRoute.LifeInbox -> LifeInboxPage()
         ChRoute.DataPerformance -> DataPerformancePage()
         ChRoute.Usage -> UsagePage()
-        is ChRoute.Storage -> StoragePage(route.conversationId, route.title)
-        is ChRoute.ChannelStats -> ChannelStatsPage(route.conversationId)
         is ChRoute.VoiceRoom -> VoiceRoomPage(route.conversationId, route.title)
         is ChRoute.LiveViewer -> LiveViewerPage(route.token)
     }

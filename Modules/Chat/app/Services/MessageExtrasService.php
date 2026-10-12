@@ -80,8 +80,7 @@ class MessageExtrasService
             'message_id' => $message->uuid,
             'participant' => $participant->key(),
             'option_ids' => $picked->all(),
-            // Always a JSON object: with no votes left it went out as `[]`, which crashed older apps.
-            'counts' => (object) $summary['counts'],
+            'counts' => $summary['counts'],
             'voters' => $summary['voters'],
         ]);
 

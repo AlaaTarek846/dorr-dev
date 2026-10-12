@@ -12,7 +12,6 @@ use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Validation\Rule;
 use Modules\Chat\Support\ParticipantType;
 use Modules\Discover\Models\DiscoverOrganizer;
-use Modules\Discover\Services\ReviewNotifier;
 
 /** Organizers waiting for review, verified, rejected or suspended (spec 180, AT-DISC-02). */
 class DiscoverOrganizerController extends Controller implements HasMiddleware
@@ -54,14 +53,12 @@ class DiscoverOrganizerController extends Controller implements HasMiddleware
     public function review(Request $request, DiscoverOrganizer $discoverOrganizer)
     {
         $data = $request->validate(['status' => ['required', Rule::in(DiscoverOrganizer::STATUSES)], 'note' => ['nullable', 'string', 'max:500']]);
-        $from = (string) $discoverOrganizer->status;
         $discoverOrganizer->update([
             'status' => $data['status'],
             'review_note' => $data['note'] ?? null,
             'verified_at' => $data['status'] === 'verified' ? now() : null,
             'reviewed_by' => $request->user()?->getKey(),
         ]);
-        app(ReviewNotifier::class)->organizer($discoverOrganizer, $from);
 
         return ApiResponse::success($this->present($discoverOrganizer->loadCount('events')), __('api.updated'));
     }

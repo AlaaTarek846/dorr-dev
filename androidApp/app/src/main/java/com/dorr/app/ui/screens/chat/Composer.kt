@@ -743,21 +743,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             state.send(Outgoing(if (file.mime.startsWith("video/")) "video" else "image", files = listOf(file), extra = mapOf("view_once" to 1)))
         }
     }
-    // Without the contacts permission (refused, maybe for good): pick one number in the phone's own
-    // contacts app — Android hands over just that number, no permission needed, nothing to re-ask.
-    val phonePick = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        onDismiss()
-        val uri = result.data?.data ?: return@rememberLauncherForActivityResult
-        readPickedPhone(context, uri)?.let { (name, phone) ->
-            state.send(Outgoing("contact", extra = mapOf("contact_name" to name, "contact_phones" to listOf(phone))))
-        }
-    }
-    fun pickOnePhone() {
-        runCatching { phonePick.launch(android.content.Intent(android.content.Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }
-            .onFailure { onDismiss() }
-    }
     val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) contact.launch(null) else pickOnePhone()
+        if (granted) contact.launch(null) else onDismiss()
     }
 
     val items = listOfNotNull(
@@ -773,14 +760,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             viewOnce.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         },
         AttachItem(Icons.Rounded.Person, R.string.ch_attach_contact, listOf(Color(0xFF22D3EE), Color(0xFF0891B2))) {
-            val activity = context as? android.app.Activity
-            when {
-                // Allowed: the whole contact (all its numbers).
-                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED -> contact.launch(null)
-                // Refused before: Android won't ask again — one number from the phone's picker instead.
-                ContactsAsk.asked(context) && activity != null && !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_CONTACTS) -> pickOnePhone()
-                else -> { ContactsAsk.mark(context); contactsPermission.launch(Manifest.permission.READ_CONTACTS) }
-            }
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) contact.launch(null)
+            else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
         },
         // Money requests / splits are between people — not in a channel.
         if (isChannel) null else AttachItem(
@@ -842,9 +823,6 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     }
     if (moneyOpen) {
         if (isGroup) {
-            // The members were only loaded for "@" suggestions: opened before that, the sheet had
-            // nobody to pick and its button never woke up.
-            LaunchedEffect(Unit) { state.loadMembers() }
             SplitBillSheet(state.members, onDismiss = { moneyOpen = false; onDismiss() }) { total, note, equal, shares ->
                 state.send(Outgoing("bill_split", body = note, extra = buildMap {
                     put("amount_minor", total)
@@ -953,20 +931,6 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
         }
     }
 }
-
-/** Whether the app already asked for the contacts permission (Android says nothing about "never ask again"). */
-private object ContactsAsk {
-    fun asked(context: Context) = context.getSharedPreferences("chat_prefs", Context.MODE_PRIVATE).getBoolean("contacts_asked", false)
-    fun mark(context: Context) = context.getSharedPreferences("chat_prefs", Context.MODE_PRIVATE).edit().putBoolean("contacts_asked", true).apply()
-}
-
-/** One number picked in the phone's contacts app (no permission: Android grants just that row). */
-private fun readPickedPhone(context: Context, uri: android.net.Uri): Pair<String, String>? = runCatching {
-    context.contentResolver.query(
-        uri, arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, null,
-    )?.use { c -> if (c.moveToFirst()) (c.getString(0).orEmpty() to c.getString(1).orEmpty()) else null }
-        ?.takeIf { it.second.isNotBlank() }?.let { (name, phone) -> name.ifBlank { phone } to phone }
-}.getOrNull()
 
 private fun readContact(context: Context, uri: android.net.Uri): Pair<String, List<String>>? = runCatching {
     val resolver = context.contentResolver

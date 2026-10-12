@@ -201,10 +201,9 @@ internal fun LiveShareSheet(live: LiveDto, onDismiss: () -> Unit) {
 @Composable
 internal fun LiveCardBubble(dto: MessageDto, footer: @Composable () -> Unit) {
     val host = LocalChat.current
-    val live = dto.meta?.obj("live") ?: return
-    // A live that ended has no token any more: the card stays, it just doesn't open.
-    val token = live.str("token")
-    Column(Modifier.width(250.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF881337), LiveRed))).clickable(enabled = token != null) { token?.let { host.push(ChRoute.LiveViewer(it)) } }.padding(14.dp)) {
+    val live = dto.meta?.getAsJsonObject("live") ?: return
+    val token = live.get("token")?.asString ?: return
+    Column(Modifier.width(250.dp).clip(RoundedCornerShape(18.dp)).background(Brush.linearGradient(listOf(Color(0xFF881337), LiveRed))).clickable { host.push(ChRoute.LiveViewer(token)) }.padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Row(Modifier.clip(CircleShape).background(Color.White.copy(alpha = 0.2f)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
                 LivePulseDot()

@@ -82,18 +82,11 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /** Maximum video length the app lets through before the server says no (the admin can raise it). */
-internal const val VIDEO_LIMIT_SECONDS = 60
-
-/** `voice` opens the voice recorder (backlog 78); any other value is a picked photo / video. */
-const val STORY_VOICE = "voice"
+private const val VIDEO_LIMIT_SECONDS = 60
 
 @Composable
 fun StoryComposerPage(mediaUri: String?) {
-    when (mediaUri) {
-        null -> TextStoryEditor()
-        STORY_VOICE -> VoiceStoryEditor()
-        else -> MediaStoryEditor(Uri.parse(mediaUri))
-    }
+    if (mediaUri == null) TextStoryEditor() else MediaStoryEditor(Uri.parse(mediaUri))
 }
 
 // ------------------------------------------------------------------------------- text
@@ -105,7 +98,6 @@ private fun TextStoryEditor() {
     var bg by remember { mutableIntStateOf(0) }
     var font by remember { mutableIntStateOf(0) }
     var allowReplies by remember { mutableStateOf(true) }
-    var mentions by remember { mutableStateOf<List<Int>>(emptyList()) }
     val focus = remember { FocusRequester() }
     val backgrounds = StoryLook.backgrounds.keys.toList()
     val fontName = StoryLook.fonts[font]
@@ -139,8 +131,6 @@ private fun TextStoryEditor() {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             GlassIcon(Icons.Rounded.Close) { host.pop() }
             Spacer(Modifier.weight(1f))
-            MentionPill(mentions) { mentions = it }
-            Spacer(Modifier.width(10.dp))
             ToolButton(null, "Aa", Modifier.scale(fontScale)) {
                 font = (font + 1) % StoryLook.fonts.size
                 fontBounce = true
@@ -155,11 +145,7 @@ private fun TextStoryEditor() {
             Spacer(Modifier.weight(1f))
             val networkError = stringResource(R.string.ch_error_network)
             PostButton(enabled = text.isNotBlank()) {
-                host.postStory(
-                    mapOf("type" to "text", "body" to text.trim(), "style[background]" to backgrounds[bg], "style[font]" to fontName, "allow_replies" to if (allowReplies) "1" else "0") + mentionFields(mentions),
-                    null,
-                    networkError,
-                )
+                host.postStory(mapOf("type" to "text", "body" to text.trim(), "style[background]" to backgrounds[bg], "style[font]" to fontName, "allow_replies" to if (allowReplies) "1" else "0"), null, networkError)
             }
         }
     }
@@ -173,7 +159,6 @@ private fun MediaStoryEditor(uri: Uri) {
     val context = LocalContext.current
     var caption by remember { mutableStateOf("") }
     var allowReplies by remember { mutableStateOf(true) }
-    var mentions by remember { mutableStateOf<List<Int>>(emptyList()) }
     val mime = remember(uri) { context.contentResolver.getType(uri).orEmpty() }
     val isVideo = mime.startsWith("video/")
     val durationMs = remember(uri) {
@@ -200,11 +185,7 @@ private fun MediaStoryEditor(uri: Uri) {
             AsyncImage(uri, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
         }
 
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            GlassIcon(Icons.Rounded.Close) { host.pop() }
-            Spacer(Modifier.weight(1f))
-            MentionPill(mentions) { mentions = it }
-        }
+        Row(Modifier.fillMaxWidth().padding(12.dp)) { GlassIcon(Icons.Rounded.Close) { host.pop() } }
 
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(14.dp)) {
             AnimatedVisibility(tooLong) {
@@ -227,7 +208,6 @@ private fun MediaStoryEditor(uri: Uri) {
                             if (caption.isNotBlank()) put("body", caption.trim())
                             durationMs?.let { put("duration_ms", it.toString()) }
                             put("allow_replies", if (allowReplies) "1" else "0")
-                            putAll(mentionFields(mentions))
                         },
                         file,
                         networkError,
@@ -251,11 +231,8 @@ private fun ToolButton(icon: ImageVector?, label: String?, modifier: Modifier = 
     }
 }
 
-/** The people mentioned (backlog 84), as form fields. */
-private fun mentionFields(ids: List<Int>): Map<String, String> = ids.withIndex().associate { (i, id) -> "mentions[$i]" to id.toString() }
-
 @Composable
-internal fun PostOptions(allowReplies: Boolean, onToggleReplies: () -> Unit) {
+private fun PostOptions(allowReplies: Boolean, onToggleReplies: () -> Unit) {
     val host = LocalChat.current
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         // From the home page it's public — everyone sees it; from the chat, my usual audience.
@@ -278,7 +255,7 @@ private fun Pill(icon: ImageVector, text: String, active: Boolean = true, onClic
 }
 
 @Composable
-internal fun PostButton(enabled: Boolean, onClick: () -> Unit) {
+private fun PostButton(enabled: Boolean, onClick: () -> Unit) {
     AnimatedContent(enabled, label = "post", transitionSpec = { scaleIn(spring(dampingRatio = 0.45f)) togetherWith scaleOut() }) { on ->
         Box(
             Modifier.size(58.dp).shadow(if (on) 16.dp else 0.dp, CircleShape, spotColor = Color.Black).clip(CircleShape)

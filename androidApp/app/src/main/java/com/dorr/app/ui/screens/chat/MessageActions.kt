@@ -19,8 +19,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -126,23 +124,19 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
         state.focused = null
     }
 
-    androidx.compose.foundation.layout.BoxWithConstraints(
+    Box(
         Modifier
             .fillMaxSize()
             .background(Color.Black.copy(alpha = 0.42f * appear.value.coerceIn(0f, 1f)))
             .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { close() },
         contentAlignment = Alignment.Center,
     ) {
-        // Everything fits the screen: a long message scrolls in at most a third of it, and the
-        // menu takes what's left and scrolls too (a long message used to push the menu off-screen).
-        val screen = maxHeight
         Column(
-            Modifier.fillMaxWidth().heightIn(max = screen).padding(horizontal = 18.dp, vertical = 14.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp),
             horizontalAlignment = if (focused.isMine) Alignment.End else Alignment.Start,
-            verticalArrangement = Arrangement.Center,
         ) {
             // ------------------------------------------------------------ reactions
-            if (dto.type !in setOf("call", "system") && state.conversation?.takeIf { it.isChannel }?.group?.allowedReactions?.isEmpty() != true) {
+            if (dto.type !in setOf("call", "system")) {
                 Row(
                     Modifier
                         .graphicsLayer { val p = appear.value; scaleX = 0.6f + 0.4f * p; scaleY = 0.6f + 0.4f * p; alpha = p.coerceIn(0f, 1f) }
@@ -153,14 +147,13 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    val allowed = state.conversation?.takeIf { it.isChannel }?.group?.allowedReactions
-                    (allowed?.take(8) ?: QuickReactions).forEachIndexed { i, emoji ->
+                    QuickReactions.forEachIndexed { i, emoji ->
                         ReactionEmoji(emoji, i, selected = dto.reactions.mine == emoji) {
                             state.react(dto, if (dto.reactions.mine == emoji) null else emoji)
                             close()
                         }
                     }
-                    if (allowed == null) Box(Modifier.size(38.dp).clip(CircleShape).background(Ch.SurfaceMuted).clickable { allEmoji = true }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.size(38.dp).clip(CircleShape).background(Ch.SurfaceMuted).clickable { allEmoji = true }, contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Add, null, tint = Ch.Mut, modifier = Modifier.size(22.dp))
                     }
                 }
@@ -168,10 +161,7 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
             }
 
             // ------------------------------------------------------------ the message itself
-            Box(
-                Modifier.graphicsLayer { val p = appear.value; scaleX = 0.94f + 0.06f * p; scaleY = 0.94f + 0.06f * p }.widthIn(max = 320.dp)
-                    .heightIn(max = screen * 0.32f).verticalScroll(rememberScrollState()),
-            ) {
+            Box(Modifier.graphicsLayer { val p = appear.value; scaleX = 0.94f + 0.06f * p; scaleY = 0.94f + 0.06f * p }.widthIn(max = 320.dp)) {
                 MessageRow(focused.copy(fresh = false), firstInRun = true, lastInRun = true, isGroup = false, actions = NoActions)
             }
             Spacer(Modifier.height(10.dp))
@@ -183,13 +173,11 @@ fun MessageFocusOverlay(state: ConversationState, onOpenInfo: (MessageDto) -> Un
             val canForward = dto.type !in setOf("wallet_transfer", "call", "system", "story_reply")
             Column(
                 Modifier
-                    .weight(1f, fill = false)
                     .width(240.dp)
                     .graphicsLayer { val p = appear.value; translationY = (1f - p) * 40.dp.toPx(); alpha = p.coerceIn(0f, 1f) }
                     .shadow(16.dp, RoundedCornerShape(22.dp))
                     .clip(RoundedCornerShape(22.dp))
-                    .background(Ch.Surface)
-                    .verticalScroll(rememberScrollState()),
+                    .background(Ch.Surface),
             ) {
                 ActionRow(Icons.AutoMirrored.Rounded.Reply, stringResource(R.string.ch_reply)) { state.replyTo = dto; close() }
                 // A side discussion under this message (spec 122).

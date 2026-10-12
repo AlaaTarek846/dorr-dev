@@ -483,8 +483,7 @@ fun SplitBillSheet(members: List<MemberDto>, onDismiss: () -> Unit, onSend: (tot
     var amount by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var equal by remember { mutableStateOf(true) }
-    // Everyone ticked, once the members arrive.
-    val picked = remember(members) { mutableStateListOf<Int>().apply { addAll(members.map { it.participantId }) } }
+    val picked = remember { mutableStateListOf<Int>().apply { addAll(members.map { it.participantId }) } }
     val custom = remember { mutableStateMapOf<Int, String>() }
     val total = parseAmountToMinor(amount) ?: 0L
     val perHead = if (picked.isNotEmpty()) total / picked.size else 0L
@@ -519,9 +518,6 @@ fun SplitBillSheet(members: List<MemberDto>, onDismiss: () -> Unit, onSend: (tot
             }
             Spacer(Modifier.height(10.dp))
 
-            if (members.isEmpty()) Box(Modifier.fillMaxWidth().padding(20.dp), contentAlignment = Alignment.Center) {
-                androidx.compose.material3.CircularProgressIndicator(Modifier.size(24.dp), color = Ch.Red, strokeWidth = 2.5.dp)
-            }
             members.forEachIndexed { i, member ->
                 val on = member.participantId in picked
                 Row(

@@ -25,11 +25,6 @@ class ModelFolderPathGenerator implements PathGenerator
 
     protected function getBasePath(Media $media): string
     {
-        // A file shared with another row (a forwarded chat file) lives in the first row's folder.
-        if (is_string($shared = $media->getCustomProperty('shared_path')) && $shared !== '') {
-            return $shared;
-        }
-
         $folder = $this->resolveFolder($media);
         $path = "{$folder}/{$media->model_id}";
         $prefix = config('media-library.prefix', '');

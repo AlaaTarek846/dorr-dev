@@ -389,7 +389,7 @@ class ChatPushNotifier
                 $playerIds = NotificationDevice::query()
                     ->where(function ($q) use ($recipients) {
                         foreach ($recipients->groupBy('participant_type') as $type => $rows) {
-                            $q->orWhere(fn ($q) => $q->whereIn('owner_type', self::deviceOwnerTypes($type))->whereIn('owner_id', $rows->pluck('participant_id')));
+                            $q->orWhere(fn ($q) => $q->where('owner_type', ParticipantType::modelClassFor($type))->whereIn('owner_id', $rows->pluck('participant_id')));
                         }
                     })
                     ->pluck('player_id')->filter()->unique()->values()->all();
@@ -406,20 +406,6 @@ class ChatPushNotifier
                 Log::error('[ChatPushNotifier] '.$e->getMessage());
             }
         });
-    }
-
-    /**
-     * How a phone's owner is saved in `notification_devices`: its morph class — "user" since the
-     * AI module's morph map aliases the account models, the class name for phones registered
-     * before that. Looking up the class name alone found no phone, so no chat push went out.
-     *
-     * @return list<string>
-     */
-    private static function deviceOwnerTypes(string $alias): array
-    {
-        $class = ParticipantType::modelClassFor($alias);
-
-        return array_values(array_unique([$class, (new $class)->getMorphClass()]));
     }
 
     /**

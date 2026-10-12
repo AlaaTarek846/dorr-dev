@@ -669,8 +669,6 @@ data class GroupInfoDto(
     /** Channels: the ✔ and the category. */
     @SerializedName("is_verified") val isVerified: Boolean = false,
     val category: CategoryDto? = null,
-    /** A channel: the emojis followers may react with (null = any, empty = none). */
-    @SerializedName("allowed_reactions") val allowedReactions: List<String>? = null,
 )
 
 data class StickerDto(
@@ -1118,11 +1116,6 @@ data class BusinessProfileDto(
     @SerializedName("away_mode") val awayMode: String = "outside_hours",
     val hours: List<BusinessDayDto> = emptyList(),
     val timezone: String = "UTC",
-    /** The business card (backlog 111). */
-    val about: String? = null,
-    val address: String? = null,
-    val email: String? = null,
-    val website: String? = null,
 )
 
 data class QuickReplyDto(val id: Int, val shortcut: String, val body: String)
@@ -1134,15 +1127,9 @@ data class BusinessDto(
 
 /** What a customer sees about a business on the chat screen. */
 data class BusinessHoursDto(
-    /** Empty when it set no opening hours (only its card). */
     val hours: List<BusinessDayDto> = emptyList(),
     val timezone: String = "UTC",
-    @SerializedName("open_now") val openNow: Boolean? = null,
-    /** The business card (backlog 111). */
-    val about: String? = null,
-    val address: String? = null,
-    val email: String? = null,
-    val website: String? = null,
+    @SerializedName("open_now") val openNow: Boolean = true,
 )
 
 data class BlockDto(val profile: ProfileDto?, @SerializedName("blocked_at") val blockedAt: String?)
@@ -1207,13 +1194,7 @@ data class CallRecordingDto(
     val url: String? = null,
 )
 
-data class StoryStyleDto(
-    val background: String? = null,
-    val font: String? = null,
-    val align: String? = null,
-    /** A voice status's bars (0–100). */
-    val waveform: List<Int>? = null,
-)
+data class StoryStyleDto(val background: String? = null, val font: String? = null, val align: String? = null)
 
 data class StoryMediaDto(val url: String, @SerializedName("mime_type") val mimeType: String?)
 
@@ -1238,12 +1219,6 @@ data class StoryDto(
     @SerializedName("is_dorr") val isDorr: Boolean = false,
     @SerializedName("link_url") val linkUrl: String? = null,
     @SerializedName("link_label") val linkLabel: String? = null,
-    /** How many people my status mentions (mine only). */
-    val mentions: Int? = null,
-    /** This status mentions me: I may add it to mine. */
-    @SerializedName("mentioned_me") val mentionedMe: Boolean = false,
-    /** Added from a status that mentioned its poster (it doesn't say whose). */
-    val reshared: Boolean = false,
 )
 
 /** The home page's circles: mine, Dorr's own, then everyone's public stories (unseen + most watched first). */

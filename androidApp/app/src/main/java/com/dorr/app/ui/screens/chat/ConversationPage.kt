@@ -553,9 +553,8 @@ private fun ConversationHeader(c: ConversationDto?, state: ConversationState, on
                 GlassIcon(Icons.Rounded.GraphicEq, size = 38.dp) { host.push(ChRoute.VoiceRoom(state.id, c.title)) }
                 Spacer(Modifier.width(6.dp))
             }
-            // No calls with myself, nor where calls are switched off (my or their country), nor
-            // while a request I sent is still waiting to be accepted.
-            if (c != null && c.status == "accepted" && c.canSend && !c.isSelf && c.canCall != false) {
+            // No calls with myself, nor where calls are switched off (my or their country).
+            if (c != null && !c.isRequest && c.canSend && !c.isSelf && c.canCall != false) {
                 Box(Modifier.graphicsLayer { scaleX = video.value; scaleY = video.value }) {
                     GlassIcon(Icons.Rounded.Videocam, size = 38.dp) { startCall(state.id, true, c.title.orEmpty(), c.avatar, peerKey) }
                 }
@@ -649,7 +648,6 @@ private fun NoticeBar(text: String, icon: androidx.compose.ui.graphics.vector.Im
 private fun RequestBar(c: ConversationDto, state: ConversationState) {
     val host = LocalChat.current
     val scope = rememberCoroutineScope()
-    var accepting by remember { mutableStateOf(false) }
     Column(
         Modifier.fillMaxWidth().padding(12.dp).shadow(10.dp, RoundedCornerShape(24.dp)).clip(RoundedCornerShape(24.dp)).background(Ch.Surface).padding(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -673,17 +671,13 @@ private fun RequestBar(c: ConversationDto, state: ConversationState) {
                     }.padding(horizontal = 18.dp, vertical = 11.dp),
                 ) { Text(stringResource(label), color = fg, fontWeight = FontWeight.ExtraBold) }
             }
-            // One tap only: a second accept would hit a conversation that's no longer a request.
-            ChPrimaryButton(stringResource(R.string.ch_accept), modifier = Modifier, enabled = !accepting) {
-                if (accepting) return@ChPrimaryButton
-                accepting = true
+            ChPrimaryButton(stringResource(R.string.ch_accept), modifier = Modifier) {
                 scope.launch {
                     runCatching { ApiClient.chat.accept(chatAuth(), c.id).data }.getOrNull()?.let {
                         state.conversation = it
                         host.upsert(it)
                         state.markRead()
                     }
-                    accepting = false
                 }
             }
         }

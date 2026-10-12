@@ -11,7 +11,6 @@ use Modules\Chat\Models\ChatMomentCapsule;
 use Modules\Chat\Models\ChatMomentCapsuleItem;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
-use Modules\Chat\Support\SharedMedia;
 
 /**
  * Moment capsules (spec 166): albums of things I chose to keep for an occasion. Nothing is pulled
@@ -75,7 +74,7 @@ class CapsuleService
                 'original_at' => $message->created_at,
             ]);
             foreach ($message->getMedia(ChatMessage::ATTACHMENTS) as $media) {
-                SharedMedia::attach($media, $item, ChatMessage::ATTACHMENTS);
+                $media->copy($item, ChatMessage::ATTACHMENTS);
             }
             $capsule->touch();
 

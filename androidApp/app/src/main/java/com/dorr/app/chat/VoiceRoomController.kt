@@ -10,8 +10,6 @@ import com.dorr.app.network.AuthSession
 import com.dorr.app.network.VoiceRoomDto
 import com.google.gson.JsonObject
 import io.livekit.android.LiveKit
-import io.livekit.android.audio.AudioSwitchHandler
-import com.twilio.audioswitch.AudioDevice
 import io.livekit.android.events.RoomEvent
 import io.livekit.android.events.collect
 import io.livekit.android.room.Room
@@ -45,9 +43,6 @@ object VoiceRoomController {
     var connecting by mutableStateOf(false)
         private set
     var micOn by mutableStateOf(false)
-        private set
-    /** The loudspeaker (off: the earpiece, or a headset when one is on). */
-    var speakerOn by mutableStateOf(false)
         private set
     /** Who is talking right now (participant keys). */
     var speaking by mutableStateOf<Set<String>>(emptySet())
@@ -96,9 +91,6 @@ object VoiceRoomController {
             r.connect(joined.join.url, joined.join.token)
             // A speaker comes in muted — they unmute themselves.
             micOn = false
-            applySpeaker()
-            // Keeps sound and microphone alive when I leave the app; its notification is the room minimised.
-            appContext?.let { VoiceRoomService.update(it) }
             pingJob = scope.launch {
                 while (isActive) {
                     delay(30_000)
@@ -122,43 +114,7 @@ object VoiceRoomController {
             val want = !micOn
             runCatching { r.localParticipant.setMicrophoneEnabled(want) }.onFailure { Log.w(TAG, "mic", it) }
             micOn = r.localParticipant.isMicrophoneEnabled()
-            appContext?.let { VoiceRoomService.update(it) }
         }
-    }
-
-    fun toggleSpeaker() {
-        speakerOn = !speakerOn
-        applySpeaker()
-    }
-
-    /**
-     * LiveKit routes the room's sound itself (AudioSwitch), like calls: the device is picked
-     * through it. Its device list fills in a moment after connecting, so the choice is retried.
-     */
-    private fun applySpeaker() {
-        val want = speakerOn
-        scope.launch {
-            repeat(10) {
-                if (selectAudioDevice(want)) return@launch
-                delay(300)
-            }
-        }
-    }
-
-    private fun selectAudioDevice(speaker: Boolean): Boolean {
-        val handler = livekit?.audioHandler as? AudioSwitchHandler ?: return false
-        val devices = handler.availableAudioDevices
-        val target = if (speaker) {
-            devices.firstOrNull { it is AudioDevice.Speakerphone }
-        } else {
-            devices.firstOrNull { it is AudioDevice.BluetoothHeadset }
-                ?: devices.firstOrNull { it is AudioDevice.WiredHeadset }
-                ?: devices.firstOrNull { it is AudioDevice.Earpiece }
-        } ?: return false
-        return runCatching {
-            if (handler.selectedAudioDevice != target) handler.selectDevice(target)
-            true
-        }.onFailure { Log.w(TAG, "Audio route failed", it) }.getOrDefault(false)
     }
 
     fun raiseHand(raised: Boolean) {
@@ -195,7 +151,6 @@ object VoiceRoomController {
         livekit = null
         room = null
         micOn = false
-        appContext?.let { VoiceRoomService.stop(it) }
         speaking = emptySet()
         connecting = false
     }
@@ -203,7 +158,7 @@ object VoiceRoomController {
     /** Someone came, left, raised a hand, or a host changed my role: read the room again. */
     private fun onUpdated(data: JsonObject) {
         val current = room ?: return
-        if (data.get("room_id")?.takeIf { it.isJsonPrimitive }?.asString != current.id) return
+        if (data.get("room_id")?.asString != current.id) return
         scope.launch {
             val fresh = runCatching { ApiClient.voice.room(auth(), current.conversationId).data }.getOrNull() ?: return@launch
             // Put out by a host.
@@ -216,9 +171,7 @@ object VoiceRoomController {
                 runCatching { livekit?.localParticipant?.setMicrophoneEnabled(false) }
                 micOn = false
             }
-            val roleChanged = fresh.me.role != current.me.role
             room = fresh
-            if (roleChanged) appContext?.let { VoiceRoomService.update(it) }
         }
     }
 }

@@ -146,7 +146,7 @@ return [
     /*
      * The class that contains the strategy for determining how to remove files.
      */
-    'file_remover_class' => App\Support\Media\SharedFileRemover::class,
+    'file_remover_class' => DefaultFileRemover::class,
 
     /*
      * Here you can specify which path generator should be used for the given class.

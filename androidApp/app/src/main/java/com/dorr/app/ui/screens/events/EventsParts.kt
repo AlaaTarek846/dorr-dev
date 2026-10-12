@@ -94,7 +94,6 @@ import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 import com.dorr.app.ui.screens.chat.ChSheet
-import com.dorr.app.ui.screens.chat.bool
 
 // =============================================================================== looks
 
@@ -638,7 +637,7 @@ fun EventCardBubble(dto: MessageDto, @Suppress("UNUSED_PARAMETER") mine: Boolean
                 Text(listOfNotNull(s("category")?.let { (s("emoji")?.let { e -> "$e " } ?: "") + it }).joinToString(), color = color, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(s("title").orEmpty(), color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                    if (ev?.bool("verified") == true) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF2563EB), modifier = Modifier.padding(start = 4.dp).size(15.dp))
+                    if (ev?.get("verified")?.asBoolean == true) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF2563EB), modifier = Modifier.padding(start = 4.dp).size(15.dp))
                 }
                 Text(listOfNotNull(s("local_time"), s("venue"), s("city")).joinToString(" · "), color = Wa.Mut, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 dto.body?.takeIf { it.isNotBlank() }?.let { Text(it, color = Wa.Ink, fontSize = 14.sp, modifier = Modifier.padding(top = 6.dp)) }

@@ -170,7 +170,6 @@ fun HomeStoriesLayer(state: HomeStoriesState) {
             onDismiss = { state.adding = false },
             onText = { host.push(ChRoute.StoryComposer()) },
             onMedia = { media.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
-            onVoice = { host.push(ChRoute.StoryComposer(STORY_VOICE)) },
         )
     }
 }

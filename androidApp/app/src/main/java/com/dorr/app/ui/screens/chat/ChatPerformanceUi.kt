@@ -139,21 +139,6 @@ fun DataPerformancePage() {
                 )
             }
 
-            // ------------------------------------------------ manage storage (backlog 46–48)
-            Row(
-                Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)
-                    .clickable { host.push(ChRoute.Storage()) }.padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconBadge(Icons.Rounded.DeleteSweep)
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.bk_storage), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(stringResource(R.string.bk_storage_sub), color = Ch.Mut, fontSize = 12.5.sp)
-                }
-                Text("›", color = Ch.Soft, fontSize = 22.sp)
-            }
-
             // ------------------------------------------------ usage stats (83)
             Row(
                 Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)

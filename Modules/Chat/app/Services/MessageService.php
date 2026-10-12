@@ -31,7 +31,6 @@ use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
-use Modules\Chat\Support\SharedMedia;
 
 /**
  * Messages: send (text, media, voice, location, contact, wallet receipt / QR), edit, delete for
@@ -260,12 +259,11 @@ class MessageService
             $order = count($files);
             foreach ($copyFrom as $source) {
                 foreach ($source->getMedia(ChatMessage::ATTACHMENTS) as $media) {
-                    // The same file, not a copy (like WhatsApp): it stays while any message uses it.
-                    SharedMedia::attach($media, $message, ChatMessage::ATTACHMENTS, ++$order);
+                    $media->copy($message, ChatMessage::ATTACHMENTS)->forceFill(['order_column' => ++$order])->save();
                 }
             }
             foreach (($copyFrom[0] ?? null)?->getMedia(ChatMessage::THUMBNAIL) ?? [] as $media) {
-                SharedMedia::attach($media, $message, ChatMessage::THUMBNAIL);
+                $media->copy($message, ChatMessage::THUMBNAIL);
             }
 
             // The video's poster frame (sent by the app, only meaningful for a video).

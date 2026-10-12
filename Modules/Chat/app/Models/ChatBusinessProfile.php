@@ -131,7 +131,7 @@ class ChatBusinessProfile extends Model
             'hours' => self::normalizeHours($this->hours),
             'timezone' => $this->timezone ?: 'UTC',
             'open_now' => $this->isOpenAt(now()),
-        ] : ['hours' => [], 'timezone' => 'UTC', 'open_now' => null]) + [
+        ] : ['hours' => null, 'timezone' => null, 'open_now' => null]) + [
             // The business card (backlog 111).
             'about' => $this->about,
             'address' => $this->address,

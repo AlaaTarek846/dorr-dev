@@ -16,7 +16,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -201,7 +200,6 @@ fun TextInputSheet(title: String, initial: String = "", action: String, icon: Im
 @Composable
 fun FolderPickerSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
     val host = LocalChat.current
-    val context = androidx.compose.ui.platform.LocalContext.current
     var newFolder by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     LaunchedEffect(Unit) { host.refreshFolders() }
@@ -214,18 +212,13 @@ fun FolderPickerSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
             host.folders.forEachIndexed { i, folder ->
                 val inside = conversation.id in folder.conversationIds
                 Row(
-                    Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(16.dp)).toggleable(inside, role = androidx.compose.ui.semantics.Role.Checkbox) {
+                    Modifier.fillMaxWidth().chStagger(i).clip(RoundedCornerShape(16.dp)).clickable {
                         val ids = if (inside) folder.conversationIds - conversation.id else folder.conversationIds + conversation.id
-                        // The tick moves at once; a refusal puts it back and says why (it used to fail silently).
-                        val index = host.folders.indexOfFirst { it.id == folder.id }
-                        if (index >= 0) host.folders[index] = folder.copy(conversationIds = ids)
                         scope.launch {
-                            runCatching { ApiClient.chat.folderConversations(chatAuth(), folder.id, mapOf("conversations" to ids)).data }
-                                .onSuccess { updated -> updated?.let { u -> host.folders.indexOfFirst { it.id == u.id }.takeIf { it >= 0 }?.let { host.folders[it] = u } } }
-                                .onFailure { e ->
-                                    host.folders.indexOfFirst { it.id == folder.id }.takeIf { it >= 0 }?.let { host.folders[it] = folder }
-                                    host.showToast(e.apiFailure().message ?: context.getString(R.string.ch_error_network))
-                                }
+                            runCatching { ApiClient.chat.folderConversations(chatAuth(), folder.id, mapOf("conversations" to ids)).data }.getOrNull()?.let { updated ->
+                                val index = host.folders.indexOfFirst { it.id == updated.id }
+                                if (index >= 0) host.folders[index] = updated
+                            }
                         }
                     }.padding(vertical = 12.dp, horizontal = 6.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -253,12 +246,10 @@ fun FolderPickerSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
         host.scope.launch {
             try {
                 val folder = ApiClient.chat.createFolder(chatAuth(), mapOf("name" to name)).data ?: return@launch
-                // On the list at once, already ticked; the server then confirms the chat in it.
-                host.folders.add(folder.copy(conversationIds = listOf(conversation.id)))
-                val withChat = ApiClient.chat.folderConversations(chatAuth(), folder.id, mapOf("conversations" to listOf(conversation.id))).data ?: return@launch
-                host.folders.indexOfFirst { it.id == folder.id }.takeIf { it >= 0 }?.let { host.folders[it] = withChat }
+                val withChat = ApiClient.chat.folderConversations(chatAuth(), folder.id, mapOf("conversations" to listOf(conversation.id))).data ?: folder
+                host.folders.add(withChat)
             } catch (e: Exception) {
-                host.showToast(e.apiFailure().message ?: context.getString(R.string.ch_error_network))
+                e.apiFailure().message?.let { host.showToast(it) }
             }
         }
     }
