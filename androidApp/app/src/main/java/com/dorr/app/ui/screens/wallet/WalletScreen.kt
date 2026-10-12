@@ -1,6 +1,5 @@
 package com.dorr.app.ui.screens.wallet
 
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
