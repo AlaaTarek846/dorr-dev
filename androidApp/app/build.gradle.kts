@@ -6,6 +6,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Crash reports go to Firebase Crashlytics once the Firebase project's google-services.json is
+// in app/ (Firebase console → Project settings → Android app com.dorr.app). Without it the app
+// builds and runs as before, it just reports nothing.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 android {
     namespace = "com.dorr.app"
     compileSdk = 34
@@ -117,6 +125,8 @@ dependencies {
     // ships (package livekit.org.webrtc) -- a second WebRTC artifact here added ~11 MB per CPU type.
     // Phone notifications (chat messages, calls, wallet…) — the server already sends through OneSignal.
     implementation("com.onesignal:OneSignal:5.1.6")
+    // Crash reports (CrashReports.kt): every crash with its stack and the account id, in Firebase.
+    implementation("com.google.firebase:firebase-crashlytics:19.2.1")
     // Chat videos are re-encoded on the phone before upload (720p H.264) — Google's own transcoder.
     implementation("androidx.media3:media3-transformer:1.4.1")
     // The chat outbox: messages sent offline go in the background once there's a connection.
