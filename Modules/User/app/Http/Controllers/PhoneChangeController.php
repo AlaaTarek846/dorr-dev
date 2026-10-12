@@ -3,6 +3,8 @@
 namespace Modules\User\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Models\SecurityEvent;
+use App\Services\Security\SecurityLog;
 use App\Support\Api\ApiResponse;
 use Modules\User\Http\Requests\PhoneChangeRequest;
 use Modules\User\Http\Requests\PhoneChangeVerifyRequest;
@@ -32,8 +34,15 @@ class PhoneChangeController extends Controller
         /** @var User $user */
         $user = $request->user('user_api');
 
+        $oldPhone = (string) $user->phone;
         $this->phoneChanges->confirm($user, $request->validated('code'), $request->ip());
+        $newPhone = (string) $user->fresh()->phone;
 
-        return ApiResponse::success(['phone' => $user->fresh()->phone], __('api.phone_changed'));
+        app(SecurityLog::class)->record($user, SecurityEvent::PHONE_CHANGED, [
+            'from' => '••••'.mb_substr($oldPhone, -4),
+            'to' => '••••'.mb_substr($newPhone, -4),
+        ]);
+
+        return ApiResponse::success(['phone' => $newPhone], __('api.phone_changed'));
     }
 }

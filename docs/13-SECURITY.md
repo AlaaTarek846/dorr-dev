@@ -16,6 +16,21 @@
 | Email verification | OTP via `VerificationCode` polymorphic model |
 | Flow tokens | `AuthFlowTokenService` with configurable expiry |
 
+### Devices, security log and intrusion alerts (spec 27–29)
+
+- **One token per device.** Every sign-in creates its own Sanctum token and an `account_sessions` row (`App\Services\Security\AccountSessionService`).
+  - The same device (`X-Device-Id`) signing in again replaces its session.
+  - Past `auth_flow.max_sessions` (5) the device used longest ago is signed out.
+  - A password reset signs every device out.
+- **Signing out.** The owner (app → Settings → Security) or support (`users.manage-sessions`) can sign any device out. Its token is deleted at once and its push ids are dropped.
+- **Security log.** `security_events` records sign-ins, failed passwords and codes, code lockouts, log-outs, devices signed out, phone changes, wallet PIN failures, locks and freezes, and account restores. It is kept a year.
+  - The owner sees the IP partly hidden; the dashboard sees all of it.
+  - The country is looked up only for a public IP.
+- **Intrusion alerts.** `App\Services\Security\SecurityAlerts` sends each of these at most once per `auth_flow.security_window_minutes` (15):
+  - `auth_flow.security_failed_attempts` (3) wrong codes or passwords;
+  - `auth_flow.security_code_requests` (5) codes asked for;
+  - a sign-in from a device the account never used. A first sign-in, or one with no device id, is not flagged.
+
 ### Token Handling (Frontend)
 
 - Admin token: `localStorage.admin_token`

@@ -158,4 +158,11 @@ return [
     'ai_site_request_admin_paid_body' => ':name دفع ":item" (:amount) لطلب ":title" (:reference).',
     'ai_site_request_admin_message_title' => 'رسالة جديدة من عميل',
     'ai_site_request_admin_message_body' => ':name كتب في ":title" (:reference): :text',
+    // أمان الحساب (تنبيهات محاولات الاختراق)
+    'security_alert_failed_attempts_title' => 'محاولات دخول فاشلة',
+    'security_alert_failed_attempts_body' => ':count محاولات دخول خاطئة على حسابك في الدقائق الأخيرة. لو مش إنت، متشاركش الكود مع أي حد وراجع أجهزتك من الإعدادات ← الأمان.',
+    'security_alert_code_requests_title' => 'طلب أكواد دخول كثيرة',
+    'security_alert_code_requests_body' => 'تم طلب كود دخول لرقمك :count مرات في الدقائق الأخيرة. لا تشارك الكود مع أي شخص — درر لن تطلبه منك أبدًا.',
+    'security_alert_new_device_title' => 'تسجيل دخول جديد لحسابك',
+    'security_alert_new_device_body' => 'تم تسجيل الدخول لحسابك من جهاز جديد: :device (:country). لو مش إنت، سجّل خروجه من الإعدادات ← الأمان ← الأجهزة.',
 ];

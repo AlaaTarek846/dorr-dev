@@ -514,6 +514,13 @@
                                 <span class="side-menu__label">{{ t('referrals.title') }}</span>
                             </router-link>
                         </li>
+
+                        <li v-if="can('security-events.view')" class="slide">
+                            <router-link :to="{ name: 'admin.security-events.index' }" class="side-menu__item">
+                                <i class="ri-shield-keyhole-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.security_events') }}</span>
+                            </router-link>
+                        </li>
                     </template>
 
                     <template v-if="isGeneralVisible">
@@ -717,7 +724,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view')),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view') || can('security-events.view')),
 );
 
 /**

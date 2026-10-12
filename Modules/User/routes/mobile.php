@@ -9,6 +9,7 @@ use Modules\User\Http\Controllers\Mobile\LegalPageController;
 use Modules\User\Http\Controllers\Mobile\MobileAppearanceController;
 use Modules\User\Http\Controllers\Mobile\MobileAuthController;
 use Modules\User\Http\Controllers\Mobile\MobileProfileController;
+use Modules\User\Http\Controllers\Mobile\SecurityController;
 use Modules\User\Http\Controllers\Mobile\SupportHelpController;
 use Modules\User\Http\Controllers\Mobile\SupportTicketController;
 use Modules\User\Http\Controllers\PhoneChangeController;
@@ -67,5 +68,11 @@ Route::middleware('locale')->prefix('mobile/v1')->group(function () {
 
         Route::get('appearance', [MobileAppearanceController::class, 'show']);
         Route::put('appearance', [MobileAppearanceController::class, 'update']);
+
+        // Security: devices signed in on this account, and the account's security log.
+        Route::get('security/devices', [SecurityController::class, 'devices']);
+        Route::post('security/devices/logout-others', [SecurityController::class, 'signOutOthers'])->middleware('throttle:10,1');
+        Route::delete('security/devices/{session}', [SecurityController::class, 'signOut'])->whereNumber('session')->middleware('throttle:20,1');
+        Route::get('security/events', [SecurityController::class, 'events']);
     });
 });
