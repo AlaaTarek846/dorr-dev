@@ -82,6 +82,17 @@
 
                         <div class="d-flex flex-wrap align-items-center gap-2">
                             <button
+                                v-if="canNotify"
+                                type="button"
+                                class="btn btn-sm btn-wave"
+                                :class="selectedCount ? 'btn-info' : 'btn-outline-info'"
+                                @click="selectedCount ? openNotify('users', selectedIds) : openNotify('all')"
+                            >
+                                <i class="ri-notification-3-line me-1 align-middle"></i>
+                                {{ selectedCount ? t('users.notify.selected', { count: selectedCount }) : t('users.notify.all') }}
+                            </button>
+
+                            <button
                                 v-if="canMultipleDelete && selectedCount"
                                 type="button"
                                 class="btn btn-danger btn-sm btn-wave"
@@ -234,6 +245,15 @@
                                             <td v-if="showActionsColumn" class="text-end pe-4">
                                                 <div class="btn-list justify-content-end">
                                                     <button
+                                                        v-if="canNotify"
+                                                        type="button"
+                                                        class="btn btn-sm btn-warning-light btn-icon"
+                                                        :title="t('users.notify.one')"
+                                                        @click="openNotify('user', [user.id], user.name || user.phone)"
+                                                    >
+                                                        <i class="ri-notification-3-line"></i>
+                                                    </button>
+                                                    <button
                                                         v-if="canUpdate"
                                                         type="button"
                                                         class="btn btn-sm btn-info-light btn-icon"
@@ -318,6 +338,15 @@
             @saved="onSaved"
         />
 
+        <NotifyModal
+            :show="notifyShow"
+            :audience="notifyAudience"
+            :user-ids="notifyIds"
+            :user-name="notifyName"
+            @close="notifyShow = false"
+            @sent="clearSelection"
+        />
+
         <ConfirmDeleteModal
             :show="deleteConfirm.state.show"
             :title="deleteConfirm.state.title"
@@ -340,7 +369,9 @@ import { useConfirmDelete } from '../../../../../../composables/useConfirmDelete
 import { useUsers } from '../../../../../../composables/useUsers';
 import { useUsersStore } from '../../../../../../stores/users';
 import { formatPhoneForDisplay } from '../../../../../../utils/catalog';
+import { usePermission } from '../../../../../../composables/usePermission';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
+import NotifyModal from './NotifyModal.vue';
 
 const { t, locale } = useI18n();
 const usersStore = useUsersStore();
@@ -396,6 +427,26 @@ const counts = computed(() => ({
     inactive: usersStore.inactiveCount ?? 0,
     blocked: usersStore.blockedCount ?? 0,
 }));
+
+// Notifications from the dashboard: one customer, the ticked ones, or every active customer.
+const { can } = usePermission();
+const canNotify = computed(() => can('users.send-notification'));
+const notifyShow = ref(false);
+const notifyAudience = ref('all');
+const notifyIds = ref([]);
+const notifyName = ref('');
+
+/** After a send, the ticked rows are cleared. */
+function clearSelection() {
+    selectedIds.value = [];
+}
+
+function openNotify(audience, ids = [], name = '') {
+    notifyAudience.value = audience;
+    notifyIds.value = [...ids];
+    notifyName.value = name;
+    notifyShow.value = true;
+}
 
 const modalShow = ref(false);
 const modalType = ref('create');

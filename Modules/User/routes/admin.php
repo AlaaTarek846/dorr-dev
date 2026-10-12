@@ -6,9 +6,13 @@ use Modules\User\Http\Controllers\SupportQuickReplyController;
 use Modules\User\Http\Controllers\SupportSettingController;
 use Modules\User\Http\Controllers\SupportTicketController;
 use Modules\User\Http\Controllers\UserController;
+use Modules\User\Http\Controllers\UserNotificationController;
 
 Route::middleware(['locale', 'auth:admin_api'])->prefix('admin/v1')->group(function () {
     Route::post('users/delete-multiple', [UserController::class, 'deleteMultiple']);
+    // A message from the dashboard to one customer, a chosen group or all of them (in-app + real-time + push).
+    Route::post('users/notify', [UserNotificationController::class, 'store']);
+    Route::get('users/notify/audience', [UserNotificationController::class, 'audience']);
     Route::post('users/{user}/restore', [UserController::class, 'restore']);
     Route::delete('users/{user}/force', [UserController::class, 'forceDestroy']);
     Route::patch('users/{user}/status', [UserController::class, 'changeStatus']);

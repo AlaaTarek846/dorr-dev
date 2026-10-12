@@ -2,9 +2,9 @@
 
 namespace App\Services\General;
 
-use App\Services\CatalogService;
 use App\Http\Resources\General\LanguageResource;
 use App\Repositories\General\LanguageRepository;
+use App\Services\CatalogService;
 
 class LanguageService extends CatalogService
 {

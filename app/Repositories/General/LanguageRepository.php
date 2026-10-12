@@ -2,8 +2,8 @@
 
 namespace App\Repositories\General;
 
-use App\Repositories\TranslatableRepository;
 use App\Models\Language;
+use App\Repositories\TranslatableRepository;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;

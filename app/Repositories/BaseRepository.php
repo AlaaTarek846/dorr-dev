@@ -21,6 +21,7 @@ abstract class BaseRepository
      * @var list<string>
      */
     protected array $deleteBlockRelations = [];
+
     protected Model $model;
 
     /**
