@@ -30,9 +30,16 @@ class AiSiteSeederTest extends TestCase
         AiSiteOffer::query()->update(['name' => 'edited']);
         $this->seed(AiSiteSeeder::class);
 
-        $this->assertSame(1, AiSiteOffer::query()->count());
+        $this->assertSame(1, AiSiteOffer::query()->where('kind', 'site')->count());
+        $download = AiSiteOffer::query()->where('kind', 'source_download')->get();
+        $this->assertSame(1, $download->count());
+        $this->assertTrue($download->first()->is_free && $download->first()->is_active);
+        $packs = AiSiteOffer::query()->where('kind', 'edit_pack')->get();
+        $this->assertSame(3, $packs->count());
+        $this->assertSame([5, 15, 40], $packs->sortBy('sort_order')->pluck('generations_included')->all());
+        $this->assertSame(3, $packs->filter(fn ($p) => $p->prices()->where('country_id', $country->id)->count() === 1)->count());
         $this->assertSame(2, AiSiteHostingPlan::query()->count());
-        $offer = AiSiteOffer::query()->first();
+        $offer = AiSiteOffer::query()->where('kind', 'site')->first();
         $this->assertSame(1, $offer->prices()->where('country_id', $country->id)->count());
         $this->assertSame(3, AiPlan::query()->where('code', 'pro')->value('site_projects_limit'));
     }

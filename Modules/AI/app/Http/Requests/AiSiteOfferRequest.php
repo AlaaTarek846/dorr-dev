@@ -26,6 +26,7 @@ class AiSiteOfferRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:150'],
             'code' => ['required', 'string', 'max:60', 'alpha_dash', Rule::unique('ai_site_offers', 'code')->ignore($id)],
+            'kind' => ['sometimes', 'string', Rule::in(['site', 'edit_pack'])],
             'description' => ['nullable', 'string', 'max:2000'],
             'generations_included' => ['required', 'integer', 'min:1', 'max:500'],
             'is_active' => ['required', 'boolean'],

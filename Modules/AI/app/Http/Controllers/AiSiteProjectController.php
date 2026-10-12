@@ -35,7 +35,7 @@ class AiSiteProjectController extends Controller
         $plan = $this->entitlements->activePlanFor($owner);
         $refusal = $this->entitlements->planCreateRefusal($owner, $plan);
 
-        $offers = AiSiteOffer::query()->where('is_active', true)->orderBy('sort_order')->orderBy('id')->get();
+        $offers = AiSiteOffer::query()->where('is_active', true)->where('kind', AiSiteOffer::KIND_SITE)->orderBy('sort_order')->orderBy('id')->get();
 
         return ApiResponse::success([
             'enabled' => (bool) config('ai.sites.enabled', true),
@@ -105,6 +105,38 @@ class AiSiteProjectController extends Controller
         return ApiResponse::success(new AiSiteProjectResource($updated->load(['versions', 'purchase'])), __('ai.site_queued'), 202);
     }
 
+    /** What is left to edit this site with, and the edit packs on sale in this country. */
+    public function editPacks(Request $request, int $project)
+    {
+        return ApiResponse::success($this->packsPayload($this->find($request, $project), $this->owner($request)));
+    }
+
+    /** Buy an edit pack for this site from the wallet (the PIN is enforced at the route). */
+    public function buyEditPack(Request $request, int $project)
+    {
+        $request->validate(['offer_id' => ['required', 'integer']]);
+
+        $model = $this->find($request, $project);
+        $owner = $this->owner($request);
+
+        $this->sites->buyEditPack($model, $owner, $request->integer('offer_id'));
+
+        return ApiResponse::success($this->packsPayload($model, $owner), __('ai.site_pack_bought'), 201);
+    }
+
+    /** @return array<string, mixed> */
+    protected function packsPayload(AiSiteProject $project, Authenticatable $owner): array
+    {
+        $packs = AiSiteOffer::query()->where('is_active', true)->where('kind', AiSiteOffer::KIND_EDIT_PACK)
+            ->orderBy('sort_order')->orderBy('id')->get()
+            ->filter(fn ($o) => $o->priceFor(currentCountry()) !== null)->values();
+
+        return [
+            'edits' => $this->entitlements->editsLeft($project, $owner),
+            'packs' => AiSiteOfferResource::collection($packs),
+        ];
+    }
+
     public function retry(Request $request, int $project)
     {
         $updated = $this->sites->retry($this->find($request, $project), $this->owner($request));
@@ -127,9 +159,28 @@ class AiSiteProjectController extends Controller
             throw new AiSiteException('project_disabled', 403);
         }
 
+        // Closed by the admin, or priced and not paid for yet: refuse before building the ZIP.
+        $this->sites->assertCanDownload($model);
+
         $path = $this->sites->zip($model);
 
         return response()->download($path, 'site-'.$model->id.'.zip')->deleteFileAfterSend(true);
+    }
+
+    /** Whether this site's source ZIP can be downloaded, and what it costs (free / price / already unlocked). */
+    public function sourceDownload(Request $request, int $project)
+    {
+        return ApiResponse::success($this->sites->sourceDownloadStatus($this->find($request, $project)));
+    }
+
+    /** Pay once from the wallet to unlock the ZIP download of this site (the PIN is enforced at the route). */
+    public function buySourceDownload(Request $request, int $project)
+    {
+        $model = $this->find($request, $project);
+
+        $this->sites->buySourceDownload($model, $this->owner($request));
+
+        return ApiResponse::success($this->sites->sourceDownloadStatus($model), __('ai.site_download_unlocked'), 201);
     }
 
     public function destroy(Request $request, int $project)

@@ -3,7 +3,7 @@
         <div class="modal-dialog modal-dialog-centered">
             <form class="modal-content" @submit.prevent="submit">
                 <div class="modal-header">
-                    <h6 class="modal-title mb-0">{{ type === 'edit' ? t('ai_site_offers.edit') : t('ai_site_offers.add') }}</h6>
+                    <h6 class="modal-title mb-0">{{ type === 'edit' ? (kind === 'edit_pack' ? t('ai_site_offers.edit_pack') : t('ai_site_offers.edit')) : (kind === 'edit_pack' ? t('ai_site_offers.add_pack') : t('ai_site_offers.add')) }}</h6>
                     <button type="button" class="btn-close" aria-label="Close" @click="close"></button>
                 </div>
 
@@ -60,6 +60,7 @@ const props = defineProps({
     show: { type: Boolean, default: false },
     type: { type: String, default: 'create' },
     record: { type: Object, default: null },
+    kind: { type: String, default: 'site' },
 });
 
 const emit = defineEmits(['close', 'saved']);
@@ -89,7 +90,7 @@ async function submit() {
     errors.value = {};
 
     try {
-        const payload = { ...form, sort_order: form.sort_order || 0 };
+        const payload = { ...form, kind: props.kind, sort_order: form.sort_order || 0 };
         const response = props.type === 'edit'
             ? await adminAxios.put(`/api/admin/v1/ai-site-offers/${props.record.id}`, payload)
             : await adminAxios.post('/api/admin/v1/ai-site-offers', payload);

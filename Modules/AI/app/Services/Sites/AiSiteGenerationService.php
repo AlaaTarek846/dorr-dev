@@ -69,11 +69,29 @@ class AiSiteGenerationService
             // otherwise fail every build while other registered models work: try the next coding-capable one.
             $skip = [];
 
-            while (! ($result['success'] ?? false) && $this->modelIsUnavailable((string) ($result['message'] ?? '')) && count($skip) < 3) {
-                $skip[] = $target['model_key'];
-                Log::warning('ai.site_model_unavailable', ['model' => $target['model_key'], 'message' => Str::limit((string) ($result['message'] ?? ''), 300)]);
+            $clamped = false;
 
+            while (! ($result['success'] ?? false) && count($skip) < 3) {
+                $message = (string) ($result['message'] ?? '');
+                $limit = $this->completionLimit($message);
+
+                if (! $this->modelIsUnavailable($message) && $limit === null) {
+                    break;
+                }
+
+                $skip[] = $target['model_key'];
+                Log::warning('ai.site_model_unavailable', ['model' => $target['model_key'], 'message' => Str::limit($message, 300)]);
+
+                // The model only allows a shorter reply than a whole site needs ("supports at most 4096
+                // completion tokens"): prefer another model; with none left, retry this one at its own limit.
                 $alternative = $this->resolveAlternative($skip);
+
+                if ($alternative === null && $limit !== null && ! $clamped) {
+                    $clamped = true;
+                    $target['provider'] = tap(clone $target['provider'], fn (AiProvider $p) => $p->max_tokens = $limit);
+                    $alternative = $target;
+                    array_pop($skip);
+                }
 
                 if ($alternative === null) {
                     break;
@@ -167,9 +185,23 @@ class AiSiteGenerationService
             'last_error' => $reason,
         ])->save();
 
-        if ($wasCounted && $project->access_type === AiSiteProject::ACCESS_PURCHASE && $project->purchase !== null) {
+        if ($wasCounted && $version->consumed_purchase_id !== null) {
+            $this->entitlements->refundVersion($version);
+        } elseif ($wasCounted && $project->access_type === AiSiteProject::ACCESS_PURCHASE && $project->purchase !== null) {
+            // Versions made before edit packs existed did not record which purchase paid for them.
             $this->entitlements->refundPurchase($project->purchase);
         }
+    }
+
+    /** The completion-token ceiling a provider names in a "max_tokens is too large" error, else null. */
+    protected function completionLimit(string $message): ?int
+    {
+        if (preg_match('/max(_completion)?_tokens.*?(?:at most|maximum(?: of)?|limit(?: is)?)\s*(\d{3,6})/i', $message, $m) === 1
+            || preg_match('/supports at most (\d{3,6})/i', $message, $m) === 1) {
+            return (int) end($m);
+        }
+
+        return null;
     }
 
     /** True when the provider says the model itself is gone/retired/unknown (not a transient or content error). */

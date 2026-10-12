@@ -14,10 +14,15 @@ use Modules\AI\Models\AiSiteOffer;
 /** Admin: the standalone "build me a site" products and their per-country prices. */
 class AiSiteOfferController extends Controller
 {
-    public function index()
+    public function index(\Illuminate\Http\Request $request)
     {
+        $kind = $request->query('kind');
+
         return ApiResponse::success(AiSiteOfferResource::collection(
-            AiSiteOffer::query()->withCount('prices')->orderBy('sort_order')->orderBy('id')->get()
+            AiSiteOffer::query()
+                ->where('kind', '!=', AiSiteOffer::KIND_SOURCE_DOWNLOAD)
+                ->when(in_array($kind, [AiSiteOffer::KIND_SITE, AiSiteOffer::KIND_EDIT_PACK], true), fn ($q) => $q->where('kind', $kind))
+                ->withCount('prices')->orderBy('sort_order')->orderBy('id')->get()
         ));
     }
 

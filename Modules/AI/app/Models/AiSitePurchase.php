@@ -10,7 +10,7 @@ class AiSitePurchase extends Model
     protected $table = 'ai_site_purchases';
 
     protected $fillable = [
-        'owner_type', 'owner_id', 'offer_id', 'amount', 'currency', 'wallet_operation_id',
+        'owner_type', 'owner_id', 'offer_id', 'project_id', 'amount', 'currency', 'wallet_operation_id',
         'generations_included', 'generations_used', 'status',
     ];
 

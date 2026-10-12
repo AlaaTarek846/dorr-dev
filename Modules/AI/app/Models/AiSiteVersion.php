@@ -25,7 +25,7 @@ class AiSiteVersion extends Model
 
     protected $fillable = [
         'project_id', 'number', 'kind', 'status', 'instruction', 'files', 'total_bytes', 'provider_id',
-        'model_key', 'counted', 'error_message', 'completed_at',
+        'model_key', 'counted', 'consumed_purchase_id', 'error_message', 'completed_at',
     ];
 
     protected function casts(): array
