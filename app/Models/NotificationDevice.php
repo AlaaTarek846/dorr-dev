@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
  */
 class NotificationDevice extends Model
 {
-    protected $fillable = ['owner_type', 'owner_id', 'player_id', 'platform', 'locale', 'last_seen_at'];
+    protected $fillable = ['owner_type', 'owner_id', 'player_id', 'device_id', 'platform', 'locale', 'last_seen_at'];
 
     protected function casts(): array
     {

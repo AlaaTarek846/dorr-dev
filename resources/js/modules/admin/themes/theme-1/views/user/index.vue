@@ -134,7 +134,7 @@
                                         <th scope="col">{{ t('users.gender') }}</th>
                                         <th scope="col">{{ t('users.status') }}</th>
                                         <th scope="col">{{ t('users.created_at') }}</th>
-                                        <th v-if="showActionsColumn" scope="col" class="text-end pe-4">{{ t('users.actions') }}</th>
+                                        <th v-if="showRowActions" scope="col" class="text-end pe-4">{{ t('users.actions') }}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -242,7 +242,7 @@
                                                     {{ t('users.updated') }}: {{ formatDate(user.updated_at) }}
                                                 </span>
                                             </td>
-                                            <td v-if="showActionsColumn" class="text-end pe-4">
+                                            <td v-if="showRowActions" class="text-end pe-4">
                                                 <div class="btn-list justify-content-end">
                                                     <button
                                                         v-if="canNotify"
@@ -252,6 +252,15 @@
                                                         @click="openNotify('user', [user.id], user.name || user.phone)"
                                                     >
                                                         <i class="ri-notification-3-line"></i>
+                                                    </button>
+                                                    <button
+                                                        v-if="canSessions"
+                                                        type="button"
+                                                        class="btn btn-sm btn-secondary-light btn-icon"
+                                                        :title="t('security.devices.button')"
+                                                        @click="openSessions(user)"
+                                                    >
+                                                        <i class="ri-smartphone-line"></i>
                                                     </button>
                                                     <button
                                                         v-if="canUpdate"
@@ -347,6 +356,13 @@
             @sent="clearSelection"
         />
 
+        <SessionsModal
+            :show="sessionsShow"
+            :user-id="sessionsUser?.id"
+            :user-name="sessionsUser?.name || sessionsUser?.phone || ''"
+            @close="sessionsShow = false"
+        />
+
         <ConfirmDeleteModal
             :show="deleteConfirm.state.show"
             :title="deleteConfirm.state.title"
@@ -372,6 +388,7 @@ import { formatPhoneForDisplay } from '../../../../../../utils/catalog';
 import { usePermission } from '../../../../../../composables/usePermission';
 import ModalCreateAndUpdate from './ModalCreateAndUpdate.vue';
 import NotifyModal from './NotifyModal.vue';
+import SessionsModal from './SessionsModal.vue';
 
 const { t, locale } = useI18n();
 const usersStore = useUsersStore();
@@ -392,12 +409,15 @@ const tableColumnCount = computed(() => {
         count += 1;
     }
 
-    if (showActionsColumn.value) {
+    if (showRowActions.value) {
         count += 1;
     }
 
     return count;
 });
+
+const { can } = usePermission();
+const showRowActions = computed(() => showActionsColumn.value || can('users.send-notification') || can('users.manage-sessions'));
 
 const usersApi = useUsers();
 const {
@@ -429,7 +449,6 @@ const counts = computed(() => ({
 }));
 
 // Notifications from the dashboard: one customer, the ticked ones, or every active customer.
-const { can } = usePermission();
 const canNotify = computed(() => can('users.send-notification'));
 const notifyShow = ref(false);
 const notifyAudience = ref('all');
@@ -446,6 +465,16 @@ function openNotify(audience, ids = [], name = '') {
     notifyIds.value = [...ids];
     notifyName.value = name;
     notifyShow.value = true;
+}
+
+// The devices a customer is signed in on; support can sign them out.
+const canSessions = computed(() => can('users.manage-sessions'));
+const sessionsShow = ref(false);
+const sessionsUser = ref(null);
+
+function openSessions(user) {
+    sessionsUser.value = user;
+    sessionsShow.value = true;
 }
 
 const modalShow = ref(false);

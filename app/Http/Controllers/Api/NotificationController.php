@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\NotificationResource;
 use App\Models\NotificationDevice;
+use App\Services\Security\DeviceContext;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -74,6 +75,8 @@ class NotificationController extends Controller
                 'owner_type' => $account->getMorphClass(),
                 'owner_id' => $account->getKey(),
                 'platform' => $data['platform'] ?? null,
+                // So signing this device out (Security → Devices) also stops its pushes.
+                'device_id' => DeviceContext::fromRequest($request)->deviceId,
                 'locale' => app()->getLocale(),
                 'last_seen_at' => now(),
             ],
