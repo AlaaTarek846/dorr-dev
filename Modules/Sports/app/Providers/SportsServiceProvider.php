@@ -58,6 +58,11 @@ class SportsServiceProvider extends ModuleServiceProvider
         Event::listen(MatchChanged::class, SettlePredictions::class);
     }
 
+    /**
+     * No views (API only) — registering the missing folder breaks `view:cache` on deploy.
+     */
+    protected function registerViews(): void {}
+
     protected function configureSchedules(Schedule $schedule): void
     {
         $schedule->command(SportsTick::class)->everyThirtySeconds()->withoutOverlapping(5);
