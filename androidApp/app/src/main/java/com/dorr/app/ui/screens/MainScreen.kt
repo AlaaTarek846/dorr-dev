@@ -154,7 +154,8 @@ fun MainScreen(
                     momentsOpen = true
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
-                is com.dorr.app.chat.ChatDeepLink.Support -> {
+                is com.dorr.app.chat.ChatDeepLink.Support,
+                com.dorr.app.chat.ChatDeepLink.Security -> {
                     walletOpen = false
                     chatOpen = false
                     currentTab = 3

@@ -303,6 +303,17 @@ See seeder files for initial data conventions.
 
 ---
 
+## Account security (`2026_10_13_100000_create_account_security_tables`)
+
+| Table | Purpose |
+|---|---|
+| `account_sessions` | One per sign-in on a device: `owner` (morph), `token_id` (Sanctum token), `device_id`, `device_name`, `platform`, `app_version`, `ip`, `country_code`, `user_agent`, `revoked_at` + `revoked_reason` (logout, user, others, limit, admin, replaced). Signing out deletes the token and keeps the row |
+| `security_events` | The account's security log: `owner` (morph), `type` (`SecurityEvent::ALL`), `account_session_id` (null on delete), `ip`, `country_code`, `device_id`, `device_name`, `platform`, `meta` json, `created_at`. Pruned after `auth_flow.security_log_days` |
+
+`notification_devices.device_id` (new): which install a push id belongs to, so signing that device out also stops its pushes.
+
+---
+
 ## Chat (`Modules/Chat/database/migrations`)
 
 | Table | Purpose |

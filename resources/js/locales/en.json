@@ -102,7 +102,8 @@
             "whatsapp": "WhatsApp",
             "otp": "OTP Settings"
         },
-        "wallet": "Wallet"
+        "wallet": "Wallet",
+        "security_events": "Security log"
     },
     "save": "Save",
     "cancel": "Cancel",
@@ -3914,5 +3915,73 @@
         "report_counts": "{translated} of {total} keys translated, {missing} missing.",
         "report_missing_list": "Missing keys",
         "report_more": "and {count} more"
+    },
+    "security": {
+        "events": {
+            "login": "Signed in",
+            "login_new_device": "Signed in from a new device",
+            "login_failed": "Wrong password",
+            "otp_requested": "Sign-in code requested",
+            "otp_failed": "Wrong sign-in code",
+            "otp_locked": "Too many wrong codes",
+            "logout": "Signed out",
+            "device_signed_out": "Device signed out",
+            "other_devices_signed_out": "Other devices signed out",
+            "session_limit": "Oldest device signed out (limit)",
+            "admin_signed_out": "Signed out by support",
+            "phone_changed": "Phone number changed",
+            "pin_failed": "Wrong wallet PIN",
+            "pin_locked": "Wallet temporarily locked",
+            "pin_frozen": "Wallet frozen",
+            "account_restored": "Account restored"
+        },
+        "reasons": {
+            "logout": "Signed out",
+            "user": "Signed out by the customer",
+            "others": "Signed out from another device",
+            "limit": "Device limit reached",
+            "admin": "Signed out by support",
+            "replaced": "Signed in again on the same device"
+        },
+        "devices": {
+            "button": "Devices",
+            "title": "Devices of {name}",
+            "active": "Signed in now",
+            "recent": "Recently signed out",
+            "none": "This customer is not signed in on any device.",
+            "last_active": "Last active",
+            "signed_in": "Signed in",
+            "sign_out": "Sign out",
+            "sign_out_all": "Sign out all devices",
+            "confirm_one": "Sign \"{device}\" out now? It will need to sign in again.",
+            "confirm_all": "Sign this customer out of every device now?",
+            "signed_out": "The device was signed out.",
+            "signed_out_all": "The customer was signed out of every device.",
+            "open_log": "Security log"
+        },
+        "log": {
+            "title": "Security log",
+            "search": "Search by phone, name, device or IP...",
+            "filter_all": "All",
+            "filter_warnings": "Warnings",
+            "all_types": "All events",
+            "customer": "Customer",
+            "clear_customer": "Show every customer",
+            "event": "Event",
+            "device": "Device",
+            "ip": "IP",
+            "country": "Country",
+            "date": "Date",
+            "warning": "Warning",
+            "normal": "Normal",
+            "session": "Device session",
+            "app_version": "App version",
+            "session_state": "Session",
+            "still_signed_in": "Still signed in",
+            "user_agent": "User agent",
+            "empty_title": "Nothing here yet",
+            "empty": "Sign-ins, failed codes, devices signed out and PIN locks appear here.",
+            "showing": "Showing {from} to {to} of {total} entries"
+        }
     }
 }

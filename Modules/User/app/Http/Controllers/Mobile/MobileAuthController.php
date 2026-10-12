@@ -5,9 +5,13 @@ namespace Modules\User\Http\Controllers\Mobile;
 use App\Enums\UserStatus;
 use App\Enums\VerificationType;
 use App\Http\Controllers\Controller;
+use App\Models\SecurityEvent;
 use App\Services\Auth\VerificationCodeService;
 use App\Services\General\LoginCountry;
 use App\Services\General\ReferralCodeService;
+use App\Services\Security\AccountSessionService;
+use App\Services\Security\SecurityAlerts;
+use App\Services\Security\SecurityLog;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +26,9 @@ class MobileAuthController extends Controller
 
     public function __construct(
         private readonly VerificationCodeService $verificationCodes,
+        private readonly AccountSessionService $sessions,
+        private readonly SecurityLog $securityLog,
+        private readonly SecurityAlerts $securityAlerts,
     ) {}
 
     /**
@@ -62,6 +69,7 @@ class MobileAuthController extends Controller
         $this->assertAccountActive($user);
 
         $user->sendPhoneOtp();
+        $this->codeRequested($user, 'login');
 
         return ApiResponse::success([
             'masked_phone' => $this->maskPhone($fullPhone),
@@ -92,6 +100,7 @@ class MobileAuthController extends Controller
         $this->assertAccountActive($user);
 
         $user->sendPhoneOtp();
+        $this->codeRequested($user, 'restore');
 
         return ApiResponse::success([
             'masked_phone' => $this->maskPhone($fullPhone),
@@ -116,7 +125,16 @@ class MobileAuthController extends Controller
 
         $this->assertAccountActive($user);
 
-        $this->verificationCodes->verify($user, VerificationType::Phone, $request->validated('code'));
+        try {
+            $this->verificationCodes->verify($user, VerificationType::Phone, $request->validated('code'));
+        } catch (ValidationException $e) {
+            // A wrong code goes in the security log; several in a short time warn the owner (intrusion alert).
+            $locked = in_array(__('api.verification_code_max_attempts'), $e->errors()['code'] ?? [], true);
+            $this->securityLog->record($user, $locked ? SecurityEvent::OTP_LOCKED : SecurityEvent::OTP_FAILED);
+            $this->securityAlerts->failedAttempt($user);
+
+            throw $e;
+        }
 
         // Restore only AFTER the code is verified, so a wrong code can never revive
         // an account (deleted_at stays set) or create a sign-in token for it.
@@ -127,11 +145,15 @@ class MobileAuthController extends Controller
 
         $user->update(['phone_verified_at' => now()]);
 
-        $user->tokens()->delete();
-
         app(LoginCountry::class)->remember($user);
         app(ReferralCodeService::class)->codeFor($user);
-        $token = $user->createToken(self::TOKEN_NAME)->plainTextToken;
+
+        // Its own token on this device; the account's other devices stay signed in (see Security → Devices).
+        [$token] = $this->sessions->signIn($user, self::TOKEN_NAME);
+
+        if ($isRestored) {
+            $this->securityLog->record($user, SecurityEvent::ACCOUNT_RESTORED);
+        }
 
         return ApiResponse::success([
             'user' => new UserResource($user->fresh()->load(['country.flag'])),
@@ -159,6 +181,7 @@ class MobileAuthController extends Controller
         $this->assertAccountActive($user);
 
         $user->sendPhoneOtp();
+        $this->codeRequested($user, 'resend');
 
         return ApiResponse::success([
             'masked_phone' => $this->maskPhone($fullPhone),
@@ -189,9 +212,18 @@ class MobileAuthController extends Controller
             $user->notificationDevices()->where('player_id', $playerId)->delete();
         }
 
-        $user?->currentAccessToken()?->delete();
+        if ($user) {
+            $this->sessions->signOutCurrent($user);
+        }
 
         return ApiResponse::success([], __('api.logout_success'));
+    }
+
+    /** A sign-in code was sent for this number: logged, and many in a short time warn the owner. */
+    private function codeRequested(User $user, string $flow): void
+    {
+        $this->securityLog->record($user, SecurityEvent::OTP_REQUESTED, ['flow' => $flow]);
+        $this->securityAlerts->codeRequested($user);
     }
 
     private function assertAccountActive(User $user): void

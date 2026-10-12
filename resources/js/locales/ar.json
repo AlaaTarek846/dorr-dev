@@ -102,7 +102,8 @@
             "whatsapp": "واتساب",
             "otp": "إعدادات OTP"
         },
-        "wallet": "المحفظة"
+        "wallet": "المحفظة",
+        "security_events": "سجل الأمان"
     },
     "save": "حفظ",
     "cancel": "إلغاء",
@@ -3914,5 +3915,73 @@
         "report_counts": "تمت ترجمة {translated} من {total} مفتاح، والناقص {missing}.",
         "report_missing_list": "المفاتيح الناقصة",
         "report_more": "و{count} أخرى"
+    },
+    "security": {
+        "events": {
+            "login": "تسجيل دخول",
+            "login_new_device": "تسجيل دخول من جهاز جديد",
+            "login_failed": "كلمة مرور خاطئة",
+            "otp_requested": "طلب كود دخول",
+            "otp_failed": "كود دخول خاطئ",
+            "otp_locked": "أكواد خاطئة كثيرة",
+            "logout": "تسجيل خروج",
+            "device_signed_out": "تسجيل خروج جهاز",
+            "other_devices_signed_out": "تسجيل خروج الأجهزة الأخرى",
+            "session_limit": "خروج أقدم جهاز (الحد الأقصى)",
+            "admin_signed_out": "تسجيل خروج بواسطة الدعم",
+            "phone_changed": "تغيير رقم الهاتف",
+            "pin_failed": "رمز محفظة خاطئ",
+            "pin_locked": "قفل المحفظة مؤقتًا",
+            "pin_frozen": "تجميد المحفظة",
+            "account_restored": "استعادة الحساب"
+        },
+        "reasons": {
+            "logout": "تسجيل خروج",
+            "user": "خروج بواسطة العميل",
+            "others": "خروج من جهاز آخر",
+            "limit": "الوصول للحد الأقصى للأجهزة",
+            "admin": "خروج بواسطة الدعم",
+            "replaced": "دخول جديد من نفس الجهاز"
+        },
+        "devices": {
+            "button": "الأجهزة",
+            "title": "أجهزة {name}",
+            "active": "مسجّل دخول الآن",
+            "recent": "خرجت مؤخرًا",
+            "none": "العميل غير مسجّل دخول على أي جهاز.",
+            "last_active": "آخر نشاط",
+            "signed_in": "تسجيل الدخول",
+            "sign_out": "تسجيل خروج",
+            "sign_out_all": "تسجيل خروج كل الأجهزة",
+            "confirm_one": "تسجيل خروج \"{device}\" الآن؟ سيحتاج لتسجيل الدخول مرة أخرى.",
+            "confirm_all": "تسجيل خروج العميل من كل الأجهزة الآن؟",
+            "signed_out": "تم تسجيل خروج الجهاز.",
+            "signed_out_all": "تم تسجيل خروج العميل من كل الأجهزة.",
+            "open_log": "سجل الأمان"
+        },
+        "log": {
+            "title": "سجل الأمان",
+            "search": "ابحث بالهاتف أو الاسم أو الجهاز أو IP...",
+            "filter_all": "الكل",
+            "filter_warnings": "تحذيرات",
+            "all_types": "كل الأحداث",
+            "customer": "العميل",
+            "clear_customer": "عرض كل العملاء",
+            "event": "الحدث",
+            "device": "الجهاز",
+            "ip": "IP",
+            "country": "الدولة",
+            "date": "التاريخ",
+            "warning": "تحذير",
+            "normal": "عادي",
+            "session": "جلسة الجهاز",
+            "app_version": "إصدار التطبيق",
+            "session_state": "الجلسة",
+            "still_signed_in": "ما زال مسجّل دخول",
+            "user_agent": "User agent",
+            "empty_title": "لا يوجد شيء بعد",
+            "empty": "تظهر هنا عمليات الدخول والأكواد الخاطئة وخروج الأجهزة وقفل رمز المحفظة.",
+            "showing": "عرض {from} إلى {to} من {total}"
+        }
     }
 }

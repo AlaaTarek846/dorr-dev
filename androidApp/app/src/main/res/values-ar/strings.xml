@@ -1328,4 +1328,21 @@
     <string name="bk_story_mention_line">ذكرك في حالته</string>
     <string name="bk_story_mention_mine">ذكرته في حالتك</string>
     <string name="bk_video_too_big_slow">الفيديو ده كبير على النت البطيء (الحد 64 ميجا).</string>
+    <!-- Settings → Security: devices and the security log -->
+    <string name="security_title">الأمان</string>
+    <string name="security_sub">أجهزتك وسجل الأمان</string>
+    <string name="security_devices">الأجهزة المسجّل دخولها</string>
+    <string name="security_this_device">هذا الجهاز</string>
+    <string name="security_sign_out">تسجيل خروج</string>
+    <string name="security_sign_out_confirm">تسجيل خروج \"%1$s\" الآن؟ سيحتاج لتسجيل الدخول مرة أخرى.</string>
+    <string name="security_sign_out_others">تسجيل الخروج من كل الأجهزة الأخرى</string>
+    <string name="security_sign_out_others_confirm">سيتم تسجيل خروج كل الأجهزة ما عدا هذا الجهاز الآن.</string>
+    <string name="security_signed_out">تم تسجيل خروج الجهاز.</string>
+    <string name="security_last_active">آخر نشاط: %1$s</string>
+    <string name="security_log">سجل الأمان</string>
+    <string name="security_all">الكل</string>
+    <string name="security_warnings_only">تحذيرات</string>
+    <string name="security_log_empty">لا يوجد شيء بعد.</string>
+    <string name="security_load_more">عرض المزيد</string>
+    <string name="security_load_failed">تعذر تحميل بيانات الأمان. اسحب للأسفل للمحاولة مرة أخرى.</string>
 </resources>

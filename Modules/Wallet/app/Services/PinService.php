@@ -2,6 +2,8 @@
 
 namespace Modules\Wallet\Services;
 
+use App\Models\SecurityEvent;
+use App\Services\Security\SecurityLog;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Modules\Wallet\Exceptions\PinFrozenException;
@@ -135,6 +137,7 @@ class PinService
         if ($record->locked_until !== null) {
             $record->update(['failed_attempts' => 0, 'locked_until' => null, 'frozen_at' => now()]);
 
+            app(SecurityLog::class)->record($owner, SecurityEvent::PIN_FROZEN);
             app(WalletNotifier::class)->pinFrozen($owner);
 
             return;
@@ -149,12 +152,14 @@ class PinService
             ]);
 
             // Someone guessing at the PIN is exactly what the real owner needs to hear about.
+            app(SecurityLog::class)->record($owner, SecurityEvent::PIN_LOCKED, ['minutes' => self::LOCK_MINUTES]);
             app(WalletNotifier::class)->pinLocked($owner, self::LOCK_MINUTES);
 
             return;
         }
 
         $record->update(['failed_attempts' => $attempts]);
+        app(SecurityLog::class)->record($owner, SecurityEvent::PIN_FAILED, ['attempt' => $attempts]);
     }
 
     private function find(Model $owner): ?WalletPin

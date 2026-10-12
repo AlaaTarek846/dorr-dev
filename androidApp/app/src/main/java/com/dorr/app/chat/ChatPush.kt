@@ -35,6 +35,8 @@ sealed interface ChatDeepLink {
     data class Sports(val matchId: String?) : ChatDeepLink
     /** A reply or a status change on one of my support tickets. */
     data class Support(val ticketId: Int) : ChatDeepLink
+    /** A security alert (failed sign-ins, many codes asked for, a new device): Settings → Security. */
+    data object Security : ChatDeepLink
 }
 
 /**
@@ -133,6 +135,7 @@ object ChatPush {
                         data.optString("type") == "chat_call" && data.optString("call_id").isNotBlank() ->
                             ChatDeepLink.Call(data.optString("call_id"), conversation)
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
+                        data.optString("type") == "security" -> ChatDeepLink.Security
                         conversation != null -> ChatDeepLink.Conversation(conversation)
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks
                         data.optString("type") == "calendar" -> ChatDeepLink.Calendar
