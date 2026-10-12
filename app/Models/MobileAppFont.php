@@ -8,6 +8,7 @@ use App\Traits\SearchFilterTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Modules\User\Models\UserMobileAppearance;
 use Spatie\MediaLibrary\HasMedia;
 
 class MobileAppFont extends Model implements HasMedia
@@ -50,6 +51,6 @@ class MobileAppFont extends Model implements HasMedia
 
     public function userAppearances(): HasMany
     {
-        return $this->hasMany(\Modules\User\Models\UserMobileAppearance::class);
+        return $this->hasMany(UserMobileAppearance::class);
     }
 }

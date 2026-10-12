@@ -2,9 +2,9 @@
 
 namespace App\Services\General;
 
-use App\Services\CatalogService;
 use App\Http\Resources\General\FlagResource;
 use App\Repositories\General\FlagRepository;
+use App\Services\CatalogService;
 
 class FlagService extends CatalogService
 {
