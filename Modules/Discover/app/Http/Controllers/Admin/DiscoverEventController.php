@@ -17,6 +17,7 @@ use Modules\Discover\Models\DiscoverEvent;
 use Modules\Discover\Services\DiscoverService;
 use Modules\Discover\Services\EventStatusService;
 use Modules\Discover\Services\OrganizerService;
+use Modules\Discover\Services\ReviewNotifier;
 
 /**
  * Events (spec 169, 174–176, 180): the review queue (organizers' submissions), events the admin
@@ -118,11 +119,13 @@ class DiscoverEventController extends Controller implements HasMiddleware
     public function review(Request $request, DiscoverEvent $event)
     {
         $data = $request->validate(['review_status' => ['required', Rule::in(['approved', 'rejected', 'pending'])], 'note' => ['nullable', 'string', 'max:500']]);
+        $from = (string) $event->review_status;
         $event->update([
             'review_status' => $data['review_status'],
             'review_note' => $data['note'] ?? null,
             'last_verified_at' => $data['review_status'] === 'approved' ? now() : $event->last_verified_at,
         ]);
+        app(ReviewNotifier::class)->event($event, $from);
 
         return ApiResponse::success($this->present($event->load(self::WITH), true), __('api.updated'));
     }

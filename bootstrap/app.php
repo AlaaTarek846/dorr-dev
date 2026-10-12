@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ApiExceptionRenderer;
+use App\Exceptions\ApiRenderable;
 use App\Http\Middleware\EnsurePhoneVerified;
 use App\Http\Middleware\RedirectIfAuthenticated;
 use App\Http\Middleware\ResolveCountryContext;
@@ -37,6 +38,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // A domain rule turning a request down (403/422…) is an answer, not a fault — keep it out
+        // of the error log. Their 5xx ones (gateway unreachable, calls not configured…) still log.
+        $exceptions->dontReportWhen(fn (Throwable $e) => $e instanceof ApiRenderable && $e->apiStatus() < 500);
+
         $exceptions->render(function (Throwable $e, Request $request) {
             $renderer = new ApiExceptionRenderer;
 

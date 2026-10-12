@@ -10,6 +10,9 @@ The endpoints are in [API.md](API.md).
 ## Rules worth knowing
 - **Time zones.** An event is stored as a UTC instant plus its city's IANA zone. Lists show its own local time (`local_date`, `local_time`) and mine (`my_time`) when I'm somewhere else. A travel search cuts days in the destination's zone (AT-DISC-03).
 - **Status changes.** These are confirmed, postponed (maybe with a new time), cancelled, sold out and ended. Every change goes into `discover_event_status_history`. Only people who said "interested" **and** asked for updates (`notify`) get a push (AT-DISC-01). "Ended" tells nobody.
+- **Review answers (2026-10-12).** The organizer gets a push when the admin reviews their request (verified, rejected or suspended) or one of their events (approved or rejected). `ReviewNotifier` sends it with the admin's note when there is one.
+  - Push data: `{type: discover, event: discover.organizer.reviewed | discover.event.reviewed, status, event_id?}`.
+  - Saving the same answer again sends nothing.
 - **Duplicates.** `dedupe_key` is a hash of the normalised title, the city and the local day. A second submission of the same event is refused with `409 discover_duplicate`, and the response carries the existing event's id.
 - **Alerts ("don't miss it", 172).** `discover:alerts` runs hourly. It sends confirmed events in my interests, where I live or in places I follow, within my window (3, 7, 14 or 30 days). It never sends the same event twice (`discover_alert_log`), never sends past the admin's weekly limit, never during my quiet hours, and never for events I'm already interested in.
 - **Event rooms (179).** A chat group named after the event, with its card as the first message. `discover:close-rooms` runs every 30 minutes. Some hours after the event (`room_close_hours`), it switches the group to admins-only and adds a system line.

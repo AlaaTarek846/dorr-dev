@@ -9,6 +9,7 @@ use Modules\Chat\Checkout\ChannelVerificationPurpose;
 use Modules\Chat\Checkout\PortalListingPurpose;
 use Modules\Chat\Console\ExpireUnansweredCalls;
 use Modules\Chat\Console\PurgeChatMessages;
+use Modules\Chat\Console\RealtimeCheck;
 use Modules\Chat\Console\SendCalendarReminders;
 use Modules\Chat\Console\SendMessageReminders;
 use Modules\Chat\Console\SendMomentReminders;
@@ -32,6 +33,7 @@ class ChatServiceProvider extends ModuleServiceProvider
     protected array $commands = [
         ExpireUnansweredCalls::class,
         PurgeChatMessages::class,
+        RealtimeCheck::class,
         SendScheduledMessages::class,
         SendMessageReminders::class,
         SendQuietDigests::class,

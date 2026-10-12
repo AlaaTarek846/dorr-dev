@@ -1328,6 +1328,7 @@
     <string name="bk_story_mention_line">ذكرك في حالته</string>
     <string name="bk_story_mention_mine">ذكرته في حالتك</string>
     <string name="bk_video_too_big_slow">الفيديو ده كبير على النت البطيء (الحد 64 ميجا).</string>
+
     <!-- Settings → Security: devices and the security log -->
     <string name="security_title">الأمان</string>
     <string name="security_sub">أجهزتك وسجل الأمان</string>
@@ -1345,4 +1346,17 @@
     <string name="security_log_empty">لا يوجد شيء بعد.</string>
     <string name="security_load_more">عرض المزيد</string>
     <string name="security_load_failed">تعذر تحميل بيانات الأمان. اسحب للأسفل للمحاولة مرة أخرى.</string>
+
+    <string name="vr_note_mic_on">الميكروفون مفتوح وبيسمعوك</string>
+    <string name="vr_note_mic_off">في الغرفة · الميكروفون مقفول</string>
+    <string name="vr_note_listening">بتسمع في الغرفة</string>
+    <string name="vr_mute">اقفل المايك</string>
+    <string name="vr_unmute">افتح المايك</string>
+    <string name="vr_leave">اخرج</string>
+    <string name="ch_try_invite_link">ابعتلهم لينك الدعوة بتاع الجروب</string>
+    <string name="ch_join_code">انضم بكود أو لينك</string>
+    <string name="ch_join_code_sub">دعوة لجروب أو قناة: اكتب الكود أو الصق اللينك</string>
+    <string name="ch_join_code_go">انضم</string>
+    <string name="ch_join_code_bad">ده مش كود أو لينك دعوة</string>
+
 </resources>

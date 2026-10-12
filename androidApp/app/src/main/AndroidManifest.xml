@@ -20,6 +20,9 @@
     <!-- Chat live location: keeps sending the position (with a visible notification) until it ends. -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
+    <!-- A voice room keeps going when I leave the app (VoiceRoomService). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
@@ -49,6 +52,13 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <!-- "Click to chat" links: dorr://chat/{token}?text=… (backlog 130). -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="dorr" android:host="chat" />
             </intent-filter>
         </activity>
         <!-- Incoming call ringing page (opened by the call notification's full-screen intent). -->
@@ -96,6 +106,12 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- The voice room I'm in, kept alive (and "minimised" as a notification) outside the app. -->
+        <service
+            android:name=".chat.VoiceRoomService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|mediaPlayback" />
+
         <!-- Every push passes through here first: calls become a ringing call, not a banner. -->
         <meta-data
             android:name="com.onesignal.NotificationServiceExtension"
@@ -105,6 +121,16 @@
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="subject_segment" />
+        <!-- Sharing a file the app made (an exported chat). -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/shared_files" />
+        </provider>
     </application>
 
 </manifest>

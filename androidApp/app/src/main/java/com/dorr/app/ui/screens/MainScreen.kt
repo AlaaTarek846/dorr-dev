@@ -133,6 +133,7 @@ fun MainScreen(
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             when (link) {
                 is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.ChatLink, is com.dorr.app.chat.ChatDeepLink.Join -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Sports -> {
                     walletOpen = false
                     com.dorr.app.ui.screens.sports.SportsLink.show(link.matchId)

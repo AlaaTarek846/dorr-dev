@@ -138,6 +138,34 @@ class DiscoverTest extends TestCase
         $this->assertCount(2, $this->getJson('/api/mobile/v1/discover/events', $this->headers())->assertOk()->json('data'));
     }
 
+    public function test_the_organizer_hears_the_admins_answer_on_their_phone(): void
+    {
+        // Phones register under the account's morph class ("user"), like the real app does.
+        NotificationDevice::query()->where('player_id', 'bob-phone')->update(['owner_type' => $this->bob->getMorphClass()]);
+
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
+        $id = $this->postJson('/api/mobile/v1/discover/organizer/events', $this->eventData('Jazz night'), $this->headers())->assertCreated()->json('data.id');
+        $organizer = DiscoverOrganizer::query()->firstOrFail();
+
+        $this->asAdmin(['discover-events.update', 'discover-organizers.update']);
+        $this->patchJson("/api/admin/v1/discover-events/{$id}/review", ['review_status' => 'rejected', 'note' => 'Add the venue'])->assertOk();
+        $this->patchJson("/api/admin/v1/discover-organizers/{$organizer->id}/review", ['status' => 'verified'])->assertOk();
+        // Saving the same answer again tells nobody twice.
+        $this->patchJson("/api/admin/v1/discover-organizers/{$organizer->id}/review", ['status' => 'verified'])->assertOk();
+
+        $event = $this->pushes('discover.event.reviewed');
+        $this->assertCount(1, $event);
+        $this->assertSame(['bob-phone'], $event[0]['include_player_ids']);
+        $this->assertSame('rejected', $event[0]['data']['status']);
+        $this->assertSame($id, $event[0]['data']['event_id']);
+        $this->assertStringContainsString('Add the venue', $event[0]['contents']['en']);
+
+        $organizerPushes = $this->pushes('discover.organizer.reviewed');
+        $this->assertCount(1, $organizerPushes);
+        $this->assertSame('verified', $organizerPushes[0]['data']['status']);
+    }
+
     // ------------------------------------------------------------------ AT-DISC-01
 
     public function test_an_organizer_sends_a_cover_with_the_event_and_changes_it_from_the_app(): void

@@ -51,6 +51,37 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **Chat features by country and city (`ChatFeatures`):** on chat open the app reads `GET chat/features` and hides what's off (voice rooms, the live toggle, stories; AI buttons follow `GET chat/ai`, call buttons `can_call`). With approximate location allowed it sends `PUT chat/location` at most every 6 hours (the server keeps only the nearest city). The permission is asked once, after our own explanation sheet.
 - **Chat header and sheets (spec header rule):** the chat list has no back arrow (the tab bar and system back leave it; search and the special lists step back). Every inner screen starts with `ChBack` — back (mirrored in RTL) with the DORR logo beside it. Every bottom sheet in chat, Moments, Calendar, Discover and Sports is a `ChSheet`: Material's sheet with a × beside the drag handle.
 - **Data and performance (chat menu → "Data and performance", spec 82, 87, 83):** data saver (`ChatDataSaver`: off / mobile data / always) holds others' photos until tapped (Coil cache-only first, then the server's `preview`), stops GIF clips playing by themselves, sends lighter photos and videos, and makes calls 360p. Lite mode (`ChatLite`: auto at ≤3 GB memory / on / off) drops bubble animations, blur, animated GIFs and stickers, and camera backgrounds. Usage stats (`ChatUsage`) count on the phone only: an OkHttp **network** interceptor measures chat API calls and media, split mobile / Wi-Fi, and a call's data is the app's own traffic (TrafficStats) while it lasts. All three load in `DorrApp.onCreate`.
+- **Never crash on a message's data:** read `meta` with `obj()` / `arr()` / `bool()` / `int()` / `long()` / `dbl()` / `str()` (ChatHost.kt).
+  - These return null for a missing field or JSON null.
+  - `getAsJsonObject` / `.asBoolean` on JSON null crashed the bubble, and with it the chat every time it opened. This happened to live cards after the live ended, and to poll counts.
+- **Voice rooms (2026-10-12):**
+  - A loudspeaker button (`VoiceRoomController.toggleSpeaker`, through AudioSwitch like calls).
+  - `VoiceRoomService`, a foreground service (microphone + media playback), keeps the room's sound and mic going outside the app.
+  - Its notification is the room "minimised": tap to come back, mute or unmute, or leave.
+- **Sharing a contact without the permission:** once READ_CONTACTS was refused, the attach sheet opens the phone's own number picker (`ACTION_PICK` on `Phone.CONTENT_URI`). Android grants that one row, so nothing is asked again.
+- **Invites:** `inviteTokenOf()` reads `https://…/j/CODE`, `dorr://chat/join/CODE` or a bare code. These come from a tapped link in a message, the QR scanner, "Join with a code or link" on New chat, or the `/j/` page (`ChatDeepLink.Join`). The join sheet then opens.
+- **Long-press menu:** the message takes at most a third of the screen and scrolls. The menu takes the rest and scrolls too.
+- **Split a bill:** the sheet loads the group's members itself. Before this they were loaded only for "@" suggestions, so the sheet could open with nobody to pick.
+- **Add members:** members that someone's privacy kept out are named in a toast, not silently dropped.
+- **Story reply:** sending, or closing the keyboard, clears the field's focus so the story and its bar go on.
+- **Crash reports:** Firebase Crashlytics (`CrashReports.kt`).
+  - The Gradle plugins apply only when `app/google-services.json` exists. Without it, nothing is reported and nothing breaks.
+  - The account id is attached when the chat connects.
+- **Real-time start:** `ChatRealtime.start()` retries `chat/realtime-config` up to 6 times (2 s → 30 s), and again when the app comes to the front.
+  - This matters because the same answer also starts push (`ChatPush.ensure`).
+  - Before this, one failed first call meant no live chat and no notifications for the whole session.
+- **Video size (backlog 38, 40):** `ChatPrefs.videoMode()` picks the size. `VideoTools.compress` acts on it.
+  - **hd:** upload quality "high" → 1080p at ~6 Mbps.
+  - **slow:** data saver, "saver", or a slow metered line on auto → 480p, never over 64 MB; the bitrate fits the length. Otherwise it throws `VideoTooBigException` and the message stays failed, with a toast.
+  - **normal:** 720p.
+  - **All sizes:** never upscaled.
+- **WhatsApp backlog screens (`ChatBacklogUi.kt`, `StoryVoice.kt`, `network/BacklogApi.kt`):**
+  - **Chats:** export a chat (info page); storage (Data and performance → manage storage); channel stats and allowed reactions.
+  - **Business:** the business card and message stats.
+  - **Broadcasts:** a list from a folder.
+  - **Profile and QR:** a ready message on my QR / link.
+  - **Statuses:** a voice status (the "Voice" tile, `ChRoute.StoryComposer("voice")`), "@ Mention" on every status editor, and "Mentioned you" with "Add to my status" in the viewer and in the chat (`story_mention`).
+  - **Links:** `dorr://chat/{token}` links open the chat (manifest intent filter, `ChatDeepLink.ChatLink`). Exports are shared through the FileProvider `${applicationId}.files`.
 
 - **Tablets and wide screens (spec 89):** from 700 dp wide (`TWO_PANE_MIN_WIDTH`, measured with `BoxWithConstraints`, so split screen and folding count) the chat shows its list and the open page side by side. `ChatHost.twoPane` makes opening a conversation replace the one beside the list. `detail` is what shows there (a placeholder when nothing is open), and the list marks `openConversationId`. `MainActivity` declares `configChanges` for orientation, size and keyboard, so turning or resizing re-lays the app out instead of restarting it: open chats, typed text and the call screen stay. `LocalizedApp` rebuilds its locale context from the new configuration. Nothing may count on the activity being recreated for those changes.
 - **Call recording (spec 92):** `CallController.recording` / `recordingAvailable` / `joinConsent`, UI in `ChatCallRecordingUi.kt`: the REC badge (always shown, never hidden with the controls), "N of M agreed" while asking, the yes / no question with a countdown, "agree and join" when the server answers `409 chat_recording_consent_required`, and the recordings sheet (`ChatViewers.recordings`) from a call line marked `recorded` or the call log (`recordings_count`).

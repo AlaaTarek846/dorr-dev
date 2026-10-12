@@ -35,8 +35,15 @@ sealed interface ChatDeepLink {
     data class Sports(val matchId: String?) : ChatDeepLink
     /** A reply or a status change on one of my support tickets. */
     data class Support(val ticketId: Int) : ChatDeepLink
+<<<<<<< HEAD
     /** A security alert (failed sign-ins, many codes asked for, a new device): Settings → Security. */
     data object Security : ChatDeepLink
+=======
+    /** A "click to chat" link (dorr://chat/{token}?text=…) opened from outside the app. */
+    data class ChatLink(val payload: String) : ChatDeepLink
+    /** A group / channel invite (dorr://chat/join/{code}, from the /j/{code} web page). */
+    data class Join(val token: String) : ChatDeepLink
+>>>>>>> dev-test
 }
 
 /**
