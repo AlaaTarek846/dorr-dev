@@ -26,9 +26,11 @@ jobs:
           cache: 'npm'
 
       # public/build مش موجود في git، فلازم يتبنى هنا ويترفع للسيرفر
+      # package-lock.json اتولد على ويندوز، فـ npm ci على ubuntu مش بيركب باينري Rollup للينكس
       - name: 🏗️ Build frontend
         run: |
           npm ci
+          npm install --no-save @rollup/rollup-linux-x64-gnu
           npm run build
 
       - name: 📦 Pack build output

@@ -9,6 +9,7 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Changed
+- GitHub deploy (`deploy.yml`): after `npm ci` on Ubuntu, install `@rollup/rollup-linux-x64-gnu` so `vite build` works with a Windows-generated lockfile.
 - Admin sidebar Chat screens (reports, themes, settings, …) show only when the header service is Chat (`service_categories.module_name = chat`), same as AI with `ai_assistant`. They no longer stay under General, and the placeholder inbox/groups/channels/archive menu is gone.
 - Android Home: the top greeting bar uses appearance colors (same wallet / chat / notifications icons), then ads, stories, an improved today-calendar card, moments, wallet, and services.
 - Android Home today card when the day is empty: the small label is "Your day is free" / "يومك فاضي", and the main line is today's date (`Thursday, 8 October` in English).
