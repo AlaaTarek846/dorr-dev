@@ -133,6 +133,7 @@ Validation: `PlatformSettingUpdateRequest` — app_name required; file rules per
 | DELETE | `/users/{user}` | Delete |
 | POST | `/users/delete-multiple` | Bulk delete |
 | PATCH | `/users/{user}/status` | Status change |
+| POST | `/users/notify` | `users.send-notification`. Send a notification from the dashboard: `audience` (`user` / `users` / `all` = every active customer), `user_ids[]` (not for `all`), `title{locale}` and `message{locale}` (one text per language; an empty language reads as the first written), `push` (bool, default true). Stored in the in-app list as a raw multi-language notification (`event dashboard.message`, each customer reads their own language), live over Pusher, and — with `push` — as one OneSignal push carrying every language. Queued: one `SendDashboardNotificationJob` per round of 200 customers (a queue worker must be running — `php artisan queue:work`), so the answer is immediate. `GET /users/notify/audience` returns `{active}`, how many customers "everyone" reaches. Returns `{recipients, devices, push}` |
 
 ### Authenticated — Catalog Resources (Standard Pattern)
 

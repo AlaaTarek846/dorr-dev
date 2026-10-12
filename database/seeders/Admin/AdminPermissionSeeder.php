@@ -355,6 +355,7 @@ class AdminPermissionSeeder extends Seeder
                     'update',
                     'delete',
                     'multiple-delete',
+                    'send-notification',
                 ],
             ],
             'sms-providers' => [

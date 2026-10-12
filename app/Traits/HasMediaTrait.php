@@ -7,6 +7,7 @@ use App\Support\Media\WebpUploadConverter;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Collection;
 use Spatie\MediaLibrary\InteractsWithMedia;
+use Spatie\MediaLibrary\MediaCollections\FileAdder;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 trait HasMediaTrait
@@ -118,9 +119,9 @@ trait HasMediaTrait
     }
 
     /**
-     * @return \Spatie\MediaLibrary\MediaCollections\FileAdder<$this>
+     * @return FileAdder<$this>
      */
-    protected function addUploadedMedia(UploadedFile $file, string $collection, int|string|null $suffix = null): \Spatie\MediaLibrary\MediaCollections\FileAdder
+    protected function addUploadedMedia(UploadedFile $file, string $collection, int|string|null $suffix = null): FileAdder
     {
         if (! in_array($collection, $this->webpSkipCollections(), true)) {
             $file = WebpUploadConverter::convert($file);

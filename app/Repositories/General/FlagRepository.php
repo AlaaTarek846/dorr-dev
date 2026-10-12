@@ -2,8 +2,8 @@
 
 namespace App\Repositories\General;
 
-use App\Repositories\TranslatableRepository;
 use App\Models\Flag;
+use App\Repositories\TranslatableRepository;
 
 class FlagRepository extends TranslatableRepository
 {

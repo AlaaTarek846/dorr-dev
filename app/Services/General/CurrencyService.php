@@ -2,10 +2,10 @@
 
 namespace App\Services\General;
 
-use App\Services\CatalogService;
-use App\Services\ExchangeRateService;
 use App\Http\Resources\General\CurrencyResource;
 use App\Repositories\General\CurrencyRepository;
+use App\Services\CatalogService;
+use App\Services\ExchangeRateService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 

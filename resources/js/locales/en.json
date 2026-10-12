@@ -238,7 +238,25 @@
         "per_page": "Per page",
         "showing_entries": "Showing {from} to {to} of {total} entries",
         "previous": "Previous",
-        "next": "Next"
+        "next": "Next",
+        "notify": {
+            "title": "Send a notification",
+            "all": "Notify everyone",
+            "selected": "Notify selected ({count})",
+            "one": "Send a notification",
+            "subject": "Title",
+            "subject_placeholder": "e.g. A new offer is waiting",
+            "message": "Message",
+            "message_placeholder": "What the customer reads",
+            "push": "Also send as a push notification (phone)",
+            "channels_hint": "Always in the app's notification list and live; each customer reads it in their own language.",
+            "send": "Send",
+            "sent": "Sent to {count} customers",
+            "to_all": "To every active customer ({count}).",
+            "to_group": "To the {count} selected customers.",
+            "to_one": "To {name}.",
+            "to_all_loading": "To every active customer."
+        }
     },
     "ratings": {
         "title": "Ratings",

@@ -19,6 +19,7 @@ trait SyncsTranslations
     {
         return LanguageRepository::storableLocaleCodes();
     }
+
     /**
      * @return list<string>
      */
