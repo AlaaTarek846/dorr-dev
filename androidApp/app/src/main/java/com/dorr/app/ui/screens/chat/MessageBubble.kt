@@ -425,6 +425,11 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
             StoryQuote(dto.meta, mine)
             TextBody(m, mine, actions)
         }
+        // A status that mentions the other one (backlog 84).
+        "story_mention" -> Column {
+            StoryQuote(dto.meta, mine)
+            StoryMentionLine(dto.meta, mine) { Footer(m, mine, overlay = false) }
+        }
         else -> Column {
             // The link's card above the text, like WhatsApp (arrives a moment after sending).
             dto.linkPreview?.let { LinkPreviewCard(it, mine) }
@@ -530,6 +535,7 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
         }
     }
     Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp, bottom = 7.dp)) {
+        val chatHost = LocalChat.current
         androidx.compose.foundation.text.ClickableText(
             text = annotated,
             // My text size (spec 6).
@@ -538,8 +544,14 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
             onClick = { offset ->
                 annotated.getStringAnnotations("url", offset, offset).firstOrNull()?.let { a ->
                     // A Dorr group invite opens the join sheet right here, not a browser.
-                    if (a.item.startsWith("dorr://chat/join/")) {
-                        actions?.onJoinGroup?.invoke(a.item.removePrefix("dorr://chat/join/").trimEnd('.', ',', ')'))
+                    val invite = a.item.trimEnd('.', ',', ')').takeIf { it.startsWith("dorr://chat/join/") || Regex("^https?://[^/]+/j/[A-Za-z0-9]{8,64}$").matches(it) }
+                    if (invite != null) {
+                        inviteTokenOf(invite)?.let { actions?.onJoinGroup?.invoke(it) }
+                        return@let
+                    }
+                    // A "click to chat" link (backlog 130): that person's chat, the message ready.
+                    if (a.item.startsWith("dorr://chat/")) {
+                        chatHost.openChatLink(a.item.trimEnd('.', ',', ')'))
                         return@let
                     }
                     val url = if (a.item.startsWith("http")) a.item else "https://${a.item}"
@@ -828,8 +840,8 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
 @Composable
 private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val context = LocalContext.current
-    val lat = meta?.get("latitude")?.asDouble ?: 0.0
-    val lng = meta?.get("longitude")?.asDouble ?: 0.0
+    val lat = meta?.dbl("latitude") ?: 0.0
+    val lng = meta?.dbl("longitude") ?: 0.0
     val name = meta?.str("name")
     val pin = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { pin.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 300f)) }
@@ -863,7 +875,7 @@ private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
 @Composable
 private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions: BubbleActions) {
     val name = meta?.str("name").orEmpty()
-    val phones = meta?.getAsJsonArray("phones")?.mapNotNull { runCatching { it.asString }.getOrNull() }.orEmpty()
+    val phones = meta?.arr("phones")?.mapNotNull { runCatching { it.asString }.getOrNull() }.orEmpty()
     // The whole card opens: call · message or invite · save · copy.
     var sheet by remember { mutableStateOf(false) }
     if (sheet) ContactActionsSheet(name, phones) { sheet = false }
@@ -897,7 +909,7 @@ private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions:
 private fun TransferReceiptCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val amount = meta?.get("amount_minor")?.let { runCatching { it.asLong }.getOrNull() } ?: 0L
     val currency = meta?.str("currency_symbol") ?: meta?.str("currency")
-    val reversed = meta?.get("is_reversed")?.asBoolean == true
+    val reversed = meta?.bool("is_reversed") == true
     val check = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { check.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 260f)) }
     // A money gift: the same receipt, drawn as a card for the occasion (it unwraps as it appears).

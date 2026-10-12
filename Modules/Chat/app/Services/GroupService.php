@@ -329,7 +329,7 @@ class GroupService
      * `$expiresInHours` (one of INVITE_EXPIRY_HOURS) or forever when null. An expired link is
      * replaced automatically the next time an admin opens it.
      *
-     * @return array{token: string, link: string, expires_at: string|null}
+     * @return array{token: string, code: string, link: string, payload: string, expires_at: string|null}
      */
     public function inviteLink(Model $me, ChatConversation $conversation, bool $reset = false, ?int $expiresInHours = null): array
     {
@@ -345,7 +345,12 @@ class GroupService
 
         return [
             'token' => $group->invite_token,
-            'link' => 'dorr://chat/join/'.$group->invite_token,
+            // Typed in "Join with a code".
+            'code' => $group->invite_token,
+            // A web link that opens anywhere (WhatsApp, SMS…): its page opens the app on the
+            // phone; the app's own link stays in `payload`.
+            'link' => url('/j/'.$group->invite_token),
+            'payload' => 'dorr://chat/join/'.$group->invite_token,
             'expires_at' => $group->invite_expires_at?->toIso8601String(),
         ];
     }

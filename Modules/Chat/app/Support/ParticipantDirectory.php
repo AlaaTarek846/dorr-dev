@@ -96,7 +96,8 @@ class ParticipantDirectory
             'type' => $type,
             'id' => (int) $id,
             'key' => $key,
-            'name' => $contact?->name ?: ($account->name ?? null),
+            // My contact's name for them; else the name they chose; else their number.
+            'name' => $contact?->name ?: (filled($account->name ?? null) ? $account->name : ($account->phone ?? null)),
             'account_name' => $account->name ?? null,
             // A @username lets people find them without a phone number (spec 81).
             'username' => $account->chat_username ?? null,

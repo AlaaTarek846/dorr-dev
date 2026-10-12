@@ -101,6 +101,10 @@ import com.dorr.app.network.MessageDto
 import com.dorr.app.network.OpenDirectRequest
 import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.chat.Ch
+import com.dorr.app.ui.screens.chat.arr
+import com.dorr.app.ui.screens.chat.int
+import com.dorr.app.ui.screens.chat.long
+import com.dorr.app.ui.screens.chat.obj
 import com.dorr.app.ui.screens.chat.ChField
 import com.dorr.app.ui.screens.chat.ChPrimaryButton
 import com.dorr.app.ui.screens.chat.LocalFile
@@ -611,11 +615,11 @@ fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, o
                 dto.body?.takeIf { it.isNotBlank() }?.let {
                     Text(it, color = Color(0xFF111928), fontSize = 14.5.sp, modifier = Modifier.padding(top = 10.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.92f)).padding(12.dp))
                 }
-                val contributions = card?.getAsJsonArray("contributions")
+                val contributions = card?.arr("contributions")
                 val used = mutableSetOf<Int>()
                 contributions?.forEach { el ->
-                    val c = el.asJsonObject
-                    val files = c.getAsJsonArray("files")?.mapNotNull { f -> f.asJsonObject.get("attachment")?.asInt } .orEmpty()
+                    val c = el.takeIf { it.isJsonObject }?.asJsonObject ?: return@forEach
+                    val files = c.arr("files")?.mapNotNull { f -> f.takeIf { it.isJsonObject }?.asJsonObject?.int("attachment") }.orEmpty()
                     used += files
                     Column(Modifier.padding(top = 8.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.92f)).padding(10.dp)) {
                         c.get("name")?.takeIf { it.isJsonPrimitive }?.asString?.let { Text(it, color = momentColor(look.primaryColor, Ch.Red), fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold) }
@@ -624,8 +628,8 @@ fun MomentCardBubble(dto: MessageDto, mine: Boolean, onOpenSealed: () -> Unit, o
                     }
                 }
                 Attachments(dto, dto.attachments.indices.filterNot { it in used }, onOpenPhoto)
-                card?.getAsJsonObject("gift")?.let { g ->
-                    val amount = g.get("amount_minor")?.asLong ?: 0
+                card?.obj("gift")?.let { g ->
+                    val amount = g.long("amount_minor") ?: 0
                     val currency = g.get("currency_code")?.takeIf { it.isJsonPrimitive }?.asString
                     Row(
                         Modifier.padding(top = 10.dp).clip(RoundedCornerShape(50)).background(Color.White).padding(horizontal = 14.dp, vertical = 7.dp),

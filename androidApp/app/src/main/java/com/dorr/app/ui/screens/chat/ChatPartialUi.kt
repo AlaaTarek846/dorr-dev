@@ -163,6 +163,25 @@ object ChatPrefs {
             }
         }
     }
+
+    /**
+     * How a video goes now: `hd` when I chose high quality (backlog 47); `slow` with data saver,
+     * "saver", or a slow mobile line on auto — light and at most 64 MB (backlog 48); else `normal`.
+     */
+    fun videoMode(context: Context): String {
+        load(context)
+        if (com.dorr.app.chat.ChatDataSaver.active) return "slow"
+        return when (uploadQuality) {
+            "high" -> "hd"
+            "saver" -> "slow"
+            else -> {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                val caps = cm?.getNetworkCapabilities(cm.activeNetwork)
+                val kbps = caps?.linkDownstreamBandwidthKbps ?: 0
+                if (caps != null && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) && kbps in 1..1500) "slow" else "normal"
+            }
+        }
+    }
 }
 
 /** Text size, a compact chat list and upload quality, with a live preview bubble. */

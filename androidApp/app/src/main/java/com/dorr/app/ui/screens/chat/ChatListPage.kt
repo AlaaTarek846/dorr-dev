@@ -395,6 +395,7 @@ fun ChatListPage() {
         onDismiss = { addStory = false },
         onText = { host.push(ChRoute.StoryComposer()) },
         onMedia = { storyMedia.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+        onVoice = { host.push(ChRoute.StoryComposer(STORY_VOICE)) },
     )
 }
 
@@ -876,6 +877,7 @@ internal fun previewOf(type: String, deleted: Boolean): Pair<ImageVector?, Strin
     type == "moment_card" -> Icons.Rounded.Redeem to stringResource(R.string.mo_card_preview)
     type == "event_card" -> Icons.Rounded.Place to stringResource(R.string.ev_event_preview)
     type == "match_card" -> Icons.Rounded.Place to stringResource(R.string.sp_match_preview)
+    type == "story_mention" -> Icons.Rounded.AlternateEmail to stringResource(R.string.bk_story_mention_line)
     else -> null to ""
 }
 
