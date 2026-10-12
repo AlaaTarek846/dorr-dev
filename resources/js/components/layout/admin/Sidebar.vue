@@ -24,27 +24,18 @@
                         </router-link>
                     </li>
 
-                    <li v-if="isChatVisible" class="slide has-sub">
-                        <a
-                            href="javascript:void(0);"
-                            class="side-menu__item"
-                            @click.prevent="toggleSubMenu"
-                        >
-                            <i class="ri-message-3-line side-menu__icon"></i>
-                            <span class="side-menu__label">{{ t('sidebar.chat') }}</span>
-                            <i class="fe fe-chevron-right side-menu__angle"></i>
-                        </a>
-                        <ul class="slide-menu child1">
-                            <li class="slide side-menu__label1">
-                                <a href="javascript:void(0)">{{ t('sidebar.chat') }}</a>
-                            </li>
-                            <li v-for="item in chatItems" :key="item" class="slide">
-                                <a href="javascript:void(0)" class="side-menu__item">
-                                    {{ t(`sidebar.chat_items.${item}`) }}
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
+                    <template v-if="showChatAdminSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.chat') }}</span>
+                        </li>
+
+                        <li v-for="item in chatAdminItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
 
                     <li v-if="isAiVisible" class="slide__category">
                         <span class="category-name">{{ t('sidebar.ai') }}</span>
@@ -592,19 +583,6 @@
                             </li>
                         </template>
 
-                        <template v-if="showChatAdminSection">
-                            <li class="slide__category">
-                                <span class="category-name">{{ t('sidebar.chat') }}</span>
-                            </li>
-
-                            <li v-for="item in chatAdminItems" v-show="can(item.permission)" :key="item.route" class="slide">
-                                <router-link :to="{ name: item.route }" class="side-menu__item">
-                                    <i :class="`${item.icon} side-menu__icon`"></i>
-                                    <span class="side-menu__label">{{ t(item.label) }}</span>
-                                </router-link>
-                            </li>
-                        </template>
-
                         <template v-if="showSportsSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.sports') }}</span>
@@ -712,8 +690,6 @@ const authStore = useAuthStore();
 const selectionStore = useAdminServiceSelectionStore();
 const { selectedService } = storeToRefs(selectionStore);
 
-const chatItems = ['inbox', 'groups', 'channels', 'archive'];
-
 const GENERAL_MODULES = new Set([
     'general_services',
     'admin',
@@ -732,7 +708,7 @@ const showSystemUsersSection = computed(
 /**
  * The theme's sidebar script (defaultmenu.min.js) binds its own click toggle to every
  * top-level `.slide.has-sub` that exists when it runs — which is after Vue mounts
- * (useDashboard loads it dynamically). Chat/AI dropdowns escape that double-binding
+ * (useDashboard loads it dynamically). AI dropdowns escape that double-binding
  * because they only render later. The SMS section must wait for the theme scripts to
  * finish loading, otherwise both toggles fire on every click and cancel each other out.
  */
@@ -796,7 +772,9 @@ const chatAdminItems = [
     { route: 'admin.chat.settings', permission: 'chat-settings.view', icon: 'ri-settings-4-line', label: 'chat.settings.title' },
 ];
 
-const showChatAdminSection = computed(() => chatAdminItems.some((item) => can(item.permission)));
+const showChatAdminSection = computed(
+    () => isChatVisible.value && chatAdminItems.some((item) => can(item.permission)),
+);
 
 /** DORR Discover (Modules/Discover): events, organizers, categories & cities, settings. */
 const discoverItems = [
