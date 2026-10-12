@@ -16,6 +16,7 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.Transformer
 import androidx.media3.transformer.VideoEncoderSettings
+import com.dorr.app.ui.screens.chat.ChatPrefs
 import com.dorr.app.ui.screens.chat.LocalFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -23,6 +24,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 import kotlin.coroutines.resume
+
+/** On a slow connection a video may go at most [VideoTools.SLOW_MAX_BYTES] (backlog 48). */
+class VideoTooBigException : Exception("video too big for a slow connection")
 
 /** What we know about a picked video before sending it. */
 data class VideoInfo(val durationMs: Long?, val width: Int, val height: Int, val bitrate: Long?)
@@ -39,6 +43,14 @@ object VideoTools {
     private const val BITRATE = 2_500_000
     private const val SAVER_SHORT_SIDE = 480
     private const val SAVER_BITRATE = 1_200_000
+    /** HD when I chose high quality (backlog 47): 1080p at ~6 Mbps. */
+    private const val HD_SHORT_SIDE = 1080
+    private const val HD_BITRATE = 6_000_000
+    /** The cap on a slow connection (backlog 48). */
+    const val SLOW_MAX_BYTES = 64L * 1024 * 1024
+    private const val AUDIO_BITRATE = 128_000
+    /** Below this the picture is mush: too long a video for the cap. */
+    private const val MIN_BITRATE = 250_000
 
     fun info(context: Context, file: File): VideoInfo? = runCatching {
         MediaMetadataRetriever().run {
@@ -70,29 +82,52 @@ object VideoTools {
     }.getOrNull()
 
     /**
-     * Shrink the video if it's worth it. Already small (≤ 720p and a modest bitrate) → sent as is.
+     * Shrink the video if it's worth it. Already small (≤ the size for now and a modest bitrate)
+     * → sent as is. HD (1080p) when I chose high quality; on a slow line 480p and never over
+     * 64 MB — a long video gets the bitrate its length allows, or [VideoTooBigException].
      */
     suspend fun compress(context: Context, input: LocalFile): LocalFile {
-        val meta = info(context, input.file) ?: return input
-        // Data saver (spec 82): 480p at ~1.2 Mbps.
-        val side = if (ChatDataSaver.active) SAVER_SHORT_SIDE else SHORT_SIDE
-        val rate = if (ChatDataSaver.active) SAVER_BITRATE else BITRATE
+        val mode = ChatPrefs.videoMode(context)
+        val slow = mode == "slow"
+        val meta = info(context, input.file) ?: return input.also { checkCap(slow, it) }
+        val side = when (mode) {
+            "hd" -> HD_SHORT_SIDE
+            "slow" -> SAVER_SHORT_SIDE
+            else -> SHORT_SIDE
+        }
+        var rate = when (mode) {
+            "hd" -> HD_BITRATE
+            "slow" -> SAVER_BITRATE
+            else -> BITRATE
+        }
+        val seconds = (meta.durationMs ?: 0L) / 1000.0
+        if (slow && seconds > 0) {
+            // What fits under the cap for this length (sound ~128 kbps, 8% spare for the container).
+            val fit = (SLOW_MAX_BYTES * 8 * 0.92 / seconds - AUDIO_BITRATE).toLong()
+            if (fit < MIN_BITRATE) checkCap(true, input) else rate = minOf(rate.toLong(), fit).toInt()
+        }
         val shortSide = minOf(meta.width, meta.height)
         val alreadySmall = shortSide in 1..side && (meta.bitrate ?: Long.MAX_VALUE) <= rate * 1.3
-        if (alreadySmall || input.file.length() < 4L * 1024 * 1024) return input
+        if (alreadySmall || input.file.length() < 4L * 1024 * 1024) return input.also { checkCap(slow, it) }
 
         val out = File(File(context.cacheDir, "chat-out").apply { mkdirs() }, "${UUID.randomUUID()}.mp4")
-        // Scale so the *short* side is 720 — portrait videos stay sharp too.
-        val presentation = if (meta.width >= meta.height) Presentation.createForHeight(side)
-        else Presentation.createForWidthAndHeight(side, side * meta.height / meta.width.coerceAtLeast(1), Presentation.LAYOUT_SCALE_TO_FIT)
+        // Scale so the *short* side is the size for now — portrait videos stay sharp too — never up.
+        val target = if (shortSide > 0) minOf(side, shortSide) else side
+        val presentation = if (meta.width >= meta.height) Presentation.createForHeight(target)
+        else Presentation.createForWidthAndHeight(target, target * meta.height / meta.width.coerceAtLeast(1), Presentation.LAYOUT_SCALE_TO_FIT)
 
         val item = EditedMediaItem.Builder(MediaItem.fromUri(Uri.fromFile(input.file)))
             .setEffects(Effects(emptyList(), listOf(presentation)))
             .build()
         val ok = export(context, item, out, rate)
 
-        return if (ok && out.length() in 1 until input.file.length()) LocalFile(out, "video/mp4", input.name.substringBeforeLast('.') + ".mp4")
+        val result = if (ok && out.length() in 1 until input.file.length()) LocalFile(out, "video/mp4", input.name.substringBeforeLast('.') + ".mp4")
         else input.also { out.delete() }
+        return result.also { checkCap(slow, it) }
+    }
+
+    private fun checkCap(slow: Boolean, file: LocalFile) {
+        if (slow && file.file.length() > SLOW_MAX_BYTES) throw VideoTooBigException()
     }
 
     /** The longest clip that goes as a GIF (spec 11). */

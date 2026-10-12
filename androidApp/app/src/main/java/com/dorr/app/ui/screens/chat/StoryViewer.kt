@@ -20,6 +20,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -243,7 +244,11 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
             progress.snapTo(0f)
         }
         if (!active || holding) return@LaunchedEffect
-        val total = if (story.type == "video") (videoMs ?: story.durationMs ?: 15_000L) else PHOTO_MS
+        val total = when (story.type) {
+            "video" -> videoMs ?: story.durationMs ?: 15_000L
+            "voice" -> (story.durationMs ?: 15_000L).coerceAtLeast(1_000L)
+            else -> PHOTO_MS
+        }
         if (story.type == "video" && videoMs == null) return@LaunchedEffect // wait for the video to start
         val remaining = ((1f - progress.value) * total).toLong().coerceAtLeast(1)
         progress.animateTo(1f, tween(remaining.toInt(), easing = LinearEasing))
@@ -335,6 +340,8 @@ private fun StoryGroupPage(group: StoryGroupDto, active: Boolean, onPrevGroup: (
 
         // ------------------------------------------------------------ bottom: caption, reply / viewers
         Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding()) {
+            // It mentions me: I may add it to my status (backlog 85).
+            if (story.mentionedMe && !story.isMine) AnimatedVisibility(!uiHidden && !typing) { MentionedMeBar(story) }
             if (story.type != "text" && !story.body.isNullOrBlank()) {
                 AnimatedVisibility(!uiHidden) {
                     Text(
@@ -409,6 +416,7 @@ private fun StoryContent(story: StoryDto, playing: Boolean, onVideoReady: (Long)
             val zoom by animateFloatAsState(if (playing) 1.08f else 1f, tween(if (playing) PHOTO_MS.toInt() else 300, easing = LinearEasing), label = "kenburns")
             AsyncImage(url, null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom })
         }
+        "voice" -> VoiceStoryContent(story, playing)
         "video" -> {
             val url = ApiClient.mediaUrl(story.media?.url)
             AndroidView(
@@ -435,6 +443,15 @@ private fun ReplyBar(onFocus: (Boolean) -> Unit, onReact: (String) -> Unit, onSe
     var text by remember { mutableStateOf("") }
     var focused by remember { mutableStateOf(false) }
     val keyboard = LocalSoftwareKeyboardController.current
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    // The story waits while I type. Sending, or closing the keyboard (back), must let it go on:
+    // the field kept its focus, so the story stood still and its bar never moved again.
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    val imeVisible = androidx.compose.foundation.layout.WindowInsets.isImeVisible
+    var imeWasVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(imeVisible) {
+        if (imeVisible) imeWasVisible = true else if (imeWasVisible && focused) { imeWasVisible = false; focusManager.clearFocus() }
+    }
     Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.6f)))).padding(horizontal = 12.dp, vertical = 12.dp)) {
         // Quick reactions: each one pops in, a tap sends a burst up the screen.
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
@@ -471,6 +488,7 @@ private fun ReplyBar(onFocus: (Boolean) -> Unit, onReact: (String) -> Unit, onSe
                         onSend(text.trim())
                         text = ""
                         keyboard?.hide()
+                        focusManager.clearFocus()
                     },
                     contentAlignment = Alignment.Center,
                 ) { Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White, modifier = Modifier.size(22.dp)) }

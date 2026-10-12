@@ -483,8 +483,8 @@ fun ViewOnceViewer(files: List<AttachmentDto>, onClose: () -> Unit) {
 @Composable
 fun LiveLocationCard(meta: JsonObject?, live: LiveLocationDto, mine: Boolean, onStop: () -> Unit, footer: @Composable () -> Unit) {
     val context = LocalContext.current
-    val lat = meta?.get("latitude")?.asDouble ?: 0.0
-    val lng = meta?.get("longitude")?.asDouble ?: 0.0
+    val lat = meta?.dbl("latitude") ?: 0.0
+    val lng = meta?.dbl("longitude") ?: 0.0
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) { while (true) { delay(15_000); now = System.currentTimeMillis() } }
     val until = parseInstant(live.liveUntil)?.toEpochMilli() ?: 0L

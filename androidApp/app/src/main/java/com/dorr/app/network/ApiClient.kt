@@ -133,6 +133,7 @@ object ApiClient {
     val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
     val life: LifeApi by lazy { retrofit.create(LifeApi::class.java) }
+    val backlog: BacklogApi by lazy { retrofit.create(BacklogApi::class.java) }
     val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }

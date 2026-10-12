@@ -43,7 +43,9 @@ class MessageResource extends JsonResource
             'conversation_id' => $ctx->conversation->uuid,
             'type' => $m->type->value,
             'body' => $gone || $sealed ? null : $m->body,
-            'meta' => $gone ? null : $m->meta,
+            // Always an object or null: an empty array went out as JSON `[]`, which the app can't
+            // read as an object, so the whole page of messages failed to load.
+            'meta' => $gone || ! is_array($m->meta) || $m->meta === [] || array_is_list($m->meta) ? null : $m->meta,
             'sealed' => $sealed,
             // View-once files are never listed: the recipient gets them once from POST messages/{m}/open.
             'attachments' => $gone || $m->view_once || $sealed ? [] : $this->attachments($m),
