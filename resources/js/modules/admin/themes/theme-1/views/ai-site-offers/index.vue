@@ -2,8 +2,8 @@
     <div>
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
             <div>
-                <p class="fw-semibold fs-18 mb-0">{{ t('ai_site_offers.title') }}</p>
-                <span class="fs-semibold text-muted">{{ t('ai_site_offers.subtitle') }}</span>
+                <p class="fw-semibold fs-18 mb-0">{{ pageTitle }}</p>
+                <span class="fs-semibold text-muted">{{ pageSubtitle }}</span>
             </div>
             <div class="ms-md-1 ms-0">
                 <nav>
@@ -11,7 +11,7 @@
                         <li class="breadcrumb-item">
                             <router-link :to="{ name: 'admin.dashboard' }">{{ t('dashboard') }}</router-link>
                         </li>
-                        <li class="breadcrumb-item active" aria-current="page">{{ t('ai_site_offers.title') }}</li>
+                        <li class="breadcrumb-item active" aria-current="page">{{ pageTitle }}</li>
                     </ol>
                 </nav>
             </div>
@@ -20,7 +20,7 @@
         <div class="card custom-card">
             <div class="card-header d-flex align-items-center justify-content-end py-3">
                 <button type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
-                    <i class="ri-add-line me-1 align-middle"></i>{{ t('ai_site_offers.add') }}
+                    <i class="ri-add-line me-1 align-middle"></i>{{ addLabel }}
                 </button>
             </div>
 
@@ -43,7 +43,7 @@
                             <tr v-else-if="!offers.length">
                                 <td colspan="6" class="border-0">
                                     <div class="text-center py-5">
-                                        <p class="fw-semibold mb-1">{{ t('ai_site_offers.empty_title') }}</p>
+                                        <p class="fw-semibold mb-1">{{ isPack ? t('ai_site_offers.packs_empty_title') : t('ai_site_offers.empty_title') }}</p>
                                         <p class="text-muted mb-0">{{ t('ai_site_offers.empty') }}</p>
                                     </div>
                                 </td>
@@ -91,13 +91,14 @@
             </div>
         </div>
 
-        <ModalOffer :show="modalShow" :type="modalType" :record="selected" @close="modalShow = false" @saved="onSaved" />
+        <ModalOffer :show="modalShow" :kind="kindRef" :type="modalType" :record="selected" @close="modalShow = false" @saved="onSaved" />
         <ModalOfferPrices :show="pricesShow" :offer="pricesOffer" @close="pricesShow = false" @saved="load" />
     </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../api/adminAxios';
 import TableSkeleton from '../../../../../../components/ui/TableSkeleton.vue';
@@ -106,6 +107,12 @@ import ModalOffer from './ModalOffer.vue';
 import ModalOfferPrices from './ModalOfferPrices.vue';
 
 const { t } = useI18n();
+const route = useRoute();
+const kindRef = computed(() => (route.meta.kind === 'edit_pack' ? 'edit_pack' : 'site'));
+const isPack = computed(() => kindRef.value === 'edit_pack');
+const pageTitle = computed(() => t(isPack.value ? 'ai_site_offers.packs_title' : 'ai_site_offers.title'));
+const pageSubtitle = computed(() => t(isPack.value ? 'ai_site_offers.packs_subtitle' : 'ai_site_offers.subtitle'));
+const addLabel = computed(() => t(isPack.value ? 'ai_site_offers.add_pack' : 'ai_site_offers.add'));
 const { showSuccess, showError } = useToast();
 
 const offers = ref([]);
@@ -120,7 +127,7 @@ async function load() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get('/api/admin/v1/ai-site-offers');
+        const { data } = await adminAxios.get('/api/admin/v1/ai-site-offers', { params: { kind: kindRef.value } });
         offers.value = data.data ?? [];
     } catch (error) {
         showError(extractApiErrorMessage(error, t('toast.error')));
@@ -158,6 +165,7 @@ async function toggleActive(offer) {
             generations_included: offer.generations_included,
             sort_order: offer.sort_order,
             is_active: offer.is_active,
+            kind: kindRef.value,
         });
         showSuccess(extractApiMessage(response, t('toast.status_changed')));
     } catch (error) {
@@ -185,5 +193,6 @@ function onSaved() {
     load();
 }
 
+watch(kindRef, load);
 onMounted(load);
 </script>

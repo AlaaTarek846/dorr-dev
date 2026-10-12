@@ -47,6 +47,28 @@ class AiSiteProject extends Model
         return $this->belongsTo(AiSitePurchase::class, 'purchase_id');
     }
 
+    /** Edit packs bought for this site (ai_site_purchases rows that point at it). */
+    public function editPacks(): HasMany
+    {
+        return $this->hasMany(AiSitePurchase::class, 'project_id')
+            ->whereHas('offer', fn ($query) => $query->where('kind', AiSiteOffer::KIND_EDIT_PACK));
+    }
+
+    /** Purchases that unlocked the ZIP download of this site. */
+    public function sourceDownloadPurchases(): HasMany
+    {
+        return $this->hasMany(AiSitePurchase::class, 'project_id')
+            ->whereHas('offer', fn ($query) => $query->where('kind', AiSiteOffer::KIND_SOURCE_DOWNLOAD));
+    }
+
+    /** Builds/edits still unused in the edit packs bought for this site. */
+    public function packGenerationsLeft(): int
+    {
+        return (int) $this->editPacks()->where('status', 'active')
+            ->selectRaw('COALESCE(SUM(generations_included - generations_used), 0) as left_total')
+            ->value('left_total');
+    }
+
     public function versions(): HasMany
     {
         return $this->hasMany(AiSiteVersion::class, 'project_id')->orderByDesc('number');

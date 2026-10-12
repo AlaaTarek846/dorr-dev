@@ -153,8 +153,9 @@ if (! function_exists('sendNotification')) {
             $receivers = [$receivers];
         }
 
-        try {
-            foreach ($receivers as $receiver) {
+        // One receiver failing (the real-time server not answering, say) must not keep the rest from being told.
+        foreach ($receivers as $receiver) {
+            try {
                 $receiver?->notify(new GeneralNotification(
                     broadcastEvent: $event,
                     data: $data,
@@ -165,12 +166,12 @@ if (! function_exists('sendNotification')) {
                     status: $status,
                     type: $type,
                 ));
+            } catch (Throwable $e) {
+                Log::error('[sendNotification] '.$e->getMessage(), [
+                    'event' => $event,
+                    'exception' => $e,
+                ]);
             }
-        } catch (Throwable $e) {
-            Log::error('[sendNotification] '.$e->getMessage(), [
-                'event' => $event,
-                'exception' => $e,
-            ]);
         }
     }
 }

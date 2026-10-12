@@ -74,7 +74,7 @@ class AiSiteProjectService
                 $this->entitlements->consumePurchase($purchase);
             }
 
-            $version = $this->newVersion($project, AiSiteVersion::KIND_GENERATE, null);
+            $version = $this->newVersion($project, AiSiteVersion::KIND_GENERATE, null, consumedPurchaseId: $purchase?->id);
 
             return [$project, $version];
         });
@@ -194,13 +194,11 @@ class AiSiteProjectService
         $version = DB::transaction(function () use ($project, $owner, $kind, $instruction) {
             $locked = AiSiteProject::query()->lockForUpdate()->findOrFail($project->id);
             $this->assertCanChange($locked);
-            $this->entitlements->assertCanGenerate($locked, $owner);
 
-            if ($locked->access_type === AiSiteProject::ACCESS_PURCHASE && $locked->purchase !== null) {
-                $this->entitlements->consumePurchase($locked->purchase);
-            }
+            // The site's own allowance first, then an edit pack bought for it; refuses when both are empty.
+            $consumedFrom = $this->entitlements->reserve($locked, $owner);
 
-            $version = $this->newVersion($locked, $kind, $instruction);
+            $version = $this->newVersion($locked, $kind, $instruction, consumedPurchaseId: $consumedFrom);
             $locked->forceFill(['status' => AiSiteProject::STATUS_GENERATING])->save();
 
             return $version;
@@ -226,7 +224,7 @@ class AiSiteProjectService
         }
     }
 
-    protected function newVersion(AiSiteProject $project, string $kind, ?string $instruction, bool $counted = true): AiSiteVersion
+    protected function newVersion(AiSiteProject $project, string $kind, ?string $instruction, bool $counted = true, ?int $consumedPurchaseId = null): AiSiteVersion
     {
         $number = (int) $project->versions()->max('number') + 1;
 
@@ -237,12 +235,99 @@ class AiSiteProjectService
             'status' => AiSiteVersion::STATUS_PENDING,
             'instruction' => $instruction,
             'counted' => $counted,
+            'consumed_purchase_id' => $consumedPurchaseId,
         ]);
     }
 
-    protected function purchase(Authenticatable $owner, int $offerId): AiSitePurchase
+    /**
+     * Buys an edit pack: more AI builds/edits for one existing site, paid from the wallet. The pack is its
+     * own purchase row (money history) pointing at the site; edits use it once the site's own allowance is gone.
+     */
+    public function buyEditPack(AiSiteProject $project, Authenticatable $owner, int $offerId): AiSitePurchase
     {
-        $offer = AiSiteOffer::query()->where('is_active', true)->find($offerId);
+        $this->assertEnabled();
+
+        if ($project->isDisabled()) {
+            throw new AiSiteException('project_disabled', 403);
+        }
+
+        return $this->purchase($owner, $offerId, AiSiteOffer::KIND_EDIT_PACK, $project->id);
+    }
+
+    // ------------------------------------------------------- source download (ZIP)
+
+    /** The admin-managed "download the source" offer, null when the admin never configured it. */
+    public function sourceDownloadOffer(): ?AiSiteOffer
+    {
+        return AiSiteOffer::query()->where('kind', AiSiteOffer::KIND_SOURCE_DOWNLOAD)->orderBy('id')->first();
+    }
+
+    /**
+     * Whether and how this site's source can be downloaded. With no offer configured the feature behaves as
+     * it always did (free); once the admin has set it up, the offer decides: inactive = closed, free or priced.
+     *
+     * @return array{enabled: bool, free: bool, unlocked: bool, can_download: bool, price: ?float, currency: ?string, purchasable: bool}
+     */
+    public function sourceDownloadStatus(AiSiteProject $project): array
+    {
+        $offer = $this->sourceDownloadOffer();
+
+        if ($offer === null) {
+            return ['enabled' => true, 'free' => true, 'unlocked' => true, 'can_download' => true, 'price' => null, 'currency' => null, 'purchasable' => false];
+        }
+
+        $price = $offer->is_free ? null : $offer->priceFor(currentCountry());
+        $unlocked = $offer->is_free || $project->sourceDownloadPurchases()->where('status', 'active')->exists();
+
+        return [
+            'enabled' => $offer->is_active,
+            'free' => $offer->is_free,
+            'unlocked' => $unlocked,
+            'can_download' => $offer->is_active && $unlocked,
+            'price' => $price['price'] ?? null,
+            'currency' => $price['currency'] ?? null,
+            'purchasable' => $offer->is_active && ! $unlocked && $price !== null,
+        ];
+    }
+
+    public function assertCanDownload(AiSiteProject $project): void
+    {
+        $status = $this->sourceDownloadStatus($project);
+
+        if (! $status['enabled']) {
+            throw new AiSiteException('download_disabled', 403);
+        }
+
+        if (! $status['unlocked']) {
+            throw new AiSiteException('download_locked', 402);
+        }
+    }
+
+    /** Pays (once) to unlock the ZIP download of one site from the wallet. */
+    public function buySourceDownload(AiSiteProject $project, Authenticatable $owner): AiSitePurchase
+    {
+        $this->assertEnabled();
+
+        if ($project->isDisabled()) {
+            throw new AiSiteException('project_disabled', 403);
+        }
+
+        $offer = $this->sourceDownloadOffer();
+
+        if ($offer === null || ! $offer->is_active) {
+            throw new AiSiteException('download_disabled', 403);
+        }
+
+        if ($offer->is_free || $project->sourceDownloadPurchases()->where('status', 'active')->exists()) {
+            throw new AiSiteException('download_already_unlocked', 409);
+        }
+
+        return $this->purchase($owner, $offer->id, AiSiteOffer::KIND_SOURCE_DOWNLOAD, $project->id);
+    }
+
+    protected function purchase(Authenticatable $owner, int $offerId, string $kind = AiSiteOffer::KIND_SITE, ?int $projectId = null): AiSitePurchase
+    {
+        $offer = AiSiteOffer::query()->where('is_active', true)->where('kind', $kind)->find($offerId);
 
         if ($offer === null) {
             throw new AiSiteException('offer_unavailable', 404);
@@ -272,6 +357,7 @@ class AiSiteProjectService
             'owner_type' => $owner->getMorphClass(),
             'owner_id' => $owner->getAuthIdentifier(),
             'offer_id' => $offer->id,
+            'project_id' => $projectId,
             'amount' => $price['price'],
             'currency' => $price['currency'],
             'wallet_operation_id' => $result['operation_id'] ?? null,

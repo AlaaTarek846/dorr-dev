@@ -17,6 +17,7 @@ use Modules\Chat\Models\ChatContact;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Services\LifeService;
 use Modules\User\Models\User;
 use Tests\TestCase;
 
@@ -222,7 +223,7 @@ class ChatLifeTest extends TestCase
 
     private function runReminders(): int
     {
-        return app(\Modules\Chat\Services\LifeService::class)->remindDue();
+        return app(LifeService::class)->remindDue();
     }
 
     private function pid(User $user, string $conversation): int

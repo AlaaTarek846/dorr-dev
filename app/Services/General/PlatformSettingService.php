@@ -2,11 +2,11 @@
 
 namespace App\Services\General;
 
-use App\Services\BaseService;
 use App\Http\Requests\General\PlatformSettingUpdateRequest;
 use App\Http\Resources\General\PlatformBrandingResource;
 use App\Http\Resources\General\PlatformSettingResource;
 use App\Repositories\General\PlatformSettingRepository;
+use App\Services\BaseService;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 

@@ -54,7 +54,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
-
+- **Admin sidebar Chat (2026-10-12):** Chat admin links (reports, themes, settings, …) show only when the header service is Chat (`module_name=chat`), same pattern as AI. They are no longer listed under General.
 - **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
 - **Ratings (2026-10-08):** polymorphic `ratings` + mobile API (POST creates then updates the same row) + admin page + Android Play In-App Review; see CHANGELOG.
 

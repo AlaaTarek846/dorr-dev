@@ -31,7 +31,7 @@ class SocialAuthService
         $email = $socialUser->getEmail();
         $name = $socialUser->getName() ?: ($email ? Str::before($email, '@') : 'User');
 
-        return DB::transaction(function () use ($provider, $providerId, $email, $name, $userModelClass, $socialUser, $allowRegistration) {
+        return DB::transaction(function () use ($provider, $providerId, $email, $name, $userModelClass, $allowRegistration) {
             /** @var SocialAccount|null $linkedAccount */
             $linkedAccount = SocialAccount::query()
                 ->where('provider', $provider->value)

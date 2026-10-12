@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\General;
 
-use App\Http\Controllers\Controller;
 use App\Http\Controllers\Concerns\DefinesAdminCatalogPermissions;
+use App\Http\Controllers\Controller;
 use App\Http\Requests\General\MobileAppColorDefaultRequest;
 use App\Services\General\MobileAppColorDefaultService;
 use Illuminate\Routing\Controllers\HasMiddleware;

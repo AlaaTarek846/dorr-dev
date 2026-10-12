@@ -2,6 +2,7 @@
 
 namespace Modules\User\Services;
 
+use App\Services\Notifications\NotificationCenter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\User\Models\SupportMessage;
@@ -121,8 +122,9 @@ class SupportAutoReplyService
 
         $ticketId = (int) $ticket->getKey();
 
-        // After the response: the AI takes seconds, the customer's message must not wait for it.
-        defer(fn () => $this->answerFromFaqs($ticketId, $question));
+        // After the response: the AI takes seconds, the customer's message must not wait for it. later() rather than
+        // defer(), so the push that announces the answer is not lost (it is sent from inside this deferred work).
+        NotificationCenter::later(fn () => $this->answerFromFaqs($ticketId, $question));
     }
 
     private function post(SupportTicket $ticket, string $kind, string $body, bool $push = false): void

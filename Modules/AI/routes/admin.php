@@ -46,8 +46,10 @@ use Modules\AI\Http\Controllers\AiSecurityEventController;
 use Modules\AI\Http\Controllers\AiSecurityPolicyController;
 use Modules\AI\Http\Controllers\AiSiteAdminHostingController;
 use Modules\AI\Http\Controllers\AiSiteAdminProjectController;
+use Modules\AI\Http\Controllers\AiSiteDownloadSettingController;
 use Modules\AI\Http\Controllers\AiSiteHostingPlanController;
 use Modules\AI\Http\Controllers\AiSiteOfferController;
+use Modules\AI\Http\Controllers\AiSiteServiceRequestAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionAdminController;
 use Modules\AI\Http\Controllers\AiSubscriptionController;
 use Modules\AI\Http\Controllers\AiTrialControlController;
@@ -402,6 +404,12 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::put('{offer}/prices', [AiSiteOfferController::class, 'syncPrices']);
 });
 
+// Source download (ZIP) of a built site: on/off and free/paid.
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-download')->group(function () {
+    Route::get('/', [AiSiteDownloadSettingController::class, 'show']);
+    Route::put('/', [AiSiteDownloadSettingController::class, 'update']);
+});
+
 Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-sites')->group(function () {
     Route::get('/', [AiSiteAdminProjectController::class, 'index']);
     Route::get('{project}', [AiSiteAdminProjectController::class, 'show'])->whereNumber('project');
@@ -427,4 +435,27 @@ Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->pr
     Route::post('{hosting}/suspend', [AiSiteAdminHostingController::class, 'suspend'])->whereNumber('hosting');
     Route::post('{hosting}/resume', [AiSiteAdminHostingController::class, 'resume'])->whereNumber('hosting');
     Route::delete('{hosting}', [AiSiteAdminHostingController::class, 'destroy'])->whereNumber('hosting');
+});
+
+// Human-assisted site requests: inbox, quote builder, run-the-work actions, conversation, switch and statuses.
+Route::middleware(['locale', 'auth:admin_api', 'throttle:ai-admin-general'])->prefix('admin/v1/ai-site-requests')->group(function () {
+    Route::get('summary', [AiSiteServiceRequestAdminController::class, 'summary']);
+    Route::get('settings', [AiSiteServiceRequestAdminController::class, 'settings']);
+    Route::put('settings', [AiSiteServiceRequestAdminController::class, 'updateSettings']);
+    Route::get('statuses', [AiSiteServiceRequestAdminController::class, 'statuses']);
+    Route::post('statuses', [AiSiteServiceRequestAdminController::class, 'storeStatus']);
+    Route::put('statuses/{status}', [AiSiteServiceRequestAdminController::class, 'updateStatus'])->whereNumber('status');
+    Route::delete('statuses/{status}', [AiSiteServiceRequestAdminController::class, 'destroyStatus'])->whereNumber('status');
+
+    Route::get('/', [AiSiteServiceRequestAdminController::class, 'index']);
+    Route::get('{id}', [AiSiteServiceRequestAdminController::class, 'show'])->whereNumber('id');
+    Route::put('{id}', [AiSiteServiceRequestAdminController::class, 'update'])->whereNumber('id');
+    Route::post('{id}/quote', [AiSiteServiceRequestAdminController::class, 'quote'])->whereNumber('id');
+    Route::post('{id}/status', [AiSiteServiceRequestAdminController::class, 'changeStatus'])->whereNumber('id');
+    Route::post('{id}/extend', [AiSiteServiceRequestAdminController::class, 'extend'])->whereNumber('id');
+    Route::post('{id}/milestones/{milestone}', [AiSiteServiceRequestAdminController::class, 'milestone'])->whereNumber(['id', 'milestone']);
+    Route::post('{id}/installments/{installment}/release', [AiSiteServiceRequestAdminController::class, 'releaseInstallment'])->whereNumber(['id', 'installment']);
+    Route::get('{id}/messages', [AiSiteServiceRequestAdminController::class, 'messages'])->whereNumber('id');
+    Route::post('{id}/messages', [AiSiteServiceRequestAdminController::class, 'sendMessage'])->whereNumber('id');
+    Route::get('{id}/files/{index}', [AiSiteServiceRequestAdminController::class, 'file'])->whereNumber(['id', 'index']);
 });
