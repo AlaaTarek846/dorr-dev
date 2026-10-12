@@ -32,6 +32,11 @@ class DiscoverServiceProvider extends ModuleServiceProvider
         RouteServiceProvider::class,
     ];
 
+    /**
+     * No views (API only) — registering the missing folder breaks `view:cache` on deploy.
+     */
+    protected function registerViews(): void {}
+
     protected function configureSchedules(Schedule $schedule): void
     {
         $schedule->command(SendDiscoverAlerts::class)->hourly()->withoutOverlapping();
