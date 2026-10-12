@@ -8,9 +8,11 @@ use App\Models\Flag;
 use App\Models\Language;
 use App\Models\NotificationDevice;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Defer\DeferredCallbackCollection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Modules\Admin\Models\Admin;
 use Modules\AI\Models\AiProvider;
@@ -136,30 +138,58 @@ class DiscoverTest extends TestCase
         $this->assertCount(2, $this->getJson('/api/mobile/v1/discover/events', $this->headers())->assertOk()->json('data'));
     }
 
+    public function test_the_organizer_hears_the_admins_answer_on_their_phone(): void
+    {
+        // Phones register under the account's morph class ("user"), like the real app does.
+        NotificationDevice::query()->where('player_id', 'bob-phone')->update(['owner_type' => $this->bob->getMorphClass()]);
+
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
+        $id = $this->postJson('/api/mobile/v1/discover/organizer/events', $this->eventData('Jazz night'), $this->headers())->assertCreated()->json('data.id');
+        $organizer = DiscoverOrganizer::query()->firstOrFail();
+
+        $this->asAdmin(['discover-events.update', 'discover-organizers.update']);
+        $this->patchJson("/api/admin/v1/discover-events/{$id}/review", ['review_status' => 'rejected', 'note' => 'Add the venue'])->assertOk();
+        $this->patchJson("/api/admin/v1/discover-organizers/{$organizer->id}/review", ['status' => 'verified'])->assertOk();
+        // Saving the same answer again tells nobody twice.
+        $this->patchJson("/api/admin/v1/discover-organizers/{$organizer->id}/review", ['status' => 'verified'])->assertOk();
+
+        $event = $this->pushes('discover.event.reviewed');
+        $this->assertCount(1, $event);
+        $this->assertSame(['bob-phone'], $event[0]['include_player_ids']);
+        $this->assertSame('rejected', $event[0]['data']['status']);
+        $this->assertSame($id, $event[0]['data']['event_id']);
+        $this->assertStringContainsString('Add the venue', $event[0]['contents']['en']);
+
+        $organizerPushes = $this->pushes('discover.organizer.reviewed');
+        $this->assertCount(1, $organizerPushes);
+        $this->assertSame('verified', $organizerPushes[0]['data']['status']);
+    }
+
     // ------------------------------------------------------------------ AT-DISC-01
 
     public function test_an_organizer_sends_a_cover_with_the_event_and_changes_it_from_the_app(): void
     {
-        \Illuminate\Support\Facades\Storage::fake('public');
+        Storage::fake('public');
         $this->as($this->bob);
         $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
 
         // Multipart, as the app sends it: the fields (booleans as 1/0) and the photo.
         $data = ['is_free' => '1', 'family_friendly' => '0'] + $this->eventData('Oud night');
-        $created = $this->post('/api/mobile/v1/discover/organizer/events', $data + ['cover' => \Illuminate\Http\UploadedFile::fake()->image('cover.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
+        $created = $this->post('/api/mobile/v1/discover/organizer/events', $data + ['cover' => UploadedFile::fake()->image('cover.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
             ->assertCreated();
         $id = $created->json('data.id');
         $first = $created->json('data.cover');
         $this->assertNotNull($first);
 
         // Only a new cover: everything else stays, and it's reviewed again (not verified).
-        $updated = $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => \Illuminate\Http\UploadedFile::fake()->image('new.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
+        $updated = $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => UploadedFile::fake()->image('new.jpg', 1600, 900)], $this->headers() + ['Accept' => 'application/json'])
             ->assertOk()->assertJsonPath('data.title', 'Oud night')->assertJsonPath('data.review_status', 'pending');
         $this->assertNotNull($updated->json('data.cover'));
         $this->assertNotSame($first, $updated->json('data.cover'));
 
         // Not an image: refused.
-        $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => \Illuminate\Http\UploadedFile::fake()->create('cover.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])
+        $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => UploadedFile::fake()->create('cover.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])
             ->assertStatus(422);
     }
 

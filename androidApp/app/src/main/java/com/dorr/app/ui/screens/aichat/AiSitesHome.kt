@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.aichat
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.Web
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -44,6 +46,7 @@ import com.dorr.app.R
 import com.dorr.app.network.AiSiteOfferDto
 import com.dorr.app.network.AiSiteOffersDto
 import com.dorr.app.network.AiSiteProjectDto
+import com.dorr.app.network.AiSiteRequestDto
 import com.dorr.app.network.ApiClient
 import com.dorr.app.ui.screens.chat.chatAuth
 
@@ -131,17 +134,78 @@ private fun ProjectCard(project: AiSiteProjectDto, onClick: () -> Unit) {
     }
 }
 
+/** One of the two ways to get a site: let the AI build it now, or have a person build it. */
 @Composable
-internal fun SitesHome(onNew: (AiSiteOfferDto?) -> Unit, onOpen: (Int) -> Unit) {
+private fun ModeCard(title: String, subtitle: String, badge: String?, icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, onClick: () -> Unit) {
+    val c = sitePalette()
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        Modifier.fillMaxWidth().padding(vertical = 5.dp).clip(shape).background(c.surface).border(1.dp, c.line, shape)
+            .clickable(enabled = enabled, onClick = onClick).padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(if (enabled) siteGradient() else androidx.compose.ui.graphics.Brush.linearGradient(listOf(c.line, c.line))), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(26.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, color = if (enabled) c.ink else c.mut, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
+                if (badge != null) {
+                    Spacer(Modifier.width(8.dp))
+                    Text(badge, color = Ai.Red, fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.clip(RoundedCornerShape(50)).background(Ai.Red.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
+                }
+            }
+            Text(subtitle, color = c.mut, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 3.dp))
+        }
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = c.mut, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
+private fun RequestCard(r: AiSiteRequestDto, onClick: () -> Unit) {
+    val c = sitePalette()
+    SiteCard(Modifier.padding(vertical = 5.dp), onClick = onClick, padding = 14.dp) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(Ai.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.SupportAgent, contentDescription = null, tint = Ai.Red, modifier = Modifier.size(24.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(r.title.orEmpty(), color = c.ink, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, maxLines = 1)
+                Spacer(Modifier.height(6.dp))
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RequestStatusChip(r.status?.name.orEmpty(), r.status?.color)
+                    Text(r.reference.orEmpty(), color = c.mut, fontSize = 11.sp)
+                }
+            }
+            if ((r.unread ?: 0) > 0) {
+                Box(Modifier.size(22.dp).clip(CircleShape).background(c.danger), contentAlignment = Alignment.Center) {
+                    Text("${r.unread}", color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.width(8.dp))
+            }
+            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = c.mut, modifier = Modifier.size(22.dp))
+        }
+    }
+}
+
+@Composable
+internal fun SitesHome(onNew: (AiSiteOfferDto?) -> Unit, onOpen: (Int) -> Unit, onHuman: () -> Unit, onOpenRequest: (Int) -> Unit) {
     val c = sitePalette()
     var loading by remember { mutableStateOf(true) }
     var offers by remember { mutableStateOf<AiSiteOffersDto?>(null) }
     var projects by remember { mutableStateOf<List<AiSiteProjectDto>>(emptyList()) }
     var pickOffer by remember { mutableStateOf(false) }
+    var humanEnabled by remember { mutableStateOf(false) }
+    var showChoice by remember { mutableStateOf(false) }
+    var requests by remember { mutableStateOf<List<AiSiteRequestDto>>(emptyList()) }
 
     LaunchedEffect(Unit) {
         offers = runCatching { ApiClient.aiSites.offers(chatAuth()).data }.getOrNull()
         projects = runCatching { ApiClient.aiSites.projects(chatAuth()).data.orEmpty() }.getOrDefault(emptyList())
+        humanEnabled = runCatching { ApiClient.aiSites.requestInfo(chatAuth()).data?.enabled == true }.getOrDefault(false)
+        requests = runCatching { ApiClient.aiSites.requests(chatAuth()).data.orEmpty() }.getOrDefault(emptyList())
         loading = false
     }
 
@@ -155,16 +219,48 @@ internal fun SitesHome(onNew: (AiSiteOfferDto?) -> Unit, onOpen: (Int) -> Unit) 
     val canBuild = info != null && info.enabled && (info.plan?.canCreate == true || available.isNotEmpty())
     val message = when {
         info != null && !info.enabled -> stringResource(R.string.ai_sites_unavailable)
-        !canBuild -> stringResource(R.string.ai_sites_not_included)
+        !canBuild && !humanEnabled -> stringResource(R.string.ai_sites_not_included)
         else -> null
     }
 
     LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), contentPadding = PaddingValues(top = 6.dp, bottom = 32.dp)) {
         item {
-            SiteHero(canBuild, message) {
-                if (info?.plan?.canCreate == true) onNew(null) else pickOffer = true
+            SiteHero(canBuild || humanEnabled, message) {
+                when {
+                    humanEnabled -> showChoice = !showChoice
+                    info?.plan?.canCreate == true -> onNew(null)
+                    else -> pickOffer = true
+                }
             }
             Spacer(Modifier.height(18.dp))
+        }
+
+        if (humanEnabled && showChoice) {
+            item {
+                SiteSectionTitle(stringResource(R.string.ai_req_choice_title))
+                Spacer(Modifier.height(6.dp))
+                ModeCard(
+                    stringResource(R.string.ai_req_choice_ai_title), stringResource(R.string.ai_req_choice_ai_sub), stringResource(R.string.ai_req_choice_ai_badge),
+                    Icons.Rounded.AutoAwesome, enabled = canBuild,
+                ) {
+                    showChoice = false
+                    if (info?.plan?.canCreate == true) onNew(null) else pickOffer = true
+                }
+                ModeCard(
+                    stringResource(R.string.ai_req_choice_human_title), stringResource(R.string.ai_req_choice_human_sub), null,
+                    Icons.Rounded.SupportAgent, enabled = true,
+                ) { showChoice = false; onHuman() }
+                Spacer(Modifier.height(14.dp))
+            }
+        }
+
+        if (requests.isNotEmpty()) {
+            item {
+                SiteSectionTitle(stringResource(R.string.ai_req_my_requests))
+                Spacer(Modifier.height(6.dp))
+            }
+            items(requests, key = { "request-${it.id}" }) { r -> RequestCard(r) { onOpenRequest(r.id) } }
+            item { Spacer(Modifier.height(14.dp)) }
         }
 
         if (pickOffer) {
@@ -177,7 +273,7 @@ internal fun SitesHome(onNew: (AiSiteOfferDto?) -> Unit, onOpen: (Int) -> Unit) 
         }
 
         if (projects.isEmpty()) {
-            item {
+            if (requests.isEmpty()) item {
                 Column(Modifier.fillMaxWidth().padding(vertical = 28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Box(Modifier.size(64.dp).clip(CircleShape).background(Ai.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.Web, contentDescription = null, tint = Ai.Red, modifier = Modifier.size(30.dp))

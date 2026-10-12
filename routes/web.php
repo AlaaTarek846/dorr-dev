@@ -44,6 +44,8 @@ $dashboardSpaViewData = function (): array {
 };
 
 // "Click to chat" links from the DORR chat (opens the app with a message ready).
+// A group / channel invite link: opens the join sheet in the app.
+Route::get('/j/{token}', \Modules\Chat\Http\Controllers\General\ChatInvitePageController::class)->where('token', '[A-Za-z0-9]{8,64}');
 Route::get('/c/{token}', \Modules\Chat\Http\Controllers\General\ChatLinkPageController::class)->where('token', '[A-Za-z0-9_-]{8,80}');
 
 Route::get('/admin/{any?}', function () use ($dashboardSpaViewData) {

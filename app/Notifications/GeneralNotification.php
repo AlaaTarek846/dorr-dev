@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Support\Arrayable;
 use Illuminate\Notifications\Messages\BroadcastMessage;
 use Illuminate\Notifications\Notification;
 
@@ -115,7 +116,7 @@ class GeneralNotification extends Notification implements ShouldBroadcast
             return $this->data;
         }
 
-        return $this->data instanceof \Illuminate\Contracts\Support\Arrayable ? $this->data->toArray() : [];
+        return $this->data instanceof Arrayable ? $this->data->toArray() : [];
     }
 
     /**

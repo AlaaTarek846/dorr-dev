@@ -81,6 +81,8 @@ class AiSiteProjectFlowTest extends TestCase
 
             public bool $firstModelRetired = false;
 
+            public string $oldModelError = 'The model `gpt-5-codex` has been deprecated, learn more';
+
             public array $called = [];
 
             protected function resolveTarget(): array
@@ -98,7 +100,7 @@ class AiSiteProjectFlowTest extends TestCase
                 $this->called[] = $target['model_key'];
 
                 if ($target['model_key'] === 'old-model') {
-                    return ['success' => false, 'message' => 'The model `gpt-5-codex` has been deprecated, learn more', 'content' => null];
+                    return ['success' => false, 'message' => $this->oldModelError, 'content' => null];
                 }
 
                 return ['success' => true, 'message' => '', 'content' => $this->answer];
@@ -275,6 +277,19 @@ class AiSiteProjectFlowTest extends TestCase
     public function test_a_retired_model_falls_back_to_another_one(): void
     {
         $this->generator->firstModelRetired = true;
+        $project = $this->build($this->planUser());
+
+        $version = $project->fresh()->versions()->latest('id')->first();
+
+        $this->assertSame('completed', $version->status);
+        $this->assertSame('new-model', $version->model_key);
+        $this->assertSame(['old-model', 'new-model'], $this->generator->called);
+    }
+
+    public function test_a_model_with_a_short_reply_limit_falls_back_to_another_one(): void
+    {
+        $this->generator->firstModelRetired = true;
+        $this->generator->oldModelError = 'max_tokens is too large: 16000. This model supports at most 4096 completion tokens, whereas you provided 16000.';
         $project = $this->build($this->planUser());
 
         $version = $project->fresh()->versions()->latest('id')->first();
@@ -476,6 +491,206 @@ class AiSiteProjectFlowTest extends TestCase
         $this->runLatest($project);
 
         $this->assertSame('purchase_exhausted', $this->reason(fn () => $service->requestEdit($project->fresh(), $user, 'once more')));
+    }
+
+    // ------------------------------------------------------------ edit packs
+
+    private function pack(int $edits = 2, float $price = 50): AiSiteOffer
+    {
+        $pack = AiSiteOffer::query()->create(['name' => 'Pack', 'code' => 'pack-'.uniqid(), 'kind' => 'edit_pack', 'generations_included' => $edits, 'is_active' => true]);
+        $pack->prices()->create(['country_id' => $this->country->id, 'currency_id' => $this->currency->id, 'price' => $price]);
+
+        return $pack;
+    }
+
+    public function test_an_edit_pack_gives_an_exhausted_purchased_site_more_edits(): void
+    {
+        $user = $this->user();
+        $wallet = $this->wallet($user, 50000);
+        $service = app(AiSiteProjectService::class);
+
+        $project = $service->create($user, $this->brief(), null, [], $this->offer(price: 100, generations: 1)->id);
+        $this->runLatest($project);
+        $project->refresh();
+
+        $this->assertSame('purchase_exhausted', $this->reason(fn () => $service->requestEdit($project, $user, 'one more')));
+
+        $pack = $this->pack(edits: 2, price: 50);
+        $bought = $service->buyEditPack($project, $user, $pack->id);
+
+        $this->assertSame($project->id, $bought->project_id);
+        $this->assertSame(2, $bought->generations_included);
+        $this->assertSame(50000 - 10000 - 5000, $wallet->fresh()->spend_only_minor);
+
+        $service->requestEdit($project->fresh(), $user, 'first pack edit');
+        $version = $project->fresh()->versions()->orderByDesc('number')->first();
+        $this->assertSame($bought->id, $version->consumed_purchase_id);
+        $this->assertSame(1, $bought->fresh()->generations_used);
+        $this->assertSame(1, $project->purchase->fresh()->generations_used, 'the site\'s own allowance is untouched');
+    }
+
+    public function test_an_edit_pack_covers_a_plan_site_after_the_daily_limit_without_using_the_plan(): void
+    {
+        $user = $this->planUser(projects: 2, daily: 1);
+        $this->wallet($user, 50000);
+        $service = app(AiSiteProjectService::class);
+
+        $project = $this->build($user);
+
+        $this->assertSame('daily_limit_reached', $this->reason(fn () => $service->requestEdit($project, $user, 'too many')));
+
+        $service->buyEditPack($project, $user, $this->pack(edits: 1)->id);
+        $service->requestEdit($project->fresh(), $user, 'paid edit');
+        $this->runLatest($project);
+
+        $this->assertSame(1, app(AiSiteEntitlementService::class)->usedToday($user), 'the pack-paid edit is not a plan build');
+        $this->assertSame('daily_limit_reached', $this->reason(fn () => $service->requestEdit($project->fresh(), $user, 'again')));
+    }
+
+    public function test_a_failed_pack_edit_gives_the_edit_back_to_the_pack(): void
+    {
+        $user = $this->user();
+        $this->wallet($user, 50000);
+        $service = app(AiSiteProjectService::class);
+
+        $project = $service->create($user, $this->brief(), null, [], $this->offer(generations: 1)->id);
+        $this->runLatest($project);
+        $pack = $service->buyEditPack($project->fresh(), $user, $this->pack(edits: 1)->id);
+
+        $service->requestEdit($project->fresh(), $user, 'will fail');
+        $this->assertSame(1, $pack->fresh()->generations_used);
+
+        $this->generator->answer = 'no files here';
+        $this->runLatest($project);
+
+        $this->assertSame(0, $pack->fresh()->generations_used);
+    }
+
+    public function test_an_edit_pack_needs_money_a_pack_offer_and_a_live_site(): void
+    {
+        $user = $this->user();
+        $this->wallet($user, 10000);
+        $service = app(AiSiteProjectService::class);
+        $project = $service->create($user, $this->brief(), null, [], $this->offer(price: 100)->id);
+
+        $this->assertSame('insufficient_balance', $this->reason(fn () => $service->buyEditPack($project, $user, $this->pack(price: 500)->id)));
+        $this->assertSame('offer_unavailable', $this->reason(fn () => $service->buyEditPack($project, $user, $this->offer()->id)), 'a site offer is not an edit pack');
+        $this->assertSame('offer_unavailable', $this->reason(fn () => $service->create($user, $this->brief(), null, [], $this->pack()->id)), 'an edit pack does not buy a site');
+
+        $project->forceFill(['status' => 'disabled'])->save();
+    }
+
+    public function test_the_edit_packs_endpoint_reports_what_is_left_and_the_packs_on_sale(): void
+    {
+        $user = $this->user();
+        $this->wallet($user, 50000);
+        $project = app(AiSiteProjectService::class)->create($user, $this->brief(), null, [], $this->offer(generations: 1)->id);
+        $this->pack(edits: 5, price: 40);
+        $this->offer();
+
+        Sanctum::actingAs($user, ['*'], 'user_api');
+        $data = $this->getJson('/api/user/v1/ai-sites/'.$project->id.'/edit-packs')->assertSuccessful()->json('data');
+
+        $this->assertTrue($data['edits']['blocked']);
+        $this->assertSame(0, $data['edits']['total']);
+        $this->assertCount(1, $data['packs']);
+        $this->assertSame(5, $data['packs'][0]['generations_included']);
+        $this->assertEquals(40, $data['packs'][0]['price']);
+
+        $offers = $this->getJson('/api/user/v1/ai-sites/offers')->assertSuccessful()->json('data.offers');
+        $this->assertCount(2, $offers, 'only the two site offers are for sale');
+        $this->assertSame(['site', 'site'], array_column($offers, 'kind'), 'edit packs are not listed as sites for sale');
+    }
+
+    // ------------------------------------------------------ source download
+
+    private function downloadOffer(bool $active = true, bool $free = true, ?float $price = null): AiSiteOffer
+    {
+        $offer = AiSiteOffer::query()->create(['name' => 'Download', 'code' => 'source_download', 'kind' => 'source_download', 'generations_included' => 0, 'is_active' => $active, 'is_free' => $free]);
+
+        if ($price !== null) {
+            $offer->prices()->create(['country_id' => $this->country->id, 'currency_id' => $this->currency->id, 'price' => $price]);
+        }
+
+        return $offer;
+    }
+
+    public function test_source_download_stays_free_until_the_admin_configures_it(): void
+    {
+        $user = $this->planUser();
+        $project = $this->build($user);
+        Sanctum::actingAs($user, ['*'], 'user_api');
+
+        $status = $this->getJson('/api/user/v1/ai-sites/'.$project->id.'/source-download')->assertSuccessful()->json('data');
+        $this->assertTrue($status['can_download'] && $status['free']);
+        $this->get('/api/user/v1/ai-sites/'.$project->id.'/download')->assertSuccessful();
+    }
+
+    public function test_the_admin_can_close_the_source_download(): void
+    {
+        $user = $this->planUser();
+        $project = $this->build($user);
+        $this->downloadOffer(active: false);
+        Sanctum::actingAs($user, ['*'], 'user_api');
+
+        $this->assertFalse($this->getJson('/api/user/v1/ai-sites/'.$project->id.'/source-download')->json('data.can_download'));
+        $this->get('/api/user/v1/ai-sites/'.$project->id.'/download', ['Accept' => 'application/json'])->assertStatus(403);
+    }
+
+    public function test_a_paid_source_download_is_locked_until_bought_once(): void
+    {
+        $user = $this->planUser();
+        $wallet = $this->wallet($user, 30000);
+        $project = $this->build($user);
+        $this->downloadOffer(free: false, price: 120);
+        Sanctum::actingAs($user, ['*'], 'user_api');
+
+        $status = $this->getJson('/api/user/v1/ai-sites/'.$project->id.'/source-download')->json('data');
+        $this->assertFalse($status['can_download']);
+        $this->assertTrue($status['purchasable']);
+        $this->assertEquals(120, $status['price']);
+        $this->get('/api/user/v1/ai-sites/'.$project->id.'/download', ['Accept' => 'application/json'])->assertStatus(402);
+
+        $service = app(AiSiteProjectService::class);
+        $service->buySourceDownload($project, $user);
+
+        $this->assertSame(30000 - 12000, $wallet->fresh()->spend_only_minor);
+        $this->assertTrue($this->getJson('/api/user/v1/ai-sites/'.$project->id.'/source-download')->json('data.can_download'));
+        $this->get('/api/user/v1/ai-sites/'.$project->id.'/download')->assertSuccessful();
+        $this->assertSame('download_already_unlocked', $this->reason(fn () => $service->buySourceDownload($project, $user)));
+        $this->assertSame(0, $project->editPacks()->count(), 'an unlock is not an edit pack');
+    }
+
+    public function test_a_free_source_download_cannot_be_bought_and_a_priced_one_needs_money(): void
+    {
+        $user = $this->planUser();
+        $project = $this->build($user);
+        $service = app(AiSiteProjectService::class);
+        $offer = $this->downloadOffer(free: true);
+
+        $this->assertSame('download_already_unlocked', $this->reason(fn () => $service->buySourceDownload($project, $user)));
+
+        $offer->update(['is_free' => false]);
+        $offer->prices()->create(['country_id' => $this->country->id, 'currency_id' => $this->currency->id, 'price' => 500]);
+        $this->wallet($user, 1000);
+
+        $this->assertSame('insufficient_balance', $this->reason(fn () => $service->buySourceDownload($project, $user)));
+    }
+
+    public function test_the_admin_download_setting_is_created_on_first_look_and_hidden_from_offers(): void
+    {
+        $this->admin();
+
+        $offer = $this->getJson('/api/admin/v1/ai-site-download')->assertSuccessful()->json('data');
+        $this->assertTrue($offer['is_active'] && $offer['is_free']);
+        $this->assertSame('source_download', $offer['kind']);
+
+        $this->putJson('/api/admin/v1/ai-site-download', ['is_active' => true, 'is_free' => false])->assertSuccessful();
+        $this->assertFalse(AiSiteOffer::query()->where('kind', 'source_download')->first()->is_free);
+        $this->assertSame(1, AiSiteOffer::query()->where('kind', 'source_download')->count());
+
+        $listed = $this->getJson('/api/admin/v1/ai-site-offers')->assertSuccessful()->json('data');
+        $this->assertSame([], array_values(array_filter($listed, fn ($o) => $o['kind'] === 'source_download')));
     }
 
     // ----------------------------------------------------------------- admin

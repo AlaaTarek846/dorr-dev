@@ -64,6 +64,21 @@
                                 </router-link>
                             </li>
                             <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-site-requests.index' }" class="side-menu__item">
+                                    {{ t('ai_site_requests.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-site-edit-packs.index' }" class="side-menu__item">
+                                    {{ t('ai_site_offers.packs_title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-site-download.index' }" class="side-menu__item">
+                                    {{ t('ai_site_download.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
                                 <router-link :to="{ name: 'admin.ai-sites.index' }" class="side-menu__item">
                                     {{ t('ai_sites.title') }}
                                 </router-link>

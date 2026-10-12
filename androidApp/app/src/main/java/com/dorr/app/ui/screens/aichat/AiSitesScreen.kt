@@ -19,6 +19,8 @@ private sealed interface SitesView {
     data object Home : SitesView
     data class Form(val offer: AiSiteOfferDto?) : SitesView
     data class Detail(val id: Int) : SitesView
+    data object RequestForm : SitesView
+    data class RequestDetail(val id: Int) : SitesView
 }
 
 internal val SITE_TYPES = listOf("portfolio", "business", "store_showcase", "restaurant", "personal", "landing", "other")
@@ -59,14 +61,23 @@ internal fun AiSitesScreen(night: Boolean, onExit: () -> Unit) {
         val c = sitePalette()
         Column(Modifier.fillMaxSize().background(c.bg)) {
             val form = view is SitesView.Form
+            val requestForm = view is SitesView.RequestForm
+            val requestDetail = view is SitesView.RequestDetail
             SiteTopBar(
-                title = stringResource(if (form) R.string.ai_sites_new else R.string.ai_sites_title),
+                title = stringResource(if (form) R.string.ai_sites_new else if (requestForm) R.string.ai_req_form_title else if (requestDetail) R.string.ai_req_detail_title else R.string.ai_sites_title),
                 onBack = { if (view is SitesView.Home) onExit() else view = SitesView.Home },
             )
             when (val v = view) {
-                is SitesView.Home -> SitesHome(onNew = { view = SitesView.Form(it) }, onOpen = { view = SitesView.Detail(it) })
+                is SitesView.Home -> SitesHome(
+                    onNew = { view = SitesView.Form(it) },
+                    onOpen = { view = SitesView.Detail(it) },
+                    onHuman = { view = SitesView.RequestForm },
+                    onOpenRequest = { view = SitesView.RequestDetail(it) },
+                )
                 is SitesView.Form -> SitesForm(night, v.offer, onDone = { view = SitesView.Detail(it) })
                 is SitesView.Detail -> SitesDetail(night, v.id, onDeleted = { view = SitesView.Home })
+                is SitesView.RequestForm -> SiteRequestForm(night, onDone = { view = SitesView.RequestDetail(it) })
+                is SitesView.RequestDetail -> SiteRequestDetail(night, v.id, onClosed = { view = SitesView.Home })
             }
         }
     }

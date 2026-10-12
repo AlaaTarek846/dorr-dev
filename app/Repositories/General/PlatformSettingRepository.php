@@ -2,8 +2,8 @@
 
 namespace App\Repositories\General;
 
-use App\Repositories\BaseRepository;
 use App\Models\PlatformSetting;
+use App\Repositories\BaseRepository;
 
 class PlatformSettingRepository extends BaseRepository
 {

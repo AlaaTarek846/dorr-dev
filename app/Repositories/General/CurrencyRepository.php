@@ -2,8 +2,8 @@
 
 namespace App\Repositories\General;
 
-use App\Repositories\TranslatableRepository;
 use App\Models\Currency;
+use App\Repositories\TranslatableRepository;
 
 class CurrencyRepository extends TranslatableRepository
 {
