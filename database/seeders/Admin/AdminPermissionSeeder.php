@@ -57,6 +57,14 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
+            'regions' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
+            ],
+            'service-availability' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
             'languages' => [
                 'module_name' => 'general_services',
                 'actions' => [

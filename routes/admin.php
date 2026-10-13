@@ -14,6 +14,8 @@ use App\Http\Controllers\General\PlatformSettingController;
 use App\Http\Controllers\General\RatingController;
 use App\Http\Controllers\General\ReferralCodeController;
 use App\Http\Controllers\General\ReferralController;
+use App\Http\Controllers\General\RegionController;
+use App\Http\Controllers\General\ServiceAvailabilityController;
 use App\Http\Controllers\General\ServiceCategoryController;
 use App\Http\Controllers\General\TranslationController;
 use Illuminate\Support\Facades\Route;
@@ -82,11 +84,17 @@ Route::middleware('auth:admin_api')->group(function () {
     Route::patch('dashboard-themes/{dashboard_theme}/status', [DashboardThemeController::class, 'changeStatus']);
     Route::apiResource('dashboard-themes', DashboardThemeController::class);
 
+    // Service control: per country / region, switch each service as a whole, for the customer app and for the provider app.
+    Route::get('service-availability', [ServiceAvailabilityController::class, 'index']);
+    Route::put('service-availability', [ServiceAvailabilityController::class, 'update']);
+    Route::post('service-availability/reset', [ServiceAvailabilityController::class, 'reset']);
+
     foreach ([
         ['flags', FlagController::class, 'flag'],
         ['languages', LanguageController::class, 'language'],
         ['currencies', CurrencyController::class, 'currency'],
         ['countries', CountryController::class, 'country'],
+        ['regions', RegionController::class, 'region'],
         ['service-categories', ServiceCategoryController::class, 'service_category'],
         ['faqs', FaqController::class, 'faq'],
         ['legal-pages', LegalPageController::class, 'legal_page'],

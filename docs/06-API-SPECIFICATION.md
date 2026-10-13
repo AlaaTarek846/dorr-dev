@@ -137,6 +137,10 @@ Validation: `PlatformSettingUpdateRequest` — app_name required; file rules per
 | GET | `/users/{user}/sessions` | `users.manage-sessions`. `{ active: [...], recent: [...] }` — the devices signed in now (full IP, user agent) and the last 10 signed out (`revoked_reason`: logout, user, others, limit, admin, replaced) |
 | DELETE | `/users/{user}/sessions/{session}` | `users.manage-sessions`. Sign one device out (logged as `admin_signed_out`); returns the same as GET |
 | POST | `/users/{user}/sessions/logout-all` | `users.manage-sessions`. Sign the customer out of every device |
+| GET | `/service-availability` | `service-availability.view`. `country_id` (required), `region_id`. The services the country carries with their switches: `[{ id, name, has_provider, switches {service_enabled, customer_enabled, customer_mode (hidden/coming_soon/view_only), provider_enabled}, overridden (region only: which switches the region sets itself), effective {service_open, customer_state, customer_visible, customer_can_order, provider_can_use} }]` |
+| PUT | `/service-availability` | `service-availability.update`. `country_id`, `region_id`, `service_category_id` + any of the four switches. In a region a null puts that switch back to following the country; a country cannot leave one unset; `provider_enabled` is 422 for a service without providers. Returns the service as the list shows it |
+| POST | `/service-availability/reset` | `service-availability.update`. `country_id`, `region_id`, `service_category_id`: the region follows its country again for that service |
+| GET/POST/PUT/PATCH/DELETE | `/regions` (+ `/dropdown?country_id=`, `/{id}/status`, `/delete-multiple`) | `regions.*`. Governorates / states / provinces: catalog CRUD with `country_id`, `translations[]{locale,name}`, `status`; the list narrows with `?country_id=` |
 | GET | `/security-events` | `security-events.view`. Every customer's security log, paginated (`page`, `per_page` ≤ 100, `user_id`, `type`, `warnings=1`, `search` = phone, name, device or IP); each row has `user {id, name, phone}` |
 | GET | `/security-events/{id}` | `security-events.view`. One line with its device `session` |
 

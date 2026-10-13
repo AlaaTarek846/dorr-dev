@@ -68,7 +68,7 @@ class AttentionPolicy
      *
      * @param  Collection<int, ChatParticipant>  $recipients
      * @param  array<string, ChatPrivacySetting>  $settings  by owner key
-     * @return array<string, array{mode: string, disclosure: ?string, through: bool}>  by owner key
+     * @return array<string, array{mode: string, disclosure: ?string, through: bool}> by owner key
      */
     public function decide(Collection $recipients, ChatConversation $conversation, ChatMessage $message, array $settings): array
     {

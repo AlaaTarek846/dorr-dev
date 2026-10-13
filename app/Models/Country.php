@@ -62,6 +62,11 @@ class Country extends Model
             ->withTimestamps();
     }
 
+    public function regions(): HasMany
+    {
+        return $this->hasMany(Region::class);
+    }
+
     public function admins(): HasMany
     {
         return $this->hasMany(Admin::class);

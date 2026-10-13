@@ -2,7 +2,7 @@ import { ref, watch } from 'vue';
 import { useCatalog } from './useCatalog';
 import { useServiceCategoriesStore } from '../stores/serviceCategories';
 
-const AUDIENCE_FILTER_VALUES = ['admin', 'user', 'provider', 'driver'];
+const AUDIENCE_FILTER_VALUES = ['admin', 'user', 'provider'];
 
 export function useServiceCategories() {
     const audienceFilter = ref([]);

@@ -7,7 +7,7 @@ use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Facades\DB;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
-use Modules\Chat\Models\ChatParticipant;
+use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 
 /**
@@ -156,6 +156,6 @@ class ChatStorageService
         }
         $peer = $conversation->participants()->whereNot(fn ($q) => $q->where('participant_type', ParticipantType::aliasFor($me))->where('participant_id', $me->getKey()))->first();
 
-        return $peer ? (app(\Modules\Chat\Support\ParticipantDirectory::class)->profile($me, $peer->participant_type, $peer->participant_id)['name'] ?? null) : null;
+        return $peer ? (app(ParticipantDirectory::class)->profile($me, $peer->participant_type, $peer->participant_id)['name'] ?? null) : null;
     }
 }

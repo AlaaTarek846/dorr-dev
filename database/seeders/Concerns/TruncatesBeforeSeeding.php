@@ -7,6 +7,7 @@ use App\Models\Currency;
 use App\Models\DashboardTheme;
 use App\Models\Flag;
 use App\Models\Language;
+use App\Models\Region;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -19,6 +20,7 @@ trait TruncatesBeforeSeeding
      */
     protected array $translationTables = [
         Country::class => 'country_translations',
+        Region::class => 'region_translations',
         Currency::class => 'currency_translations',
         Language::class => 'language_translations',
         Flag::class => 'flag_translations',

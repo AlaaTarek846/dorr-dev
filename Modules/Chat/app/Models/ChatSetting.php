@@ -4,6 +4,7 @@ namespace Modules\Chat\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
+use Modules\Chat\Services\ChatFeatures;
 
 /**
  * The chat limits — one row, edited from the admin dashboard (docs/chat-plan.md §10.0).
@@ -79,7 +80,7 @@ class ChatSetting extends Model
         }
 
         // The countries switched off here, and any country or city rule (ChatFeatures).
-        return app(\Modules\Chat\Services\ChatFeatures::class)->allows($account, 'calls');
+        return app(ChatFeatures::class)->allows($account, 'calls');
     }
 
     /**
