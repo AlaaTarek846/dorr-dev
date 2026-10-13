@@ -6,10 +6,12 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Chat\Enums\ConversationType;
 use Modules\Chat\Enums\MessageType;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatBroadcastList;
 use Modules\Chat\Models\ChatBroadcastMessage;
+use Modules\Chat\Models\ChatFolder;
 use Modules\Chat\Models\ChatMessage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Support\ParticipantDirectory;
@@ -63,8 +65,8 @@ class BroadcastService
      */
     public function fromFolder(Model $me, int $folderId, ?string $name): ChatBroadcastList
     {
-        $folder = \Modules\Chat\Models\ChatFolder::query()->where('owner_type', ParticipantType::aliasFor($me))->where('owner_id', $me->getKey())->findOrFail($folderId);
-        $ids = ChatParticipant::query()->whereIn('conversation_id', $folder->conversations()->where('type', \Modules\Chat\Enums\ConversationType::Direct->value)->pluck('chat_conversations.id'))
+        $folder = ChatFolder::query()->where('owner_type', ParticipantType::aliasFor($me))->where('owner_id', $me->getKey())->findOrFail($folderId);
+        $ids = ChatParticipant::query()->whereIn('conversation_id', $folder->conversations()->where('type', ConversationType::Direct->value)->pluck('chat_conversations.id'))
             ->where('participant_type', 'user')
             ->whereNot(fn ($q) => $q->where('participant_type', ParticipantType::aliasFor($me))->where('participant_id', $me->getKey()))
             ->pluck('participant_id')->map(fn ($id) => (int) $id)->unique()->values()->all();

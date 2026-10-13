@@ -577,6 +577,20 @@
                                 </router-link>
                             </li>
 
+                            <li v-if="can('regions.view')" class="slide">
+                                <router-link :to="{ name: 'admin.regions.index' }" class="side-menu__item">
+                                    <i class="ri-map-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('regions.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('service-availability.view')" class="slide">
+                                <router-link :to="{ name: 'admin.service-availability.index' }" class="side-menu__item">
+                                    <i class="ri-toggle-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('service_control.title') }}</span>
+                                </router-link>
+                            </li>
+
                             <li v-if="can('currencies.view')" class="slide">
                                 <router-link :to="{ name: 'admin.currencies.index' }" class="side-menu__item">
                                     <i class="ri-money-dollar-circle-line side-menu__icon"></i>
@@ -760,6 +774,8 @@ const showServicesSection = computed(() => can('service_categories.view') || tru
 const showCatalogSection = computed(
     () => can('flags.view')
         || can('countries.view')
+        || can('regions.view')
+        || can('service-availability.view')
         || can('currencies.view')
         || can('languages.view'),
 );

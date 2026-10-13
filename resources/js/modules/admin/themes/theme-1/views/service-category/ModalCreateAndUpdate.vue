@@ -261,7 +261,7 @@ let v$;
 
 const isEdit = computed(() => props.type === 'edit');
 
-const AUDIENCE_VALUES = ['admin', 'user', 'provider', 'driver'];
+const AUDIENCE_VALUES = ['admin', 'user', 'provider'];
 
 const form = reactive({
     parent_id: null,

@@ -343,14 +343,16 @@ class GroupService
             ]);
         }
 
+        $token = $group->invite_token;
+
         return [
-            'token' => $group->invite_token,
+            'token' => $token,
             // Typed in "Join with a code".
-            'code' => $group->invite_token,
+            'code' => $token,
             // A web link that opens anywhere (WhatsApp, SMS…): its page opens the app on the
             // phone; the app's own link stays in `payload`.
-            'link' => url('/j/'.$group->invite_token),
-            'payload' => 'dorr://chat/join/'.$group->invite_token,
+            'link' => url('/j/'.$token),
+            'payload' => 'dorr://chat/join/'.$token,
             'expires_at' => $group->invite_expires_at?->toIso8601String(),
         ];
     }

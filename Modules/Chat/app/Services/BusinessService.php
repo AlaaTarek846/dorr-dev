@@ -5,10 +5,12 @@ namespace Modules\Chat\Services;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Modules\Chat\Enums\ConversationType;
 use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatBusinessProfile;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatMessageReceipt;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Models\ChatQuickReply;
 use Modules\Chat\Support\ParticipantType;
@@ -105,11 +107,11 @@ class BusinessService
     {
         $this->assertEnabled($me);
         $since = now()->subDays($days);
-        $mine = ChatParticipant::query()->of($me)->whereHas('conversation', fn ($q) => $q->where('type', \Modules\Chat\Enums\ConversationType::Direct->value)->where('direct_key', 'not like', 'self|%'))->get(['id', 'conversation_id']);
+        $mine = ChatParticipant::query()->of($me)->whereHas('conversation', fn ($q) => $q->where('type', ConversationType::Direct->value)->where('direct_key', 'not like', 'self|%'))->get(['id', 'conversation_id']);
         $sent = ChatMessage::query()->whereIn('conversation_id', $mine->pluck('conversation_id'))
             ->where('sender_type', ParticipantType::aliasFor($me))->where('sender_id', $me->getKey())->where('created_at', '>=', $since);
         $sentIds = (clone $sent)->pluck('id');
-        $receipts = \Modules\Chat\Models\ChatMessageReceipt::query()->whereIn('message_id', $sentIds)->whereNotIn('participant_id', $mine->pluck('id'));
+        $receipts = ChatMessageReceipt::query()->whereIn('message_id', $sentIds)->whereNotIn('participant_id', $mine->pluck('id'));
 
         return [
             'days' => $days,

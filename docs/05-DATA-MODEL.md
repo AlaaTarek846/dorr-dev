@@ -303,6 +303,17 @@ See seeder files for initial data conventions.
 
 ---
 
+## Governorates / states and service control (`2026_10_14_100000_create_cities_and_service_availability`, renamed by `2026_10_14_110000_rename_cities_to_regions`)
+
+| Table | Purpose |
+|---|---|
+| `regions` + `region_translations` | A country's first-level divisions — governorates, states, provinces, regions (name per language, `status`, `sort_order`, soft deletes). A country with regions cannot be deleted. Seeded by `RegionSeeder` from `data/regions.json` (21 countries, 437 divisions); other countries have none until an admin adds them |
+| `service_availability` | The switches of one service in one place: `service_category_id`, `country_id`, `region_id` (null = the country itself), `service_enabled`, `customer_enabled`, `customer_mode` (hidden / coming_soon / view_only), `provider_enabled`. A null switch: on a region it follows the country, on a country it is on |
+
+`service_categories.audiences` no longer has `driver` (a driver is a provider).
+
+---
+
 ## Account security (`2026_10_13_100000_create_account_security_tables`)
 
 | Table | Purpose |

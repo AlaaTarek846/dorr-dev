@@ -167,6 +167,29 @@ class ChatMomentsTest extends TestCase
         $this->assertGreaterThan(50, ChatMoment::query()->count());
     }
 
+    public function test_the_admin_toggles_status_and_deletes_several(): void
+    {
+        $first = ChatMoment::query()->create([
+            'key' => 'bulk_a', 'kind' => 'social', 'date_rule' => 'gregorian', 'month' => 1, 'day' => 1,
+            'duration_days' => 1, 'show_before_days' => 0, 'show_after_days' => 0, 'default_on' => true, 'status' => true, 'sort_order' => 900,
+        ]);
+        $second = ChatMoment::query()->create([
+            'key' => 'bulk_b', 'kind' => 'social', 'date_rule' => 'gregorian', 'month' => 2, 'day' => 2,
+            'duration_days' => 1, 'show_before_days' => 0, 'show_after_days' => 0, 'default_on' => true, 'status' => true, 'sort_order' => 901,
+        ]);
+
+        $this->asAdmin(['chat-moments.view', 'chat-moments.update', 'chat-moments.delete']);
+        $this->patchJson("/api/admin/v1/chat-moments/{$first->id}/status", ['status' => false])
+            ->assertOk()
+            ->assertJsonPath('message', __('api.updated'))
+            ->assertJsonPath('data.status', false);
+
+        $this->postJson('/api/admin/v1/chat-moments/delete-multiple', ['ids' => [$first->id, $second->id]])
+            ->assertOk()
+            ->assertJsonPath('message', __('api.deleted'));
+        $this->assertFalse(ChatMoment::query()->whereIn('id', [$first->id, $second->id])->exists());
+    }
+
     // ------------------------------------------------------------------ helpers
 
     /**

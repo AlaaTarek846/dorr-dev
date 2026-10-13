@@ -58,6 +58,7 @@
     <string name="tab_items">الخدمات</string>
     <string name="tab_history">السجل</string>
     <string name="tab_account">الحساب</string>
+    <string name="tab_ai">المساعد</string>
 
     <string name="placeholder_title">قريباً</string>
     <string name="placeholder_body">سيتم إضافة شاشات هذا القسم لاحقاً.</string>

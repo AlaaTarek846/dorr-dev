@@ -36,7 +36,7 @@ class ChatMomentController extends Controller implements HasMiddleware
             ['view', ['index', 'show', 'dates']],
             ['create', ['store']],
             ['update', ['update', 'status', 'setDate']],
-            ['delete', ['destroy']],
+            ['delete', ['destroy', 'deleteMultiple']],
         ]);
     }
 
@@ -85,6 +85,21 @@ class ChatMomentController extends Controller implements HasMiddleware
         return ApiResponse::success(null, __('api.deleted'));
     }
 
+    public function deleteMultiple(Request $request)
+    {
+        $ids = $request->validate([
+            'ids' => ['required', 'array', 'min:1'],
+            'ids.*' => ['integer', 'exists:chat_moments,id'],
+        ])['ids'];
+
+        ChatMoment::query()->whereIn('id', $ids)->get()->each(function (ChatMoment $moment): void {
+            $moment->clearMediaCollection(ChatMoment::CARD);
+            $moment->delete();
+        });
+
+        return ApiResponse::success(null, __('api.deleted'));
+    }
+
     /**
      * GET chat-moments/{id}/dates?year= — this year's and the next two years' dates: computed, and
      * the corrections (everywhere / per country).
@@ -93,7 +108,12 @@ class ChatMomentController extends Controller implements HasMiddleware
     {
         $request->validate(['year' => ['nullable', 'integer', 'between:2000,2100']]);
         $year = $request->integer('year') ?: now()->year;
-        $countries = Country::query()->where('status', true)->get()->filter(fn ($c) => $chatMoment->isIn($c->code))->values();
+        $countries = Country::query()
+            ->with(['translations', 'translation'])
+            ->where('status', true)
+            ->get()
+            ->filter(fn ($c) => $chatMoment->isIn($c->code))
+            ->values();
         $corrections = ChatMomentDate::query()->where('chat_moment_id', $chatMoment->id)->whereBetween('year', [$year, $year + 2])->get();
 
         $years = collect(range($year, $year + 2))->map(fn (int $y) => [
@@ -227,6 +247,8 @@ class ChatMomentController extends Controller implements HasMiddleware
             'card_image' => $m->cardUrl(),
             'status' => $m->status,
             'sort_order' => $m->sort_order,
+            'created_at' => $m->created_at?->toISOString(),
+            'updated_at' => $m->updated_at?->toISOString(),
             'next' => $next ? $next['start']->toDateString() : null,
             'translations' => $m->translations->map(fn ($t) => ['locale' => $t->locale, 'name' => $t->name, 'greeting' => $t->greeting])->values(),
         ];

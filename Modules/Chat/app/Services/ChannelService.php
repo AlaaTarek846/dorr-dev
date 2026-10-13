@@ -16,6 +16,8 @@ use Modules\Chat\Exceptions\ChatException;
 use Modules\Chat\Models\ChatCategory;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatGroup;
+use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Models\ChatMessageReceipt;
 use Modules\Chat\Models\ChatPackage;
 use Modules\Chat\Models\ChatParticipant;
 use Modules\Chat\Support\ParticipantType;
@@ -278,7 +280,7 @@ class ChannelService
     {
         $this->assertChannelAdmin($me, $conversation);
         $conversation->group->update(['allowed_reactions' => $emojis === null ? null : array_values(array_unique(array_filter($emojis, fn ($e) => is_string($e) && $e !== '')))]);
-        app(\Modules\Chat\Services\ChatBroadcaster::class)->toParticipants($conversation->activeParticipants()->get(), 'chat.conversation.updated', ['conversation_id' => $conversation->uuid]);
+        app(ChatBroadcaster::class)->toParticipants($conversation->activeParticipants()->get(), 'chat.conversation.updated', ['conversation_id' => $conversation->uuid]);
     }
 
     /**
@@ -293,7 +295,7 @@ class ChannelService
         $since = now()->subDays($days);
         $followers = $conversation->activeParticipants()->count();
         $posts = $conversation->messages()->whereNotNull('sender_type')->whereNull('deleted_for_everyone_at')->where('created_at', '>=', $since)->get(['id', 'type', 'body', 'created_at']);
-        $views = \Modules\Chat\Models\ChatMessageReceipt::query()->whereIn('message_id', $posts->pluck('id'))->whereNotNull('read_at')
+        $views = ChatMessageReceipt::query()->whereIn('message_id', $posts->pluck('id'))->whereNotNull('read_at')
             ->selectRaw('message_id, count(*) as views')->groupBy('message_id')->pluck('views', 'message_id');
         $totalViews = (int) $views->sum();
 
@@ -308,9 +310,9 @@ class ChannelService
             // Of the followers, how many a post reaches on average.
             'reach_percent' => $posts->isEmpty() || $followers === 0 ? 0 : (int) min(100, round($totalViews / $posts->count() / $followers * 100)),
             'top_posts' => $posts->sortByDesc(fn ($p) => $views[$p->id] ?? 0)->take(5)->map(fn ($p) => [
-                'id' => \Modules\Chat\Models\ChatMessage::query()->whereKey($p->id)->value('uuid'),
+                'id' => ChatMessage::query()->whereKey($p->id)->value('uuid'),
                 'type' => $p->type->value,
-                'preview' => \Illuminate\Support\Str::limit((string) $p->body, 80) ?: __('chat.preview.'.$p->type->value),
+                'preview' => Str::limit((string) $p->body, 80) ?: __('chat.preview.'.$p->type->value),
                 'views' => (int) ($views[$p->id] ?? 0),
                 'created_at' => $p->created_at?->toIso8601String(),
             ])->values()->all(),

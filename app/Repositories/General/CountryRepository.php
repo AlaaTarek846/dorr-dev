@@ -11,7 +11,7 @@ class CountryRepository extends TranslatableRepository
 {
     protected array $with = ['translations', 'translation', 'flag', 'currency', 'serviceCategories'];
 
-    protected array $deleteBlockRelations = ['admins'];
+    protected array $deleteBlockRelations = ['admins', 'regions'];
 
     public function __construct(Country $model)
     {

@@ -1,6 +1,21 @@
 package com.dorr.app.ui.screens.calendar
 
 import android.widget.Toast
+import com.dorr.app.ui.screens.ConfirmDialog
+import androidx.compose.material.icons.rounded.SearchOff
+import androidx.compose.material.icons.rounded.Warning
+import androidx.compose.material.icons.rounded.Close
+import com.dorr.app.network.CalTodayDto
+import com.dorr.app.network.CalSectionsDto
+import androidx.compose.runtime.mutableIntStateOf
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.sync.Mutex
+import com.dorr.app.ui.screens.wallet.rememberPressScale
+import androidx.compose.ui.draw.scale
+import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -64,6 +79,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -104,43 +120,46 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import com.dorr.app.ui.screens.chat.ChSheet
 
+/** The comma between items of a list, in the app's language ("، " in Arabic). */
+internal fun listSeparator(): String = if (calLocale().language == "ar") "، " else ", "
+
 /** "30 min", "1 h", "1 day" — a reminder offset. */
 @Composable
 internal fun reminderLabel(minutes: Int, allDay: Boolean = false): String = when {
     minutes == 0 -> stringResource(if (allDay) R.string.cal_rem_morning else R.string.cal_rem_at_time)
     minutes < 60 -> stringResource(R.string.cal_rem_minutes, minutes)
     minutes < 1440 -> stringResource(R.string.cal_rem_hours, minutes / 60)
-    minutes < 10080 -> stringResource(R.string.cal_rem_days, minutes / 1440)
+    minutes < 10080 -> pluralStringResource(R.plurals.cal_rem_days, minutes / 1440, minutes / 1440)
     else -> stringResource(R.string.cal_rem_week)
 }
 
-private val ReminderChoices = listOf(0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080)
-private val AllDayChoices = listOf(0, 1440, 2880, 10080)
-private val EventColors = listOf(null, "#2563EB", "#16A34A", "#D97706", "#DB2777", "#7C3AED", "#0891B2")
+internal val ReminderChoices = listOf(0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080)
+internal val AllDayChoices = listOf(0, 1440, 2880, 10080)
+internal val EventColors = listOf(null, "#2563EB", "#16A34A", "#D97706", "#DB2777", "#7C3AED", "#0891B2")
 
 // =============================================================================== one item
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: () -> Unit) {
+internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: () -> Unit, onEdit: (CalItemDto) -> Unit) {
     val scope = rememberCoroutineScope()
-    var editing by remember { mutableStateOf(false) }
-    if (editing) {
-        EventEditorSheet(existing = item, day = runCatching { LocalDate.parse(item.date) }.getOrDefault(LocalDate.now())) { editing = false; onDismiss() }
-        return
-    }
+    val context = LocalContext.current
+    var confirmDelete by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    val deletedText = stringResource(R.string.cal_deleted)
+    val deleteFailedText = stringResource(R.string.cal_delete_failed)
     val color = typeColor(item)
 
     ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                    if (item.emoji != null) Text(item.emoji, fontSize = 22.sp) else Icon(typeIcon(item.type), null, tint = color, modifier = Modifier.size(24.dp))
+                    if (item.emoji != null) Text(item.emoji, fontSize = 22.sp) else Icon(itemIcon(item), null, tint = color, modifier = Modifier.size(24.dp))
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(item.title, color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(kindLabel(item.type), color = color, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    Text(if (item.type == "event") stringResource(categoryLabel(item.category)) else kindLabel(item.type), color = color, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(14.dp))
@@ -152,17 +171,16 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
             item.originTime?.let { InfoLine(Icons.Rounded.Public, stringResource(R.string.cal_origin_time, it, item.timezone.orEmpty().substringAfterLast('/').replace('_', ' '))) }
             item.location?.let { InfoLine(Icons.Rounded.Place, it) }
             item.note?.let { InfoLine(Icons.Rounded.Notes, it) }
-            item.reminders?.takeIf { it.isNotEmpty() }?.let { r -> InfoLine(Icons.Rounded.Alarm, r.map { reminderLabel(it, item.allDay) }.joinToString("، ")) }
+            item.reminders?.takeIf { it.isNotEmpty() }?.let { r -> InfoLine(Icons.Rounded.Alarm, r.map { reminderLabel(it, item.allDay) }.joinToString(listSeparator())) }
             if (item.overdue) Text(stringResource(R.string.cal_overdue), color = Wa.Danger, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
 
             Spacer(Modifier.height(16.dp))
             when (item.type) {
                 "event" -> {
-                    WaButton(stringResource(R.string.cal_edit), { editing = true }, icon = Icons.Rounded.Edit)
+                    WaButton(stringResource(R.string.cal_edit), { onDismiss(); onEdit(item) }, icon = Icons.Rounded.Edit)
                     Spacer(Modifier.height(6.dp))
-                    WaButton(stringResource(R.string.cal_delete), {
-                        scope.launch { runCatching { ApiClient.calendar.delete(calAuth(), item.ref) }; CalendarStore.changed(); onDismiss() }
-                    }, style = WaButtonStyle.Quiet, icon = Icons.Rounded.Delete)
+                    // Deleting asks first (the same question the app asks everywhere else).
+                    WaButton(stringResource(R.string.cal_delete), { confirmDelete = true }, style = WaButtonStyle.Quiet, icon = Icons.Rounded.Delete)
                 }
                 "task" -> WaButton(stringResource(if (item.done) R.string.cal_task_undo else R.string.cal_task_done), {
                     scope.launch {
@@ -178,6 +196,33 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
                 WaButton(stringResource(R.string.cal_open_chat), { onDismiss(); ChatPush.open(ChatDeepLink.Conversation(c)) }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Chat)
             }
         }
+    }
+
+    if (confirmDelete) {
+        ConfirmDialog(
+            icon = Icons.Rounded.Delete,
+            title = stringResource(R.string.cal_delete),
+            message = stringResource(R.string.cal_delete_confirm, item.title),
+            confirmLabel = stringResource(R.string.cal_delete_yes),
+            loading = deleting,
+            onConfirm = {
+                deleting = true
+                scope.launch {
+                    runCatching { ApiClient.calendar.delete(calAuth(), item.ref) }
+                        .onSuccess {
+                            Toast.makeText(context, deletedText, Toast.LENGTH_SHORT).show()
+                            CalendarStore.changed()
+                            onDismiss()
+                        }
+                        .onFailure { failure ->
+                            Toast.makeText(context, failure.apiFailure().message ?: deleteFailedText, Toast.LENGTH_LONG).show()
+                            deleting = false
+                            confirmDelete = false
+                        }
+                }
+            },
+            onDismiss = { if (!deleting) confirmDelete = false },
+        )
     }
 }
 
@@ -202,179 +247,72 @@ private fun InfoLine(icon: ImageVector, text: String) {
     }
 }
 
-// =============================================================================== add / edit
-
-/**
- * A new appointment (or a change to one): title, all day or a time (and an end), where, a note,
- * when to remind me, a colour. Saved in this phone's time zone — shown right wherever I go.
- */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
-@Composable
-internal fun EventEditorSheet(existing: CalItemDto?, day: LocalDate, onDismiss: () -> Unit) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    val zone = ZoneId.systemDefault()
-    val start0 = localTime(existing?.startsAt)
-    var title by remember { mutableStateOf(existing?.title.orEmpty()) }
-    var allDay by remember { mutableStateOf(existing?.allDay ?: false) }
-    var date by remember { mutableStateOf(start0?.toLocalDate() ?: runCatching { LocalDate.parse(existing?.date) }.getOrNull() ?: day) }
-    var start by remember { mutableStateOf(start0?.toLocalTime() ?: LocalTime.now().plusHours(1).withMinute(0).withSecond(0).withNano(0)) }
-    var end by remember { mutableStateOf(localTime(existing?.endsAt)?.toLocalTime()) }
-    var location by remember { mutableStateOf(existing?.location.orEmpty()) }
-    var note by remember { mutableStateOf(existing?.note.orEmpty()) }
-    var color by remember { mutableStateOf(existing?.color) }
-    val reminders = remember { mutableStateListOf<Int>().apply { existing?.reminders?.let { addAll(it) } } }
-    var remindersTouched by remember { mutableStateOf(existing != null) }
-    var picking by remember { mutableStateOf<String?>(null) } // date · start · end
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    val added = stringResource(R.string.cal_saved)
-    val dupe = stringResource(R.string.cal_duplicate)
-
-    ChSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
-            Text(stringResource(if (existing == null) R.string.cal_add else R.string.cal_edit), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(12.dp))
-            DorrTextField(title, { title = it.take(160) }, placeholder = stringResource(R.string.cal_title_hint), modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(10.dp))
-
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Wa.Field).padding(horizontal = 14.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.cal_all_day), color = Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                Switch(allDay, { allDay = it; if (!remindersTouched) reminders.clear() }, colors = SwitchDefaults.colors(checkedTrackColor = Wa.Red))
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                PickBox(Icons.Rounded.CalendarMonth, stringResource(R.string.cal_date), date.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault())), Modifier.weight(1.3f)) { picking = "date" }
-                if (!allDay) PickBox(Icons.Rounded.Schedule, stringResource(R.string.cal_starts), fmt(start), Modifier.weight(1f)) { picking = "start" }
-            }
-            AnimatedVisibility(!allDay) {
-                Row(Modifier.padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    PickBox(Icons.Rounded.Schedule, stringResource(R.string.cal_ends), end?.let { fmt(it) } ?: stringResource(R.string.cal_no_end), Modifier.weight(1f)) { picking = "end" }
-                    if (end != null) Text(stringResource(R.string.cal_clear), color = Wa.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.align(Alignment.CenterVertically).clickable { end = null }.padding(8.dp))
-                }
-            }
-            Spacer(Modifier.height(10.dp))
-            DorrTextField(location, { location = it.take(200) }, placeholder = stringResource(R.string.cal_location_hint), modifier = Modifier.fillMaxWidth())
-            Spacer(Modifier.height(8.dp))
-            DorrTextField(note, { note = it.take(1000) }, placeholder = stringResource(R.string.cal_note_hint), modifier = Modifier.fillMaxWidth())
-
-            Text(stringResource(R.string.cal_reminders), color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                (if (allDay) AllDayChoices else ReminderChoices).forEach { m ->
-                    val on = m in reminders
-                    Text(
-                        reminderLabel(m, allDay), color = if (on) Color.White else Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
-                        modifier = Modifier.clip(CircleShape).background(if (on) Wa.Red else Wa.Field).clickable {
-                            remindersTouched = true
-                            if (on) reminders.remove(m) else if (reminders.size < 5) reminders.add(m)
-                        }.padding(horizontal = 12.dp, vertical = 7.dp),
-                    )
-                }
-            }
-            if (!remindersTouched) Text(stringResource(R.string.cal_reminders_default), color = Wa.Soft, fontSize = 11.5.sp, modifier = Modifier.padding(top = 4.dp))
-
-            Text(stringResource(R.string.cal_color), color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 14.dp, bottom = 6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                EventColors.forEach { c ->
-                    val swatch = c?.let { com.dorr.app.ui.screens.moments.momentColor(it, Wa.Red) } ?: Wa.Red
-                    Box(
-                        Modifier.size(32.dp).clip(CircleShape).background(swatch).border(3.dp, if (color == c) Wa.Ink.copy(alpha = 0.5f) else Color.Transparent, CircleShape).clickable { color = c },
-                    )
-                }
-            }
-
-            WaError(error)
-            Spacer(Modifier.height(16.dp))
-            WaButton(stringResource(R.string.cal_save), enabled = title.isNotBlank() && !busy, loading = busy, icon = Icons.Rounded.CheckCircle, onClick = {
-                busy = true
-                error = null
-                val body = JsonObject().apply {
-                    addProperty("title", title.trim())
-                    addProperty("all_day", allDay)
-                    addProperty("timezone", zone.id)
-                    if (allDay) addProperty("date", date.toString())
-                    else {
-                        addProperty("starts_at", ZonedDateTime.of(date, start, zone).toOffsetDateTime().toString())
-                        end?.let { e -> addProperty("ends_at", ZonedDateTime.of(if (e.isBefore(start)) date.plusDays(1) else date, e, zone).toOffsetDateTime().toString()) }
-                    }
-                    addProperty("location", location.trim())
-                    addProperty("note", note.trim())
-                    color?.let { addProperty("color", it) } ?: add("color", com.google.gson.JsonNull.INSTANCE)
-                    if (remindersTouched) add("reminders", JsonArray().apply { reminders.sorted().forEach { add(it) } })
-                }
-                scope.launch {
-                    runCatching { if (existing == null) ApiClient.calendar.create(calAuth(), body).data else ApiClient.calendar.update(calAuth(), existing.ref, body).data }
-                        .onSuccess { saved ->
-                            Toast.makeText(context, if (saved?.duplicate == true) dupe else added, Toast.LENGTH_SHORT).show()
-                            CalendarStore.changed()
-                            onDismiss()
-                        }
-                        .onFailure { error = it.apiFailure().message; busy = false }
-                }
-            })
-        }
-    }
-
-    when (picking) {
-        "date" -> {
-            val state = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-            DatePickerDialog(
-                onDismissRequest = { picking = null },
-                confirmButton = {
-                    TextButton({ state.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; picking = null }) {
-                        Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold)
-                    }
-                },
-                dismissButton = { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } },
-            ) { DatePicker(state) }
-        }
-        "start" -> TimePickDialog(start, onDismiss = { picking = null }) { start = it; picking = null }
-        "end" -> TimePickDialog(end ?: start.plusHours(1), onDismiss = { picking = null }) { end = it; picking = null }
-    }
-}
-
-private fun fmt(t: LocalTime): String = t.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()))
-
-@Composable
-private fun PickBox(icon: ImageVector, label: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Row(modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Field).clickable(onClick = onClick).padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(19.dp))
-        Spacer(Modifier.width(8.dp))
-        Column {
-            Text(label, color = Wa.Mut, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            Text(value, color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        }
-    }
-}
-
 // =============================================================================== settings (201, 202, 204, 207)
 
+// Every source the server knows (ChatCalendarPreference::SOURCES) — Discover events and Sports matches included.
 private val SourceLabels = listOf(
     "events" to R.string.cal_src_events, "moments" to R.string.cal_src_moments, "personal" to R.string.cal_src_personal,
     "tasks" to R.string.cal_src_tasks, "reminders" to R.string.cal_src_reminders,
+    "discover" to R.string.cal_src_discover, "sports" to R.string.cal_src_sports,
 )
 
 private val SectionLabels = mapOf(
-    "next" to R.string.cal_next, "events" to R.string.cal_sec_events, "tasks" to R.string.cal_sec_tasks,
-    "reminders" to R.string.cal_sec_reminders, "moments" to R.string.cal_sec_moments, "around" to R.string.cal_around,
+    "events" to R.string.cal_sec_events, "tasks" to R.string.cal_sec_tasks,
+    "reminders" to R.string.cal_sec_reminders, "moments" to R.string.cal_sec_moments,
 )
 
+private enum class CalSub { Menu, Sources, Reminders, Today }
+
+/**
+ * Calendar settings, laid out like the wallet's: a short menu, and each entry opens its own page — what shows in the
+ * calendar, reminders (with quiet hours and personalisation), and the order of the Today page. A sub page's back goes
+ * to the menu; the menu's back leaves.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CalendarSettings(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     var prefs by remember { mutableStateOf<CalPrefsDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var sub by remember { mutableStateOf(CalSub.Menu) }
+    // Saves go out one at a time, in the order they were made; only the last answer is shown.
+    val saving = remember { Mutex() }
+    var latest by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { prefs = runCatching { ApiClient.calendar.preferences(calAuth()).data }.getOrNull() }
-    fun save(body: JsonObject) {
+
+    /**
+     * Shows the change at once (the switch flips, the section moves), then saves it. Building every change on what is
+     * shown — not on the last server answer — means quick taps add up (two taps on ↑ move a section two places).
+     */
+    fun change(update: (CalPrefsDto) -> CalPrefsDto, body: JsonObject) {
+        val current = prefs ?: return
+        prefs = update(current)
+        error = null
+        val ticket = ++latest
         scope.launch {
-            runCatching { ApiClient.calendar.savePreferences(calAuth(), body).data }
-                .onSuccess { it?.let { p -> prefs = p }; CalendarStore.changed() }
-                .onFailure { error = it.apiFailure().message }
+            saving.withLock {
+                runCatching { ApiClient.calendar.savePreferences(calAuth(), body).data }
+                    .onSuccess { saved -> if (ticket == latest && saved != null) prefs = saved }
+                    .onFailure { failure ->
+                        error = failure.apiFailure().message
+                        // Back to what is really saved.
+                        runCatching { ApiClient.calendar.preferences(calAuth()).data }.getOrNull()?.let { prefs = it }
+                    }
+            }
+            if (ticket == latest) CalendarStore.changed()
         }
     }
 
-    WaPage(title = stringResource(R.string.cal_settings), onBack = onBack) {
+    BackHandler(enabled = sub != CalSub.Menu) { sub = CalSub.Menu }
+
+    val title = when (sub) {
+        CalSub.Menu -> stringResource(R.string.cal_settings)
+        CalSub.Sources -> stringResource(R.string.cal_sources)
+        CalSub.Reminders -> stringResource(R.string.cal_menu_reminders)
+        CalSub.Today -> stringResource(R.string.cal_today_order)
+    }
+
+    WaPage(title = title, onBack = { if (sub == CalSub.Menu) onBack() else sub = CalSub.Menu }) {
         val p = prefs
         if (p == null) {
             repeat(4) { WaSkeleton(Modifier.fillMaxWidth().height(56.dp).padding(bottom = 8.dp), RoundedCornerShape(16.dp)) }
@@ -382,46 +320,111 @@ internal fun CalendarSettings(onBack: () -> Unit) {
         }
         WaError(error)
 
-        WaSectionTitle(stringResource(R.string.cal_sources), Modifier.waRise(0))
-        Text(stringResource(R.string.cal_sources_sub), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-        WaCard(Modifier.fillMaxWidth().waRise(0), padding = 6.dp) {
-            SourceLabels.forEach { (key, label) ->
-                ToggleRow(stringResource(label), p.sources[key] != false) { on -> save(JsonObject().apply { add("sources", JsonObject().apply { addProperty(key, on) }) }) }
+        when (sub) {
+            CalSub.Menu -> {
+                // A short strip: what this page is for.
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp, bottom = 6.dp)
+                        .waRise(0)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Wa.Red.copy(alpha = 0.10f))
+                        .border(1.dp, Wa.Red.copy(alpha = 0.25f), RoundedCornerShape(22.dp))
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    WaIconWell(Icons.Rounded.Settings, Tone.Red, size = 52.dp, iconSize = 26.dp)
+                    Text(stringResource(R.string.cal_settings_intro), color = Wa.Ink, fontSize = 13.5.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                CalSettingsRow(Icons.Rounded.CalendarMonth, R.string.cal_sources, R.string.cal_menu_sources_sub, 1) { sub = CalSub.Sources }
+                CalSettingsRow(Icons.Rounded.Alarm, R.string.cal_menu_reminders, R.string.cal_menu_reminders_sub, 2) { sub = CalSub.Reminders }
+                CalSettingsRow(Icons.Rounded.Schedule, R.string.cal_today_order, R.string.cal_menu_today_sub, 3) { sub = CalSub.Today }
             }
-        }
 
-        WaSectionTitle(stringResource(R.string.cal_default_reminders), Modifier.waRise(1))
-        ReminderPicker(ReminderChoices, p.defaultReminders, false) { list -> save(JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) }) }
-        Text(stringResource(R.string.cal_all_day_reminders), color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-        ReminderPicker(AllDayChoices, p.allDayReminders, true) { list -> save(JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) }) }
+            CalSub.Sources -> {
+                Text(stringResource(R.string.cal_sources_sub), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
+                WaCard(Modifier.fillMaxWidth().waRise(0), padding = 6.dp) {
+                    SourceLabels.forEach { (key, label) ->
+                        ToggleRow(stringResource(label), p.sources[key] != false) { on ->
+                            change({ it.copy(sources = it.sources + (key to on)) }, JsonObject().apply { add("sources", JsonObject().apply { addProperty(key, on) }) })
+                        }
+                    }
+                }
+            }
 
-        Spacer(Modifier.height(14.dp))
-        WaCard(Modifier.fillMaxWidth().waRise(2), padding = 6.dp) {
-            ToggleRow(stringResource(R.string.cal_respect_quiet), p.respectQuiet, stringResource(R.string.cal_respect_quiet_sub)) { on -> save(JsonObject().apply { addProperty("respect_quiet", on) }) }
-            ToggleRow(stringResource(R.string.cal_personalised), p.personalised, stringResource(R.string.cal_personalised_sub)) { on -> save(JsonObject().apply { addProperty("personalised", on) }) }
-        }
+            CalSub.Reminders -> {
+                WaSectionTitle(stringResource(R.string.cal_default_reminders), Modifier.waRise(0), topPadding = 4.dp)
+                ReminderPicker(ReminderChoices, p.defaultReminders, false) { list ->
+                    change({ it.copy(defaultReminders = list) }, JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                }
+                Text(stringResource(R.string.cal_all_day_reminders), color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
+                ReminderPicker(AllDayChoices, p.allDayReminders, true) { list ->
+                    change({ it.copy(allDayReminders = list) }, JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                }
 
-        WaSectionTitle(stringResource(R.string.cal_today_order), Modifier.waRise(3))
-        val order = p.todaySections?.order.orEmpty()
-        val hidden = p.todaySections?.hidden.orEmpty()
-        fun saveSections(newOrder: List<String>, newHidden: List<String>) = save(JsonObject().apply {
-            add("today_sections", JsonObject().apply {
-                add("order", JsonArray().apply { newOrder.forEach { add(it) } })
-                add("hidden", JsonArray().apply { newHidden.forEach { add(it) } })
-            })
-        })
-        WaCard(Modifier.fillMaxWidth().waRise(3), padding = 6.dp) {
-            order.forEachIndexed { i, key ->
-                val off = key in hidden
-                Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(SectionLabels[key]?.let { stringResource(it) } ?: key, color = if (off) Wa.Soft else Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    SmallIcon(Icons.Rounded.ArrowUpward, i > 0) { saveSections(order.toMutableList().apply { add(i - 1, removeAt(i)) }, hidden) }
-                    SmallIcon(Icons.Rounded.ArrowDownward, i < order.lastIndex) { saveSections(order.toMutableList().apply { add(i + 1, removeAt(i)) }, hidden) }
-                    SmallIcon(if (off) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, true) { saveSections(order, if (off) hidden - key else hidden + key) }
+                Spacer(Modifier.height(14.dp))
+                WaCard(Modifier.fillMaxWidth().waRise(1), padding = 6.dp) {
+                    ToggleRow(stringResource(R.string.cal_respect_quiet), p.respectQuiet, stringResource(R.string.cal_respect_quiet_sub)) { on ->
+                        change({ it.copy(respectQuiet = on) }, JsonObject().apply { addProperty("respect_quiet", on) })
+                    }
+                }
+            }
+
+            CalSub.Today -> {
+                val saved = p.todaySections?.order.orEmpty().filter { it in DefaultSections }
+                val order = saved + (DefaultSections - saved.toSet())
+                val hidden = p.todaySections?.hidden.orEmpty()
+                val today = CalendarStore.today
+                fun saveSections(newOrder: List<String>, newHidden: List<String>) = change(
+                    { it.copy(todaySections = CalSectionsDto(newOrder, newHidden)) },
+                    JsonObject().apply {
+                        add("today_sections", JsonObject().apply {
+                            add("order", JsonArray().apply { newOrder.forEach { add(it) } })
+                            add("hidden", JsonArray().apply { newHidden.forEach { add(it) } })
+                        })
+                    },
+                )
+                Text(stringResource(R.string.cal_today_order_hint), color = Wa.Mut, fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(bottom = 8.dp))
+                WaCard(Modifier.fillMaxWidth().waRise(0), padding = 6.dp) {
+                    order.forEachIndexed { i, key ->
+                        val off = key in hidden
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text("${i + 1}", color = Wa.Soft, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.width(22.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(SectionLabels[key]?.let { stringResource(it) } ?: key, color = if (off) Wa.Soft else Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
+                                // What is in it today — so a move or a hide is easy to check on the Today page.
+                                Text(
+                                    if (off) stringResource(R.string.cal_section_hidden) else sectionToday(key, today),
+                                    color = if (off) Wa.Red else Wa.Mut, fontSize = 11.5.sp,
+                                )
+                            }
+                            SmallIcon(Icons.Rounded.ArrowUpward, i > 0) { saveSections(order.toMutableList().apply { add(i - 1, removeAt(i)) }, hidden) }
+                            SmallIcon(Icons.Rounded.ArrowDownward, i < order.lastIndex) { saveSections(order.toMutableList().apply { add(i + 1, removeAt(i)) }, hidden) }
+                            SmallIcon(if (off) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, true) { saveSections(order, if (off) hidden - key else hidden + key) }
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+/** "3 today", "Nothing today", or "Not shown" — what a kind holds on today's page. */
+@Composable
+private fun sectionToday(key: String, today: CalTodayDto?): String {
+    // Its sources are all off: it isn't on the page whatever its place.
+    if (!sectionSourcesOn(key, today?.sources)) return stringResource(R.string.cal_section_source_off)
+    val count = when (key) {
+        "events" -> today?.events?.size ?: 0
+        "tasks" -> today?.tasks?.size ?: 0
+        "reminders" -> today?.reminders?.size ?: 0
+        "moments" -> today?.moments?.size ?: 0
+        else -> 0
+    }
+    return if (count == 0) stringResource(R.string.cal_section_empty) else pluralStringResource(R.plurals.cal_section_count, count, count)
 }
 
 @Composable
@@ -431,8 +434,37 @@ private fun SmallIcon(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) 
     }
 }
 
+/** One entry of the settings menu: brand-tinted icon, title + one line of help, chevron (the wallet's security menu look). */
 @Composable
-private fun ToggleRow(title: String, on: Boolean, sub: String? = null, onChange: (Boolean) -> Unit) {
+private fun CalSettingsRow(icon: ImageVector, title: Int, subtitle: Int, index: Int, onClick: () -> Unit) {
+    val source = remember { MutableInteractionSource() }
+    val scale by rememberPressScale(source, 0.97f)
+    val shape = RoundedCornerShape(20.dp)
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .padding(vertical = 6.dp)
+            .waRise(index)
+            .scale(scale)
+            .clip(shape)
+            .background(Wa.Surface)
+            .border(1.dp, Wa.Red.copy(alpha = 0.3f), shape)
+            .clickable(interactionSource = source, indication = null, onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        WaIconWell(icon, Tone.Red, size = 48.dp, iconSize = 24.dp)
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
+            Text(stringResource(subtitle), fontSize = 12.5.sp, lineHeight = 19.sp, color = Wa.Mut, modifier = Modifier.padding(top = 3.dp))
+        }
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Wa.Soft, modifier = Modifier.size(20.dp))
+    }
+}
+
+@Composable
+internal fun ToggleRow(title: String, on: Boolean, sub: String? = null, onChange: (Boolean) -> Unit) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, color = Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
@@ -460,26 +492,54 @@ private fun ReminderPicker(choices: List<Int>, selected: List<Int>, allDay: Bool
 // =============================================================================== search (206)
 
 @Composable
-internal fun CalendarSearch(onBack: () -> Unit, onOpenMoments: () -> Unit) {
+internal fun CalendarSearch(onBack: () -> Unit, onOpenMoments: () -> Unit, onEdit: (CalItemDto) -> Unit) {
     var query by remember { mutableStateOf("") }
     var results by remember { mutableStateOf<List<CalItemDto>?>(null) }
     var open by remember { mutableStateOf<CalItemDto?>(null) }
-    LaunchedEffect(query) {
+    var loading by remember { mutableStateOf(false) }
+    var failed by remember { mutableStateOf(false) }
+    var off by remember { mutableStateOf(false) }
+    var attempt by remember { mutableIntStateOf(0) }
+    LaunchedEffect(query, attempt) {
         val q = query.trim()
-        if (q.length < 2) { results = null; return@LaunchedEffect }
+        if (q.length < 2) { results = null; loading = false; failed = false; return@LaunchedEffect }
         delay(350)
-        results = runCatching { ApiClient.calendar.search(calAuth(), q, zoneId()).data?.items.orEmpty() }.getOrDefault(emptyList())
+        loading = true
+        failed = false
+        try {
+            val answer = ApiClient.calendar.search(calAuth(), q, zoneId()).data
+            off = answer?.enabled == false
+            results = answer?.items.orEmpty()
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // A newer word replaced this one: not a failure.
+            throw e
+        } catch (e: Exception) {
+            failed = true
+            results = null
+        }
+        loading = false
     }
 
     WaPage(title = stringResource(R.string.cal_search), onBack = onBack) {
-        DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.cal_search_hint), modifier = Modifier.fillMaxWidth().waRise(0))
+        DorrTextField(
+            query, { query = it.take(100) }, placeholder = stringResource(R.string.cal_search_hint), modifier = Modifier.fillMaxWidth().waRise(0), icon = Icons.Rounded.Search,
+            trailing = if (query.isEmpty()) null else ({
+                Icon(Icons.Rounded.Close, stringResource(R.string.cal_clear), tint = Wa.Mut, modifier = Modifier.size(20.dp).clip(CircleShape).clickable { query = "" })
+            }),
+        )
         Text(stringResource(R.string.cal_search_sub), color = Wa.Soft, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp, bottom = 10.dp))
         val r = results
         when {
-            r == null -> Box(Modifier.fillMaxWidth().padding(top = 30.dp), contentAlignment = Alignment.Center) { WaIconWell(Icons.Rounded.Search, Tone.Gray, size = 64.dp, iconSize = 28.dp) }
-            r.isEmpty() -> WaCard(Modifier.fillMaxWidth()) { WaEmpty(Icons.Rounded.Search, Tone.Gray, stringResource(R.string.cal_search_none), stringResource(R.string.cal_search_none_sub)) }
-            else -> r.forEachIndexed { i, item -> ItemRow(item, Modifier.padding(bottom = 8.dp).waRise(i)) { if (item.type != "capsule") open = item } }
+            off -> CalEmptyState(Icons.Rounded.CalendarMonth, stringResource(R.string.cal_off_title), stringResource(R.string.cal_off_text))
+            failed -> CalEmptyState(
+                Icons.Rounded.Warning, stringResource(R.string.cal_search_failed), stringResource(R.string.cal_search_failed_sub),
+                action = { WaButton(stringResource(R.string.wa_retry), { attempt++ }, style = WaButtonStyle.Ghost, modifier = Modifier.padding(horizontal = 40.dp)) },
+            )
+            r == null && loading -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(74.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
+            r == null -> CalEmptyState(Icons.Rounded.Search, stringResource(R.string.cal_search_idle), stringResource(R.string.cal_search_idle_sub))
+            r.isEmpty() -> CalEmptyState(Icons.Rounded.SearchOff, stringResource(R.string.cal_search_none), stringResource(R.string.cal_search_none_sub))
+            else -> r.forEachIndexed { i, item -> ItemRow(item, Modifier.padding(bottom = 10.dp).waRise(i), showDate = true) { if (item.type != "capsule") open = item } }
         }
     }
-    open?.let { item -> ItemSheet(item, onDismiss = { open = null }, onOpenMoments = onOpenMoments) }
+    open?.let { item -> ItemSheet(item, onDismiss = { open = null }, onOpenMoments = onOpenMoments, onEdit = onEdit) }
 }

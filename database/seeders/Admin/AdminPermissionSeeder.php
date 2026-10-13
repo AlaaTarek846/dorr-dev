@@ -57,6 +57,14 @@ class AdminPermissionSeeder extends Seeder
                     'multiple-delete',
                 ],
             ],
+            'regions' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete', 'change-status', 'multiple-delete'],
+            ],
+            'service-availability' => [
+                'module_name' => 'general_services',
+                'actions' => ['view', 'update'],
+            ],
             'languages' => [
                 'module_name' => 'general_services',
                 'actions' => [
@@ -240,7 +248,7 @@ class AdminPermissionSeeder extends Seeder
             ],
             'chat-moments' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [
