@@ -329,7 +329,7 @@ class GroupService
      * `$expiresInHours` (one of INVITE_EXPIRY_HOURS) or forever when null. An expired link is
      * replaced automatically the next time an admin opens it.
      *
-     * @return array{token: string, link: string, expires_at: string|null}
+     * @return array{token: string, code: string, link: string, payload: string, expires_at: string|null}
      */
     public function inviteLink(Model $me, ChatConversation $conversation, bool $reset = false, ?int $expiresInHours = null): array
     {
@@ -343,9 +343,13 @@ class GroupService
             ]);
         }
 
+        $token = $group->invite_token;
+
         return [
-            'token' => $group->invite_token,
-            'link' => 'dorr://chat/join/'.$group->invite_token,
+            'token' => $token,
+            'code' => $token,
+            'link' => url('/j/'.$token),
+            'payload' => 'dorr://chat/join/'.$token,
             'expires_at' => $group->invite_expires_at?->toIso8601String(),
         ];
     }

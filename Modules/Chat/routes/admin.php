@@ -59,6 +59,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         // The occasions catalog (DORR Moments) and its date corrections (POST for update: multipart card picture).
         Route::get('chat-moments', [ChatMomentController::class, 'index']);
         Route::post('chat-moments', [ChatMomentController::class, 'store']);
+        Route::post('chat-moments/delete-multiple', [ChatMomentController::class, 'deleteMultiple']);
         Route::get('chat-moments/{chat_moment}', [ChatMomentController::class, 'show']);
         Route::post('chat-moments/{chat_moment}', [ChatMomentController::class, 'update']);
         Route::patch('chat-moments/{chat_moment}/status', [ChatMomentController::class, 'status']);
