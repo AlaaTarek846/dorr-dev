@@ -1328,4 +1328,35 @@
     <string name="bk_story_mention_line">Mentioned you in a status</string>
     <string name="bk_story_mention_mine">You mentioned them in your status</string>
     <string name="bk_video_too_big_slow">This video is too big for a slow connection (64 MB max).</string>
+
+    <!-- Settings → Security: devices and the security log -->
+    <string name="security_title">Security</string>
+    <string name="security_sub">Your devices and the security log</string>
+    <string name="security_devices">Signed-in devices</string>
+    <string name="security_this_device">This device</string>
+    <string name="security_sign_out">Sign out</string>
+    <string name="security_sign_out_confirm">Sign out of \"%1$s\" now? It will need to sign in again.</string>
+    <string name="security_sign_out_others">Sign out of all other devices</string>
+    <string name="security_sign_out_others_confirm">Every device except this one will be signed out now.</string>
+    <string name="security_signed_out">The device was signed out.</string>
+    <string name="security_last_active">Last active: %1$s</string>
+    <string name="security_log">Security log</string>
+    <string name="security_all">All</string>
+    <string name="security_warnings_only">Warnings</string>
+    <string name="security_log_empty">Nothing here yet.</string>
+    <string name="security_load_more">Load more</string>
+    <string name="security_load_failed">Couldn\'t load your security details. Pull down to try again.</string>
+
+    <string name="vr_note_mic_on">You\'re live — your microphone is on</string>
+    <string name="vr_note_mic_off">In the room · microphone off</string>
+    <string name="vr_note_listening">Listening in the room</string>
+    <string name="vr_mute">Mute</string>
+    <string name="vr_unmute">Unmute</string>
+    <string name="vr_leave">Leave</string>
+    <string name="ch_try_invite_link">send them the group\'s invite link</string>
+    <string name="ch_join_code">Join with a code or link</string>
+    <string name="ch_join_code_sub">A group or channel invite: type its code or paste its link</string>
+    <string name="ch_join_code_go">Join</string>
+    <string name="ch_join_code_bad">That\'s not an invite code or link</string>
+
 </resources>

@@ -80,6 +80,7 @@ import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.Security
 import androidx.compose.material.icons.rounded.Shield
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material.icons.rounded.TextFields
@@ -119,6 +120,7 @@ import com.dorr.app.ui.screens.profile.ContactUsSheet
 import com.dorr.app.ui.screens.profile.FaqSheet
 import com.dorr.app.ui.screens.profile.InviteFriendsScreen
 import com.dorr.app.ui.screens.profile.NotificationSettingsScreen
+import com.dorr.app.ui.screens.profile.SecurityScreen
 import com.dorr.app.ui.screens.profile.RateAppScreen
 import com.dorr.app.ui.screens.profile.SupportChatScreen
 import com.dorr.app.ui.screens.profile.SupportTicketScreen
@@ -140,7 +142,7 @@ import com.dorr.app.ui.theme.appearanceColor
 private enum class ProfileSub {
     NONE, PERSONAL_DATA, NOTIFICATIONS,
     PRIVACY, TERMS, LEGAL, ADDRESSES, SETTINGS, APPEARANCE, FONT,
-    INVITE, RATE, SUPPORT, TICKET, QUICK_CHAT,
+    INVITE, RATE, SUPPORT, TICKET, QUICK_CHAT, SECURITY,
 }
 
 private data class MenuEntry(
@@ -172,6 +174,11 @@ fun ProfileScreen(
                 subScreen = ProfileSub.TICKET
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
+            // A tapped security alert: straight to the devices and the security log.
+            if (link == com.dorr.app.chat.ChatDeepLink.Security) {
+                subScreen = ProfileSub.SECURITY
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
         }
     }
 
@@ -180,7 +187,7 @@ fun ProfileScreen(
     BackHandler(enabled = !isAtRoot) {
         subScreen = when (subScreen) {
             ProfileSub.NOTIFICATIONS, ProfileSub.APPEARANCE, ProfileSub.FONT,
-            ProfileSub.LEGAL -> ProfileSub.SETTINGS
+            ProfileSub.LEGAL, ProfileSub.SECURITY -> ProfileSub.SETTINGS
             ProfileSub.INVITE, ProfileSub.RATE, ProfileSub.SUPPORT -> ProfileSub.NONE
             ProfileSub.TICKET, ProfileSub.QUICK_CHAT -> ProfileSub.SUPPORT
             ProfileSub.PRIVACY, ProfileSub.TERMS -> ProfileSub.LEGAL
@@ -250,6 +257,7 @@ fun ProfileScreen(
                 )
             }
             ProfileSub.NOTIFICATIONS -> NotificationSettingsScreen(onBack = { subScreen = ProfileSub.SETTINGS })
+            ProfileSub.SECURITY -> SecurityScreen(onBack = { subScreen = ProfileSub.SETTINGS })
             ProfileSub.PRIVACY -> PrivacyPolicyScreen(onBack = { subScreen = ProfileSub.LEGAL })
             ProfileSub.TERMS -> TermsConditionsScreen(onBack = { subScreen = ProfileSub.LEGAL })
             ProfileSub.LEGAL -> LegalMenuScreen(
@@ -261,6 +269,7 @@ fun ProfileScreen(
             ProfileSub.SETTINGS -> SettingsMenuScreen(
                 onBack = { subScreen = ProfileSub.NONE },
                 onOpenNotifications = { subScreen = ProfileSub.NOTIFICATIONS },
+                onOpenSecurity = { subScreen = ProfileSub.SECURITY },
                 onOpenLegal = { subScreen = ProfileSub.LEGAL },
                 onOpenAppearance = { subScreen = ProfileSub.APPEARANCE },
                 onOpenFont = { subScreen = ProfileSub.FONT },
@@ -688,6 +697,7 @@ private fun AccountListScreen(
 private fun SettingsMenuScreen(
     onBack: () -> Unit,
     onOpenNotifications: () -> Unit,
+    onOpenSecurity: () -> Unit,
     onOpenLegal: () -> Unit,
     onOpenAppearance: () -> Unit,
     onOpenFont: () -> Unit,
@@ -704,6 +714,7 @@ private fun SettingsMenuScreen(
         onBack = onBack,
         items = listOf(
             MenuEntry(Icons.Rounded.Notifications, R.string.account_notifications, R.string.account_notifications_sub, onClick = onOpenNotifications),
+            MenuEntry(Icons.Rounded.Security, R.string.security_title, R.string.security_sub, onClick = onOpenSecurity),
             MenuEntry(Icons.Rounded.Language, R.string.account_language, R.string.account_language_sub) { showLanguageDialog = true },
             MenuEntry(Icons.Rounded.Palette, R.string.appearance_title, R.string.appearance_sub, onClick = onOpenAppearance),
             MenuEntry(Icons.Rounded.TextFields, R.string.appearance_font, R.string.appearance_font_sub, onClick = onOpenFont),

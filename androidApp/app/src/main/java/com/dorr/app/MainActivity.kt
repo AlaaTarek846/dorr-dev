@@ -53,6 +53,20 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         openSports(intent)
+        openChatLink(intent)
+    }
+
+    /** dorr://chat/{token}?text=… — a "click to chat" link (backlog 130). */
+    private fun openChatLink(intent: android.content.Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "dorr" || data.host != "chat") return
+        intent.data = null
+        // An invite (from the /j/ web page or a QR): the join sheet.
+        if (data.pathSegments.firstOrNull() == "join") {
+            data.pathSegments.getOrNull(1)?.let { com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Join(it)) }
+            return
+        }
+        com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.ChatLink(data.toString()))
     }
 
     private fun openSports(intent: android.content.Intent?) {
@@ -64,6 +78,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         openSports(intent)
+        openChatLink(intent)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(
                 AndroidColor.WHITE,

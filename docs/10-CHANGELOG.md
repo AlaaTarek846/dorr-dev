@@ -18,6 +18,27 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Ratings:** a later `POST /api/mobile/v1/ratings` updates the same row (stars and comment, empty comment clears it) instead of 422. Android Rate screen stays editable after the first save. Play In-App Review still only the first time the rating is 4–5 stars. Optional comment is 5–300 characters (placeholder no longer “what should we improve”).
 
 ### Added
+- **Account security (spec 27–29).**
+  - **Sign-in behaviour changed:** signing in no longer signs the account's other devices out. Each sign-in (app OTP, web password, password reset) gets its own Sanctum token and an `account_sessions` row with the device it came from. The app now sends `X-Device-Name`, `X-Platform` and `X-App-Version` next to `X-Device-Id`.
+  - The same device signing in again replaces its old session. Past `auth_flow.max_sessions` (5) the device used longest ago is signed out. A password reset signs every device out.
+  - Signing a device out deletes its token, so its next request gets a 401, and drops its push ids (`notification_devices.device_id`).
+  - Tokens from before this change show up as devices too.
+  - **Devices** (`GET/DELETE /api/mobile/v1/security/devices`, `POST .../logout-others`): the device list shows the IP partly hidden, and the country only for a public IP.
+  - **Security log** (`security_events`, `GET /api/mobile/v1/security/events`, paginated, `warnings=1`). It records:
+    - sign-ins and sign-ins from a new device;
+    - wrong passwords, codes asked for, wrong codes and code lockouts;
+    - log-outs, devices signed out (by the owner, by the limit, by support);
+    - phone changes, wrong wallet PINs, PIN lock and freeze, and account restores.
+    - Rows are kept `auth_flow.security_log_days` (365), pruned daily by `model:prune` in `routes/console.php`.
+  - **Intrusion alerts** (`SecurityAlerts`), sent in-app, live and by push in the owner's language, at most once per 15-minute window each:
+    - 3 or more wrong codes or passwords;
+    - 5 or more sign-in codes asked for;
+    - a sign-in from a device the account never used.
+  - **Dashboard:**
+    - Customers → a "Devices" button per row (`users.manage-sessions`): the devices signed in now with "sign out" and "sign out all", the last ones signed out, and a link to the log.
+    - New page "Security log" (`/admin/security-events`, `security-events.view`): filters for warnings, event type, customer (`?user=ID`) and search, with a details modal.
+  - **App:** Settings → Security shows the devices (with "this device"), "sign out of all other devices", and the paged log with warnings in red. Tapping an alert push opens it.
+  - Migration `2026_10_13_100000`. Test: `AccountSecurityTest` (17).
 - Customer notifications from the dashboard are queued: `POST /users/notify` puts one `SendDashboardNotificationJob` per round of 200 customers on the queue and answers at once (a round that fails is retried alone — 3 tries — and never holds the others back); a queue worker must be running (`php artisan queue:work`, or `composer dev`). The "Notify everyone" modal now asks the server how many customers it reaches (`GET /users/notify/audience`; it showed 0 because the page counters only fill in once a filter is used) and the ticked rows are cleared after a send. Tests: `UserNotificationTest`
 - Fixed pushes being dropped silently when they were sent from work that already runs after the response: Laravel never runs a callback `defer()`-ed from inside a deferred callback, so the OneSignal push of the automatic FAQ answer in support tickets (and of dashboard broadcasts) never left. New `NotificationCenter::later()` runs such work after the response and sends its pushes right away; used by `SupportAutoReplyService` and `UserNotificationController`. The broadcast also checks the chosen customers in one query (not one per id) and "one customer" means exactly one id. Tests: `UserNotificationTest` (production-like deferred runs)
 - Customers page: send a notification from the dashboard to one customer (bell on the row), to the ticked customers ("Notify selected") or to every active customer ("Notify everyone") — `POST /api/admin/v1/users/notify` (permission `users.send-notification`), a modal with the language tabs (title + message per language, all required, Vuelidate) and a push switch. It goes through `NotificationCenter::sendRaw`: the in-app list and Pusher in each customer's language (raw multi-language notifications) and OneSignal push with every language in one payload, in rounds of 200 after the response. `sendNotification()` now isolates each receiver, so one failing broadcast no longer stops the rest from being notified. Test: `UserNotificationTest`

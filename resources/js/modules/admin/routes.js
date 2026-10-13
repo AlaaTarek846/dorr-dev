@@ -464,6 +464,12 @@ export default [
                 meta: { middleware: [auth], permission: 'referrals.view' },
             },
             {
+                path: 'security-events',
+                name: 'admin.security-events.index',
+                component: page('security-events/index'),
+                meta: { middleware: [auth], permission: 'security-events.view' },
+            },
+            {
                 path: 'employees',
                 name: 'admin.employees.index',
                 component: page('employee/index'),

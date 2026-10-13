@@ -133,6 +133,7 @@ fun MainScreen(
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             when (link) {
                 is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.ChatLink, is com.dorr.app.chat.ChatDeepLink.Join -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Sports -> {
                     walletOpen = false
                     com.dorr.app.ui.screens.sports.SportsLink.show(link.matchId)
@@ -154,7 +155,8 @@ fun MainScreen(
                     momentsOpen = true
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
-                is com.dorr.app.chat.ChatDeepLink.Support -> {
+                is com.dorr.app.chat.ChatDeepLink.Support,
+                com.dorr.app.chat.ChatDeepLink.Security -> {
                     walletOpen = false
                     chatOpen = false
                     currentTab = 3

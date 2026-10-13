@@ -356,7 +356,12 @@ class AdminPermissionSeeder extends Seeder
                     'delete',
                     'multiple-delete',
                     'send-notification',
+                    'manage-sessions',
                 ],
+            ],
+            'security-events' => [
+                'module_name' => 'system_users',
+                'actions' => ['view'],
             ],
             'sms-providers' => [
                 'module_name' => 'general_services',

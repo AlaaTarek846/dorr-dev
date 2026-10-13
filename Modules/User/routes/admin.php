@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\User\Http\Controllers\SecurityAdminController;
 use Modules\User\Http\Controllers\SupportHelpNodeController;
 use Modules\User\Http\Controllers\SupportQuickReplyController;
 use Modules\User\Http\Controllers\SupportSettingController;
@@ -16,7 +17,15 @@ Route::middleware(['locale', 'auth:admin_api'])->prefix('admin/v1')->group(funct
     Route::post('users/{user}/restore', [UserController::class, 'restore']);
     Route::delete('users/{user}/force', [UserController::class, 'forceDestroy']);
     Route::patch('users/{user}/status', [UserController::class, 'changeStatus']);
+    // A customer's signed-in devices; support can sign one or all of them out.
+    Route::get('users/{user}/sessions', [SecurityAdminController::class, 'sessions']);
+    Route::delete('users/{user}/sessions/{session}', [SecurityAdminController::class, 'signOut'])->whereNumber('session');
+    Route::post('users/{user}/sessions/logout-all', [SecurityAdminController::class, 'signOutAll']);
     Route::apiResource('users', UserController::class);
+
+    // Security log of every customer (sign-ins, failed codes, devices signed out, PIN locks…).
+    Route::get('security-events', [SecurityAdminController::class, 'events']);
+    Route::get('security-events/{event}', [SecurityAdminController::class, 'event'])->whereNumber('event');
 
     // Support tickets: the conversation with each customer, live.
     // Before {supportTicket}: the agents' "/" menu.
