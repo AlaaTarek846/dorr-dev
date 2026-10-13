@@ -240,7 +240,7 @@ class AdminPermissionSeeder extends Seeder
             ],
             'chat-moments' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
             // DORR Discover (spec 169–182).
             'discover-settings' => [

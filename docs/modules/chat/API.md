@@ -434,7 +434,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 | POST | `capsules/{id}/items` | `message_id`, `note?` | A message I can see (not view-once, not deleted). The same message twice keeps one copy. Up to 300 items (`chat_capsule_full`) |
 | DELETE | `capsules/{id}/items/{item}` | | |
 
-**Admin:** `GET/POST /api/admin/v1/chat-moments` (+ `/{id}`, POST `/{id}` to update, `/{id}/status`, DELETE) — multipart `key`, `kind`, `date_rule`, `month`, `day`, `duration_days`, `show_before_days`, `show_after_days`, `countries[]` (codes), `default_on`, `theme`, `primary_color`, `secondary_color`, `emoji`, `animation`, `translations[i][locale/name/greeting]`, `card`, `remove_card`, `status`, `sort_order`. `GET chat-moments/{id}/dates?year=` (computed, everywhere and per-country effective dates for 3 years) · `PUT chat-moments/{id}/dates` `{country_id?, year, date}` (`date: null` removes the correction). Permission `chat-moments.*`. `chat-settings` also takes `moments_enabled`.
+**Admin:** `GET/POST /api/admin/v1/chat-moments` (+ `/{id}`, POST `/{id}` to update, `/{id}/status`, DELETE, POST `delete-multiple` `{ids}`) — multipart `key`, `kind`, `date_rule`, `month`, `day`, `duration_days`, `show_before_days`, `show_after_days`, `countries[]` (codes), `default_on`, `theme`, `primary_color`, `secondary_color`, `emoji`, `animation`, `translations[i][locale/name/greeting]`, `card`, `remove_card`, `status`, `sort_order`. `GET chat-moments/{id}/dates?year=` (computed, everywhere and per-country effective dates for 3 years) · `PUT chat-moments/{id}/dates` `{country_id?, year, date}` (`date: null` removes the correction). Permission `chat-moments.*`. `chat-settings` also takes `moments_enabled`.
 
 ## Closing the partial items (2026-10-10)
 
