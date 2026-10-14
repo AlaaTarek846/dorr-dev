@@ -165,7 +165,7 @@ private fun WaSecurityMenu(night: Boolean, onBack: () -> Unit, onOpen: (PinSub) 
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             WaIconWell(Icons.Rounded.Shield, Tone.Red, size = 52.dp, iconSize = 26.dp)
-            Text(stringResource(R.string.wa_security_intro), color = Wa.Ink, fontSize = 13.5.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.wa_security_intro), color = Wa.Ink, fontSize = 12.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(10.dp))
@@ -205,12 +205,12 @@ private fun WaSecurityRow(icon: ImageVector, title: Int, subtitle: Int, index: I
     ) {
         WaIconWell(icon, Tone.Red, size = 48.dp, iconSize = 24.dp)
         Column(Modifier.weight(1f)) {
-            Text(stringResource(title), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
-            Text(stringResource(subtitle), fontSize = 12.5.sp, lineHeight = 19.sp, color = Wa.Mut, modifier = Modifier.padding(top = 3.dp))
+            Text(stringResource(title), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = Wa.Ink)
+            Text(stringResource(subtitle), fontSize = 11.sp, lineHeight = 16.sp, color = Wa.Mut, modifier = Modifier.padding(top = 2.dp))
         }
         if (state != null) {
             Text(
-                state, color = Wa.Red, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                state, color = Wa.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Wa.Red.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
