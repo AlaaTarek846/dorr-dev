@@ -75,6 +75,8 @@ data class CalItemDto(
     @SerializedName("message_id") val messageId: String? = null,
     @SerializedName("conversation_id") val conversationId: String? = null,
     val kind: String? = null,
+    /** An appointment's kind: appointment · meeting · match · event · trip · study · health · work. */
+    val category: String? = null,
     val turns: Int? = null,
     val count: Int? = null,
     val duplicate: Boolean = false,
@@ -111,6 +113,8 @@ data class CalTodayDto(
     val date: String? = null,
     val timezone: String? = null,
     val sections: CalSectionsDto? = null,
+    /** The sources I keep on (null from an older server: all of them). */
+    val sources: List<String>? = null,
     val next: CalItemDto? = null,
     val events: List<CalItemDto> = emptyList(),
     val tasks: List<CalItemDto> = emptyList(),
@@ -129,4 +133,5 @@ data class CalPrefsDto(
     @SerializedName("today_sections") val todaySections: CalSectionsDto? = null,
 )
 
-data class CalSearchDto(val items: List<CalItemDto> = emptyList())
+/** `enabled` is false when the admin switched the calendar off. */
+data class CalSearchDto(val enabled: Boolean = true, val items: List<CalItemDto> = emptyList())

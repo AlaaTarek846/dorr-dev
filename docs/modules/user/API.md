@@ -132,6 +132,17 @@ Phone/email changes are two-step: nothing on the user row changes until the
 `confirm` call verifies the code. The pending value lives in Cache with the OTP
 expiry TTL; an expired/missing pending value returns `change_request_expired`.
 
+### Security (devices and the security log)
+
+| Method | Endpoint | Notes |
+|---|---|---|
+| GET | `/api/mobile/v1/security/devices` | Signed-in devices, this one first (`current`) |
+| DELETE | `/api/mobile/v1/security/devices/{id}` | Sign one out |
+| POST | `/api/mobile/v1/security/devices/logout-others` | All but this one |
+| GET | `/api/mobile/v1/security/events` | Security log (`page`, `type`, `warnings=1`) |
+
+Admin: `GET /api/admin/v1/users/{user}/sessions`, `DELETE .../sessions/{session}`, `POST .../sessions/logout-all` (`users.manage-sessions`); `GET /api/admin/v1/security-events[/{id}]` (`security-events.view`). See [06-API-SPECIFICATION](../../06-API-SPECIFICATION.md).
+
 ## Admin-managed Users
 
 See [../admin/API.md](../admin/API.md) — `/api/admin/v1/users/*`

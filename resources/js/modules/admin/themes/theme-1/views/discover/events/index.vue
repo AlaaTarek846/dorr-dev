@@ -1,41 +1,83 @@
 <template>
     <div>
-        <WalletPageHeader :title="t('discover.events.title')" :section="t('sidebar.discover')" :total="meta.total || null" />
+        <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
+            <h1 class="page-title fw-semibold fs-18 mb-0">
+                {{ t('discover.events.title') }}
+                <span v-if="meta.total != null" class="badge bg-primary-transparent ms-2 fs-12 align-middle">{{ meta.total }}</span>
+            </h1>
+            <div class="ms-md-1 ms-0">
+                <nav>
+                    <ol class="breadcrumb mb-0">
+                        <li class="breadcrumb-item">
+                            <router-link :to="{ name: 'admin.dashboard' }">{{ t('dashboard') }}</router-link>
+                        </li>
+                        <li class="breadcrumb-item">{{ t('sidebar.discover') }}</li>
+                        <li class="breadcrumb-item active" aria-current="page">{{ t('discover.events.title') }}</li>
+                    </ol>
+                </nav>
+            </div>
+        </div>
 
         <div class="card custom-card">
-            <div class="card-header d-flex align-items-center flex-wrap gap-2 py-3">
-                <ul class="nav nav-pills nav-style-3 gap-1">
-                    <li v-for="tab in reviewTabs" :key="tab.key" class="nav-item">
-                        <button type="button" class="nav-link py-1 px-3" :class="{ active: filters.review_status === tab.key }" @click="setReview(tab.key)">
-                            {{ t(`discover.review.${tab.key || 'all'}`) }}
-                            <span v-if="tab.key === 'pending' && pendingCount" class="badge bg-warning ms-1">{{ pendingCount }}</span>
+            <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-3 py-3">
+                <div class="d-flex flex-wrap align-items-center gap-2 catalog-toolbar-filters">
+                    <div class="input-group input-group-sm catalog-toolbar-search">
+                        <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
+                        <input v-model="filters.search" type="search" class="form-control" :placeholder="t('discover.events.search')" @keyup.enter="load(1)">
+                        <button v-if="filters.search" type="button" class="btn btn-light border catalog-search-clear" :title="t('countries.clear_search')" @click="clearSearch">
+                            <i class="ri-close-line"></i>
                         </button>
-                    </li>
-                </ul>
-                <select v-model="filters.status" class="form-select form-select-sm" style="max-width: 160px;" @change="load(1)">
-                    <option value="">{{ t('discover.events.any_status') }}</option>
-                    <option v-for="s in statuses" :key="s" :value="s">{{ t(`discover.status.${s}`) }}</option>
-                </select>
-                <select v-model="filters.city_id" class="form-select form-select-sm" style="max-width: 180px;" @change="load(1)">
-                    <option value="">{{ t('discover.events.any_city') }}</option>
-                    <option v-for="c in cities" :key="c.id" :value="c.id">{{ c.name }} · {{ c.country_code }}</option>
-                </select>
-                <select v-model="filters.when" class="form-select form-select-sm" style="max-width: 150px;" @change="load(1)">
-                    <option value="">{{ t('discover.events.any_time') }}</option>
-                    <option value="upcoming">{{ t('discover.events.upcoming') }}</option>
-                    <option value="past">{{ t('discover.events.past') }}</option>
-                </select>
-                <div class="input-group input-group-sm" style="max-width: 240px;">
-                    <span class="input-group-text bg-white"><i class="ri-search-line text-muted"></i></span>
-                    <input v-model="filters.search" type="search" class="form-control" :placeholder="t('discover.events.search')" @keyup.enter="load(1)">
+                    </div>
+                    <Select
+                        v-model="filters.status"
+                        :options="statusOptions"
+                        option-label="label"
+                        option-value="value"
+                        :placeholder="t('discover.events.any_status')"
+                        show-clear
+                        class="wallet-filter-select"
+                        @change="load(1)"
+                    />
+                    <Select
+                        v-model="filters.city_id"
+                        :options="cityOptions"
+                        option-label="label"
+                        option-value="value"
+                        :placeholder="t('discover.events.any_city')"
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
+                        show-clear
+                        class="wallet-filter-select"
+                        @change="load(1)"
+                    />
+                    <Select
+                        v-model="filters.when"
+                        :options="whenOptions"
+                        option-label="label"
+                        option-value="value"
+                        :placeholder="t('discover.events.any_time')"
+                        show-clear
+                        class="wallet-filter-select"
+                        @change="load(1)"
+                    />
                 </div>
-                <button v-if="canCreate" type="button" class="btn btn-primary btn-sm btn-wave ms-auto" @click="openCreate">
-                    <i class="ri-add-line me-1 align-middle"></i>{{ t('discover.events.add') }}
-                </button>
+                <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
+                    <ul class="nav nav-pills nav-style-3 gap-1">
+                        <li v-for="tab in reviewTabs" :key="tab.key" class="nav-item">
+                            <button type="button" class="nav-link py-1 px-3" :class="{ active: filters.review_status === tab.key }" @click="setReview(tab.key)">
+                                {{ t(`discover.review.${tab.key || 'all'}`) }}
+                                <span v-if="tab.key === 'pending' && pendingCount" class="badge bg-warning ms-1">{{ pendingCount }}</span>
+                            </button>
+                        </li>
+                    </ul>
+                    <button v-if="canCreate" type="button" class="btn btn-primary btn-sm btn-wave" @click="openCreate">
+                        <i class="ri-add-line me-1 align-middle"></i>{{ t('discover.events.add') }}
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="table-responsive">
-                    <table class="table text-nowrap table-hover mb-0">
+                    <table class="table text-nowrap table-striped table-hover mb-0">
                         <thead>
                             <tr>
                                 <th class="ps-4">{{ t('discover.events.event') }}</th>
@@ -49,7 +91,14 @@
                         </thead>
                         <tbody>
                             <tr v-if="loading"><td colspan="7" class="text-center py-5"><span class="spinner-border spinner-border-sm"></span></td></tr>
-                            <tr v-else-if="!rows.length"><td colspan="7" class="text-center text-muted py-5">{{ t('wallet.common.empty') }}</td></tr>
+                            <tr v-else-if="!rows.length">
+                                <td colspan="7" class="border-0">
+                                    <div class="text-center py-5">
+                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3"><i class="ri-calendar-event-line fs-2 text-primary"></i></span>
+                                        <p class="text-muted mb-0">{{ t('wallet.common.empty') }}</p>
+                                    </div>
+                                </td>
+                            </tr>
                             <template v-else>
                                 <tr v-for="row in rows" :key="row.id">
                                     <td class="ps-4">
@@ -99,10 +148,23 @@
                     </table>
                 </div>
             </div>
-            <div v-if="meta.last_page > 1" class="card-footer d-flex justify-content-end gap-2">
-                <button type="button" class="btn btn-sm btn-light" :disabled="meta.current_page <= 1" @click="load(meta.current_page - 1)"><i class="ri-arrow-left-s-line"></i></button>
-                <span class="align-self-center fs-13">{{ meta.current_page }} / {{ meta.last_page }}</span>
-                <button type="button" class="btn btn-sm btn-light" :disabled="meta.current_page >= meta.last_page" @click="load(meta.current_page + 1)"><i class="ri-arrow-right-s-line"></i></button>
+            <div v-if="meta.last_page > 1" class="card-footer border-top-0">
+                <div class="d-flex align-items-center flex-wrap gap-3">
+                    <div class="text-muted fs-13">{{ meta.current_page }} / {{ meta.last_page }}</div>
+                    <nav class="pagination-style-4 ms-md-auto">
+                        <ul class="pagination mb-0">
+                            <li class="page-item" :class="{ disabled: meta.current_page <= 1 }">
+                                <button type="button" class="page-link" @click="load(meta.current_page - 1)">{{ t('countries.previous') }}</button>
+                            </li>
+                            <li v-for="page in pageNumbers" :key="page" class="page-item" :class="{ active: page === meta.current_page }">
+                                <button type="button" class="page-link" @click="load(page)">{{ page }}</button>
+                            </li>
+                            <li class="page-item" :class="{ disabled: meta.current_page >= meta.last_page }">
+                                <button type="button" class="page-link text-primary" @click="load(meta.current_page + 1)">{{ t('countries.next') }}</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
             </div>
         </div>
 
@@ -117,25 +179,23 @@
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ t('discover.events.f_category') }} <span class="text-danger">*</span></label>
-                        <select v-model="form.category_id" class="form-select" :class="{ 'is-invalid': errors.category_id }">
-                            <option v-for="c in categories" :key="c.id" :value="c.id">{{ c.emoji }} {{ c.name }}</option>
-                        </select>
+                        <Select v-model="form.category_id" :options="categoryOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :invalid="!!errors.category_id" append-to="self" class="w-100" />
+                        <div v-if="errors.category_id" class="text-danger fs-12 mt-1">{{ errors.category_id }}</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ t('discover.events.f_city') }} <span class="text-danger">*</span></label>
-                        <select v-model="form.city_id" class="form-select" :class="{ 'is-invalid': errors.city_id }">
-                            <option v-for="c in cities" :key="c.id" :value="c.id">{{ c.name }} · {{ c.country_code }}</option>
-                        </select>
+                        <Select v-model="form.city_id" :options="cityOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :invalid="!!errors.city_id" append-to="self" class="w-100" />
+                        <div v-if="errors.city_id" class="text-danger fs-12 mt-1">{{ errors.city_id }}</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ t('discover.events.f_starts') }} <span class="text-danger">*</span></label>
-                        <input v-model="form.starts_at" type="datetime-local" class="form-control" dir="ltr" :class="{ 'is-invalid': errors.starts_at }">
+                        <AdminDatePicker v-model="form.starts_at" show-time :invalid="!!errors.starts_at" class="w-100" />
                         <div class="text-muted fs-11 mt-1">{{ t('discover.events.local_hint', { zone: cityZone || '—' }) }}</div>
                         <div v-if="errors.starts_at" class="text-danger fs-12">{{ errors.starts_at }}</div>
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ t('discover.events.f_ends') }}</label>
-                        <input v-model="form.ends_at" type="datetime-local" class="form-control" dir="ltr">
+                        <AdminDatePicker v-model="form.ends_at" show-time class="w-100" />
                     </div>
                     <div class="col-md-6">
                         <label class="form-label">{{ t('discover.events.f_venue') }}</label>
@@ -189,13 +249,11 @@
                 <p class="fw-semibold mb-2">{{ statusRow.title }}</p>
                 <div class="mb-3">
                     <label class="form-label">{{ t('discover.events.status') }}</label>
-                    <select v-model="statusForm.status" class="form-select">
-                        <option v-for="s in statuses" :key="s" :value="s">{{ t(`discover.status.${s}`) }}</option>
-                    </select>
+                    <Select v-model="statusForm.status" :options="statusOptions" option-label="label" option-value="value" append-to="self" class="w-100" />
                 </div>
                 <div class="mb-3">
                     <label class="form-label">{{ t('discover.events.new_time') }}</label>
-                    <input v-model="statusForm.starts_at" type="datetime-local" class="form-control" dir="ltr">
+                    <AdminDatePicker v-model="statusForm.starts_at" show-time class="w-100" />
                     <div class="text-muted fs-11 mt-1">{{ t('discover.events.local_hint', { zone: statusRow.timezone }) }}</div>
                 </div>
                 <div class="mb-2">
@@ -217,7 +275,8 @@ import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
 import WalletModal from '../../../../../../../components/wallet/WalletModal.vue';
-import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
+import Select from 'primevue/select';
+import AdminDatePicker from '../../../../../../../components/ui/AdminDatePicker.vue';
 import useToast, { extractApiErrorMessage } from '../../../../../../../composables/useToast';
 import { usePermission } from '../../../../../../../composables/usePermission';
 
@@ -247,6 +306,17 @@ const errors = reactive({});
 const blank = () => ({ title: '', category_id: null, city_id: null, starts_at: '', ends_at: '', venue: '', address: '', source_url: '', booking_url: '', is_free: false, price_text: '', family_friendly: false, description: '', cover: null });
 const form = reactive(blank());
 const coverPreview = ref(null);
+const statusOptions = computed(() => statuses.map((s) => ({ value: s, label: t(`discover.status.${s}`) })));
+const whenOptions = computed(() => [{ value: 'upcoming', label: t('discover.events.upcoming') }, { value: 'past', label: t('discover.events.past') }]);
+const cityOptions = computed(() => cities.value.map((c) => ({ value: c.id, label: `${c.name} · ${c.country_code}` })));
+const categoryOptions = computed(() => categories.value.map((c) => ({ value: c.id, label: `${c.emoji || ''} ${c.name}`.trim() })));
+const pageNumbers = computed(() => {
+    const last = meta.value.last_page || 1;
+    const cur = meta.value.current_page || 1;
+    const from = Math.max(1, Math.min(cur - 2, last - 4));
+    const to = Math.min(last, from + 4);
+    return Array.from({ length: to - from + 1 }, (_, i) => from + i);
+});
 const cityZone = computed(() => cities.value.find((c) => c.id === form.city_id)?.timezone);
 
 const statusRow = ref(null);
@@ -258,6 +328,11 @@ function statusClass(s) {
 
 function reviewClass(s) {
     return { pending: 'bg-warning', approved: 'bg-success', rejected: 'bg-danger' }[s] || 'bg-light';
+}
+
+function clearSearch() {
+    filters.search = '';
+    load(1);
 }
 
 function setReview(key) {

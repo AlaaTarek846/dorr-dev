@@ -527,6 +527,13 @@
                                 <span class="side-menu__label">{{ t('referrals.title') }}</span>
                             </router-link>
                         </li>
+
+                        <li v-if="can('security-events.view')" class="slide">
+                            <router-link :to="{ name: 'admin.security-events.index' }" class="side-menu__item">
+                                <i class="ri-shield-keyhole-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.security_events') }}</span>
+                            </router-link>
+                        </li>
                     </template>
 
                     <template v-if="isGeneralVisible">
@@ -580,6 +587,20 @@
                                 <router-link :to="{ name: 'admin.countries.index' }" class="side-menu__item">
                                     <i class="ri-earth-line side-menu__icon"></i>
                                     <span class="side-menu__label">{{ t('countries.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('regions.view')" class="slide">
+                                <router-link :to="{ name: 'admin.regions.index' }" class="side-menu__item">
+                                    <i class="ri-map-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('regions.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('service-availability.view')" class="slide">
+                                <router-link :to="{ name: 'admin.service-availability.index' }" class="side-menu__item">
+                                    <i class="ri-toggle-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('service_control.title') }}</span>
                                 </router-link>
                             </li>
 
@@ -730,7 +751,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view')),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view') || can('security-events.view')),
 );
 
 /**
@@ -766,6 +787,8 @@ const showServicesSection = computed(() => can('service_categories.view') || tru
 const showCatalogSection = computed(
     () => can('flags.view')
         || can('countries.view')
+        || can('regions.view')
+        || can('service-availability.view')
         || can('currencies.view')
         || can('languages.view'),
 );

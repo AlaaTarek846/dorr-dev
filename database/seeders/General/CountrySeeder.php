@@ -6,6 +6,8 @@ use App\Enums\Status;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
+use App\Models\Region;
+use App\Models\ServiceAvailability;
 use Database\Seeders\Concerns\SyncsSeedTranslations;
 use Database\Seeders\Concerns\TruncatesBeforeSeeding;
 use Illuminate\Database\Seeder;
@@ -23,7 +25,8 @@ class CountrySeeder extends Seeder
     public function run(): void
     {
         $this->detachUsersFromCountries();
-        $this->truncateModels(Country::class);
+        // Regions and the service switches hang on countries: they go with them (RegionSeeder brings the regions back).
+        $this->truncateModels(ServiceAvailability::class, Region::class, Country::class);
 
         $flagIds = Flag::query()->pluck('id', 'code');
         $currencyIds = Currency::query()->pluck('id', 'code');

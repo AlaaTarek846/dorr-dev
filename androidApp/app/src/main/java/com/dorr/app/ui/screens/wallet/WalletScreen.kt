@@ -1,6 +1,5 @@
 package com.dorr.app.ui.screens.wallet
 
-
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
@@ -66,6 +65,12 @@ import androidx.compose.runtime.rememberUpdatedState
  * small stack of pages that slide over each other, with bottom sheets and a toast on top. It is drawn
  * *inside* the main screen, above the tab content and below the tab bar, so the bar stays visible.
  */
+/** The app font for every Text inside a wallet page (and a wallet sheet) — the same on all wallet screens. */
+@Composable
+internal fun WalletFont(content: @Composable () -> Unit) {
+    com.dorr.app.ui.theme.ProvideAppFont(content)
+}
+
 @Composable
 fun WalletScreen(onExit: () -> Unit) {
     // Which of my wallets (countries) the screens work on — chosen on the wallet home.
@@ -79,6 +84,7 @@ fun WalletScreen(onExit: () -> Unit) {
     var unlocked by remember { mutableStateOf(false) }
 
     CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
+        WalletFont {
         Box(Modifier.fillMaxSize().background(Wa.Bg)) {
             if (!unlocked) {
                 BackHandler { currentOnExit() }
@@ -97,6 +103,7 @@ fun WalletScreen(onExit: () -> Unit) {
             }
             // Outside the lock check: a wrong PIN at the gate is reported the same way.
             WaToastHost(host)
+        }
         }
     }
 }
@@ -349,9 +356,11 @@ fun WalletPinSettingsScreen(onBack: () -> Unit, onSaved: (String) -> Unit = {}) 
     }
     CompositionLocalProvider(LocalWallet provides host, LocalWalletOrNull provides host) {
         BackHandler { currentOnBack() }
-        Box(Modifier.fillMaxSize()) {
-            WalletPinSettings()
-            WaToastHost(host)
+        WalletFont {
+            Box(Modifier.fillMaxSize()) {
+                WalletPinSettings()
+                WaToastHost(host)
+            }
         }
     }
 }

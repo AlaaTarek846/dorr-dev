@@ -9,7 +9,9 @@ use App\Support\Api\ApiResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Modules\Chat\Models\ChatFeatureRule;
 
 /**
@@ -88,7 +90,7 @@ class ChatFeatureRuleController extends Controller implements HasMiddleware
         if (! empty($data['city_id'])) {
             $city = $this->cities()->firstWhere('id', (int) $data['city_id']);
             if ($city === null || $city['country_id'] !== (int) $data['country_id']) {
-                throw \Illuminate\Validation\ValidationException::withMessages(['city_id' => __('validation.exists', ['attribute' => 'city'])]);
+                throw ValidationException::withMessages(['city_id' => __('validation.exists', ['attribute' => 'city'])]);
             }
         }
 
@@ -96,7 +98,7 @@ class ChatFeatureRuleController extends Controller implements HasMiddleware
     }
 
     /**
-     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $cities
+     * @param  Collection<int, array<string, mixed>>  $cities
      * @return array<string, mixed>
      */
     private function present(ChatFeatureRule $rule, $cities): array
@@ -112,7 +114,7 @@ class ChatFeatureRuleController extends Controller implements HasMiddleware
         ];
     }
 
-    /** @return \Illuminate\Support\Collection<int, array{id: int, country_id: int, name: ?string}> */
+    /** @return Collection<int, array{id: int, country_id: int, name: ?string}> */
     private function cities()
     {
         $class = 'Modules\\Discover\\Models\\DiscoverCity';

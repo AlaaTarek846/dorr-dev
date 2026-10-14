@@ -87,6 +87,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - **Admin complete (2026-10-14):** rides (story + Wasl resend), switches, categories, prices & rules, Wasl logs, reasons & tags, settings.
   - **Phase 2, bidding (2026-10-14):** server, both apps and the admin ride page (`RidesBiddingTest`). Turn on with the `bidding` switch + `category.offers` and the «العروض» category, and price it in Prices & rules.
   - Next: try the whole ride (instant and bidding) on two phones (needs the Android Maps key and a priced, switched-on city).
+- **Admin Chat occasions (2026-10-12):** `/admin/chat/moments` list matches flags (filters, checkboxes, bulk delete, status toast). Create/edit form fields match catalog (input-group, PrimeVue Select, toggles, card picker).
 - **Admin sidebar Chat (2026-10-12):** Chat admin links (reports, themes, settings, …) show only when the header service is Chat (`module_name=chat`), same pattern as AI. They are no longer listed under General.
 - **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
 - **Ratings (2026-10-08):** polymorphic `ratings` + mobile API (POST creates then updates the same row) + admin page + Android Play In-App Review; see CHANGELOG.

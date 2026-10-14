@@ -12,8 +12,11 @@ class ChatCalendarItem extends Model
 {
     public const REMINDER_CHOICES = [0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080];
 
+    /** What kind of appointment it is, chosen in the form (the default is the first). */
+    public const CATEGORIES = ['appointment', 'meeting', 'match', 'event', 'trip', 'study', 'health', 'work'];
+
     protected $fillable = [
-        'uuid', 'owner_type', 'owner_id', 'title', 'note', 'location', 'starts_at', 'ends_at', 'all_day', 'date', 'timezone', 'color',
+        'uuid', 'owner_type', 'owner_id', 'title', 'category', 'note', 'location', 'starts_at', 'ends_at', 'all_day', 'date', 'timezone', 'color',
         'source', 'message_id', 'conversation_id', 'dedupe_key', 'reminders', 'reminded',
     ];
 

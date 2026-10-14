@@ -8,7 +8,6 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatVoiceRoom;
-use Modules\Chat\Models\ChatVoiceRoomMember;
 use Modules\Chat\Services\VoiceRoomService;
 
 /** A group's / channel's standing voice room (spec 91). */
@@ -67,7 +66,7 @@ class VoiceRoomController extends Controller
     /** PATCH voice-rooms/{r} — `{speak_policy?: everyone|approved, title?}` (hosts) */
     public function update(Request $request, ChatVoiceRoom $room)
     {
-        $data = $request->validate(['speak_policy' => ['sometimes', Rule::in(\Modules\Chat\Models\ChatVoiceRoom::POLICIES)], 'title' => ['sometimes', 'nullable', 'string', 'max:120']]);
+        $data = $request->validate(['speak_policy' => ['sometimes', Rule::in(ChatVoiceRoom::POLICIES)], 'title' => ['sometimes', 'nullable', 'string', 'max:120']]);
 
         return ApiResponse::success($this->rooms->update($request->user(), $room, $data), __('api.updated'));
     }

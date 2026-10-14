@@ -7,7 +7,6 @@ enum ServiceAudience: string
     case Admin = 'admin';
     case User = 'user';
     case Provider = 'provider';
-    case Driver = 'driver';
 
     public function label(): string
     {
@@ -15,7 +14,6 @@ enum ServiceAudience: string
             self::Admin => 'Admin',
             self::User => 'User app',
             self::Provider => 'Provider',
-            self::Driver => 'Driver',
         };
     }
 
@@ -25,7 +23,6 @@ enum ServiceAudience: string
             self::Admin => 'لوحة الإدارة',
             self::User => 'تطبيق المستخدم',
             self::Provider => 'مزود الخدمة',
-            self::Driver => 'السائق',
         };
     }
 
@@ -101,10 +98,6 @@ enum ServiceAudience: string
 
         if ($requiresProvider) {
             $audiences[] = self::Provider->value;
-        }
-
-        if ($moduleName === 'driver_without_vehicle') {
-            $audiences[] = self::Driver->value;
         }
 
         if ($audiences === []) {

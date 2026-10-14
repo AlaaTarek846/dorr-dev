@@ -30,8 +30,8 @@ use Modules\Chat\Support\ImagePreview;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
-use Spatie\MediaLibrary\MediaCollections\Models\Media;
 use Modules\Chat\Support\SharedMedia;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Messages: send (text, media, voice, location, contact, wallet receipt / QR), edit, delete for

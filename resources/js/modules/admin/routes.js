@@ -50,6 +50,18 @@ export default [
                 meta: { middleware: [auth], permission: 'countries.view' },
             },
             {
+                path: 'regions',
+                name: 'admin.regions.index',
+                component: page('region/index'),
+                meta: { middleware: [auth], permission: 'regions.view' },
+            },
+            {
+                path: 'service-control',
+                name: 'admin.service-availability.index',
+                component: page('service-availability/index'),
+                meta: { middleware: [auth], permission: 'service-availability.view' },
+            },
+            {
                 path: 'currencies',
                 name: 'admin.currencies.index',
                 component: page('currency/index'),
@@ -462,6 +474,12 @@ export default [
                 name: 'admin.referrals.index',
                 component: page('referral/index'),
                 meta: { middleware: [auth], permission: 'referrals.view' },
+            },
+            {
+                path: 'security-events',
+                name: 'admin.security-events.index',
+                component: page('security-events/index'),
+                meta: { middleware: [auth], permission: 'security-events.view' },
             },
             {
                 path: 'employees',

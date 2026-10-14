@@ -251,13 +251,12 @@ if (! function_exists('sendPushNotification')) {
             $params['included_segments'] = ['All'];
         }
 
-
         if ($headings) {
             $params['headings'] = $headings;
         }
 
-            $params['big_picture'] = $image?? "https://dorr-app.com/dorr.jpg";
-            $params['large_icon'] = $image?? "https://dorr-app.com/dorr.jpg";
+        $params['big_picture'] = $image ?? 'https://dorr-app.com/dorr.jpg';
+        $params['large_icon'] = $image ?? 'https://dorr-app.com/dorr.jpg';
 
         if ($url) {
             $params['url'] = $url;

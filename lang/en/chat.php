@@ -131,7 +131,7 @@ return [
         'owner_only' => 'The group owner can\'t be changed or removed.',
         'group_only' => 'This is only available in groups.',
         'group_full' => 'A group can have up to :max members.',
-    'join_request_missing' => 'That join request is no longer waiting.',
+        'join_request_missing' => 'That join request is no longer waiting.',
         'leave_group_first' => 'Leave the group before deleting it.',
         'empty_message' => 'The message is empty.',
         'attachment_required' => 'Attach a file to send this type of message.',

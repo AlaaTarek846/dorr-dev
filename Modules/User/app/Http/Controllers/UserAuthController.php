@@ -4,7 +4,11 @@ namespace Modules\User\Http\Controllers;
 
 use App\Enums\UserStatus;
 use App\Http\Controllers\Controller;
+use App\Models\SecurityEvent;
 use App\Services\General\LoginCountry;
+use App\Services\Security\AccountSessionService;
+use App\Services\Security\SecurityAlerts;
+use App\Services\Security\SecurityLog;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
@@ -23,6 +27,12 @@ class UserAuthController extends Controller
             ->first();
 
         if (! $user || ! $user->password || ! Hash::check($request->validated('password'), $user->password)) {
+            // A wrong password for a real account goes in its security log; several warn the owner.
+            if ($user) {
+                app(SecurityLog::class)->record($user, SecurityEvent::LOGIN_FAILED);
+                app(SecurityAlerts::class)->failedAttempt($user);
+            }
+
             throw ValidationException::withMessages([
                 'email' => [__('api.invalid_credentials')],
             ]);
@@ -36,10 +46,8 @@ class UserAuthController extends Controller
             return ApiResponse::error(__('api.account_inactive'), 403);
         }
 
-        $user->tokens()->delete();
-
         app(LoginCountry::class)->remember($user);
-        $token = $user->createToken('user-api')->plainTextToken;
+        [$token] = app(AccountSessionService::class)->signIn($user, 'user-api');
 
         return ApiResponse::success([
             'user' => new UserResource($user),
@@ -50,7 +58,11 @@ class UserAuthController extends Controller
 
     public function logout()
     {
-        request()->user('user_api')?->currentAccessToken()?->delete();
+        $user = request()->user('user_api');
+
+        if ($user) {
+            app(AccountSessionService::class)->signOutCurrent($user);
+        }
 
         return ApiResponse::success([], __('api.logout_success'));
     }

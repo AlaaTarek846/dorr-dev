@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Console;
 
+use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Modules\Chat\Models\ChatPrivacySetting;
@@ -28,7 +29,7 @@ class SendAttentionDigests extends Command
             foreach ($rows as $row) {
                 $s = $settings->get($row->owner_type.':'.$row->owner_id);
                 $every = max(15, (int) ($s?->digest_minutes ?: 60));
-                if ($row->first_at === null || \Carbon\Carbon::parse($row->first_at)->addMinutes($every)->isFuture() || $s?->quietOn()) {
+                if ($row->first_at === null || Carbon::parse($row->first_at)->addMinutes($every)->isFuture() || $s?->quietOn()) {
                     continue;
                 }
                 // Claimed first: never twice.

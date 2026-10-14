@@ -245,4 +245,11 @@ return [
     'ride_sos_admin_title' => 'SOS on ride :number',
     'ride_sos_admin_body' => ':who pressed SOS. Open the safety page now.',
     'ride_reservation_dropped_body' => 'You weren\'t online or free when ride :number started, so it went to someone else.',
+    // Account security (intrusion alerts)
+    'security_alert_failed_attempts_title' => 'Failed sign-in attempts',
+    'security_alert_failed_attempts_body' => ':count wrong sign-in attempts on your account in the last few minutes. If this was not you, do not share your code with anyone and check your devices in Settings → Security.',
+    'security_alert_code_requests_title' => 'Many sign-in codes requested',
+    'security_alert_code_requests_body' => 'Sign-in codes for your number were requested :count times in the last few minutes. Never share a code with anyone — Dorr will never ask you for it.',
+    'security_alert_new_device_title' => 'New sign-in to your account',
+    'security_alert_new_device_body' => 'Your account was signed in on a new device: :device (:country). If this was not you, sign it out from Settings → Security → Devices.',
 ];

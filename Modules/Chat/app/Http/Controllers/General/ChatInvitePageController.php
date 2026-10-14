@@ -9,9 +9,10 @@ use Modules\Chat\Models\ChatGroup;
 use Modules\Chat\Support\AppLinkPage;
 
 /**
- * A group / channel invite as a web link (https://…/j/{code}), so it opens from WhatsApp, SMS or
- * a camera: the page opens the join sheet in the DORR app (dorr://chat/join/{code}); without the
- * app it says how to get it. It shows the group's name only — never its members.
+ * A group / channel invite (https://…/j/{token}) opens the join sheet in the DORR app
+ * (dorr://chat/join/{token}); without the app, it says how to get it. Wrong or expired
+ * tokens are 404 — the page shows the group's name only when the link is still valid,
+ * never its members.
  */
 class ChatInvitePageController extends Controller
 {
