@@ -639,6 +639,12 @@ export default [
                 meta: { middleware: [auth], permission: 'discover-categories.view' },
             },
             {
+                path: 'cities',
+                name: 'admin.cities.index',
+                component: page('cities/index'),
+                meta: { middleware: [auth], permission: 'cities.view' },
+            },
+            {
                 path: 'discover/settings',
                 name: 'admin.discover.settings',
                 component: page('discover/settings/index'),

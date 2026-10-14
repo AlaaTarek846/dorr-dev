@@ -41,7 +41,7 @@ Middleware: `auth:admin_api`. Permissions are listed per resource.
 |---|---|---|---|
 | GET / PUT | `discover-settings` | `discover-settings.view` / `.update` | `enabled`, `enabled_countries[]` (empty means everywhere), `submissions_enabled`, `auto_publish_verified`, `alerts_enabled`, `max_alerts_per_week` (0–21), `room_close_hours` (0–720), `ai_enabled` |
 | apiResource + PATCH `{id}/status` | `discover-categories` | `discover-categories.*` | `{key, emoji?, color?, status?, sort_order?, translations[{locale, name}]}`. You can't delete one that events use (`422 discover_in_use`) |
-| apiResource + PATCH `{id}/status` | `discover-cities` | `discover-cities.*` | `{country_id, timezone, lat?, lng?, status?, sort_order?, translations[]}`; `?country_id=` filter |
+| apiResource + PATCH `{id}/status` | `discover-cities` | `cities.*` | `{country_id, timezone, lat?, lng?, status?, sort_order?, translations[]}`; `?country_id=` filter |
 | GET | `discover-organizers` | `discover-organizers.view` | `?status=&search=&per_page=`, with `pending_count`. Rows include the account (name, phone) |
 | GET | `discover-organizers/{id}` | `.view` | |
 | PATCH | `discover-organizers/{id}/review` | `discover-organizers.update` | `{status: verified\|rejected\|suspended\|pending, note?}` |

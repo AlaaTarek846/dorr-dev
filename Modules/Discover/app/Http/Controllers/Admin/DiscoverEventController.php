@@ -42,6 +42,7 @@ class DiscoverEventController extends Controller implements HasMiddleware
             ['create', ['store']],
             ['update', ['update', 'review', 'status']],
             ['delete', ['destroy']],
+            ['multiple-delete', ['deleteMultiple']],
         ]);
     }
 
@@ -147,6 +148,20 @@ class DiscoverEventController extends Controller implements HasMiddleware
         );
 
         return ApiResponse::success($this->present($event->refresh()->load(self::WITH), true), __('api.updated'));
+    }
+
+    /** POST delete-multiple {ids[]} — deletes the ones that can go; says how many of each. */
+    public function deleteMultiple(Request $request)
+    {
+        $data = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:200'], 'ids.*' => ['integer']]);
+        $deleted = 0;
+        $skipped = 0;
+        foreach (DiscoverEvent::query()->whereIn('id', $data['ids'])->get() as $row) {
+            $row->delete();
+            $deleted++;
+        }
+
+        return ApiResponse::success(['deleted' => $deleted, 'skipped' => $skipped], __('api.deleted'));
     }
 
     public function destroy(DiscoverEvent $event)

@@ -3044,10 +3044,28 @@
             "s_rejected": "مرفوض",
             "s_suspended": "موقوف"
         },
+        "cities": {
+            "title": "المدن"
+        },
+        "validation": {
+            "key_format": "المفتاح يقبل حروفاً إنجليزية صغيرة وأرقاماً وشرطة سفلية فقط.",
+            "timezone": "اختر منطقة زمنية صحيحة مثل Asia/Riyadh.",
+            "url": "حقل {field} يجب أن يكون رابطاً صحيحاً (https://...).",
+            "ends_after_start": "وقت النهاية يجب أن يكون بعد وقت البداية."
+        },
+        "bulk": {
+            "result": "تم حذف {deleted} وتخطي {skipped} لأنها مستخدمة."
+        },
+        "reorder": {
+            "hint": "اسحب المقبض لإعادة الترتيب. يتم الحفظ تلقائياً."
+        },
         "catalog": {
-            "title": "التصنيفات والمدن",
+            "title": "تصنيفات الفعاليات",
             "categories": "التصنيفات",
             "cities": "المدن",
+            "region": "المحافظة",
+            "region_none": "بدون محافظة",
+            "region_pick_country": "اختر الدولة أولاً",
             "all_countries": "كل الدول",
             "add_category": "إضافة تصنيف",
             "edit_category": "تعديل تصنيف",

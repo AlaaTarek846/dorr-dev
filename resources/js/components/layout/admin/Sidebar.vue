@@ -584,6 +584,13 @@
                                 </router-link>
                             </li>
 
+                            <li v-if="can('cities.view')" class="slide">
+                                <router-link :to="{ name: 'admin.cities.index' }" class="side-menu__item">
+                                    <i class="ri-building-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('discover.cities.title') }}</span>
+                                </router-link>
+                            </li>
+
                             <li v-if="can('service-availability.view')" class="slide">
                                 <router-link :to="{ name: 'admin.service-availability.index' }" class="side-menu__item">
                                     <i class="ri-toggle-line side-menu__icon"></i>
@@ -775,6 +782,7 @@ const showCatalogSection = computed(
     () => can('flags.view')
         || can('countries.view')
         || can('regions.view')
+        || can('cities.view')
         || can('service-availability.view')
         || can('currencies.view')
         || can('languages.view'),

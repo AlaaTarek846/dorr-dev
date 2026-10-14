@@ -257,11 +257,11 @@ class AdminPermissionSeeder extends Seeder
             ],
             'discover-categories' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
-            'discover-cities' => [
+            'cities' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
             'discover-organizers' => [
                 'module_name' => 'general_services',
@@ -269,7 +269,7 @@ class AdminPermissionSeeder extends Seeder
             ],
             'discover-events' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
             // DORR Sports (spec 183–200).
             'sports-settings' => [

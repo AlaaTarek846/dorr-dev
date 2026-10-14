@@ -3044,10 +3044,28 @@
             "s_rejected": "Rejected",
             "s_suspended": "Suspended"
         },
+        "cities": {
+            "title": "Cities"
+        },
+        "validation": {
+            "key_format": "The key may only contain lowercase letters, numbers and underscores.",
+            "timezone": "Choose a valid time zone, e.g. Asia/Riyadh.",
+            "url": "The {field} must be a valid link (https://...).",
+            "ends_after_start": "The end must be after the start."
+        },
+        "bulk": {
+            "result": "{deleted} deleted, {skipped} skipped because they are in use."
+        },
+        "reorder": {
+            "hint": "Drag the handle to reorder. Changes are saved automatically."
+        },
         "catalog": {
-            "title": "Categories & cities",
+            "title": "Event categories",
             "categories": "Categories",
             "cities": "Cities",
+            "region": "Governorate / State",
+            "region_none": "No governorate",
+            "region_pick_country": "Choose a country first",
             "all_countries": "All countries",
             "add_category": "Add category",
             "edit_category": "Edit category",
