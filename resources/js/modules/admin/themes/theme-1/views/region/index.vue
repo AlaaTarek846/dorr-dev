@@ -45,18 +45,6 @@
                                 </button>
                             </div>
 
-                            <Select
-                                v-model="countryFilter"
-                                :options="countries"
-                                option-label="name"
-                                option-value="id"
-                                :placeholder="t('regions.all_countries')"
-                                filter
-                                show-clear
-                                append-to="body"
-                                class="wallet-filter-select"
-                            />
-
                             <button
                                 v-if="showAllFilter"
                                 type="button"
@@ -91,6 +79,18 @@
                             >
                                 {{ t('catalog.filter_deleted') }} ({{ counts.deleted }})
                             </button>
+
+                            <Select
+                                v-model="countryFilter"
+                                :options="countries"
+                                option-label="name"
+                                option-value="id"
+                                :placeholder="t('regions.all_countries')"
+                                filter
+                                show-clear
+                                append-to="body"
+                                class="wallet-filter-select"
+                            />
                         </div>
 
                         <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">

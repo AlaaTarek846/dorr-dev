@@ -1,7 +1,10 @@
 <template>
     <div>
         <div class="d-md-flex d-block align-items-center justify-content-between my-4 page-header-breadcrumb">
-            <h1 class="page-title fw-semibold fs-18 mb-0">{{ t('service_control.title') }}</h1>
+            <h1 class="page-title fw-semibold fs-18 mb-0">
+                {{ t('service_control.title') }}
+                <span v-if="pagination?.total != null" class="badge bg-primary-transparent ms-2 fs-12 align-middle">{{ pagination.total }}</span>
+            </h1>
             <div class="ms-md-1 ms-0">
                 <nav>
                     <ol class="breadcrumb mb-0">
@@ -16,25 +19,36 @@
 
         <div class="card custom-card">
             <div class="card-header d-flex flex-wrap align-items-center gap-3 py-3">
-                <div class="d-flex align-items-center gap-2">
-                    <label class="fw-semibold mb-0" for="sc-country">{{ t('service_control.country') }}</label>
+                <div class="input-group input-group-sm catalog-toolbar-search">
+                    <span class="input-group-text bg-white">
+                        <i class="ri-search-line text-muted"></i>
+                    </span>
+                    <input v-model="search" type="search" class="form-control" :placeholder="t('service_control.search')">
+                    <button v-if="search" type="button" class="btn btn-light border catalog-search-clear" :title="t('service_control.clear_search')" @click="search = ''">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </div>
+                <div>
                     <Select
                         v-model="countryId"
                         input-id="sc-country"
+                        size="small"
+                        :aria-label="t('service_control.country')"
                         :options="countries"
                         option-label="name"
                         option-value="id"
                         :placeholder="t('service_control.country')"
                         filter
                         append-to="body"
-                        class="service-control-select"
+                        class="service-control-picker"
                     />
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <label class="fw-semibold mb-0" for="sc-region">{{ t('service_control.region') }}</label>
+                <div>
                     <Select
                         v-model="regionId"
                         input-id="sc-region"
+                        size="small"
+                        :aria-label="t('service_control.region')"
                         :options="regionOptions"
                         option-label="name"
                         option-value="id"
@@ -42,7 +56,7 @@
                         filter
                         :disabled="!countryId"
                         append-to="body"
-                        class="service-control-select"
+                        class="service-control-picker"
                     />
                 </div>
                 <div class="text-muted fs-12 ms-md-auto">
@@ -71,8 +85,8 @@
                                         <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3">
                                             <i class="ri-toggle-line fs-2 text-primary"></i>
                                         </span>
-                                        <p class="fw-semibold mb-1">{{ t('service_control.empty_title') }}</p>
-                                        <p class="text-muted mb-0">{{ t('service_control.empty') }}</p>
+                                        <p class="fw-semibold mb-1">{{ search ? t('service_control.no_results_title') : t('service_control.empty_title') }}</p>
+                                        <p class="text-muted mb-0">{{ search ? t('service_control.no_results') : t('service_control.empty') }}</p>
                                     </div>
                                 </td>
                             </tr>
@@ -178,6 +192,38 @@
                     </table>
                 </div>
             </div>
+
+            <div v-if="pagination && !loading" class="card-footer border-top-0">
+                <div class="d-flex align-items-center flex-wrap gap-3">
+                    <div class="d-flex align-items-center gap-2 text-muted fs-13">
+                        <span>{{ entriesLabel }}</span>
+                        <i :class="paginationArrowIcon"></i>
+                    </div>
+
+                    <div class="d-flex align-items-center gap-2 ms-md-auto">
+                        <label class="text-muted fs-13 mb-0" for="service-control-per-page">{{ t('service_control.per_page') }}</label>
+                        <select id="service-control-per-page" v-model.number="perPage" class="form-select form-select-sm w-auto">
+                            <option :value="15">15</option>
+                            <option :value="25">25</option>
+                            <option :value="50">50</option>
+                        </select>
+                    </div>
+
+                    <nav aria-label="Service control pagination" class="pagination-style-4">
+                        <ul class="pagination mb-0">
+                            <li class="page-item" :class="{ disabled: !pagination.prev_page_url }">
+                                <button type="button" class="page-link" @click="changePage(currentPage - 1)">{{ t('service_control.previous') }}</button>
+                            </li>
+                            <li v-for="n in pageNumbers" :key="n" class="page-item" :class="{ active: n === currentPage }">
+                                <button type="button" class="page-link" @click="changePage(n)">{{ n }}</button>
+                            </li>
+                            <li class="page-item" :class="{ disabled: !pagination.next_page_url }">
+                                <button type="button" class="page-link text-primary" @click="changePage(currentPage + 1)">{{ t('service_control.next') }}</button>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -193,7 +239,7 @@ import useToast, { extractApiErrorMessage } from '../../../../../../composables/
 
 const URI = '/api/admin/v1/service-availability';
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const { can } = usePermission();
 const { showError } = useToast();
 
@@ -205,6 +251,10 @@ const countryId = ref(null);
 const regionId = ref(null);
 const items = ref([]);
 const loading = ref(false);
+const search = ref('');
+const perPage = ref(15);
+const pagination = ref(null);
+const currentPage = computed(() => pagination.value?.current_page ?? 1);
 // The service whose switch is being saved.
 const busy = ref(null);
 
@@ -218,11 +268,35 @@ const modeOptions = computed(() => [
     { value: 'view_only', label: t('service_control.mode_view_only') },
 ]);
 
+// Which place a switch belongs to (the list adds search and the page on top of it).
 const params = computed(() => ({ country_id: countryId.value, region_id: regionId.value || undefined }));
 
-async function load() {
+const paginationArrowIcon = computed(() => (locale.value === 'ar' ? 'ri-arrow-left-s-line fw-semibold' : 'ri-arrow-right-s-line fw-semibold'));
+
+const pageNumbers = computed(() => {
+    const last = pagination.value?.last_page ?? 0;
+
+    if (! last) {
+        return [];
+    }
+
+    let start = Math.max(1, currentPage.value - 2);
+    const end = Math.min(last, start + 4);
+    start = Math.max(1, end - 4);
+
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+});
+
+const entriesLabel = computed(() => t('service_control.showing_entries', {
+    from: pagination.value?.from ?? 0,
+    to: pagination.value?.to ?? 0,
+    total: pagination.value?.total ?? 0,
+}));
+
+async function load(page = 1) {
     if (! countryId.value) {
         items.value = [];
+        pagination.value = null;
 
         return;
     }
@@ -230,8 +304,11 @@ async function load() {
     loading.value = true;
 
     try {
-        const { data } = await adminAxios.get(URI, { params: params.value });
+        const { data } = await adminAxios.get(URI, {
+            params: { ...params.value, search: search.value.trim() || undefined, per_page: perPage.value, page },
+        });
         items.value = data.data ?? [];
+        pagination.value = data.pagination ?? null;
     } catch (error) {
         showError(extractApiErrorMessage(error));
     } finally {
@@ -263,7 +340,7 @@ async function save(item, changes) {
         replace(data.data);
     } catch (error) {
         showError(extractApiErrorMessage(error));
-        await load();
+        await load(currentPage.value);
     } finally {
         busy.value = null;
     }
@@ -321,12 +398,27 @@ function statusText(item) {
         : customer;
 }
 
+function changePage(page) {
+    if (! pagination.value || page < 1 || page > pagination.value.last_page) {
+        return;
+    }
+
+    load(page);
+}
+
 watch(countryId, async () => {
     regionId.value = null;
     await loadRegions();
-    await load();
+    await load(1);
 });
-watch(regionId, load);
+watch([regionId, perPage], () => load(1));
+
+// Searching waits for a pause in typing.
+let searchTimer = null;
+watch(search, () => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => load(1), 350);
+});
 
 onMounted(async () => {
     try {
@@ -347,5 +439,12 @@ onMounted(async () => {
 
 .service-control-select {
     min-width: 12rem;
+}
+
+/* The country and governorate / state pickers in the toolbar: small, a placeholder instead of a label. */
+.service-control-picker {
+    width: 10.5rem;
+    min-width: 0;
+    font-size: 0.8125rem;
 }
 </style>

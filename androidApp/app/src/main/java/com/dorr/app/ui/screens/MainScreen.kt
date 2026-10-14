@@ -234,6 +234,7 @@ fun MainScreen(
 
     // The tab bar is hidden inside a chat, the AI assistant and the support conversation (they get the whole screen).
     val tabBarVisible = !aiChatOpen && !com.dorr.app.ui.screens.profile.SupportChatState.open && !(chatOpen && com.dorr.app.chat.ChatStore.immersive)
+    com.dorr.app.ui.theme.ProvideAppFont {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
@@ -394,7 +395,7 @@ fun MainScreen(
         enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
-        com.dorr.app.ui.screens.moments.MomentsScreen(onExit = { momentsOpen = false })
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.moments.MomentsScreen(onExit = { momentsOpen = false }) }
     }
 
     // DORR Calendar & DORR Today: my appointments, occasions, tasks and reminders.
@@ -412,7 +413,7 @@ fun MainScreen(
         enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
-        com.dorr.app.ui.screens.events.EventsScreen(onExit = { com.dorr.app.ui.screens.events.EventsLink.close() })
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.events.EventsScreen(onExit = { com.dorr.app.ui.screens.events.EventsLink.close() }) }
     }
 
     // DORR Sports: my teams, live scores, tables.
@@ -421,7 +422,7 @@ fun MainScreen(
         enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
-        com.dorr.app.ui.screens.sports.SportsScreen(onExit = { com.dorr.app.ui.screens.sports.SportsLink.close() })
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsScreen(onExit = { com.dorr.app.ui.screens.sports.SportsLink.close() }) }
     }
 
     // A public story being watched or written (from the home page's circles).
@@ -431,10 +432,11 @@ fun MainScreen(
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
 
     // The goal moment and match banners, over anything (197, 198).
-    com.dorr.app.ui.screens.sports.SportsCelebrationHost()
+    com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsCelebrationHost() }
 
     // A call can ring over anything (it's the only chat screen that takes the whole display).
     com.dorr.app.ui.screens.chat.CallOverlay()
+    }
     }
 }
 

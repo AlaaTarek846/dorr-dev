@@ -4032,7 +4032,15 @@
         "empty_title": "No services",
         "empty": "Add services to the country first (Countries → services), then control them here.",
         "region": "Governorate / State",
-        "hint_region": "A switch marked \"as the country\" follows the country until you change it here."
+        "hint_region": "A switch marked \"as the country\" follows the country until you change it here.",
+        "search": "Search services...",
+        "clear_search": "Clear search",
+        "per_page": "Per page",
+        "showing_entries": "Showing {from} to {to} of {total} entries",
+        "previous": "Previous",
+        "next": "Next",
+        "no_results_title": "No matching services",
+        "no_results": "Try another name, or clear the search."
     },
     "regions": {
         "title": "Governorates / States",
