@@ -78,8 +78,13 @@ return [
         'price.cancel_fee_minor' => 0,
         'price.waiting_per_min_minor' => 50,              // Wireflow: 0.5 SAR / minute
         'price.stop_wait_per_min_minor' => 50,
+        'price.customer_fee_minor' => 0,                   // R-47: the rider's service fee (DORR's), fixed…
+        'price.customer_fee_bp' => 0,                      // …plus a share of the fare; 0 + 0 = no line
 
         'waiting.free_s' => 180,                          // Wireflow: 3 free minutes
+        'waiting.warn_before_s' => 60,                    // D-122: "free waiting ends soon" this long before
+        'eta.speed_kmh' => 30,                            // D-129: the average city speed the remaining time is worked out at
+        'booking.note_max_chars' => 120,                  // D-61: the pickup note — what's needed only
         'stops.max' => 3,
         'stops.free_wait_s' => 120,
         'open_destination.hold_minor' => 10000,
@@ -137,6 +142,12 @@ return [
 
         'cash.allowed' => true,
         'cash.rider_max_debt_minor' => 0,                 // Jawad: max_debt_for_cash
+        'payment.card_fee_minor' => 0,                    // R-48: a fee for paying by card (DORR's), fixed…
+        'payment.card_fee_bp' => 0,                       // …plus a share of what is charged
+        'payment.cash_fee_minor' => 0,                    // R-48: a fixed fee for paying cash
+        'tips.window_h' => 24,                            // R-144: a tip can be added this long after the ride
+        'tips.presets_minor' => [500, 1000, 2000],        // the ready amounts on the tip screen
+        'tips.max_minor' => 10000,                        // the highest tip in one go
         'settlement.pending_days' => 2,
         'change.driver_response_s' => 30,                 // wireflow 6ب: the captain has 30 s to accept a new destination
         'safety.emergency_number' => '911',               // R-110: the SOS button dials it (Saudi: 911, unified)

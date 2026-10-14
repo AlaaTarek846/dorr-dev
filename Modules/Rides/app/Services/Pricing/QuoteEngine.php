@@ -36,10 +36,11 @@ class QuoteEngine
         private readonly RidePolicies $policies,
         private readonly TaxEngine $taxes,
         private readonly FareCalculator $calculator,
+        private readonly RidePromotions $promotions,
     ) {}
 
     /**
-     * @param  array{origin: array{lat: float, lng: float, address?: ?string}, destination?: ?array{lat: float, lng: float, address?: ?string}, stops?: list<array{lat: float, lng: float, address?: ?string}>, category?: ?string}  $trip
+     * @param  array{origin: array{lat: float, lng: float, address?: ?string}, destination?: ?array{lat: float, lng: float, address?: ?string}, stops?: list<array{lat: float, lng: float, address?: ?string}>, category?: ?string, coupon_code?: ?string}  $trip
      * @return Collection<int, RideQuote>
      */
     public function quote(User $rider, array $trip): Collection
@@ -67,6 +68,18 @@ class QuoteEngine
             }
         }
 
+        // R-45: a coupon is priced into the quote (its own line), switched on per place.
+        $coupon = null;
+        if (($code = trim((string) ($trip['coupon_code'] ?? ''))) !== '') {
+            if (! $this->features->allows($country->id, $cityId, 'coupons')) {
+                throw RidesException::featureDisabled('coupons');
+            }
+            if ($open) {
+                throw new RidesException('coupon_needs_destination', 422);
+            }
+            $coupon = RidePromotions::snapshot($this->promotions->find($rider, $country->id, $code));
+        }
+
         $route = $open ? null : $this->geo->route(
             (float) $origin['lat'], (float) $origin['lng'], (float) $destination['lat'], (float) $destination['lng'],
             array_map(fn (array $s) => [(float) $s['lat'], (float) $s['lng']], $stops),
@@ -87,7 +100,7 @@ class QuoteEngine
             throw new RidesException('no_category_here', 422);
         }
 
-        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax) {
+        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon) {
             $policy = $this->policies->for($country->id, $cityId, null, $category->id);
             if ($stops !== [] && count($stops) > $policy->int('stops.max')) {
                 throw new RidesException('too_many_stops', 422, ['max' => $policy->int('stops.max')]);
@@ -101,7 +114,16 @@ class QuoteEngine
                 return null;
             }
 
+            // DORR's service fee and the coupon (R-45, R-47) — not on an agreed (bidding) price.
+            $customerFee = ['minor' => $policy->int('price.customer_fee_minor'), 'bp' => $policy->int('price.customer_fee_bp')];
+            $extras = $bidding ? [] : array_filter([
+                'customer_fee' => $customerFee['minor'] + $customerFee['bp'] > 0 ? $customerFee : null,
+                'coupon' => $coupon,
+            ]);
             $breakdown = $route === null ? null : $this->calculator->compute($price, $route->distanceM, $route->durationS, $tax);
+            if ($breakdown !== null && $extras !== []) {
+                $breakdown = PriceExtras::apply($breakdown, $extras);
+            }
             [$total, $min, $max, $hold] = match (true) {
                 $breakdown === null => [null, null, null, $policy->int('open_destination.hold_minor')],
                 $mode === PricingMode::Upfront => [$breakdown->total, null, null, $breakdown->total],
@@ -140,7 +162,18 @@ class QuoteEngine
                 'hold_minor' => $hold,
                 'driver_net_minor' => $mode === PricingMode::Upfront ? $breakdown?->driverNet : null,
                 'fingerprint' => hash('sha256', (string) json_encode($fingerprintOf)),
-                'policy_snapshot' => ['policy' => $policy->all(), 'policy_ids' => $policy->policyIds, 'tax' => $tax] + ($bidding && $total !== null ? [
+                'policy_snapshot' => [
+                    'policy' => $policy->all(), 'policy_ids' => $policy->policyIds, 'tax' => $tax,
+                    // The coupon only stays when it gave something here (a minimum it didn't reach = no coupon).
+                    'extras' => ($breakdown?->discount ?? 0) > 0 ? $extras : array_diff_key($extras, ['coupon' => true]),
+                    'coupon' => $coupon === null ? null : [
+                        'code' => $coupon['code'],
+                        'discount_minor' => (int) ($breakdown?->discount ?? 0),
+                        'reason' => $bidding ? 'coupon_not_for_bidding' : (($breakdown?->discount ?? 0) > 0 ? null : 'coupon_min_amount'),
+                    ],
+                    // R-48: each method's fee on what this price charges; the chosen one joins the lines at confirmation.
+                    'payment_fees' => $breakdown === null || $bidding ? null : self::paymentFees($policy->all(), (int) ($max ?? $total)),
+                ] + ($bidding && $total !== null ? [
                     'bid' => ['suggested' => $total, 'floor' => BidPricing::floor($policy->all(), $total)],
                 ] : []),
                 'expires_at' => now()->addSeconds($policy->int('quote_ttl_s')),
@@ -152,6 +185,21 @@ class QuoteEngine
         }
 
         return $quotes;
+    }
+
+    /**
+     * R-48: what each way of paying adds on an amount (the wallet never adds anything).
+     *
+     * @param  array<string, mixed>  $policy
+     * @return array{wallet: int, card: int, cash: int}
+     */
+    public static function paymentFees(array $policy, int $amount): array
+    {
+        return [
+            'wallet' => 0,
+            'card' => PriceExtras::paymentFee((int) ($policy['payment.card_fee_minor'] ?? 0), (int) ($policy['payment.card_fee_bp'] ?? 0), $amount),
+            'cash' => PriceExtras::paymentFee((int) ($policy['payment.cash_fee_minor'] ?? 0), 0, $amount),
+        ];
     }
 
     private function isBlocked(int $countryId, float $lat, float $lng): bool

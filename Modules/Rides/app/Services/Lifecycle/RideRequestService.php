@@ -25,6 +25,8 @@ use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Notifications\RideNotifier;
 use Modules\Rides\Services\Payment\RideCheckoutPurpose;
 use Modules\Rides\Services\Payment\RidePaymentService;
+use Modules\Rides\Services\Pricing\PriceExtras;
+use Modules\Rides\Services\Pricing\RidePromotions;
 use Modules\Rides\Services\Scheduling\ScheduledRideService;
 use Modules\User\Models\User;
 use Modules\Wallet\Services\CheckoutService;
@@ -50,13 +52,14 @@ class RideRequestService
         private readonly DispatchEngine $dispatch,
         private readonly RideNotifier $notifier,
         private readonly CheckoutService $checkouts,
+        private readonly RidePromotions $promotions,
     ) {}
 
     /**
      * @param  int|null  $riderPrice  bidding (§9): the price the rider offers — at least the floor
      * @param  Carbon|null  $scheduledAt  booked ahead (R-12)
      */
-    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null): Ride
+    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null): Ride
     {
         if ($idempotencyKey !== null && ($existing = Ride::query()->where('user_id', $rider->id)->where('idempotency_key', $idempotencyKey)->first()) !== null) {
             if ($existing->quote()->value('uuid') !== $quoteUuid) {
@@ -87,6 +90,10 @@ class RideRequestService
         if ($method === RidePaymentMethod::Cash && ! $quote->category->flag('cash_allowed', true)) {
             throw RidesException::featureDisabled('cash');
         }
+        $pickupNote = $this->pickupNote($quote, $pickupNote);
+        if ($passengers !== null && $quote->category->capacity_max !== null && $passengers > (int) $quote->category->capacity_max) {
+            throw new RidesException('too_many_passengers', 422, ['max' => (int) $quote->category->capacity_max], ['max' => (int) $quote->category->capacity_max]);
+        }
 
         // Bidding: the rider's own price, never under the floor (§9.1); the agreed price comes later.
         $bid = $quote->policy_snapshot['bid'] ?? null;
@@ -108,7 +115,7 @@ class RideRequestService
         $card = $method === RidePaymentMethod::Card;
         $scheduled = $scheduledAt !== null;
         $lead = (int) ($quote->policy_snapshot['policy']['scheduled.lead_time_s'] ?? 1800);
-        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead) {
+        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote) {
             $debt = 0;
             $ride = Ride::query()->create([
                 'uuid' => (string) Str::uuid(),
@@ -128,6 +135,9 @@ class RideRequestService
                 'scheduled_at' => $scheduledAt,
                 'pricing_mode' => $quote->pricing_mode,
                 'open_destination' => $quote->destination_lat === null,
+                // D-60, D-61: how many ride, and what the captain needs to find them.
+                'passengers' => $passengers,
+                'pickup_note' => $pickupNote,
                 'quote_id' => $quote->id,
                 'confirmed_snapshot' => [],
                 'agreed_price_minor' => $quote->total_minor,
@@ -176,11 +186,27 @@ class RideRequestService
                 array_splice($lines, max(0, count($lines) - 1), 0, [['code' => 'previous_balance', 'amount_minor' => $debt, 'visible_to' => 'both']]);
                 $lines = array_map(fn (array $l) => $l['code'] === 'total' ? ['amount_minor' => $l['amount_minor'] + $debt] + $l : $l, $lines);
             }
+            // R-48: the chosen way of paying adds its fee (the quote showed each method's); kept for the end.
+            $extras = (array) ($quote->policy_snapshot['extras'] ?? []);
+            $paymentFee = 0;
+            if ($bid === null && ($fee = $this->paymentFeeRule($quote, $method)) !== null) {
+                $extras['payment_method_fee'] = $fee;
+                $paymentFee = (int) ($quote->policy_snapshot['payment_fees'][$method->value] ?? 0);
+                if ($paymentFee > 0 && $quote->distance_m !== null) {
+                    $lines = PriceExtras::insert($lines, ['code' => 'payment_method_fee', 'amount_minor' => $paymentFee, 'visible_to' => 'both', 'meta' => $fee]);
+                    $lines = array_map(fn (array $l) => $l['code'] === 'total' ? ['amount_minor' => $l['amount_minor'] + $paymentFee] + $l : $l, $lines);
+                }
+            }
             $sum = fn (string $code) => collect($lines)->where('code', $code)->sum('amount_minor');
+
+            // R-45: the coupon is spent now (checked again); it comes back if the ride never happens.
+            if (isset($extras['coupon'])) {
+                $this->promotions->redeem($ride, $extras['coupon'], -$sum('discount'));
+            }
 
             $ride->fill([
                 'previous_balance_minor' => $debt,
-                'agreed_price_minor' => $bid === null && $quote->pricing_mode === PricingMode::Upfront ? (int) $quote->total_minor + $debt : null,
+                'agreed_price_minor' => $bid === null && $quote->pricing_mode === PricingMode::Upfront ? (int) $quote->total_minor + $debt + $paymentFee : null,
                 'rider_offer_minor' => $bid !== null ? $riderPrice : null,
                 'bid_floor_minor' => $bid !== null ? (int) $bid['floor'] : null,
                 'bid_suggested_minor' => $bid !== null ? (int) $bid['suggested'] : null,
@@ -190,13 +216,18 @@ class RideRequestService
                     'tax' => $quote->policy_snapshot['tax'] ?? null,
                     'quote_uuid' => $quote->uuid,
                     'quote_version' => $quote->version,
-                    'hold_minor' => $bid !== null ? $riderPrice : (int) $quote->hold_minor,
+                    'hold_minor' => $bid !== null ? $riderPrice : (int) $quote->hold_minor + $paymentFee,
                     'route_estimated' => $quote->route_estimated,
                     'estimate' => ['min_minor' => $quote->estimate_min_minor, 'max_minor' => $quote->estimate_max_minor],
+                    // Service fee, coupon, payment fee — priced again the same way at the end (PriceExtras).
+                    'extras' => $extras === [] ? null : $extras,
                     'breakdown' => $quote->distance_m === null ? null : [
                         'fare' => $sum('fare'),
                         'commission' => $sum('commission'),
                         'tax' => $sum('tax'),
+                        'customer_fee' => $sum('customer_fee'),
+                        'discount' => -$sum('discount'),
+                        'payment_method_fee' => $sum('payment_method_fee'),
                         'driver_net' => $sum('driver_net'),
                         'total' => $sum('total'),
                     ],
@@ -220,7 +251,7 @@ class RideRequestService
             }
 
             if ($method === RidePaymentMethod::Wallet) {
-                $this->payments->hold($ride, $bid !== null ? $riderPrice : (int) $quote->hold_minor);
+                $this->payments->hold($ride, $bid !== null ? $riderPrice : (int) $quote->hold_minor + $paymentFee);
             }
 
             $this->machine->record($ride, 'created', 'user', $rider->id, ['lat' => $ride->origin_lat, 'lng' => $ride->origin_lng], array_filter([
@@ -244,6 +275,46 @@ class RideRequestService
         }
 
         return $ride->refresh();
+    }
+
+    /**
+     * D-61: a short note about the pickup ("the east gate") — what the captain needs, nothing more.
+     * No phone numbers or links: the two talk through the app's chat and calls only.
+     */
+    private function pickupNote(RideQuote $quote, ?string $note): ?string
+    {
+        $note = trim(preg_replace('/\s+/u', ' ', (string) $note) ?? '');
+        if ($note === '') {
+            return null;
+        }
+        $max = (int) ($quote->policy_snapshot['policy']['booking.note_max_chars'] ?? 120);
+        if (mb_strlen($note) > $max) {
+            throw new RidesException('pickup_note_too_long', 422, ['max' => $max], ['max' => $max]);
+        }
+        // Eastern-Arabic digits count too; seven digits in a row (spaces / dashes between them allowed) look like a phone.
+        $digits = strtr($note, ['٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9']);
+        if (preg_match('/\d(?:[\s\-.]*\d){6,}/u', $digits) || preg_match('~(https?://|www\.|@\w)~iu', $note)) {
+            throw new RidesException('pickup_note_contact', 422);
+        }
+
+        return $note;
+    }
+
+    /**
+     * R-48: the policy's fee for this way of paying, or null when it adds nothing (the wallet never does).
+     *
+     * @return array{method: string, minor: int, bp: int}|null
+     */
+    private function paymentFeeRule(RideQuote $quote, RidePaymentMethod $method): ?array
+    {
+        $policy = (array) ($quote->policy_snapshot['policy'] ?? []);
+        [$minor, $bp] = match ($method) {
+            RidePaymentMethod::Card => [(int) ($policy['payment.card_fee_minor'] ?? 0), (int) ($policy['payment.card_fee_bp'] ?? 0)],
+            RidePaymentMethod::Cash => [(int) ($policy['payment.cash_fee_minor'] ?? 0), 0],
+            RidePaymentMethod::Wallet => [0, 0],
+        };
+
+        return $minor + $bp > 0 ? ['method' => $method->value, 'minor' => $minor, 'bp' => $bp] : null;
     }
 
     /**

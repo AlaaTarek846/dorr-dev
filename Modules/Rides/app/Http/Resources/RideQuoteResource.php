@@ -6,6 +6,8 @@ use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Rides\Models\RideQuote;
+use Modules\Rides\Services\Policy\RidePolicySummary;
+use Modules\Rides\Services\Policy\RideTerms;
 
 /**
  * One priced category on the booking sheet: a fixed total (upfront), a range (metered) or the rate
@@ -20,6 +22,7 @@ class RideQuoteResource extends JsonResource
     {
         $category = $this->category;
         $category?->loadMissing('translations');
+        $currency = once(fn () => Currency::query()->find($this->currency_id));
 
         return [
             'uuid' => $this->uuid,
@@ -34,8 +37,8 @@ class RideQuoteResource extends JsonResource
                 'icon_url' => $category?->getFirstMediaUrl('icon') ?: null,
                 'cash_allowed' => $category?->flag('cash_allowed', true),
             ],
-            'currency' => once(fn () => ($c = Currency::query()->find($this->currency_id)) === null ? null
-                : ['code' => $c->code, 'symbol' => $c->symbol, 'decimal_places' => (int) ($c->decimal_places ?? 2)]),
+            'currency' => $currency === null ? null
+                : ['code' => $currency->code, 'symbol' => $currency->symbol, 'decimal_places' => (int) ($currency->decimal_places ?? 2)],
             'pricing_mode' => $this->pricing_mode->value,
             'open_destination' => $this->destination_lat === null,
             'total_minor' => $this->total_minor,
@@ -58,6 +61,19 @@ class RideQuoteResource extends JsonResource
             'lines' => collect($this->lines)->whereIn('visible_to', ['both', 'rider'])
                 ->map(fn (array $l) => ['code' => $l['code'], 'label' => __('rides.lines.'.$l['code']), 'amount_minor' => (int) $l['amount_minor'], 'meta' => $l['meta'] ?? null])
                 ->values(),
+            // R-45: the coupon typed — what it took off here, or why it didn't apply to this category.
+            'coupon' => ($coupon = $this->policy_snapshot['coupon'] ?? null) === null ? null : [
+                'code' => $coupon['code'],
+                'discount_minor' => (int) $coupon['discount_minor'],
+                'applied' => (int) $coupon['discount_minor'] > 0,
+                'reason' => $coupon['reason'] === null ? null : __('rides.errors.'.$coupon['reason']),
+            ],
+            // R-48: what each way of paying adds (the line joins at confirmation, for the method chosen).
+            'payment_fees' => $this->policy_snapshot['payment_fees'] ?? null,
+            // R-52, R-53: cancellation / no-show / refund, read before confirming.
+            'policy_summary' => RidePolicySummary::for((array) ($this->policy_snapshot['policy'] ?? []), $currency),
+            // R-179: the terms in force for booking a ride (the rides service's own, else the general ones).
+            'terms' => once(fn () => app(RideTerms::class)->current()),
         ];
     }
 }

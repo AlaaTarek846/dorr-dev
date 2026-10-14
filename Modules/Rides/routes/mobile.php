@@ -54,6 +54,8 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::post('/', [RideController::class, 'store']);
         Route::post('{uuid}/cancel', [RideController::class, 'cancel'])->whereUuid('uuid');
         Route::post('{uuid}/rate', [RideController::class, 'rate'])->whereUuid('uuid');
+        Route::post('{uuid}/tip', [RideController::class, 'tip'])->whereUuid('uuid');
+        Route::post('{uuid}/payment-method', [RideController::class, 'changePayment'])->whereUuid('uuid');
 
         // Bidding (§9): the offers, take / decline one, raise my price.
         Route::post('{uuid}/bids/{bid}/accept', [RideController::class, 'acceptBid'])->whereUuid(['uuid', 'bid']);

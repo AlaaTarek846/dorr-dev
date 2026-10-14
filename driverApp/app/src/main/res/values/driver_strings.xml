@@ -232,4 +232,15 @@
     <string name="bl_body">You won\'t get this rider\'s requests any more.</string>
     <string name="bl_confirm">Confirm</string>
     <string name="bl_done">You won\'t be matched again</string>
+    <string name="earn_tips">Tips</string>
+    <string name="earn_tips_all_yours">100% yours</string>
+    <string name="trip_tip_received">Your rider tipped you %1$s</string>
+    <string name="trip_tip_all_yours">All of it is yours — no commission.</string>
+    <string name="trip_passengers">%1$d riders</string>
+    <string name="trip_pickup_note">Rider\'s note</string>
+    <string name="trip_to_pickup_short">the pickup</string>
+    <string name="trip_to_stop_short">the stop</string>
+    <string name="trip_to_destination_short">the destination</string>
+    <string name="trip_progress">%1$d min · %2$s km to %3$s</string>
+    <string name="trip_waiting_ending">Free waiting ends in %1$s</string>
 </resources>

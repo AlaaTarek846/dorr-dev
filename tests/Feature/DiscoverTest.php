@@ -363,7 +363,7 @@ class DiscoverTest extends TestCase
 
     public function test_the_admin_switches_discover_off_per_country_and_manages_the_catalog(): void
     {
-        $this->asAdmin(['discover-settings.update', 'discover-settings.view', 'discover-categories.create', 'discover-cities.view']);
+        $this->asAdmin(['discover-settings.update', 'discover-settings.view', 'discover-categories.create', 'cities.view']);
         $this->putJson('/api/admin/v1/discover-settings', ['enabled_countries' => [$this->egypt->id]])->assertOk()->assertJsonPath('data.enabled_countries', [$this->egypt->id]);
         $this->postJson('/api/admin/v1/discover-categories', ['key' => 'gaming', 'emoji' => '🎮', 'translations' => [['locale' => 'en', 'name' => 'Gaming']]])
             ->assertCreated()->assertJsonPath('data.name', 'Gaming');
@@ -372,6 +372,60 @@ class DiscoverTest extends TestCase
         $this->as($this->alice);
         $this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertForbidden()->assertJsonPath('error_code', 'discover_off');
         $this->getJson('/api/mobile/v1/discover/home', ['X-Country' => 'EG'])->assertOk();
+    }
+
+    public function test_the_admin_drags_categories_and_cities_into_a_new_order(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.update', 'discover-categories.view', 'cities.update', 'cities.view']);
+
+        $a = $this->postJson('/api/admin/v1/discover-categories', ['key' => 'ord_a', 'translations' => [['locale' => 'en', 'name' => 'A']]])->assertCreated()->json('data');
+        $b = $this->postJson('/api/admin/v1/discover-categories', ['key' => 'ord_b', 'translations' => [['locale' => 'en', 'name' => 'B']]])->assertCreated()->json('data');
+        // No sort_order sent: a new one goes to the end.
+        $this->assertGreaterThan($a['sort_order'], $b['sort_order']);
+
+        $this->putJson('/api/admin/v1/discover-categories/reorder', ['ordered_ids' => [$b['id'], $a['id']]])->assertOk();
+        $order = collect($this->getJson('/api/admin/v1/discover-categories')->json('data'))->pluck('sort_order', 'id');
+        $this->assertSame(1, $order[$b['id']]);
+        $this->assertSame(2, $order[$a['id']]);
+
+        $cities = collect($this->getJson('/api/admin/v1/discover-cities')->json('data'))->take(2)->pluck('id')->all();
+        $this->putJson('/api/admin/v1/discover-cities/reorder', ['ordered_ids' => array_reverse($cities)])->assertOk();
+        $after = collect($this->getJson('/api/admin/v1/discover-cities')->json('data'))->pluck('sort_order', 'id');
+        $this->assertSame(1, $after[$cities[1]]);
+        $this->assertSame(2, $after[$cities[0]]);
+    }
+
+    public function test_the_admin_deletes_several_catalog_rows_at_once_and_the_ones_in_use_are_skipped(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.view', 'discover-categories.multiple-delete', 'cities.view', 'cities.multiple-delete']);
+
+        $ids = [];
+        foreach (['bulk_a', 'bulk_b'] as $key) {
+            $ids[] = $this->postJson('/api/admin/v1/discover-categories', ['key' => $key, 'translations' => [['locale' => 'en', 'name' => $key]]])->assertCreated()->json('data.id');
+        }
+        $this->postJson('/api/admin/v1/discover-categories/delete-multiple', ['ids' => $ids])->assertOk()->assertJsonPath('data.deleted', 2)->assertJsonPath('data.skipped', 0);
+        $this->assertSame(0, \Modules\Discover\Models\DiscoverCategory::query()->whereIn('id', $ids)->count());
+
+        // A city with an event is skipped, never deleted.
+        $cityId = \Modules\Discover\Models\DiscoverEvent::query()->value('city_id');
+        if ($cityId) {
+            $this->postJson('/api/admin/v1/discover-cities/delete-multiple', ['ids' => [$cityId]])->assertOk()->assertJsonPath('data.skipped', 1);
+            $this->assertNotNull(\Modules\Discover\Models\DiscoverCity::query()->find($cityId));
+        }
+    }
+
+    public function test_a_city_can_name_its_governorate_but_only_one_of_its_own_country(): void
+    {
+        $this->asAdmin(['cities.create', 'cities.update', 'cities.view']);
+        $own = \App\Models\Region::query()->where('country_id', $this->egypt->id)->first() ?? \App\Models\Region::query()->create(['country_id' => $this->egypt->id, 'status' => true, 'sort_order' => 1]);
+        $other = \App\Models\Region::query()->where('country_id', '!=', $this->egypt->id)->first() ?? \App\Models\Region::query()->create(['country_id' => \App\Models\Country::query()->where('id', '!=', $this->egypt->id)->value('id'), 'status' => true, 'sort_order' => 1]);
+        $body = ['country_id' => $this->egypt->id, 'timezone' => 'Africa/Cairo', 'translations' => [['locale' => 'en', 'name' => 'Tanta']]];
+
+        $this->postJson('/api/admin/v1/discover-cities', $body + ['region_id' => $other->id])->assertStatus(422);
+        $id = $this->postJson('/api/admin/v1/discover-cities', $body + ['region_id' => $own->id])->assertCreated()->assertJsonPath('data.region_id', $own->id)->json('data.id');
+
+        // Moving the city to another country without a new governorate clears the old one.
+        $this->putJson("/api/admin/v1/discover-cities/{$id}", ['country_id' => $other->country_id])->assertOk()->assertJsonPath('data.region_id', null);
     }
 
     // ------------------------------------------------------------------ helpers

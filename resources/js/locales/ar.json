@@ -3045,10 +3045,28 @@
             "s_rejected": "مرفوض",
             "s_suspended": "موقوف"
         },
+        "cities": {
+            "title": "المدن"
+        },
+        "validation": {
+            "key_format": "المفتاح يقبل حروفاً إنجليزية صغيرة وأرقاماً وشرطة سفلية فقط.",
+            "timezone": "اختر منطقة زمنية صحيحة مثل Asia/Riyadh.",
+            "url": "حقل {field} يجب أن يكون رابطاً صحيحاً (https://...).",
+            "ends_after_start": "وقت النهاية يجب أن يكون بعد وقت البداية."
+        },
+        "bulk": {
+            "result": "تم حذف {deleted} وتخطي {skipped} لأنها مستخدمة."
+        },
+        "reorder": {
+            "hint": "اسحب المقبض لإعادة الترتيب. يتم الحفظ تلقائياً."
+        },
         "catalog": {
-            "title": "التصنيفات والمدن",
+            "title": "تصنيفات الفعاليات",
             "categories": "التصنيفات",
             "cities": "المدن",
+            "region": "المحافظة",
+            "region_none": "بدون محافظة",
+            "region_pick_country": "اختر الدولة أولاً",
             "all_countries": "كل الدول",
             "add_category": "إضافة تصنيف",
             "edit_category": "تعديل تصنيف",
@@ -4237,7 +4255,8 @@
                 "change_driver": "تغيير الكابتن",
                 "driver_points": "نقاط الكباتن",
                 "one_touch": "الطلب بلمسة",
-                "change_destination": "تغيير الوجهة أثناء الرحلة"
+                "change_destination": "تغيير الوجهة أثناء الرحلة",
+                "coupons": "أكواد الخصم على الرحلات"
             }
         },
         "categories": {
@@ -4299,7 +4318,10 @@
                 "gps_gap": "انقطاع الموقع",
                 "cash": "الكاش",
                 "settlement": "تسوية الأرباح",
-                "detour": "الانحراف"
+                "detour": "الانحراف",
+                "tips": "الإكراميات",
+                "eta": "الوقت المتبقي (ETA)",
+                "booking": "تفاصيل الحجز"
             },
             "choice": {
                 "upfront": "سعر ثابت قبل الرحلة",
@@ -4362,7 +4384,18 @@
                 "location__idle_interval_s": "إرسال الموقع (بدون رحلة)",
                 "location__trip_send_interval_s": "إرسال الموقع (في رحلة)",
                 "bids__rider_max_discount_bp": "أقصى خصم يقترحه الراكب",
-                "bids__ttl_s": "مهلة العرض"
+                "bids__ttl_s": "مهلة العرض",
+                "price__customer_fee_minor": "رسوم العميل (ثابتة)",
+                "price__customer_fee_bp": "رسوم العميل (من الأجرة)",
+                "payment__card_fee_minor": "رسوم البطاقة (ثابتة)",
+                "payment__card_fee_bp": "رسوم البطاقة (من المبلغ)",
+                "payment__cash_fee_minor": "رسوم الكاش (ثابتة)",
+                "tips__window_h": "مدة السماح بالإكرامية بعد الرحلة",
+                "tips__presets_minor": "مبالغ الإكرامية الجاهزة",
+                "tips__max_minor": "أعلى إكرامية",
+                "waiting__warn_before_s": "التنبيه قبل انتهاء الانتظار المجاني",
+                "eta__speed_kmh": "سرعة المدينة لحساب الوقت المتبقي (كم/س)",
+                "booking__note_max_chars": "ملاحظة الوصول: أقصى عدد حروف"
             }
         },
         "safety": {

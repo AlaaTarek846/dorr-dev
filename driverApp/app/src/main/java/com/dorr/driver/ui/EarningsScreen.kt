@@ -81,7 +81,10 @@ fun EarningsScreen(onBack: () -> Unit) {
             }
         }
         val d = data ?: return
+        val period = when (tab) { 1 -> d.week; 2 -> d.month; else -> d.today }
         Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            // D-204: the period's tips on their own — all of them the captain's, no commission.
+            TipsCard(period.tipsMinor, currency)
             Card {
                 Text(stringResource(R.string.earn_last7), fontWeight = FontWeight.Bold)
                 Spacer(Modifier.height(12.dp))

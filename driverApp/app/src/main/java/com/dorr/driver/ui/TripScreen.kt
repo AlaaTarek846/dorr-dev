@@ -197,6 +197,7 @@ fun TripScreen(onDone: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(R.string.offer_dropoff), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                 Text(t.destination?.address ?: stringResource(R.string.offer_open_destination), fontWeight = FontWeight.SemiBold)
+                RiderDetails(t.passengers, t.pickupNote.takeIf { t.status == "accepted" || t.status == "arrived" })
                 Spacer(Modifier.height(8.dp))
                 Row {
                     Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -204,6 +205,8 @@ fun TripScreen(onDone: () -> Unit) {
                 }
             }
 
+            // D-129: the time and distance left to the next point.
+            ProgressChip(t.progress)
             // Navigation outside the app (Google Maps), to the next point.
             t.navigation?.let { nav ->
                 Row(
@@ -303,7 +306,7 @@ private fun ArrivalClock(t: TripDto) {
         return
     }
     val left = (t.waiting?.freeS ?: 180) - Duration.between(from, now).seconds.toInt()
-    Text(if (left > 0) stringResource(R.string.trip_waiting_free, clock(left)) else stringResource(R.string.trip_waiting_paid), color = Color.White, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 6.dp))
+    WaitClock(left, t.waiting?.warnBeforeS ?: 60)
 }
 
 @Composable
@@ -356,6 +359,10 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
         Text(stringResource(R.string.trip_done), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
         Text(stringResource(R.string.trip_total, money(t.finalTotalMinor, t.currency)), fontSize = 15.sp)
         Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold)
+        t.tipMinor?.let {
+            Spacer(Modifier.height(10.dp))
+            TipBanner(it, t.currency)
+        }
     }
     val due = t.cashToCollectMinor
     if (due != null) {

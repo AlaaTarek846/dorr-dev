@@ -86,6 +86,10 @@ return [
         'ride_cancel_fee' => 'Cancellation fee, ride :number',
         'ride_debt_collected' => 'Debt collected on ride :number',
         'ride_change' => 'Cash change from ride :number',
+        'ride_tip' => 'Tip, ride :number',
+        'ride_customer_fee' => 'Service fee, ride :number',
+        'ride_payment_fee' => 'Payment fee, ride :number',
+        'ride_discount' => 'Discount, ride :number',
     ],
 
     // Statement row labels (wallet_transactions.type).

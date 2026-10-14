@@ -3045,10 +3045,28 @@
             "s_rejected": "Rejected",
             "s_suspended": "Suspended"
         },
+        "cities": {
+            "title": "Cities"
+        },
+        "validation": {
+            "key_format": "The key may only contain lowercase letters, numbers and underscores.",
+            "timezone": "Choose a valid time zone, e.g. Asia/Riyadh.",
+            "url": "The {field} must be a valid link (https://...).",
+            "ends_after_start": "The end must be after the start."
+        },
+        "bulk": {
+            "result": "{deleted} deleted, {skipped} skipped because they are in use."
+        },
+        "reorder": {
+            "hint": "Drag the handle to reorder. Changes are saved automatically."
+        },
         "catalog": {
-            "title": "Categories & cities",
+            "title": "Event categories",
             "categories": "Categories",
             "cities": "Cities",
+            "region": "Governorate / State",
+            "region_none": "No governorate",
+            "region_pick_country": "Choose a country first",
             "all_countries": "All countries",
             "add_category": "Add category",
             "edit_category": "Edit category",
@@ -4232,12 +4250,15 @@
                 "wallet": "Wallet",
                 "card": "Card",
                 "tips": "Tips",
+                "eta": "Time left (ETA)",
+                "booking": "Booking details",
                 "pin": "Ride code",
                 "share": "Share the ride",
                 "change_driver": "Change captain",
                 "driver_points": "Captain points",
                 "one_touch": "One-touch booking",
-                "change_destination": "Change destination during the ride"
+                "change_destination": "Change destination during the ride",
+                "coupons": "Coupons on rides"
             }
         },
         "categories": {
@@ -4299,7 +4320,8 @@
                 "gps_gap": "GPS gaps",
                 "cash": "Cash",
                 "settlement": "Earnings settlement",
-                "detour": "Detour"
+                "detour": "Detour",
+                "tips": "Tips"
             },
             "choice": {
                 "upfront": "Fixed before the ride",
@@ -4362,7 +4384,18 @@
                 "location__idle_interval_s": "Location (no ride)",
                 "location__trip_send_interval_s": "Location (on a ride)",
                 "bids__rider_max_discount_bp": "Most a rider may go under",
-                "bids__ttl_s": "Offer time"
+                "bids__ttl_s": "Offer time",
+                "price__customer_fee_minor": "Customer fee (fixed)",
+                "price__customer_fee_bp": "Customer fee (of the fare)",
+                "payment__card_fee_minor": "Card fee (fixed)",
+                "payment__card_fee_bp": "Card fee (of the amount)",
+                "payment__cash_fee_minor": "Cash fee (fixed)",
+                "tips__window_h": "Tip allowed after the ride for",
+                "tips__presets_minor": "Ready tip amounts",
+                "tips__max_minor": "Highest tip",
+                "waiting__warn_before_s": "Warn before free waiting ends",
+                "eta__speed_kmh": "City speed for the time left (km/h)",
+                "booking__note_max_chars": "Pickup note: most characters"
             }
         },
         "safety": {

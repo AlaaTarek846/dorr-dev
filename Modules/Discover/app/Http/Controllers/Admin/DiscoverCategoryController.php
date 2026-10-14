@@ -23,8 +23,9 @@ class DiscoverCategoryController extends Controller implements HasMiddleware
         return AdminPermissionMiddleware::fromActionMethodMap('discover-categories', [
             ['view', ['index', 'show']],
             ['create', ['store']],
-            ['update', ['update', 'status']],
+            ['update', ['update', 'status', 'reorder']],
             ['delete', ['destroy']],
+            ['multiple-delete', ['deleteMultiple']],
         ]);
     }
 
@@ -43,7 +44,10 @@ class DiscoverCategoryController extends Controller implements HasMiddleware
 
     public function store(Request $request)
     {
-        return ApiResponse::created($this->present($this->save(new DiscoverCategory, $this->validated($request, null))), __('api.created'));
+        $data = $this->validated($request, null);
+        $data['sort_order'] ??= (int) DiscoverCategory::query()->max('sort_order') + 1;
+
+        return ApiResponse::created($this->present($this->save(new DiscoverCategory, $data)), __('api.created'));
     }
 
     public function update(Request $request, DiscoverCategory $discoverCategory)
@@ -51,11 +55,43 @@ class DiscoverCategoryController extends Controller implements HasMiddleware
         return ApiResponse::success($this->present($this->save($discoverCategory, $this->validated($request, $discoverCategory))), __('api.updated'));
     }
 
+    /** PUT discover-categories/reorder — the ids in the new order become sort_order 1..n (the admin's drag-and-drop). */
+    public function reorder(Request $request)
+    {
+        $data = $request->validate(['ordered_ids' => ['required', 'array', 'min:1'], 'ordered_ids.*' => ['integer', 'exists:discover_categories,id']]);
+        DB::transaction(function () use ($data) {
+            foreach (array_values($data['ordered_ids']) as $index => $id) {
+                DiscoverCategory::query()->whereKey($id)->update(['sort_order' => $index + 1]);
+            }
+        });
+
+        return ApiResponse::success(null, __('api.updated'));
+    }
+
     public function status(Request $request, DiscoverCategory $discoverCategory)
     {
         $discoverCategory->update($request->validate(['status' => ['required', 'boolean']]));
 
         return ApiResponse::success($this->present($discoverCategory->load('translations')->loadCount('events')), __('api.updated'));
+    }
+
+    /** POST delete-multiple {ids[]} — deletes the ones that can go and skips the ones in use; says how many of each. */
+    public function deleteMultiple(Request $request)
+    {
+        $data = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:200'], 'ids.*' => ['integer']]);
+        $deleted = 0;
+        $skipped = 0;
+        foreach (DiscoverCategory::query()->whereIn('id', $data['ids'])->get() as $row) {
+            if ($row->events()->exists()) {
+                $skipped++;
+
+                continue;
+            }
+            $row->delete();
+            $deleted++;
+        }
+
+        return ApiResponse::success(['deleted' => $deleted, 'skipped' => $skipped], __('api.deleted'));
     }
 
     public function destroy(DiscoverCategory $discoverCategory)
@@ -108,6 +144,7 @@ class DiscoverCategoryController extends Controller implements HasMiddleware
         return [
             'id' => $c->id, 'key' => $c->key, 'name' => $c->translatedName(), 'emoji' => $c->emoji, 'color' => $c->color,
             'status' => (bool) $c->status, 'sort_order' => (int) $c->sort_order, 'events_count' => (int) ($c->events_count ?? 0),
+            'created_at' => $c->created_at?->toIso8601String(), 'updated_at' => $c->updated_at?->toIso8601String(),
             'translations' => $c->translations->map(fn ($t) => ['locale' => $t->locale, 'name' => $t->name])->values()->all(),
         ];
     }

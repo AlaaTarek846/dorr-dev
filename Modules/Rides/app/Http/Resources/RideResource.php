@@ -11,7 +11,10 @@ use Modules\Rides\Models\DriverRideProfile;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RidePriceLine;
 use Modules\Rides\Models\RideStop;
+use Modules\Rides\Services\Geo\RideProgress;
 use Modules\Rides\Services\Lifecycle\RideChangeService;
+use Modules\Rides\Services\Payment\RidePaymentChangeService;
+use Modules\Rides\Services\Payment\RideTipService;
 use Modules\Rides\Services\Safety\SafetyCenterService;
 use Modules\Rides\Services\Safety\SafetyCheckService;
 
@@ -46,6 +49,10 @@ class RideResource extends JsonResource
             ],
             'final_total_minor' => $this->final_total_minor,
             'lines' => self::lines($this->resource, 'rider'),
+            // R-61: the ways of paying the rider may switch to now (none once the trip started).
+            'payment_change' => RidePaymentChangeService::options($this->resource),
+            // D-129: how far the captain still is (to the pickup, then to the next stop / the destination).
+            'progress' => RideProgress::of($this->resource),
             // A card ride waiting for payment: the app opens its payment screen on this checkout.
             'checkout_id' => $this->status === RideStatus::AwaitingPayment ? $this->snapshot('checkout_uuid') : null,
             'pin' => $this->status->hasDriver() && $this->status !== RideStatus::InProgress ? $this->pin : null,
@@ -54,6 +61,9 @@ class RideResource extends JsonResource
                 'avatar_url' => $this->driver?->getFirstMediaUrl('avatar') ?: null,
                 'rating' => $profile !== null && $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
                 'trips_count' => (int) ($profile?->trips_count ?? 0),
+                // R-81: the captain's tier badge (new / bronze / silver / gold / diamond).
+                'tier' => $tier = $profile?->tier ?? 'new',
+                'tier_label' => __('rides.tiers.'.$tier),
                 'vehicle' => $this->vehicle_snapshot,
                 'location' => $presence?->lat === null ? null : [
                     'lat' => $presence->lat, 'lng' => $presence->lng, 'heading' => $presence->heading,
@@ -70,6 +80,8 @@ class RideResource extends JsonResource
             'rated' => $this->status === RideStatus::Completed
                 ? Rating::query()->where('unique_key', Rating::uniqueKeyFor($request->user(), $this->resource))->exists()
                 : null,
+            // R-144: the tip offered after the ride (presets, highest, until when) — or the one given.
+            'tip' => $this->status === RideStatus::Completed ? app(RideTipService::class)->offer($this->resource) : null,
         ];
     }
 
@@ -86,6 +98,9 @@ class RideResource extends JsonResource
             'category' => ['slug' => $ride->category?->slug, 'name' => $ride->category?->translated('name')],
             'pricing_mode' => $ride->pricing_mode->value,
             'open_destination' => $ride->open_destination,
+            // D-60, D-61: how many ride and the pickup note — on the request card and the ride.
+            'passengers' => $ride->passengers,
+            'pickup_note' => $ride->pickup_note,
             'payment_method' => $ride->payment_method->value,
             'payment_status' => $ride->payment_status->value,
             'currency' => ['code' => $ride->currency?->code, 'symbol' => $ride->currency?->symbol, 'decimal_places' => (int) ($ride->currency?->decimal_places ?? 2)],
@@ -115,6 +130,8 @@ class RideResource extends JsonResource
             ],
             'waiting' => [
                 'free_s' => (int) $ride->policy('waiting.free_s', 180),
+                // D-122: the countdown turns to a warning this long before the free waiting ends.
+                'warn_before_s' => (int) $ride->policy('waiting.warn_before_s', config('rides.policy_defaults')['waiting.warn_before_s'] ?? 60),
                 'per_min_minor' => (int) $ride->policy('price.waiting_per_min_minor', 0),
                 'no_show_after_s' => (int) $ride->policy('no_show.wait_s', 300),
             ],

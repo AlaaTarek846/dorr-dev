@@ -23,6 +23,8 @@ use Modules\Rides\Services\Chat\RideChatService;
 use Modules\Rides\Services\Lifecycle\RideCancellationService;
 use Modules\Rides\Services\Lifecycle\RideRatingService;
 use Modules\Rides\Services\Lifecycle\RideRequestService;
+use Modules\Rides\Services\Payment\RidePaymentChangeService;
+use Modules\Rides\Services\Payment\RideTipService;
 use Modules\Rides\Services\Pricing\QuoteEngine;
 use Modules\User\Models\User;
 
@@ -48,6 +50,7 @@ class RideController extends Controller
             'stops.*.lng' => ['required', 'numeric', 'between:-180,180'],
             'stops.*.address' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:32'],
+            'coupon_code' => ['nullable', 'string', 'max:40'],
         ]);
         if (! empty($data['stops']) && empty($data['destination'])) {
             throw new RidesException('stops_need_destination', 422);
@@ -67,6 +70,9 @@ class RideController extends Controller
             'rider_price_minor' => ['nullable', 'integer', 'min:1'],
             // Booked ahead (R-12): an ISO time with its offset; the limits are the policy's.
             'scheduled_at' => ['nullable', 'date', 'after:now'],
+            // D-60, D-61: how many ride (the category's seats are checked), a short note for the captain.
+            'passengers' => ['nullable', 'integer', 'min:1', 'max:20'],
+            'pickup_note' => ['nullable', 'string', 'max:255'],
         ]);
 
         $ride = $service->request(
@@ -74,6 +80,8 @@ class RideController extends Controller
             RidePaymentMethod::from($data['payment_method']), $request->header('Idempotency-Key'),
             isset($data['rider_price_minor']) ? (int) $data['rider_price_minor'] : null,
             isset($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'])->utc() : null,
+            isset($data['passengers']) ? (int) $data['passengers'] : null,
+            $data['pickup_note'] ?? null,
         );
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);
@@ -153,6 +161,24 @@ class RideController extends Controller
         $service->byRider($this->rider($request), $this->find($request, $uuid), (float) $data['stars'], array_map('intval', $data['tags'] ?? []), $data['comment'] ?? null);
 
         return ApiResponse::success(null, __('rides.messages.rated'), 201);
+    }
+
+    /** R-61: wallet ↔ cash before the trip starts; the lines, the hold and the captain follow. */
+    public function changePayment(Request $request, string $uuid, RidePaymentChangeService $service): JsonResponse
+    {
+        $data = $request->validate(['payment_method' => ['required', Rule::enum(RidePaymentMethod::class)]]);
+        $ride = $service->change($this->rider($request), $this->find($request, $uuid), RidePaymentMethod::from($data['payment_method']), $request->header('Idempotency-Key'));
+
+        return ApiResponse::success($this->present($ride, $request), __('rides.messages.payment_changed'));
+    }
+
+    /** R-144: an optional tip after the ride, from the wallet, all of it the captain's. */
+    public function tip(Request $request, string $uuid, RideTipService $tips): JsonResponse
+    {
+        $data = $request->validate(['amount_minor' => ['required', 'integer', 'min:1']]);
+        $ride = $tips->tip($this->rider($request), $this->find($request, $uuid), (int) $data['amount_minor'], $request->header('Idempotency-Key'));
+
+        return ApiResponse::success($this->present($ride, $request), __('rides.messages.tipped'));
     }
 
     public function messages(Request $request, string $uuid, RideChatService $chat): JsonResponse

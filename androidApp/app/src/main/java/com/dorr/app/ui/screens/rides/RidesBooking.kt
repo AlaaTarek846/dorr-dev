@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -283,12 +286,15 @@ internal fun ConfirmPointPanel(state: RidesState) {
     }
 }
 
-/** Ask the server to price the trip for every category open here. */
-internal fun loadQuotes(state: RidesState) {
+/** Ask the server to price the trip for every category open here (`reprice`: the same trip, e.g. a promo code). */
+internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
     val pickup = state.pickup ?: return
     state.step = RideStep.Quotes
-    state.quotes = emptyList()
-    state.selected = null
+    // A promo code re-prices the list in place; a new trip starts from an empty one.
+    if (!reprice) {
+        state.quotes = emptyList()
+        state.selected = null
+    }
     state.error = null
     state.busy = true
     kotlinx.coroutines.MainScope().launch {
@@ -296,15 +302,29 @@ internal fun loadQuotes(state: RidesState) {
             add("origin", pickup.json())
             state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json()) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
+            state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
         }
+        val keep = state.selected?.category?.slug
         runCatching { ApiClient.rides.quotes(ridesAuth(), body).data.orEmpty() }
             .onSuccess { list ->
                 state.quotes = list
-                state.selected = list.firstOrNull()
-                state.riderPrice = list.firstOrNull()?.bid?.suggestedMinor
+                // The same category stays chosen after a promo code re-prices the list.
+                state.selected = list.firstOrNull { it.category.slug == keep } ?: list.firstOrNull()
+                state.riderPrice = state.selected?.bid?.suggestedMinor
                 if (state.selected?.category?.cashAllowed == false && state.payment == "cash") state.payment = "wallet"
             }
-            .onFailure { state.error = it.apiFailure().message }
+            .onFailure {
+                val failure = it.apiFailure()
+                if (state.couponCode != null && (failure.errorCode?.startsWith("rides_coupon_") == true || failure.errorCode == "rides_feature_disabled")) {
+                    // A refused code never costs the prices: say why under the field and price without it.
+                    state.couponError = failure.message
+                    state.couponCode = null
+                    state.busy = false
+                    loadQuotes(state, reprice = true)
+                    return@launch
+                }
+                state.error = failure.message
+            }
         state.busy = false
     }
 }
@@ -331,6 +351,8 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 addProperty("payment_method", state.payment)
                 if (quote.bid != null) addProperty("rider_price_minor", state.riderPrice ?: quote.bid.suggestedMinor)
                 state.scheduledAt?.let { addProperty("scheduled_at", it.toOffsetDateTime().toString()) }
+                addProperty("passengers", state.passengers)
+                state.pickupNote.trim().takeIf { it.isNotEmpty() }?.let { addProperty("pickup_note", it) }
             }
             runCatching { ApiClient.rides.book(ridesAuth(), UUID.randomUUID().toString(), body).data }
                 .onSuccess { ride ->
@@ -348,7 +370,8 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
         }
     }
 
-    PanelCard {
+    // The promo code, the price details and the cancellation rules make this sheet taller: it scrolls.
+    PanelCard { Column(Modifier.heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
         Text(stringResource(R.string.rd_choose_ride), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
         Spacer(Modifier.height(10.dp))
         if (state.feature("scheduled") && state.quotes.any { it.scheduling != null }) {
@@ -373,10 +396,20 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
             Text(stringResource(R.string.rd_pay_with), color = settingsMut(), fontSize = 12.sp)
             Spacer(Modifier.height(6.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (state.feature("wallet")) PayChip(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.rd_pay_wallet), state.payment == "wallet", Modifier.weight(1f)) { state.payment = "wallet" }
-                if (state.feature("card")) PayChip(Icons.Rounded.CreditCard, stringResource(R.string.rd_pay_card), state.payment == "card", Modifier.weight(1f)) { state.payment = "card" }
-                if (state.feature("cash") && quote.category.cashAllowed != false) PayChip(Icons.Rounded.Payments, stringResource(R.string.rd_pay_cash), state.payment == "cash", Modifier.weight(1f)) { state.payment = "cash" }
+                val fee = { m: String -> quote.paymentFee(m).takeIf { it > 0 }?.let { "+" + money(it, quote.currency) } }
+                if (state.feature("wallet")) PayChip(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.rd_pay_wallet), state.payment == "wallet", Modifier.weight(1f), fee("wallet")) { state.payment = "wallet" }
+                if (state.feature("card")) PayChip(Icons.Rounded.CreditCard, stringResource(R.string.rd_pay_card), state.payment == "card", Modifier.weight(1f), fee("card")) { state.payment = "card" }
+                if (state.feature("cash") && quote.category.cashAllowed != false) PayChip(Icons.Rounded.Payments, stringResource(R.string.rd_pay_cash), state.payment == "cash", Modifier.weight(1f), fee("cash")) { state.payment = "cash" }
             }
+            Spacer(Modifier.height(6.dp))
+            // D-60, D-61: how many ride and a note for the captain.
+            TripDetailsRow(state)
+            // Wireflow م11 / م12: the promo code, every line of the price, and the rules it comes with.
+            PromoCodeRow(state)
+            PriceDetails(quote, state.payment)
+            PolicySummary(quote, state.payment)
+            // R-179: the terms in force for this booking, one tap away before confirming.
+            TermsNotice(quote)
             state.error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             if (suggestCard) {
                 Text(
@@ -402,7 +435,7 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 enabled = at == null || quote.scheduling != null, busy = state.busy,
             ) { book() }
         } ?: state.error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
-    }
+    } }
 }
 
 @Composable
@@ -437,7 +470,8 @@ private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, ho
                     Text(stringResource(R.string.rd_bid_name_price), color = AppColors.brandOrange, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
                 quote.totalMinor != null -> {
-                    Text(money(quote.totalMinor, currency), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
+                    StruckPrice(quote)
+                    Text(money(quote.totalMinor, currency), color = if (quote.coupon?.applied == true) AppColors.success else settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
                     Text(stringResource(R.string.rd_fixed_price), color = AppColors.success, fontSize = 11.sp)
                 }
                 quote.estimate != null -> {
@@ -451,19 +485,22 @@ private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, ho
 }
 
 @Composable
-private fun PayChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun PayChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, modifier: Modifier, fee: String? = null, onClick: () -> Unit) {
     val accent = settingsAccent()
-    Row(
+    Column(
         modifier.clip(RoundedCornerShape(12.dp))
             .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) accent else settingsInk().copy(alpha = 0.1f)), RoundedCornerShape(12.dp))
             .background(if (selected) accent.copy(alpha = 0.06f) else Color.Transparent)
             .clickable(onClick = onClick).padding(vertical = 10.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(icon, null, tint = if (selected) accent else settingsMut(), modifier = Modifier.size(18.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, color = settingsInk(), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = if (selected) accent else settingsMut(), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = settingsInk(), fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal, fontSize = 13.sp)
+        }
+        // R-48: this way of paying adds a fee — shown on the chip before it is chosen.
+        fee?.let { Text(it, color = AppColors.warning, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
     }
 }
 

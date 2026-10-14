@@ -263,7 +263,7 @@ private fun LegalContentScreen(
 }
 
 @Composable
-private fun HtmlContent(
+internal fun HtmlContent(
     html: String,
     textColor: Color,
     accentColor: Color,

@@ -11,8 +11,10 @@ use Modules\Rides\Enums\SettlementItemType;
 use Modules\Rides\Enums\SettlementStatus;
 use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Models\Ride;
+use Modules\Rides\Models\RidePriceLine;
 use Modules\Rides\Models\RideSettlementItem;
 use Modules\Rides\Services\Notifications\RideNotifier;
+use Modules\Rides\Services\Pricing\PriceExtras;
 use Modules\Wallet\Enums\FinancialEntryType;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletTransactionType;
@@ -54,11 +56,26 @@ class RideSettlementService
                     ['key' => 'wallet.notes.ride_tax', 'variables' => ['number' => $ride->number]]);
             }
 
+            // DORR's fees are its income; a coupon is DORR's expense — the driver's net never carries them.
+            $extras = RidePriceLine::query()->where('ride_id', $ride->id)->where('phase', 'final')->whereIn('code', PriceExtras::CODES)->pluck('amount_minor', 'code');
+            $customerFee = (int) ($extras['customer_fee'] ?? 0);
+            $paymentFee = (int) ($extras['payment_method_fee'] ?? 0);
+            $discount = -(int) ($extras['discount'] ?? 0);
+            foreach ([['trip_customer_fees', FinancialEntryType::Income, $customerFee, 'ride_customer_fee'], ['trip_payment_fees', FinancialEntryType::Income, $paymentFee, 'ride_payment_fee'], ['discount_expenses', FinancialEntryType::Expense, $discount, 'ride_discount']] as [$slug, $type, $amount, $note]) {
+                if ($amount > 0) {
+                    $this->ledger->record($slug, $type, $amount, $currency, $country, $ride, ['key' => 'wallet.notes.'.$note, 'variables' => ['number' => $ride->number]]);
+                }
+            }
+
             if ($ride->payment_method === RidePaymentMethod::Cash) {
                 $this->post($ride, $driver, $country, SettlementItemType::Commission, -$commission, WalletTransactionType::Commission, 'ride_commission');
                 if ($taxOnDriver) {
                     $this->post($ride, $driver, $country, SettlementItemType::Tax, -$tax, WalletTransactionType::Tax, 'ride_tax');
                 }
+                // The driver kept DORR's fees in the cash, and got the coupon's part less: both settle on their wallet.
+                $this->post($ride, $driver, $country, SettlementItemType::CustomerFee, -$customerFee, WalletTransactionType::Commission, 'ride_customer_fee');
+                $this->post($ride, $driver, $country, SettlementItemType::PaymentMethodFee, -$paymentFee, WalletTransactionType::Commission, 'ride_payment_fee');
+                $this->post($ride, $driver, $country, SettlementItemType::DiscountCompensation, $discount, WalletTransactionType::DiscountCompensation, 'ride_discount');
 
                 return;
             }

@@ -30,7 +30,9 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Chat
@@ -66,6 +68,7 @@ import coil.compose.AsyncImage
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideDto
+import com.dorr.app.network.RideLineDto
 import com.dorr.app.network.RideMessageDto
 import com.dorr.app.network.RideQuickReplyDto
 import com.dorr.app.network.RideReasonDto
@@ -112,15 +115,18 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         when (ride.status) {
             "awaiting_payment" -> AwaitingPayment(state)
             "scheduled" -> ScheduledPanel(ride, onDone = { state.ride = null; state.resetBooking() }, onCancel = { cancelOpen = true })
-            "searching" -> Searching(onCancel = { cancelOpen = true })
+            "searching" -> Searching(state, ride, onCancel = { cancelOpen = true })
             "bidding" -> BiddingPanel(state, onCancel = { cancelOpen = true })
             "accepted", "arrived", "in_progress" -> OnTheWay(state, ride, onChat = { chatOpen = true }, onCancel = { cancelOpen = true }, onSos = { sosOpen = true }, onShare = { shareOpen = true })
-            "completed" -> Completed(ride, onDone = {
-                val fromHistory = state.fromHistory
-                state.ride = null
-                state.resetBooking()
-                if (!fromHistory) onExit()
-            })
+            // The receipt, the rating and the tip: taller than the screen on small phones — it scrolls.
+            "completed" -> Column(Modifier.heightIn(max = 620.dp).verticalScroll(rememberScrollState())) {
+                Completed(ride, onTipped = { state.ride = it }, onDone = {
+                    val fromHistory = state.fromHistory
+                    state.ride = null
+                    state.resetBooking()
+                    if (!fromHistory) onExit()
+                })
+            }
             else -> Ended(ride, onAgain = { state.ride = null; state.resetBooking() })
         }
     }
@@ -141,7 +147,7 @@ private fun AwaitingPayment(state: RidesState) {
 
 /** A calm radar while the nearest captains are asked one by one. */
 @Composable
-private fun Searching(onCancel: () -> Unit) {
+private fun Searching(state: RidesState, ride: RideDto, onCancel: () -> Unit) {
     val pulse = rememberInfiniteTransition(label = "radar")
     val wave by pulse.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing), RepeatMode.Restart), label = "wave")
     val accent = settingsAccent()
@@ -157,6 +163,8 @@ private fun Searching(onCancel: () -> Unit) {
         }
         Text(stringResource(R.string.rd_searching), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
         Text(stringResource(R.string.rd_searching_sub), color = settingsMut(), fontSize = 13.sp)
+        // R-61: still time to switch how to pay.
+        PaymentSwitch(state, ride)
         Spacer(Modifier.height(16.dp))
         Text(stringResource(R.string.rd_cancel), color = AppColors.danger, fontWeight = FontWeight.Bold, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(onClick = onCancel).padding(10.dp))
     }
@@ -181,6 +189,8 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
     )
     if (ride.status == "arrived") ArrivedWaiting(ride, minute, hour)
     if (ride.status == "in_progress") ride.destination?.address?.let { Text(it, color = settingsMut(), fontSize = 13.sp, maxLines = 1) }
+    // D-129: the time and distance left — to the pickup, then to the next stop / the destination.
+    EtaChip(ride)
     // A new destination / one more stop: waiting for the captain, or the answer (wireflow 6ج).
     ChangeBanner(ride)
     Spacer(Modifier.height(12.dp))
@@ -192,7 +202,11 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(driver?.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(driver?.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Spacer(Modifier.width(6.dp))
+                TierBadge(driver)
+            }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Rounded.Star, null, tint = AppColors.warning, modifier = Modifier.size(15.dp))
                 Text(driver?.rating?.let { String.format("%.1f", it) } ?: stringResource(R.string.rd_new_rating), color = settingsInk(), fontSize = 13.sp)
@@ -225,6 +239,7 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
     }
 
     ChangeTripLinks(state, ride)
+    if (ride.status == "accepted" || ride.status == "arrived") PaymentSwitch(state, ride)
 
     // The wireflow's row: 💬 Message · 📤 Share · 🚨 SOS.
     Spacer(Modifier.height(14.dp))
@@ -255,10 +270,8 @@ private fun ArrivedWaiting(ride: RideDto, minute: String, hour: String) {
         return
     }
     val left = (ride.waiting?.freeS ?: 180) - Duration.between(from, now).seconds.toInt()
-    Text(
-        if (left > 0) stringResource(R.string.rd_arrived_wait, "${left / 60}:${(left % 60).toString().padStart(2, '0')}") else stringResource(R.string.rd_arrived_paid_wait),
-        color = if (left > 0) AppColors.success else AppColors.warning, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
-    )
+    // D-122: green, then amber and pulsing near the end, then the paid minutes.
+    WaitingCountdown(left, ride.waiting?.warnBeforeS ?: 60)
 }
 
 /** A Saudi-style plate: letters | numbers, with the car's colour as a strip. */
@@ -278,7 +291,7 @@ private fun Plate(letters: String?, numbers: String?, colorHex: String?) {
 /** The receipt and the rating, right when the ride ends. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun Completed(ride: RideDto, onDone: () -> Unit) {
+private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> Unit) {
     val scope = rememberCoroutineScope()
     var stars by remember { mutableIntStateOf(0) }
     var tags by remember { mutableStateOf<List<RideTagDto>>(emptyList()) }
@@ -291,16 +304,13 @@ private fun Completed(ride: RideDto, onDone: () -> Unit) {
     Text(stringResource(R.string.rd_status_completed), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
     Spacer(Modifier.height(8.dp))
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsBackground()).padding(12.dp)) {
-        ride.lines.filter { it.code != "total" }.forEach { line ->
-            Row(Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                Text(line.label ?: line.code, color = settingsMut(), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text(money(line.amountMinor, ride.currency), color = settingsInk(), fontSize = 13.sp)
-            }
-        }
+        ride.lines.filter { it.code != "total" }.forEach { PriceLineRow(it, ride.currency) }
         Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
             Text(stringResource(R.string.rd_total), color = settingsInk(), fontWeight = FontWeight.ExtraBold, modifier = Modifier.weight(1f))
             Text(money(ride.finalTotalMinor, ride.currency), color = settingsInk(), fontWeight = FontWeight.ExtraBold)
         }
+        // R-144: the tip stays on its own line, after the ride's total.
+        ride.tip?.amountMinor?.let { PriceLineRow(RideLineDto("tip", stringResource(R.string.rd_tip_line), it), ride.currency) }
         if (ride.paymentStatus == "cash_due") {
             Text(stringResource(R.string.rd_cash_due, money(ride.finalTotalMinor, ride.currency)), color = AppColors.warning, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
         }
@@ -308,6 +318,7 @@ private fun Completed(ride: RideDto, onDone: () -> Unit) {
     Spacer(Modifier.height(14.dp))
     if (sent) {
         Text(stringResource(R.string.rd_rate_thanks), color = AppColors.success, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center)
+        TipSection(ride, onTipped)
         Spacer(Modifier.height(12.dp))
         AccentButton(stringResource(R.string.rd_done), onClick = onDone)
         return
@@ -341,6 +352,8 @@ private fun Completed(ride: RideDto, onDone: () -> Unit) {
             if (comment.isEmpty()) Text(stringResource(R.string.rd_rate_comment), color = settingsMut(), fontSize = 13.sp)
             BasicTextField(comment, { comment = it.take(500) }, textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp), cursorBrush = SolidColor(settingsAccent()), modifier = Modifier.fillMaxWidth())
         }
+        // Wireflow step 7: "Tip (optional)" under the note, before sending the rating.
+        TipSection(ride, onTipped)
         Spacer(Modifier.height(12.dp))
         AccentButton(stringResource(R.string.rd_rate_send), busy = busy) {
             busy = true
