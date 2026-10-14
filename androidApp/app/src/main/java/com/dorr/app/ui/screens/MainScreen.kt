@@ -124,8 +124,10 @@ fun MainScreen(
     // Public stories on the home page — their own small chat host (viewer + composer).
     val homeStories = com.dorr.app.ui.screens.chat.rememberHomeStories()
     var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
+    // Passenger rides open their own map screen, not the generic service page.
+    var ridesOpen by rememberSaveable { mutableStateOf(false) }
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
-        serviceDetail = service to color
+        if (service.moduleName == "passenger_ride") ridesOpen = true else serviceDetail = service to color
     }
 
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
@@ -134,7 +136,7 @@ fun MainScreen(
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             when (link) {
                 is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
-                is com.dorr.app.chat.ChatDeepLink.ChatLink, is com.dorr.app.chat.ChatDeepLink.Join -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.ChatLink, is com.dorr.app.chat.ChatDeepLink.Join, is com.dorr.app.chat.ChatDeepLink.CallLink -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Sports -> {
                     walletOpen = false
                     com.dorr.app.ui.screens.sports.SportsLink.show(link.matchId)
@@ -427,6 +429,15 @@ fun MainScreen(
 
     // A public story being watched or written (from the home page's circles).
     com.dorr.app.ui.screens.chat.HomeStoriesLayer(homeStories)
+
+    // DORR Rides: booking and following a ride, on its own map (the payment screen opens over it).
+    AnimatedVisibility(
+        visible = ridesOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.rides.RidesHost(onExit = { ridesOpen = false })
+    }
 
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()

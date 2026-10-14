@@ -37,6 +37,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showRidesSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.rides') }}</span>
+                        </li>
+
+                        <li v-for="item in ridesItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <li v-if="isAiVisible" class="slide__category">
                         <span class="category-name">{{ t('sidebar.ai') }}</span>
                     </li>
@@ -820,6 +833,24 @@ const chatAdminItems = [
 
 const showChatAdminSection = computed(
     () => isChatVisible.value && chatAdminItems.some((item) => can(item.permission)),
+);
+
+/** Passenger rides (Modules/Driver + Modules/Rides), shown when the header service is the rides one. */
+const ridesItems = [
+    { route: 'admin.rides.rides', permission: 'rides.view', icon: 'ri-taxi-line', label: 'rides.rides.title' },
+    { route: 'admin.rides.drivers', permission: 'drivers.view', icon: 'ri-steering-2-line', label: 'rides.drivers.title' },
+    { route: 'admin.rides.document-types', permission: 'driver-document-types.view', icon: 'ri-file-list-3-line', label: 'rides.document_types.title' },
+    { route: 'admin.rides.switches', permission: 'ride-feature-rules.view', icon: 'ri-toggle-line', label: 'rides.switches.title' },
+    { route: 'admin.rides.categories', permission: 'ride-categories.view', icon: 'ri-apps-2-line', label: 'rides.categories.title' },
+    { route: 'admin.rides.policies', permission: 'ride-policies.view', icon: 'ri-price-tag-3-line', label: 'rides.policies.title' },
+    { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
+    { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
+    { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
+    { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },
+];
+
+const showRidesSection = computed(
+    () => selectedModuleName.value === 'passenger_ride' && ridesItems.some((item) => can(item.permission)),
 );
 
 /** DORR Discover (Modules/Discover): events, organizers, categories & cities, settings. */

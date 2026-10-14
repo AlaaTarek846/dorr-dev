@@ -23,4 +23,12 @@ enum WalletTransactionType: string
     case ServiceEarning = 'service_earning';
     case ManualAdjustment = 'manual_adjustment';
     case Reversal = 'reversal';
+    // Rides (docs/rides-structure.md §10): the app's commission and the tax on it, taken from a
+    // driver after a cash trip; a rider's tip; a coupon's value paid back to the driver; an old debt
+    // a driver collected in cash and settled on the rider's wallet.
+    case Commission = 'commission';
+    case Tax = 'tax';
+    case Tip = 'tip';
+    case DiscountCompensation = 'discount_compensation';
+    case DebtSettlement = 'debt_settlement';
 }

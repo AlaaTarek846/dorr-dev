@@ -1359,5 +1359,7 @@
     <string name="ch_join_code_sub">A group or channel invite: type its code or paste its link</string>
     <string name="ch_join_code_go">Join</string>
     <string name="ch_join_code_bad">That\'s not an invite code or link</string>
+    <string name="push_channel_messages">Messages</string>
+    <string name="push_channel_general">Notifications</string>
 
 </resources>

@@ -197,6 +197,10 @@ interface ChatApi {
     @GET("mobile/v1/chat/messages/{id}/votes")
     suspend fun votes(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<PollOptionVotersDto>>
 
+    /** Tap a button / pick from a list: returns my answer message. */
+    @POST("mobile/v1/chat/messages/{id}/choose")
+    suspend fun chooseOption(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, Int>): ApiEnvelope<MessageDto>
+
     @POST("mobile/v1/chat/messages/{id}/open")
     suspend fun openViewOnce(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<ViewOnceFilesDto>
 
@@ -331,6 +335,43 @@ interface ChatApi {
 
     @PATCH("mobile/v1/chat/groups/{id}/settings")
     suspend fun groupSettings(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<ConversationDto>
+
+    // Communities (WhatsApp list 93–98).
+    @GET("mobile/v1/chat/communities")
+    suspend fun communities(@Header("Authorization") auth: String): ApiEnvelope<List<CommunityDto>>
+
+    @POST("mobile/v1/chat/communities")
+    suspend fun createCommunity(@Header("Authorization") auth: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<CommunityDto>
+
+    @GET("mobile/v1/chat/communities/{id}")
+    suspend fun community(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CommunityDto>
+
+    @POST("mobile/v1/chat/communities/{id}")
+    suspend fun updateCommunity(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, String>): ApiEnvelope<CommunityDto>
+
+    @POST("mobile/v1/chat/communities/{id}/groups")
+    suspend fun addCommunityGroups(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any>): ApiEnvelope<CommunityDto>
+
+    @DELETE("mobile/v1/chat/communities/{id}/groups/{group}")
+    suspend fun removeCommunityGroup(@Header("Authorization") auth: String, @Path("id") id: String, @Path("group") group: String): ApiEnvelope<CommunityDto>
+
+    @POST("mobile/v1/chat/communities/{id}/groups/{group}/join")
+    suspend fun joinCommunityGroup(@Header("Authorization") auth: String, @Path("id") id: String, @Path("group") group: String): ApiEnvelope<CommunityJoinDto>
+
+    @GET("mobile/v1/chat/communities/{id}/members")
+    suspend fun communityMembers(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<MemberDto>>
+
+    @DELETE("mobile/v1/chat/communities/{id}/members/{participant}")
+    suspend fun removeCommunityMember(@Header("Authorization") auth: String, @Path("id") id: String, @Path("participant") participant: Int): ApiEnvelope<JsonElement?>
+
+    @PATCH("mobile/v1/chat/communities/{id}/members/{participant}/role")
+    suspend fun communityRole(@Header("Authorization") auth: String, @Path("id") id: String, @Path("participant") participant: Int, @Body body: Map<String, String>): ApiEnvelope<JsonElement?>
+
+    @POST("mobile/v1/chat/communities/{id}/leave")
+    suspend fun leaveCommunity(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    @DELETE("mobile/v1/chat/communities/{id}")
+    suspend fun deleteCommunity(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
 
     @GET("mobile/v1/chat/groups/{id}/members")
     suspend fun members(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<List<MemberDto>>
@@ -557,6 +598,22 @@ interface ChatApi {
     @GET("mobile/v1/chat/calls/{id}")
     suspend fun call(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<CallDto>
 
+    // Call links (WhatsApp list 72).
+    @GET("mobile/v1/chat/call-links")
+    suspend fun callLinks(@Header("Authorization") auth: String): ApiEnvelope<List<CallLinkDto>>
+
+    @POST("mobile/v1/chat/call-links")
+    suspend fun createCallLink(@Header("Authorization") auth: String, @Body body: Map<String, String>): ApiEnvelope<CallLinkDto>
+
+    @GET("mobile/v1/chat/call-links/{token}")
+    suspend fun callLink(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<CallLinkDto>
+
+    @POST("mobile/v1/chat/call-links/{token}/join")
+    suspend fun joinCallLink(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<CallLinkJoinDto>
+
+    @DELETE("mobile/v1/chat/call-links/{token}")
+    suspend fun revokeCallLink(@Header("Authorization") auth: String, @Path("token") token: String): ApiEnvelope<JsonElement?>
+
     /** `recording_consent`: my yes, needed when the call records or asks to (409 `chat_recording_consent_required`). */
     @POST("mobile/v1/chat/calls/{id}/accept")
     suspend fun acceptCall(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: Map<String, @JvmSuppressWildcards Any> = emptyMap()): ApiEnvelope<CallSessionDto>
@@ -671,7 +728,41 @@ data class GroupInfoDto(
     val category: CategoryDto? = null,
     /** A channel: the emojis followers may react with (null = any, empty = none). */
     @SerializedName("allowed_reactions") val allowedReactions: List<String>? = null,
+    /** Part of a community (WhatsApp list 93). */
+    val community: CommunityBadgeDto? = null,
 )
+
+data class CommunityBadgeDto(val id: String, val name: String, @SerializedName("is_announcement") val isAnnouncement: Boolean = false)
+
+/** A community (WhatsApp list 93–98): its announcements group and its groups, as I see it. */
+data class CommunityDto(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val avatar: String? = null,
+    @SerializedName("announcement_id") val announcementId: String,
+    @SerializedName("members_count") val membersCount: Int = 0,
+    @SerializedName("groups_count") val groupsCount: Int = 0,
+    @SerializedName("my_role") val myRole: String? = null,
+    @SerializedName("is_admin") val isAdmin: Boolean = false,
+    @SerializedName("is_creator") val isCreator: Boolean = false,
+    @SerializedName("admins_count") val adminsCount: Int = 0,
+    @SerializedName("max_admins") val maxAdmins: Int = 20,
+    val groups: List<CommunityGroupDto> = emptyList(),
+)
+
+data class CommunityGroupDto(
+    val id: String,
+    val name: String,
+    val description: String? = null,
+    val avatar: String? = null,
+    @SerializedName("members_count") val membersCount: Int = 0,
+    @SerializedName("is_member") val isMember: Boolean = false,
+    @SerializedName("approve_joins") val approveJoins: Boolean = false,
+    @SerializedName("request_pending") val requestPending: Boolean = false,
+)
+
+data class CommunityJoinDto(val status: String, @SerializedName("conversation_id") val conversationId: String)
 
 data class StickerDto(
     val id: Int,
@@ -897,6 +988,8 @@ data class MessageDto(
     @SerializedName("view_once_opened") val viewOnceOpened: Boolean? = null,
     @SerializedName("link_preview") val linkPreview: LinkPreviewDto? = null,
     val poll: PollDto? = null,
+    /** Reply buttons / a list (WhatsApp list 123–125). */
+    val interactive: InteractiveDto? = null,
     @SerializedName("live_location") val liveLocation: LiveLocationDto? = null,
     /** Money request / bill split, as I see it. */
     val payment: PaymentDto? = null,
@@ -955,6 +1048,19 @@ data class PollDto(
     val options: List<PollOptionDto>,
     @SerializedName("my_votes") val myVotes: List<Int> = emptyList(),
     val voters: Int = 0,
+)
+
+data class InteractiveOptionDto(val id: Int, val title: String, val description: String? = null)
+
+data class InteractiveDto(
+    /** `buttons` (up to 3) or `list` (up to 10, opened from [button]). */
+    val kind: String = "buttons",
+    val options: List<InteractiveOptionDto> = emptyList(),
+    val button: String? = null,
+    val footer: String? = null,
+    @SerializedName("my_choice") val myChoice: Int? = null,
+    /** How many answered — for the sender. */
+    val answers: Int = 0,
 )
 
 data class PollOptionVotersDto(val id: Int, val text: String, val voters: List<ProfileDto> = emptyList())
@@ -1213,6 +1319,30 @@ data class StoryStyleDto(
     val align: String? = null,
     /** A voice status's bars (0–100). */
     val waveform: List<Int>? = null,
+    /** A photo / video's width ÷ height — the frame the layers sit in. */
+    val aspect: Float? = null,
+    /** Stickers, GIFs, text and drawing on top (backlog 79–80). */
+    val layers: List<StoryLayerDto>? = null,
+)
+
+/**
+ * One thing on top of a status. Positions are fractions of the frame (0..1).
+ * `k`: `t` text · `s` sticker / GIF · `d` drawing (`p` = x, y, x, y, …).
+ */
+data class StoryLayerDto(
+    val k: String,
+    val x: Float = 0.5f,
+    val y: Float = 0.5f,
+    val s: Float = 1f,
+    val r: Float = 0f,
+    val text: String? = null,
+    val c: String? = null,
+    val f: String? = null,
+    val bg: Int? = null,
+    val url: String? = null,
+    val a: Float? = null,
+    val w: Float? = null,
+    val p: List<Float>? = null,
 )
 
 data class StoryMediaDto(val url: String, @SerializedName("mime_type") val mimeType: String?)
@@ -1276,6 +1406,20 @@ data class StoryPrivacyDto(val audience: String, val except: List<ProfileDto> = 
 data class JoinDto(val url: String, val room: String, val token: String)
 
 data class CallSessionDto(val call: CallDto, val join: JoinDto?)
+
+/** A call link (WhatsApp list 72): `link` for sharing anywhere, `payload` for the app. */
+data class CallLinkDto(
+    val token: String,
+    val type: String,
+    val link: String,
+    val payload: String,
+    val owner: ProfileDto? = null,
+    @SerializedName("is_mine") val isMine: Boolean = false,
+    @SerializedName("expires_at") val expiresAt: String? = null,
+    @SerializedName("last_joined_at") val lastJoinedAt: String? = null,
+)
+
+data class CallLinkJoinDto(val link: CallLinkDto, val join: JoinDto)
 
 data class ConversationCircleDto(
     val id: String,

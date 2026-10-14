@@ -96,6 +96,8 @@ import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.Gif
 import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.Diversity3
+import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.StickyNote2
 import androidx.compose.material.icons.rounded.PushPin
 import androidx.compose.material.icons.rounded.Tune
@@ -474,6 +476,7 @@ private fun ListMenu() {
             MenuItem(Icons.Rounded.BookmarkAdd, stringResource(R.string.ch_follow_ups_title)) { open = false; host.push(ChRoute.ReadLater) }
             MenuItem(Icons.Rounded.Mood, stringResource(R.string.ch_status_title)) { open = false; statusSheet = true }
             MenuItem(Icons.Rounded.Call, stringResource(R.string.ch_calls_title)) { open = false; host.push(ChRoute.Calls) }
+            MenuItem(Icons.Rounded.Diversity3, stringResource(R.string.cm_title)) { open = false; host.push(ChRoute.Communities) }
             MenuItem(Icons.Rounded.Shield, stringResource(R.string.ch_privacy_title)) { open = false; host.push(ChRoute.Privacy) }
             MenuItem(Icons.Rounded.Security, stringResource(R.string.cp_privacy_center)) { open = false; host.push(ChRoute.PrivacyCenter) }
             MenuItem(Icons.Rounded.TextFields, stringResource(R.string.cp_comfort)) { open = false; comfort = true }
@@ -870,6 +873,7 @@ internal fun previewOf(type: String, deleted: Boolean): Pair<ImageVector?, Strin
     type == "wallet_qr" -> Icons.Rounded.QrCode2 to stringResource(R.string.ch_wallet_qr_title)
     type == "call" -> Icons.Rounded.Call to stringResource(R.string.ch_call_voice)
     type == "poll" -> Icons.Rounded.Poll to stringResource(R.string.ch_poll)
+    type == "interactive" -> Icons.Rounded.SmartButton to stringResource(R.string.ia_preview)
     type == "gif" -> Icons.Rounded.Gif to "GIF"
     type == "sticker" -> Icons.Rounded.StickyNote2 to stringResource(R.string.ch_sticker)
     type == "money_request" -> Icons.Rounded.Payments to stringResource(R.string.ch_money_request)

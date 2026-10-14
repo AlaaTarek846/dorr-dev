@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use Modules\Wallet\Contracts\ReservesFunds;
 use Modules\Wallet\Enums\CheckoutStatus;
 use Modules\Wallet\Enums\FinancialEntryType;
 use Modules\Wallet\Enums\PaymentMethodType;
@@ -252,6 +253,19 @@ class CheckoutService
         $owner = $checkout->owner();
         $wallet = $this->wallets->firstOrCreateWallet($owner, $checkout->country);
         $wallet = Wallet::query()->lockForUpdate()->findOrFail($wallet->id);
+
+        // The purpose holds the money itself (a ride): only make sure it's there, then hand over.
+        $purpose = $this->purposes->for($checkout->purpose);
+        if ($purpose instanceof ReservesFunds) {
+            if ($this->spendable($wallet) < $checkout->amount_minor) {
+                throw CheckoutException::insufficientBalance($checkout->amount_minor - $this->spendable($wallet));
+            }
+            $purpose->fulfil($checkout);
+            $checkout->update(['status' => CheckoutStatus::Paid, 'paid_via' => $via, 'failure_reason' => null, 'paid_at' => now()]);
+
+            return $checkout->refresh();
+        }
+
         // A coupon is spent here, with the payment (exactly once); the rest is charged.
         $discount = app(CouponService::class)->redeem($checkout);
         $amount = max(0, $checkout->amount_minor - $discount);

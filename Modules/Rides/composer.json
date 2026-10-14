@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/rides",
+    "description": "DORR passenger rides: categories, policies, pricing, dispatch, the ride itself and Wasl.",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Rides\\": "app/",
+            "Modules\\Rides\\Database\\Factories\\": "database/factories/",
+            "Modules\\Rides\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Rides\\Tests\\": "tests/"
+        }
+    }
+}

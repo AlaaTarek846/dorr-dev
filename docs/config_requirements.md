@@ -25,6 +25,8 @@
 | 14 | **تحديد الدولة بالـ IP** | اختيار الدولة تلقائياً في الدخول | مفيش مفتاح | ✅ (ipwho.is ثم ip-api.com مجاناً) | ✅ |
 | 15 | **AWS S3** (اختياري) | تخزين الملفات بره السيرفر | `.env` | ➖ مش مستخدم (`FILESYSTEM_DISK=local`) | ✅ |
 | 16 | **API-Sports** (api-football.com) | الرياضة: المواعيد والنتايج المباشرة والترتيب، لكل الرياضات | `.env`: `API_SPORTS_KEY`، `API_SPORTS_DAILY_LIMIT` | ⚠️ الخطة المجانية (100 في اليوم) للتجربة بس. للإطلاق: خطة 7500 | ✅ |
+| 17 | **Google Maps Platform** | توصيل الركاب: المسار والمسافة والسعر (Routes API)، واسم المدينة (Geocoding) | لوحة الأدمن ← الرحلات ← الإعدادات (أو `.env`: `GOOGLE_MAPS_SERVER_KEY`) | ❌ **مش متضبط**. من غيره: حساب مجاني بالخط المستقيم زي Jawad، والمدينة من قايمتنا | ✅ |
+| 18 | **وصل** (ELM / هيئة النقل) | تسجيل السواقين والرحلات والمواقع في السعودية | `.env` (المرحلة 1) | ❌ ناقص: المفاتيح، و**القايمة الرسمية لأسماء المدن** | ✅ |
 
 ---
 
@@ -160,6 +162,14 @@
 
 ---
 
+## 17 و18. Google Maps ووصل: توصيل الركاب
+
+- **Google:** مفتاح سيرفر بيتحط من لوحة الأدمن (الرحلات ← الإعدادات)، ومتخزن مشفّر. ولو مش موجود هناك، بيتاخد من `GOOGLE_MAPS_SERVER_KEY`. فعّل Routes API وGeocoding API في Google Cloud، واقفل المفتاح على IP السيرفر. لو المفتاح خلص أو Google رفض، المسافة بتتحسب مجانًا بالخط المستقيم × معامل الطريق، والمدينة بتتحدد من قايمتنا. التطبيقات مبتاخدش المفتاح ده خالص (الخريطة على الموبايل ليها مفتاح Android لوحده، مقفول على اسم الحزمة).
+- **وصل:** حط `WASL_APP_ID`، و`WASL_APP_KEY`، و`WASL_CLIENT_ID` في `.env` (و`WASL_HOSTED_URL` لو مختلف عن `https://rabet-wasl.api.elm.sa/api`). من غيرهم مفيش حاجة بتتبعت، والسواقين بيفضلوا «في الانتظار». و`RIDES_REGULATOR_ENFORCED` لازم يفضل `true` على السيرفر الحقيقي. الـ cron لازم يكون شغال كل دقيقة (`rides:wasl-trips`، و`rides:wasl-locations`، و`rides:wasl-eligibility` الساعة 00:01). **اسم المدينة لازم يتطابق بالحرف**، فمحتاجين القايمة الرسمية من ELM. لحد ما توصل، «الرياض» بس متسجلة (`ride_regulator_cities`)، والرحلات في أي مدينة تانية بتستنى في اللوحة.
+- التفاصيل في [rides-plan.md](rides-plan.md).
+
+---
+
 ## إعدادات السيرفر (مش خدمات، بس من غيرها حاجات بتقف)
 
 | الإعداد | ليه | الأمر / القيمة |
@@ -207,6 +217,7 @@
 | توقيع النسخة النهائية (Keystore) | `androidApp/` + Play Console | **ناقص** — لازم قبل الرفع على Google Play |
 | موديل قص الملصقات (ML Kit) | من Google Play Services على الموبايل | بيتنزل لوحده أول ما التطبيق يتسطب (`com.google.mlkit.vision.DEPENDENCIES` في الـ manifest). موبايل من غير Play Services: القص مش هيشتغل، والدايرة والمربع شغالين |
 | بناء التطبيق لو الـ Kotlin daemon وقع | سطر الأوامر | `gradlew :app:compileDebugKotlin -Pkotlin.compiler.execution.strategy=in-process` |
+| تطبيق السواق | `driverApp/` (مشروع لوحده) | نفس الإعدادات: `driverApp/local.properties` (`sdk.dir`، و`dorr.apiHost`، و`dorr.apiScheme`). التأكد: `gradlew :app:compileDebugKotlin` من جوه `driverApp/` |
 | JDK | Android Studio | ماتحطش `org.gradle.java.home` في `gradle.properties` (مسار جهاز واحد بس). Gradle بياخد JDK بتاع Android Studio أو `JAVA_HOME` |
 
 ## ترتيب مقترح للتجهيز
