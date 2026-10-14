@@ -71,7 +71,6 @@
     <string name="cal_search_sub">الرسايل مش بيتدوّر فيها هنا.</string>
     <string name="cal_search_none">مفيش نتايج</string>
     <string name="cal_search_none_sub">جرّب كلمة تانية.</string>
-    <string name="cal_settings_intro">اختار إيه اللي يظهر في تقويمك، وإزاي يفكّرك، وشكل صفحة اليوم.</string>
     <string name="cal_menu_sources_sub">المواعيد والمناسبات والتواريخ الشخصية والمهام وتذكيرات الرسايل.</string>
     <string name="cal_menu_reminders">التذكيرات والهدوء</string>
     <string name="cal_menu_reminders_sub">التذكيرات الافتراضية وساعات الهدوء.</string>
@@ -100,15 +99,6 @@
     <string name="cal_discard_text">اللي كتبته مش هيتحفظ.</string>
     <string name="cal_discard_yes">تجاهل</string>
     <string name="cal_save_failed">مقدرناش نحفظ. جرّب تاني.</string>
-    <string name="cal_sec_type">النوع</string>
-    <string name="cal_cat_appointment">ميعاد</string>
-    <string name="cal_cat_meeting">اجتماع</string>
-    <string name="cal_cat_match">ماتش</string>
-    <string name="cal_cat_event">حدث</string>
-    <string name="cal_cat_trip">سفر</string>
-    <string name="cal_cat_study">دراسة أو امتحان</string>
-    <string name="cal_cat_health">صحة</string>
-    <string name="cal_cat_work">شغل</string>
     <string name="cal_rem_none">من غير تذكير</string>
     <string name="cal_rem_default_value">الافتراضي</string>
     <string name="cal_search_failed">تعذر البحث</string>
@@ -140,4 +130,11 @@
     <string name="cal_delete_failed">مقدرناش نمسح. جرّب تاني.</string>
     <string name="cal_delete_confirm">تمسح “%1$s”؟ مش هتقدر ترجعه.</string>
     <string name="cal_delete_yes">أيوه، امسح</string>
+    <string name="cal_src_events_sub">المواعيد اللي بتضيفها بنفسك أو من محادثة.</string>
+    <string name="cal_src_moments_sub">مناسبات وأعياد من لحظات دُرر.</string>
+    <string name="cal_src_personal_sub">أعياد ميلاد وتواريخ حفظتها.</string>
+    <string name="cal_src_tasks_sub">المهام اللي ليها موعد.</string>
+    <string name="cal_src_reminders_sub">تذكيرات حطيتها على رسايل.</string>
+    <string name="cal_src_discover_sub">فعاليات مهتم بيها.</string>
+    <string name="cal_src_sports_sub">مباريات الفرق اللي بتتابعها.</string>
 </resources>

@@ -127,6 +127,7 @@ internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit)
     val options = listOfNotNull(here, current, *others.keys.toTypedArray(), phoneCountry).distinct()
 
     LocaleAwareBottomSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+      WalletFont {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
             Text(stringResource(R.string.wa_wallet_pick_title), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Text(stringResource(R.string.wa_wallet_pick_sub), color = Wa.Mut, fontSize = 12.5.sp, lineHeight = 19.sp)
@@ -173,4 +174,5 @@ internal fun WalletPickerSheet(balance: WalletBalanceDto, onDismiss: () -> Unit)
             }
         }
     }
+      }
 }

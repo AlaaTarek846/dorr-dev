@@ -49,6 +49,7 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SportsSoccer
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material.icons.rounded.WbSunny
 import androidx.compose.material3.Icon
@@ -173,8 +174,8 @@ internal fun typeColor(item: CalItemDto): Color = when (item.type) {
     else -> Wa.Mut
 }
 
-/** The icon of one item: an appointment shows its kind (a match, a trip…), the rest their type. */
-internal fun itemIcon(item: CalItemDto): ImageVector = if (item.type == "event") categoryIcon(item.category) else typeIcon(item.type)
+/** The icon of one item: its type. */
+internal fun itemIcon(item: CalItemDto): ImageVector = typeIcon(item.type)
 
 internal fun typeIcon(type: String): ImageVector = when (type) {
     "task" -> Icons.Rounded.CheckCircle
@@ -215,6 +216,13 @@ internal fun sectionSourcesOn(section: String, sources: List<String>?): Boolean 
 /** Today's page, shared by the home card and the calendar (one load, kept fresh). */
 @Stable
 object CalendarStore {
+    /**
+     * Work that must outlive the page that started it: a setting changed just before going back is still saved, and the
+     * calendar reloads when it is — a page's own scope is cancelled with the page, and the change was lost or arrived after
+     * the calendar had already loaded.
+     */
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + kotlinx.coroutines.Dispatchers.Main)
+
     var today by mutableStateOf<CalTodayDto?>(null)
     var version by mutableStateOf(0)
         private set
@@ -371,6 +379,7 @@ fun CalendarScreen(onExit: () -> Unit, onOpenMoments: () -> Unit = {}) {
     BackHandler { if (page != CalPage.Main) page = CalPage.Main else onExit() }
     val sign = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
 
+    com.dorr.app.ui.theme.ProvideAppFont {
     Box(Modifier.fillMaxSize().background(Wa.Bg).systemBarsPadding().imePadding()) {
         AnimatedContent(
             targetState = page,
@@ -394,6 +403,7 @@ fun CalendarScreen(onExit: () -> Unit, onOpenMoments: () -> Unit = {}) {
                 is CalPage.Editor -> EventEditorScreen(existing = p.existing, day = p.day, onBack = { page = CalPage.Main })
             }
         }
+    }
     }
 }
 
@@ -421,7 +431,7 @@ private fun CalendarMain(
         onBack = onBack,
         actions = {
             WaCircleButton(Icons.Rounded.Search, onSearch, contentDescription = stringResource(R.string.cal_search))
-            WaCircleButton(Icons.Rounded.Tune, onSettings, contentDescription = stringResource(R.string.cal_settings))
+            WaCircleButton(Icons.Rounded.Settings, onSettings, contentDescription = stringResource(R.string.cal_settings))
         },
         cta = { WaButton(stringResource(R.string.cal_add), { onAdd(if (tab == CalTab.Today) LocalDate.now() else selected) }, icon = Icons.Rounded.Add) },
     ) {
@@ -489,7 +499,7 @@ private fun TodayTab(filter: String, onFilter: (String) -> Unit, onOpen: (CalIte
         .sortedWith(compareBy<CalItemDto>({ order.indexOf(sectionOf(it)) }, { !(it.allDay || it.startsAt == null) }, { it.startsAt.orEmpty() }))
 
     DayHeader(date, Modifier.waRise(0))
-    FilterChips(filter, onFilter)
+    FilterChips(filter, onFilter, honourHidden = true)
     Spacer(Modifier.height(10.dp))
     if (items.isEmpty()) {
         DayEmpty(filtered = filter != "all")
@@ -593,8 +603,6 @@ internal fun ItemRow(item: CalItemDto, modifier: Modifier = Modifier, onToggle: 
                     when (item.type) {
                         "task" -> stringResource(R.string.cal_kind_task)
                         "reminder" -> stringResource(R.string.cal_kind_reminder)
-                        // A plain appointment needs no label; a match, a trip… says what it is.
-                        "event" -> item.category?.takeIf { it != EventCategories.first() }?.let { stringResource(categoryLabel(it)) }
                         else -> null
                     },
                 )
@@ -642,10 +650,36 @@ private fun matchesFilter(item: CalItemDto, filter: String): Boolean = when (fil
     else -> item.type == filter
 }
 
+/**
+ * The chips follow Settings: a kind whose source is off has no chip, the order is the one set for Today, and (on Today)
+ * a hidden kind has none either. A chosen chip that goes away falls back to "All".
+ */
 @Composable
-private fun FilterChips(filter: String, onPick: (String) -> Unit) {
+private fun FilterChips(filter: String, onPick: (String) -> Unit, honourHidden: Boolean = false) {
+    val today = CalendarStore.today
+    val sources = today?.sources
+    val hidden = if (honourHidden) today?.sections?.hidden.orEmpty() else emptyList()
+    val saved = today?.sections?.order.orEmpty().filter { it in DefaultSections }
+    val order = saved + (DefaultSections - saved.toSet())
+    // chip key → (section it belongs to, sources that feed it)
+    fun on(key: String): Boolean {
+        val (section, needs) = when (key) {
+            "event" -> "events" to listOf("events")
+            "discover" -> "events" to listOf("discover")
+            "sports" -> "events" to listOf("sports")
+            "task" -> "tasks" to listOf("tasks")
+            "reminder" -> "reminders" to listOf("reminders")
+            "occasion" -> "moments" to listOf("moments", "personal")
+            else -> return true
+        }
+        return section !in hidden && (sources == null || needs.any { it in sources })
+    }
+    val sectionOfChip = mapOf("event" to "events", "discover" to "events", "sports" to "events", "task" to "tasks", "reminder" to "reminders", "occasion" to "moments")
+    val chips = Filters.filter { on(it.first) }
+        .sortedWith(compareBy({ if (it.first == "all") -1 else order.indexOf(sectionOfChip[it.first]) }, { Filters.indexOfFirst { f -> f.first == it.first } }))
+    if (filter != "all" && chips.none { it.first == filter }) LaunchedEffect(filter, chips.size) { onPick("all") }
     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        items(Filters, key = { it.first }) { (key, label) ->
+        items(chips, key = { it.first }) { (key, label) ->
             val on = filter == key
             Text(
                 stringResource(label), color = if (on) Color.White else Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,

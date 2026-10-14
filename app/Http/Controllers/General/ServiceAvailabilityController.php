@@ -9,6 +9,7 @@ use App\Models\ServiceAvailability;
 use App\Models\ServiceCategory;
 use App\Services\General\ServiceAvailabilityService;
 use App\Support\Admin\AdminPermissionMiddleware;
+use App\Support\Api\ApiPaginator;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,6 +23,9 @@ use Illuminate\Validation\Rule;
  */
 class ServiceAvailabilityController extends Controller implements HasMiddleware
 {
+    /** The page sizes the dashboard offers (the first is the default). */
+    private const PER_PAGE = [15, 25, 50];
+
     public function __construct(private readonly ServiceAvailabilityService $availability) {}
 
     /**
@@ -39,7 +43,15 @@ class ServiceAvailabilityController extends Controller implements HasMiddleware
     {
         [$country, $region] = $this->place($request);
 
-        return ApiResponse::success($this->availability->listFor($country, $region)->values(), __('api.retrieved'));
+        $data = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'per_page' => ['nullable', 'integer', Rule::in(self::PER_PAGE)],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $page = $this->availability->listFor($country, $region, $data['search'] ?? null, (int) ($data['per_page'] ?? self::PER_PAGE[0]), (int) ($data['page'] ?? 1));
+
+        return ApiResponse::success($page->items(), __('api.retrieved'), 200, ApiPaginator::meta($page));
     }
 
     public function update(Request $request): JsonResponse

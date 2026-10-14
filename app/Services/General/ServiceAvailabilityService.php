@@ -6,7 +6,7 @@ use App\Models\Country;
 use App\Models\Region;
 use App\Models\ServiceAvailability;
 use App\Models\ServiceCategory;
-use Illuminate\Support\Collection;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -49,26 +49,30 @@ class ServiceAvailabilityService
     }
 
     /**
-     * The services of a country with their switches, for the dashboard. With a region, each switch says whether the region
-     * sets it itself (`overridden`) or follows the country.
-     *
-     * @return Collection<int, array<string, mixed>>
+     * One page of the services of a country with their switches, for the dashboard — found by name in any language when
+     * `$search` is given. With a region, each switch says whether the region sets it itself (`overridden`) or follows
+     * the country.
      */
-    public function listFor(Country $country, ?Region $region = null): Collection
+    public function listFor(Country $country, ?Region $region = null, ?string $search = null, int $perPage = 15, int $page = 1): LengthAwarePaginator
     {
         $countryRows = ServiceAvailability::query()->where('country_id', $country->id)->whereNull('region_id')->get()->keyBy('service_category_id');
         $regionRows = $region
             ? ServiceAvailability::query()->where('country_id', $country->id)->where('region_id', $region->id)->get()->keyBy('service_category_id')
             : collect();
 
-        return $country->serviceCategories()
+        $term = trim((string) $search);
+
+        $page = $country->serviceCategories()
             ->where('service_categories.status', true)
             ->where(fn ($q) => $q->whereNull('module_name')->orWhereNotIn('module_name', ServiceCategory::ADMIN_ONLY_MODULES))
             ->whereDoesntHave('children')
+            // The name in any of its languages; "!" is the LIKE escape, so %, _ and ! typed are plain characters.
+            ->when($term !== '', fn ($q) => $q->whereHas('translations', fn ($t) => $t->whereRaw("name LIKE ? ESCAPE '!'", ['%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $term).'%'])))
             ->with(['translations', 'translation'])
             ->orderBy('sort_order')->orderBy('service_categories.id')
-            ->get()
-            ->map(fn (ServiceCategory $service) => $this->item($service, $countryRows->get($service->id), $regionRows->get($service->id), $region !== null));
+            ->paginate($perPage, ['service_categories.*'], 'page', $page);
+
+        return $page->through(fn (ServiceCategory $service) => $this->item($service, $countryRows->get($service->id), $regionRows->get($service->id), $region !== null));
     }
 
     /**

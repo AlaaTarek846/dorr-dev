@@ -212,6 +212,33 @@ class ServiceAvailabilityTest extends TestCase
         $this->set(['service_category_id' => $this->ride->id, 'customer_enabled' => false], $riyadh)->assertUnprocessable();
     }
 
+    public function test_the_list_is_searched_by_name_in_any_language_and_paged(): void
+    {
+        $this->admin(['service-availability.view']);
+        $this->ride->translations()->create(['locale' => 'en', 'name' => 'Ride hailing']);
+        $this->ride->translations()->create(['locale' => 'ar', 'name' => 'توصيل الركاب']);
+        $this->shop->translations()->create(['locale' => 'en', 'name' => 'Shopping']);
+
+        $list = fn (string $query) => $this->getJson("/api/admin/v1/service-availability?country_id={$this->egypt->id}&".$query)->assertOk();
+
+        $all = $list('');
+        $this->assertCount(2, $all->json('data'));
+        $this->assertSame(2, $all->json('pagination.total'));
+        $this->assertSame(15, $all->json('pagination.per_page'));
+
+        // The name in English or in Arabic, wherever it is in the word.
+        $this->assertSame([$this->ride->id], collect($list('search=hail')->json('data'))->pluck('id')->all());
+        $this->assertSame([$this->ride->id], collect($list('search='.urlencode('الركاب'))->json('data'))->pluck('id')->all());
+        $this->assertSame([], $list('search=zzz')->json('data'));
+        $this->assertSame(0, $list('search=zzz')->json('pagination.total'));
+        // % is a plain character, not a wildcard.
+        $this->assertSame([], $list('search='.urlencode('%'))->json('data'));
+
+        // Pages: the allowed sizes only; the second page carries the rest.
+        $this->getJson("/api/admin/v1/service-availability?country_id={$this->egypt->id}&per_page=7")->assertUnprocessable();
+        $this->assertCount(2, $list('per_page=25')->json('data'));
+    }
+
     public function test_the_dashboard_needs_the_permissions(): void
     {
         $this->admin(['countries.view']);

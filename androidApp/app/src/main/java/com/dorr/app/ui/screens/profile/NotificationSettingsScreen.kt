@@ -119,8 +119,9 @@ fun NotificationSettingsScreen(onBack: () -> Unit) {
     }
 }
 
+/** The settings toggle — also used by the wallet's fingerprint switch, so both look the same. */
 @Composable
-private fun RedToggle(on: Boolean, dark: Boolean, onClick: () -> Unit) {
+internal fun RedToggle(on: Boolean, dark: Boolean, onClick: () -> Unit) {
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
         Box(
             modifier = Modifier

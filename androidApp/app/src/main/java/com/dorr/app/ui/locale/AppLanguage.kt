@@ -212,7 +212,7 @@ fun LocaleAwareDialog(
             LocalConfiguration provides configuration,
             LocalLayoutDirection provides layoutDirection,
         ) {
-            content()
+            com.dorr.app.ui.theme.ProvideAppFont(content)
         }
     }
 }
@@ -260,7 +260,7 @@ fun LocaleAwareBottomSheet(
             LocalConfiguration provides configuration,
             LocalLayoutDirection provides layoutDirection,
         ) {
-            content()
+            com.dorr.app.ui.theme.ProvideAppFont { content() }
         }
     }
 }

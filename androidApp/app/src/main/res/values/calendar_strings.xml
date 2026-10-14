@@ -71,7 +71,6 @@
     <string name="cal_search_sub">Messages are never searched here.</string>
     <string name="cal_search_none">Nothing found</string>
     <string name="cal_search_none_sub">Try another word.</string>
-    <string name="cal_settings_intro">Choose what your calendar shows, how it reminds you, and how the Today page looks.</string>
     <string name="cal_menu_sources_sub">Appointments, occasions, personal dates, tasks and message reminders.</string>
     <string name="cal_menu_reminders">Reminders and quiet hours</string>
     <string name="cal_menu_reminders_sub">Default reminders and quiet hours.</string>
@@ -96,15 +95,6 @@
     <string name="cal_discard_text">What you entered will not be saved.</string>
     <string name="cal_discard_yes">Discard</string>
     <string name="cal_save_failed">Could not save. Try again.</string>
-    <string name="cal_sec_type">Type</string>
-    <string name="cal_cat_appointment">Appointment</string>
-    <string name="cal_cat_meeting">Meeting</string>
-    <string name="cal_cat_match">Match</string>
-    <string name="cal_cat_event">Event</string>
-    <string name="cal_cat_trip">Trip</string>
-    <string name="cal_cat_study">Study or exam</string>
-    <string name="cal_cat_health">Health</string>
-    <string name="cal_cat_work">Work</string>
     <string name="cal_rem_none">No reminder</string>
     <string name="cal_rem_default_value">Default</string>
     <string name="cal_search_failed">Could not search</string>
@@ -132,4 +122,11 @@
     <string name="cal_delete_failed">Could not delete. Try again.</string>
     <string name="cal_delete_confirm">Delete “%1$s”? This cannot be undone.</string>
     <string name="cal_delete_yes">Yes, delete</string>
+    <string name="cal_src_events_sub">Appointments you add yourself or from a chat.</string>
+    <string name="cal_src_moments_sub">Occasions and holidays from DORR Moments.</string>
+    <string name="cal_src_personal_sub">Birthdays and dates you saved.</string>
+    <string name="cal_src_tasks_sub">Tasks that have a due date.</string>
+    <string name="cal_src_reminders_sub">Reminders you set on messages.</string>
+    <string name="cal_src_discover_sub">Events you are interested in.</string>
+    <string name="cal_src_sports_sub">Matches of the teams you follow.</string>
 </resources>

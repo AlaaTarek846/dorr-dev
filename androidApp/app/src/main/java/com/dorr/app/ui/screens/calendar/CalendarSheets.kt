@@ -1,6 +1,18 @@
 package com.dorr.app.ui.screens.calendar
 
 import android.widget.Toast
+import com.dorr.app.ui.screens.profile.settingsSurface
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.RedToggle
+import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.AccountDark
+import androidx.compose.material.icons.rounded.SportsSoccer
+import androidx.compose.material.icons.rounded.Celebration
+import androidx.compose.material.icons.rounded.Cake
+import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.foundation.layout.ColumnScope
 import com.dorr.app.ui.screens.ConfirmDialog
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Warning
@@ -151,6 +163,7 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
     val color = typeColor(item)
 
     ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+      com.dorr.app.ui.theme.ProvideAppFont {
         Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
@@ -159,7 +172,7 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
                     Text(item.title, color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(if (item.type == "event") stringResource(categoryLabel(item.category)) else kindLabel(item.type), color = color, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    Text(kindLabel(item.type), color = color, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.height(14.dp))
@@ -197,6 +210,7 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
             }
         }
     }
+      }
 
     if (confirmDelete) {
         ConfirmDialog(
@@ -250,10 +264,16 @@ private fun InfoLine(icon: ImageVector, text: String) {
 // =============================================================================== settings (201, 202, 204, 207)
 
 // Every source the server knows (ChatCalendarPreference::SOURCES) — Discover events and Sports matches included.
+private class CalSource(val key: String, val icon: ImageVector, val title: Int, val help: Int)
+
 private val SourceLabels = listOf(
-    "events" to R.string.cal_src_events, "moments" to R.string.cal_src_moments, "personal" to R.string.cal_src_personal,
-    "tasks" to R.string.cal_src_tasks, "reminders" to R.string.cal_src_reminders,
-    "discover" to R.string.cal_src_discover, "sports" to R.string.cal_src_sports,
+    CalSource("events", Icons.Rounded.Event, R.string.cal_src_events, R.string.cal_src_events_sub),
+    CalSource("moments", Icons.Rounded.Celebration, R.string.cal_src_moments, R.string.cal_src_moments_sub),
+    CalSource("personal", Icons.Rounded.Cake, R.string.cal_src_personal, R.string.cal_src_personal_sub),
+    CalSource("tasks", Icons.Rounded.CheckCircle, R.string.cal_src_tasks, R.string.cal_src_tasks_sub),
+    CalSource("reminders", Icons.Rounded.Alarm, R.string.cal_src_reminders, R.string.cal_src_reminders_sub),
+    CalSource("discover", Icons.Rounded.Place, R.string.cal_src_discover, R.string.cal_src_discover_sub),
+    CalSource("sports", Icons.Rounded.SportsSoccer, R.string.cal_src_sports, R.string.cal_src_sports_sub),
 )
 
 private val SectionLabels = mapOf(
@@ -271,7 +291,6 @@ private enum class CalSub { Menu, Sources, Reminders, Today }
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun CalendarSettings(onBack: () -> Unit) {
-    val scope = rememberCoroutineScope()
     var prefs by remember { mutableStateOf<CalPrefsDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var sub by remember { mutableStateOf(CalSub.Menu) }
@@ -289,7 +308,7 @@ internal fun CalendarSettings(onBack: () -> Unit) {
         prefs = update(current)
         error = null
         val ticket = ++latest
-        scope.launch {
+        CalendarStore.scope.launch {
             saving.withLock {
                 runCatching { ApiClient.calendar.savePreferences(calAuth(), body).data }
                     .onSuccess { saved -> if (ticket == latest && saved != null) prefs = saved }
@@ -322,23 +341,6 @@ internal fun CalendarSettings(onBack: () -> Unit) {
 
         when (sub) {
             CalSub.Menu -> {
-                // A short strip: what this page is for.
-                Row(
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp, bottom = 6.dp)
-                        .waRise(0)
-                        .clip(RoundedCornerShape(22.dp))
-                        .background(Wa.Red.copy(alpha = 0.10f))
-                        .border(1.dp, Wa.Red.copy(alpha = 0.25f), RoundedCornerShape(22.dp))
-                        .padding(horizontal = 16.dp, vertical = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                ) {
-                    WaIconWell(Icons.Rounded.Settings, Tone.Red, size = 52.dp, iconSize = 26.dp)
-                    Text(stringResource(R.string.cal_settings_intro), color = Wa.Ink, fontSize = 13.5.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(10.dp))
                 CalSettingsRow(Icons.Rounded.CalendarMonth, R.string.cal_sources, R.string.cal_menu_sources_sub, 1) { sub = CalSub.Sources }
                 CalSettingsRow(Icons.Rounded.Alarm, R.string.cal_menu_reminders, R.string.cal_menu_reminders_sub, 2) { sub = CalSub.Reminders }
                 CalSettingsRow(Icons.Rounded.Schedule, R.string.cal_today_order, R.string.cal_menu_today_sub, 3) { sub = CalSub.Today }
@@ -346,10 +348,12 @@ internal fun CalendarSettings(onBack: () -> Unit) {
 
             CalSub.Sources -> {
                 Text(stringResource(R.string.cal_sources_sub), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(bottom = 6.dp))
-                WaCard(Modifier.fillMaxWidth().waRise(0), padding = 6.dp) {
-                    SourceLabels.forEach { (key, label) ->
-                        ToggleRow(stringResource(label), p.sources[key] != false) { on ->
-                            change({ it.copy(sources = it.sources + (key to on)) }, JsonObject().apply { add("sources", JsonObject().apply { addProperty(key, on) }) })
+                SettingsToggleCard(Modifier.waRise(0)) {
+                    SourceLabels.forEachIndexed { index, source ->
+                        SettingsToggleRow(
+                            source.icon, stringResource(source.title), stringResource(source.help), p.sources[source.key] != false, divider = index != SourceLabels.lastIndex,
+                        ) { on ->
+                            change({ it.copy(sources = it.sources + (source.key to on)) }, JsonObject().apply { add("sources", JsonObject().apply { addProperty(source.key, on) }) })
                         }
                     }
                 }
@@ -366,8 +370,8 @@ internal fun CalendarSettings(onBack: () -> Unit) {
                 }
 
                 Spacer(Modifier.height(14.dp))
-                WaCard(Modifier.fillMaxWidth().waRise(1), padding = 6.dp) {
-                    ToggleRow(stringResource(R.string.cal_respect_quiet), p.respectQuiet, stringResource(R.string.cal_respect_quiet_sub)) { on ->
+                SettingsToggleCard(Modifier.waRise(1)) {
+                    SettingsToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.cal_respect_quiet), stringResource(R.string.cal_respect_quiet_sub), p.respectQuiet, divider = false) { on ->
                         change({ it.copy(respectQuiet = on) }, JsonObject().apply { addProperty("respect_quiet", on) })
                     }
                 }
@@ -434,6 +438,31 @@ private fun SmallIcon(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) 
     }
 }
 
+/** A card of toggle rows — the notification settings' card. */
+@Composable
+private fun SettingsToggleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp),
+        content = content,
+    )
+}
+
+/** An icon, a title with one line of help, and the settings toggle; a thin line under it unless it is the last. */
+@Composable
+private fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, on: Boolean, divider: Boolean, onChange: (Boolean) -> Unit) {
+    val dark = settingsNight()
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+            help?.let { Text(it, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp)) }
+        }
+        RedToggle(on = on, dark = dark) { onChange(!on) }
+    }
+    if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
+}
+
 /** One entry of the settings menu: brand-tinted icon, title + one line of help, chevron (the wallet's security menu look). */
 @Composable
 private fun CalSettingsRow(icon: ImageVector, title: Int, subtitle: Int, index: Int, onClick: () -> Unit) {
@@ -470,7 +499,8 @@ internal fun ToggleRow(title: String, on: Boolean, sub: String? = null, onChange
             Text(title, color = Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold)
             sub?.let { Text(it, color = Wa.Mut, fontSize = 12.sp) }
         }
-        Switch(on, onChange, colors = SwitchDefaults.colors(checkedTrackColor = Wa.Red))
+        // The same toggle as Account → Settings → Notifications and the wallet.
+        com.dorr.app.ui.screens.profile.RedToggle(on = on, dark = com.dorr.app.ui.screens.profile.settingsNight()) { onChange(!on) }
     }
 }
 

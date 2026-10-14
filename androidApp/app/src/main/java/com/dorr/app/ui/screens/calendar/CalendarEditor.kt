@@ -29,16 +29,9 @@ import androidx.compose.material.icons.rounded.Alarm
 import androidx.compose.material.icons.rounded.CalendarMonth
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Celebration
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.Flight
-import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.MedicalServices
-import androidx.compose.material.icons.rounded.School
-import androidx.compose.material.icons.rounded.SportsSoccer
-import androidx.compose.material.icons.rounded.Work
 import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.Palette
@@ -105,31 +98,6 @@ import java.time.temporal.WeekFields
 
 private const val NOTE_MAX = 1000
 
-/** The kinds of appointment, in the order the form shows them (the first is the default; same as ChatCalendarItem::CATEGORIES). */
-internal val EventCategories = listOf("appointment", "meeting", "match", "event", "trip", "study", "health", "work")
-
-internal fun categoryIcon(category: String?): ImageVector = when (category) {
-    "meeting" -> Icons.Rounded.Groups
-    "match" -> Icons.Rounded.SportsSoccer
-    "event" -> Icons.Rounded.Celebration
-    "trip" -> Icons.Rounded.Flight
-    "study" -> Icons.Rounded.School
-    "health" -> Icons.Rounded.MedicalServices
-    "work" -> Icons.Rounded.Work
-    else -> Icons.Rounded.Event
-}
-
-internal fun categoryLabel(category: String?): Int = when (category) {
-    "meeting" -> R.string.cal_cat_meeting
-    "match" -> R.string.cal_cat_match
-    "event" -> R.string.cal_cat_event
-    "trip" -> R.string.cal_cat_trip
-    "study" -> R.string.cal_cat_study
-    "health" -> R.string.cal_cat_health
-    "work" -> R.string.cal_cat_work
-    else -> R.string.cal_cat_appointment
-}
-
 /**
  * A new appointment, or a change to one — a whole screen (not a sheet): a live summary of what it will look like, then
  * the details, when, the reminders and the colour, with the save button pinned at the bottom. Saved in this phone's
@@ -147,7 +115,6 @@ internal fun EventEditorScreen(existing: CalItemDto?, day: LocalDate, onBack: ()
     val initialEnd = localTime(existing?.endsAt)?.toLocalTime()
 
     var title by remember { mutableStateOf(existing?.title.orEmpty()) }
-    var category by remember { mutableStateOf(existing?.category ?: EventCategories.first()) }
     var allDay by remember { mutableStateOf(existing?.allDay ?: false) }
     var date by remember { mutableStateOf(initialDate) }
     var start by remember { mutableStateOf(initialStart) }
@@ -166,9 +133,9 @@ internal fun EventEditorScreen(existing: CalItemDto?, day: LocalDate, onBack: ()
     val dupe = stringResource(R.string.cal_duplicate)
 
     val dirty = if (existing == null) {
-        title.isNotBlank() || location.isNotBlank() || note.isNotBlank() || remindersTouched || allDay || category != EventCategories.first()
+        title.isNotBlank() || location.isNotBlank() || note.isNotBlank() || remindersTouched || allDay
     } else {
-        title != existing.title || category != (existing.category ?: EventCategories.first()) || allDay != existing.allDay || date != initialDate || (!allDay && (start != initialStart || end != initialEnd)) ||
+        title != existing.title || allDay != existing.allDay || date != initialDate || (!allDay && (start != initialStart || end != initialEnd)) ||
             location != existing.location.orEmpty() || note != existing.note.orEmpty() || color != existing.color ||
             reminders.sorted() != existing.reminders.orEmpty().sorted()
     }
@@ -185,7 +152,6 @@ internal fun EventEditorScreen(existing: CalItemDto?, day: LocalDate, onBack: ()
         busy = true
         val body = JsonObject().apply {
             addProperty("title", title.trim())
-            addProperty("category", category)
             addProperty("all_day", allDay)
             addProperty("timezone", zone.id)
             if (allDay) addProperty("date", date.toString())
@@ -224,9 +190,9 @@ internal fun EventEditorScreen(existing: CalItemDto?, day: LocalDate, onBack: ()
                 .background(Brush.linearGradient(listOf(accent, accent.copy(alpha = 0.72f)))).padding(18.dp),
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(categoryIcon(category), null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
+                Icon(Icons.Rounded.Event, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(16.dp))
                 Spacer(Modifier.width(6.dp))
-                Text(stringResource(categoryLabel(category)), color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Text(stringResource(R.string.cal_kind_event), color = Color.White.copy(alpha = 0.85f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
             Text(
                 title.ifBlank { stringResource(R.string.cal_summary_untitled) }, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold,
@@ -238,24 +204,6 @@ internal fun EventEditorScreen(existing: CalItemDto?, day: LocalDate, onBack: ()
                 listOf(dayTitle(date), if (allDay) stringResource(R.string.cal_all_day) else timeFormatter().format(start) + (end?.let { " – " + timeFormatter().format(it) } ?: "")).joinToString("  ·  "),
             )
             if (location.isNotBlank()) SummaryLine(Icons.Rounded.Place, location.trim())
-        }
-
-        // ---- what kind of appointment it is
-        WaSectionTitle(stringResource(R.string.cal_sec_type), Modifier.waRise(1), topPadding = 18.dp)
-        WaCard(Modifier.fillMaxWidth().waRise(1), padding = 6.dp) {
-            var open by remember { mutableStateOf(false) }
-            val categoryNames = EventCategories.associateWith { stringResource(categoryLabel(it)) }
-            SelectRow(categoryIcon(category), stringResource(R.string.cal_sec_type), categoryNames.getValue(category), open, { open = it }) {
-                EventCategories.forEach { c ->
-                    val on = c == category
-                    DropdownMenuItem(
-                        text = { Text(categoryNames.getValue(c), color = if (on) Wa.Red else Wa.Ink, fontWeight = if (on) FontWeight.ExtraBold else FontWeight.Medium) },
-                        leadingIcon = { Icon(categoryIcon(c), null, tint = if (on) Wa.Red else Wa.Mut, modifier = Modifier.size(20.dp)) },
-                        trailingIcon = { if (on) Icon(Icons.Rounded.Check, null, tint = Wa.Red, modifier = Modifier.size(18.dp)) },
-                        onClick = { category = c; open = false },
-                    )
-                }
-            }
         }
 
         // ---- details
