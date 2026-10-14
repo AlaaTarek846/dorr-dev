@@ -1,6 +1,7 @@
 <?php
 
 use Modules\Admin\Models\Admin;
+use Modules\Driver\Models\Driver;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 
@@ -56,6 +57,11 @@ return [
             'driver' => 'sanctum',
             'provider' => 'providers',
         ],
+        // The driver app (Modules/Driver) — its own account, not a Provider.
+        'driver_api' => [
+            'driver' => 'sanctum',
+            'provider' => 'drivers',
+        ],
     ],
 
     /*
@@ -87,6 +93,10 @@ return [
         'providers' => [
             'driver' => 'eloquent',
             'model' => Provider::class,
+        ],
+        'drivers' => [
+            'driver' => 'eloquent',
+            'model' => Driver::class,
         ],
 
         // 'users' => [

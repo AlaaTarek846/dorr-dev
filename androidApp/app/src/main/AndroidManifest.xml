@@ -23,6 +23,9 @@
     <!-- A voice room keeps going when I leave the app (VoiceRoomService). -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <!-- An incoming call opens its ringing page over other apps, like Messenger (asked for in the app). -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
@@ -47,6 +50,7 @@
             android:name=".MainActivity"
             android:exported="true"
             android:theme="@style/Theme.Dorr.Splash"
+            android:supportsPictureInPicture="true"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|navigation"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
@@ -70,6 +74,8 @@
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:taskAffinity="com.dorr.app.call"
+            android:supportsPictureInPicture="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize"
             android:theme="@style/Theme.Dorr" />
 
         <!-- "Decline" button on the call notification. -->
@@ -106,6 +112,12 @@
             android:exported="false"
             android:foregroundServiceType="location" />
 
+        <!-- The call I'm in, kept alive (and "minimised" as a notification) outside the call screen. -->
+        <service
+            android:name=".chat.CallService"
+            android:exported="false"
+            android:foregroundServiceType="microphone|camera|mediaPlayback" />
+
         <!-- The voice room I'm in, kept alive (and "minimised" as a notification) outside the app. -->
         <service
             android:name=".chat.VoiceRoomService"
@@ -121,6 +133,10 @@
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
             android:value="subject_segment" />
+        <!-- Passenger rides' map (key from dorr.mapsKey, see app/build.gradle.kts). -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
         <!-- Sharing a file the app made (an exported chat). -->
         <provider
             android:name="androidx.core.content.FileProvider"

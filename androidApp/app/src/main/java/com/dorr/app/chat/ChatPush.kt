@@ -39,6 +39,8 @@ sealed interface ChatDeepLink {
     data class ChatLink(val payload: String) : ChatDeepLink
     /** A group / channel invite (dorr://chat/join/{code}, from the /j/{code} web page). */
     data class Join(val token: String) : ChatDeepLink
+    /** A call link (WhatsApp list 72): who made it, then "Join". */
+    data class CallLink(val token: String) : ChatDeepLink
 }
 
 /**
@@ -136,6 +138,8 @@ object ChatPush {
                     _deepLink.value = when {
                         data.optString("type") == "chat_call" && data.optString("call_id").isNotBlank() ->
                             ChatDeepLink.Call(data.optString("call_id"), conversation)
+                        // Someone joined my call link: hop in.
+                        data.optString("event") == "chat.call_link.joined" && data.optString("token").isNotBlank() -> ChatDeepLink.CallLink(data.optString("token"))
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
                         conversation != null -> ChatDeepLink.Conversation(conversation)
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks

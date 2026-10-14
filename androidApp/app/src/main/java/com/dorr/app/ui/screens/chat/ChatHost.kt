@@ -43,6 +43,9 @@ sealed interface ChRoute {
     /** Messages I set aside to read later. */
     data object ReadLater : ChRoute
     data object Calls : ChRoute
+    /** Communities (WhatsApp list 93–98): mine, and one of them. */
+    data object Communities : ChRoute
+    data class Community(val id: String) : ChRoute
     /** Write a text story, or caption a picked photo / video (`media`). */
     data class StoryComposer(val media: String? = null) : ChRoute
     data object StoryPrivacy : ChRoute
@@ -388,6 +391,8 @@ class ChatHost(val scope: CoroutineScope, var onExit: () -> Unit, val openWallet
 
     /** An invite link was tapped (dorr://chat/join/TOKEN): the join sheet shows over the chat. */
     var joinToken by mutableStateOf<String?>(null)
+    /** A call link was opened (WhatsApp list 72): its sheet. */
+    var callLinkToken by mutableStateOf<String?>(null)
 
     /** The admins answered my request — a small celebratory (or gentle) card. */
     var joinDecided by mutableStateOf<JoinDecision?>(null)
@@ -443,6 +448,10 @@ internal fun inviteTokenOf(text: String): String? {
     Regex("""(?:dorr://chat/join/|https?://[^\s/]+/j/)([A-Za-z0-9]{8,64})""").find(t)?.let { return it.groupValues[1] }
     return t.takeIf { Regex("[A-Za-z0-9]{8,64}").matches(it) }
 }
+
+/** The code in a call link: https://…/call/CODE or dorr://chat/call/CODE. Null when it's not one. */
+internal fun callLinkTokenOf(text: String): String? =
+    Regex("""(?:dorr://chat/call/|https?://[^\s/]+/call/)([A-Za-z0-9]{8,64})""").find(text.trim())?.groupValues?.get(1)
 
 internal fun JsonObject.str(name: String): String? = get(name)?.takeIf { !it.isJsonNull }?.let { runCatching { it.asString }.getOrNull() }
 

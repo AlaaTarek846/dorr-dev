@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.dorr.app.ui.locale.LocalizedApp
 import com.dorr.app.ui.screens.chat.CallOverlay
+import com.dorr.app.ui.screens.chat.CallPipView
 import com.dorr.app.ui.theme.DorrTheme
 import kotlinx.coroutines.delay
 
@@ -38,6 +39,8 @@ class IncomingCallActivity : ComponentActivity() {
         }
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
+        addOnPictureInPictureModeChangedListener { CallController.inPip = it.isInPictureInPictureMode }
+
         // Opened from a notification: the app's live connection may not be running yet.
         ChatRealtime.start()
         handle(intent)
@@ -55,10 +58,30 @@ class IncomingCallActivity : ComponentActivity() {
                         delay(8000)
                         if (!seen) finish()
                     }
-                    Box(Modifier.fillMaxSize().background(Color.Black)) { CallOverlay() }
+                    // Back / ⌄ minimises: into the app (the call goes on, small) — or, over the lock
+                    // screen, out of the way until the phone is unlocked.
+                    val minimized = CallController.minimized
+                    LaunchedEffect(minimized) {
+                        if (!minimized) return@LaunchedEffect
+                        val locked = (getSystemService(KEYGUARD_SERVICE) as android.app.KeyguardManager).isKeyguardLocked
+                        if (locked) {
+                            CallController.minimized = false
+                            moveTaskToBack(true)
+                        } else {
+                            startActivity(Intent(this@IncomingCallActivity, com.dorr.app.MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+                            finish()
+                        }
+                    }
+                    Box(Modifier.fillMaxSize().background(Color.Black)) { if (CallController.inPip) CallPipView() else CallOverlay() }
                 }
             }
         }
+    }
+
+    /** Home mid-call: the call in a small window over other apps. */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (CallController.phase == CallPhase.Active) CallPip.enter(this)
     }
 
     override fun onNewIntent(intent: Intent) {

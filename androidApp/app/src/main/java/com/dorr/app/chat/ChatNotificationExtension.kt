@@ -21,7 +21,12 @@ class ChatNotificationExtension : INotificationServiceExtension {
             event.preventDefault()
             return
         }
-        val data = event.notification.additionalData ?: return
+        val data = event.notification.additionalData
+        // No data (a broadcast from the dashboard): an ordinary notification — that still pops down.
+        if (data == null) {
+            event.notification.setExtender { PushChannels.popDown(event.context, it, chat = false) }
+            return
+        }
         // A message sent "without sound": shown as usual, but no sound and no vibration.
         // Nothing shown / privacy mode: folded into one "N new messages" that names nobody.
         // P4 (a circle that shows nothing): no notification at all — the app's counter updates on its own.
@@ -35,7 +40,7 @@ class ChatNotificationExtension : INotificationServiceExtension {
             return
         }
         if (data.optString("type") == "chat" && data.optString("silent") == "1") {
-            event.notification.setExtender { builder -> builder.setSilent(true) }
+            event.notification.setExtender { builder -> PushChannels.popDown(event.context, builder, chat = true).setSilent(true) }
             return
         }
         // This chat has its own tone (or "none") picked on this phone; and local intelligence
@@ -44,19 +49,22 @@ class ChatNotificationExtension : INotificationServiceExtension {
             val conversationId = data.optString("conversation_uuid")
             val tone = conversationId.isNotBlank() && ChatTones.get(event.context, conversationId) != null
             val local = LocalIntelligence.enabled(event.context)
-            if (tone || local) {
-                val title = event.notification.title
-                val body = event.notification.body
-                event.notification.setExtender { builder ->
-                    builder.also {
-                        if (tone) ChatTones.apply(event.context, conversationId, it)
-                        if (local) LocalIntelligence.apply(event.context, it, title, body)
-                    }
+            val title = event.notification.title
+            val body = event.notification.body
+            event.notification.setExtender { builder ->
+                // Pops down from the top like WhatsApp; a chat's own tone keeps its own channel.
+                PushChannels.popDown(event.context, builder, chat = true).also {
+                    if (tone) ChatTones.apply(event.context, conversationId, it)
+                    if (local) LocalIntelligence.apply(event.context, it, title, body)
                 }
             }
             return
         }
-        if (data.optString("type") != "chat_call") return
+        if (data.optString("type") != "chat_call") {
+            // Everything else (Discover, Sports, wallet…): pops down too.
+            event.notification.setExtender { PushChannels.popDown(event.context, it, chat = false) }
+            return
+        }
 
         val callId = data.optString("call_id")
         when (data.optString("event")) {
@@ -77,5 +85,36 @@ class ChatNotificationExtension : INotificationServiceExtension {
                 CallController.onRemoteEnded(callId)
             }
         }
+    }
+}
+
+/**
+ * Where a push shows. OneSignal's own "Miscellaneous" channel only lands in the shade — the
+ * banner that drops down over the screen (heads-up) needs a channel of high importance, so
+ * every push goes through one of ours: Messages (chats) or Notifications (the rest). Both stay
+ * in the phone's settings for the user to tune.
+ */
+object PushChannels {
+    private const val MESSAGES = "dorr_messages"
+    private const val GENERAL = "dorr_notifications"
+
+    fun popDown(context: android.content.Context, builder: androidx.core.app.NotificationCompat.Builder, chat: Boolean): androidx.core.app.NotificationCompat.Builder {
+        val id = if (chat) MESSAGES else GENERAL
+        val manager = context.getSystemService(android.app.NotificationManager::class.java)
+        if (manager != null && manager.getNotificationChannel(id) == null) {
+            val name = context.getString(if (chat) com.dorr.app.R.string.push_channel_messages else com.dorr.app.R.string.push_channel_general)
+            manager.createNotificationChannel(
+                android.app.NotificationChannel(id, name, android.app.NotificationManager.IMPORTANCE_HIGH).apply {
+                    enableVibration(true)
+                    lockscreenVisibility = android.app.Notification.VISIBILITY_PRIVATE
+                },
+            )
+        }
+        return builder
+            .setChannelId(id)
+            .setPriority(androidx.core.app.NotificationCompat.PRIORITY_HIGH)
+            .setCategory(if (chat) androidx.core.app.NotificationCompat.CATEGORY_MESSAGE else androidx.core.app.NotificationCompat.CATEGORY_SOCIAL)
+            .setSmallIcon(com.dorr.app.R.drawable.ic_stat_onesignal_default)
+            .setColor(0xFF001B53.toInt())
     }
 }

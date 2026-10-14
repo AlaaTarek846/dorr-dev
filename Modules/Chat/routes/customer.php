@@ -90,6 +90,7 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     // ------------------------------------------------------------ polls, view once, live location, link cards
     Route::put('messages/{message}/vote', [MessageExtrasController::class, 'vote'])->middleware('throttle:60,1,chat-vote');
     Route::get('messages/{message}/votes', [MessageExtrasController::class, 'votes']);
+    Route::post('messages/{message}/choose', [MessageExtrasController::class, 'choose'])->middleware('throttle:60,1,chat-vote');
     Route::post('messages/{message}/open', [MessageExtrasController::class, 'open']);
     Route::put('messages/{message}/live-location', [MessageExtrasController::class, 'moveLive'])->middleware('throttle:40,1,chat-live');
     Route::post('messages/{message}/live-location/stop', [MessageExtrasController::class, 'stopLive']);
@@ -119,6 +120,19 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::post('invites/{token}/join', [GroupController::class, 'join']);
     Route::post('invites/{token}/cancel', [GroupController::class, 'cancelJoin']);
     Route::get('groups/{conversation}/join-requests', [GroupController::class, 'joinRequests']);
+    // Communities (WhatsApp list 93–98).
+    Route::get('communities', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'index']);
+    Route::post('communities', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'store'])->middleware('throttle:10,1,chat-communities');
+    Route::get('communities/{community}', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'show']);
+    Route::post('communities/{community}', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'update']); // POST: multipart photo
+    Route::post('communities/{community}/groups', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'addGroups']);
+    Route::delete('communities/{community}/groups/{conversation}', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'removeGroup']);
+    Route::post('communities/{community}/groups/{conversation}/join', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'joinGroup']);
+    Route::get('communities/{community}/members', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'members']);
+    Route::delete('communities/{community}/members/{participant}', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'removeMember'])->whereNumber('participant');
+    Route::patch('communities/{community}/members/{participant}/role', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'role'])->whereNumber('participant');
+    Route::post('communities/{community}/leave', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'leave']);
+    Route::delete('communities/{community}', [\Modules\Chat\Http\Controllers\General\CommunityController::class, 'destroy']);
     Route::post('groups/{conversation}/join-requests/{joinRequest}/approve', [GroupController::class, 'approveJoin']);
     Route::post('groups/{conversation}/join-requests/{joinRequest}/reject', [GroupController::class, 'rejectJoin']);
 
@@ -367,6 +381,12 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
     Route::get('calls', [CallController::class, 'index']);
     Route::post('conversations/{conversation}/calls', [CallController::class, 'store'])->middleware('throttle:20,1,chat-calls');
     Route::get('calls/{call}', [CallController::class, 'show']);
+    // Call links (WhatsApp list 72): a link anyone can open to join one call room.
+    Route::get('call-links', [\Modules\Chat\Http\Controllers\General\CallLinkController::class, 'index']);
+    Route::post('call-links', [\Modules\Chat\Http\Controllers\General\CallLinkController::class, 'store'])->middleware('throttle:20,1,chat-call-links');
+    Route::get('call-links/{token}', [\Modules\Chat\Http\Controllers\General\CallLinkController::class, 'show'])->where('token', '[A-Za-z0-9]{8,64}');
+    Route::post('call-links/{token}/join', [\Modules\Chat\Http\Controllers\General\CallLinkController::class, 'join'])->where('token', '[A-Za-z0-9]{8,64}')->middleware('throttle:30,1,chat-call-links-join');
+    Route::delete('call-links/{token}', [\Modules\Chat\Http\Controllers\General\CallLinkController::class, 'destroy'])->where('token', '[A-Za-z0-9]{8,64}');
     // Standing voice rooms (spec 91).
     Route::get('conversations/{conversation}/voice-room', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'show']);
     Route::post('conversations/{conversation}/voice-room/join', [\Modules\Chat\Http\Controllers\General\VoiceRoomController::class, 'join'])->middleware('throttle:30,1,chat-voice');

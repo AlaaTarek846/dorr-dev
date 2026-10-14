@@ -9,18 +9,23 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -68,8 +73,17 @@ fun MomentEffect(animation: String?, emoji: String?, primary: String?, secondary
         else -> Motion.Fall
     }
     val colors = listOf(momentColor(primary, Color(0xFF001B53)), momentColor(secondary, Color(0xFFFA7552)), Color.White, Color(0xFFFBBF24))
-    BoxWithConstraints(modifier) {
-        repeat(count) { i -> Particle(i, glyph, motion, colors[i % colors.size], maxWidth, maxHeight) }
+    // Its size is read once it's laid out — not with BoxWithConstraints: a chat bubble asks its
+    // content how big it wants to be first, which a BoxWithConstraints can't answer. Inside a
+    // greeting card that crashed the app every time the chat opened.
+    var size by remember { mutableStateOf(IntSize.Zero) }
+    val density = LocalDensity.current
+    Box(modifier.onSizeChanged { size = it }) {
+        if (size.width > 0 && size.height > 0) {
+            val w = with(density) { size.width.toDp() }
+            val h = with(density) { size.height.toDp() }
+            repeat(count) { i -> Particle(i, glyph, motion, colors[i % colors.size], w, h) }
+        }
     }
 }
 

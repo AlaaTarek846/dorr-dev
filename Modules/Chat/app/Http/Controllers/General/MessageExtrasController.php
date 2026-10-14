@@ -32,6 +32,15 @@ class MessageExtrasController extends Controller
         return ApiResponse::success($this->messages->presentOne($me, $this->extras->vote($me, $message, $data['options'])), __('api.updated'));
     }
 
+    /** `{option_id}` — tap a button / pick from a list (WhatsApp list 123–125): returns my answer message. */
+    public function choose(Request $request, ChatMessage $message)
+    {
+        $data = $request->validate(['option_id' => ['required', 'integer', 'min:1']]);
+        $me = $request->user();
+
+        return ApiResponse::created($this->messages->presentOne($me, $this->extras->choose($me, $message, (int) $data['option_id'])), __('api.created'));
+    }
+
     public function votes(Request $request, ChatMessage $message)
     {
         return ApiResponse::success($this->extras->voters($request->user(), $message), __('api.retrieved'));

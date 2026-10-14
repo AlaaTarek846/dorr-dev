@@ -209,6 +209,9 @@ class MessageService
         if ($type === MessageType::Poll && $body === null) {
             throw new ChatException('poll_invalid', 422);
         }
+        if ($type === MessageType::Interactive && $body === null) {
+            throw new ChatException('interactive_invalid', 422);
+        }
 
         $viewOnce = ! empty($data['view_once']);
         if ($viewOnce && ! $type->canViewOnce()) {
@@ -1134,6 +1137,7 @@ class MessageService
                 default => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
             },
             MessageType::Poll => MessageExtrasService::pollMeta((array) ($data['poll_options'] ?? []), (bool) ($data['poll_multiple'] ?? false)),
+            MessageType::Interactive => MessageExtrasService::interactiveMeta($data),
             MessageType::Contact => [
                 'name' => (string) $data['contact_name'],
                 'phones' => array_values((array) $data['contact_phones']),

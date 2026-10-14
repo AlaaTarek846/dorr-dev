@@ -211,8 +211,14 @@ fun CallsPage() {
         val items = list
         when {
             items == null -> Box(Modifier.fillMaxSize()) { com.dorr.app.ui.screens.wallet.WaSkeleton(Modifier.fillMaxWidth().padding(16.dp).height(200.dp)) }
-            items.isEmpty() -> ChEmptyState(Icons.Rounded.Call, stringResource(R.string.ch_calls_title), stringResource(R.string.ch_no_calls), animated = true)
             else -> LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                // Calls over other apps and the lock screen, while it isn't allowed yet.
+                item(key = "call-permissions") { CallPermissionCard() }
+                // Call links (WhatsApp list 72): make one, and the ones I have.
+                item(key = "call-links") { CallLinksCard() }
+                if (items.isEmpty()) item(key = "empty") {
+                    Box(Modifier.fillMaxWidth().height(360.dp)) { ChEmptyState(Icons.Rounded.Call, stringResource(R.string.ch_calls_title), stringResource(R.string.ch_no_calls), animated = true) }
+                }
                 itemsIndexed(items, key = { _, c -> c.id }) { i, call ->
                     val other = if (call.conversationType == "group") null else call.participants.firstOrNull { it.profile?.isMe != true }?.profile
                     val title = call.groupName ?: other?.name.orEmpty()

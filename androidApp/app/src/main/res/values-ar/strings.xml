@@ -1339,4 +1339,6 @@
     <string name="ch_join_code_sub">دعوة لجروب أو قناة: اكتب الكود أو الصق اللينك</string>
     <string name="ch_join_code_go">انضم</string>
     <string name="ch_join_code_bad">ده مش كود أو لينك دعوة</string>
+    <string name="push_channel_messages">الرسايل</string>
+    <string name="push_channel_general">الإشعارات</string>
 </resources>

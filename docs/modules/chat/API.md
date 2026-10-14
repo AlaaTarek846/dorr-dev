@@ -631,6 +631,99 @@ Numbers are the WhatsApp list in the spec's backlog. Test: `ChatBacklogTest` (8)
   - If it still can't fit, it isn't sent and the user sees a message.
 - Video isn't sent to the server at a bigger size. The server's own limit is `max_file_size_mb`.
 
+## WhatsApp backlog, second batch (2026-10-12)
+
+**Status stickers, GIFs, text and drawing (79, 80)**
+
+- `POST stories` accepts `style[layers]`, a JSON string up to 120 KB, on any type.
+  - Photo and video stories also take `style[aspect]`: the picture's width ÷ height, between 0.2 and 5.
+  - The layers sit in that frame, or on the whole screen for a text status.
+- `Modules\Chat\Support\StoryLayers::clean()` keeps at most 40 layers and 6000 pen points.
+- All positions are fractions from 0 to 1. Each layer has a kind `k`:
+
+  | `k` | Kind | Fields |
+  |---|---|---|
+  | `t` | Text | `x, y, s` (size), `r` (degrees), `text` (≤ 200), `c` (`#RRGGBB`), `f` (a status font), `bg` (0 or 1, coloured pill) |
+  | `s` | Sticker or GIF | `x, y, s, r`, `url`, `a` (width ÷ height) |
+  | `d` | Pen line | `c`, `w` (stroke as a fraction of the width), `p` (`[x, y, x, y, …]`) |
+
+- `url` must be http(s) or one of our own `/…` paths. Anything else is dropped.
+- A story's `style` comes back with `aspect` and `layers`. GIFs keep moving for the viewer.
+- Test: `ChatStoryTest::test_stickers_text_and_drawing_ride_on_top_of_a_photo_status`.
+
+**Call links (72)**
+
+Calling a link joins one LiveKit room (`link-{token}`). Nobody is rung and no chat is needed. The usual call rules still apply: calls must be on in my country, and a person blocked by either side can't join.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `call-links` | My links that still work |
+| POST | `call-links` | `{type: audio\|video}`. At most 20 at a time (`chat_call_link_limit`). Each lasts 30 days |
+| GET | `call-links/{token}` | `{token, type, link, payload, owner, is_mine, expires_at, last_joined_at}` |
+| POST | `call-links/{token}/join` | `{link, join: {url, room, token}}` |
+| DELETE | `call-links/{token}` | Owner only |
+
+- `link` is `https://…/call/{token}`: a web page that opens `dorr://chat/call/{token}` in the app.
+  - `/c/` was already taken by "click to chat".
+- An invalid, expired or cancelled link returns `chat_call_link_invalid` (404).
+- When someone else joins, the owner gets a push: `event: chat.call_link.joined`, with `token`. It goes out once per person per 10 minutes.
+- Table: `chat_call_links` (migration `2026_10_20_100000`).
+- Test: `ChatCallLinkTest` (2).
+
+**Screen sharing (71)** works on the phone only, with no server changes:
+- The phone asks the system for permission, then calls LiveKit `setScreenShareEnabled(true, intent)`. The LiveKit SDK runs the screen-capture foreground service itself.
+- Viewers see the shared screen in place of the camera, scaled to fit with no cropping.
+
+**Reply buttons and lists (123–125)**
+
+- `type=interactive` works through the normal send endpoint. `body` is the text, plus these fields:
+
+  | Field | Meaning |
+  |---|---|
+  | `interactive_kind` | `buttons` or `list` |
+  | `interactive_options[]` | Up to 3 buttons (≤ 20 characters each), or up to 10 list choices (≤ 24 characters each) |
+  | `interactive_descriptions[]` | For a list only: one line under each choice (≤ 72 characters) |
+  | `interactive_button` | For a list only: the label of the button that opens it |
+  | `interactive_footer` | Optional (≤ 60 characters) |
+
+- The message gains `interactive: {kind, options: [{id, title, description?}], button, footer, my_choice, answers}`.
+- `POST messages/{id}/choose {option_id}` keeps my choice in `chat_poll_votes`. It returns my answer:
+  - The answer is a text message that replies to the interactive one, with `meta.choice = {message_id, option_id}`.
+  - Errors: `chat_interactive_own` when answering my own message, and `chat_interactive_invalid` for a bad option.
+- `GET messages/{id}/votes` shows the sender who picked what.
+- Test: `ChatExtrasTest::test_reply_buttons_and_lists_answer_in_the_chat`.
+
+**Communities (93–98)**
+
+Table `chat_communities`, plus `chat_groups.community_id` (migration `2026_10_20_100100`).
+
+How it fits together:
+- Each community has an announcements group, created with the community. Only admins post there and nobody is added to it by hand.
+- **Members:** the community's members are that group's members. Anyone who comes into one of its groups is added to it, through the hook in `ConversationService::addParticipant`.
+- **Admins:** that group's admins are the community's admins, up to 20 (`chat_community_admins_full`).
+- **Creator:** the creator is that group's owner.
+  - Nobody can remove or demote them.
+  - They can't leave or hand it over, and the announcements group can't be deleted on its own (`chat_community_creator_stays` / `chat_community_delete_instead`).
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `communities` | Mine |
+| POST | `communities` | `{name, description?, groups?: [ids of groups I run, not in a community], avatar?}`. A group already in a community returns `chat_community_group_taken` |
+| GET | `communities/{id}` | See the fields below |
+| POST | `communities/{id}` | `{name?, description?, avatar?}`. Admins only |
+| POST | `communities/{id}/groups` | `{groups: [...]}` links existing groups. `{name}` makes a new one. Up to 50 groups |
+| DELETE | `communities/{id}/groups/{conversation}` | Unlinks a group. It goes on as a plain group |
+| POST | `communities/{id}/groups/{conversation}/join` | `{status: joined\|pending}`. "Pending" when that group approves new members |
+| GET | `communities/{id}/members` | The announcements group's members |
+| DELETE | `communities/{id}/members/{participant}` | Out of the community and every group in it, except groups they own |
+| PATCH | `communities/{id}/members/{participant}/role` | `{role: admin\|member}` |
+| POST | `communities/{id}/leave` | Leaves the community and all its groups |
+| DELETE | `communities/{id}` | Creator only. Groups are unlinked and the announcements group is deleted |
+
+- `GET communities/{id}` returns `{id, name, description, avatar, announcement_id, members_count, groups_count, my_role, is_admin, is_creator, admins_count, max_admins, max_groups, groups: [{id, name, avatar, members_count, is_member, approve_joins, request_pending}]}`.
+- A group's conversation JSON has `group.community: {id, name, is_announcement}`.
+- Test: `ChatCommunityTest` (3).
+
 ## Admin
 
 | Method | Path | Permission |
