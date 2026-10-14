@@ -40,7 +40,7 @@ import kotlinx.coroutines.launch
 enum class CallPhase { Incoming, Outgoing, Connecting, Active, Ended }
 
 /** Someone's video in the call (their camera track), keyed by their participant key ("user:7"). */
-data class CallVideo(val key: String, val track: VideoTrack, val isLocal: Boolean)
+data class CallVideo(val key: String, val track: VideoTrack, val isLocal: Boolean, val screen: Boolean = false)
 
 /** Someone in the call as the group grid shows them: their camera when it's on, else their photo. */
 data class CallMember(
@@ -122,7 +122,18 @@ object CallController {
         if (changed && next == CallPhase.Active) ChatUsage.callStarted(ringingIn)
         if (changed && next == CallPhase.Ended) ChatUsage.callEnded()
         if (changed) watch(next)
+        // A new call opens full screen; a finished one leaves nothing minimised behind.
+        if (next == null || next == CallPhase.Incoming || (changed && next == CallPhase.Outgoing)) minimized = false
         val ctx = appContext ?: return
+        // The call's own notification + foreground service, for as long as it runs (Messenger-style).
+        when (next) {
+            CallPhase.Outgoing, CallPhase.Connecting, CallPhase.Active -> {
+                CallService.update(ctx)
+                // The timer starts just after "Active": refresh once it has.
+                if (changed && next == CallPhase.Active) scope.launch { delay(400); CallService.update(ctx) }
+            }
+            else -> CallService.stop(ctx)
+        }
         when (next) {
             CallPhase.Incoming -> if (ChatRealtime.inForeground) Ringer.startIncoming(ctx)
             CallPhase.Outgoing -> Ringer.startRingback()
@@ -148,6 +159,14 @@ object CallController {
     var cameraOn by mutableStateOf(false)
         private set
     var speakerOn by mutableStateOf(false)
+    /** The call screen shrunk to a small window I can drag (back button / ⌄) while I use the app. */
+    var minimized by mutableStateOf(false)
+    /** The app is a small window over other apps (picture in picture) — only the call is drawn. */
+    var inPip by mutableStateOf(false)
+    /** My screen is going out to the call (WhatsApp list 71). */
+    var sharingScreen by mutableStateOf(false)
+    /** Joined from a call link (WhatsApp list 72): no ringing, no call row — just the room. */
+    var linkToken by mutableStateOf<String?>(null)
         private set
     var connectedAt by mutableStateOf<Long?>(null)
         private set
@@ -186,6 +205,26 @@ object CallController {
         error = null
         updatePhase(CallPhase.Outgoing)
         scope.launch { startSession(conversationId, video, recordingConsent = false) }
+    }
+
+    /**
+     * Into the room behind a call link (WhatsApp list 72): nobody rings, I'm in as soon as it
+     * connects, and it stays open while I wait for others.
+     */
+    fun joinLink(token: String, join: com.dorr.app.network.JoinDto, video: Boolean, title: String, avatar: String?) {
+        if (phase != null && phase != CallPhase.Ended) return
+        call = null
+        linkToken = token
+        this.title = title
+        this.avatar = avatar
+        peerKey = null
+        isVideo = video
+        cameraOn = video
+        speakerOn = true
+        micOn = true
+        error = null
+        updatePhase(CallPhase.Connecting)
+        scope.launch { connect(join) }
     }
 
     private suspend fun startSession(conversationId: String, video: Boolean, recordingConsent: Boolean) {
@@ -369,6 +408,7 @@ object CallController {
 
     fun toggleMic() {
         micOn = !micOn
+        appContext?.let { CallService.update(it) }
         scope.launch {
             applyMic()
             refreshVideos()
@@ -397,6 +437,29 @@ object CallController {
     fun toggleSpeaker() {
         speakerOn = !speakerOn
         applySpeaker()
+    }
+
+    /**
+     * Share my screen (the system asked first; `permission` is its answer). LiveKit runs its own
+     * "screen capture" foreground service for as long as it lasts.
+     */
+    fun startScreenShare(permission: android.content.Intent) {
+        val me = room?.localParticipant ?: return
+        scope.launch {
+            sharingScreen = runCatching { me.setScreenShareEnabled(true, permission); true }
+                .onFailure { Log.w(TAG, "Screen share failed", it) }.getOrDefault(false)
+            if (!sharingScreen) appContext?.let { android.widget.Toast.makeText(it, it.getString(com.dorr.app.R.string.ch_call_share_failed), android.widget.Toast.LENGTH_SHORT).show() }
+            refreshVideos()
+        }
+    }
+
+    fun stopScreenShare() {
+        val me = room?.localParticipant ?: return
+        scope.launch {
+            runCatching { me.setScreenShareEnabled(false) }
+            sharingScreen = false
+            refreshVideos()
+        }
     }
 
     /** The account signed out on this phone: whatever call there is ends with it. */
@@ -531,7 +594,10 @@ object CallController {
         val r = room ?: return
         val list = mutableListOf<CallVideo>()
         r.remoteParticipants.values.forEach { p ->
-            (p.getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack)?.let { t ->
+            // A shared screen comes first: that's what they want everyone to see.
+            val screen = p.getTrackPublication(Track.Source.SCREEN_SHARE)?.takeIf { it.muted != true }?.track as? VideoTrack
+            if (screen != null) list += CallVideo(keyOf(p), screen, false, screen = true)
+            else (p.getTrackPublication(Track.Source.CAMERA)?.track as? VideoTrack)?.let { t ->
                 if (p.getTrackPublication(Track.Source.CAMERA)?.muted != true) list += CallVideo(keyOf(p), t, false)
             }
         }
@@ -646,7 +712,7 @@ object CallController {
     private fun watchAlone() {
         aloneJob?.cancel()
         val r = room ?: return
-        if (phase != CallPhase.Active || call?.conversationType == "group" || r.remoteParticipants.isNotEmpty()) return
+        if (phase != CallPhase.Active || linkToken != null || call?.conversationType == "group" || r.remoteParticipants.isNotEmpty()) return
         aloneJob = scope.launch {
             delay(ALONE_TIMEOUT_MS)
             if (phase == CallPhase.Active && room === r && r.remoteParticipants.isEmpty()) hangUp()
@@ -662,6 +728,8 @@ object CallController {
         runCatching { room?.release() }
         room = null
         effectTrack = null
+        sharingScreen = false
+        linkToken = null
         live = null
         recording = null
         recordingAvailable = false

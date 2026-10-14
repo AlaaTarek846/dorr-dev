@@ -6,10 +6,12 @@ use App\Models\Country;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Modules\Wallet\Contracts\ReservesFunds;
 use Modules\Wallet\Exceptions\CheckoutException;
 use Modules\Wallet\Models\Checkout;
 use Modules\Wallet\Models\WalletCoupon;
 use Modules\Wallet\Support\OwnerType;
+use Modules\Wallet\Support\Payments\CheckoutPurposes;
 
 /**
  * Coupons on the one payment screen: issued (a prize, or by the admin), put on a checkout (the
@@ -131,7 +133,11 @@ class CouponService
         if ($coupon->status === 'used' || $coupon->used_count >= $coupon->usage_limit) {
             throw new CheckoutException('coupon_used', 'wallet.errors.coupon_used', 422);
         }
-        if (($coupon->country_id !== null && (int) $coupon->country_id !== (int) $checkout->country_id)
+        // A purpose that only holds the money (a ride) has no price to discount yet.
+        $purposes = app(CheckoutPurposes::class);
+        $reserves = $purposes->has($checkout->purpose) && $purposes->for($checkout->purpose) instanceof ReservesFunds;
+        if ($reserves
+            || ($coupon->country_id !== null && (int) $coupon->country_id !== (int) $checkout->country_id)
             || (! empty($coupon->purposes) && ! in_array($checkout->purpose, $coupon->purposes, true))) {
             throw new CheckoutException('coupon_not_here', 'wallet.errors.coupon_not_here', 422);
         }

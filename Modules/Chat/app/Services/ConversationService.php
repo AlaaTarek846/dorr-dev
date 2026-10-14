@@ -354,6 +354,11 @@ class ConversationService
             'last_delivered_message_id' => $clearedBefore ?? $row->last_delivered_message_id,
         ])->save();
 
+        // In a community's group: in the community too (its announcements — WhatsApp list 93).
+        if ($conversation->isGroup() && ! $conversation->isChannel()) {
+            app(CommunityService::class)->joinedGroup($conversation, $account);
+        }
+
         return $row;
     }
 

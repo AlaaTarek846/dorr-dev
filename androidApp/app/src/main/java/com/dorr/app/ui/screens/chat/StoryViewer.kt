@@ -23,6 +23,7 @@ import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -399,12 +400,15 @@ private fun StoryContent(story: StoryDto, playing: Boolean, onVideoReady: (Long)
     when (story.type) {
         "text" -> {
             val style = story.style
-            Box(Modifier.fillMaxSize().background(StoryLook.brush(style?.background)).padding(28.dp), contentAlignment = Alignment.Center) {
-                val body = story.body.orEmpty()
-                Text(
-                    body, color = Color.White, fontFamily = StoryLook.font(style?.font), fontWeight = StoryLook.weight(style?.font),
-                    fontSize = StoryLook.textSize(body.length).sp, lineHeight = (StoryLook.textSize(body.length) * 1.25f).sp, textAlign = TextAlign.Center,
-                )
+            Box(Modifier.fillMaxSize().background(StoryLook.brush(style?.background))) {
+                Box(Modifier.fillMaxSize().padding(28.dp), contentAlignment = Alignment.Center) {
+                    val body = story.body.orEmpty()
+                    Text(
+                        body, color = Color.White, fontFamily = StoryLook.font(style?.font), fontWeight = StoryLook.weight(style?.font),
+                        fontSize = StoryLook.textSize(body.length).sp, lineHeight = (StoryLook.textSize(body.length) * 1.25f).sp, textAlign = TextAlign.Center,
+                    )
+                }
+                StoryLayersView(style?.layers)
             }
         }
         "image" -> Box(Modifier.fillMaxSize()) {
@@ -414,11 +418,16 @@ private fun StoryContent(story: StoryDto, playing: Boolean, onVideoReady: (Long)
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.55f }.then(if (android.os.Build.VERSION.SDK_INT >= 31 && !com.dorr.app.chat.ChatLite.active) Modifier.blur(40.dp) else Modifier))
             // Ken Burns: a very slow zoom while it's on screen.
             val zoom by animateFloatAsState(if (playing) 1.08f else 1f, tween(if (playing) PHOTO_MS.toInt() else 300, easing = LinearEasing), label = "kenburns")
-            AsyncImage(url, null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom })
+            Box(Modifier.fillMaxSize().graphicsLayer { scaleX = zoom; scaleY = zoom }, contentAlignment = Alignment.Center) {
+                AsyncImage(url, null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+                // Stickers / text / drawing, in the photo's own frame (backlog 79–80).
+                story.style?.aspect?.let { a -> Box(Modifier.aspectRatio(a)) { StoryLayersView(story.style.layers) } }
+            }
         }
         "voice" -> VoiceStoryContent(story, playing)
-        "video" -> {
+        "video" -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             val url = ApiClient.mediaUrl(story.media?.url)
+            val aspect = story.style?.aspect
             AndroidView(
                 factory = { ctx ->
                     VideoView(ctx).apply {
@@ -432,8 +441,9 @@ private fun StoryContent(story: StoryDto, playing: Boolean, onVideoReady: (Long)
                 },
                 update = { view -> if (playing && !view.isPlaying) view.start() else if (!playing && view.isPlaying) view.pause() },
                 onRelease = { it.stopPlayback() },
-                modifier = Modifier.fillMaxSize(),
+                modifier = aspect?.let { Modifier.aspectRatio(it) } ?: Modifier.fillMaxSize(),
             )
+            aspect?.let { a -> Box(Modifier.aspectRatio(a)) { StoryLayersView(story.style.layers) } }
         }
     }
 }

@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -57,6 +58,7 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -107,6 +109,8 @@ private fun TextStoryEditor() {
     var allowReplies by remember { mutableStateOf(true) }
     var mentions by remember { mutableStateOf<List<Int>>(emptyList()) }
     val focus = remember { FocusRequester() }
+    val ed = rememberLayerEditor()
+    val focusManager = LocalFocusManager.current
     val backgrounds = StoryLook.backgrounds.keys.toList()
     val fontName = StoryLook.fonts[font]
     var fontBounce by remember { mutableStateOf(false) }
@@ -114,7 +118,9 @@ private fun TextStoryEditor() {
     val size by animateFloatAsState(StoryLook.textSize(text.length), spring(stiffness = 300f), label = "size")
 
     LaunchedEffect(Unit) { focus.requestFocus() }
+    LaunchedEffect(ed.drawing) { if (ed.drawing) focusManager.clearFocus() }
     BackHandler { host.pop() }
+    BackHandler(ed.selected != null) { ed.selected = null }
 
     Box(Modifier.fillMaxSize()) {
         // The background crossfades to the next gradient.
@@ -135,10 +141,16 @@ private fun TextStoryEditor() {
             )
         }
 
+        // Stickers and drawing on top (backlog 79–80).
+        StoryLayersEditable(ed, deselectOnTap = false)
+
         // Top tools.
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (ed.drawing) DrawingBar(ed)
+        else Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             GlassIcon(Icons.Rounded.Close) { host.pop() }
             Spacer(Modifier.weight(1f))
+            LayerTools(ed, withText = false)
+            Spacer(Modifier.width(8.dp))
             MentionPill(mentions) { mentions = it }
             Spacer(Modifier.width(10.dp))
             ToolButton(null, "Aa", Modifier.scale(fontScale)) {
@@ -150,18 +162,19 @@ private fun TextStoryEditor() {
         }
 
         // Bottom: replies switch + privacy + post.
-        Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (!ed.drawing) Row(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             PostOptions(allowReplies, onToggleReplies = { allowReplies = !allowReplies })
             Spacer(Modifier.weight(1f))
             val networkError = stringResource(R.string.ch_error_network)
             PostButton(enabled = text.isNotBlank()) {
                 host.postStory(
-                    mapOf("type" to "text", "body" to text.trim(), "style[background]" to backgrounds[bg], "style[font]" to fontName, "allow_replies" to if (allowReplies) "1" else "0") + mentionFields(mentions),
+                    mapOf("type" to "text", "body" to text.trim(), "style[background]" to backgrounds[bg], "style[font]" to fontName, "allow_replies" to if (allowReplies) "1" else "0") + mentionFields(mentions) + ed.fields(),
                     null,
                     networkError,
                 )
             }
         }
+        LayerStickerPicker(ed)
     }
 }
 
@@ -186,27 +199,38 @@ private fun MediaStoryEditor(uri: Uri) {
     }
     val tooLong = isVideo && (durationMs ?: 0) > VIDEO_LIMIT_SECONDS * 1000 + 500
     val tooLongText = stringResource(R.string.st_video_too_long, VIDEO_LIMIT_SECONDS)
+    val ed = rememberLayerEditor()
+    // The picture's own shape: the layers sit in exactly that frame on every phone.
+    var aspect by remember(uri) { mutableStateOf(if (isVideo) videoAspect(context, uri) else null) }
 
     BackHandler { host.pop() }
+    BackHandler(ed.selected != null) { ed.selected = null }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
         if (isVideo) {
             AndroidView(
                 factory = { ctx -> VideoView(ctx).apply { setVideoURI(uri); setOnPreparedListener { it.isLooping = true; start() } } },
                 onRelease = { it.stopPlayback() },
-                modifier = Modifier.fillMaxSize(),
+                modifier = aspect?.let { Modifier.aspectRatio(it) } ?: Modifier.fillMaxSize(),
             )
         } else {
-            AsyncImage(uri, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize())
+            AsyncImage(
+                uri, null, contentScale = ContentScale.Fit, modifier = Modifier.fillMaxSize(),
+                onSuccess = { st -> st.painter.intrinsicSize.let { if (it.width > 0 && it.height > 0) aspect = it.width / it.height } },
+            )
         }
+        aspect?.let { a -> Box(Modifier.aspectRatio(a)) { StoryLayersEditable(ed) } }
 
-        Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (ed.drawing) DrawingBar(ed, Modifier.align(Alignment.TopCenter))
+        else Row(Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             GlassIcon(Icons.Rounded.Close) { host.pop() }
             Spacer(Modifier.weight(1f))
+            if (aspect != null) LayerTools(ed)
+            Spacer(Modifier.width(8.dp))
             MentionPill(mentions) { mentions = it }
         }
 
-        Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(14.dp)) {
+        if (!ed.busy) Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().imePadding().navigationBarsPadding().padding(14.dp)) {
             AnimatedVisibility(tooLong) {
                 Text(tooLongText, color = Color.White, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 10.dp).clip(RoundedCornerShape(12.dp)).background(Color(0xCCDC2626)).padding(horizontal = 12.dp, vertical = 6.dp))
             }
@@ -228,6 +252,8 @@ private fun MediaStoryEditor(uri: Uri) {
                             durationMs?.let { put("duration_ms", it.toString()) }
                             put("allow_replies", if (allowReplies) "1" else "0")
                             putAll(mentionFields(mentions))
+                            aspect?.let { put("style[aspect]", String.format(java.util.Locale.US, "%.4f", it.coerceIn(0.2f, 5f))) }
+                            putAll(ed.fields())
                         },
                         file,
                         networkError,
@@ -235,8 +261,25 @@ private fun MediaStoryEditor(uri: Uri) {
                 }
             }
         }
+        LayerTextWriter(ed)
+        LayerStickerPicker(ed)
     }
 }
+
+/** A video's width ÷ height as it plays (turned phones' videos swap the two). */
+private fun videoAspect(context: android.content.Context, uri: Uri): Float? = runCatching {
+    MediaMetadataRetriever().run {
+        try {
+            setDataSource(context, uri)
+            val w = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toFloat() ?: return@run null
+            val h = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toFloat() ?: return@run null
+            val turned = extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_ROTATION)?.toIntOrNull()?.let { it % 180 != 0 } == true
+            if (w <= 0 || h <= 0) null else if (turned) h / w else w / h
+        } finally {
+            release()
+        }
+    }
+}.getOrNull()
 
 // ------------------------------------------------------------------------------- shared
 

@@ -68,6 +68,16 @@ class SendMessageRequest extends FormRequest
             'poll_options.*' => ['nullable', 'string', 'max:100'],
             'poll_multiple' => ['nullable', 'boolean'],
 
+            // Interactive (WhatsApp list 123–125): body is the text; up to 3 reply buttons or a
+            // list of up to 10 choices (each with an optional line under it).
+            'interactive_kind' => ['required_if:type,interactive', 'nullable', 'in:buttons,list'],
+            'interactive_options' => ['required_if:type,interactive', 'nullable', 'array', 'min:1', 'max:10'],
+            'interactive_options.*' => ['nullable', 'string', 'max:24'],
+            'interactive_descriptions' => ['nullable', 'array', 'max:10'],
+            'interactive_descriptions.*' => ['nullable', 'string', 'max:72'],
+            'interactive_button' => ['nullable', 'string', 'max:20'],
+            'interactive_footer' => ['nullable', 'string', 'max:60'],
+
             // Money request / bill split (minor units of the request's currency).
             'amount_minor' => ['required_if:type,money_request,bill_split', 'nullable', 'integer', 'min:1'],
             'split_mode' => ['nullable', Rule::in(['equal', 'custom'])],

@@ -1,5 +1,6 @@
 <?php
 
+use Modules\Driver\Models\Driver;
 use Modules\Provider\Models\Provider;
 use Modules\User\Models\User;
 
@@ -12,6 +13,7 @@ return [
     'morph_map' => [
         'user' => User::class,
         'provider' => Provider::class,
+        'driver' => Driver::class,
     ],
 
     /*

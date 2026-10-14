@@ -1,0 +1,11 @@
+{
+    "name": "Driver",
+    "alias": "driver",
+    "description": "DORR drivers: their own account (driver_api), documents, vehicles, presence and location log, shared by every DORR service a driver works in (docs/rides-plan.md section 4.1).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Driver\\Providers\\DriverServiceProvider"
+    ],
+    "files": []
+}

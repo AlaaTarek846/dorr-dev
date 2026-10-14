@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.LooksOne
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.RequestQuote
@@ -699,6 +700,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     var liveSeconds by remember { mutableStateOf<Int?>(null) }
     var askingLocation by remember { mutableStateOf(false) }
     var pollOpen by remember { mutableStateOf(false) }
+    var interactiveOpen by remember { mutableStateOf(false) }
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
     var sendMoneyOpen by remember { mutableStateOf(false) }
@@ -769,6 +771,8 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         },
         AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
         AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
+        // Reply buttons / a list of choices (WhatsApp list 123–125).
+        AttachItem(Icons.Rounded.SmartButton, R.string.ia_attach, listOf(Color(0xFF7DD3FC), Color(0xFF0284C7))) { interactiveOpen = true },
         AttachItem(Icons.Rounded.LooksOne, R.string.ch_attach_view_once, listOf(Color(0xFFF472B6), Color(0xFFDB2777))) {
             viewOnce.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         },
@@ -872,6 +876,12 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             onDismiss = { cardOpen = false; onDismiss() },
         ) { sent ->
             if (sent != null) state.replaceMessage(sent.id, UiMessage(sent)) else host.scope.launch { state.refreshScheduled() }
+        }
+        return
+    }
+    if (interactiveOpen) {
+        InteractiveComposerSheet(onDismiss = { interactiveOpen = false; onDismiss() }) { body, extra ->
+            state.send(Outgoing("interactive", body = body, extra = extra))
         }
         return
     }

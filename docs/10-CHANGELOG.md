@@ -8,6 +8,54 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- **Rides — the Safety Center (2026-10-14):** trusted contacts (the live link on every ride / at night / by hand, "arrived safely", alerts), the ride code always / at night, Smart Ride Check (long stop or detour → "Are you OK?" for both, unanswered → safety team + contacts), the check-in after arriving, the seatbelt reminder, reports (with accident guidance), "not this car" (free cancel), block and favourite captains (favourites asked first). Both apps and the admin Safety page. Tables `ride_trusted_contacts`, `ride_safety_preferences`, `ride_safety_checks`; policy keys `safety.*`. The team's task list is `docs/rides_tasks.md`.
+- **Rides — safety and changing the trip (2026-10-14):** SOS from the rider or the captain (hold-to-alert sheet, the country's emergency number, admin "Safety (SOS)" page with on-it / resolved), a family link per ride with a public live page (map, car, plate, "arrived safely"; no phone numbers), and changing the destination or adding a stop during the ride (effect shown first, the captain answers within 30 s, the fixed price and route follow). Tables `ride_shares`, `ride_safety_incidents`, `ride_change_requests`; switch `change_destination`; policy keys `safety.*`, `change.driver_response_s`.
+- **Rides phase 3 — booking ahead (2026-10-14):** the rider books a ride up to 7 days ahead (paid / held now, free cancellation until 60 min before, then the fee), sees it under "My rides → Upcoming" with the captain who reserved it; captains reserve upcoming rides near them, head out from an hour before, or give them back (late = counted as a cancel); at 30 min before the ride goes to its captain or searches; reminders an hour before; the waiting never starts before the booked time. DORR app: "Now | Book ahead" chips, a day strip + rolling hour/minute picker, the booked-ride card, "My rides" (current / upcoming / past). Driver app: "Scheduled rides" (available / my bookings). Admin: the ride page shows the booking and its captain; the new policy keys are labelled. Columns `rides.reserved_driver_id`, `reserved_at`, `reminded_at`, `search_started_at`.
+- **Rides phase 2 — bidding like inDrive (2026-10-14):** the rider names a price above the floor (suggested − 20%), batches of three drivers, accept-the-price or a higher offer with a 20 s timer, decline / re-offer lower, raise, atomic agreement with the wallet holding the difference; screens in the DORR app (price editor, offers with draining timers, raise) and the driver app (accept-for / +5 +10 +15 / own price with the live net); admin ride page shows the offers. Tables `ride_bids`, `ride_price_offers`.
+- **Admin → Rides, complete (2026-10-14):** rides with their whole story and "send to Wasl again", switches (country + city exceptions), categories, prices & rules per scope (inherited vs own), Wasl logs, cancel reasons & rating tags, settings (Google key). Permissions `rides`, `ride-feature-rules`, `ride-categories`, `ride-policies`, `wasl-logs`, `ride-lists`.
+- **Ride apps (2026-10-14):** the DORR app books and follows a ride (`ui/screens/rides`, Google Maps Compose, card through the shared payment screen); the driver app has its shift service (location every 30 s / 5 s on a ride, requests ringing with Accept / Decline even when closed), sign-up, the ride, and earnings.
+- **Mobile backend for rides (2026-10-14):** driver sign-up in the app (`driver/v1/onboarding`, `profile`, `vehicles`, `documents`, `onboarding/submit`), driver push devices (`driver/v1/notifications/devices`), and the ride chat (`ride_messages`, open while a driver is on the ride, kept after).
+- **Admin → Rides: drivers and document types (2026-10-14):** register a driver from the dashboard (citizen / resident, any country), their page with whether they can work and why not, vehicles (approve, the one in use), documents (upload with files, approve / reject with a reason), the Wasl box (register / check), and document types with requirements per country, service and residency. API `admin/v1/drivers*`, `admin/v1/driver-document-types*`.
+- **Wasl columns from Jawad (2026-10-14):** `driver_regulator_status` keeps Wasl's status words as they come, the vehicle's own rejection reasons, the licence expiry in Hijri as sent, and `last_registered_at`; rides keep the official city names sent and Wasl's message.
+- **Drivers: citizen / resident (2026-10-14):** `drivers.residency` in every country, and document requirements per residency (`driver_document_requirements.residency`, null = both). The work gate checks only the documents for the driver's own kind.
+- **Rides, card payment and Wasl (2026-10-14):**
+  - Card rides use the app's one payment screen: a checkout of purpose `ride`; the wallet's new `ReservesFunds` lets a purpose hold the money itself instead of a debit (no revenue entry, no coupon). Unpaid card rides expire after 15 minutes.
+  - Wasl as in Jawad: driver + vehicle registration, the daily eligibility check with the criminal-record rules, trips with retries and the official city name, locations every minute, Jawad's rejection codes in `lang/*/wasl.php`. Every driver is sent — no nationality exception. Driver API `driver/v1/regulator`.
+- **Rides, phase 1 backend core (2026-10-14)** — see `docs/modules/rides/README.md`:
+  - Ride tables (quotes, rides, events, locks, offers, holds, stops, price lines, adjustments, tracks, settlement items) and the people tables (driver / rider profiles, daily stats, points, blocks…); ledger categories `trip_commissions`, `trip_taxes` («ضريبة التوصيل»), `discount_expenses`.
+  - The whole Economy cycle: quote → request → dispatch → accept → arrived → PIN → start → stops → end → payment → settlement; cancellations with stage fees, driver step-back, no-show, ratings both ways, driver earnings summary.
+  - Rider API `mobile/v1/rides/*`, driver API `driver/v1/offers|rides|earnings`, private channel `rides.{uuid}`, commands `rides:dispatch-tick` and `rides:release-earnings`.
+  - A category with no prices set is never quoted. Wallet transaction types `commission`, `tax`, `tip`, `discount_compensation`, `debt_settlement`.
+- **Rides, phase 0 (2026-10-13)** — plan `docs/rides-plan.md`, tables `docs/rides-structure.md`:
+  - **`Modules/Driver`:** the driver's own account (guard `driver_api`, `/api/driver/v1/auth/*`, phone + OTP) — not a Provider. Tables for documents, vehicles and their catalogs, per-service eligibility, presence and the 30-second location log. Wallet / referral aliases and the broadcast guard know `driver`.
+  - **`Modules/Rides`:** 11 ride categories; feature switches per country / city (no rule = off, `GET mobile/v1/rides/features`, `EnsureRideFeature`); policies with prices, merged country → city → zone with category on each level, validated and audited; Saudi VAT on the commission carried by the driver; zones with point-in-polygon in PHP; Wasl's exact city names (`ride_regulator_cities`, Riyadh only for now); Google Routes behind `GeoProvider` (`GOOGLE_MAPS_SERVER_KEY`).
+  - **`audit_logs`** + `AuditLogger`, shared.
+  - **Maps never block a ride:** Google first (key set in the admin, `admin/v1/ride-settings`, stored encrypted), and Jawad's free straight-line estimate when the key is missing or spent. The city comes from Google Geocoding first, then our own list; Wasl always gets the stored official name.
+  - **`driverApp/`:** the separate driver app (Compose) with a shared `:core` — sign-in and the account state.
+  - Seeders: `DriverDatabaseSeeder`, `RidesDatabaseSeeder` (example prices only). Tests: `DriverAuthTest`, `RidesFoundationTest`.
+- **Android calls, Messenger-style:**
+  - Back during a call minimises it to a draggable bubble.
+  - Leaving the app mid-call keeps it in a picture-in-picture window.
+  - An ongoing-call notification (foreground `CallService`) has mute and hang up.
+  - With "display over other apps" allowed, an incoming call opens its full ringing screen even over another app. The app asks for it once, and offers it on the calls page.
+- **Chat, WhatsApp backlog second batch (2026-10-12):**
+  - Stickers, GIFs, text and drawing on statuses (79, 80), kept as layers.
+  - Screen sharing in calls (71).
+  - Call links (72): `/call/{token}`, `chat_call_links`.
+  - Reply buttons and lists (123–125): message type `interactive`.
+  - Communities (93–98): `chat_communities`, an announcements group, up to 20 admins, and the creator stays.
+  - Tests: `ChatCallLinkTest`, `ChatCommunityTest`, plus additions to `ChatStoryTest` and `ChatExtrasTest`.
+  - Details are in `docs/modules/chat/API.md`.
+
+### Fixed
+- **Android push notifications:**
+  - The status bar showed OneSignal's bell. It now shows the Dorr mark (white `ic_stat_onesignal_default`, which OneSignal picks up by that name), used by every notification of ours too. The driver app's `ic_stat_driver` is the same mark.
+  - Messages and notifications only appeared in the shade. They now drop down from the top like WhatsApp: `ChatNotificationExtension` puts every push on a high-importance channel (`PushChannels`: "Messages" for chats, "Notifications" for the rest). A chat's own tone keeps its own channel.
+- **Android chat:** a greeting card (DORR Moments) in a chat crashed the app every time that chat opened.
+  - Cause: its moving effect used `BoxWithConstraints`, which can't answer the bubble's "how big are you" question (Crashlytics: "Asking for intrinsic measurements of SubcomposeLayout").
+  - Fix: `MomentEffect` reads its size after layout instead.
+
 ### Changed
 - Calendar filter chips now follow Settings: a kind whose source is off has no chip, the chips follow the Today order, and on the Today tab a kind hidden in "Today page" has none either. A chosen chip that goes away falls back to "All".
 - Calendar appointment form: the "Type" choice is gone (every appointment is a plain appointment); its icon, label and the Settings "kinds" page went with it. The `category` column stays in the database, unused by the app (defaults to `appointment`).

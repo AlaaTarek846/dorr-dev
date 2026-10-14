@@ -65,7 +65,7 @@ object CallNotifications {
 
         val text = context.getString(if (video) R.string.ch_call_incoming_video else R.string.ch_call_incoming_voice)
         val builder = (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) Notification.Builder(context, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(context))
-            .setSmallIcon(android.R.drawable.sym_call_incoming)
+            .setSmallIcon(com.dorr.app.R.drawable.ic_stat_onesignal_default)
             .setContentTitle(callerName)
             .setContentText(text)
             .setCategory(Notification.CATEGORY_CALL)
@@ -89,6 +89,17 @@ object CallNotifications {
         notification.flags = notification.flags or Notification.FLAG_INSISTENT
         // One ringing call at a time (a second one replaces the first).
         runCatching { manager.notify(NOTIFICATION_ID, notification) }
+        // Allowed to show over other apps: the ringing page opens at once, even on top of another
+        // app with the phone unlocked (Android otherwise shows only a banner then) — like Messenger.
+        if (CallPermissions.canOverlay(context) && !ChatRealtime.inForeground) {
+            runCatching {
+                context.startActivity(
+                    Intent(context, IncomingCallActivity::class.java)
+                        .putExtra(EXTRA_CALL, callId).putExtra(EXTRA_CONVERSATION, conversationId).putExtra(EXTRA_AUTO_ANSWER, false)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                )
+            }.onFailure { android.util.Log.w("CallNotifications", "ringing page didn't open", it) }
+        }
     }
 
     fun cancel(context: Context) {
