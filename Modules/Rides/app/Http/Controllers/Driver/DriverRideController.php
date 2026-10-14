@@ -100,6 +100,8 @@ class DriverRideController extends Controller
                 'origin_address' => $r->origin_address,
                 'destination_address' => $r->destination_address,
                 'earning_minor' => $r->driver_net_minor,
+                // D-204: the rider's tip, on its own (all of it the captain's).
+                'tip_minor' => $r->tip_minor,
                 'payment_method' => $r->payment_method->value,
                 'currency' => $r->currency?->symbol,
                 'completed_at' => ($r->completed_at ?? $r->canceled_at)?->toIso8601String(),

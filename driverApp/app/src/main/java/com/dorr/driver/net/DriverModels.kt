@@ -137,6 +137,9 @@ data class OfferDto(
     @SerializedName("rider_rating") val riderRating: Double? = null,
     val category: CategoryRefDto? = null,
     @SerializedName("payment_method") val paymentMethod: String? = null,
+    /** D-60, D-61: how many ride and the rider's pickup note. */
+    val passengers: Int? = null,
+    @SerializedName("pickup_note") val pickupNote: String? = null,
     val currency: CurrencyDto? = null,
     val origin: PlaceDto? = null,
     val destination: PlaceDto? = null,
@@ -249,7 +252,15 @@ data class ScheduledRideDto(
     val route: RouteDto? = null,
 )
 
-data class WaitingDto(@SerializedName("free_s") val freeS: Int = 180, @SerializedName("no_show_after_s") val noShowAfterS: Int = 300)
+data class WaitingDto(
+    @SerializedName("free_s") val freeS: Int = 180,
+    @SerializedName("no_show_after_s") val noShowAfterS: Int = 300,
+    /** D-122: the clock turns to a warning this long before the free minutes end. */
+    @SerializedName("warn_before_s") val warnBeforeS: Int = 60,
+)
+
+/** D-129: the time and distance left to the next point (pickup / stop / destination). */
+data class ProgressDto(val to: String = "pickup", @SerializedName("distance_m") val distanceM: Int = 0, @SerializedName("eta_s") val etaS: Int = 0)
 
 data class TripDto(
     val uuid: String,
@@ -267,10 +278,15 @@ data class TripDto(
     val times: TimesDto? = null,
     val waiting: WaitingDto? = null,
     val rider: RiderDto? = null,
+    val passengers: Int? = null,
+    @SerializedName("pickup_note") val pickupNote: String? = null,
+    val progress: ProgressDto? = null,
     @SerializedName("needs_pin") val needsPin: Boolean = false,
     @SerializedName("earning_minor") val earningMinor: Long? = null,
     @SerializedName("cash_to_collect_minor") val cashToCollectMinor: Long? = null,
     @SerializedName("final_total_minor") val finalTotalMinor: Long? = null,
+    /** D-182: the rider's tip, apart from the fare — all of it the captain's. */
+    @SerializedName("tip_minor") val tipMinor: Long? = null,
     val lines: List<LineDto> = emptyList(),
     val navigation: NavigationDto? = null,
     val safety: SafetyDto? = null,

@@ -232,4 +232,15 @@
     <string name="bl_body">لن تصلك طلبات هذا الراكب بعد الآن.</string>
     <string name="bl_confirm">تأكيد</string>
     <string name="bl_done">لن تتم مطابقتكما مجدداً</string>
+    <string name="earn_tips">الإكراميات</string>
+    <string name="earn_tips_all_yours">كلها لك</string>
+    <string name="trip_tip_received">قدّم لك الراكب إكرامية %1$s</string>
+    <string name="trip_tip_all_yours">كلها لك — بدون عمولة.</string>
+    <string name="trip_passengers">%1$d ركاب</string>
+    <string name="trip_pickup_note">ملاحظة الراكب</string>
+    <string name="trip_to_pickup_short">نقطة الالتقاط</string>
+    <string name="trip_to_stop_short">المحطة</string>
+    <string name="trip_to_destination_short">الوجهة</string>
+    <string name="trip_progress">%1$d د · %2$s كم إلى %3$s</string>
+    <string name="trip_waiting_ending">ينتهي الانتظار المجاني خلال %1$s</string>
 </resources>

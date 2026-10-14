@@ -24,6 +24,8 @@ use Modules\Rides\Services\Safety\SafetyCheckService;
 use Modules\Rides\Services\Safety\SafetyContacts;
 use Modules\Rides\Services\Payment\RidePaymentService;
 use Modules\Rides\Services\Pricing\FareCalculator;
+use Modules\Rides\Services\Pricing\PriceExtras;
+use Modules\Rides\Services\Pricing\RidePromotions;
 use Modules\Rides\Services\Settlement\RideSettlementService;
 use Modules\Rides\Services\Stats\DriverPoints;
 use Modules\Rides\Services\Stats\DriverStats;
@@ -50,6 +52,7 @@ class RideTripService
         private readonly DriverEligibility $eligibility,
         private readonly SafetyContacts $contacts,
         private readonly SafetyCheckService $checks,
+        private readonly RidePromotions $promotions,
     ) {}
 
     public function arrive(Driver $driver, Ride $ride, float $lat, float $lng, ?string $key = null): Ride
@@ -151,6 +154,13 @@ class RideTripService
                 $chargeableWait, $chargeableStops, (int) $ride->previous_balance_minor,
                 $ride->pricing_mode === PricingMode::Upfront ? (int) $ride->snapshot('breakdown.fare') : null,
             );
+            // The service fee, the coupon and the payment fee fixed at confirmation (R-45, R-47, R-48).
+            if (($extras = (array) $ride->snapshot('extras', [])) !== []) {
+                $breakdown = PriceExtras::apply($breakdown, $extras);
+                if (isset($extras['coupon'])) {
+                    $this->promotions->settle($ride, $breakdown->discount);
+                }
+            }
 
             foreach ($breakdown->lines as $i => $line) {
                 RidePriceLine::query()->create([
@@ -196,9 +206,12 @@ class RideTripService
             return $ride;
         });
 
+        $extraLines = RidePriceLine::query()->where('ride_id', $ride->id)->where('phase', 'final')->whereIn('code', PriceExtras::CODES)->pluck('amount_minor', 'code');
+        $fees = (int) ($extraLines['customer_fee'] ?? 0) + (int) ($extraLines['payment_method_fee'] ?? 0) + (int) ($extraLines['discount'] ?? 0);
         $this->stats->bump($driver->id, [
             'trips' => 1,
-            'gross_minor' => (int) $ride->final_total_minor - (int) $ride->previous_balance_minor,
+            // What the ride earned: not the old debt, nor DORR's fees; a coupon is DORR's, not a lower fare.
+            'gross_minor' => (int) $ride->final_total_minor - (int) $ride->previous_balance_minor - $fees,
             'net_minor' => (int) $ride->driver_net_minor,
             'commission_minor' => (int) $ride->commission_minor,
             'tax_minor' => (int) $ride->tax_minor,

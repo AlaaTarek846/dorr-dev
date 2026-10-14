@@ -23,11 +23,14 @@ class LegalPageController extends Controller
         $validated = $request->validate([
             'type' => ['required', 'string', Rule::in(LegalPageType::values())],
             'service_id' => ['nullable', 'integer', 'exists:service_categories,id'],
+            // R-179: the page in force for the service — its own, else the general one.
+            'fallback' => ['nullable', 'boolean'],
         ]);
 
         return $this->service->page(
             $validated['type'],
             isset($validated['service_id']) ? (int) $validated['service_id'] : null,
+            (bool) ($validated['fallback'] ?? false),
         );
     }
 }

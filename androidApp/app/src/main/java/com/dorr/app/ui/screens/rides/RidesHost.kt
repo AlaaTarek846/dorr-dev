@@ -37,6 +37,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -99,6 +100,14 @@ internal class RidesState {
     var selected by mutableStateOf<RideQuoteDto?>(null)
     var payment by mutableStateOf("wallet")
 
+    /** R-45: the promo code priced into the quotes, and why the last one was refused. */
+    var couponCode by mutableStateOf<String?>(null)
+    var couponError by mutableStateOf<String?>(null)
+
+    /** D-60, D-61: how many ride, and a short note for the captain about the pickup. */
+    var passengers by mutableIntStateOf(1)
+    var pickupNote by mutableStateOf("")
+
     /** Bidding: the price the rider offers (starts at the suggested price). */
     var riderPrice by mutableStateOf<Long?>(null)
 
@@ -144,6 +153,10 @@ internal class RidesState {
         error = null
         scheduledAt = null
         fromHistory = false
+        couponCode = null
+        couponError = null
+        passengers = 1
+        pickupNote = ""
     }
 }
 

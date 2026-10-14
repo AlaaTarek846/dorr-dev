@@ -4250,12 +4250,15 @@
                 "wallet": "Wallet",
                 "card": "Card",
                 "tips": "Tips",
+                "eta": "Time left (ETA)",
+                "booking": "Booking details",
                 "pin": "Ride code",
                 "share": "Share the ride",
                 "change_driver": "Change captain",
                 "driver_points": "Captain points",
                 "one_touch": "One-touch booking",
-                "change_destination": "Change destination during the ride"
+                "change_destination": "Change destination during the ride",
+                "coupons": "Coupons on rides"
             }
         },
         "categories": {
@@ -4317,7 +4320,8 @@
                 "gps_gap": "GPS gaps",
                 "cash": "Cash",
                 "settlement": "Earnings settlement",
-                "detour": "Detour"
+                "detour": "Detour",
+                "tips": "Tips"
             },
             "choice": {
                 "upfront": "Fixed before the ride",
@@ -4380,7 +4384,18 @@
                 "location__idle_interval_s": "Location (no ride)",
                 "location__trip_send_interval_s": "Location (on a ride)",
                 "bids__rider_max_discount_bp": "Most a rider may go under",
-                "bids__ttl_s": "Offer time"
+                "bids__ttl_s": "Offer time",
+                "price__customer_fee_minor": "Customer fee (fixed)",
+                "price__customer_fee_bp": "Customer fee (of the fare)",
+                "payment__card_fee_minor": "Card fee (fixed)",
+                "payment__card_fee_bp": "Card fee (of the amount)",
+                "payment__cash_fee_minor": "Cash fee (fixed)",
+                "tips__window_h": "Tip allowed after the ride for",
+                "tips__presets_minor": "Ready tip amounts",
+                "tips__max_minor": "Highest tip",
+                "waiting__warn_before_s": "Warn before free waiting ends",
+                "eta__speed_kmh": "City speed for the time left (km/h)",
+                "booking__note_max_chars": "Pickup note: most characters"
             }
         },
         "safety": {

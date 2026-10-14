@@ -75,6 +75,21 @@ return [
         'change_pending' => 'Your captain is still answering your last change.',
         'change_not_found' => 'Change not found.',
         'sos_unavailable' => 'This ride ended a while ago. For an emergency call your local emergency number.',
+        'coupon_invalid' => 'This code isn\'t valid.',
+        'coupon_expired' => 'This code has expired.',
+        'coupon_used' => 'This code was already used.',
+        'coupon_not_here' => 'This code can\'t be used for rides here.',
+        'coupon_min_amount' => 'The ride is under this code\'s minimum.',
+        'coupon_not_for_bidding' => 'Codes don\'t apply to offer-based prices.',
+        'coupon_needs_destination' => 'Set a destination to use a code.',
+        'already_tipped' => 'You already tipped on this ride.',
+        'cannot_tip' => 'This ride can\'t be tipped.',
+        'tip_window_closed' => 'The time to tip on this ride has passed.',
+        'tip_out_of_range' => 'A tip can be up to :max.',
+        'too_many_passengers' => 'This category takes up to :max riders.',
+        'pickup_note_too_long' => 'Keep the note to :max characters.',
+        'pickup_note_contact' => 'Leave phone numbers and links out — use the in-app chat and call.',
+        'payment_change_unavailable' => 'The way you pay can\'t be changed now.',
     ],
 
     'checkout' => [
@@ -115,6 +130,8 @@ return [
         'reported' => 'Thanks — our safety team will review it.',
         'mismatch_reported' => 'The ride was cancelled free. Our safety team will look into it.',
         'change_answered' => 'Your answer was sent.',
+        'tipped' => 'Thank you! Your whole tip goes to your captain.',
+        'payment_changed' => 'Payment method updated.',
     ],
 
     // Safety reports and checks, as the safety team and the apps name them.
@@ -174,6 +191,22 @@ return [
         'driver_net' => 'Your net',
         'total' => 'Total',
         'rate_card' => 'Rate card',
+        'customer_fee' => 'Service fee',
+        'discount' => 'Discount',
+        'payment_method_fee' => 'Payment method fee',
+        'fx_fee' => 'International card fee',
+        'tip' => 'Tip',
+    ],
+
+    // Before confirming (R-52, R-53): cancelling, no-show and refunds, from the quote's own policy.
+    'policy' => [
+        'cancel_before_accept' => 'Free to cancel until a captain accepts.',
+        'cancel_after_accept_fee' => 'After a captain accepts: free for :minutes min, then :fee (:count free cancels a day).',
+        'cancel_after_accept_free' => 'Cancelling after a captain accepts is free.',
+        'no_show_fee' => 'If you don\'t come within :minutes min of the captain arriving: :fee.',
+        'no_show_free' => 'The captain waits :minutes min at the pickup, then the ride may end.',
+        'refund_held' => 'The amount is only held: you pay the final price at the end and the rest is released at once — all of it if the ride is cancelled free.',
+        'refund_cash' => 'You pay the captain in cash at the end; nothing is taken now.',
     ],
 
     'points' => [
@@ -189,5 +222,20 @@ return [
         'no_show_fee' => 'No-show fee',
         'destination_change' => 'New destination',
         'stop_added' => 'Stop added',
+    ],
+
+    // R-81: the captain's tier badge.
+    'tiers' => [
+        'new' => 'New captain',
+        'bronze' => 'Bronze captain',
+        'silver' => 'Silver captain',
+        'gold' => 'Gold captain',
+        'diamond' => 'Diamond captain',
+    ],
+
+    'payment_methods' => [
+        'wallet' => 'Wallet',
+        'card' => 'Card',
+        'cash' => 'Cash',
     ],
 ];

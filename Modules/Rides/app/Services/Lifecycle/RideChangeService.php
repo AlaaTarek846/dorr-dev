@@ -19,6 +19,7 @@ use Modules\Rides\Services\Geo\GeoProvider;
 use Modules\Rides\Services\Notifications\RideNotifier;
 use Modules\Rides\Services\Payment\RidePaymentService;
 use Modules\Rides\Services\Pricing\FareCalculator;
+use Modules\Rides\Services\Pricing\PriceExtras;
 use Modules\Rides\Support\Geo;
 use Modules\User\Models\User;
 
@@ -71,6 +72,9 @@ class RideChangeService
             default => $routeFare($distance, $duration),
         };
         $b = $this->calculator->compute($price, $distance, $duration, $ride->snapshot('tax'), 0, 0, (int) $ride->previous_balance_minor, $newFare);
+        if (($extras = (array) $ride->snapshot('extras', [])) !== []) {
+            $b = PriceExtras::apply($b, $extras);
+        }
 
         return RideChangeRequest::query()->create([
             'uuid' => (string) Str::uuid(),
@@ -84,7 +88,7 @@ class RideChangeService
             'price_delta_minor' => $b->total - (int) $ride->snapshot('breakdown.total', $ride->agreed_price_minor ?? $b->total),
             'new_total_minor' => $b->total,
             'driver_net_delta_minor' => $b->driverNet - (int) $ride->snapshot('breakdown.driver_net', $b->driverNet),
-            'breakdown' => ['fare' => $b->fare, 'commission' => $b->commission, 'tax' => $b->tax, 'driver_net' => $b->driverNet, 'total' => $b->total, 'lines' => $b->lines],
+            'breakdown' => ['fare' => $b->fare, 'commission' => $b->commission, 'tax' => $b->tax, 'customer_fee' => $b->customerFee, 'discount' => $b->discount, 'payment_method_fee' => $b->paymentFee, 'driver_net' => $b->driverNet, 'total' => $b->total, 'lines' => $b->lines],
             'status' => 'preview',
             'expires_at' => now()->addMinutes(3),
         ]);
@@ -250,7 +254,7 @@ class RideChangeService
         $breakdown = (array) $request->breakdown;
         $snapshot = (array) $ride->confirmed_snapshot;
         if ($ride->pricing_mode === PricingMode::Upfront && isset($breakdown['fare'])) {
-            $snapshot['breakdown'] = array_intersect_key($breakdown, array_flip(['fare', 'commission', 'tax', 'driver_net', 'total']));
+            $snapshot['breakdown'] = array_intersect_key($breakdown, array_flip(['fare', 'commission', 'tax', 'customer_fee', 'discount', 'payment_method_fee', 'driver_net', 'total']));
             $changes['agreed_price_minor'] = (int) $breakdown['total'];
 
             $revision = 'rev.'.(RideChangeRequest::query()->where('ride_id', $ride->id)->where('status', 'applied')->count() + 1);

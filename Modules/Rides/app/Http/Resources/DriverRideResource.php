@@ -9,6 +9,7 @@ use Modules\Rides\Enums\RidePaymentStatus;
 use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RiderRideProfile;
+use Modules\Rides\Services\Geo\RideProgress;
 use Modules\Rides\Services\Lifecycle\RideChangeService;
 use Modules\Rides\Services\Safety\SafetyCheckService;
 
@@ -42,11 +43,15 @@ class DriverRideResource extends JsonResource
             'earning_minor' => $this->driver_net_minor ?? $this->snapshot('breakdown.driver_net'),
             'cash_to_collect_minor' => $this->payment_status === RidePaymentStatus::CashDue ? $this->final_total_minor : null,
             'final_total_minor' => $this->final_total_minor,
+            // D-182: the rider's tip, apart from the fare — all of it the captain's.
+            'tip_minor' => $this->tip_minor,
             'lines' => RideResource::lines($this->resource, 'driver'),
             // "Are you OK?" waiting for the captain (D-144, D-396).
             'safety_check' => ($check = SafetyCheckService::current($this->resource, $request->user())) === null ? null : SafetyCheckService::present($check),
             // The rider asks for a new destination / stop: accept or decline it (D-131..133).
             'change_request' => ($change = RideChangeService::current($this->resource)) === null || $change->status !== 'pending' ? null : RideChangeService::present($change, 'driver'),
+            // D-129: the time and distance left to the next point.
+            'progress' => RideProgress::of($this->resource),
             'navigation' => $next === null ? null : [
                 'lat' => $next[0],
                 'lng' => $next[1],
@@ -58,20 +63,9 @@ class DriverRideResource extends JsonResource
         ];
     }
 
-    /** @return array{0: float, 1: float}|null the pickup before the trip, then each stop left, then the destination */
+    /** @return array{0: float, 1: float, 2: string}|null the pickup before the trip, then each stop left, then the destination */
     private function nextPoint(): ?array
     {
-        if (in_array($this->status, [RideStatus::Accepted, RideStatus::Arrived], true)) {
-            return [$this->origin_lat, $this->origin_lng];
-        }
-        if ($this->status !== RideStatus::InProgress) {
-            return null;
-        }
-        $stop = $this->stops->first(fn ($s) => $s->departed_at === null);
-        if ($stop !== null) {
-            return [(float) $stop->lat, (float) $stop->lng];
-        }
-
-        return $this->destination_lat === null ? null : [$this->destination_lat, $this->destination_lng];
+        return RideProgress::nextPoint($this->resource);
     }
 }

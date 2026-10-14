@@ -84,6 +84,10 @@ return [
         'ride_cancel_fee' => 'رسوم إلغاء رحلة :number',
         'ride_debt_collected' => 'دين اتحصّل في رحلة :number',
         'ride_change' => 'باقي الكاش من رحلة :number',
+        'ride_tip' => 'إكرامية رحلة :number',
+        'ride_customer_fee' => 'رسوم خدمة رحلة :number',
+        'ride_payment_fee' => 'رسوم دفع رحلة :number',
+        'ride_discount' => 'خصم رحلة :number',
     ],
 
     'types' => [

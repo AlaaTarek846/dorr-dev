@@ -48,6 +48,14 @@ interface RidesApi {
     @POST("mobile/v1/rides/{uuid}/rate")
     suspend fun rate(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<JsonElement?>
 
+    /** R-61: wallet <-> cash before the trip starts. */
+    @POST("mobile/v1/rides/{uuid}/payment-method")
+    suspend fun changePayment(@Header("Authorization") auth: String, @Header("Idempotency-Key") key: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideDto>
+
+    /** R-144: a tip after the ride, from the wallet — all of it the captain's. */
+    @POST("mobile/v1/rides/{uuid}/tip")
+    suspend fun tip(@Header("Authorization") auth: String, @Header("Idempotency-Key") key: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideDto>
+
     @GET("mobile/v1/rides/cancel-reasons")
     suspend fun cancelReasons(@Header("Authorization") auth: String): ApiEnvelope<List<RideReasonDto>>
 
@@ -218,8 +226,47 @@ data class RideQuoteDto(
     val route: RideRouteDto? = null,
     val lines: List<RideLineDto> = emptyList(),
     val bid: RideBidQuoteDto? = null,
+    /** R-45: the code typed — what it took off this category, or why not. */
+    val coupon: RideCouponDto? = null,
+    /** R-48: what each way of paying adds (wallet / card / cash). */
+    @SerializedName("payment_fees") val paymentFees: Map<String, Long>? = null,
+    /** R-52, R-53: cancellation / no-show / refund, read before confirming. */
+    @SerializedName("policy_summary") val policySummary: RidePolicySummaryDto? = null,
+    /** R-179: the terms in force for booking (the rides service's own, else the general ones). */
+    val terms: List<RideTermDto> = emptyList(),
     /** Booking ahead is possible for this category (null for bidding), with the policy's limits. */
     val scheduling: RideSchedulingDto? = null,
+)
+
+data class RideCouponDto(
+    val code: String = "",
+    @SerializedName("discount_minor") val discountMinor: Long = 0,
+    val applied: Boolean = false,
+    val reason: String? = null,
+)
+
+data class RideTermDto(
+    val type: String = "term",
+    val title: String = "",
+    @SerializedName("service_id") val serviceId: Int? = null,
+    val scope: String = "general",
+    @SerializedName("updated_at") val updatedAt: String? = null,
+)
+
+data class RidePolicyItemDto(val code: String = "", val text: String = "")
+
+data class RidePolicySummaryDto(
+    val items: List<RidePolicyItemDto> = emptyList(),
+    val refund: Map<String, String> = emptyMap(),
+)
+
+/** R-144: the tip offered after the ride — or the one given (`allowed` false, `amount_minor` set). */
+data class RideTipDto(
+    val allowed: Boolean = false,
+    @SerializedName("amount_minor") val amountMinor: Long? = null,
+    @SerializedName("presets_minor") val presetsMinor: List<Long> = emptyList(),
+    @SerializedName("max_minor") val maxMinor: Long = 0,
+    val until: String? = null,
 )
 
 data class RideSchedulingDto(
@@ -321,6 +368,9 @@ data class RideDriverDto(
     @SerializedName("avatar_url") val avatarUrl: String? = null,
     val rating: Double? = null,
     @SerializedName("trips_count") val tripsCount: Int = 0,
+    /** R-81: new / bronze / silver / gold / diamond, and its name in the app's language. */
+    val tier: String? = null,
+    @SerializedName("tier_label") val tierLabel: String? = null,
     val vehicle: RideVehicleDto? = null,
     val location: RideDriverLocationDto? = null,
 )
@@ -340,7 +390,12 @@ data class RideWaitingDto(
     @SerializedName("free_s") val freeS: Int = 180,
     @SerializedName("per_min_minor") val perMinMinor: Long = 0,
     @SerializedName("no_show_after_s") val noShowAfterS: Int = 300,
+    /** D-122: the countdown turns to a warning this long before the free minutes end. */
+    @SerializedName("warn_before_s") val warnBeforeS: Int = 60,
 )
+
+/** D-129: how far the captain still is from the next point (pickup / stop / destination). */
+data class RideProgressDto(val to: String = "pickup", @SerializedName("distance_m") val distanceM: Int = 0, @SerializedName("eta_s") val etaS: Int = 0)
 
 data class RideCategoryRefDto(val slug: String? = null, val name: String? = null)
 
@@ -354,6 +409,12 @@ data class RideDto(
     @SerializedName("open_destination") val openDestination: Boolean = false,
     @SerializedName("payment_method") val paymentMethod: String? = null,
     @SerializedName("payment_status") val paymentStatus: String? = null,
+    /** R-61: the ways of paying the rider may switch to now. */
+    @SerializedName("payment_change") val paymentChange: List<String> = emptyList(),
+    /** D-60, D-61. */
+    val passengers: Int? = null,
+    @SerializedName("pickup_note") val pickupNote: String? = null,
+    val progress: RideProgressDto? = null,
     val currency: RideCurrencyDto? = null,
     val origin: RidePlaceDto? = null,
     val destination: RidePlaceDto? = null,
@@ -376,6 +437,7 @@ data class RideDto(
     @SerializedName("safety_check") val safetyCheck: SafetyCheckDto? = null,
     @SerializedName("favorite_driver") val favoriteDriver: Boolean? = null,
     val rated: Boolean? = null,
+    val tip: RideTipDto? = null,
 )
 
 data class RideHistoryItemDto(

@@ -21,6 +21,10 @@ final class FareBreakdown
         public readonly int $total,
         public readonly int $driverNet,
         public readonly array $lines,
+        // What PriceExtras adds (R-45, R-47, R-48): DORR's fees and the coupon DORR pays for.
+        public readonly int $customerFee = 0,
+        public readonly int $discount = 0,
+        public readonly int $paymentFee = 0,
     ) {}
 
     /** @return array<string, mixed> */

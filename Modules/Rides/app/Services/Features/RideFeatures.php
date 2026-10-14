@@ -21,7 +21,7 @@ class RideFeatures
     /** Features with a switch besides `rides` and `category.{slug}`. */
     public const FEATURES = [
         'bidding', 'multi_stop', 'open_destination', 'scheduled', 'book_for_other', 'cash', 'wallet', 'card',
-        'tips', 'pin', 'share', 'change_driver', 'driver_points', 'one_touch', 'change_destination',
+        'tips', 'pin', 'share', 'change_driver', 'driver_points', 'one_touch', 'change_destination', 'coupons',
     ];
 
     public static function categoryFeature(string $slug): string
