@@ -21,8 +21,10 @@ use Modules\Rides\Models\RideBid;
 use Modules\Rides\Models\RideBlock;
 use Modules\Rides\Models\RideHold;
 use Modules\Rides\Models\RideOffer;
+use Modules\Rides\Services\Airport\AirportQueue;
 use Modules\Rides\Services\Bidding\BidBoard;
 use Modules\Rides\Services\Bidding\BidPricing;
+use Modules\Rides\Services\Circle\FavoriteCircle;
 use Modules\Rides\Services\Drivers\DriverEligibility;
 use Modules\Rides\Services\Lifecycle\RideCloser;
 use Modules\Rides\Services\Lifecycle\RideStateMachine;
@@ -55,6 +57,8 @@ class DispatchEngine
         private readonly PresenceService $presence,
         private readonly DriverStats $stats,
         private readonly RideCloser $closer,
+        private readonly AirportQueue $queue,
+        private readonly FavoriteCircle $circle,
     ) {}
 
     /** Every few seconds (rides:dispatch-tick): offers that ran out, card rides never paid, then rounds that are due. */
@@ -102,6 +106,8 @@ class DispatchEngine
             $ride->forceFill(['rider_asked_at' => now()])->save();
             $this->notifier->rider($ride, 'still_searching');
         }
+        // DORR Circle: the favourites had their chance — the rider decides whether everyone else may be asked.
+        $this->circle->askIfDue($ride, $searchingFor, (int) ($policy['circle.ask_after_s'] ?? 90));
 
         $round = $ride->dispatch_round + 1;
         $radius = min(
@@ -173,6 +179,7 @@ class DispatchEngine
             $ride->forceFill(['rider_asked_at' => now()])->save();
             $this->notifier->rider($ride, 'raise_suggest');
         }
+        $this->circle->askIfDue($ride, $searchingFor, (int) ($policy['circle.ask_after_s'] ?? 90));
 
         $round = $ride->dispatch_round + 1;
         $radius = min(
@@ -303,6 +310,8 @@ class DispatchEngine
         BidBoard::closeRide($ride, $bid);
 
         $this->presence->rideStarted($driver);
+        // Whatever the ride, the captain is no longer waiting in an airport line (D-280).
+        $this->queue->onAssigned($driver);
 
         return $ride;
     }
@@ -313,6 +322,8 @@ class DispatchEngine
         $this->stats->bump($driver->id, ['offers_accepted' => 1]);
         // Trusted contacts set to "every ride" / "at night" get the live link now (R-221).
         app(SafetyContacts::class)->autoShare($ride);
+        // Booked for someone else (R-13): that person hears who is coming, with the live link.
+        app(SafetyContacts::class)->beneficiary($ride);
         $ride->loadMissing(['driver', 'rider']);
         $this->notifier->changed($ride, 'accepted');
         $snapshot = (array) $ride->vehicle_snapshot;
@@ -403,6 +414,8 @@ class DispatchEngine
         $riderPhone = $ride->rider()->value('phone');
         $category = $ride->category()->firstOrFail();
         $favorites = FavoriteDriver::query()->where('user_id', $ride->user_id)->pluck('driver_id');
+        // An airport ride goes first to the captains waiting their turn there, in line order (D-276); nobody queued and eligible → the usual search.
+        $queued = $this->queue->orderFor($ride);
         // A captain whose reserved ride starts before this one could end is kept for it (D-267).
         $reservedSoon = Ride::query()->where('status', RideStatus::Scheduled->value)->whereNotNull('reserved_driver_id')
             ->where('next_dispatch_at', '<=', now()->addSeconds((int) ($ride->planned_duration_s ?? 1800) + 900))
@@ -413,6 +426,8 @@ class DispatchEngine
             ->where('status', PresenceStatus::Online->value)
             ->where('gps_enabled', true)
             ->where('last_seen_at', '>=', now()->subSeconds($staleAfter))
+            // DORR Circle: only the favourites the rider picked, until they widen the search.
+            ->when($ride->search_scope === 'circle', fn ($q) => $q->whereIn('driver_id', array_map('intval', (array) $ride->circle_driver_ids)))
             ->whereBetween('lat', [$minLat, $maxLat])
             ->whereBetween('lng', [$minLng, $maxLng])
             ->whereNotIn('driver_id', $refused->merge($released)->merge($busyWithOffer)->merge($blocked)->merge($reservedSoon)->unique()->values())
@@ -420,8 +435,8 @@ class DispatchEngine
             ->get()
             ->map(fn (DriverPresence $p) => [$p, Geo::metres($ride->origin_lat, $ride->origin_lng, (float) $p->lat, (float) $p->lng)])
             ->filter(fn (array $pair) => $pair[1] <= $radius)
-            // The rider's favourite captains first, when close enough (R-226: a preference, not a promise).
-            ->sortBy([fn (array $a, array $b) => ($favorites->contains($b[0]->driver_id) <=> $favorites->contains($a[0]->driver_id)), fn (array $a, array $b) => $a[1] <=> $b[1]])
+            // The captains in the airport's line first, in line order; then the rider's favourites, when close enough (R-226: a preference, not a promise).
+            ->sortBy([fn (array $a, array $b) => ($queued[$a[0]->driver_id] ?? PHP_INT_MAX) <=> ($queued[$b[0]->driver_id] ?? PHP_INT_MAX), fn (array $a, array $b) => ($favorites->contains($b[0]->driver_id) <=> $favorites->contains($a[0]->driver_id)), fn (array $a, array $b) => $a[1] <=> $b[1]])
             ->filter(function (array $pair) use ($ride, $category, $riderPhone, $minBalance) {
                 $driver = Driver::query()->find($pair[0]->driver_id);
                 if ($driver === null || $driver->phone === $riderPhone || $this->eligibility->reasonNotToWork($driver) !== null) {

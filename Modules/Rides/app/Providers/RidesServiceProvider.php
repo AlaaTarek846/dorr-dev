@@ -11,6 +11,7 @@ use Modules\Rides\Console\ReleaseEarnings;
 use Modules\Rides\Console\WaslEligibility;
 use Modules\Rides\Console\WaslLocations;
 use Modules\Rides\Console\WaslTrips;
+use Modules\Rides\Listeners\HandleDriverLocation;
 use Modules\Rides\Listeners\RelayDriverLocation;
 use Modules\Rides\Services\Drivers\DriverEligibility;
 use Modules\Rides\Services\Geo\GeoProvider;
@@ -64,6 +65,8 @@ class RidesServiceProvider extends ModuleServiceProvider
         parent::boot();
 
         Event::listen(DriverLocationUpdated::class, RelayDriverLocation::class);
+        // The airport queue and the restricted-area alert follow the captain's latest point (D-277, D-280, D-283).
+        Event::listen(DriverLocationUpdated::class, HandleDriverLocation::class);
 
         // A card ride is paid on the app's one payment screen, which then holds the amount (ReservesFunds).
         $this->app->make(CheckoutPurposes::class)->register(RideCheckoutPurpose::KEY, RideCheckoutPurpose::class);

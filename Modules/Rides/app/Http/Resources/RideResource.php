@@ -5,12 +5,14 @@ namespace Modules\Rides\Http\Resources;
 use App\Models\Rating;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Str;
 use Modules\Driver\Models\DriverPresence;
 use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Models\DriverRideProfile;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RidePriceLine;
 use Modules\Rides\Models\RideStop;
+use Modules\Rides\Services\Geo\PickupPoints;
 use Modules\Rides\Services\Geo\RideProgress;
 use Modules\Rides\Services\Lifecycle\RideChangeService;
 use Modules\Rides\Services\Payment\RidePaymentChangeService;
@@ -40,6 +42,14 @@ class RideResource extends JsonResource
             'status' => $this->status->value,
             'version' => $this->version,
             ...self::common($this->resource),
+            // DORR Circle (R-INN-07): booked for favourite captains — still only them, how many, and whether the rider was asked.
+            'circle' => $this->circle_driver_ids === null ? null : [
+                'active' => $this->search_scope === 'circle',
+                'count' => count((array) $this->circle_driver_ids),
+                'asked' => $this->circle_asked_at !== null,
+            ],
+            // R-13: the rider sees whom they booked for, as they typed it.
+            'beneficiary' => empty($this->beneficiary['name']) ? null : ['name' => $this->beneficiary['name'], 'phone' => $this->beneficiary['phone'] ?? null],
             'estimate' => $this->snapshot('estimate'),
             'agreed_price_minor' => $this->agreed_price_minor,
             'bidding' => $this->booking_mode?->value !== 'bid' ? null : [
@@ -101,6 +111,11 @@ class RideResource extends JsonResource
             // D-60, D-61: how many ride and the pickup note — on the request card and the ride.
             'passengers' => $ride->passengers,
             'pickup_note' => $ride->pickup_note,
+            // R-13: booked for someone else — who to pick up, by first name only (never their number).
+            'beneficiary' => empty($ride->beneficiary['name']) ? null : ['name' => Str::before($ride->beneficiary['name'], ' ')],
+            // R-16..R-18, D-111: the approved points the trip starts / ends at — name, kind, how to find it.
+            'pickup_point' => PickupPoints::present($ride->pickup_point),
+            'dropoff_point' => PickupPoints::present($ride->dropoff_point),
             'payment_method' => $ride->payment_method->value,
             'payment_status' => $ride->payment_status->value,
             'currency' => ['code' => $ride->currency?->code, 'symbol' => $ride->currency?->symbol, 'decimal_places' => (int) ($ride->currency?->decimal_places ?? 2)],

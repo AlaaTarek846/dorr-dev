@@ -141,6 +141,13 @@ data class OfferDto(
     /** D-60, D-61: how many ride and the rider's pickup note. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-13: booked for someone else — whom to pick up (first name only). */
+    val beneficiary: BeneficiaryDto? = null,
+    /** D-INN-07: the rider chose this captain from their favourites. */
+    @SerializedName("from_circle") val fromCircle: Boolean = false,
+    /** R-16..R-18, D-111: the approved points to meet / drop at. */
+    @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
+    @SerializedName("dropoff_point") val dropoffPoint: PickupPointDto? = null,
     val currency: CurrencyDto? = null,
     val origin: PlaceDto? = null,
     val destination: PlaceDto? = null,
@@ -180,6 +187,47 @@ data class BidCardDto(
 data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null)
 
 data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
+
+data class BeneficiaryDto(val name: String? = null)
+
+/** D-276..D-281: the Airport screen — where the captain is, their place in line, the estimate, the official points. */
+data class AirportQueueDto(
+    val zone: ZoneRefDto? = null,
+    val inside: Boolean = false,
+    val queued: Boolean = false,
+    val entry: String? = null,
+    @SerializedName("entry_mode") val entryMode: String? = null,
+    val position: Int? = null,
+    val size: Int = 0,
+    @SerializedName("estimated_wait_s") val estimatedWaitS: Int? = null,
+    @SerializedName("joined_at") val joinedAt: String? = null,
+    @SerializedName("can_join") val canJoin: Boolean = false,
+    @SerializedName("cannot_join_reason") val cannotJoinReason: String? = null,
+    @SerializedName("pickup_points") val pickupPoints: List<PickupPointDto> = emptyList(),
+    val rules: AirportRulesDto? = null,
+)
+
+data class ZoneRefDto(val id: Int = 0, val name: String? = null)
+
+data class AirportRulesDto(
+    @SerializedName("leave_grace_s") val leaveGraceS: Int = 0,
+    @SerializedName("max_wait_s") val maxWaitS: Int = 0,
+    @SerializedName("stale_after_s") val staleAfterS: Int = 0,
+)
+
+/** D-282: an area where pickups aren't allowed (`blocked`) or only at approved points (`pickup_only`). */
+data class RestrictedZoneDto(val id: Int = 0, val type: String? = null, val name: String? = null)
+
+/** An approved pickup / drop-off point: a gate, terminal, entrance or parking, and how to find it. */
+data class PickupPointDto(
+    val id: Int = 0,
+    val kind: String? = null,
+    @SerializedName("kind_label") val kindLabel: String? = null,
+    val name: String? = null,
+    val instructions: String? = null,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+)
 
 data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String)
 
@@ -380,6 +428,10 @@ data class TripDto(
     val rider: RiderDto? = null,
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    val beneficiary: BeneficiaryDto? = null,
+    @SerializedName("from_circle") val fromCircle: Boolean = false,
+    @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
+    @SerializedName("dropoff_point") val dropoffPoint: PickupPointDto? = null,
     val progress: ProgressDto? = null,
     @SerializedName("needs_pin") val needsPin: Boolean = false,
     @SerializedName("earning_minor") val earningMinor: Long? = null,

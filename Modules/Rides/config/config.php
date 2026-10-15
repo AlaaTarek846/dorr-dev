@@ -85,6 +85,18 @@ return [
         'waiting.warn_before_s' => 60,                    // D-122: "free waiting ends soon" this long before
         'eta.speed_kmh' => 30,                            // D-129: the average city speed the remaining time is worked out at
         'booking.note_max_chars' => 120,                  // D-61: the pickup note — what's needed only
+        'circle.ask_after_s' => 90,                       // R-INN-07: no favourite took it this long → the rider is asked before it goes to everyone
+        'places.recent_max' => 5,                         // R-5: recent destinations offered as shortcuts
+        'places.favorites_max' => 12,                     // R-174: saved favourite places shown as shortcuts
+        'pickup.match_m' => 40,                           // R-16: a place this close to an approved point is that point
+
+        'queue.entry' => 'manual',                        // D-277: how a captain gets in line at an airport — auto | manual
+        'queue.leave_grace_s' => 120,                     // D-280: outside the zone this long → out of the line
+        'queue.stale_after_s' => 300,                     // D-280: no location from the captain this long → out
+        'queue.max_wait_s' => 0,                          // D-280: out after waiting this long; 0 = no limit
+        'queue.min_samples' => 5,                         // D-279: the wait estimate needs this many finished waits
+        'queue.stats_days' => 14,                         // …from the last this-many days
+        'zones.alert_cooldown_s' => 600,                  // D-283: the same restricted-area alert at most this often per captain
         'stops.max' => 3,
         'stops.free_wait_s' => 120,
         'open_destination.hold_minor' => 10000,

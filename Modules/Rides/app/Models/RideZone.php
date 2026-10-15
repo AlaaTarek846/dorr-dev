@@ -59,6 +59,11 @@ class RideZone extends Model
         return $this->hasMany(RideZoneTranslation::class);
     }
 
+    public function pickupPoints(): HasMany
+    {
+        return $this->hasMany(RidePickupPoint::class, 'zone_id');
+    }
+
     protected function translationModel(): string
     {
         return RideZoneTranslation::class;

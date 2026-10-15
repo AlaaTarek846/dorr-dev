@@ -89,6 +89,18 @@ return [
         'too_many_passengers' => 'This category takes up to :max riders.',
         'pickup_note_too_long' => 'Keep the note to :max characters.',
         'pickup_note_contact' => 'Leave phone numbers and links out — use the in-app chat and call.',
+        'pickup_point_required' => 'Pickups at :zone are only from an approved point — choose one.',
+        'dropoff_point_required' => 'Drop-offs at :zone are only at an approved point — choose one.',
+        'airport_queue_not_inside' => 'You\'re not inside an airport with a queue.',
+        'airport_queue_offline' => 'Go online to join the queue.',
+        'airport_queue_stale' => 'Your location isn\'t reaching us — turn on GPS and try again.',
+        'airport_queue_busy' => 'Finish your current ride before joining the queue.',
+        'airport_queue_not_eligible' => 'You can\'t take rides right now, so you can\'t join the queue.',
+        'circle_empty' => 'Add favourite captains first — then you can book for your circle.',
+        'circle_invalid' => 'Choose captains from your favourites.',
+        'circle_not_active' => 'This ride isn\'t searching in your circle.',
+        'pickup_point_invalid' => 'That point isn\'t available here — choose another.',
+        'beneficiary_is_you' => 'That\'s your own number — book for someone else with their number.',
         'payment_change_unavailable' => 'The way you pay can\'t be changed now.',
     ],
 
@@ -110,6 +122,8 @@ return [
     ],
 
     'messages' => [
+        'queue_joined' => 'You\'re in the queue.',
+        'queue_left' => 'You left the queue.',
         'bid_accepted' => 'Agreed! Your captain is on the way.',
         'bid_sent' => 'Your offer was sent to the rider.',
         'requested' => 'Looking for a captain.',
@@ -231,6 +245,13 @@ return [
         'silver' => 'Silver captain',
         'gold' => 'Gold captain',
         'diamond' => 'Diamond captain',
+    ],
+
+    'point_kinds' => [
+        'gate' => 'Gate',
+        'terminal' => 'Terminal',
+        'entrance' => 'Entrance',
+        'parking' => 'Parking',
     ],
 
     'payment_methods' => [

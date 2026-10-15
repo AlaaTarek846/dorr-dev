@@ -217,6 +217,19 @@ interface DriverApi {
     @POST("driver/v1/rides/{uuid}/changes/{change}/reject")
     suspend fun rejectChange(@Path("uuid") uuid: String, @Path("change") change: String): Response<ApiEnvelope<JsonElement>>
 
+    // ---------------------------------------------------------------- airport queue (D-276..D-283)
+    @GET("driver/v1/airport-queue")
+    suspend fun airportQueue(): Response<ApiEnvelope<AirportQueueDto>>
+
+    @POST("driver/v1/airport-queue/join")
+    suspend fun joinAirportQueue(): Response<ApiEnvelope<AirportQueueDto>>
+
+    @POST("driver/v1/airport-queue/leave")
+    suspend fun leaveAirportQueue(): Response<ApiEnvelope<AirportQueueDto>>
+
+    @GET("driver/v1/restricted-zones")
+    suspend fun restrictedZones(): Response<ApiEnvelope<List<RestrictedZoneDto>>>
+
     // ---------------------------------------------------------------- scheduled rides (D-260..269)
     @GET("driver/v1/scheduled")
     suspend fun scheduled(): Response<ApiEnvelope<List<ScheduledRideDto>>>
