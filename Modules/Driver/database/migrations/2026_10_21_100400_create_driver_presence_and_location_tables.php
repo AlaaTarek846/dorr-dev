@@ -57,6 +57,7 @@ return new class extends Migration
             $table->timestamp('received_at')->useCurrent();
             $table->unique(['driver_id', 'batch_uuid']);
         });
+//
 
         // Append-only (evidence for disputes and for Wasl): no updated_at, no cascade from the driver.
         Schema::create('driver_location_log', function (Blueprint $table) {
