@@ -439,7 +439,7 @@ fun MatchCardBubble(dto: MessageDto, footer: @Composable () -> Unit) {
                         StatusChip(live, now, onDark = true)
                     } else {
                         Text(start?.format(java.time.format.DateTimeFormatter.ofPattern("HH:mm")).orEmpty(), color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black)
-                        Text(start?.format(java.time.format.DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())).orEmpty(), color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
+                        Text(start?.format(java.time.format.DateTimeFormatter.ofPattern("d MMM", com.dorr.app.network.AppLocale.java())).orEmpty(), color = Color.White.copy(alpha = 0.75f), fontSize = 11.sp)
                     }
                 }
                 Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {

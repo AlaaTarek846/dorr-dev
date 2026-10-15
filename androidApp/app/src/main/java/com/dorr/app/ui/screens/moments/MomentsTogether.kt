@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,11 +17,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -30,22 +30,26 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.Photo
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PersonAdd
-import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -71,6 +75,7 @@ import com.dorr.app.chat.VoiceClip
 import com.dorr.app.chat.VoicePlayer
 import com.dorr.app.chat.VoiceRecorder
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AppLocale
 import com.dorr.app.network.CapsuleDto
 import com.dorr.app.network.CollabCardDto
 import com.dorr.app.network.CollabFileDto
@@ -79,7 +84,6 @@ import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.screens.chat.Ch
 import com.dorr.app.ui.screens.chat.ChAvatar
 import com.dorr.app.ui.screens.chat.ChField
-import com.dorr.app.ui.screens.chat.ChPrimaryButton
 import com.dorr.app.ui.screens.chat.LocalFile
 import com.dorr.app.ui.screens.chat.PeoplePickerSheet
 import com.dorr.app.ui.screens.chat.chatAuth
@@ -107,8 +111,14 @@ import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
+import java.time.format.FormatStyle
 import com.dorr.app.ui.screens.chat.ChSheet
+import com.dorr.app.ui.components.DorrTextField
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
 
 /*
  * DORR Moments together and kept: group cards everyone signs (spec 163) and capsules — albums
@@ -116,7 +126,7 @@ import com.dorr.app.ui.screens.chat.ChSheet
  */
 
 private fun dayText(iso: String?): String = runCatching {
-    OffsetDateTime.parse(iso).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM))
+    OffsetDateTime.parse(iso).toLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(AppLocale.java()))
 }.getOrDefault("")
 
 // =============================================================================== group cards
@@ -173,76 +183,100 @@ private fun CreateCollabSheet(onDismiss: () -> Unit, onCreated: (String) -> Unit
     var members by remember { mutableStateOf<List<Int>>(emptyList()) }
     var picking by remember { mutableStateOf(false) }
     var contacts by remember { mutableStateOf<List<ContactDto>>(emptyList()) }
-    var query by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty().filter { it.profile != null } }
 
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
-            Text(stringResource(R.string.mo_collab_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Wa.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text(stringResource(R.string.mo_collab_new), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
-            choice?.let { CardFace(it.look.copy(title = title.trim().ifEmpty { it.name }), Modifier.fillMaxWidth().height(140.dp)) }
-            Spacer(Modifier.height(8.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(choices, key = { "${it.momentId}-${it.kind}" }) { c ->
+            choice?.let { CardFace(it.look.copy(title = title.trim().ifEmpty { it.name }), Modifier.fillMaxWidth()) }
+            Spacer(Modifier.height(10.dp))
+            MoSheetSelect(
+                label = stringResource(R.string.mo_occasion),
+                value = choice?.let { "${it.look.emoji ?: "✨"}  ${it.name}" }.orEmpty(),
+                icon = Icons.Rounded.AutoAwesome,
+            ) { close ->
+                choices.forEach { c ->
                     val on = choice == c
-                    Text(
-                        "${c.look.emoji ?: "✨"}  ${c.name}", color = if (on) Color.White else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) momentColor(c.look.primaryColor, Ch.Red) else Ch.SurfaceMuted).clickable { choice = c }.padding(horizontal = 12.dp, vertical = 8.dp),
+                    DropdownMenuItem(
+                        text = { Text("${c.look.emoji ?: "✨"}  ${c.name}", color = if (on) settingsAccent() else settingsInk(), fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        trailingIcon = { if (on) Icon(Icons.Rounded.CheckCircle, null, tint = settingsAccent(), modifier = Modifier.size(16.dp)) },
+                        onClick = { choice = c; close() },
                     )
                 }
             }
             Spacer(Modifier.height(10.dp))
-            ChField(title, { title = it.take(120) }, stringResource(R.string.mo_card_title_hint))
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.mo_collab_recipient), color = Ch.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
-            Spacer(Modifier.height(6.dp))
-            val r = recipient
-            if (r != null) {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.SurfaceMuted).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    ChAvatar(r.profile?.avatar, r.name, r.profile?.key, size = 36.dp)
-                    Spacer(Modifier.width(10.dp))
-                    Text(r.name, color = Ch.Ink, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.Close, null, tint = Ch.Mut, modifier = Modifier.size(20.dp).clickable { recipient = null })
-                }
-            } else {
-                ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search)
-                contacts.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) }.take(6).forEach { c ->
-                    Row(Modifier.fillMaxWidth().clickable { recipient = c; members = members - c.profile!!.id }.padding(vertical = 7.dp), verticalAlignment = Alignment.CenterVertically) {
-                        ChAvatar(c.profile?.avatar, c.name, c.profile?.key, size = 34.dp)
-                        Spacer(Modifier.width(10.dp))
-                        Text(c.name, color = Ch.Ink, fontSize = 14.sp)
-                    }
+            DorrTextField(
+                title, { title = it.take(120) }, modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.mo_lbl_title), placeholder = stringResource(R.string.mo_card_title_hint), icon = Icons.Rounded.Edit,
+            )
+            Spacer(Modifier.height(10.dp))
+            MoSheetSelect(
+                label = stringResource(R.string.mo_collab_recipient),
+                value = recipient?.name.orEmpty(),
+                placeholder = stringResource(R.string.mo_collab_pick_person),
+                icon = Icons.Rounded.Person,
+            ) { close ->
+                contacts.forEach { c ->
+                    val on = recipient?.id == c.id
+                    DropdownMenuItem(
+                        text = { Text(c.name, color = if (on) settingsAccent() else settingsInk(), fontWeight = if (on) FontWeight.Bold else FontWeight.Medium) },
+                        trailingIcon = { if (on) Icon(Icons.Rounded.CheckCircle, null, tint = settingsAccent(), modifier = Modifier.size(16.dp)) },
+                        onClick = {
+                            recipient = c
+                            c.profile?.id?.let { id -> members = members - id }
+                            close()
+                        },
+                    )
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Ch.Red.copy(alpha = 0.08f)).clickable { picking = true }.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.PersonAdd, null, tint = Ch.Red, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.mo_collab_members, members.size), color = Ch.Red, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-            }
-            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
+            Spacer(Modifier.height(10.dp))
+            DorrTextField(
+                stringResource(R.string.mo_collab_members, members.size), {},
+                modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.mo_collab_invite),
+                icon = Icons.Rounded.PersonAdd,
+                onClick = { picking = true },
+            )
+            WaError(error)
             Spacer(Modifier.height(16.dp))
-            ChPrimaryButton(stringResource(R.string.mo_collab_start), icon = Icons.Rounded.Groups, modifier = Modifier.fillMaxWidth(), enabled = !busy && recipient != null && choice != null) {
-                busy = true
-                error = null
-                scope.launch {
-                    runCatching {
-                        ApiClient.moments.createCollab(chatAuth(), JsonObject().apply {
-                            addProperty("recipient_id", recipient!!.profile!!.id)
-                            choice?.momentId?.let { addProperty("moment_id", it) }
-                            choice?.kind?.let { addProperty("personal_kind", it) }
-                            title.trim().takeIf { it.isNotEmpty() }?.let { addProperty("title", it) }
-                            add("members", JsonArray().apply { members.filter { it != recipient!!.profile!!.id }.forEach { add(it) } })
-                        }).data
-                    }.onSuccess { it?.let { c -> onCreated(c.id) } }.onFailure { error = it.apiFailure().message }
-                    busy = false
-                }
-            }
+            WaButton(
+                stringResource(R.string.mo_collab_start),
+                {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        runCatching {
+                            ApiClient.moments.createCollab(chatAuth(), JsonObject().apply {
+                                addProperty("recipient_id", recipient!!.profile!!.id)
+                                choice?.momentId?.let { addProperty("moment_id", it) }
+                                choice?.kind?.let { addProperty("personal_kind", it) }
+                                title.trim().takeIf { it.isNotEmpty() }?.let { addProperty("title", it) }
+                                add("members", JsonArray().apply { members.filter { it != recipient!!.profile!!.id }.forEach { add(it) } })
+                            }).data
+                        }.onSuccess { it?.let { c -> onCreated(c.id) } }.onFailure { error = it.apiFailure().message }
+                        busy = false
+                    }
+                },
+                icon = Icons.Rounded.Groups,
+                enabled = !busy && recipient != null && choice != null,
+                loading = busy,
+            )
         }
     }
     if (picking) PeoplePickerSheet(members.toSet(), onDismiss = { picking = false }) { members = it }
@@ -415,6 +449,14 @@ private fun Files(files: List<CollabFileDto>, key: String) {
 private val CapsuleEmojis = listOf("🌙", "🎂", "💍", "🎓", "🎉", "❤️", "🌸", "✈️", "👶", "⭐")
 
 @Composable
+private fun Modifier.capHairline(shape: RoundedCornerShape = RoundedCornerShape(16.dp)): Modifier {
+    val dark = settingsNight()
+    return clip(shape)
+        .background(if (dark) AccountDark.card else Color.White)
+        .border(1.dp, if (dark) AccountDark.line else Color(0xFFE6E8EC), shape)
+}
+
+@Composable
 internal fun CapsulesPage(onBack: () -> Unit, onOpen: (String) -> Unit) {
     var capsules by remember { mutableStateOf<List<CapsuleDto>?>(null) }
     var creating by remember { mutableStateOf(false) }
@@ -424,22 +466,35 @@ internal fun CapsulesPage(onBack: () -> Unit, onOpen: (String) -> Unit) {
         title = stringResource(R.string.mo_capsules), onBack = onBack,
         cta = { WaButton(stringResource(R.string.mo_capsule_new), { creating = true }, icon = Icons.Rounded.Add) },
     ) {
-        Text(stringResource(R.string.mo_capsules_sub), color = Wa.Mut, fontSize = 13.sp, modifier = Modifier.padding(bottom = 10.dp))
+        Text(
+            stringResource(R.string.mo_capsules_sub),
+            color = settingsMut(),
+            fontSize = 13.sp,
+            modifier = Modifier.padding(bottom = 10.dp, start = 2.dp),
+        )
         val list = capsules
         when {
-            list == null -> repeat(3) { WaSkeleton(Modifier.fillMaxWidth().height(76.dp).padding(bottom = 10.dp), RoundedCornerShape(22.dp)) }
-            list.isEmpty() -> WaCard(Modifier.fillMaxWidth()) { WaEmpty(Icons.Rounded.Inventory2, Tone.Gray, stringResource(R.string.mo_capsules_empty), stringResource(R.string.mo_capsules_empty_sub)) }
-            else -> list.forEachIndexed { i, c ->
-                Row(
-                    Modifier.fillMaxWidth().padding(bottom = 8.dp).waRise(i).clip(RoundedCornerShape(20.dp)).background(Wa.Surface).clickable { onOpen(c.id) }.padding(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(50.dp).clip(RoundedCornerShape(16.dp)).background(Wa.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) { Text(c.emoji ?: "📦", fontSize = 24.sp) }
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(c.title, color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(stringResource(R.string.mo_capsule_count, c.itemsCount), color = Wa.Mut, fontSize = 12.5.sp)
+            list == null -> repeat(3) { WaSkeleton(Modifier.fillMaxWidth().height(56.dp).padding(bottom = 8.dp), RoundedCornerShape(16.dp)) }
+            list.isEmpty() -> Column(Modifier.fillMaxWidth().capHairline()) {
+                WaEmpty(Icons.Rounded.Inventory2, Tone.Gray, stringResource(R.string.mo_capsules_empty), stringResource(R.string.mo_capsules_empty_sub))
+            }
+            else -> Column(Modifier.fillMaxWidth().capHairline().padding(horizontal = 6.dp, vertical = 2.dp)) {
+                list.forEachIndexed { i, c ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onOpen(c.id) }.padding(horizontal = 4.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(settingsAccent().copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) { Text(c.emoji ?: "📦", fontSize = 16.sp) }
+                        Spacer(Modifier.width(10.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(c.title, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(stringResource(R.string.mo_capsule_count, c.itemsCount), color = settingsMut(), fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+                        }
                     }
+                    if (i != list.lastIndex) Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(1.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFF0F1F4)))
                 }
             }
         }
@@ -455,28 +510,58 @@ private fun NewCapsuleSheet(onDismiss: () -> Unit, onCreated: (CapsuleDto) -> Un
     var title by remember { mutableStateOf("") }
     var emoji by remember { mutableStateOf(CapsuleEmojis.first()) }
     var error by remember { mutableStateOf<String?>(null) }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
-            Text(stringResource(R.string.mo_capsule_new), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+    var busy by remember { mutableStateOf(false) }
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Wa.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text(stringResource(R.string.mo_capsule_new), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(CapsuleEmojis) { e ->
-                    Box(
-                        Modifier.size(42.dp).clip(CircleShape).background(if (e == emoji) Ch.Red.copy(alpha = 0.16f) else Ch.SurfaceMuted).clickable { emoji = e },
-                        contentAlignment = Alignment.Center,
-                    ) { Text(e, fontSize = 20.sp) }
+            MoSheetSelect(
+                label = stringResource(R.string.mo_emoji),
+                value = emoji,
+                icon = Icons.Rounded.AutoAwesome,
+            ) { close ->
+                CapsuleEmojis.forEach { e ->
+                    val on = e == emoji
+                    DropdownMenuItem(
+                        text = { Text(e, fontSize = 20.sp) },
+                        trailingIcon = { if (on) Icon(Icons.Rounded.CheckCircle, null, tint = settingsAccent(), modifier = Modifier.size(16.dp)) },
+                        onClick = { emoji = e; close() },
+                    )
                 }
             }
             Spacer(Modifier.height(10.dp))
-            ChField(title, { title = it.take(120) }, stringResource(R.string.mo_capsule_name))
-            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
-            Spacer(Modifier.height(14.dp))
-            ChPrimaryButton(stringResource(R.string.mo_save), modifier = Modifier.fillMaxWidth(), enabled = title.isNotBlank()) {
-                scope.launch {
-                    runCatching { ApiClient.moments.createCapsule(chatAuth(), JsonObject().apply { addProperty("title", title.trim()); addProperty("emoji", emoji) }).data }
-                        .onSuccess { it?.let(onCreated) }.onFailure { error = it.apiFailure().message }
-                }
-            }
+            DorrTextField(
+                title, { title = it.take(120) }, modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.mo_lbl_name), placeholder = stringResource(R.string.mo_capsule_name), icon = Icons.Rounded.Edit,
+            )
+            WaError(error)
+            Spacer(Modifier.height(16.dp))
+            WaButton(
+                stringResource(R.string.mo_save),
+                {
+                    busy = true
+                    error = null
+                    scope.launch {
+                        runCatching { ApiClient.moments.createCapsule(chatAuth(), JsonObject().apply { addProperty("title", title.trim()); addProperty("emoji", emoji) }).data }
+                            .onSuccess { it?.let(onCreated) }.onFailure { error = it.apiFailure().message }
+                        busy = false
+                    }
+                },
+                enabled = !busy && title.isNotBlank(),
+                loading = busy,
+            )
         }
     }
 }
@@ -500,16 +585,16 @@ internal fun CapsulePage(id: String, onBack: () -> Unit) {
             WaCard(Modifier.fillMaxWidth()) { WaEmpty(Icons.Rounded.Inventory2, Tone.Gray, stringResource(R.string.mo_capsule_empty), stringResource(R.string.mo_capsule_empty_sub)) }
         }
         items.forEachIndexed { i, item ->
-            Column(Modifier.fillMaxWidth().padding(bottom = 10.dp).waRise(i).clip(RoundedCornerShape(20.dp)).background(Wa.Surface).padding(12.dp)) {
+            Column(Modifier.fillMaxWidth().padding(bottom = 8.dp).waRise(i).capHairline().padding(12.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(listOfNotNull(item.senderName, dayText(item.originalAt).ifEmpty { null }).joinToString("  ·  "), color = Wa.Mut, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Icon(Icons.Rounded.Delete, null, tint = Wa.Mut, modifier = Modifier.size(18.dp).clickable {
+                    Text(listOfNotNull(item.senderName, dayText(item.originalAt).ifEmpty { null }).joinToString("  ·  "), color = settingsMut(), fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Icon(Icons.Rounded.Delete, null, tint = settingsMut(), modifier = Modifier.size(18.dp).clickable {
                         scope.launch { runCatching { ApiClient.moments.removeFromCapsule(chatAuth(), c.id, item.id).data }.onSuccess { capsule = it } }
                     })
                 }
-                item.text?.takeIf { it.isNotBlank() }?.let { Text(it, color = Wa.Ink, fontSize = 14.5.sp, modifier = Modifier.padding(top = 4.dp)) }
+                item.text?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsInk(), fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp)) }
                 Files(item.files, "cap-${item.id}")
-                item.note?.let { Text("📝 $it", color = Wa.Red, fontSize = 12.5.sp, modifier = Modifier.padding(top = 6.dp)) }
+                item.note?.let { Text("📝 $it", color = settingsAccent(), fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
             }
         }
         Spacer(Modifier.height(10.dp))
@@ -549,31 +634,56 @@ fun CapsulePickerSheet(messageId: String, onDismiss: () -> Unit) {
         NewCapsuleSheet(onDismiss = { creating = false }) { keep(it.id) }
         return
     }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().imePadding().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
-            Text(stringResource(R.string.mo_capsule_keep), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.mo_capsule_keep_sub), color = Ch.Mut, fontSize = 12.5.sp)
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Wa.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+        ) {
+            Text(stringResource(R.string.mo_capsule_keep), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text(stringResource(R.string.mo_capsule_keep_sub), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
             Spacer(Modifier.height(10.dp))
-            ChField(note, { note = it.take(300) }, stringResource(R.string.mo_capsule_note))
-            Spacer(Modifier.height(8.dp))
+            DorrTextField(
+                note, { note = it.take(300) }, modifier = Modifier.fillMaxWidth(),
+                label = stringResource(R.string.mo_capsule_note), icon = Icons.Rounded.Edit,
+            )
+            Spacer(Modifier.height(10.dp))
             val list = capsules
-            if (list == null) CircularProgressIndicator(color = Ch.Red, modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
-            else Column(Modifier.heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
-                list.forEach { c ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { keep(c.id) }.padding(vertical = 10.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(c.emoji ?: "📦", fontSize = 22.sp)
+            if (list == null) CircularProgressIndicator(color = settingsAccent(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(16.dp))
+            else Column(Modifier.fillMaxWidth().capHairline().padding(horizontal = 6.dp, vertical = 2.dp).heightIn(max = 340.dp).verticalScroll(rememberScrollState())) {
+                list.forEachIndexed { i, c ->
+                    Row(
+                        Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { keep(c.id) }.padding(horizontal = 4.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(settingsAccent().copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) { Text(c.emoji ?: "📦", fontSize = 16.sp) }
                         Spacer(Modifier.width(10.dp))
-                        Text(c.title, color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-                        Text("${c.itemsCount}", color = Ch.Mut, fontSize = 12.sp)
+                        Text(c.title, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(stringResource(R.string.mo_capsule_count, c.itemsCount), color = settingsMut(), fontSize = 11.sp)
                     }
+                    if (i != list.lastIndex) Box(Modifier.fillMaxWidth().padding(horizontal = 8.dp).height(1.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFF0F1F4)))
                 }
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { creating = true }.padding(vertical = 10.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Rounded.Add, null, tint = Ch.Red, modifier = Modifier.size(22.dp))
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { creating = true }.padding(horizontal = 4.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Add, null, tint = settingsAccent(), modifier = Modifier.size(20.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.mo_capsule_new), color = Ch.Red, fontSize = 15.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.mo_capsule_new), color = settingsAccent(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
-            error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
+            WaError(error)
         }
     }
 }

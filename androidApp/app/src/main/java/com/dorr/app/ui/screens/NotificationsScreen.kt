@@ -313,11 +313,13 @@ private fun NotificationCard(item: NotificationItem, onClick: () -> Unit) {
 private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Unit) {
     val (icon, color) = typeStyle(item.type)
     val night = settingsNight()
+    val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = if (night) AccountDark.card else MaterialTheme.colorScheme.surface,
     ) {
+        locale.Provide {
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
             Row(verticalAlignment = Alignment.Top) {
                 Box(
@@ -343,6 +345,7 @@ private fun NotificationDetailSheet(item: NotificationItem, onDismiss: () -> Uni
             Spacer(Modifier.height(18.dp))
             Text(item.body, style = MaterialTheme.typography.bodyLarge, color = com.dorr.app.ui.screens.profile.settingsInk())
             Spacer(Modifier.height(24.dp))
+        }
         }
     }
 }

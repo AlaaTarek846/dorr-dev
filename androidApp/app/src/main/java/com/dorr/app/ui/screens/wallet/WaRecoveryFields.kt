@@ -42,7 +42,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -55,10 +54,10 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.network.AppLocale
 import java.time.LocalDate
 import java.time.Month
 import java.time.YearMonth
-import java.util.Locale
 
 /**
  * Inputs of the wallet's recovery screens, drawn like the app's personal-data screens: a pill field with
@@ -256,7 +255,7 @@ private fun birthProblem(day: String, month: String, year: String): BirthProblem
  */
 @Composable
 internal fun WaBirthPicker(day: String, month: String, year: String, onChange: (String, String, String) -> Unit, error: Boolean) {
-    val locale = LocalConfiguration.current.locales[0] ?: Locale.getDefault()
+    val locale = AppLocale.java()
     val monthNames = remember(locale) { (1..12).map { Month.of(it).getDisplayName(java.time.format.TextStyle.FULL, locale) } }
     val problem = birthProblem(day, month, year)
     val complete = birthDateOrNull(day, month, year) != null

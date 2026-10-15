@@ -92,7 +92,7 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
-import java.util.Locale
+import com.dorr.app.network.AppLocale
 import com.dorr.app.ui.screens.chat.ChSheet
 import com.dorr.app.ui.screens.chat.bool
 
@@ -134,7 +134,7 @@ internal fun whenText(e: DiscEventDto): String =
 @Composable
 internal fun myTimeText(e: DiscEventDto): String? = e.myTime?.let { t ->
     runCatching { LocalDateTime.parse(t.replace(' ', 'T')) }.getOrNull()?.let {
-        stringResource(R.string.ev_my_time, it.format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", Locale.getDefault())))
+        stringResource(R.string.ev_my_time, it.format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", AppLocale.java())))
     }
 }
 
@@ -185,7 +185,7 @@ private fun DateBadge(e: DiscEventDto, modifier: Modifier = Modifier) {
     val d = localDate(e) ?: return
     Column(modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(horizontal = 10.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(d.dayOfMonth.toString(), color = Color(0xFF111928), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-        Text(d.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()), color = categoryColor(e.category), fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
+        Text(d.month.getDisplayName(TextStyle.SHORT, AppLocale.java()), color = categoryColor(e.category), fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
@@ -199,7 +199,7 @@ internal fun EventRow(e: DiscEventDto, modifier: Modifier = Modifier, review: St
             if (e.cover != null) AsyncImage(model = ApiClient.mediaUrl(e.cover), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             Column(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)).padding(horizontal = 7.dp, vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(d?.dayOfMonth?.toString() ?: "—", color = Color(0xFF111928), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-                Text(d?.month?.getDisplayName(TextStyle.SHORT, Locale.getDefault()).orEmpty(), color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                Text(d?.month?.getDisplayName(TextStyle.SHORT, AppLocale.java()).orEmpty(), color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
         Spacer(Modifier.width(12.dp))
@@ -401,7 +401,7 @@ private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (St
             ev.statusNote?.takeIf { it.isNotBlank() }?.let { Text(it, color = Wa.Ink, fontSize = 13.5.sp) }
             ev.oldStartsAt?.let { old ->
                 runCatching { OffsetDateTime.parse(old).atZoneSameInstant(ZoneId.of(ev.timezone ?: "UTC")) }.getOrNull()?.let {
-                    Text(stringResource(R.string.ev_was_on, it.format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", Locale.getDefault()))), color = Wa.Mut, fontSize = 12.5.sp)
+                    Text(stringResource(R.string.ev_was_on, it.format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", AppLocale.java()))), color = Wa.Mut, fontSize = 12.5.sp)
                 }
             }
         }
@@ -416,7 +416,7 @@ private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (St
     // When, where, how much.
     WaCard(Modifier.fillMaxWidth().padding(top = 12.dp).waRise(2), padding = 14.dp) {
         InfoLine("📅", whenText(ev) + (ev.city?.name?.let { "  ·  " + stringResource(R.string.ev_local_of, it) } ?: ""), myTimeText(ev))
-        ev.localEnd?.let { end -> runCatching { LocalDateTime.parse(end.replace(' ', 'T')) }.getOrNull()?.let { InfoLine("🏁", stringResource(R.string.ev_ends_at, it.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)))) } }
+        ev.localEnd?.let { end -> runCatching { LocalDateTime.parse(end.replace(' ', 'T')) }.getOrNull()?.let { InfoLine("🏁", stringResource(R.string.ev_ends_at, it.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java())))) } }
         val place = listOfNotNull(ev.venue, ev.address, ev.city?.name).joinToString(" · ")
         if (place.isNotBlank()) {
             InfoLine("📍", place, stringResource(R.string.ev_open_map)) {
@@ -625,7 +625,7 @@ fun EventCardBubble(dto: MessageDto, @Suppress("UNUSED_PARAMETER") mine: Boolean
                     runCatching { LocalDate.parse(d) }.getOrNull()?.let { date ->
                         Column(Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(12.dp)).background(Color.White).padding(horizontal = 9.dp, vertical = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(date.dayOfMonth.toString(), color = Color(0xFF111928), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                            Text(date.month.getDisplayName(TextStyle.SHORT, Locale.getDefault()), color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+                            Text(date.month.getDisplayName(TextStyle.SHORT, AppLocale.java()), color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
                         }
                     }
                 }

@@ -62,7 +62,6 @@ import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.TextStyle
-import java.util.Locale
 
 /*
  * My communication rules (spec 146, 151, 155), one page: the context I'm in now; what interrupts
@@ -201,7 +200,7 @@ fun CommRulesPage() {
                                     val next = if (on) days - day else days + day
                                     if (next.isNotEmpty()) save(callHoursBody(hours?.from ?: "09:00", hours?.to ?: "22:00", next))
                                 }, contentAlignment = Alignment.Center) {
-                                    Text(DayOfWeek.of(if (day == 0) 7 else day).getDisplayName(TextStyle.NARROW, Locale.getDefault()), color = if (on) Color.White else Ch.Ink, fontWeight = FontWeight.Bold)
+                                    Text(DayOfWeek.of(if (day == 0) 7 else day).getDisplayName(TextStyle.NARROW, com.dorr.app.network.AppLocale.java()), color = if (on) Color.White else Ch.Ink, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }

@@ -404,21 +404,24 @@ private fun MyPortals(version: Int, onBack: () -> Unit, onAdd: () -> Unit, onEdi
     }
 
     deleting?.let { portal ->
+        val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
         androidx.compose.material3.AlertDialog(
             onDismissRequest = { deleting = null },
-            title = { Text(stringResource(R.string.pt_delete_title)) },
-            text = { Text(stringResource(R.string.pt_delete_text, portal.name.orEmpty())) },
+            title = { locale.Provide { Text(stringResource(R.string.pt_delete_title)) } },
+            text = { locale.Provide { Text(stringResource(R.string.pt_delete_text, portal.name.orEmpty())) } },
             confirmButton = {
-                androidx.compose.material3.TextButton(onClick = {
-                    deleting = null
-                    scope.launch {
-                        runCatching { ApiClient.discover.deletePortal(auth(), portal.id) }
-                            .onSuccess { mine = mine?.filterNot { it.id == portal.id } }
-                            .onFailure { error = it.apiFailure().message }
-                    }
-                }) { Text(stringResource(R.string.pt_delete), color = Wa.Danger) }
+                locale.Provide {
+                    androidx.compose.material3.TextButton(onClick = {
+                        deleting = null
+                        scope.launch {
+                            runCatching { ApiClient.discover.deletePortal(auth(), portal.id) }
+                                .onSuccess { mine = mine?.filterNot { it.id == portal.id } }
+                                .onFailure { error = it.apiFailure().message }
+                        }
+                    }) { Text(stringResource(R.string.pt_delete), color = Wa.Danger) }
+                }
             },
-            dismissButton = { androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.wa_cancel)) } },
+            dismissButton = { locale.Provide { androidx.compose.material3.TextButton(onClick = { deleting = null }) { Text(stringResource(R.string.wa_cancel)) } } },
         )
     }
 }
