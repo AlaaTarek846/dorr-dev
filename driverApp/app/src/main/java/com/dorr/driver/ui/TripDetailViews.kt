@@ -25,6 +25,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.EditNote
+import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.PersonPinCircle
@@ -61,9 +62,20 @@ import com.dorr.driver.net.ProgressDto
  * the ride was booked for someone else (first name only — the app chat still reaches the rider who booked).
  */
 @Composable
-internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null, pickupPoint: PickupPointDto? = null, dropoffPoint: PickupPointDto? = null) {
-    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank() && pickupPoint == null && dropoffPoint == null) return
+internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null, pickupPoint: PickupPointDto? = null, dropoffPoint: PickupPointDto? = null, fromCircle: Boolean = false) {
+    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank() && pickupPoint == null && dropoffPoint == null && !fromCircle) return
     Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // D-INN-07 DORR Circle: the rider picked this captain from their favourites.
+        if (fromCircle) {
+            Row(
+                Modifier.clip(CircleShape).background(DorrBrand.orange.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.Favorite, null, tint = DorrBrand.orange, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.trip_from_circle), fontWeight = FontWeight.SemiBold, fontSize = 13.sp, color = DorrBrand.orange)
+            }
+        }
         pickupPoint?.let { PointRow(stringResource(R.string.trip_pickup_point), it) }
         dropoffPoint?.let { PointRow(stringResource(R.string.trip_dropoff_point), it) }
         beneficiary?.takeIf { it.isNotBlank() }?.let { name ->

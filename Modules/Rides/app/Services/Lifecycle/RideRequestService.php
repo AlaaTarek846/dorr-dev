@@ -20,6 +20,7 @@ use Modules\Rides\Models\RidePriceOffer;
 use Modules\Rides\Models\RideQuote;
 use Modules\Rides\Models\RideStop;
 use Modules\Rides\Services\Bidding\BidPricing;
+use Modules\Rides\Services\Circle\FavoriteCircle;
 use Modules\Rides\Services\Dispatch\DispatchEngine;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Notifications\RideNotifier;
@@ -53,14 +54,16 @@ class RideRequestService
         private readonly RideNotifier $notifier,
         private readonly CheckoutService $checkouts,
         private readonly RidePromotions $promotions,
+        private readonly FavoriteCircle $circles,
     ) {}
 
     /**
      * @param  int|null  $riderPrice  bidding (§9): the price the rider offers — at least the floor
      * @param  Carbon|null  $scheduledAt  booked ahead (R-12)
      * @param  array{name: string, phone: string}|null  $beneficiary  booked for someone else (R-13), the rider having confirmed their consent
+     * @param  list<int>|null  $circle  DORR Circle (R-INN-07): offered to these favourite captains first — empty = all of them; null = the usual search
      */
-    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null): Ride
+    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null, ?array $circle = null): Ride
     {
         if ($idempotencyKey !== null && ($existing = Ride::query()->where('user_id', $rider->id)->where('idempotency_key', $idempotencyKey)->first()) !== null) {
             if ($existing->quote()->value('uuid') !== $quoteUuid) {
@@ -86,6 +89,9 @@ class RideRequestService
         if ($beneficiary !== null) {
             $features[] = 'book_for_other';
         }
+        if ($circle !== null) {
+            $features[] = 'favorite_circle';
+        }
         foreach ($features as $feature) {
             if (! $this->features->allows($quote->country_id, $quote->city_id, $feature)) {
                 throw RidesException::featureDisabled($feature);
@@ -96,6 +102,7 @@ class RideRequestService
         }
         $pickupNote = $this->pickupNote($quote, $pickupNote);
         $beneficiary = $beneficiary === null ? null : $this->beneficiary($rider, $beneficiary);
+        $circleIds = $circle === null ? null : $this->circles->resolve($rider, $circle);
         if ($passengers !== null && $quote->category->capacity_max !== null && $passengers > (int) $quote->category->capacity_max) {
             throw new RidesException('too_many_passengers', 422, ['max' => (int) $quote->category->capacity_max], ['max' => (int) $quote->category->capacity_max]);
         }
@@ -120,7 +127,7 @@ class RideRequestService
         $card = $method === RidePaymentMethod::Card;
         $scheduled = $scheduledAt !== null;
         $lead = (int) ($quote->policy_snapshot['policy']['scheduled.lead_time_s'] ?? 1800);
-        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote, $beneficiary) {
+        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote, $beneficiary, $circleIds) {
             $debt = 0;
             $ride = Ride::query()->create([
                 'uuid' => (string) Str::uuid(),
@@ -146,6 +153,9 @@ class RideRequestService
                 // R-13: who is picked up when it isn't the rider; the rider stays the one who pays.
                 'beneficiary' => $beneficiary,
                 // R-16..R-18: the approved points the trip starts / ends at, frozen with it.
+                // DORR Circle: only these favourite captains are asked, until the rider says otherwise.
+                'search_scope' => $circleIds === null ? 'all' : 'circle',
+                'circle_driver_ids' => $circleIds,
                 'pickup_point' => $quote->pickup_point,
                 'dropoff_point' => $quote->dropoff_point,
                 'quote_id' => $quote->id,

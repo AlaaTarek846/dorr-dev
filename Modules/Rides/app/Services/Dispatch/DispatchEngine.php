@@ -24,6 +24,7 @@ use Modules\Rides\Models\RideOffer;
 use Modules\Rides\Services\Airport\AirportQueue;
 use Modules\Rides\Services\Bidding\BidBoard;
 use Modules\Rides\Services\Bidding\BidPricing;
+use Modules\Rides\Services\Circle\FavoriteCircle;
 use Modules\Rides\Services\Drivers\DriverEligibility;
 use Modules\Rides\Services\Lifecycle\RideCloser;
 use Modules\Rides\Services\Lifecycle\RideStateMachine;
@@ -57,6 +58,7 @@ class DispatchEngine
         private readonly DriverStats $stats,
         private readonly RideCloser $closer,
         private readonly AirportQueue $queue,
+        private readonly FavoriteCircle $circle,
     ) {}
 
     /** Every few seconds (rides:dispatch-tick): offers that ran out, card rides never paid, then rounds that are due. */
@@ -104,6 +106,8 @@ class DispatchEngine
             $ride->forceFill(['rider_asked_at' => now()])->save();
             $this->notifier->rider($ride, 'still_searching');
         }
+        // DORR Circle: the favourites had their chance — the rider decides whether everyone else may be asked.
+        $this->circle->askIfDue($ride, $searchingFor, (int) ($policy['circle.ask_after_s'] ?? 90));
 
         $round = $ride->dispatch_round + 1;
         $radius = min(
@@ -175,6 +179,7 @@ class DispatchEngine
             $ride->forceFill(['rider_asked_at' => now()])->save();
             $this->notifier->rider($ride, 'raise_suggest');
         }
+        $this->circle->askIfDue($ride, $searchingFor, (int) ($policy['circle.ask_after_s'] ?? 90));
 
         $round = $ride->dispatch_round + 1;
         $radius = min(
@@ -421,6 +426,8 @@ class DispatchEngine
             ->where('status', PresenceStatus::Online->value)
             ->where('gps_enabled', true)
             ->where('last_seen_at', '>=', now()->subSeconds($staleAfter))
+            // DORR Circle: only the favourites the rider picked, until they widen the search.
+            ->when($ride->search_scope === 'circle', fn ($q) => $q->whereIn('driver_id', array_map('intval', (array) $ride->circle_driver_ids)))
             ->whereBetween('lat', [$minLat, $maxLat])
             ->whereBetween('lng', [$minLng, $maxLng])
             ->whereNotIn('driver_id', $refused->merge($released)->merge($busyWithOffer)->merge($blocked)->merge($reservedSoon)->unique()->values())

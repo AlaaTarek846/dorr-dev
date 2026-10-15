@@ -57,8 +57,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.FavoriteDriverDto
 import com.dorr.app.network.RideDto
 import com.dorr.app.network.RidePickupPointsDto
+import com.dorr.app.network.RidePlacesDto
 import com.dorr.app.network.RideFeaturesDto
 import com.dorr.app.network.RideQuoteDto
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -118,6 +120,15 @@ internal class RidesState {
     /** Booking for oneself, or everything about the other person is filled in and agreed. */
     fun beneficiaryReady(): Boolean =
         !forOther || (beneficiaryName.trim().length >= 2 && beneficiaryPhone.count { it.isDigit() } >= 8 && beneficiaryConsent)
+
+    /** R-INN-07 DORR Circle: ask my favourite captains first — the ones picked (none picked = all of them). */
+    var useCircle by mutableStateOf(false)
+    var circleDrivers by mutableStateOf<List<FavoriteDriverDto>>(emptyList())
+    val circlePicked = mutableStateListOf<Int>()
+
+    /** R-5, R-174: Home, Work, favourites and recent destinations; `savingPlace` = the search is picking Home / Work. */
+    var places by mutableStateOf<RidePlacesDto?>(null)
+    var savingPlace by mutableStateOf<String?>(null)
 
     /** R-16..R-18: the approved points being chosen from ("pickup" | "dropoff"), what is there, and what was picked or declined. */
     var pointsChooser by mutableStateOf<String?>(null)
@@ -180,6 +191,9 @@ internal class RidesState {
         beneficiaryName = ""
         beneficiaryPhone = ""
         beneficiaryConsent = false
+        savingPlace = null
+        useCircle = false
+        circlePicked.clear()
         pointsChooser = null
         pointChoices = null
         pickupPointId = null
@@ -227,6 +241,8 @@ fun RidesHost(onExit: () -> Unit) {
         state.me = here
         if (here != null && state.ride == null) camera.move(CameraUpdateFactory.newLatLngZoom(here, 16f))
         state.features = runCatching { ApiClient.rides.features(ridesAuth(), here?.latitude, here?.longitude).data }.getOrNull()
+        loadPlaces(state)
+        loadCircle(state)
     }
 
     // The pin: when the map stops, the point under it becomes the pickup (or the point being picked).

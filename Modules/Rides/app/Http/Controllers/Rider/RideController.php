@@ -105,6 +105,10 @@ class RideController extends Controller
             'beneficiary.name' => ['required_with:beneficiary', 'string', 'min:2', 'max:60'],
             'beneficiary.phone' => ['required_with:beneficiary', 'string', 'regex:/^\+?[0-9 ]{8,18}$/'],
             'beneficiary.consent' => ['exclude_without:beneficiary', 'accepted'],
+            // R-INN-07: offered to the rider's favourite captains first — none listed = all of them.
+            'circle' => ['nullable', 'array'],
+            'circle.driver_ids' => ['nullable', 'array', 'max:20'],
+            'circle.driver_ids.*' => ['integer', 'min:1'],
         ]);
 
         $ride = $service->request(
@@ -115,6 +119,7 @@ class RideController extends Controller
             isset($data['passengers']) ? (int) $data['passengers'] : null,
             $data['pickup_note'] ?? null,
             isset($data['beneficiary']) ? ['name' => (string) $data['beneficiary']['name'], 'phone' => (string) $data['beneficiary']['phone']] : null,
+            array_key_exists('circle', $data) && $data['circle'] !== null ? array_map('intval', $data['circle']['driver_ids'] ?? []) : null,
         );
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);

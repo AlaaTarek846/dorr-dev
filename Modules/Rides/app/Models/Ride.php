@@ -36,6 +36,8 @@ class Ride extends Model
         return [
             'beneficiary' => 'array',
             'pickup_point' => 'array',
+            'circle_driver_ids' => 'array',
+            'circle_asked_at' => 'datetime',
             'dropoff_point' => 'array',
             'confirmed_snapshot' => 'array',
             'vehicle_snapshot' => 'array',

@@ -143,6 +143,8 @@ data class OfferDto(
     @SerializedName("pickup_note") val pickupNote: String? = null,
     /** R-13: booked for someone else — whom to pick up (first name only). */
     val beneficiary: BeneficiaryDto? = null,
+    /** D-INN-07: the rider chose this captain from their favourites. */
+    @SerializedName("from_circle") val fromCircle: Boolean = false,
     /** R-16..R-18, D-111: the approved points to meet / drop at. */
     @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
     @SerializedName("dropoff_point") val dropoffPoint: PickupPointDto? = null,
@@ -427,6 +429,7 @@ data class TripDto(
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
     val beneficiary: BeneficiaryDto? = null,
+    @SerializedName("from_circle") val fromCircle: Boolean = false,
     @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
     @SerializedName("dropoff_point") val dropoffPoint: PickupPointDto? = null,
     val progress: ProgressDto? = null,

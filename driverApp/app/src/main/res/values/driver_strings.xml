@@ -272,6 +272,7 @@
     <string name="air_reason_not_eligible">You can't take rides right now.</string>
     <string name="trip_pickup_point">Meet at (approved point)</string>
     <string name="trip_dropoff_point">Drop off at (approved point)</string>
+    <string name="trip_from_circle">Your rider chose you from their favorites</string>
     <string name="trip_pickup_note">Rider\'s note</string>
     <string name="trip_to_pickup_short">the pickup</string>
     <string name="trip_to_stop_short">the stop</string>

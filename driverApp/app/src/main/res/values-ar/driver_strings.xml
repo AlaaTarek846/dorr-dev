@@ -272,6 +272,7 @@
     <string name="air_reason_not_eligible">لا يمكنك استقبال رحلات الآن.</string>
     <string name="trip_pickup_point">نقطة الالتقاء (معتمدة)</string>
     <string name="trip_dropoff_point">نقطة النزول (معتمدة)</string>
+    <string name="trip_from_circle">الراكب اختارك من مفضلته</string>
     <string name="trip_pickup_note">ملاحظة الراكب</string>
     <string name="trip_to_pickup_short">نقطة الالتقاط</string>
     <string name="trip_to_stop_short">المحطة</string>

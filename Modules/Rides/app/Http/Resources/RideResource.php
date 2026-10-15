@@ -42,6 +42,12 @@ class RideResource extends JsonResource
             'status' => $this->status->value,
             'version' => $this->version,
             ...self::common($this->resource),
+            // DORR Circle (R-INN-07): booked for favourite captains — still only them, how many, and whether the rider was asked.
+            'circle' => $this->circle_driver_ids === null ? null : [
+                'active' => $this->search_scope === 'circle',
+                'count' => count((array) $this->circle_driver_ids),
+                'asked' => $this->circle_asked_at !== null,
+            ],
             // R-13: the rider sees whom they booked for, as they typed it.
             'beneficiary' => empty($this->beneficiary['name']) ? null : ['name' => $this->beneficiary['name'], 'phone' => $this->beneficiary['phone'] ?? null],
             'estimate' => $this->snapshot('estimate'),

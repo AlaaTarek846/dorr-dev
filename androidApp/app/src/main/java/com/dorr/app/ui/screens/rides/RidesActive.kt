@@ -179,6 +179,7 @@ private fun Searching(state: RidesState, ride: RideDto, onCancel: () -> Unit) {
         Text(stringResource(R.string.rd_searching), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
         Text(stringResource(R.string.rd_searching_sub), color = settingsMut(), fontSize = 13.sp)
         BeneficiaryChip(ride)
+        CircleNotice(state, ride)
         PickupPointCard(ride)
         // R-61: still time to switch how to pay.
         PaymentSwitch(state, ride)

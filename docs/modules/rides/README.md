@@ -8,7 +8,7 @@ Passenger rides. The plan and the owner's decisions are in [../../rides-plan.md]
 
 ## Feature switches (`RideFeatures`, `ride_feature_rules`)
 - Same shape as the chat's rules (country, or one of its cities — `discover_cities.id`, no FK), but **no rule means off**, and nothing works unless `rides` itself is on there. A city rule beats the country rule.
-- Features: `rides`, `category.{slug}`, `bidding`, `multi_stop`, `open_destination`, `scheduled`, `book_for_other`, `cash`, `wallet`, `card`, `tips`, `pin`, `share`, `change_driver`, `driver_points`, `one_touch`, `pickup_points`, `airport_queue`, `restricted_zones`.
+- Features: `rides`, `category.{slug}`, `bidding`, `multi_stop`, `open_destination`, `scheduled`, `book_for_other`, `cash`, `wallet`, `card`, `tips`, `pin`, `share`, `change_driver`, `driver_points`, `one_touch`, `pickup_points`, `airport_queue`, `restricted_zones`, `saved_places`, `favorite_circle`.
 - `EnsureRideFeature::class.':feature'` refuses with `403 rides_feature_disabled`, using the city of `lat`/`lng` when sent, else the account's country.
 
 ## Where a point is (`CityResolver`)
@@ -142,6 +142,20 @@ R-61, R-81, D-60, D-61, D-122, D-129.
 - **Not covered:** changing the destination during the ride (R-91..95) does not re-check a required drop-off point; flight tracking is never built (rules in `docs/rides_tasks.md`).
 - **Apps:** DORR app (`RidesPickupPoints.kt`) — before pricing, if the pickup (or drop-off) is in such a place the quotes sheet turns into "Choose your pickup point" (nearest first, a kind icon, how to find it, "Keep my location" only where it isn't a must), then the trip is priced from the point; the ride shows the point card. Driver app (`TripDetailViews.kt → RiderDetails`) — "Meet at (approved point)" with the note on the card and the ride. Admin: the ride page shows both points.
 
+## Saved places (R-5, R-174; switch `saved_places`, `Services/Places/SavedPlaces`)
+- **Where they live:** the account's own addresses (`user_addresses` — type `home` / `work` / `other`, pinned point), the same ones every DORR service uses and the profile's Addresses screen manages — so they follow the rider to every device. A favourite place is an `other` address with a title. Only addresses with a point are offered. No new table.
+- **One call:** `GET mobile/v1/rides/places` → `{home, work, favorites[], recent[]}`; each `{id, kind, title, address, lat, lng}`. `recent` = the destinations of the rider's **completed** rides, newest first, one per place (≈ 100 m), leaving out whatever is already saved. Limits are policy: `places.recent_max` (5), `places.favorites_max` (12). Empty everywhere the switch is off.
+- **Saving:** the app uses `POST|PUT mobile/v1/addresses` (Home and Work replace the one there, a favourite is added).
+- **App (DORR):** `RidesSavedPlaces.kt` — Home / Work / favourite chips and the last three destinations under "Where to?" (one tap prices the trip; "Set Home" opens the place search in a saving mode), and "Save this destination" (Home / Work / Favorite) on the prices sheet unless it is already saved.
+
+## DORR Circle — ask my favourite captains first (R-INN-07, D-INN-07; switch `favorite_circle`, `Services/Circle/FavoriteCircle`)
+Four steps, as in the idea: **(1)** the rider switches "Ask my favorite captains first" on the booking sheet; **(2)** picks which favourites — none picked = all of them; **(3)** the search goes only to those, one at a time, as any search does (available, eligible, not busy — their position and schedule are never shown); **(4)** if none took it within `circle.ask_after_s` (90 s) the rider is **asked once** — "Search all captains?" — and nobody else is asked unless they say yes.
+- **Booking:** `POST mobile/v1/rides {…, circle{driver_ids[]}}` (empty `driver_ids` = all favourites). Stored as `rides.search_scope` (`circle`) + `circle_driver_ids`; `GET mobile/v1/rides/circle` lists the favourites to choose from. Errors: `rides_circle_empty` (no favourites), `rides_circle_invalid` (a captain who isn't one), `rides_feature_disabled` (`favorite_circle`).
+- **Dispatch:** `candidates()` is limited to `circle_driver_ids` while `search_scope = circle`; the usual favourite-first ordering and the search time limit still apply; bidding and booked-ahead rides work the same.
+- **Asking and widening:** `FavoriteCircle::askIfDue` sets `circle_asked_at`, logs `circle_asked`, pushes `ride.circle_ask` and a live update; `POST mobile/v1/rides/{uuid}/circle/widen` makes it `all` (event `circle_widened`, a round starts at once, repeating changes nothing; `rides_circle_not_active` for a ride that isn't in a circle). The ride carries `circle{active, count, asked}`.
+- **Captain (D-INN-07):** receives an ordinary offer — atomic accepting means no double booking — with `from_circle` true on the request card and the ride ("Your rider chose you from their favorites").
+- **Apps:** DORR app (`RidesCircle.kt`) — the switch and favourite chips on the booking sheet, a line while searching, and the one question with "Search all captains" / "Keep waiting for my favorites"; driver app (`TripDetailViews.kt`) — the badge.
+
 ## The airport queue and restricted areas (D-276..D-283; switches `airport_queue`, `restricted_zones`; `Services/Airport`)
 - **Where it exists:** an `airport` zone with `queue_enabled` in its `config` (Admin → Zones & pickup points), in a country / city where the **Airport queue** switch is on. Nothing else changes where it isn't.
 - **Getting in line (D-277):** policy `queue.entry` (per zone, under Prices & rules): `manual` (default) = the Join button on the captain's Airport screen; `auto` = arriving inside the zone while online puts them in line (`HandleDriverLocation` on every location batch). To join the captain must be online with a fresh location inside the zone, not on a ride, and able to work (`DriverEligibility`) — else `rides_airport_queue_offline|stale|busy|not_eligible|not_inside`. Joining twice is the same place.
@@ -180,7 +194,9 @@ Rider (`user_api`, prefix `mobile/v1/rides`):
 | POST | `quotes` | `origin{lat,lng,address?,point_id?}`, `destination?{…,point_id?}`, `stops?[]`, `category?`, `coupon_code?` | One quote per category: `uuid`, `fingerprint`, `expires_at`, `category`, `pricing_mode`, `total_minor` or `estimate{min,max}`, `hold_minor`, `route`, rider-visible `lines`, `coupon`, `payment_fees`, `policy_summary` |
 | POST | `{uuid}/tip` | `amount_minor`, header `Idempotency-Key` | The ride with `tip` (R-144) |
 | POST | `{uuid}/payment-method` | `payment_method` (`wallet`/`cash`), header `Idempotency-Key` | The ride, re-priced and re-held (R-61) |
-| POST | `/` | `quote_uuid`, `fingerprint`, `payment_method` (`wallet`/`card`/`cash`), `passengers?`, `pickup_note?`, `beneficiary?{name, phone, consent}`, header `Idempotency-Key` | The ride (201); a card ride comes back `awaiting_payment` with `checkout_id` |
+| GET | `places` · `circle` | | Home / Work / favourites / recent (R-5) · my favourite captains (R-INN-07) |
+| POST | `{uuid}/circle/widen` | header `Idempotency-Key` | "Search all captains" after the circle had no one |
+| POST | `/` | `quote_uuid`, `fingerprint`, `payment_method` (`wallet`/`card`/`cash`), `passengers?`, `pickup_note?`, `beneficiary?{name, phone, consent}`, `circle?{driver_ids[]}`, header `Idempotency-Key` | The ride (201); a card ride comes back `awaiting_payment` with `checkout_id` |
 | GET | `current` · `/` · `{uuid}` | `per_page?` | The active ride (or empty) · history · one ride (driver, car, live location, PIN, lines, `rated`) |
 | GET | `{uuid}/cancel/preview` | | `{stage, fee_minor, free_until}` |
 | POST | `{uuid}/cancel` · `{uuid}/rate` | `reason_id?`, `note?` · `stars` (1–5), `tags?[]`, `comment?` | |
@@ -220,6 +236,10 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 - `audit_logs` + `App\Services\General\AuditLogger` (append-only; actor `admin` or `system`).
 
 ## Tests
+`RidesSavedPlacesTest` (2): Home, Work, favourites and recent destinations in one call (only completed rides, one per place, saved ones left out, policy limits, others' addresses never shown); nothing without the switch or any places.
+
+`RidesCircleTest` (3): a circle ride going to the nearest favourite then the other, never to a closer stranger; the rider asked once after the time and still nobody else asked; "search all captains" opening it up (and repeating being a no-op); picking some favourites; a non-favourite and an empty circle refused; the switch; widening a normal ride refused.
+
 `RidesAirportQueueTest` (7): joining by hand, the place, the official points, the rules and leaving (the line moves up and the others hear it on their channels); the switch, the zone's own flag, offline / silent phone refusals; arriving into an automatic zone; every way out (offline, silent, strayed past the grace — and coming back, too long a wait, the switch turned off); the estimate learning from finished waits (and forgetting old ones); an airport ride going to the first captain in line, then the next after a decline, before a free captain, and taking it moving the line; restricted areas listed and one alert per cooldown.
 
 `RidesPickupPointsTest` (5): the points around a place (pickup vs drop-off lists, distance, Arabic names, nothing elsewhere); a chosen point — or standing at it — moving the pickup onto it and both sides reading it (offer card, ride, navigation); a pickup-only zone making a point a must (with the list in the error, a wrong or switched-off one refused / ignored); a required drop-off point for the airport; the airport's own waiting and no-show rules applying to a pickup there only.

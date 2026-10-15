@@ -411,6 +411,9 @@
 
 - **الترجمة:** `name`، و`instructions`.
 
+### 2.7.0 على `rides` (DORR Circle، R-INN-07)
+`search_scope` (`all` / `circle`) و`circle_driver_ids` (JSON: الكباتن المفضلين اللي الرحلة اتحجزت ليهم، بتفضل بعد التوسيع) و`circle_asked_at` (الراكب اتسأل «ابحث في الكل؟» مرة واحدة). مفتاح السياسة `circle.ask_after_s` (90). الأماكن المحفوظة (R-5) من `user_addresses` ومفاتيحها `places.recent_max` (5) و`places.favorites_max` (12).
+
 ### 2.7.1 `ride_queue_entries` (طابور المطار، D-276..D-280)
 مكان الكابتن في الطابور عند منطقة مطار. الصف بيفضل بعد ما الكابتن يطلع (عشان السبب والمدة، ومنها تتعلم تقدير الانتظار).
 

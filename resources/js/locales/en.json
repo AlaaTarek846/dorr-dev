@@ -4260,6 +4260,8 @@
                 "pickup_points": "Approved pickup points (airports…)",
                 "airport_queue": "Airport queue",
                 "restricted_zones": "Restricted areas (list and alerts)",
+                "saved_places": "Saved places (Home, Work, favourites, recent)",
+                "favorite_circle": "DORR Circle (ask favourite captains first)",
                 "cash": "Cash",
                 "wallet": "Wallet",
                 "card": "Card",
@@ -4323,6 +4325,8 @@
                 "pickup": "Pickup points",
                 "queue": "Airport queue",
                 "zones": "Restricted areas",
+                "circle": "DORR Circle",
+                "places": "Saved places",
                 "stops": "Stops",
                 "open_destination": "No destination",
                 "search": "Finding a captain",
@@ -4424,7 +4428,10 @@
                 "queue__max_wait_s": "Longest wait in the queue (0 = no limit)",
                 "queue__min_samples": "Finished waits needed for a wait estimate",
                 "queue__stats_days": "Days of finished waits the estimate uses",
-                "zones__alert_cooldown_s": "Same restricted-area alert at most every"
+                "zones__alert_cooldown_s": "Same restricted-area alert at most every",
+                "circle__ask_after_s": "Ask the rider before widening a Circle search after",
+                "places__recent_max": "Recent destinations offered as shortcuts",
+                "places__favorites_max": "Favourite places offered as shortcuts"
             }
         },
         "safety": {

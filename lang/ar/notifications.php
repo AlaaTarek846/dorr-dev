@@ -248,6 +248,8 @@ return [
     'ride_contact_alert_title' => 'اطمئن على :name',
     'ride_contact_alert_body' => 'لم يرد :name على فحص السلامة في دُرر. :url',
     'ride_contact_alert_sms' => 'دُرر: لم يرد :name على فحص السلامة في رحلته. اطمئن عليه. :url',
+    'ride_circle_ask_title' => 'كباتنك المفضلون مشغولون',
+    'ride_circle_ask_body' => 'لم يستطع أحد منهم أخذ الرحلة :number بعد. هل نبحث في كل الكباتن؟',
     'ride_zone_restricted_title' => 'منطقة ممنوعة',
     'ride_zone_restricted_body' => 'دخلت :zone — الاستلام غير مسموح هنا.',
     'ride_beneficiary_title' => 'حجز لك :name رحلة على دُرر',
