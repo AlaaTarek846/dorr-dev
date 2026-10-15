@@ -238,6 +238,13 @@
     <string name="rd_pickup_note_title">ملاحظة للكابتن (اختياري)</string>
     <string name="rd_pickup_note_hint">مثال: البوابة الشرقية، بجانب الصيدلية</string>
     <string name="rd_pickup_note_privacy">ما يساعد على الوصول إليك فقط — بدون أرقام هواتف.</string>
+    <string name="rd_for_other_title">الرحلة لشخص آخر</string>
+    <string name="rd_for_other_name">اسمه</string>
+    <string name="rd_for_other_phone">رقم جواله</string>
+    <string name="rd_for_other_responsibility">أنت من يدفع أجرة الرحلة، وأي رسوم إلغاء أو انتظار أو عدم حضور تُحسب عليك.</string>
+    <string name="rd_for_other_privacy">الكابتن يرى اسمه الأول فقط. نرسل له من القادم ورابط متابعة مباشر.</string>
+    <string name="rd_for_other_consent">وافق على أن تتواصل معه دُرر بخصوص هذه الرحلة.</string>
+    <string name="rd_for_other_ride">لـ %1$s</string>
     <string name="rd_eta_pickup">يصل خلال %1$s · %2$s</string>
     <string name="rd_eta_stop">إلى المحطة: %1$s · %2$s</string>
     <string name="rd_eta_destination">إلى وجهتك: %1$s · %2$s</string>

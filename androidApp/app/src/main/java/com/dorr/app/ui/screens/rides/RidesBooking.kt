@@ -353,6 +353,12 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 state.scheduledAt?.let { addProperty("scheduled_at", it.toOffsetDateTime().toString()) }
                 addProperty("passengers", state.passengers)
                 state.pickupNote.trim().takeIf { it.isNotEmpty() }?.let { addProperty("pickup_note", it) }
+                // R-13: the person the ride is for, with the rider's own consent tick.
+                if (state.forOther) add("beneficiary", JsonObject().apply {
+                    addProperty("name", state.beneficiaryName.trim())
+                    addProperty("phone", state.beneficiaryPhone.trim())
+                    addProperty("consent", state.beneficiaryConsent)
+                })
             }
             runCatching { ApiClient.rides.book(ridesAuth(), UUID.randomUUID().toString(), body).data }
                 .onSuccess { ride ->
@@ -404,6 +410,8 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
             Spacer(Modifier.height(6.dp))
             // D-60, D-61: how many ride and a note for the captain.
             TripDetailsRow(state)
+            // R-13: the ride is for someone else.
+            if (state.feature("book_for_other")) BookForOtherRow(state)
             // Wireflow م11 / م12: the promo code, every line of the price, and the rules it comes with.
             PromoCodeRow(state)
             PriceDetails(quote, state.payment)
@@ -432,7 +440,7 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
             AccentButton(
                 if (at != null) stringResource(R.string.rd_confirm_scheduled, quote.category.name ?: "", whenText(at, today, tomorrow))
                 else stringResource(R.string.rd_confirm, quote.category.name ?: ""),
-                enabled = at == null || quote.scheduling != null, busy = state.busy,
+                enabled = (at == null || quote.scheduling != null) && state.beneficiaryReady(), busy = state.busy,
             ) { book() }
         } ?: state.error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
     } }

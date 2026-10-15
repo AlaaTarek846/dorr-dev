@@ -238,6 +238,13 @@
     <string name="rd_pickup_note_title">Note for the captain (optional)</string>
     <string name="rd_pickup_note_hint">e.g. East gate, by the pharmacy</string>
     <string name="rd_pickup_note_privacy">Only what helps find you — no phone numbers.</string>
+    <string name="rd_for_other_title">The ride is for someone else</string>
+    <string name="rd_for_other_name">Their name</string>
+    <string name="rd_for_other_phone">Their mobile number</string>
+    <string name="rd_for_other_responsibility">You pay for this ride, and any cancellation, waiting or no-show fees are charged to you.</string>
+    <string name="rd_for_other_privacy">The captain sees their first name only. We send them who is coming and a live link.</string>
+    <string name="rd_for_other_consent">They agreed that DORR may contact them about this ride.</string>
+    <string name="rd_for_other_ride">For %1$s</string>
     <string name="rd_eta_pickup">Arrives in %1$s · %2$s</string>
     <string name="rd_eta_stop">To the stop: %1$s · %2$s</string>
     <string name="rd_eta_destination">To your destination: %1$s · %2$s</string>

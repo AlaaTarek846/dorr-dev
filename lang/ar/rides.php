@@ -89,6 +89,7 @@ return [
         'too_many_passengers' => 'هذه الفئة تتسع لـ :max ركاب كحد أقصى.',
         'pickup_note_too_long' => 'اجعل الملاحظة في حدود :max حرفاً.',
         'pickup_note_contact' => 'لا تكتب أرقام هواتف أو روابط — استخدم المحادثة والاتصال داخل التطبيق.',
+        'beneficiary_is_you' => 'هذا رقمك أنت — للحجز لشخص آخر أدخل رقمه هو.',
         'payment_change_unavailable' => 'لا يمكن تغيير طريقة الدفع الآن.',
     ],
 

@@ -313,6 +313,8 @@ class DispatchEngine
         $this->stats->bump($driver->id, ['offers_accepted' => 1]);
         // Trusted contacts set to "every ride" / "at night" get the live link now (R-221).
         app(SafetyContacts::class)->autoShare($ride);
+        // Booked for someone else (R-13): that person hears who is coming, with the live link.
+        app(SafetyContacts::class)->beneficiary($ride);
         $ride->loadMissing(['driver', 'rider']);
         $this->notifier->changed($ride, 'accepted');
         $snapshot = (array) $ride->vehicle_snapshot;

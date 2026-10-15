@@ -109,6 +109,8 @@ class RideAdminController extends Controller implements HasMiddleware
             'currency' => ['code' => $r->currency?->code, 'symbol' => $r->currency?->symbol, 'decimal_places' => (int) ($r->currency?->decimal_places ?? 2)],
             'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'phone' => $r->rider->phone] : null,
             'driver' => $r->driver ? ['id' => $r->driver->id, 'name' => $r->driver->name, 'phone' => $r->driver->phone] : null,
+            // R-13: booked for someone else — who was picked up, and when the rider confirmed their consent.
+            'beneficiary' => $r->beneficiary,
             'vehicle' => $r->vehicle_snapshot,
             // Booked ahead (R-12, D-264): the time, the free-cancel limit, the captain who reserved it.
             'scheduled' => $r->scheduled_at === null ? null : [

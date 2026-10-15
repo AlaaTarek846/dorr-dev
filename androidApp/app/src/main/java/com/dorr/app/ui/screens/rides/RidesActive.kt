@@ -178,6 +178,7 @@ private fun Searching(state: RidesState, ride: RideDto, onCancel: () -> Unit) {
         }
         Text(stringResource(R.string.rd_searching), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
         Text(stringResource(R.string.rd_searching_sub), color = settingsMut(), fontSize = 13.sp)
+        BeneficiaryChip(ride)
         // R-61: still time to switch how to pay.
         PaymentSwitch(state, ride)
         Spacer(Modifier.height(16.dp))
@@ -206,6 +207,8 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
     if (ride.status == "in_progress") ride.destination?.address?.let { Text(it, color = settingsMut(), fontSize = 13.sp, maxLines = 1) }
     // D-129: the time and distance left — to the pickup, then to the next stop / the destination.
     EtaChip(ride)
+    // R-13: booked for someone else.
+    BeneficiaryChip(ride)
     // A new destination / one more stop: waiting for the captain, or the answer (wireflow 6ج).
     ChangeBanner(ride)
     Spacer(Modifier.height(12.dp))

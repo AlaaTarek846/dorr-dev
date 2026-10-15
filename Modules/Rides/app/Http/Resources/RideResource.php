@@ -5,6 +5,7 @@ namespace Modules\Rides\Http\Resources;
 use App\Models\Rating;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Str;
 use Modules\Driver\Models\DriverPresence;
 use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Models\DriverRideProfile;
@@ -40,6 +41,8 @@ class RideResource extends JsonResource
             'status' => $this->status->value,
             'version' => $this->version,
             ...self::common($this->resource),
+            // R-13: the rider sees whom they booked for, as they typed it.
+            'beneficiary' => empty($this->beneficiary['name']) ? null : ['name' => $this->beneficiary['name'], 'phone' => $this->beneficiary['phone'] ?? null],
             'estimate' => $this->snapshot('estimate'),
             'agreed_price_minor' => $this->agreed_price_minor,
             'bidding' => $this->booking_mode?->value !== 'bid' ? null : [
@@ -101,6 +104,8 @@ class RideResource extends JsonResource
             // D-60, D-61: how many ride and the pickup note — on the request card and the ride.
             'passengers' => $ride->passengers,
             'pickup_note' => $ride->pickup_note,
+            // R-13: booked for someone else — who to pick up, by first name only (never their number).
+            'beneficiary' => empty($ride->beneficiary['name']) ? null : ['name' => Str::before($ride->beneficiary['name'], ' ')],
             'payment_method' => $ride->payment_method->value,
             'payment_status' => $ride->payment_status->value,
             'currency' => ['code' => $ride->currency?->code, 'symbol' => $ride->currency?->symbol, 'decimal_places' => (int) ($ride->currency?->decimal_places ?? 2)],

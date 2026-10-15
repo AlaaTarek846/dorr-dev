@@ -73,6 +73,12 @@ class RideController extends Controller
             // D-60, D-61: how many ride (the category's seats are checked), a short note for the captain.
             'passengers' => ['nullable', 'integer', 'min:1', 'max:20'],
             'pickup_note' => ['nullable', 'string', 'max:255'],
+            // R-13: booked for someone else — their name and number, and the rider's own yes (never pre-ticked)
+            // that this person agreed to be contacted about the ride.
+            'beneficiary' => ['nullable', 'array'],
+            'beneficiary.name' => ['required_with:beneficiary', 'string', 'min:2', 'max:60'],
+            'beneficiary.phone' => ['required_with:beneficiary', 'string', 'regex:/^\+?[0-9 ]{8,18}$/'],
+            'beneficiary.consent' => ['exclude_without:beneficiary', 'accepted'],
         ]);
 
         $ride = $service->request(
@@ -82,6 +88,7 @@ class RideController extends Controller
             isset($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'])->utc() : null,
             isset($data['passengers']) ? (int) $data['passengers'] : null,
             $data['pickup_note'] ?? null,
+            isset($data['beneficiary']) ? ['name' => (string) $data['beneficiary']['name'], 'phone' => (string) $data['beneficiary']['phone']] : null,
         );
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);
@@ -119,6 +126,7 @@ class RideController extends Controller
                 'total_minor' => $r->final_total_minor ?? $r->agreed_price_minor,
                 'currency' => $r->currency?->symbol,
                 'driver_name' => $r->driver?->name ?? $r->reservedDriver?->name,
+                'beneficiary_name' => $r->beneficiary['name'] ?? null,
                 'requested_at' => $r->requested_at?->toIso8601String(),
                 'scheduled_at' => $r->scheduled_at?->toIso8601String(),
                 'free_cancel_until' => $r->scheduled_at === null ? null : $r->freeCancelUntil()?->toIso8601String(),

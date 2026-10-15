@@ -58,8 +58,9 @@ class RideRequestService
     /**
      * @param  int|null  $riderPrice  bidding (§9): the price the rider offers — at least the floor
      * @param  Carbon|null  $scheduledAt  booked ahead (R-12)
+     * @param  array{name: string, phone: string}|null  $beneficiary  booked for someone else (R-13), the rider having confirmed their consent
      */
-    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null): Ride
+    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null): Ride
     {
         if ($idempotencyKey !== null && ($existing = Ride::query()->where('user_id', $rider->id)->where('idempotency_key', $idempotencyKey)->first()) !== null) {
             if ($existing->quote()->value('uuid') !== $quoteUuid) {
@@ -82,6 +83,9 @@ class RideRequestService
         if ($scheduledAt !== null) {
             $features[] = 'scheduled';
         }
+        if ($beneficiary !== null) {
+            $features[] = 'book_for_other';
+        }
         foreach ($features as $feature) {
             if (! $this->features->allows($quote->country_id, $quote->city_id, $feature)) {
                 throw RidesException::featureDisabled($feature);
@@ -91,6 +95,7 @@ class RideRequestService
             throw RidesException::featureDisabled('cash');
         }
         $pickupNote = $this->pickupNote($quote, $pickupNote);
+        $beneficiary = $beneficiary === null ? null : $this->beneficiary($rider, $beneficiary);
         if ($passengers !== null && $quote->category->capacity_max !== null && $passengers > (int) $quote->category->capacity_max) {
             throw new RidesException('too_many_passengers', 422, ['max' => (int) $quote->category->capacity_max], ['max' => (int) $quote->category->capacity_max]);
         }
@@ -115,7 +120,7 @@ class RideRequestService
         $card = $method === RidePaymentMethod::Card;
         $scheduled = $scheduledAt !== null;
         $lead = (int) ($quote->policy_snapshot['policy']['scheduled.lead_time_s'] ?? 1800);
-        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote) {
+        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote, $beneficiary) {
             $debt = 0;
             $ride = Ride::query()->create([
                 'uuid' => (string) Str::uuid(),
@@ -138,6 +143,8 @@ class RideRequestService
                 // D-60, D-61: how many ride, and what the captain needs to find them.
                 'passengers' => $passengers,
                 'pickup_note' => $pickupNote,
+                // R-13: who is picked up when it isn't the rider; the rider stays the one who pays.
+                'beneficiary' => $beneficiary,
                 'quote_id' => $quote->id,
                 'confirmed_snapshot' => [],
                 'agreed_price_minor' => $quote->total_minor,
@@ -256,6 +263,7 @@ class RideRequestService
 
             $this->machine->record($ride, 'created', 'user', $rider->id, ['lat' => $ride->origin_lat, 'lng' => $ride->origin_lng], array_filter([
                 'quote_uuid' => $quote->uuid, 'payment_method' => $method->value, 'scheduled_at' => $scheduledAt?->toIso8601String(),
+                'for_someone_else' => $beneficiary !== null,
             ]), null, $ride->status);
 
             if ($card) {
@@ -298,6 +306,27 @@ class RideRequestService
         }
 
         return $note;
+    }
+
+    /**
+     * R-13: the person the ride is for — a tidied name and a digits-only number that isn't the rider's
+     * own, with when the rider confirmed they agreed to be contacted (the consent evidence).
+     *
+     * @param  array{name: string, phone: string}  $beneficiary
+     * @return array{name: string, phone: string, consented_at: string}
+     */
+    private function beneficiary(User $rider, array $beneficiary): array
+    {
+        $phone = (string) preg_replace('/[^\d+]/', '', $beneficiary['phone']);
+        if ($phone === (string) $rider->phone) {
+            throw new RidesException('beneficiary_is_you', 422);
+        }
+
+        return [
+            'name' => trim((string) preg_replace('/\s+/u', ' ', $beneficiary['name'])),
+            'phone' => $phone,
+            'consented_at' => now()->toIso8601String(),
+        ];
     }
 
     /**

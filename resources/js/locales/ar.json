@@ -4169,6 +4169,8 @@
             "wasl_any": "وصل: الكل",
             "ride": "الرحلة",
             "rider": "الراكب",
+            "beneficiary": "محجوزة لـ",
+            "beneficiary_consent": "أكّد الراكب موافقته",
             "trip": "المشوار",
             "total": "المبلغ",
             "people": "الأطراف",

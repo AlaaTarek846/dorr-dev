@@ -89,6 +89,7 @@ return [
         'too_many_passengers' => 'This category takes up to :max riders.',
         'pickup_note_too_long' => 'Keep the note to :max characters.',
         'pickup_note_contact' => 'Leave phone numbers and links out — use the in-app chat and call.',
+        'beneficiary_is_you' => 'That\'s your own number — book for someone else with their number.',
         'payment_change_unavailable' => 'The way you pay can\'t be changed now.',
     ],
 

@@ -108,6 +108,16 @@ internal class RidesState {
     var passengers by mutableIntStateOf(1)
     var pickupNote by mutableStateOf("")
 
+    /** R-13: booking for someone else — their name and number, and the rider's own consent tick (never pre-ticked). */
+    var forOther by mutableStateOf(false)
+    var beneficiaryName by mutableStateOf("")
+    var beneficiaryPhone by mutableStateOf("")
+    var beneficiaryConsent by mutableStateOf(false)
+
+    /** Booking for oneself, or everything about the other person is filled in and agreed. */
+    fun beneficiaryReady(): Boolean =
+        !forOther || (beneficiaryName.trim().length >= 2 && beneficiaryPhone.count { it.isDigit() } >= 8 && beneficiaryConsent)
+
     /** Bidding: the price the rider offers (starts at the suggested price). */
     var riderPrice by mutableStateOf<Long?>(null)
 
@@ -157,6 +167,10 @@ internal class RidesState {
         couponError = null
         passengers = 1
         pickupNote = ""
+        forOther = false
+        beneficiaryName = ""
+        beneficiaryPhone = ""
+        beneficiaryConsent = false
     }
 }
 

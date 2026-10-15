@@ -465,7 +465,7 @@
 | `uuid` | `uuid` | unique | |
 | `number` | `string(24)` | unique | رقم مقروء بنفس شكل الـ Wireflow: `DR-250520-1048` (§3.14). وهو `tripId` في وصل |
 | `user_id` | `foreignId → users` | `restrictOnDelete` | الراكب |
-| `beneficiary` | `json` | nullable | لو الحجز لشخص تاني: الاسم والموبايل (المرحلة 3) |
+| `beneficiary` | `json` | nullable | لو الحجز لشخص تاني (R-13): `name`، و`phone` (أرقام بس)، و`consented_at` (إمتى أكّد الراكب موافقة الشخص) |
 | `category_id` | `foreignId → ride_categories` | `restrictOnDelete` | |
 | `country_id` / `city_id` / `currency_id` | | | |
 | `status` | `enum RideStatus` | | §11 |

@@ -399,6 +399,8 @@ data class RideProgressDto(val to: String = "pickup", @SerializedName("distance_
 
 data class RideCategoryRefDto(val slug: String? = null, val name: String? = null)
 
+data class RideBeneficiaryDto(val name: String? = null, val phone: String? = null)
+
 data class RideDto(
     val uuid: String,
     val number: String? = null,
@@ -414,6 +416,8 @@ data class RideDto(
     /** D-60, D-61. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-13: booked for someone else — whom, as the rider typed it. */
+    val beneficiary: RideBeneficiaryDto? = null,
     val progress: RideProgressDto? = null,
     val currency: RideCurrencyDto? = null,
     val origin: RidePlaceDto? = null,

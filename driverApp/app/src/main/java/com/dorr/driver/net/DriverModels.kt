@@ -141,6 +141,8 @@ data class OfferDto(
     /** D-60, D-61: how many ride and the rider's pickup note. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-13: booked for someone else — whom to pick up (first name only). */
+    val beneficiary: BeneficiaryDto? = null,
     val currency: CurrencyDto? = null,
     val origin: PlaceDto? = null,
     val destination: PlaceDto? = null,
@@ -180,6 +182,8 @@ data class BidCardDto(
 data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null)
 
 data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
+
+data class BeneficiaryDto(val name: String? = null)
 
 data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String)
 
@@ -380,6 +384,7 @@ data class TripDto(
     val rider: RiderDto? = null,
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    val beneficiary: BeneficiaryDto? = null,
     val progress: ProgressDto? = null,
     @SerializedName("needs_pin") val needsPin: Boolean = false,
     @SerializedName("earning_minor") val earningMinor: Long? = null,

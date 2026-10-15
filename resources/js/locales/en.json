@@ -4169,6 +4169,8 @@
             "wasl_any": "Wasl: any",
             "ride": "Ride",
             "rider": "Rider",
+            "beneficiary": "Booked for",
+            "beneficiary_consent": "Rider confirmed their consent",
             "trip": "Trip",
             "total": "Amount",
             "people": "People",

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HourglassBottom
+import androidx.compose.material.icons.filled.PersonPinCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -53,11 +54,27 @@ import com.dorr.driver.net.ProgressDto
  * free minutes end (D-122).
  */
 
-/** D-60 / D-61: "3 riders" and the note, on the request card and on the ride. */
+/**
+ * D-60 / D-61: "3 riders" and the note, on the request card and on the ride; R-13: "Pick up Mona" when
+ * the ride was booked for someone else (first name only — the app chat still reaches the rider who booked).
+ */
 @Composable
-internal fun RiderDetails(passengers: Int?, note: String?) {
-    if ((passengers ?: 1) <= 1 && note.isNullOrBlank()) return
+internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null) {
+    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank()) return
     Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        beneficiary?.takeIf { it.isNotBlank() }?.let { name ->
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(DorrBrand.navy.copy(alpha = 0.08f)).padding(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.PersonPinCircle, null, tint = DorrBrand.navy, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Column {
+                    Text(stringResource(R.string.trip_beneficiary, name), fontWeight = FontWeight.Bold, fontSize = 14.sp, color = DorrBrand.navy)
+                    Text(stringResource(R.string.trip_beneficiary_hint), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                }
+            }
+        }
         passengers?.takeIf { it > 1 }?.let { n ->
             Row(
                 Modifier.clip(CircleShape).background(DorrBrand.navy.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 5.dp),

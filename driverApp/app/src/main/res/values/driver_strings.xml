@@ -237,6 +237,8 @@
     <string name="trip_tip_received">Your rider tipped you %1$s</string>
     <string name="trip_tip_all_yours">All of it is yours — no commission.</string>
     <string name="trip_passengers">%1$d riders</string>
+    <string name="trip_beneficiary">Pick up %1$s</string>
+    <string name="trip_beneficiary_hint">Booked by another rider — chat reaches the one who booked.</string>
     <string name="trip_pickup_note">Rider\'s note</string>
     <string name="trip_to_pickup_short">the pickup</string>
     <string name="trip_to_stop_short">the stop</string>
