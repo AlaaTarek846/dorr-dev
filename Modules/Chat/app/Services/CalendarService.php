@@ -150,7 +150,7 @@ class CalendarService
     {
         $this->assertMine($me, $item);
         $merged = array_merge([
-            'title' => $item->title, 'note' => $item->note, 'location' => $item->location, 'all_day' => $item->all_day,
+            'title' => $item->title, 'category' => $item->category, 'note' => $item->note, 'location' => $item->location, 'all_day' => $item->all_day,
             'starts_at' => $item->starts_at?->toIso8601String(), 'ends_at' => $item->ends_at?->toIso8601String(),
             'date' => $item->date?->toDateString(), 'timezone' => $item->timezone, 'color' => $item->color,
         ], $data);
@@ -207,6 +207,7 @@ class CalendarService
 
         return [
             'title' => Str::limit(trim((string) $data['title']), 160, ''),
+            'category' => in_array($data['category'] ?? null, ChatCalendarItem::CATEGORIES, true) ? $data['category'] : ChatCalendarItem::CATEGORIES[0],
             'note' => ($n = trim((string) ($data['note'] ?? ''))) !== '' ? Str::limit($n, 1000, '') : null,
             'location' => ($l = trim((string) ($data['location'] ?? ''))) !== '' ? Str::limit($l, 200, '') : null,
             'all_day' => $allDay,
@@ -308,6 +309,7 @@ class CalendarService
         $zone = $this->zone($zone ?? $i->timezone);
 
         return $this->row('event', $i->uuid, $i->title, $i->all_day ? null : $i->starts_at, $i->all_day ? null : $i->ends_at, $i->all_day, $i->date?->toDateString(), $zone, [
+            'category' => $i->category ?? ChatCalendarItem::CATEGORIES[0],
             'timezone' => $i->timezone,
             // "15:00 in Riyadh" when I'm somewhere else now (205).
             'origin_time' => ! $i->all_day && $i->timezone !== $zone ? $i->starts_at->setTimezone($i->timezone)->format('H:i') : null,
@@ -497,7 +499,11 @@ class CalendarService
         $prefs = $this->preferences($me);
         $zone = $this->zone($zone);
         $now = CarbonImmutable::now($zone);
-        $base = ['enabled' => $this->enabled(), 'date' => $now->toDateString(), 'timezone' => $zone, 'sections' => $prefs->sections()];
+        $base = [
+            'enabled' => $this->enabled(), 'date' => $now->toDateString(), 'timezone' => $zone, 'sections' => $prefs->sections(),
+            // The sources I keep on: a section whose sources are all off is not shown at all (rather than "nothing today").
+            'sources' => collect(ChatCalendarPreference::SOURCES)->filter(fn ($s) => $prefs->sourceOn($s))->values()->all(),
+        ];
         if (! $base['enabled']) {
             return $base + ['next' => null, 'events' => [], 'tasks' => [], 'reminders' => [], 'moments' => [], 'around' => null];
         }
@@ -570,34 +576,73 @@ class CalendarService
      */
     public function search(Model $me, string $query, string $zone): array
     {
+        // The admin's switch: no calendar, no search either (as the feed and Today).
+        if (! $this->enabled()) {
+            return ['enabled' => false, 'items' => []];
+        }
+
         $q = trim($query);
-        $like = '%'.str_replace(['%', '_'], ['\%', '\_'], $q).'%';
+        // %, _ and the escape itself are plain characters in what I typed, not LIKE wildcards. "!" is the escape: unlike a
+        // backslash it means the same in MySQL and SQLite.
+        $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $q).'%';
+        $match = "LIKE ? ESCAPE '!'";
         $zone = $this->zone($zone);
         $today = CarbonImmutable::now($zone)->startOfDay();
+        $prefs = $this->preferences($me);
         $out = collect();
 
-        ChatCalendarItem::query()->ownedBy($me)->where(fn ($w) => $w->where('title', 'like', $like)->orWhere('note', 'like', $like)->orWhere('location', 'like', $like))
-            ->with(['message', 'conversation'])->orderByDesc('starts_at')->limit(20)->get()
-            ->each(fn ($i) => $out->push($this->presentItem($i, $zone)));
-        ChatTask::query()->ownedBy($me)->where('text', 'like', $like)->with(['message', 'conversation'])->latest('id')->limit(20)->get()
-            ->each(fn ($t) => $out->push($this->row('task', $t->uuid, $t->text, $t->due_at, null, false, $t->due_at ? null : $today->toDateString(), $zone, [
-                'done' => $t->done_at !== null, 'message_id' => $t->message?->uuid, 'conversation_id' => $t->conversation?->uuid,
-            ])));
-        ChatPersonalMoment::query()->ownedBy($me)->where('title', 'like', $like)->limit(20)->get()
-            ->each(function ($p) use ($out, $today) {
-                $next = $this->moments->nextYearly($p->month, $p->day, $today);
-                $out->push($this->row('personal', $p->uuid, $p->title, null, null, true, $next->toDateString(), null, ['emoji' => (MomentService::PERSONAL_LOOKS[$p->kind] ?? MomentService::PERSONAL_LOOKS['other'])['emoji'], 'kind' => $p->kind]));
-            });
-        $prefs = $this->moments->preferences($me);
-        $country = $this->moments->countryFor($me, $prefs);
-        ChatMoment::query()->active()->whereHas('translations', fn ($t) => $t->where('name', 'like', $like))->with('translations')->limit(15)->get()
-            ->each(function (ChatMoment $m) use ($out, $country, $today) {
-                $o = $this->moments->occurrence($m, $country, $today);
-                $out->push($this->row('moment', (string) $m->id, (string) $m->translatedName(), null, null, true, $o ? $o['start']->toDateString() : null, null, ['emoji' => $m->emoji, 'color' => $m->primary_color]));
-            });
-        ChatMomentCapsule::query()->ownedBy($me)->where('title', 'like', $like)->withCount('items')->limit(10)->get()
-            ->each(fn ($c) => $out->push(['id' => 'capsule:'.$c->uuid, 'type' => 'capsule', 'ref' => $c->uuid, 'title' => $c->title, 'emoji' => $c->emoji, 'count' => $c->items_count, 'all_day' => true, 'date' => null, 'starts_at' => null]));
+        // Only what I keep on in "what shows in my calendar" (201): a switched-off source is not searched either.
+        if ($prefs->sourceOn('events')) {
+            ChatCalendarItem::query()->ownedBy($me)->where(fn ($w) => $w->whereRaw("title {$match}", [$like])->orWhereRaw("note {$match}", [$like])->orWhereRaw("location {$match}", [$like]))
+                ->with(['message', 'conversation'])->orderByDesc('starts_at')->limit(20)->get()
+                ->each(fn ($i) => $out->push($this->presentItem($i, $zone)));
+        }
+        if ($prefs->sourceOn('tasks')) {
+            ChatTask::query()->ownedBy($me)->whereRaw("text {$match}", [$like])->with(['message', 'conversation'])->latest('id')->limit(20)->get()
+                ->each(fn ($t) => $out->push($this->row('task', $t->uuid, $t->text, $t->due_at, null, false, $t->due_at ? null : $today->toDateString(), $zone, [
+                    'done' => $t->done_at !== null, 'message_id' => $t->message?->uuid, 'conversation_id' => $t->conversation?->uuid,
+                ])));
+        }
+        if ($prefs->sourceOn('personal')) {
+            ChatPersonalMoment::query()->ownedBy($me)->whereRaw("title {$match}", [$like])->limit(20)->get()
+                ->each(function ($p) use ($out, $today) {
+                    $next = $this->moments->nextYearly($p->month, $p->day, $today);
+                    $out->push($this->row('personal', $p->uuid, $p->title, null, null, true, $next->toDateString(), null, ['emoji' => (MomentService::PERSONAL_LOOKS[$p->kind] ?? MomentService::PERSONAL_LOOKS['other'])['emoji'], 'kind' => $p->kind]));
+                });
+        }
+        if ($prefs->sourceOn('moments')) {
+            $country = $this->moments->countryFor($me, $this->moments->preferences($me));
+            ChatMoment::query()->active()->whereHas('translations', fn ($t) => $t->whereRaw("name {$match}", [$like]))->with('translations')->limit(15)->get()
+                ->each(function (ChatMoment $m) use ($out, $country, $today) {
+                    $o = $this->moments->occurrence($m, $country, $today);
+                    $out->push($this->row('moment', (string) $m->id, (string) $m->translatedName(), null, null, true, $o ? $o['start']->toDateString() : null, null, ['emoji' => $m->emoji, 'color' => $m->primary_color]));
+                });
+            ChatMomentCapsule::query()->ownedBy($me)->whereRaw("title {$match}", [$like])->withCount('items')->limit(10)->get()
+                ->each(fn ($c) => $out->push(['id' => 'capsule:'.$c->uuid, 'type' => 'capsule', 'ref' => $c->uuid, 'title' => $c->title, 'emoji' => $c->emoji, 'count' => $c->items_count, 'all_day' => true, 'date' => null, 'starts_at' => null]));
+        }
 
-        return ['items' => $out->values()->all()];
+        // The Discover events and the matches that are on my calendar (the last month to the next year) are found too.
+        $needle = mb_strtolower($q);
+        $from = $today->subDays(30);
+        $to = $today->addDays(365)->endOfDay();
+        foreach (['discover' => fn () => $this->discover($me, $from, $to, $zone), 'sports' => fn () => $this->sports($me, $from, $to, $zone)] as $source => $load) {
+            if ($prefs->sourceOn($source)) {
+                $load()->filter(fn ($row) => str_contains(mb_strtolower((string) ($row['title'] ?? '')), $needle))->take(15)->each(fn ($row) => $out->push($row));
+            }
+        }
+
+        // Next up first, then the past (most recent first), then what has no day (capsules).
+        $now = $today->getTimestamp();
+        $sorted = $out->sortBy(function (array $item) use ($now) {
+            $ts = ! empty($item['date']) ? strtotime((string) $item['date']) : false;
+
+            return match (true) {
+                $ts === false => [2, 0],
+                $ts >= $now => [0, $ts],
+                default => [1, -$ts],
+            };
+        });
+
+        return ['enabled' => true, 'items' => $sorted->values()->all()];
     }
 }

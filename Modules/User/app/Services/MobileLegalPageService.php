@@ -16,11 +16,14 @@ class MobileLegalPageService
      * The active legal page of the requested type (privacy/term) for a service,
      * or the general one (no service). Only the content is returned, in the request
      * locale (falling back to an available language so it is never blank); `data` is
-     * null when no page is published.
+     * null when no page is published. With `fallback` a service without its own page gets
+     * the general one (the terms in force before an action, R-179).
      */
-    public function page(string $type, ?int $serviceId): JsonResponse
+    public function page(string $type, ?int $serviceId, bool $fallback = false): JsonResponse
     {
-        $page = $this->repository->activeForType($type, $serviceId);
+        $page = $fallback
+            ? $this->repository->effectiveForType($type, $serviceId)
+            : $this->repository->activeForType($type, $serviceId);
 
         return ApiResponse::success(
             $page !== null ? ['content' => $page->translated('content')] : null,

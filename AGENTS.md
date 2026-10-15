@@ -33,8 +33,10 @@ If unclear, mark **NEEDS-DECISION** and ask — do not guess.
 | Admin SPA | `/admin` → `/api/admin/v1/*` (guard: `admin_api`) |
 | User SPA | `/user` → `/api/user/v1/*` (guard: `user_api`) |
 | Provider SPA | `/provider` → `/api/provider/v1/*` (guard: `provider_api`) — mirrors User auth; **no AI chat** |
+| Driver app | `driverApp/` (separate Gradle project) → `/api/driver/v1/*` (guard: `driver_api`, `Modules/Driver`) — a driver is **not** a Provider |
+| Rides | `Modules/Rides` — plan [docs/rides-plan.md](docs/rides-plan.md), tables [docs/rides-structure.md](docs/rides-structure.md), **tasks [docs/rides_tasks.md](docs/rides_tasks.md)** (reserve a task with your name before starting; tick it when done) |
 | Shared catalog | `app/Http/Controllers/General/`, `app/Services/General/`, etc. |
-| Modules | `Modules/Admin`, `User`, `AI`, `Provider` |
+| Modules | `Modules/Admin`, `User`, `AI`, `Provider`, `Driver`, `Rides`, … |
 | API envelope | `App\Support\Api\ApiResponse` |
 | Locales | `ar`, `en` |
 
@@ -58,6 +60,12 @@ Route → Controller → Service → Repository → Model
 - User: `userAxios`, `resources/js/modules/user/`
 - Provider: `providerAxios`, `resources/js/modules/provider/`, entry `resources/js/apps/provider/provider-app.js`
 - i18n: update **both** `locales/ar.json` and `locales/en.json`
+
+---
+
+## Modern, event-driven apps — no polling
+
+Owner's standing rule: mobile/web screens never ask the server on a timer (`while(true){delay(...)}`, Timer, periodic refresh). Use real-time (Pusher/Reverb events → one reload), push (OneSignal, high priority + ttl for urgent), the device clock for times already known, and one catch-up request on open / reconnect. Connection settings come from the server (`realtime-config`). Details: [docs/rides_tasks.md](docs/rides_tasks.md).
 
 ---
 

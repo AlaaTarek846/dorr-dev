@@ -410,3 +410,35 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
 .wallet-scroll-form .modal-footer {
     flex-shrink: 0;
 }
+
+
+/* PrimeVue Select / DatePicker sitting next to an input-group icon (admin forms). */
+.input-group > .p-select,
+.input-group > .p-multiselect,
+.input-group > .p-datepicker {
+    flex: 1 1 auto;
+    width: 1%;
+    min-width: 0;
+}
+
+.input-group > .p-select:not(:first-child),
+.input-group > .p-multiselect:not(:first-child),
+.input-group > .p-datepicker:not(:first-child) .p-datepicker-input {
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+}
+
+.input-group > .p-select:not(:first-child),
+.input-group > .p-multiselect:not(:first-child) {
+    margin-inline-start: -1px;
+}
+
+/* A colour picker next to an input-group icon fills the row instead of wrapping under it. */
+.input-group > .form-control-color {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: auto;
+    min-height: 2.25rem;
+}

@@ -35,6 +35,16 @@ return [
     ],
 
     'errors' => [
+        'community_group_taken' => 'That group is already in a community.',
+        'community_groups_full' => 'A community can have up to :max groups.',
+        'community_admins_full' => 'A community can have up to :max admins.',
+        'community_creator_stays' => 'The community\'s creator always stays its admin. To end it, delete the community.',
+        'community_announcement_fixed' => 'The announcements group always stays in its community.',
+        'community_delete_instead' => 'This is a community\'s announcements group: delete the community instead.',
+        'interactive_invalid' => 'Add 1–3 buttons, or 1–10 list choices, and a message.',
+        'interactive_own' => 'You cannot answer your own message.',
+        'call_link_invalid' => 'This call link no longer works.',
+        'call_link_limit' => 'You can keep up to :max call links. Cancel one first.',
         'live_not_in_call' => 'Join the call first.',
         'live_ended' => 'This live has ended.',
         'live_not_found' => 'Live not found.',
@@ -121,7 +131,7 @@ return [
         'owner_only' => 'The group owner can\'t be changed or removed.',
         'group_only' => 'This is only available in groups.',
         'group_full' => 'A group can have up to :max members.',
-    'join_request_missing' => 'That join request is no longer waiting.',
+        'join_request_missing' => 'That join request is no longer waiting.',
         'leave_group_first' => 'Leave the group before deleting it.',
         'empty_message' => 'The message is empty.',
         'attachment_required' => 'Attach a file to send this type of message.',
@@ -247,6 +257,7 @@ return [
         'folder' => '📁 Folder',
         'location' => '📍 Location',
         'contact' => '👤 Contact',
+        'interactive' => '🔘 Choices',
         'poll' => '📊 Poll',
         'gif' => '🎞️ GIF',
         'sticker' => '💟 Sticker',
@@ -270,6 +281,8 @@ return [
     ],
 
     'push' => [
+        'call_link_joined_title' => 'Someone joined your call link',
+        'call_link_joined' => ':name joined your call — tap to join',
         'silenced_call' => 'Silenced call — this number isn\'t in your contacts',
         'attention_digest_title' => '📬 Your summary',
         'attention_digest_body' => ':messages messages in :chats chats waited for you',
@@ -307,6 +320,10 @@ return [
 
     // System lines inside a conversation.
     'system' => [
+        'community_created' => ':actor created the community ":name"',
+        'group_added_to_community' => ':actor added this group to the community ":name"',
+        'group_removed_from_community' => 'This group is no longer in the community ":name"',
+        'member_joined_via_community' => ':actor joined from the community',
         'agreement_agreed' => '🤝 Everyone agreed: ":name"',
         'decision_approved' => ':actor approved the decision ":name"',
         'decision_rejected' => ':actor rejected the decision ":name"',

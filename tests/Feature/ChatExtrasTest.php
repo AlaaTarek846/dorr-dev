@@ -170,6 +170,47 @@ class ChatExtrasTest extends TestCase
             ->assertJsonPath('data.0.voters.0.name', 'Carol')->assertJsonPath('data.1.voters.0.name', 'Bob');
     }
 
+    // ================================================================ buttons & lists (WhatsApp list 123–125)
+
+    public function test_reply_buttons_and_lists_answer_in_the_chat(): void
+    {
+        $direct = $this->direct($this->alice, $this->bob);
+
+        // Up to 3 buttons; a 4th is refused, blanks and repeats are dropped.
+        $this->send($this->alice, $direct, ['type' => 'interactive', 'body' => 'Pick', 'interactive_kind' => 'buttons', 'interactive_options' => ['A', 'B', 'C', 'D']])->assertStatus(422);
+        $buttons = $this->send($this->alice, $direct, [
+            'type' => 'interactive', 'body' => 'Delivery or pickup?', 'interactive_kind' => 'buttons',
+            'interactive_options' => ['Delivery', 'Pickup', 'delivery', ' '], 'interactive_footer' => 'Dorr Pizza',
+        ])->assertCreated()
+            ->assertJsonPath('data.interactive.kind', 'buttons')->assertJsonCount(2, 'data.interactive.options')
+            ->assertJsonPath('data.interactive.footer', 'Dorr Pizza')->json('data.id');
+
+        // A list: up to 10 choices with a line under each, opened from one button.
+        $list = $this->send($this->alice, $direct, [
+            'type' => 'interactive', 'body' => 'Our menu', 'interactive_kind' => 'list', 'interactive_button' => 'See menu',
+            'interactive_options' => ['Margherita', 'Pepperoni'], 'interactive_descriptions' => ['Tomato, mozzarella', ''],
+        ])->assertCreated()->assertJsonPath('data.interactive.button', 'See menu')
+            ->assertJsonPath('data.interactive.options.0.description', 'Tomato, mozzarella')->json('data.id');
+        $this->send($this->alice, $direct, ['type' => 'interactive', 'body' => 'Too many', 'interactive_kind' => 'list', 'interactive_options' => range(1, 11)])->assertStatus(422);
+
+        // Bob taps "Pickup": it answers in the chat as a reply, and his choice is kept.
+        $this->as($this->bob);
+        $answer = $this->postJson("/api/mobile/v1/chat/messages/{$buttons}/choose", ['option_id' => 2], $this->headers())->assertCreated()
+            ->assertJsonPath('data.type', 'text')->assertJsonPath('data.body', 'Pickup')->assertJsonPath('data.reply_to.id', $buttons)
+            ->assertJsonPath('data.meta.choice.option_id', 2);
+        $this->postJson("/api/mobile/v1/chat/messages/{$list}/choose", ['option_id' => 9], $this->headers())->assertStatus(422);
+        $this->postJson("/api/mobile/v1/chat/messages/{$list}/choose", ['option_id' => 1], $this->headers())->assertCreated();
+        $mine = collect($this->getJson("/api/mobile/v1/chat/conversations/{$direct}/messages", $this->headers())->json('data.messages'))->firstWhere('id', $buttons);
+        $this->assertSame(2, $mine['interactive']['my_choice']);
+        $this->assertNotNull($answer->json('data.id'));
+
+        // Alice can't answer her own; she sees who picked what.
+        $this->as($this->alice);
+        $this->postJson("/api/mobile/v1/chat/messages/{$buttons}/choose", ['option_id' => 1], $this->headers())->assertStatus(422)->assertJsonPath('error_code', 'chat_interactive_own');
+        $this->getJson("/api/mobile/v1/chat/messages/{$buttons}/votes", $this->headers())->assertOk()
+            ->assertJsonPath('data.1.text', 'Pickup')->assertJsonPath('data.1.voters.0.name', 'Bob');
+    }
+
     // ================================================================ view once
 
     public function test_view_once_media_opens_once_for_the_recipient_only(): void

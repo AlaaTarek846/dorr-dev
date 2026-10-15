@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>درر — Wireflow تطبيق الراكب الكامل</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,'Segoe UI',sans-serif;background:#f0f2f5;direction:rtl;padding:20px}
+h1{text-align:center;color:#1a3a5c;font-size:20px;margin-bottom:6px}
+.subtitle{text-align:center;color:#6b7280;font-size:12px;margin-bottom:24px}
+.section-hdr{background:#1a3a5c;color:#fff;padding:10px 16px;border-radius:10px;margin:24px 0 16px;font-size:13px;font-weight:700;display:flex;align-items:center;gap:8px}
+.section-hdr.amber{background:#854f0b}
+.section-hdr.green{background:#0f6e56}
+.section-hdr.purple{background:#533ab7}
+.section-hdr.red{background:#a32d2d}
+.flow-row{display:flex;align-items:flex-start;gap:0;overflow-x:auto;padding:0 0 12px}
+.flow-item{display:flex;align-items:center;gap:0;flex-shrink:0}
+.arrow-wrap{display:flex;flex-direction:column;align-items:center;padding:0 6px;margin-top:70px}
+.arr-line{width:30px;height:2px;background:#1a3a5c}
+.arr-head{width:0;height:0;border-top:6px solid transparent;border-bottom:6px solid transparent;border-right:8px solid #1a3a5c;transform:rotate(180deg)}
+.arr-lbl{font-size:8.5px;color:#1a3a5c;background:#e6f1fb;padding:2px 6px;border-radius:10px;margin-top:4px;text-align:center;max-width:65px;line-height:1.3}
+
+/* PHONE */
+.phone{width:158px;flex-shrink:0}
+.phone-badge{text-align:center;margin-bottom:7px}
+.pnum{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;font-size:11px;font-weight:700;color:#fff;background:#1a3a5c}
+.ptitle{font-size:10px;font-weight:700;color:#1a3a5c;margin-top:3px}
+.frame{background:#e2e8f0;border-radius:22px;padding:5px;border:2px solid #cbd5e1}
+.screen{background:#fff;border-radius:16px;overflow:hidden;min-height:290px}
+
+/* TOP BAR */
+.tb{padding:9px 10px 8px;position:relative}
+.tb.b{background:#1a3a5c}.tb.g{background:#0f6e56}.tb.a{background:#854f0b}
+.tb.p{background:#533ab7}.tb.r{background:#a32d2d}.tb.pk{background:#993556}
+.back{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:22px;height:22px;border-radius:50%;background:rgba(255,255,255,.18);display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px;font-weight:500}
+.tbt{font-size:10px;font-weight:700;color:#fff;text-align:center;padding-right:26px}
+.tbs{font-size:7.5px;color:rgba(255,255,255,.7);text-align:center;margin-top:2px;padding-right:26px}
+
+/* BODY */
+.bd{padding:7px 7px 4px}
+.hdl{width:26px;height:3px;background:#e0e4ea;border-radius:2px;margin:0 auto 7px}
+.lbl{font-size:8px;font-weight:600;color:#6b7280;margin-bottom:4px}
+.map{background:#e4eedd;height:55px;position:relative;overflow:hidden}
+.map-lbl{position:absolute;bottom:4px;left:5px;background:rgba(255,255,255,.9);border-radius:4px;padding:2px 5px;font-size:7px;color:#1a3a5c;font-weight:500}
+.srchbar{background:#f5f7fa;border-radius:6px;padding:5px 8px;margin-bottom:5px;font-size:8px;color:#9ca3af;display:flex;align-items:center;gap:4px}
+.pts{background:#1e4a7a;border-radius:5px;padding:5px 7px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+.pts-v{font-size:11px;font-weight:700;color:#f0c040}
+.pts-t{font-size:7px;color:rgba(255,255,255,.55)}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin-bottom:5px}
+.sc{background:#f5f7fa;border-radius:4px;padding:4px 2px;text-align:center;font-size:6.5px;color:#4b5563}
+.sci{font-size:10px;margin-bottom:1px}
+.ch{background:#eeedfe;border-radius:5px;padding:4px 6px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.ch-l{font-size:7px;font-weight:600;color:#533ab7;line-height:1.4}
+.ch-p{font-size:8px;font-weight:700;color:#533ab7}
+.trip{display:flex;justify-content:space-between;padding:3px 0;border-bottom:.3px solid #f0f0f0;font-size:7.5px}
+.trip-p{font-size:7.5px;font-weight:600;color:#0f6e56}
+.loc{background:#f5f7fa;border-radius:5px;padding:5px 7px;margin-bottom:4px;display:flex;align-items:center;gap:4px;font-size:7.5px;color:#374151}
+.loc.dest{background:#fff;border:1px solid #1a3a5c}
+.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.qrow{display:flex;gap:3px;margin-bottom:5px}
+.qc{flex:1;background:#f5f7fa;border-radius:4px;padding:3px 2px;text-align:center;font-size:7px;color:#4b5563;font-weight:500}
+.sr{display:flex;align-items:center;gap:4px;padding:3.5px 0;border-bottom:.3px solid #f0f0f0}
+.si{width:17px;height:17px;background:#f5f7fa;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:8.5px;flex-shrink:0}
+.st{font-size:7.5px;color:#111;font-weight:500}
+.ss{font-size:6.5px;color:#9ca3af;margin-top:1px}
+.cars-box{background:#e1f5ee;border-radius:6px;padding:5px 7px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center}
+.cars-n{font-size:14px;font-weight:700;color:#0f6e56}
+.cars-l{font-size:7px;color:#085041}
+.cars-icons{display:flex;gap:2px}
+.ci{font-size:9px}
+.cat{display:flex;align-items:center;gap:4px;padding:5px 5px;border-radius:5px;border:.4px solid #e0e4ea;margin-bottom:3px;background:#fff}
+.cat.sel{border:1.5px solid #1a3a5c;background:#e8f0fb}
+.cem{font-size:12px;width:16px;text-align:center;flex-shrink:0}
+.cmid{flex:1}
+.cname{font-size:8px;font-weight:600;color:#111}
+.csub{font-size:6.5px;color:#9ca3af;margin-top:1px}
+.ceta{font-size:6.5px;color:#9ca3af}
+.cright{text-align:left;flex-shrink:0}
+.cprice{font-size:10px;font-weight:700}
+.crate{font-size:6.5px;color:#9ca3af}
+.bdg{font-size:6px;padding:1px 4px;border-radius:6px;font-weight:600;display:inline-block;margin-right:2px}
+.tog-row{background:#faeeda;border-radius:5px;padding:5px 7px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.tog{width:26px;height:14px;border-radius:7px;background:#854f0b;position:relative;flex-shrink:0}
+.togd{position:absolute;top:2px;left:14px;width:10px;height:10px;background:#fff;border-radius:50%}
+.prevbal{background:#faeeda;border-radius:5px;padding:4px 6px;margin-bottom:4px;font-size:7px;color:#633806}
+.xfer{background:#e1f5ee;border-radius:5px;padding:4px 6px;margin-bottom:4px;font-size:7px;color:#085041}
+.popt{display:flex;align-items:center;gap:4px;padding:4px 5px;border-radius:5px;border:.4px solid #e0e4ea;margin-bottom:3px;background:#fff}
+.popt.sel{border:1.5px solid #1a3a5c;background:#e8f0fb}
+.pic{width:18px;height:18px;border-radius:4px;background:#e8f0fb;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.pname{font-size:8px;font-weight:500;color:#111}
+.psub{font-size:6.5px;color:#9ca3af;margin-top:1px}
+.pchk{width:12px;height:12px;border-radius:50%;background:#1a3a5c;display:flex;align-items:center;justify-content:center;color:#fff;font-size:7px;margin-right:auto;margin-left:0}
+.inv{background:#f5f7fa;border-radius:5px;padding:5px 6px;margin-bottom:4px}
+.ir{display:flex;justify-content:space-between;padding:2px 0;font-size:7.5px}
+.il{color:#9ca3af}
+.iv{color:#111;font-weight:500}
+.idiv{border:none;border-top:.3px solid #e0e4ea;margin:3px 0}
+.itl{font-size:8.5px;font-weight:700;color:#111}
+.itv{font-size:11px;font-weight:700;color:#1a3a5c}
+.coup{display:flex;gap:3px;margin-bottom:4px}
+.ci2{flex:1;background:#f5f7fa;border-radius:4px;padding:4px 6px;font-size:7.5px;color:#9ca3af;border:.4px solid #e0e4ea}
+.cb{background:#1a3a5c;color:#fff;border:none;border-radius:4px;padding:4px 7px;font-size:7.5px;cursor:pointer}
+.pulse-a{display:flex;flex-direction:column;align-items:center;padding:10px 0 8px}
+.pulse{width:50px;height:50px;border-radius:50%;background:#533ab7;display:flex;align-items:center;justify-content:center;font-size:18px;position:relative}
+.pulse::before{content:'';position:absolute;width:66px;height:66px;border-radius:50%;border:1.5px solid rgba(83,58,183,.35)}
+.pulse::after{content:'';position:absolute;width:82px;height:82px;border-radius:50%;border:1px solid rgba(83,58,183,.18)}
+.stats{display:flex;gap:3px;margin-bottom:5px}
+.sb{flex:1;background:#f5f7fa;border-radius:4px;padding:4px 3px;text-align:center}
+.sv{font-size:9px;font-weight:700;color:#111}
+.sl{font-size:6px;color:#9ca3af;margin-top:1px}
+.drvcard{background:#f5f7fa;border-radius:6px;padding:5px 6px;margin-bottom:4px}
+.drow{display:flex;align-items:center;gap:5px}
+.dav{width:28px;height:28px;border-radius:50%;background:#dce8f5;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#1a3a5c;flex-shrink:0}
+.dn{font-size:8px;font-weight:700;color:#111}
+.ds{font-size:8.5px;color:#f0c040}
+.dc{font-size:7px;color:#9ca3af;margin-top:1px}
+.ep{background:#1a3a5c;color:#fff;border-radius:8px;padding:2px 6px;font-size:7.5px;font-weight:600;margin-right:auto;margin-left:0}
+.arow{display:flex;gap:2px;margin-top:4px}
+.ab{flex:1;border:.4px solid #e0e4ea;border-radius:4px;padding:3px 1px;text-align:center;font-size:6.5px;color:#374151;background:#fff}
+.ab.sos{border-color:#fde8e8;color:#e24b4a}
+.stars{display:flex;justify-content:center;gap:5px;margin:7px 0}
+.star{font-size:17px;color:#f0c040;opacity:.2}
+.star.l{opacity:1}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:5px}
+.rc{border:.4px solid #e0e4ea;border-radius:4px;padding:3px 4px;font-size:7px;color:#6b7280;text-align:center}
+.rc.s{background:#e8f0fb;border-color:#1a3a5c;color:#1a3a5c;font-weight:600}
+.ckicon{width:40px;height:40px;border-radius:50%;background:#e1f5ee;display:flex;align-items:center;justify-content:center;font-size:18px;margin:8px auto 5px}
+.bnr{border-radius:5px;padding:4px 6px;margin-bottom:4px;font-size:7.5px;line-height:1.4}
+.bnr.am{background:#faeeda;color:#633806}
+.bnr.gn{background:#e1f5ee;color:#085041}
+.bnr.bl{background:#e6f1fb;color:#0c447c}
+.bnr.rd{background:#fef2f2;color:#791f1f}
+.bnr.pp{background:#eeedfe;color:#26215c}
+.mbtn{width:100%;background:#1a3a5c;color:#fff;border:none;border-radius:7px;padding:7px;font-size:9px;font-weight:700;text-align:center;margin-top:4px;cursor:pointer;display:block}
+.mbtn.g{background:#0f6e56}
+.mbtn.a{background:#854f0b}
+.mbtn.pk{background:#993556}
+.mbtn.rd{background:transparent;color:#e24b4a;border:1px solid #fde8e8}
+.nav{display:flex;justify-content:space-around;padding:5px 0 3px;border-top:.4px solid #e0e4ea;margin-top:4px}
+.ni{display:flex;flex-direction:column;align-items:center;gap:1px;font-size:7px;color:#9ca3af}
+.ni.ac{color:#1a3a5c}
+.ni.aa{color:#854f0b}
+.lhdr{background:#1a3a5c;padding:9px 9px 7px;position:relative}
+.lbig{font-size:22px;font-weight:700;color:#fff;line-height:1}
+.ltier{display:inline-flex;align-items:center;background:rgba(255,255,255,.15);border-radius:8px;padding:2px 6px;font-size:7.5px;color:#fff;margin-top:4px}
+.prog{background:rgba(255,255,255,.2);border-radius:2px;height:4px;margin-top:5px;overflow:hidden}
+.progf{background:#f0c040;border-radius:2px;height:100%}
+.prow{display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,.5);margin-top:2px}
+.ttabs{display:flex;gap:2px;margin-bottom:5px}
+.ttab{flex:1;border-radius:4px;padding:4px 2px;text-align:center;font-size:7px;font-weight:600;border:.5px solid #e0e4ea;background:#fff;color:#6b7280}
+.ttab.ac{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+.ben{display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:.3px solid #f0f0f0}
+.bic{width:16px;height:16px;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:8.5px;flex-shrink:0}
+.btxt{font-size:7.5px;color:#111}
+.bsub{font-size:6px;color:#9ca3af}
+.blck{color:#9ca3af}
+.chdr{display:flex;gap:2px;margin-bottom:3px}
+.chc{flex:1;background:#1a3a5c;border-radius:2px;padding:2px;text-align:center;font-size:6px;color:#fff;font-weight:600}
+.crow{display:flex;gap:2px;margin-bottom:2px}
+.cc{flex:1;background:#f5f7fa;border-radius:2px;padding:2px;text-align:center;font-size:6.5px}
+.wcard{background:#0f2540;border-radius:8px;padding:8px 9px;margin-bottom:6px}
+.wbal{font-size:18px;font-weight:700;color:#fff;margin-top:4px}
+.wacts{display:flex;gap:3px;margin-top:5px}
+.wb{flex:1;background:rgba(255,255,255,.12);border-radius:4px;padding:4px;text-align:center;font-size:7px;color:#fff;border:.4px solid rgba(255,255,255,.2)}
+.txr{display:flex;align-items:center;gap:4px;padding:3.5px 0;border-bottom:.3px solid #f0f0f0}
+.txi{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;flex-shrink:0}
+.txn{font-size:7.5px;color:#111}
+.txs{font-size:6.5px;color:#9ca3af;margin-top:1px}
+.txa{font-size:8px;font-weight:600;margin-right:auto;margin-left:0}
+.ftot{background:#0f2540;border-radius:7px;padding:7px 8px;margin-bottom:5px}
+.fpts{font-size:18px;font-weight:700;color:#fff;margin-top:3px}
+.memr{display:flex;align-items:center;gap:4px;padding:4px 5px;border-radius:4px;margin-bottom:2px}
+.mav{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;flex-shrink:0}
+.mn{font-size:7.5px;font-weight:600;color:#111;flex:1}
+.mr{font-size:6px;color:#9ca3af}
+.mp{font-size:7.5px;font-weight:600}
+.cmp{display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:.3px solid #f0f0f0}
+.cmpi{width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0}
+.cmpn{font-size:7.5px;font-weight:500;color:#111}
+.cmps{font-size:6.5px;color:#9ca3af;margin-top:1px}
+.srow{display:flex;align-items:center;gap:4px;padding:3px 0;border-bottom:.3px solid #f5f7fa;font-size:7.5px;color:#111}
+.sosb{width:48px;height:48px;border-radius:50%;background:#a32d2d;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;margin:6px auto;box-shadow:0 0 0 7px rgba(163,45,45,.15)}
+.footer-note{text-align:center;background:#fff;border-radius:10px;padding:12px 16px;margin-top:24px;border:.5px solid #e0e4ea}
+
+/* ═══ MOTORCYCLE STYLES ═══ */
+.section-hdr.moto{background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%)}
+.moto-card{background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:8px;padding:6px;margin-bottom:5px;position:relative;overflow:hidden}
+.moto-card::before{content:'';position:absolute;top:-10px;right:-10px;width:60px;height:60px;background:radial-gradient(circle,rgba(240,192,64,.15),transparent);border-radius:50%}
+.moto-svg{display:block;margin:0 auto}
+.driver-circle{width:38px;height:38px;border-radius:50%;overflow:hidden;border:2px solid #f0c040;margin:0 auto 4px;background:linear-gradient(135deg,#1e4a7a,#1a3a5c);display:flex;align-items:center;justify-content:center;font-size:16px}
+.hour-selector{display:flex;gap:3px;margin-bottom:5px}
+.hr-btn{flex:1;background:#f5f7fa;border-radius:6px;padding:5px 2px;text-align:center;font-size:8px;color:#374151;font-weight:600;border:.4px solid #e0e4ea;cursor:pointer}
+.hr-btn.sel{background:#1a3a5c;color:#fff;border-color:#1a3a5c}
+.price-calc{background:linear-gradient(135deg,#1a3a5c,#0f2540);border-radius:6px;padding:6px 8px;margin-bottom:5px}
+.trip-type-row{display:flex;gap:3px;margin-bottom:5px}
+.trip-type{flex:1;border-radius:6px;padding:5px 3px;text-align:center;font-size:7px;font-weight:600;border:.5px solid #e0e4ea;background:#f5f7fa;color:#374151}
+.trip-type.sel{background:linear-gradient(135deg,#1a3a5c,#0f3460);color:#fff;border-color:#1a3a5c}
+.tour-badge{background:linear-gradient(135deg,#f0c040,#e6a800);border-radius:4px;padding:2px 6px;font-size:6px;font-weight:700;color:#1a1a2e;display:inline-block;margin-bottom:4px}
+.warning-box{background:#fef2f2;border-radius:5px;padding:4px 6px;border-right:2px solid #e24b4a;font-size:7px;color:#791f1f;margin-bottom:4px}
+.info-chip{background:#e6f1fb;border-radius:10px;padding:2px 6px;font-size:6.5px;color:#1a3a5c;display:inline-block;margin:1px}
+</style>
+<style>
+.dorr-added .frame{border-color:#e8ad65;background:#fff4e6}.dorr-added .phone-badge .ptitle{color:#9a4d10}.dorr-added .screen{min-height:320px}.dorr-added .bnr{line-height:1.5}.dorr-added .sr{min-height:24px}.dorr-added .st{font-size:7.3px}.dorr-added .mbtn{background:#1a3a5c}
+@media print{.flow-row{overflow:visible;flex-wrap:wrap;gap:10px}.arrow-wrap{display:none}.section-hdr{break-after:avoid}.flow-item{break-inside:avoid}body{background:white}}</style></head>
+<body>
+<h1>تطبيق الراكب — درر</h1>
+<p class="subtitle">النسخة النهائية الشاملة • مبنية على المرجع المعتمد للفئات + ملفات مزايا الراكب • 11 فئة • شاشات الفئات والتشغيل والأمان والحساب • تحديث مرئي: 20 شاشة جديدة مدمجة داخل التدفقات</p>
+<!-- ═══ SECTION 1 ═══ -->
+<div class="footer-note">تحديث تصميمي — تطبيق الراكب: تم الحفاظ على كل الشاشات الأصلية، وإدراج الشاشات الجديدة ذات الإطار البرتقالي مباشرة بجوار المرحلة المرتبطة بها. هذه أمثلة Wireflow وليست أسعارًا أو سياسات ثابتة. حالات الرفض والتعذر والموافقة والتكامل مع الخادم موضحة داخل الشاشات. لا تُنفذ الأفكار المستبعدة، ولا يُنشأ DORR AI جديد.</div><div class="section-hdr">🚗 تدفق الحجز — الشاشات 1 إلى 5</div>
+<div class="flow-row">
+<!-- 1: HOME -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum">1</span><div class="ptitle">الشاشة الرئيسية</div></div>
+<div class="frame"><div class="screen">
+<div class="tb b"><div class="back">✕</div><div class="tbt">صباح الخير، جابر</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="srchbar">🔍 إلى أين تريد الذهاب؟ <span style="margin-right:auto;font-size:10px">📍</span></div>
+<div class="pts"><div><div class="pts-v">⭐ 1,240 نقطة</div><div class="pts-t">رصيد الولاء</div></div><span class="pts-t">عضو فضي ›</span></div>
+<div class="map"><svg height="55" viewbox="0 0 158 55" width="158"><rect fill="#e4eedd" height="55" width="158"></rect><line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="19" y2="19"></line><line stroke="#c5d9bb" stroke-width="3" x1="63" x2="63" y1="0" y2="55"></line><circle cx="79" cy="32" fill="#1a3a5c" r="5"></circle><circle cx="79" cy="32" fill="#fff" r="2"></circle></svg><div class="map-lbl">📍 حي النسيم — جدة</div></div>
+<a class="mbtn" style="margin-bottom:5px;text-decoration:none">🚗 احجز رحلة الآن ↗</a>
+<div class="lbl">خدمات درر (31 خدمة)</div>
+<div class="sgrid">
+<div class="sc"><div class="sci">🚗</div>ركاب</div>
+<div class="sc"><div class="sci">🛵</div>توصيل</div>
+<div class="sc"><div class="sci">📦</div>طرود</div>
+<div class="sc"><div class="sci">🎉</div>أفراح</div>
+<div class="sc"><div class="sci">🔧</div>صيانة</div>
+<div class="sc"><div class="sci">⚕️</div>طبية</div>
+<div class="sc"><div class="sci">🕌</div>حج وعمرة</div>
+<div class="sc"><div class="sci">⋯</div>المزيد</div>
+</div>
+<div class="ch"><span class="ch-l">🏆 تحدي الأسبوع — أسد درر<br/><small style="font-weight:400">3 من 5 رحلات — +100 نقطة</small></span><span class="ch-p">60%</span></div>
+<div class="bnr pp" style="margin-bottom:4px">🌙 نقاط رمضان مضاعفة تلقائياً — كل رحلة في رمضان = ضعف النقاط</div>
+<div class="lbl">آخر رحلاتك</div>
+<div class="trip"><span>حي النزهة ← العليا</span><span class="trip-p">+50 نقطة</span></div>
+<div class="trip"><span>المطار ← الفندق</span><span class="trip-p">+80 نقطة</span></div>
+<div class="trip"><span>الجامعة ← البيت</span><span class="trip-p">+38 نقطة</span></div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">114</span><div class="ptitle">رحلة + خدمة من دُرر</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">أكمل يومك مع دُرر</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">تكامل عبر سجل الخدمات، دون خصم تلقائي</div><div class="sr"><div class="si">🚗</div><div><div class="st">رحلة إلى الفندق</div></div></div><div class="sr"><div class="si">🏨</div><div><div class="st">فتح خدمة حجز الفندق</div></div></div><div class="sr"><div class="si">📦</div><div><div class="st">طلب توصيل أو شراء ضمن خدمات دُرر</div></div></div><div class="sr"><div class="si">💳</div><div><div class="st">كل طلب ودفعه منفصل حتى اعتماد خلافه</div></div></div><div class="mbtn">استعراض الخدمات</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">113</span><div class="ptitle">DORR One-Touch Journey</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">مشواري بضغطة</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">اختصار خطوات لا تجاوز الموافقة المالية</div><div class="sr"><div class="si">🏠</div><div><div class="st">إلى البيت — من موقعي الحالي</div></div></div><div class="sr"><div class="si">💼</div><div><div class="st">إلى العمل — مسار محفوظ</div></div></div><div class="sr"><div class="si">🚗</div><div><div class="st">عرض الفئة والسعر ووقت الوصول</div></div></div><div class="sr"><div class="si">☑️</div><div><div class="st">التأكيد قبل إرسال الطلب</div></div></div><div class="mbtn">مراجعة وحجز</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">اضغط احجز الآن</div></div>
+<!-- 2: DESTINATION -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#0f6e56">2</span><div class="ptitle">تحديد الوجهة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb g"><div class="back">→</div><div class="tbt">إلى أين؟</div><div class="tbs">حدد وجهتك وابدأ</div></div>
+<div class="bd">
+<div class="map"><svg height="55" viewbox="0 0 158 55" width="158"><rect fill="#e4eedd" height="55" width="158"></rect><line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="19" y2="19"></line><line stroke="#c5d9bb" stroke-width="3" x1="63" x2="63" y1="0" y2="55"></line><circle cx="79" cy="32" fill="#1a3a5c" r="5"></circle><circle cx="79" cy="32" fill="#fff" r="2"></circle></svg><div class="map-lbl">📍 موقعك الحالي</div></div>
+<div style="height:6px"></div>
+<div class="loc"><div class="dot" style="background:#1a3a5c"></div>حي النسيم، شارع الأقرع</div>
+<div style="width:1px;height:10px;background:#e0e4ea;margin:0 auto 4px;position:relative;right:calc(50% - 79px + 10px)"></div>
+<div class="loc dest"><div class="dot" style="background:#e24b4a"></div><span style="color:#9ca3af">أدخل موقع الوجهة... 🔍</span></div>
+<div class="qrow">
+<div class="qc">🏠 البيت</div><div class="qc">💼 العمل</div><div class="qc">⭐ المفضلة</div><div class="qc">🕐 الأخيرة</div>
+</div>
+<div class="lbl">اقتراحات قريبة</div>
+<div class="sr"><div class="si">🏢</div><div><div class="st">مركز جدة — الملك فهد</div><div class="ss">3.2 كم • العزيزية</div></div></div>
+<div class="sr"><div class="si">✈️</div><div><div class="st">مطار الملك عبدالعزيز</div><div class="ss">28 كم • طريق الحرمين</div></div></div>
+<div class="sr"><div class="si">🛍️</div><div><div class="st">مول العرب</div><div class="ss">5.8 كم • التحلية</div></div></div>
+<div class="sr"><div class="si">🏥</div><div><div class="st">مستشفى الملك فهد</div><div class="ss">4.1 كم • النزهة</div></div></div>
+<div class="bnr bl" style="margin-top:4px">💡 إضافة محطات متعددة: اضغط + أثناء الرحلة</div>
+<div style="display:flex;gap:4px;margin-top:4px">
+<div style="flex:1;background:#f5f7fa;border-radius:4px;padding:4px 5px;font-size:7.5px;text-align:center;color:#1a3a5c;font-weight:600">📅 حجز مسبق</div>
+<div style="flex:1;background:#f5f7fa;border-radius:4px;padding:4px 5px;font-size:7.5px;text-align:center;color:#1a3a5c;font-weight:600">👤 لشخص آخر</div>
+<div style="flex:1;background:#f5f7fa;border-radius:4px;padding:4px 5px;font-size:7.5px;text-align:center;color:#1a3a5c;font-weight:600">👥 جماعي</div>
+</div>
+<div class="mbtn g" style="margin-top:6px">متابعة ←</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">115</span><div class="ptitle">حجز لشخص دون تطبيق</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">الرحلة لمستفيد</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">استكمال للحجز لشخص آخر الموجود مسبقًا</div><div class="sr"><div class="si">👤</div><div><div class="st">أدخل اسم المستفيد ووسيلة تواصله</div></div></div><div class="sr"><div class="si">🔗</div><div><div class="st">رابط متابعة آمن محدود الصلاحية</div></div></div><div class="sr"><div class="si">📍</div><div><div class="st">موقع الالتقاء ومعلومات السائق بالحد المسموح</div></div></div><div class="sr"><div class="si">🔒</div><div><div class="st">موافقة وخصوصية المستفيد</div></div></div><div class="mbtn">إرسال رابط الرحلة</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">102</span><div class="ptitle">ذهاب وعودة لنقطة الانطلاق</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">رحلة رايح جاي</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">كل اتجاه وتسعيره وشروطه تظهر قبل الالتزام؛ لا إلزام للسائق نفسه</div><div class="sr"><div class="si">🔘</div><div><div class="st">ذهاب فقط / ذهاب وعودة</div></div></div><div class="sr"><div class="si">📍</div><div><div class="st">الوجهة: المستشفى</div></div></div><div class="sr"><div class="si">🏠</div><div><div class="st">العودة إلى نقطة الانطلاق الأصلية</div></div></div><div class="sr"><div class="si">🕒</div><div><div class="st">العودة الآن أو في موعد لاحق</div></div></div><div class="mbtn">متابعة تفاصيل العودة</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">101</span><div class="ptitle">DORR Flow — قابلني في طريقي</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">نقطة الالتقاء الذكية</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">اقتراح اختياري، دون تغيير الموقع دون موافقة</div><div class="sr"><div class="si">📍</div><div><div class="st">موقعي الحالي: عند المدخل الخلفي</div></div></div><div class="sr"><div class="si">🚶</div><div><div class="st">اقتراح نقطة التقاط آمنة على طريقي</div></div></div><div class="sr"><div class="si">🗺️</div><div><div class="st">عرض المسافة مشيًا وموقع الالتقاء</div></div></div><div class="sr"><div class="si">🔁</div><div><div class="st">قبول الاقتراح أو الاحتفاظ بموقعي</div></div></div><div class="mbtn">اعتماد نقطة الالتقاء</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">100</span><div class="ptitle">DORR Smart Destination</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">دُرر يفهم مقصدك</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">لا ينشأ طلب قبل تأكيد الراكب؛ تكامل مع DORR AI الموجود</div><div class="sr"><div class="si">🎙️</div><div><div class="st">اكتب أو قل: أريد الذهاب إلى موعدي</div></div></div><div class="sr"><div class="si">📍</div><div><div class="st">اقتراح وجهة مع عنوان واضح</div></div></div><div class="sr"><div class="si">🔎</div><div><div class="st">تأكيد الموقع على الخريطة قبل الحجز</div></div></div><div class="sr"><div class="si">⚠️</div><div><div class="st">إذا كان المقصد غير واضح: اسأل الراكب</div></div></div><div class="mbtn">تأكيد الوجهة</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">اختيار الوجهة</div></div>
+<!-- 3: CATEGORIES -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#854f0b">3</span><div class="ptitle">اختيار الفئة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb a"><div class="back">→</div><div class="tbt">اختر الفئة</div><div class="tbs">النسيم ← العليا • 7.4 كم</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="cars-box">
+<div><div class="cars-n">12 سيارة</div><div class="cars-l">متاحة بالقرب منك الآن 🚗</div></div>
+<div class="cars-icons"><span class="ci">🚗</span><span class="ci">🚗</span><span class="ci">🚗</span><span class="ci">🚗</span></div>
+</div>
+<div class="cat sel"><div class="cem">🚗</div><div class="cmid"><div class="cname">1. الاقتصادية</div><div class="csub">الخدمة الأساسية • نقطة انطلاق ووجهة</div><div class="ceta">السعر ووقت الوصول قبل التأكيد</div></div><div class="cright"><div class="cprice">حسب السياسة</div></div></div>
+<div class="cat"><div class="cem">🤝</div><div class="cmid"><div class="cname">2. أنا معك</div><div class="csub">راكب واحد على مسار السائق الشخصي</div><div class="ceta">لا تجميع غرباء • لا تقسيم سعر</div></div><div class="cright"><div class="cprice">مسار متوافق</div></div></div>
+<div class="cat"><div class="cem">👩</div><div class="cmid"><div class="cname">3. لكِ سيدتي</div><div class="csub">راكبة امرأة ← كابتن امرأة فقط</div><div class="ceta">مستوى المركبة مستقل عن الفئة</div></div><div class="cright"><div class="cprice">خصوصية</div></div></div>
+<div class="cat"><div class="cem">💎</div><div class="cmid"><div class="cname">4. VIP</div><div class="csub">مركبات فخمة مؤهلة</div><div class="ceta">الأهلية مرتبطة بالجودة والتقييم</div></div><div class="cright"><div class="cprice">مميز</div></div></div>
+<div class="cat"><div class="cem">🏷️</div><div class="cmid"><div class="cname">5. العروض</div><div class="csub">عرض من السائق أو سعر يقترحه الراكب</div><div class="ceta">3 عروض كحد أقصى في الوقت نفسه</div></div><div class="cright"><div class="cprice">تفاوض</div></div></div>
+<div class="cat"><div class="cem">♿</div><div class="cmid"><div class="cname">6. ذوو الاحتياجات الخاصة</div><div class="csub">مركبات وتجهيزات وسائق مؤهل</div><div class="ceta">كرسي متحرك • صعود/نزول • حجز مسبق</div></div><div class="cright"><div class="cprice">مهيأة</div></div></div>
+<div class="cat"><div class="cem">👨‍👩‍👧‍👦</div><div class="cmid"><div class="cname">7. العائلية</div><div class="csub">حتى 7 ركاب + السائق حسب الترخيص</div><div class="ceta">السعر للسيارة/الرحلة كاملة</div></div><div class="cright"><div class="cprice">حتى 7</div></div></div>
+<div class="cat"><div class="cem">🛣️</div><div class="cmid"><div class="cname">8. بين المدن</div><div class="csub">مدينة إلى مدينة • رحلات طويلة</div><div class="ceta">أي كابتن مؤهل يفعّل استقبالها</div></div><div class="cright"><div class="cprice">طويلة</div></div></div>
+<div class="cat"><div class="cem">🚌</div><div class="cmid"><div class="cname">9. الرحلات المجدولة</div><div class="csub">باصات كبيرة • ذهاب/عودة • خريطة مقاعد</div><div class="ceta">دفع إلكتروني مسبق • تذكرة QR</div></div><div class="cright"><div class="cprice">مقاعد</div></div></div>
+<div class="cat"><div class="cem">🏍️</div><div class="cmid"><div class="cname">10. الدراجات النارية</div><div class="csub">تسعير بالوقت • لا Surge</div><div class="ceta">التمديد بموافقة الراكب فقط</div></div><div class="cright"><div class="cprice">بالوقت</div></div></div>
+<div class="cat"><div class="cem">🛥️</div><div class="cmid"><div class="cname">11. المراكب والقوارب واليخوت</div><div class="csub">حجز كامل أو مشترك حسب السياسة</div><div class="ceta">تسعير زمني • مسار وعودة • أمان بحري</div></div><div class="cright"><div class="cprice">بحري</div></div></div>
+<div style="display:flex;align-items:center;gap:4px;margin:4px 0"><div style="width:11px;height:11px;background:#1a3a5c;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:7px;color:#fff;flex-shrink:0">✓</div><span style="font-size:7.5px;color:#6b7280">أوافق على <span style="color:#1a3a5c">شروط الخدمة</span></span></div>
+<div class="mbtn a">اختر الفئة — 35 ر.س ←</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">117</span><div class="ptitle">مرافق كبار السن</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">مساعدة أثناء الرحلة</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">حسب الدولة والتراخيص والتوفر</div><div class="sr"><div class="si">👴</div><div><div class="st">طلب مركبة مناسبة</div></div></div><div class="sr"><div class="si">🤝</div><div><div class="st">طلب مساعدة معتمدة إن توفرت</div></div></div><div class="sr"><div class="si">📋</div><div><div class="st">تحديد الاحتياج دون كشف غير لازم</div></div></div><div class="sr"><div class="si">🛡️</div><div><div class="st">لا تظهر الخدمة إلا للمشغل المؤهل</div></div></div><div class="mbtn">عرض المركبات المؤهلة</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">116</span><div class="ptitle">رحلات المناسبات</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">حجز عدة سيارات</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">قد يحتاج عروض تشغيلية مستقلة ولا يعني قبولًا تلقائيًا</div><div class="sr"><div class="si">🎉</div><div><div class="st">نوع المناسبة: زواج / مؤتمر / غيره</div></div></div><div class="sr"><div class="si">🚗</div><div><div class="st">عدد السيارات والفئات المطلوبة</div></div></div><div class="sr"><div class="si">📍</div><div><div class="st">نقطة التجمع ومواعيد التحرك</div></div></div><div class="sr"><div class="si">👥</div><div><div class="st">قائمة ضيوف اختيارية بخصوصية</div></div></div><div class="mbtn">مراجعة طلب المناسبة</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">107</span><div class="ptitle">راحتي — تفضيلات الرحلة</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">رحلة على مزاجك</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">طلبات تفضيل لا ضمانات؛ دون مخالفة السلامة</div><div class="sr"><div class="si">☑️</div><div><div class="st">رحلة هادئة دون أحاديث غير ضرورية</div></div></div><div class="sr"><div class="si">🌡️</div><div><div class="st">تكييف: معتدل / بارد / حسب المتاح</div></div></div><div class="sr"><div class="si">🎵</div><div><div class="st">موسيقى: بدون / حسب الاتفاق</div></div></div><div class="sr"><div class="si">📝</div><div><div class="st">ملاحظة قصيرة محترمة للسائق</div></div></div><div class="mbtn">حفظ التفضيلات</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">104</span><div class="ptitle">دائرة السائقين — الاختيار</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">اختر سائقيك المفضلين</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">المرحلة 2؛ قائمة السائقين تخص الحساب نفسه</div><div class="sr"><div class="si">☑️</div><div><div class="st">تحديد الكل / إلغاء تحديد الكل</div></div></div><div class="sr"><div class="si">☑️</div><div><div class="st">كابتن أحمد — مفضل</div></div></div><div class="sr"><div class="si">☑️</div><div><div class="st">كابتن خالد — مفضل</div></div></div><div class="sr"><div class="si">☐</div><div><div class="st">كابتن سامي — مفضل</div></div></div><div class="sr"><div class="si">ℹ️</div><div><div class="st">الاختيار من السائقين المحفوظين سابقًا</div></div></div><div class="mbtn">ابحث عن المحددين</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">103</span><div class="ptitle">دائرة السائقين — طريقة البحث</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">من يوصلك؟</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">المرحلة 1 من DORR Circle؛ لا إظهار رقم السائق</div><div class="sr"><div class="si">◉</div><div><div class="st">ابحث ضمن سائقي المفضلين</div></div></div><div class="sr"><div class="si">○</div><div><div class="st">ابحث عن أقرب سائق متاح</div></div></div><div class="sr"><div class="si">👥</div><div><div class="st">عند اختيار المفضلين انتقل لقائمة السائقين</div></div></div><div class="sr"><div class="si">🔒</div><div><div class="st">التوفر والأهلية يتحقق منهما الخادم</div></div></div><div class="mbtn">التالي</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">اختيار الفئة</div></div>
+<!-- 4: PAYMENT -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum">4</span><div class="ptitle">الدفع والفاتورة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb b"><div class="back">→</div><div class="tbt">تفاصيل الدفع</div><div class="tbs">الاقتصادية • 7.4 كم</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="tog-row"><div><div style="font-size:8px;font-weight:600;color:#633806">استخدم نقاط الولاء</div><div style="font-size:7px;color:#854f0b">1,240 نقطة = خصم 35 ر.س</div></div><div class="tog"><div class="togd"></div></div></div>
+<div class="prevbal">⏮ رصيد سابق من رحلة ملغاة — 8 ر.س — يُخصم تلقائياً من الفاتورة</div>
+<div class="xfer">✓ تم التحويل للسائق الجديد — استلم أحمد 8 ر.س</div>
+<div class="lbl">طريقة الدفع</div>
+<div class="popt sel"><div class="pic">💼</div><div><div class="pname">المحفظة</div><div class="psub">رصيد: 2,425 ر.س</div></div><div class="pchk">✓</div></div>
+<div class="popt"><div class="pic" style="font-size:7px;font-weight:700;color:#0f6e56;background:#e1f5ee">VISA</div><div><div class="pname">Visa أونلاين</div><div class="psub">بطاقة محفوظة</div></div></div>
+<div class="popt" style="opacity:.45">
+<div class="pic">💵</div>
+<div><div class="pname" style="color:#9ca3af">كاش — محظور</div><div class="psub">ممنوع الدفع النقدي المباشر</div></div>
+<div style="background:#fef2f2;border-radius:4px;padding:1px 5px;font-size:6px;color:#e24b4a;font-weight:700;margin-right:auto">🚫</div>
+</div>
+<div class="popt"><div class="pic" style="font-size:8px;font-weight:700;color:#0f6e56;background:#e1f5ee">درر</div><div><div class="pname">منصة درر للدفع</div><div class="psub">آمن ✓ موثق ✓ رسوم التحويل على العميل</div></div></div>
+<div style="background:#fef2f2;border-radius:5px;padding:4px 6px;margin:3px 0;border-right:2px solid #e24b4a;font-size:7px;color:#a32d2d;font-weight:500">
+  🚫 يُمنع التحويل على الحسابات الخاصة للسائق — استخدم منصة درر فقط لضمان حقوقك وحقوقه
+</div>
+<div class="popt"><div class="pic" style="font-size:7px;font-weight:700;color:#1a3a5c">STC</div><div><div class="pname">STC Pay</div><div class="psub">دفع إلكتروني</div></div></div>
+<div class="coup"><div class="ci2">كود الخصم (اختياري)</div><button class="cb">تطبيق</button></div>
+<div class="inv">
+<div class="lbl" style="margin-bottom:3px">تفاصيل الفاتورة</div>
+<div class="ir"><span class="il">رسوم التوصيل</span><span class="iv">35 ر.س</span></div>
+<div class="ir"><span class="il">رسوم الوقت والزحمة</span><span class="iv" style="color:#e24b4a">6.3 ر.س (مباشر)</span></div>
+<div class="ir"><span class="il">دقائق الانتظار</span><span class="iv" style="color:#e24b4a">03:33 — 0.3 ر.س</span></div>
+<div class="ir"><span class="il">ضريبة 15%</span><span class="iv">0 ر.س</span></div>
+<div class="ir"><span class="il">خصم النقاط</span><span class="iv" style="color:#0f6e56">- 35 ر.س</span></div>
+<div class="ir"><span class="il">رصيد سابق</span><span class="iv" style="color:#854f0b">- 8 ر.س</span></div>
+<div class="idiv"></div>
+<div class="ir"><span class="itl">المجموع الكلي</span><span class="itv">33 ر.س</span></div>
+</div>
+<div class="mbtn">تأكيد الدفع — 33 ر.س ←</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">108</span><div class="ptitle">ضمان موعد السيارة — طلب</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">موعد مهم</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">الضمان مشروط وقيد التفصيل؛ لا تعويض مالي ثابت</div><div class="sr"><div class="si">📅</div><div><div class="st">وقت الحضور المطلوب</div></div></div><div class="sr"><div class="si">🕒</div><div><div class="st">نطاق الوصول المتاح حسب السياسة</div></div></div><div class="sr"><div class="si">🛡️</div><div><div class="st">ماذا يحدث عند التأخير؟ عرض الشروط</div></div></div><div class="sr"><div class="si">🔁</div><div><div class="st">خطة البحث عن بديل إذا تعذر السائق</div></div></div><div class="mbtn">قراءة الشروط والمتابعة</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">تأكيد الدفع</div></div>
+<!-- 5: SEARCHING -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#533ab7">5</span><div class="ptitle">البحث عن سائق</div></div>
+<div class="frame"><div class="screen">
+<div class="tb p"><div class="back">→</div><div class="tbt">جارٍ البحث عن سائق</div><div class="tbs">نبحث عن أقرب سائق</div></div>
+<div class="bd">
+<div class="map" style="height:65px"><svg height="65" viewbox="0 0 158 65" width="158"><rect fill="#e4eedd" height="65" width="158"></rect><line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="22" y2="22"></line><line stroke="#c5d9bb" stroke-width="3" x1="0" x2="158" y1="48" y2="48"></line><text font-size="11" x="15" y="19">🚗</text><text font-size="11" x="45" y="38">🚗</text><text font-size="11" x="90" y="45">🚗</text><text font-size="11" x="110" y="25">🚗</text><text font-size="11" x="130" y="50">🚗</text><circle cx="79" cy="34" fill="none" opacity=".6" r="20" stroke="#533ab7" stroke-dasharray="4,3" stroke-width="1.5"></circle><circle cx="79" cy="34" fill="#533ab7" r="8"></circle><text fill="#fff" font-size="7" x="73" y="37">أنت</text></svg><div class="map-lbl" style="color:#533ab7;font-weight:600">🚗 12 سيارة حواليك</div></div>
+<div class="bnr pp" style="margin:5px 0;text-align:center;font-weight:700;font-size:8px">🚗 12 سيارة متاحة الآن بالقرب منك</div>
+<div class="pulse-a">
+<div class="pulse">🚗</div>
+<div style="font-size:9px;font-weight:600;color:#111;margin-top:12px;text-align:center">جارٍ البحث عن أقرب سائق</div>
+<div style="font-size:7.5px;color:#9ca3af;text-align:center;margin-top:2px">أعلى تقييم + أقرب مسافة</div>
+</div>
+<div class="stats">
+<div class="sb"><div class="sv">~3 دق</div><div class="sl">وصول</div></div>
+<div class="sb"><div class="sv">33 ر.س</div><div class="sl">التكلفة</div></div>
+<div class="sb"><div class="sv">7.4 كم</div><div class="sl">المسافة</div></div>
+</div>
+<div class="bnr bl">ℹ️ إذا لم يُقبل خلال 45 ثانية → سيارة أخرى تلقائياً</div>
+<div class="mbtn rd">إلغاء الطلب</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">106</span><div class="ptitle">دائرة السائقين — لا يتوفر مفضل</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">لم نجد مفضلًا متاحًا</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">المرحلة 4؛ لا تحويل تلقائي دون موافقة الراكب</div><div class="sr"><div class="si">ℹ️</div><div><div class="st">لا يوجد سائق مفضل مؤهل حاليًا</div></div></div><div class="sr"><div class="si">◉</div><div><div class="st">ابحث عن أقرب سائق آخر</div></div></div><div class="sr"><div class="si">○</div><div><div class="st">استمر في انتظار المفضلين إذا أتيح</div></div></div><div class="sr"><div class="si">✕</div><div><div class="st">إلغاء البحث دون إنشاء حجز جديد</div></div></div><div class="mbtn">البحث عن سائق آخر</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">105</span><div class="ptitle">دائرة السائقين — البحث</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">نبحث عن المفضلين</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">المرحلة 3؛ الخادم يتحكم بمهل البحث</div><div class="sr"><div class="si">🔎</div><div><div class="st">جار البحث بين السائقين المحددين</div></div></div><div class="sr"><div class="si">📍</div><div><div class="st">ضمن المنطقة والفئة والوقت المتاح</div></div></div><div class="sr"><div class="si">🛡️</div><div><div class="st">السائق غير المؤهل لا يتلقى الطلب</div></div></div><div class="sr"><div class="si">⌛</div><div><div class="st">تحديث الحالة دون إظهار معلومات حساسة</div></div></div><div class="mbtn">عرض حالة البحث</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+</div><!-- end flow row 1 -->
+<!-- ═══ SECTION 2 ═══ -->
+<div class="section-hdr green">📍 تدفق الرحلة — الشاشات 6 إلى 8</div>
+<div class="flow-row">
+<!-- 6: DRIVER -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#0f6e56">6</span><div class="ptitle">السائق في الطريق</div></div>
+<div class="frame"><div class="screen">
+<div class="map" style="height:65px;position:relative"><svg height="65" viewbox="0 0 158 65" width="158"><rect fill="#e4eedd" height="65" width="158"></rect><line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="23" y2="23"></line><line stroke="#c5d9bb" stroke-width="3" x1="0" x2="158" y1="52" y2="52"></line><polyline fill="none" points="28,23 80,40 140,36" stroke="#1a3a5c" stroke-width="2"></polyline><circle cx="28" cy="23" fill="#1a3a5c" r="5"></circle><circle cx="140" cy="36" fill="#e24b4a" r="5"></circle><text fill="#1a3a5c" font-size="8" x="57" y="34">السائق قادم</text></svg><div style="position:absolute;top:5px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.9);border-radius:7px;padding:2px 7px;font-size:7px;color:#0f6e56;font-weight:600">✅ تم قبول رحلتك</div><div class="back" style="position:absolute;right:8px;top:8px;background:rgba(0,0,0,.2)">←</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="stats">
+<div class="sb"><div class="sv">3 دق</div><div class="sl">وصول</div></div>
+<div class="sb"><div class="sv" style="color:#f0c040">+50 ⭐</div><div class="sl">ستكسب</div></div>
+<div class="sb"><div class="sv">33 ر.س</div><div class="sl">تكلفة</div></div>
+<div class="sb"><div class="sv">7.4</div><div class="sl">كم</div></div>
+</div>
+<div class="drvcard">
+<div class="drow">
+<div class="dav">أح</div>
+<div style="flex:1"><div class="dn">أحمد الزهراني</div><div class="ds">★★★★★ <span style="font-size:7px;color:#9ca3af">4.9</span></div><div class="dc">كامري أبيض • ABC 1234</div></div>
+<div class="ep">3 دق</div>
+</div>
+<div class="arow">
+<div class="ab">📞<div>اتصال</div></div>
+<div class="ab">💬<div>رسالة</div></div>
+<div class="ab">📤<div>مشاركة</div></div>
+<div class="ab sos">🚨<div>SOS</div></div>
+</div>
+</div>
+<div class="bnr am">⭐ ستكسب 50 نقطة عند اكتمال الرحلة</div>
+<div class="bnr am">⏱ انتظار مجاني 3 دق — بعدها 0.5 ر.س/دقيقة</div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 6px;margin-bottom:3px;display:flex;justify-content:space-between;font-size:7.5px"><span style="color:#6b7280">عداد الانتظار</span><span style="color:#e24b4a;font-weight:600">02:45 ● يعمل</span></div>
+<div class="bnr bl">📷 Dash Cam مفعّل — موافقتك مطلوبة ✓ وافقت</div>
+<div class="bnr pp">🔐 PIN التحقق: <strong>7823</strong> — أعطه للسائق</div>
+<div class="mbtn rd">إلغاء الرحلة</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">110</span><div class="ptitle">DORR Continuity</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">رحلتك لا تنقطع</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">البديل يخضع للأهلية والسعر والموافقة</div><div class="sr"><div class="si">⚠️</div><div><div class="st">السائق تعذر عليه الإكمال</div></div></div><div class="sr"><div class="si">🔎</div><div><div class="st">نبحث عن بديل مؤهل</div></div></div><div class="sr"><div class="si">📍</div><div><div class="st">احتفظ بنقطة الالتقاء والوجهة</div></div></div><div class="sr"><div class="si">🛡️</div><div><div class="st">لا تبدأ رحلة جديدة ماليًا دون إقرار واضح</div></div></div><div class="mbtn">مراجعة البديل</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">109</span><div class="ptitle">ضمان موعد السيارة — الحالة</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">متابعة الوصول</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">لا تعهد بوصول مطلق؛ حفظ أسباب التأخير</div><div class="sr"><div class="si">🚗</div><div><div class="st">السيارة في الطريق إليك</div></div></div><div class="sr"><div class="si">🕒</div><div><div class="st">وقت الوصول المتوقع يتحدث تلقائيًا</div></div></div><div class="sr"><div class="si">⚠️</div><div><div class="st">احتمال التأخر: إشعار مبكر</div></div></div><div class="sr"><div class="si">🔁</div><div><div class="st">البحث عن بديل عند تحقق شروط السياسة</div></div></div><div class="mbtn">عرض تفاصيل الموعد</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">اكتمال الرحلة</div></div>
+<!-- 7: RATING -->
+<!-- ════════ إضافة: تغيير الوجهة أثناء الرحلة ════════ -->
+<div style="background:#e1f5ee;border-radius:10px;padding:10px 16px;margin:20px 0 14px;border-right:3px solid #0f6e56;font-size:11px;color:#085041;line-height:2">
+  ✅ <strong>ميزة جديدة — تغيير الوجهة أثناء الرحلة</strong><br/>
+<span style="font-size:10px;color:#6b7280">الراكب يغير الوجهة ← إشعار فوري للسائق ← السائق يقبل/يرفض ← السعر يتحدث تلقائياً</span>
+</div>
+<div class="flow-row">
+<!-- 6أ -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#0f6e56">6أ</span><div class="ptitle">الراكب يغير الوجهة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb g"><div class="back">→</div><div class="tbt">تغيير الوجهة 🗺️</div><div class="tbs">الرحلة جارية — يمكنك التغيير</div></div>
+<div class="bd"><div class="hdl"></div>
+<div class="bnr gn" style="font-size:7px">📍 الوجهة الحالية: النسيم ← العليا</div>
+<div class="lbl">الوجهة الجديدة</div>
+<div class="loc"><div class="dot" style="background:#1a3a5c"></div>النسيم — موقعي الحالي</div>
+<div class="loc dest" style="margin-top:3px"><div class="dot" style="background:#e24b4a"></div><span style="color:#9ca3af">ابحث عن وجهة جديدة 🔍</span></div>
+<div class="lbl" style="margin-top:5px">اقتراحات</div>
+<div class="sr"><div class="si">🛍️</div><div><div class="st">مول العرب</div><div class="ss">+3.2 كم • +8 دق • +8 ر.س</div></div></div>
+<div class="sr"><div class="si">🏥</div><div><div class="st">مستشفى الملك فهد</div><div class="ss">+1.8 كم • +5 دق • +4 ر.س</div></div></div>
+<div class="sr"><div class="si">🏢</div><div><div class="st">مركز الأعمال</div><div class="ss">+5.1 كم • +12 دق • +11 ر.س</div></div></div>
+<div style="background:#faeeda;border-radius:5px;padding:5px 7px;margin:5px 0">
+<div style="font-size:7px;font-weight:700;color:#633806;margin-bottom:2px">تأثير التغيير على السعر</div>
+<div class="ir"><span class="il">السعر الأصلي</span><span class="iv">35 ر.س</span></div>
+<div class="ir"><span class="il">رسوم إضافية</span><span style="color:#e24b4a;font-weight:600">+8 ر.س</span></div>
+<div class="idiv"></div>
+<div class="ir"><span class="itl">السعر الجديد</span><span class="itv" style="color:#854f0b">43 ر.س</span></div>
+</div>
+<div class="bnr am" style="font-size:7px">⚠️ يجب على السائق قبول التغيير أولاً</div>
+<div class="mbtn g">إرسال طلب التغيير ←</div>
+<div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div></div>
+</div></div></div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">111</span><div class="ptitle">DORR Live</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">تغيير ظروف المشوار</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">يعتمد على محرك التغيير الحالي؛ منع التكرار</div><div class="sr"><div class="si">🔁</div><div><div class="st">أحتاج تغيير نقطة النزول</div></div></div><div class="sr"><div class="si">🛑</div><div><div class="st">أريد إضافة توقف إذا كان مسموحًا</div></div></div><div class="sr"><div class="si">🕒</div><div><div class="st">الوقت والسعر يتحدثان قبل الاعتماد</div></div></div><div class="sr"><div class="si">☑️</div><div><div class="st">التأكيد مطلوب قبل تعديل الطلب</div></div></div><div class="mbtn">مراجعة التغيير</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line" style="background:#0f6e56"></div><div class="arr-head" style="border-right-color:#0f6e56"></div><div class="arr-lbl" style="background:#e1f5ee;color:#0f6e56">إشعار للسائق</div></div>
+<!-- 6ب -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#854f0b">6ب</span><div class="ptitle">السائق يستلم الطلب</div></div>
+<div class="frame"><div class="screen">
+<div class="tb a"><div class="back">→</div><div class="tbt">⚡ طلب تغيير وجهة</div><div class="tbs">30 ثانية للرد</div></div>
+<div class="bd"><div class="hdl"></div>
+<div style="display:flex;align-items:center;gap:7px;margin-bottom:5px">
+<div style="width:44px;height:44px;border-radius:50%;background:conic-gradient(#e24b4a 216deg,#fde8e8 216deg);display:flex;align-items:center;justify-content:center;border:2px solid #fde8e8;flex-shrink:0;font-size:12px;font-weight:700;color:#e24b4a">18</div>
+<div><div style="font-size:8.5px;font-weight:700;color:#111">أحمد الزهراني</div><div style="font-size:7px;color:#e24b4a;font-weight:600">يريد تغيير وجهة الرحلة</div></div>
+</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:5px 7px;margin-bottom:4px">
+<div class="ir"><span class="il">الوجهة القديمة</span><span style="font-size:7.5px;color:#9ca3af;text-decoration:line-through">العليا</span></div>
+<div class="ir"><span class="il">الوجهة الجديدة</span><span style="font-size:7.5px;color:#e24b4a;font-weight:700">مول العرب</span></div>
+<div class="ir"><span class="il">مسافة إضافية</span><span style="font-size:7.5px;color:#854f0b;font-weight:600">+3.2 كم</span></div>
+<div class="idiv"></div>
+<div class="ir"><span class="itl">أرباحك الإضافية</span><span class="itv" style="color:#0f6e56;font-size:11px">+8 ر.س</span></div>
+</div>
+<div class="map" style="height:40px">
+<svg height="40" viewbox="0 0 158 40" width="158"><rect fill="#e4eedd" height="40" width="158"></rect><line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="17" y2="17"></line><polyline fill="none" points="15,17 70,20 108,17" stroke="#0f6e56" stroke-width="2"></polyline><polyline fill="none" points="108,17 148,32" stroke="#e24b4a" stroke-dasharray="3,2" stroke-width="2"></polyline><text font-size="9" x="58" y="15">🚗</text><circle cx="108" cy="17" fill="#854f0b" r="4"></circle><circle cx="148" cy="32" fill="#e24b4a" r="4"></circle></svg>
+</div>
+<div class="bnr am" style="font-size:7px;margin-top:4px">⏱️ 30 ثانية للرد — وإلا يُلغى الطلب</div>
+<div style="display:flex;gap:3px;margin-top:5px">
+<div style="flex:1;background:#0f6e56;color:#fff;border-radius:6px;padding:8px;text-align:center;font-size:9px;font-weight:700">✅ أوافق<br/><span style="font-size:6.5px;font-weight:400">+8 ر.س إضافية</span></div>
+<div style="flex:1;background:#fef2f2;color:#e24b4a;border-radius:6px;padding:8px;text-align:center;font-size:9px;font-weight:700;border:.5px solid #fde8e8">❌ أرفض<br/><span style="font-size:6.5px;font-weight:400">أكمل للعليا</span></div>
+</div>
+</div></div></div></div></div>
+<div class="arrow-wrap"><div class="arr-line" style="background:#0f6e56"></div><div class="arr-head" style="border-right-color:#0f6e56"></div><div class="arr-lbl" style="background:#e1f5ee;color:#0f6e56">تأكيد للراكب</div></div>
+<!-- 6ج -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#0f6e56">6ج</span><div class="ptitle">تأكيد التغيير للراكب</div></div>
+<div class="frame"><div class="screen">
+<div class="tb g"><div class="back">→</div><div class="tbt">✅ وافق السائق!</div><div class="tbs">الوجهة تغيرت بنجاح</div></div>
+<div class="bd"><div class="hdl"></div>
+<div style="text-align:center;margin:7px 0">
+<div style="width:40px;height:40px;background:#e1f5ee;border-radius:50%;margin:0 auto 5px;display:flex;align-items:center;justify-content:center;font-size:18px">✅</div>
+<div style="font-size:9px;font-weight:700;color:#0f6e56">تم تغيير الوجهة!</div>
+</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:5px 7px;margin-bottom:4px">
+<div class="ir"><span class="il">الوجهة الجديدة</span><span style="color:#0f6e56;font-weight:600">مول العرب</span></div>
+<div class="ir"><span class="il">المسافة الإجمالية</span><span class="iv">10.6 كم</span></div>
+<div class="ir"><span class="il">وقت الوصول المتبقي</span><span class="iv">~14 دق</span></div>
+<div class="idiv"></div>
+<div class="ir"><span class="itl">السعر المحدث</span><span class="itv">43 ر.س</span></div>
+</div>
+<div class="map" style="height:40px">
+<svg height="40" viewbox="0 0 158 40" width="158"><rect fill="#e4eedd" height="40" width="158"></rect><line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="17" y2="17"></line><polyline fill="none" points="15,17 80,24 148,36" stroke="#0f6e56" stroke-width="2.5"></polyline><text font-size="9" x="50" y="15">🚗</text><circle cx="148" cy="36" fill="#e24b4a" r="5"></circle></svg>
+<div class="map-lbl" style="color:#0f6e56;font-weight:600">GPS محدَّث ← مول العرب</div>
+</div>
+<div class="bnr bl" style="font-size:7px;margin-top:4px">ℹ️ يمكنك تغيير الوجهة مرة أخرى</div>
+<div class="bnr am" style="font-size:7px">💰 فرق السعر (+8 ر.س) يُضاف للفاتورة</div>
+<div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div></div>
+</div></div></div></div></div>
+</div><!-- end dest change -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#854f0b">7</span><div class="ptitle">تقييم الرحلة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb g"><div class="back">→</div><div class="tbt">قيّم رحلتك</div><div class="tbs">رأيك يساعدنا على التحسين</div></div>
+<div class="bd">
+<div style="text-align:center;margin:7px 0 4px"><div style="width:38px;height:38px;border-radius:50%;background:#dce8f5;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#1a3a5c">أح</div><div style="font-size:10px;font-weight:700;color:#111">أحمد الزهراني</div><div style="font-size:7.5px;color:#9ca3af;margin-top:2px">كيف كانت تجربتك مع السائق؟</div></div>
+<div class="stars"><span class="star">★</span><span class="star l">★</span><span class="star l">★</span><span class="star l">★</span><span class="star l">★</span></div>
+<div style="font-size:7.5px;font-weight:600;color:#6b7280;margin-bottom:4px;text-align:center">ما الذي أعجبك؟</div>
+<div class="rgrid">
+<div class="rc s">🚗 قيادة آمنة</div>
+<div class="rc">⏱ التزام بالوقت</div>
+<div class="rc s">😊 أسلوب راقي</div>
+<div class="rc">🧹 سيارة نظيفة</div>
+<div class="rc">🛣️ أفضل مسار</div>
+<div class="rc">🤫 وضع صامت</div>
+</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:4px 6px;margin-bottom:4px;font-size:7px;color:#9ca3af">اكتب ملاحظة (اختياري)...<div style="height:12px"></div></div>
+<div style="background:#faeeda;border-radius:5px;padding:4px 6px;margin-bottom:4px;text-align:center;font-size:7.5px;font-weight:600;color:#633806">💰 إكرامية Tip (اختياري): 5 — 10 — 20 ر.س</div>
+<div class="bnr gn">⭐ +5 نقاط إضافية لتقييمك — شكراً!</div>
+<div class="mbtn g">إرسال التقييم ←</div>
+<div style="text-align:center;font-size:7.5px;color:#9ca3af;margin-top:4px">تخطي</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">112</span><div class="ptitle">DORR Adaptive Ride</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">تجربة تناسبك</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">يتكامل مع نظام التقييم والسلوك الموجود</div><div class="sr"><div class="si">💬</div><div><div class="st">هل كانت الرحلة هادئة كما طلبت؟</div></div></div><div class="sr"><div class="si">🌡️</div><div><div class="st">هل كانت درجة التكييف مناسبة؟</div></div></div><div class="sr"><div class="si">⭐</div><div><div class="st">حفظ التفضيلات للرحلات القادمة اختياريًا</div></div></div><div class="sr"><div class="si">🔒</div><div><div class="st">لا يستنتج النظام سمات شخصية حساسة</div></div></div><div class="mbtn">حفظ اختياراتي</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">إرسال التقييم</div></div>
+<!-- 8: COMPLETE -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#0f6e56">8</span><div class="ptitle">اكتمال الرحلة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb g"><div class="back">→</div><div class="tbt">وصلت بأمان 🎉</div><div class="tbs">شكراً لاختيارك درر</div></div>
+<div class="bd">
+<div class="ckicon">✅</div>
+<div style="text-align:center;margin-bottom:7px"><div style="font-size:11px;font-weight:700;color:#111">اكتملت رحلتك بنجاح</div><div style="font-size:7.5px;color:#9ca3af;margin-top:2px">النسيم ← العليا • 22 دقيقة</div></div>
+<div class="inv">
+<div class="ir"><span class="il">المسافة</span><span class="iv">7.4 كم</span></div>
+<div class="ir"><span class="il">مدة الرحلة</span><span class="iv">22 دقيقة</span></div>
+<div class="ir"><span class="il">السائق</span><span class="iv">أحمد الزهراني</span></div>
+<div class="ir"><span class="il">طريقة الدفع</span><span class="iv">المحفظة</span></div>
+<div class="idiv"></div>
+<div class="ir"><span class="itl">المبلغ المدفوع</span><span class="itv">40 ر.س</span></div>
+</div>
+<div style="background:#faeeda;border-radius:5px;padding:5px 6px;margin-bottom:4px">
+<div style="font-size:8px;font-weight:600;color:#633806;margin-bottom:3px">نقاطك المكتسبة من هذه الرحلة</div>
+<div class="ir"><span class="il">نقاط الرحلة</span><span style="color:#854f0b;font-weight:600">+10</span></div>
+<div class="ir"><span class="il">نقاط الإنفاق</span><span style="color:#854f0b;font-weight:600">+40</span></div>
+<div class="ir"><span class="il">نقاط التقييم</span><span style="color:#854f0b;font-weight:600">+5</span></div>
+<div class="idiv"></div>
+<div class="ir"><span style="font-size:8.5px;font-weight:700;color:#633806">إجمالي مكتسب</span><span style="font-size:11px;font-weight:700;color:#854f0b">+55 نقطة 🌟</span></div>
+<div style="font-size:7px;color:#854f0b;margin-top:2px">رصيدك الجديد: 1,295 نقطة</div>
+</div>
+<div class="bnr gn" style="text-align:center">وصلت بأمان؟ أخبر عائلتك<br/><strong>✓ وصلت بأمان</strong></div>
+<div class="mbtn g">احجز رحلة جديدة ←</div>
+<div style="display:flex;gap:3px;margin-top:3px">
+<div style="flex:1;border:.4px solid #e0e4ea;border-radius:4px;padding:3px;text-align:center;font-size:7px;color:#6b7280">عرض الفاتورة</div>
+<div style="flex:1;border:.4px solid #fde8e8;border-radius:4px;padding:3px;text-align:center;font-size:7px;color:#e24b4a">إبلاغ عن مشكلة</div>
+</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+</div><!-- end flow row 2 -->
+<!-- ═══ SECTION 3 ═══ -->
+<div class="section-hdr amber">⭐ شاشات الولاء — الشاشات 9 إلى 12</div>
+<div class="flow-row">
+<!-- 9: LOYALTY -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#854f0b">9</span><div class="ptitle">شاشة الولاء</div></div>
+<div class="frame"><div class="screen">
+<div class="lhdr" style="position:relative"><div class="back" style="position:absolute;right:8px;top:10px;background:rgba(255,255,255,.15);width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:12px">←</div>
+<div style="font-size:7.5px;color:rgba(255,255,255,.6)">نقاط الولاء</div>
+<div class="lbig">1,240</div>
+<div class="ltier">⭐ عضو فضي</div>
+<div class="prog"><div class="progf" style="width:62%"></div></div>
+<div class="prow"><span>فضي — 1,240</span><span>260 للذهبي</span></div>
+</div>
+<div class="bd">
+<div class="stats">
+<div class="sb"><div class="sv">18</div><div class="sl">رحلة الشهر</div></div>
+<div class="sb"><div class="sv">340</div><div class="sl">نقطة مكتسبة</div></div>
+</div>
+<div class="ch"><span class="ch-l">🏆 اركب 5 رحلات الأسبوع<br/><small>3 من 5 — +100 نقطة</small></span><span class="ch-p">60%</span></div>
+<div class="lbl">شاراتك المكتسبة</div>
+<div style="display:flex;gap:4px;margin-bottom:5px">
+<div style="text-align:center"><div style="width:26px;height:26px;background:#e6f1fb;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px">🗺️</div><div style="font-size:6px;color:#9ca3af;margin-top:1px">مستكشف</div></div>
+<div style="text-align:center"><div style="width:26px;height:26px;background:#faeeda;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px">⭐</div><div style="font-size:6px;color:#9ca3af;margin-top:1px">مقيّم</div></div>
+<div style="text-align:center"><div style="width:26px;height:26px;background:#eeedfe;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px">🌙</div><div style="font-size:6px;color:#9ca3af;margin-top:1px">رمضان</div></div>
+<div style="text-align:center;opacity:.4"><div style="width:26px;height:26px;background:#f5f7fa;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px">🔒</div><div style="font-size:6px;color:#9ca3af;margin-top:1px">حاج درر</div></div>
+<div style="text-align:center;opacity:.4"><div style="width:26px;height:26px;background:#f5f7fa;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:11px">🔒</div><div style="font-size:6px;color:#9ca3af;margin-top:1px">بلاتيني</div></div>
+</div>
+<div class="bnr gn">🌱 عداد الأشجار: 2 شجرة — 260 نقطة بيئية</div>
+<div class="lbl" style="margin-top:4px">آخر المكتسبات</div>
+<div class="ir"><span class="il">رحلة وقت الذروة</span><span style="color:#854f0b;font-weight:600">+15 نقطة</span></div>
+<div class="ir"><span class="il">تقييم السائق</span><span style="color:#854f0b;font-weight:600">+5 نقاط</span></div>
+<div class="ir"><span class="il">رحلة مدينة جديدة</span><span style="color:#854f0b;font-weight:600">+20 نقطة</span></div>
+<div class="mbtn a">استبدل نقاطك ←</div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni aa">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">استبدال النقاط</div></div>
+<!-- 10: REDEEM -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#854f0b">10</span><div class="ptitle">استبدال النقاط</div></div>
+<div class="frame"><div class="screen">
+<div class="tb a"><div class="back">→</div><div class="tbt">استبدال النقاط</div><div class="tbs">رصيدك: 1,240 نقطة</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div style="background:#faeeda;border-radius:5px;padding:4px 6px;margin-bottom:5px;text-align:center;font-size:9px;font-weight:700;color:#633806">100 نقطة = 5 ريال</div>
+<div class="lbl">اختر طريقة الاستبدال</div>
+<div style="background:#faeeda;border:1.5px solid #854f0b;border-radius:5px;padding:5px 6px;margin-bottom:4px"><div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:8.5px;font-weight:600;color:#633806">🏷️ خصم على الرحلة القادمة</span><span style="width:12px;height:12px;background:#854f0b;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;color:#fff">✓</span></div><div style="font-size:7px;color:#854f0b;margin-top:2px">100 نقطة = 5 ريال خصم</div></div>
+<div style="border:.4px solid #e0e4ea;border-radius:5px;padding:5px 6px;margin-bottom:4px;background:#fff"><div style="font-size:8.5px;font-weight:600;color:#111">🚗 رحلة مجانية</div><div style="font-size:7px;color:#9ca3af;margin-top:1px">500 نقطة = رحلة (حد 25 ر.س)</div></div>
+<div style="border:.4px solid #e0e4ea;border-radius:5px;padding:5px 6px;margin-bottom:5px;background:#fff"><div style="font-size:8.5px;font-weight:600;color:#111">⬆️ ترقية مجانية لفئة أعلى</div><div style="font-size:7px;color:#9ca3af;margin-top:1px">1,000 نقطة = ترقية واحدة</div></div>
+<div class="lbl">كم نقطة تريد استبدالها؟</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:6px 7px;margin-bottom:5px">
+<div style="background:#e0e4ea;border-radius:2px;height:4px;position:relative;margin-bottom:5px"><div style="width:40%;background:#854f0b;border-radius:2px;height:100%"></div><div style="position:absolute;top:-5px;left:40%;width:11px;height:11px;background:#854f0b;border-radius:50%;transform:translateX(-50%)"></div></div>
+<div style="display:flex;justify-content:space-between;font-size:7.5px">
+<div style="text-align:center"><div style="font-weight:700;color:#111">500</div><div style="color:#9ca3af">نقطة</div></div>
+<div style="color:#9ca3af;align-self:center">→</div>
+<div style="text-align:center"><div style="font-weight:700;color:#0f6e56">25 ر</div><div style="color:#9ca3af">خصم</div></div>
+<div style="color:#9ca3af;align-self:center">=</div>
+<div style="text-align:center"><div style="font-weight:700;color:#111">740</div><div style="color:#9ca3af">متبقية</div></div>
+</div>
+</div>
+<div class="inv">
+<div class="lbl" style="margin-bottom:3px">ملخص الاستبدال</div>
+<div class="ir"><span class="il">النقاط الحالية</span><span class="iv">1,240</span></div>
+<div class="ir"><span class="il">النقاط المستبدَلة</span><span class="iv" style="color:#e24b4a">- 500</span></div>
+<div class="ir"><span class="il">النقاط المتبقية</span><span class="iv" style="color:#0f6e56">740 نقطة</span></div>
+<div class="idiv"></div>
+<div class="ir"><span class="itl">قيمة الخصم</span><span class="itv" style="color:#0f6e56">25 ريال</span></div>
+</div>
+<div class="mbtn a">تأكيد الاستبدال ← 25 ريال</div>
+<div class="lbl" style="margin-top:4px">سجل الاستبدالات السابقة</div>
+<div class="ir"><span class="il">خصم رحلة النزهة — مايو 12</span><span style="color:#e24b4a;font-weight:600">- 200 نقطة</span></div>
+<div class="ir"><span class="il">رحلة مجانية — المطار — أبريل 28</span><span style="color:#e24b4a;font-weight:600">- 500 نقطة</span></div>
+<div class="ir"><span class="il">ترقية — بريميم — أبريل 10</span><span style="color:#e24b4a;font-weight:600">- 1,000 نقطة</span></div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni aa">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">التحديات</div></div>
+<!-- 11: CHALLENGES -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#533ab7">11</span><div class="ptitle">التحديات الأسبوعية</div></div>
+<div class="frame"><div class="screen">
+<div class="tb p"><div class="back">→</div><div class="tbt">التحديات الأسبوعية</div><div class="tbs">تنتهي الأحد 23 مايو</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div style="background:#2d1b69;border-radius:5px;padding:5px 7px;margin-bottom:5px;display:flex;justify-content:space-around">
+<div style="text-align:center"><div style="font-size:12px;font-weight:700;color:#f0c040">2</div><div style="font-size:6.5px;color:rgba(255,255,255,.6)">مكتمل</div></div>
+<div style="text-align:center"><div style="font-size:12px;font-weight:700;color:#fff">1</div><div style="font-size:6.5px;color:rgba(255,255,255,.6)">جارٍ</div></div>
+<div style="text-align:center"><div style="font-size:12px;font-weight:700;color:#f0c040">250</div><div style="font-size:6.5px;color:rgba(255,255,255,.6)">نقطة</div></div>
+</div>
+<div class="lbl">التحديات النشطة</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:5px 6px;margin-bottom:3px">
+<div style="display:flex;justify-content:space-between"><span style="font-size:8px;font-weight:600;color:#111">🏆 أسد الأسبوع</span><span style="font-size:7.5px;font-weight:600;color:#533ab7">+100 نقطة</span></div>
+<div style="font-size:7px;color:#9ca3af;margin:2px 0">اركب 5 رحلات هذا الأسبوع</div>
+<div style="background:#e0e4ea;border-radius:2px;height:4px;overflow:hidden"><div style="width:60%;background:#533ab7;height:100%;border-radius:2px"></div></div>
+<div style="font-size:6.5px;color:#9ca3af;margin-top:1px">3 من 5 رحلات</div>
+</div>
+<div style="background:#e1f5ee;border-radius:5px;padding:5px 6px;margin-bottom:3px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:8px;font-weight:600;color:#085041">⭐ المقيّم الموثوق</span><span style="background:#0f6e56;color:#fff;border-radius:6px;padding:1px 5px;font-size:6.5px">مكتمل ✓</span></div>
+<div style="font-size:7px;color:#0f6e56;margin-top:1px">قيّم 5 سائقين متتالياً — +50 نقطة</div>
+</div>
+<div style="background:#e1f5ee;border-radius:5px;padding:5px 6px;margin-bottom:5px">
+<div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:8px;font-weight:600;color:#085041">🗺️ مستكشف جديد</span><span style="background:#0f6e56;color:#fff;border-radius:6px;padding:1px 5px;font-size:6.5px">مكتمل ✓</span></div>
+<div style="font-size:7px;color:#0f6e56;margin-top:1px">حي جديد لأول مرة — +100 نقطة + شارة</div>
+</div>
+<div class="lbl">ترتيبك بين الأصدقاء</div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 5px;margin-bottom:2px;display:flex;justify-content:space-between"><span style="font-size:8px;font-weight:700;color:#f0c040">🥇 خالد</span><span style="font-size:8px;font-weight:600;color:#533ab7">420 نقطة</span></div>
+<div style="background:#eeedfe;border-radius:4px;padding:4px 5px;margin-bottom:2px;display:flex;justify-content:space-between"><span style="font-size:8px;font-weight:700;color:#533ab7">🥈 أنت</span><span style="font-size:8px;font-weight:600;color:#533ab7">250 نقطة</span></div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 5px;display:flex;justify-content:space-between"><span style="font-size:8px;color:#6b7280">🥉 سلطان</span><span style="font-size:8px;color:#6b7280">180 نقطة</span></div>
+<div class="nav" style="margin-top:5px">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni aa">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">الشرائح</div></div>
+<!-- 12: TIERS -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#854f0b">12</span><div class="ptitle">الشرائح والمزايا</div></div>
+<div class="frame"><div class="screen">
+<div class="tb a"><div class="back">→</div><div class="tbt">الشرائح والمزايا</div><div class="tbs">شريحتك: عضو فضي</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="ttabs"><div class="ttab">عضو</div><div class="ttab ac">فضي ✓</div><div class="ttab">ذهبي</div><div class="ttab">بلاتيني</div></div>
+<div style="background:#1a3a5c;border-radius:6px;padding:6px 7px;margin-bottom:5px">
+<div style="font-size:9px;font-weight:700;color:#fff">عضو فضي</div>
+<div style="font-size:7px;color:rgba(255,255,255,.6);margin-top:1px">500 – 1,499 نقطة تراكمية</div>
+<div class="prog" style="margin-top:5px"><div class="progf" style="width:62%"></div></div>
+<div class="prow"><span>1,240 حالياً</span><span>260 للذهبي</span></div>
+</div>
+<div class="lbl">مزايا شريحتك الفضية</div>
+<div class="ben"><div class="bic" style="background:#e1f5ee">✓</div><div><div class="btxt">إلغاء مجاني شهري</div><div class="bsub">إلغاء رحلة بدون رسوم كل شهر</div></div></div>
+<div class="ben"><div class="bic" style="background:#e1f5ee">✓</div><div><div class="btxt">دعم أولوية</div><div class="bsub">استجابة أسرع من خدمة العملاء</div></div></div>
+<div class="ben"><div class="bic" style="background:#e1f5ee">✓</div><div><div class="btxt">نقاط مضاعفة في المواسم</div><div class="bsub">رمضان والعيد واليوم الوطني</div></div></div>
+<div class="ben"><div class="bic" style="background:#f5f7fa">🔒</div><div><div class="btxt blck">حماية من سعر الذروة</div><div class="bsub">يتوفر في الذهبي — 260 نقطة متبقية</div></div></div>
+<div class="ben"><div class="bic" style="background:#f5f7fa">🔒</div><div><div class="btxt blck">سائق مفضل دائم</div><div class="bsub">يتوفر في البلاتيني</div></div></div>
+<div class="lbl" style="margin-top:4px">مقارنة جميع الشرائح</div>
+<div class="chdr"><div class="chc">الميزة</div><div class="chc">عضو</div><div class="chc">فضي</div><div class="chc">ذهبي</div><div class="chc">بلاتيني</div></div>
+<div class="crow"><div class="cc" style="font-size:6px;text-align:right">نقاط الرحلات</div><div class="cc" style="color:#0f6e56">✓</div><div class="cc" style="color:#0f6e56">✓</div><div class="cc" style="color:#0f6e56">✓</div><div class="cc" style="color:#0f6e56">✓</div></div>
+<div class="crow"><div class="cc" style="font-size:6px;text-align:right">إلغاء مجاني</div><div class="cc" style="color:#9ca3af">—</div><div class="cc" style="color:#0f6e56">✓</div><div class="cc" style="color:#0f6e56">✓</div><div class="cc" style="color:#0f6e56">✓</div></div>
+<div class="crow"><div class="cc" style="font-size:6px;text-align:right">حماية الذروة</div><div class="cc" style="color:#9ca3af">—</div><div class="cc" style="color:#9ca3af">—</div><div class="cc" style="color:#0f6e56">✓</div><div class="cc" style="color:#0f6e56">✓</div></div>
+<div class="crow"><div class="cc" style="font-size:6px;text-align:right">سائق مفضل</div><div class="cc" style="color:#9ca3af">—</div><div class="cc" style="color:#9ca3af">—</div><div class="cc" style="color:#9ca3af">—</div><div class="cc" style="color:#0f6e56">✓</div></div>
+<div class="mbtn a" style="margin-top:4px">كيف أرتقي للذهبي؟ ↗</div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni aa">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+</div><!-- end flow row 3 -->
+<!-- ═══ SECTION 4 ═══ -->
+<div class="section-hdr green">👨‍👩‍👧‍👦 العائلة والمحفظة والأمان — الشاشات 13 إلى 16</div>
+<div class="flow-row">
+<!-- 13: FAMILY -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum">13</span><div class="ptitle">حساب العائلة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb b"><div class="back">→</div><div class="tbt">حساب العائلة</div><div class="tbs">نقاط الجميع في مكان واحد</div></div>
+<div class="bd">
+<div class="ftot">
+<div style="font-size:7.5px;color:rgba(255,255,255,.6)">إجمالي نقاط العائلة</div>
+<div class="fpts">3,810</div>
+<div style="display:flex;justify-content:space-between;margin-top:4px;font-size:7px;color:rgba(255,255,255,.5)"><span>4 أفراد</span><span>62 رحلة الشهر</span></div>
+</div>
+<div class="lbl">أفراد العائلة</div>
+<div class="memr" style="background:#e6f1fb"><div class="mav" style="background:#185fa5;color:#fff">عب</div><div style="flex:1"><div class="mn">عبدالله — أنت</div><div class="mr">رب الأسرة</div></div><div class="mp" style="color:#1a3a5c">1,240 نقطة</div></div>
+<div class="memr" style="background:#e1f5ee"><div class="mav" style="background:#0f6e56;color:#fff">سا</div><div style="flex:1"><div class="mn">سارة</div><div class="mr">الزوجة</div></div><div class="mp" style="color:#0f6e56">980 نقطة</div></div>
+<div class="memr" style="background:#faeeda"><div class="mav" style="background:#854f0b;color:#fff">مح</div><div style="flex:1"><div class="mn">محمد</div><div class="mr">الابن</div></div><div class="mp" style="color:#854f0b">890 نقطة</div></div>
+<div class="memr" style="background:#fbeaf0"><div class="mav" style="background:#993556;color:#fff">نو</div><div style="flex:1"><div class="mn">نورة</div><div class="mr">الابنة</div></div><div class="mp" style="color:#993556">700 نقطة</div></div>
+<div style="border:.4px dashed #e0e4ea;border-radius:4px;padding:4px;text-align:center;font-size:7.5px;color:#9ca3af;margin-bottom:4px">+ إضافة فرد (مقعد متبقٍ)</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:5px 6px;margin-bottom:4px">
+<div class="lbl" style="margin-bottom:3px">أرسل خصماً لفرد</div>
+<div style="display:flex;gap:3px;margin-bottom:3px">
+<div style="flex:1;background:#1a3a5c;color:#fff;border-radius:4px;padding:3px;text-align:center;font-size:7px">سارة</div>
+<div style="flex:1;border:.4px solid #e0e4ea;border-radius:4px;padding:3px;text-align:center;font-size:7px;color:#6b7280">محمد</div>
+<div style="flex:1;border:.4px solid #e0e4ea;border-radius:4px;padding:3px;text-align:center;font-size:7px;color:#6b7280">نورة</div>
+</div>
+<div class="mbtn">إرسال الخصم لسارة ←</div>
+</div>
+<div class="bnr bl">👶 تتبع الأطفال • إشعار وصول فوري • تحديد وجهات مسموحة • منع نزول الطفل بغير الوجهة</div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni ac">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">المحفظة</div></div>
+<!-- 14: WALLET -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#0f6e56">14</span><div class="ptitle">المحفظة والتحويل</div></div>
+<div class="frame"><div class="screen">
+<div class="tb b"><div class="back">→</div><div class="tbt">المحفظة</div></div>
+<div class="bd">
+<div class="wcard">
+<div style="display:flex;justify-content:space-between"><span style="font-size:9px;font-weight:700;color:#fff">VISA</span><span style="font-size:7.5px;color:rgba(255,255,255,.6)">Jaber</span></div>
+<div style="font-size:7px;color:rgba(255,255,255,.55);margin-top:7px">الرصيد المتاح</div>
+<div class="wbal">2,425 <span style="font-size:11px">ر.س</span></div>
+<div style="font-size:7.5px;color:#f0c040;margin-top:3px">⭐ 1,240 نقطة ولاء</div>
+<div class="wacts"><div class="wb">➕ إضافة</div><div class="wb">→ تحويل</div><div class="wb">▦ QR</div></div>
+</div>
+<div class="lbl">تحويل رصيد لشخص آخر</div>
+<div style="display:flex;gap:5px;margin-bottom:5px">
+<div style="text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#e6f1fb;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#185fa5">خا</div><div style="font-size:6.5px;color:#9ca3af;margin-top:1px">خالد</div></div>
+<div style="text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#e1f5ee;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#0f6e56">سا</div><div style="font-size:6.5px;color:#9ca3af;margin-top:1px">سارة</div></div>
+<div style="text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#faeeda;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:700;color:#854f0b">مح</div><div style="font-size:6.5px;color:#9ca3af;margin-top:1px">محمد</div></div>
+<div style="text-align:center"><div style="width:22px;height:22px;border-radius:50%;background:#f5f7fa;border:.4px dashed #e0e4ea;display:flex;align-items:center;justify-content:center;font-size:11px;color:#9ca3af">+</div><div style="font-size:6.5px;color:#9ca3af;margin-top:1px">جديد</div></div>
+</div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 6px;margin-bottom:3px;font-size:7.5px;color:#9ca3af;border:.4px solid #e0e4ea">05XXXXXXXX — رقم الجوال</div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 6px;margin-bottom:4px;font-size:7.5px;color:#9ca3af;border:.4px solid #e0e4ea">المبلغ (ر.س)</div>
+<div style="display:flex;gap:2px;margin-bottom:4px">
+<div style="flex:1;background:#f5f7fa;border-radius:3px;padding:3px;text-align:center;font-size:7px;color:#6b7280">10</div>
+<div style="flex:1;background:#1a3a5c;border-radius:3px;padding:3px;text-align:center;font-size:7px;color:#fff;font-weight:600">25</div>
+<div style="flex:1;background:#f5f7fa;border-radius:3px;padding:3px;text-align:center;font-size:7px;color:#6b7280">50</div>
+<div style="flex:1;background:#f5f7fa;border-radius:3px;padding:3px;text-align:center;font-size:7px;color:#6b7280">100</div>
+<div style="flex:1;background:#f5f7fa;border-radius:3px;padding:3px;text-align:center;font-size:7px;color:#6b7280">200</div>
+</div>
+<div class="mbtn g">تحويل الرصيد ←</div>
+<div class="lbl" style="margin-top:4px">آخر المعاملات</div>
+<div class="txr"><div class="txi" style="background:#e1f5ee">↑</div><div><div class="txn">خدمة تاكسي (مردود)</div><div class="txs">2025-07-29</div></div><div class="txa" style="color:#0f6e56">+600 ر.س</div></div>
+<div class="txr"><div class="txi" style="background:#fef2f2">↓</div><div><div class="txn">خدمة تاكسي (مدفوع)</div><div class="txs">2025-07-29</div></div><div class="txa" style="color:#e24b4a">-40 ر.س</div></div>
+<div class="txr"><div class="txi" style="background:#fef2f2">→</div><div><div class="txn">تحويل إلى خالد</div><div class="txs">2025-07-28</div></div><div class="txa" style="color:#e24b4a">-50 ر.س</div></div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni ac">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">الشكاوى</div></div>
+<!-- 15: COMPLAINTS -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#993556">15</span><div class="ptitle">الشكاوى والدعم</div></div>
+<div class="frame"><div class="screen">
+<div class="tb pk"><div class="back">→</div><div class="tbt">الشكاوى والدعم</div><div class="tbs">كيف يمكننا مساعدتك؟</div></div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="lbl">اختر نوع الشكوى</div>
+<div class="cmp"><div class="cmpi" style="background:#f5f7fa">🚗</div><div><div class="cmpn">مشاكل بالسائق</div><div class="cmps">14 سبب مختلف</div></div><span style="color:#9ca3af;margin-right:auto;font-size:10px">›</span></div>
+<div class="cmp"><div class="cmpi" style="background:#faeeda">💰</div><div><div class="cmpn">مشاكل بالسعر</div><div class="cmps">10 أسباب</div></div><span style="color:#9ca3af;margin-right:auto;font-size:10px">›</span></div>
+<div class="cmp"><div class="cmpi" style="background:#e6f1fb">💳</div><div><div class="cmpn">مشاكل بالدفع</div><div class="cmps">7 أسباب</div></div><span style="color:#9ca3af;margin-right:auto;font-size:10px">›</span></div>
+<div class="cmp" style="background:#fbeaf0;border-radius:4px;padding:4px;margin:2px 0"><div class="cmpi" style="background:#fbeaf0">🛡️</div><div><div class="cmpn" style="color:#993556">الأمان والطوارئ</div><div class="cmps" style="color:#993556">أولوية قصوى</div></div><span style="color:#993556;margin-right:auto;font-size:10px">›</span></div>
+<div class="cmp"><div class="cmpi" style="background:#f5f7fa">⚙️</div><div><div class="cmpn">مشاكل تقنية</div><div class="cmps">6 أسباب</div></div><span style="color:#9ca3af;margin-right:auto;font-size:10px">›</span></div>
+<div class="cmp"><div class="cmpi" style="background:#e6f1fb">📷</div><div><div class="cmpn">Dash Cam والخصوصية</div><div class="cmps">7 أسباب</div></div><span style="color:#9ca3af;margin-right:auto;font-size:10px">›</span></div>
+<div class="lbl" style="margin-top:5px">تذاكري الأخيرة</div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 5px;margin-bottom:3px;display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-size:7.5px;font-weight:500;color:#111">سلوك السائق — #12345</div><div style="font-size:6.5px;color:#9ca3af">10 مايو 2025</div></div>
+<div style="background:#e1f5ee;color:#085041;border-radius:6px;padding:2px 5px;font-size:6.5px">تم الحل</div>
+</div>
+<div style="background:#f5f7fa;border-radius:4px;padding:4px 5px;margin-bottom:5px;display:flex;justify-content:space-between;align-items:center">
+<div><div style="font-size:7.5px;font-weight:500;color:#111">مشكلة سعر — #12344</div><div style="font-size:6.5px;color:#9ca3af">8 مايو 2025</div></div>
+<div style="background:#faeeda;color:#633806;border-radius:6px;padding:2px 5px;font-size:6.5px">قيد المراجعة</div>
+</div>
+<div class="mbtn pk">فتح تذكرة جديدة ←</div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line"></div><div class="arr-head"></div><div class="arr-lbl">الأمان</div></div>
+<!-- 16: SAFETY -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:#a32d2d">16</span><div class="ptitle">الأمان والسلامة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb r"><div class="back">→</div><div class="tbt">الأمان والسلامة</div><div class="tbs">حمايتك أولويتنا — 15 ميزة</div></div>
+<div class="bd">
+<div style="text-align:center;margin:4px 0">
+<div style="background:#fef2f2;width:54px;height:54px;border-radius:50%;margin:0 auto;display:flex;align-items:center;justify-content:center">
+<div class="sosb">SOS</div>
+</div>
+<div style="font-size:8.5px;font-weight:600;color:#a32d2d;margin:4px 0">اضغط في حالة الطوارئ — شرطة وإسعاف</div>
+</div>
+<div class="lbl">مزايا الأمان الكاملة (15 ميزة)</div>
+<div class="srow">🔐<span> PIN التحقق قبل الركوب</span></div>
+<div class="srow">📍<span> مشاركة الرحلة مع الأهل</span></div>
+<div class="srow">⚠️<span> تنبيه انحراف المسار فوراً</span></div>
+<div class="srow">✅<span> وصلت بأمان — إشعار العائلة</span></div>
+<div class="srow">📷<span> Dash Cam اختيارية (حصري درر عالمياً)</span></div>
+<div class="srow">🚫<span> كشف السرعة الزائدة</span></div>
+<div class="srow">🆔<span> ربط أبشر — التحقق من الهوية</span></div>
+<div class="srow">👩<span> خط دعم نسائي مباشر 24 ساعة</span></div>
+<div class="srow">🌙<span> تحقق إضافي للرحلات الليلية</span></div>
+<div class="srow">👶<span> منع نزول الطفل بغير الوجهة</span></div>
+<div class="srow">🛡️<span> تأمين شامل على كل رحلة</span></div>
+<div class="srow">🎙️<span> تسجيل صوتي مشفر عند الشكوى</span></div>
+<div class="srow">🔒<span> حظر تلقائي للحسابات المشبوهة</span></div>
+<div class="bnr rd" style="margin-top:5px;font-size:7px">📷 Dash Cam: أول تطبيق في العالم يدمج الكاميرا مع نظام المسؤولية القانونية — موافقة الراكب مطلوبة قبل التسجيل</div>
+<div class="nav">
+<div class="ni">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni ac">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+</div><!-- end flow row 4 -->
+<div class="section-hdr">🧩 الفئات الـ11 المعتمدة — شاشة مستقلة لكل فئة</div><div class="flow-row"><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف1</span><div class="ptitle">الاقتصادية</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">الاقتصادية 🚗</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🚗</div><div class="srow">✓<span>حدد الانطلاق والوجهة</span></div><div class="srow">✓<span>السعر + ETA قبل التأكيد</span></div><div class="srow">✓<span>توزيع على السائقين المؤهلين</span></div><div class="srow">✓<span>شفافية السعر والرسوم</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف2</span><div class="ptitle">أنا معك</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">أنا معك 🤝</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🤝</div><div class="srow">✓<span>وجهة الراكب توافق وجهة السائق</span></div><div class="srow">✓<span>انطلاق مرن على مسار السائق</span></div><div class="srow">✓<span>لا تجميع ركاب غرباء</span></div><div class="srow">✓<span>قبول/رفض آمن للسائق</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف3</span><div class="ptitle">لكِ سيدتي</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">لكِ سيدتي 👩</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">👩</div><div class="srow">✓<span>راكبة امرأة فقط</span></div><div class="srow">✓<span>كابتن امرأة فقط</span></div><div class="srow">✓<span>اقتصادية/متوسطة/فخمة مؤهلة</span></div><div class="srow">✓<span>خصوصية الفئة مستقلة عن مستوى السيارة</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف4</span><div class="ptitle">VIP</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">VIP 💎</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">💎</div><div class="srow">✓<span>مركبات فخمة مؤهلة</span></div><div class="srow">✓<span>جودة + تقييم + نظافة + التزام</span></div><div class="srow">✓<span>لا تقييد بجنس الراكب/الكابتن</span></div><div class="srow">✓<span>إظهار رتبة السائق بعد القبول</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف5</span><div class="ptitle">العروض</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">العروض 🏷️</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🏷️</div><div class="srow">✓<span>السائق يقدم عرضًا أو الراكب يقترح سعرًا</span></div><div class="srow">✓<span>3 سائقين في كل دفعة</span></div><div class="srow">✓<span>3 عروض متزامنة كحد أقصى</span></div><div class="srow">✓<span>السعر يثبت بعد القبول</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف6</span><div class="ptitle">ذوو الاحتياجات الخاصة</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">ذوو الاحتياجات الخاصة ♿</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">♿</div><div class="srow">✓<span>اختيار نوع الاحتياج</span></div><div class="srow">✓<span>مركبة وتجهيزات مؤهلة</span></div><div class="srow">✓<span>وقت مساعدة مناسب</span></div><div class="srow">✓<span>حجز مسبق وتسعير واضح</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف7</span><div class="ptitle">العائلية</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">العائلية 👨‍👩‍👧‍👦</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">👨‍👩‍👧‍👦</div><div class="srow">✓<span>اختيار عدد الركاب</span></div><div class="srow">✓<span>حتى 7 ركاب + السائق حسب الترخيص</span></div><div class="srow">✓<span>السعر للرحلة كاملة</span></div><div class="srow">✓<span>مركبة كبيرة مؤهلة</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف8</span><div class="ptitle">بين المدن</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">بين المدن 🛣️</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🛣️</div><div class="srow">✓<span>اختيار مدينة الانطلاق والوصول</span></div><div class="srow">✓<span>عرض المسافة والمدة</span></div><div class="srow">✓<span>كابتن مؤهل يفعّل الرحلات الطويلة</span></div><div class="srow">✓<span>سعر واضح قبل التأكيد</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف9</span><div class="ptitle">الرحلات المجدولة — الباصات</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">الرحلات المجدولة — الباصات 🚌</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🚌</div><div class="srow">✓<span>ذهاب/عودة/ذهاب وعودة</span></div><div class="srow">✓<span>خريطة مقاعد مستقلة لكل اتجاه</span></div><div class="srow">✓<span>Hold أثناء الدفع + QR</span></div><div class="srow">✓<span>دفع إلكتروني مسبق فقط</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف10</span><div class="ptitle">الدراجات النارية</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">الدراجات النارية 🏍️</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🏍️</div><div class="srow">✓<span>اختيار مدة منشورة</span></div><div class="srow">✓<span>تسعير بالوقت</span></div><div class="srow">✓<span>لا Surge أو زيادة ازدحام</span></div><div class="srow">✓<span>تمديد بموافقة الراكب + مشاركة أمان</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div><div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ف11</span><div class="ptitle">المراكب والقوارب واليخوت</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">المراكب والقوارب واليخوت 🛥️</div><div class="tbs">متطلبات الفئة المعتمدة</div></div><div class="bd"><div class="hdl"></div><div style="font-size:34px;text-align:center;margin:8px">🛥️</div><div class="srow">✓<span>حجز كامل أو مشترك</span></div><div class="srow">✓<span>اختيار مدة ومسار وعودة</span></div><div class="srow">✓<span>تمديد بموافقة الراكب</span></div><div class="srow">✓<span>مشاركة أمان + أهلية وسلامة</span></div><div class="bnr bl">💳 وسيلة الدفع المختارة تظهر قبل التأكيد</div><div class="mbtn">متابعة الحجز</div></div></div></div></div></div></div><!-- ════ MOTORCYCLE SECTION ════ -->
+<div class="section-hdr moto">
+<span>🏍️</span> خدمة الدراجة النارية — التوصيل السياحي والمشاوير بالساعة
+</div>
+<div style="background:#fff3e0;border-radius:10px;padding:10px 14px;margin-bottom:16px;border-right:3px solid #f0c040;font-size:11px;color:#854f0b;font-weight:600;line-height:1.8">
+  💡 <strong>نظام التسعير:</strong> بالساعة وليس بالمسافة — أي جزء من الساعة يُحسب ساعة كاملة<br/>
+<span style="font-size:10px;font-weight:400;color:#6b7280">مثال: اشترى ساعة → سار 40 دقيقة ووقف في مكان → تُحسب ساعة كاملة وليس 40 دقيقة فقط</span>
+</div>
+<div class="flow-row">
+<!-- M1: MOTORCYCLE HOME -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:linear-gradient(135deg,#1a1a2e,#0f3460)">م1</span><div class="ptitle">اختيار خدمة الدراجة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb" style="background:linear-gradient(135deg,#1a1a2e,#0f3460)">
+<div class="back">→</div>
+<div class="tbt">خدمة الدراجة النارية 🏍️</div>
+<div class="tbs">توصيل سريع • جولات سياحية • مشاوير بالساعة</div>
+</div>
+<div class="bd">
+<div class="hdl"></div>
+<!-- Motorcycle illustration -->
+<div class="moto-card">
+<svg class="moto-svg" height="55" viewbox="0 0 130 55" width="130">
+<!-- Road -->
+<rect fill="#374151" height="11" rx="2" width="130" x="0" y="44"></rect>
+<rect fill="#f0c040" height="3" rx="1" width="20" x="20" y="47"></rect>
+<rect fill="#f0c040" height="3" rx="1" width="20" x="55" y="47"></rect>
+<rect fill="#f0c040" height="3" rx="1" width="20" x="90" y="47"></rect>
+<!-- Background buildings -->
+<rect fill="#e2e8f0" height="24" rx="2" width="18" x="5" y="20"></rect>
+<rect fill="#93c5fd" height="5" rx="1" width="5" x="7" y="22"></rect>
+<rect fill="#93c5fd" height="5" rx="1" width="5" x="14" y="22"></rect>
+<rect fill="#93c5fd" height="5" rx="1" width="5" x="7" y="30"></rect>
+<rect fill="#93c5fd" height="5" rx="1" width="5" x="14" y="30"></rect>
+<rect fill="#e2e8f0" height="29" rx="2" width="22" x="100" y="15"></rect>
+<rect fill="#93c5fd" height="6" rx="1" width="6" x="102" y="17"></rect>
+<rect fill="#93c5fd" height="6" rx="1" width="6" x="111" y="17"></rect>
+<rect fill="#93c5fd" height="6" rx="1" width="6" x="102" y="26"></rect>
+<rect fill="#93c5fd" height="6" rx="1" width="6" x="111" y="26"></rect>
+<!-- Motorcycle body -->
+<ellipse cx="48" cy="40" fill="#1a1a2e" rx="10" ry="10" stroke="#f0c040" stroke-width="1.5"></ellipse>
+<ellipse cx="48" cy="40" fill="#374151" rx="5" ry="5"></ellipse>
+<ellipse cx="48" cy="40" fill="#f0c040" rx="2" ry="2"></ellipse>
+<ellipse cx="88" cy="40" fill="#1a1a2e" rx="10" ry="10" stroke="#f0c040" stroke-width="1.5"></ellipse>
+<ellipse cx="88" cy="40" fill="#374151" rx="5" ry="5"></ellipse>
+<ellipse cx="88" cy="40" fill="#f0c040" rx="2" ry="2"></ellipse>
+<!-- Frame -->
+<path d="M48,30 L75,24 L90,30 L85,40 L55,40 Z" fill="#0f3460" stroke="#f0c040" stroke-width="1"></path>
+<!-- Tank -->
+<ellipse cx="67" cy="26" fill="#1a3a5c" rx="12" ry="6"></ellipse>
+<ellipse cx="67" cy="25" fill="#0f3460" rx="8" ry="3"></ellipse>
+<!-- Handlebars -->
+<line stroke="#f0c040" stroke-width="1.5" x1="88" x2="96" y1="24" y2="20"></line>
+<line stroke="#f0c040" stroke-width="1.5" x1="96" x2="98" y1="20" y2="22"></line>
+<!-- Exhaust -->
+<path d="M55,36 Q45,38 42,42" fill="none" stroke="#9ca3af" stroke-width="1.5"></path>
+<!-- Speed lines -->
+<line opacity="0.5" stroke="#f0c040" stroke-width="1" x1="20" x2="35" y1="28" y2="28"></line>
+<line opacity="0.4" stroke="#f0c040" stroke-width="0.8" x1="22" x2="40" y1="32" y2="32"></line>
+<line opacity="0.3" stroke="#f0c040" stroke-width="0.6" x1="25" x2="43" y1="35" y2="35"></line>
+<!-- Rider helmet -->
+<ellipse cx="78" cy="18" fill="#1a3a5c" rx="8" ry="7"></ellipse>
+<ellipse cx="78" cy="19" fill="#0f3460" rx="6" ry="4"></ellipse>
+<rect fill="#93c5fd" height="4" opacity="0.7" rx="1" width="12" x="72" y="19"></rect>
+<!-- Rider body -->
+<rect fill="#1a3a5c" height="8" rx="2" width="14" x="70" y="24"></rect>
+<!-- Gold accent stripe -->
+<rect fill="#f0c040" height="2" rx="1" width="18" x="60" y="27"></rect>
+</svg>
+<div style="text-align:center;margin-top:3px">
+<span style="font-size:7px;color:#f0c040;font-weight:700">DORR MOTO 🏍️</span>
+<span style="font-size:6px;color:rgba(255,255,255,.5);margin-right:5px">سريع • آمن • اقتصادي</span>
+</div>
+</div>
+<!-- Trip types -->
+<div class="lbl">اختر نوع الخدمة</div>
+<div class="trip-type-row">
+<div class="trip-type sel">🏍️<br/>مشوار سريع</div>
+<div class="trip-type">⏱️<br/>حجز بالساعة</div>
+<div class="trip-type">🗺️<br/>جولة سياحية</div>
+</div>
+<!-- Features -->
+<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:5px">
+<span class="info-chip">⚡ أسرع من السيارة</span>
+<span class="info-chip">💨 تجنب الازدحام</span>
+<span class="info-chip">💰 أوفر 40%</span>
+<span class="info-chip">🗺️ جولات مميزة</span>
+</div>
+<div class="mbtn" style="background:linear-gradient(135deg,#1a3a5c,#0f3460)">ابدأ رحلتك بالدراجة 🏍️</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line" style="background:#0f3460"></div><div class="arr-head" style="border-right-color:#0f3460"></div><div class="arr-lbl" style="background:#e6f1fb;color:#0f3460">اختيار الخدمة</div></div>
+<!-- M2: HOUR SELECTOR -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:linear-gradient(135deg,#0f3460,#1a3a5c)">م2</span><div class="ptitle">تحديد المدة والوجهة</div></div>
+<div class="frame"><div class="screen">
+<div class="tb" style="background:linear-gradient(135deg,#1a1a2e,#0f3460)">
+<div class="back">→</div>
+<div class="tbt">⏱️ حجز بالساعة</div>
+<div class="tbs">أي جزء من الساعة = ساعة كاملة</div>
+</div>
+<div class="bd">
+<div class="hdl"></div>
+<!-- Warning about hourly billing -->
+<div class="warning-box">
+  ⚠️ <strong>نظام الساعة الكاملة:</strong> إذا استخدمت 40 دقيقة أو وقفت في الطريق، تُحسب ساعة كاملة. الساعة الجزئية = ساعة كاملة دائماً.
+</div>
+<!-- Hour buttons -->
+<div class="lbl">كم ساعة تريد؟</div>
+<div class="hour-selector">
+<div class="hr-btn">1<br/><span style="font-size:6px;color:#6b7280">ساعة</span></div>
+<div class="hr-btn sel">2<br/><span style="font-size:6px;color:rgba(255,255,255,.7)">ساعة</span></div>
+<div class="hr-btn">3<br/><span style="font-size:6px;color:#6b7280">ساعة</span></div>
+<div class="hr-btn">4<br/><span style="font-size:6px;color:#6b7280">ساعة</span></div>
+</div>
+<!-- Price calculation -->
+<div class="price-calc">
+<div style="font-size:7px;color:rgba(255,255,255,.6);margin-bottom:3px">حساب التكلفة</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="font-size:18px;font-weight:700;color:#f0c040">120 <span style="font-size:9px">ر.س</span></div>
+<div style="text-align:right">
+<div style="font-size:7px;color:rgba(255,255,255,.7)">ساعتان × 60 ر.س</div>
+<div style="font-size:6px;color:#f0c040">شامل السائق والتأمين</div>
+</div>
+</div>
+<div style="background:rgba(255,255,255,.1);border-radius:3px;height:2px;margin-top:5px">
+<div style="width:50%;background:#f0c040;border-radius:3px;height:100%"></div>
+</div>
+<div style="font-size:6px;color:rgba(255,255,255,.5);margin-top:2px;display:flex;justify-content:space-between">
+<span>1 ساعة = 60 ر.س</span><span>الحد الأقصى: 8 ساعات</span>
+</div>
+</div>
+<!-- Destination -->
+<div class="lbl">نقطة الانطلاق (اختياري)</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:5px 7px;margin-bottom:4px;display:flex;align-items:center;gap:4px;font-size:7.5px;color:#374151;border:.4px solid #e0e4ea">
+<div style="width:7px;height:7px;border-radius:50%;background:#1a3a5c;flex-shrink:0"></div>
+  موقعك الحالي تلقائياً
+</div>
+<div class="lbl">ملاحظات للسائق (اختياري)</div>
+<div style="background:#f5f7fa;border-radius:5px;padding:5px 7px;margin-bottom:5px;font-size:7px;color:#9ca3af;height:28px;border:.4px solid #e0e4ea">
+  مثال: أريد زيارة الكورنيش والبلد القديم...
+</div>
+<!-- What's included -->
+<div class="lbl">يشمل الحجز</div>
+<div style="display:flex;gap:3px;flex-wrap:wrap;margin-bottom:4px">
+<span class="info-chip">🧢 خوذة للعميل</span>
+<span class="info-chip">🛡️ تأمين شامل</span>
+<span class="info-chip">💧 مياه مجانية</span>
+<span class="info-chip">📍 تتبع مباشر</span>
+</div>
+<div class="mbtn" style="background:linear-gradient(135deg,#1a3a5c,#0f3460)">تأكيد الحجز — 120 ر.س ←</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line" style="background:#0f3460"></div><div class="arr-head" style="border-right-color:#0f3460"></div><div class="arr-lbl" style="background:#e6f1fb;color:#0f3460">تأكيد الحجز</div></div>
+<!-- M3: DRIVER ON WAY -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:linear-gradient(135deg,#0f6e56,#0a5241)">م3</span><div class="ptitle">السائق في الطريق</div></div>
+<div class="frame"><div class="screen">
+<div class="tb g">
+<div class="back">→</div>
+<div class="tbt">السائق قادم 🏍️</div>
+<div class="tbs">✅ تم قبول حجزك بالساعة</div>
+</div>
+<div class="bd">
+<div class="hdl"></div>
+<!-- Map with moto -->
+<div class="map" style="height:60px">
+<svg height="60" viewbox="0 0 158 60" width="158">
+<rect fill="#e4eedd" height="60" width="158"></rect>
+<line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="22" y2="22"></line>
+<line stroke="#c5d9bb" stroke-width="3" x1="0" x2="158" y1="48" y2="48"></line>
+<line stroke="#c5d9bb" stroke-width="3" x1="60" x2="60" y1="0" y2="60"></line>
+<!-- Route line -->
+<polyline fill="none" points="25,22 80,35 140,30" stroke="#1a3a5c" stroke-dasharray="4,2" stroke-width="2"></polyline>
+<!-- Start point (driver) -->
+<ellipse cx="25" cy="22" fill="#1a1a2e" rx="6" ry="5" stroke="#f0c040" stroke-width="1"></ellipse>
+<text fill="#f0c040" font-size="6" x="22" y="25">🏍</text>
+<!-- End point (user) -->
+<circle cx="140" cy="30" fill="#e24b4a" r="5"></circle>
+<circle cx="140" cy="30" fill="#fff" r="2"></circle>
+</svg>
+<div class="map-lbl">📍 السائق على بُعد 5 دقائق</div>
+</div>
+<!-- Stats -->
+<div style="display:flex;gap:3px;margin-bottom:5px">
+<div style="flex:1;background:#f5f7fa;border-radius:4px;padding:4px 3px;text-align:center">
+<div style="font-size:9px;font-weight:700;color:#111">5 دق</div>
+<div style="font-size:6px;color:#9ca3af">الوصول</div>
+</div>
+<div style="flex:1;background:#faeeda;border-radius:4px;padding:4px 3px;text-align:center">
+<div style="font-size:9px;font-weight:700;color:#854f0b">⏱️ 2 ساعة</div>
+<div style="font-size:6px;color:#9ca3af">المدة المحجوزة</div>
+</div>
+<div style="flex:1;background:#f5f7fa;border-radius:4px;padding:4px 3px;text-align:center">
+<div style="font-size:9px;font-weight:700;color:#111">120 ر.س</div>
+<div style="font-size:6px;color:#9ca3af">الإجمالي</div>
+</div>
+</div>
+<!-- Driver card -->
+<div style="background:#f5f7fa;border-radius:6px;padding:5px 6px;margin-bottom:4px">
+<div style="display:flex;align-items:center;gap:5px">
+<div class="driver-circle">🧑‍✈️</div>
+<div style="flex:1">
+<div style="font-size:8px;font-weight:700;color:#111">محمد العتيبي 🏍️</div>
+<div style="font-size:8.5px;color:#f0c040">★★★★★ <span style="font-size:7px;color:#9ca3af">4.9</span></div>
+<div style="font-size:7px;color:#9ca3af">Honda CBR • أحمر • MTC 5678</div>
+</div>
+<div style="background:#1a3a5c;color:#fff;border-radius:8px;padding:2px 6px;font-size:7.5px;font-weight:600">5 دق</div>
+</div>
+<!-- Action buttons -->
+<div style="display:flex;gap:2px;margin-top:4px">
+<div class="ab">📞<div>اتصال</div></div>
+<div class="ab">💬<div>رسالة</div></div>
+<div class="ab">📤<div>مشاركة</div></div>
+<div class="ab sos">🚨<div>SOS</div></div>
+</div>
+</div>
+<!-- Timer info -->
+<div style="background:#faeeda;border-radius:5px;padding:4px 6px;margin-bottom:4px;font-size:7px;color:#633806">
+  ⏱️ العداد يبدأ عند وصول السائق — ليس الآن
+</div>
+<div style="background:#e6f1fb;border-radius:5px;padding:4px 6px;margin-bottom:4px;font-size:7px;color:#0c447c">
+  🧢 الخوذة جاهزة معه — التأمين مفعّل
+</div>
+<div class="mbtn rd" style="font-size:7.5px">إلغاء الحجز</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line" style="background:#0f6e56"></div><div class="arr-head" style="border-right-color:#0f6e56"></div><div class="arr-lbl" style="background:#e1f5ee;color:#0f6e56">بدء الرحلة</div></div>
+<!-- M4: ACTIVE TIMER -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:linear-gradient(135deg,#854f0b,#6b3e08)">م4</span><div class="ptitle">عداد الوقت النشط</div></div>
+<div class="frame"><div class="screen">
+<div class="tb a">
+<div class="back">→</div>
+<div class="tbt">الرحلة جارية 🏍️</div>
+<div class="tbs">الساعة 1 من 2 — العداد يعمل</div>
+</div>
+<div class="bd">
+<div class="hdl"></div>
+<!-- Live timer display -->
+<div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:8px;padding:8px;margin-bottom:5px;text-align:center">
+<div style="font-size:7px;color:rgba(255,255,255,.6);margin-bottom:3px">الوقت المنقضي</div>
+<div style="font-size:28px;font-weight:700;color:#f0c040;font-family:monospace;letter-spacing:2px">00:47:23</div>
+<div style="font-size:7px;color:rgba(255,255,255,.5);margin-top:2px">دقيقة : ثانية : ساعة</div>
+<!-- Progress bar -->
+<div style="background:rgba(255,255,255,.15);border-radius:3px;height:5px;margin-top:6px;overflow:hidden">
+<div style="width:39%;background:linear-gradient(90deg,#f0c040,#e6a800);border-radius:3px;height:100%"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:6px;color:rgba(255,255,255,.4);margin-top:2px">
+<span>0 ساعة</span><span>الساعة الأولى</span><span>الساعة الثانية</span>
+</div>
+</div>
+<!-- Warning: will charge full next hour -->
+<div style="background:#fef2f2;border-radius:5px;padding:4px 6px;margin-bottom:4px;border-right:2px solid #e24b4a;font-size:7px;color:#791f1f">
+  ⚠️ تجاوزت 47 دقيقة من الساعة الأولى — أي دقيقة إضافية = ساعة ثانية (60 ر.س)
+</div>
+<!-- Current location -->
+<div class="lbl">موقعك الحالي</div>
+<div class="map" style="height:40px">
+<svg height="40" viewbox="0 0 158 40" width="158">
+<rect fill="#e4eedd" height="40" width="158"></rect>
+<line stroke="#c5d9bb" stroke-width="4" x1="0" x2="158" y1="18" y2="18"></line>
+<line stroke="#c5d9bb" stroke-width="3" x1="70" x2="70" y1="0" y2="40"></line>
+<text dominant-baseline="middle" font-size="12" text-anchor="middle" x="70" y="22">🏍️</text>
+<circle cx="70" cy="18" fill="none" opacity="0.6" r="12" stroke="#f0c040" stroke-dasharray="3,2" stroke-width="1"></circle>
+</svg>
+<div class="map-lbl" style="font-size:6.5px">📍 كورنيش جدة</div>
+</div>
+<!-- Billing summary -->
+<div style="background:#faeeda;border-radius:5px;padding:5px 6px;margin-top:4px;margin-bottom:4px">
+<div style="font-size:7px;font-weight:600;color:#633806;margin-bottom:3px">الفاتورة الجارية</div>
+<div style="display:flex;justify-content:space-between;font-size:7.5px">
+<span style="color:#0f6e56;font-weight:600">60 ر.س مدفوعة</span>
+<span style="color:#854f0b">الساعة الأولى</span>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:7.5px;margin-top:2px">
+<span style="color:#9ca3af">60 ر.س</span>
+<span style="color:#9ca3af">إذا تجاوزت الساعة</span>
+</div>
+</div>
+<div style="display:flex;gap:3px">
+<div style="flex:1;background:#1a3a5c;color:#fff;border-radius:6px;padding:6px;text-align:center;font-size:8px;font-weight:700">➕ إضافة ساعة</div>
+<div style="flex:1;background:#fef2f2;color:#e24b4a;border-radius:6px;padding:6px;text-align:center;font-size:8px;font-weight:700;border:.5px solid #fde8e8">⏹️ إنهاء الرحلة</div>
+</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+<div class="arrow-wrap"><div class="arr-line" style="background:#854f0b"></div><div class="arr-head" style="border-right-color:#854f0b"></div><div class="arr-lbl" style="background:#faeeda;color:#854f0b">إنهاء الرحلة</div></div>
+<!-- M5: TOURIST TOUR -->
+<div class="flow-item"><div class="phone">
+<div class="phone-badge"><span class="pnum" style="background:linear-gradient(135deg,#533ab7,#3d2a8a)">م5</span><div class="ptitle">الجولة السياحية 🗺️</div></div>
+<div class="frame"><div class="screen">
+<div class="tb p">
+<div class="back">→</div>
+<div class="tbt">جولة سياحية بالدراجة 🗺️</div>
+<div class="tbs">اكتشف المدينة بطريقة مختلفة</div>
+</div>
+<div class="bd">
+<div class="hdl"></div>
+<div class="tour-badge">⭐ تجربة حصرية درر</div>
+<!-- Tour packages -->
+<div class="lbl">اختر الجولة</div>
+<div style="background:linear-gradient(135deg,#1a3a5c,#0f2540);border-radius:7px;padding:7px;margin-bottom:4px;border:.5px solid #f0c040">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+<div style="background:#f0c040;color:#1a1a2e;border-radius:8px;padding:1px 6px;font-size:6.5px;font-weight:700">الأكثر طلباً 🔥</div>
+<div style="font-size:9px;font-weight:700;color:#fff">جولة جدة التاريخية</div>
+</div>
+<div style="font-size:7px;color:rgba(255,255,255,.7);margin-bottom:4px">البلد القديم • الكورنيش • سوق العلوي • الفنانين</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="font-size:16px;font-weight:700;color:#f0c040">180 <span style="font-size:8px">ر.س</span></div>
+<div style="font-size:7px;color:rgba(255,255,255,.5)">3 ساعات • 8 معالم</div>
+</div>
+</div>
+<div style="background:#f5f7fa;border-radius:7px;padding:7px;margin-bottom:4px;border:.4px solid #e0e4ea">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+<div style="font-size:7px;color:#6b7280">مناسبة للعائلة</div>
+<div style="font-size:9px;font-weight:700;color:#111">جولة الكورنيش</div>
+</div>
+<div style="font-size:7px;color:#9ca3af;margin-bottom:4px">الواجهة البحرية • المراسي • النافورة</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="font-size:16px;font-weight:700;color:#1a3a5c">120 <span style="font-size:8px">ر.س</span></div>
+<div style="font-size:7px;color:#9ca3af">2 ساعة • 5 معالم</div>
+</div>
+</div>
+<div style="background:#f5f7fa;border-radius:7px;padding:7px;margin-bottom:5px;border:.4px solid #e0e4ea">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+<div style="font-size:7px;color:#6b7280">مغامرة لا تُنسى</div>
+<div style="font-size:9px;font-weight:700;color:#111">جولة مخصصة</div>
+</div>
+<div style="font-size:7px;color:#9ca3af;margin-bottom:4px">حدد الأماكن التي تريدها بنفسك</div>
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="font-size:16px;font-weight:700;color:#1a3a5c">60 <span style="font-size:8px">ر.س/ساعة</span></div>
+<div style="font-size:7px;color:#9ca3af">حسب عدد الساعات</div>
+</div>
+</div>
+<!-- Guide info -->
+<div style="background:#eeedfe;border-radius:5px;padding:4px 6px;margin-bottom:5px;font-size:7px;color:#26215c">
+  🗺️ السائق يعرف المدينة جيداً ويشرح لك المعالم — تجربة سياحية كاملة
+</div>
+<div class="mbtn" style="background:linear-gradient(135deg,#533ab7,#3d2a8a)">احجز جولة جدة التاريخية ←</div>
+<div class="nav">
+<div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>رحلاتي</span></div><div class="ni">⭐<span>الولاء</span></div><div class="ni">💼<span>المحفظة</span></div><div class="ni">👤<span>حسابي</span></div>
+</div>
+</div></div></div>
+</div></div>
+</div><!-- end motorcycle flow row -->
+<!-- Motorcycle pricing note -->
+<div style="background:linear-gradient(135deg,#1a1a2e,#0f3460);border-radius:12px;padding:14px 18px;margin:16px 0;color:#fff">
+<div style="font-size:13px;font-weight:700;color:#f0c040;margin-bottom:8px">🏍️ جدول أسعار خدمة الدراجة النارية</div>
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px">
+<div style="background:rgba(255,255,255,.08);border-radius:7px;padding:8px;text-align:center;border:.5px solid rgba(240,192,64,.3)">
+<div style="font-size:16px;font-weight:700;color:#f0c040">60</div>
+<div style="font-size:7.5px;color:rgba(255,255,255,.6)">ريال / ساعة</div>
+<div style="font-size:7px;color:rgba(255,255,255,.4);margin-top:2px">الحد الأدنى ساعة</div>
+</div>
+<div style="background:rgba(255,255,255,.08);border-radius:7px;padding:8px;text-align:center;border:.5px solid rgba(240,192,64,.3)">
+<div style="font-size:16px;font-weight:700;color:#f0c040">60</div>
+<div style="font-size:7.5px;color:rgba(255,255,255,.6)">ريال الجزء</div>
+<div style="font-size:7px;color:rgba(255,255,255,.4);margin-top:2px">أي جزء = ساعة</div>
+</div>
+<div style="background:rgba(255,255,255,.08);border-radius:7px;padding:8px;text-align:center;border:.5px solid rgba(240,192,64,.3)">
+<div style="font-size:16px;font-weight:700;color:#f0c040">8</div>
+<div style="font-size:7.5px;color:rgba(255,255,255,.6)">ساعات قصوى</div>
+<div style="font-size:7px;color:rgba(255,255,255,.4);margin-top:2px">480 ر.س/يوم</div>
+</div>
+<div style="background:rgba(255,255,255,.08);border-radius:7px;padding:8px;text-align:center;border:.5px solid rgba(240,192,64,.3)">
+<div style="font-size:16px;font-weight:700;color:#0f6e56">✓</div>
+<div style="font-size:7.5px;color:rgba(255,255,255,.6)">سعر ثابت</div>
+<div style="font-size:7px;color:rgba(255,255,255,.4);margin-top:2px">لا تسعير ديناميكي</div>
+</div>
+</div>
+<div style="font-size:10px;color:rgba(255,255,255,.6);border-top:.5px solid rgba(255,255,255,.1);padding-top:8px;line-height:1.8">
+    ✅ الخوذة مقدمة مجاناً  |  ✅ تأمين شامل على السائق والراكب  |  ✅ سائق يعرف المدينة  |  ✅ لا رسوم إضافية للوقوف
+  </div>
+</div>
+<div class="section-hdr purple">🎧 الدعم الفني والشكاوى — مسار كامل من الفتح حتى الإغلاق</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">د1</span><div class="ptitle">فتح تذكرة دعم فني</div></div><div class="frame"><div class="screen"><div class="tb pk"><div class="back">→</div><div class="tbt">تذكرة دعم جديدة</div><div class="tbs">الدعم الفني</div></div><div class="bd"><div class="lbl">نوع المشكلة</div><div class="srow">⚙️<span>مشكلة تقنية في التطبيق ›</span></div><div class="srow">🚗<span>مشكلة مرتبطة برحلة ›</span></div><div class="srow">💳<span>الدفع أو المحفظة ›</span></div><div class="lbl">تفاصيل المشكلة</div><div class="card" style="min-height:55px;font-size:7px;color:#6b7280">اكتب وصف المشكلة بالتفصيل...</div><div class="srow">📎<span>إرفاق صورة / ملف / مستند</span></div><div class="srow">🚗<span>ربط التذكرة برحلة — اختياري</span></div><div class="bnr bl">سيتم إنشاء رقم مرجعي ويمكن متابعة الحالة والردود من داخل التطبيق.</div><div class="mbtn pk">إرسال التذكرة</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">د2</span><div class="ptitle">فتح شكوى</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">تقديم شكوى</div><div class="tbs">مرتبطة بالرحلة أو الخدمة</div></div><div class="bd"><div class="lbl">تصنيف الشكوى</div><div class="srow">🚗<span>السائق أو المركبة</span></div><div class="srow">💰<span>السعر / الرسوم / الاسترداد</span></div><div class="srow">🛡️<span>الأمان والسلوك — أولوية</span></div><div class="srow">🔐<span>الخصوصية / Dash Cam</span></div><div class="lbl">الرحلة</div><div class="srow">🧾<span>#DR-250520-1048 • 20 مايو 2025</span></div><div class="card" style="min-height:45px;font-size:7px;color:#6b7280">اكتب تفاصيل الشكوى...</div><div class="srow">📎<span>إضافة الأدلة والمرفقات</span></div><div class="bnr rd">🚨 حالات الأمان العاجلة: استخدم SOS أو قناة الطوارئ، ولا تنتظر معالجة التذكرة.</div><div class="mbtn">إرسال الشكوى</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">د3</span><div class="ptitle">متابعة التذكرة / الشكوى</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">التذكرة #12346</div><div class="tbs">قيد المراجعة</div></div><div class="bd"><div class="bnr am">⏳ الحالة: قيد المراجعة • آخر تحديث منذ 12 دقيقة</div><div class="srow">📌<span>مشكلة تقنية — رحلة #DR-250520-1048</span></div><div class="lbl">المحادثة</div><div class="card"><div style="font-size:7px;font-weight:600">أنت</div><div style="font-size:7px">التطبيق توقف عند تأكيد الدفع.</div></div><div class="card" style="background:#e6f1fb"><div style="font-size:7px;font-weight:600">دعم DORR</div><div style="font-size:7px">تم استلام البلاغ وجارٍ التحقق. لن تحتاج لإعادة إرسال البيانات.</div></div><div class="srow">📎<span>إضافة مرفق جديد</span></div><div class="srow">💬<span>إضافة رد</span></div><div class="srow">🔔<span>إشعارات تغيّر الحالة مفعلة</span></div><div class="bnr gn">✓ عند الحل: عرض القرار/الإجراء ثم تأكيد الإغلاق أو طلب إعادة المراجعة وفق السياسة.</div><div class="mbtn g">إضافة رد</div></div></div></div></div></div>
+</div>
+<div class="section-hdr purple">👤 الرحلات والحساب والإعدادات — استكمال مزايا الراكب</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ح1</span><div class="ptitle">رحلاتي</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">رحلاتي</div></div><div class="bd"><div class="srow">🕐<span>الحالية والقادمة والمجدولة</span></div><div class="srow">🧾<span>الفواتير وسجل الرحلات</span></div><div class="srow">🔁<span>إعادة طلب رحلة مشابهة</span></div><div class="srow">❌<span>الإلغاء حسب مرحلة الرحلة والسياسة</span></div><div class="srow">↩️<span>حالة الاسترداد عند وجوده</span></div></div></div></div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">119</span><div class="ptitle">مشاويري المتكررة</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">رحلة معتادة</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">التحقق من اكتمال الميزة الحالية؛ لا ازدواج</div><div class="sr"><div class="si">📆</div><div><div class="st">رحلة متكررة محفوظة</div></div></div><div class="sr"><div class="si">🕒</div><div><div class="st">تعديل الأيام والمواعيد</div></div></div><div class="sr"><div class="si">🔔</div><div><div class="st">تذكير قبل تأكيد الطلب</div></div></div><div class="sr"><div class="si">✕</div><div><div class="st">إيقاف التكرار في أي وقت</div></div></div><div class="mbtn">إدارة التكرار</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ح2</span><div class="ptitle">الإشعارات</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">الإشعارات</div></div><div class="bd"><div class="srow">🚗<span>قبول السائق ووصوله</span></div><div class="srow">💳<span>الدفع والاسترداد والمحفظة</span></div><div class="srow">🚌<span>تذكيرات الرحلات المجدولة</span></div><div class="srow">🛡️<span>تنبيهات الأمان والمسار</span></div><div class="srow">🎁<span>العروض والنقاط بموافقة المستخدم</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ح3</span><div class="ptitle">الملف الشخصي</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">حسابي</div></div><div class="bd"><div class="srow">👤<span>بيانات الحساب ورقم الجوال</span></div><div class="srow">💳<span>وسائل الدفع والمحفظة</span></div><div class="srow">⭐<span>التصنيف والسلوك والولاء</span></div><div class="srow">❤️<span>السائقون والوجهات المفضلة</span></div><div class="srow">👨‍👩‍👧‍👦<span>حساب العائلة</span></div><div class="srow">🎧<span>المساعدة والدعم</span></div></div></div></div></div></div><div class="flow-item dorr-added"><div class="phone"><div class="phone-badge"><span class="pnum" style="background:#c46a19">118</span><div class="ptitle">تنقلات العمل والمؤسسات</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">حساب التنقل المؤسسي</div><div class="tbs">إضافة تصميمية جديدة • DORR</div></div><div class="bd"><div class="hdl"></div><div class="bnr bl">العقود والرصيد المؤسسي موافقة مبدئية تحتاج ضوابط</div><div class="sr"><div class="si">🏢</div><div><div class="st">الانضمام لجهة عمل بصلاحية</div></div></div><div class="sr"><div class="si">💼</div><div><div class="st">اختيار رحلة شخصية أو رحلة عمل</div></div></div><div class="sr"><div class="si">📄</div><div><div class="st">إيصال وفاتورة وفق صلاحية المؤسسة</div></div></div><div class="sr"><div class="si">🔒</div><div><div class="st">منع الإنفاق خارج الحدود المعتمدة</div></div></div><div class="mbtn">استعراض حساب العمل</div><div class="nav"><div class="ni ac">🏠<span>الرئيسية</span></div><div class="ni">🚗<span>الرحلات</span></div><div class="ni">👤<span>حسابي</span></div></div></div></div></div><div class="feature-id">NEW • شرح التدفق في ملاحظات التسليم</div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ح4</span><div class="ptitle">اللغة والمظهر</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">اللغة والمظهر</div></div><div class="bd"><div class="srow">🌐<span>العربية / English / حزم اللغات</span></div><div class="srow">↔️<span>RTL / LTR تلقائي</span></div><div class="srow">☀️<span>فاتح / داكن / النظام</span></div><div class="srow">🔤<span>حجم النص وإمكانية الوصول</span></div><div class="srow">🎨<span>Design Tokens موحدة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ح5</span><div class="ptitle">الخصوصية والأمان</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">الخصوصية والأمان</div></div><div class="bd"><div class="srow">🔐<span>خصوصية الرحلة ومشاركة التتبع</span></div><div class="srow">🎙️<span>موافقة التسجيل عند انطباق السياسة</span></div><div class="srow">🚩<span>الإبلاغ والحظر</span></div><div class="srow">📜<span>الشروط والخصوصية وإصدارات الموافقة</span></div><div class="srow">🗑️<span>طلبات البيانات والحذف وفق السياسة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ح6</span><div class="ptitle">معلومات التطبيق</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">DORR</div></div><div class="bd"><div style="font-size:28px;text-align:center;margin:10px">DORR</div><div class="srow">ℹ️<span>الإصدار ومعلومات التطبيق</span></div><div class="srow">📄<span>الشروط والأحكام</span></div><div class="srow">🛡️<span>سياسة الخصوصية</span></div><div class="srow">☎️<span>اتصل بنا</span></div></div></div></div></div></div>
+</div>
+<div class="section-hdr green">🛡️ Safety Center المتقدم — إضافات المقارنة مع التطبيقات العالمية</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج1</span><div class="ptitle">مركز السلامة الموحد</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">مركز السلامة</div></div><div class="bd"><div class="srow">🚨<span>SOS والمساعدة الطارئة</span></div><div class="srow">🔐<span>PIN / رمز التحقق من الرحلة</span></div><div class="srow">👥<span>جهات الاتصال الموثوقة</span></div><div class="srow">📤<span>مشاركة الرحلة والموقع</span></div><div class="srow">🎙️<span>تسجيل الرحلة عند توفره قانونياً</span></div><div class="srow">🛡️<span>فحص الرحلة الذكي</span></div><div class="srow">🚫<span>السائقون المحظورون</span></div><div class="srow">⭐<span>السائقون المفضلون</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج2</span><div class="ptitle">جهات الاتصال الموثوقة</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">جهات موثوقة</div></div><div class="bd"><div class="srow">➕<span>إضافة شخص موثوق</span></div><div class="srow">📍<span>مشاركة الرحلات معه تلقائياً حسب تفضيلي</span></div><div class="srow">🌙<span>الرحلات الليلية فقط</span></div><div class="srow">🚨<span>إشعاره عند تعذر الوصول إليّ في حدث سلامة</span></div><div class="bnr bl">المستخدم يحدد من يشارك معه ومتى، وفق الخصوصية.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج3</span><div class="ptitle">فحص الرحلة الذكي</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">هل أنت بخير؟</div></div><div class="bd"><div class="bnr am">رصدنا توقفاً طويلاً أو انحرافاً غير معتاد.</div><div class="mbtn g">نعم، أنا بخير</div><div class="mbtn">أحتاج مساعدة</div><div class="mbtn rd">حالة طارئة SOS</div><div class="srow">📤<span>مشاركة موقعي مع جهة موثوقة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج4</span><div class="ptitle">فحص تطابق السائق والمركبة</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">تحقق قبل الركوب</div></div><div class="bd"><div class="srow">👤<span>طابق صورة السائق</span></div><div class="srow">🚗<span>طابق نوع ولون المركبة</span></div><div class="srow">🔢<span>طابق لوحة المركبة</span></div><div class="srow">🔐<span>استخدم PIN عند تفعيله</span></div><div class="mbtn g">البيانات مطابقة</div><div class="mbtn rd">السائق/المركبة لا يطابق البيانات</div></div></div></div></div></div>
+</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج5</span><div class="ptitle">حظر سائق</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">عدم المطابقة مستقبلاً</div></div><div class="bd"><div class="bnr rd">يمكنك طلب عدم مطابقتك مع هذا السائق مرة أخرى.</div><div class="srow">📝<span>سبب اختياري</span></div><div class="srow">🛡️<span>إبلاغ السلامة إذا كان السبب متعلقاً بالأمان</span></div><div class="mbtn rd">حظر المطابقة مع السائق</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج6</span><div class="ptitle">السائق المفضل</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">السائقون المفضلون</div></div><div class="bd"><div class="srow">⭐<span>إضافة السائق إلى المفضلة بعد الرحلة</span></div><div class="srow">📅<span>محاولة أولوية المطابقة في الرحلات المناسبة/المجدولة</span></div><div class="bnr am">المفضلة لا تضمن توفر السائق ولا تتجاوز قواعد الإسناد.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج7</span><div class="ptitle">تسجيل الرحلة</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">تسجيل السلامة</div></div><div class="bd"><div class="srow">🎙️<span>تسجيل صوت عند توفره قانونياً</span></div><div class="srow">🎥<span>تسجيل فيديو عند توفره قانونياً وتقنياً</span></div><div class="srow">🔒<span>تشفير وحماية التسجيل</span></div><div class="srow">📎<span>مشاركته مع فريق السلامة عند تقديم بلاغ وفق السياسة</span></div><div class="bnr am">التوفر والموافقة والإشعار وسياسة الاحتفاظ تختلف حسب الدولة.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج8</span><div class="ptitle">Check-In مجدول</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">اطمئن عليّ بعد الرحلة</div></div><div class="bd"><div class="srow">⏰<span>تحديد فحص بعد الوصول</span></div><div class="srow">🔔<span>إشعار: هل وصلت بأمان؟</span></div><div class="srow">👥<span>تصعيد لجهة موثوقة وفق الإعدادات</span></div><div class="mbtn g">تفعيل فحص الوصول</div></div></div></div></div></div>
+</div>
+<div class="section-hdr orange">🚗 خيارات الرحلة والإضافات — مزايا منافسة مضافة إلى دُرر</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج9</span><div class="ptitle">انتظر ووفر</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">انتظر ووفر</div></div><div class="bd"><div class="bnr gn">سعر أقل مقابل قبول وقت انتظار أطول للعثور على السائق.</div><div class="srow">💰<span>السعر المخفض</span></div><div class="srow">⏱️<span>نطاق وقت الالتقاط المتوقع</span></div><div class="mbtn g">اختيار انتظر ووفر</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج10</span><div class="ptitle">أولوية الالتقاط</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">أولوية الوصول</div></div><div class="bd"><div class="bnr am">خيار إضافي للحصول على أولوية مطابقة/التقاط عندما يكون متاحاً.</div><div class="srow">⏱️<span>ETA المتوقع</span></div><div class="srow">💵<span>الرسم الإضافي قبل التأكيد</span></div><div class="mbtn a">إضافة أولوية الالتقاط</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج11</span><div class="ptitle">مقعد طفل</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">مقعد طفل</div></div><div class="bd"><div class="srow">👶<span>طلب مركبة بمقعد طفل عند توفر الخدمة</span></div><div class="srow">📏<span>عرض متطلبات العمر/الوزن حسب الدولة</span></div><div class="srow">💵<span>أي رسم إضافي قبل التأكيد</span></div><div class="bnr am">لا يتم إتاحة الخيار إذا لم تتوفر مركبة وتجهيز مطابقان.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج12</span><div class="ptitle">اصطحاب حيوان أليف</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">رحلة مع حيوان أليف</div></div><div class="bd"><div class="srow">🐾<span>اختيار إضافة حيوان أليف عند توفرها</span></div><div class="srow">🚗<span>مطابقة مع سائق/مركبة تقبل الحيوانات</span></div><div class="srow">💵<span>السعر/الرسم الإضافي قبل التأكيد</span></div><div class="bnr bl">حيوانات المساعدة تُعامل وفق الأنظمة والسياسات المحلية ولا تُخلط مع خيار الحيوانات الأليفة.</div></div></div></div></div></div>
+</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج13</span><div class="ptitle">حيوان مساعدة</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">حيوان مساعدة</div></div><div class="bd"><div class="srow">🦮<span>إضافة ملاحظة احتياج/حيوان مساعدة</span></div><div class="srow">♿<span>ربطه بإعدادات إمكانية الوصول</span></div><div class="bnr gn">التعامل والرسوم والقبول وفق القانون المحلي وسياسة المنصة.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج14</span><div class="ptitle">تفضيل لغة التواصل</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">لغة التواصل</div></div><div class="bd"><div class="srow">🌐<span>اختيار لغة التواصل المفضلة</span></div><div class="srow">💬<span>ترجمة الرسائل داخل الدردشة عند توفرها</span></div><div class="srow">🎙️<span>Speech-to-Text للسائق/الراكب عند دعمه</span></div><div class="bnr bl">التفضيل لا يمنع المطابقة إلا إذا كانت هناك فئة/سياسة مستقلة.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج15</span><div class="ptitle">تذكير حزام الأمان</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">السلامة أولاً</div></div><div class="bd"><div style="font-size:40px;text-align:center;margin:15px">🪢</div><div class="bnr am">اربط حزام الأمان قبل بدء الرحلة.</div><div class="mbtn g">تم</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج16</span><div class="ptitle">مركز الخصوصية</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">الخصوصية</div></div><div class="bd"><div class="srow">📍<span>إعدادات مشاركة الموقع</span></div><div class="srow">🎙️<span>تفضيلات التسجيل</span></div><div class="srow">📣<span>التسويق والإشعارات</span></div><div class="srow">📦<span>طلب/تصدير البيانات عند توفر الحق النظامي</span></div><div class="srow">🗑️<span>طلبات الخصوصية/الحذف وفق النظام</span></div></div></div></div></div></div>
+</div>
+<div class="section-hdr purple">👨‍👩‍👧‍👦 حسابات اليافعين والعائلة — أمان متقدم</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج17</span><div class="ptitle">حساب يافع بإشراف ولي الأمر</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">حساب اليافع</div></div><div class="bd"><div class="srow">👨‍👩‍👧<span>دعوة من ولي الأمر/الوصي</span></div><div class="srow">🪪<span>تحقق ولي الأمر عند الحاجة</span></div><div class="srow">🔐<span>PIN إلزامي حسب سياسة حساب اليافع</span></div><div class="srow">📍<span>تتبع حي وإشعارات الحالة لولي الأمر</span></div><div class="srow">🛡️<span>Ride Check أكثر حساسية وفق السياسة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج18</span><div class="ptitle">محادثة ثلاثية</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">محادثة الرحلة</div></div><div class="bd"><div class="card"><b>ولي الأمر</b><br/>أنا متابع الرحلة.</div><div class="card" style="background:#e6f1fb"><b>السائق</b><br/>وصلت إلى نقطة الالتقاء.</div><div class="card"><b>الراكب</b><br/>قادم الآن.</div><div class="bnr bl">متاحة فقط للحسابات/الرحلات التي تسمح بها السياسة.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج19</span><div class="ptitle">قفل الوجهة لليافع</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">الوجهة محمية</div></div><div class="bd"><div class="bnr rd">لا يستطيع السائق تغيير وجهة رحلة اليافع من جانبه.</div><div class="srow">📍<span>التغيير من الراكب/ولي الأمر حسب الصلاحية</span></div><div class="srow">🔔<span>إشعار ولي الأمر بالتغيير</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج20</span><div class="ptitle">تفضيلات أمان الرحلات</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">تفضيلات السلامة</div></div><div class="bd"><div class="srow">🔐<span>PIN: كل الرحلات / الليل فقط / حسب المخاطر</span></div><div class="srow">📤<span>مشاركة تلقائية: كل الرحلات / الليل فقط</span></div><div class="srow">🎙️<span>التسجيل التلقائي عند توفره قانونياً</span></div><div class="srow">⏰<span>Check-In بعد الوصول</span></div></div></div></div></div></div>
+</div>
+<div class="section-hdr blue">♿ إمكانية الوصول والراحة — إضافات تشغيلية</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج21</span><div class="ptitle">احتياجات إمكانية الوصول</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">احتياجات الرحلة</div></div><div class="bd"><div class="srow">♿<span>كرسي متحرك قابل للطي/مركبة مجهزة حسب التوفر</span></div><div class="srow">👁️<span>ضعف بصري/احتياج مساعدة</span></div><div class="srow">🦮<span>حيوان مساعدة</span></div><div class="srow">🧓<span>مساعدة إضافية لكبار السن</span></div><div class="srow">💬<span>تفضيل تواصل كتابي/مترجم</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">ج22</span><div class="ptitle">حالات التطبيق الأساسية</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">حالات الواجهة</div></div><div class="bd"><div class="srow">⌛<span>Loading / Skeleton</span></div><div class="srow">📭<span>Empty State</span></div><div class="srow">📶<span>Offline / إعادة الاتصال</span></div><div class="srow">📍<span>رفض إذن الموقع</span></div><div class="srow">🚗<span>لا يوجد سائق متاح</span></div><div class="srow">🔁<span>إعادة المحاولة الآمنة</span></div></div></div></div></div></div>
+</div>
+<div style="background:#fff7e6;border:1px solid #f0c040;border-radius:12px;padding:14px 18px;margin:14px 0;font-size:11px;line-height:1.8">
+<b>استثناءان بطلب مالك المشروع:</b> لم تتم إضافة <b>Flight Tracking / تتبع الرحلة الجوية</b>، ولم يتم تحويل <b>لكِ سيدتي</b> إلى Preference بدلاً من الفئة المستقلة. تبقى فئة «لكِ سيدتي» كما هي ضمن الفئات الـ11 المعتمدة.
+</div>
+<div class="section-hdr red">❌ الإلغاء وعدم الحضور والاسترداد — الحالات المرجعية الملزمة للراكب</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م1</span><div class="ptitle">إلغاء قبل تعيين السائق</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">إلغاء الرحلة</div></div><div class="bd"><div class="bnr gn">✓ لم يتم تعيين سائق بعد</div><div class="lbl">سبب الإلغاء</div><div class="srow">⏱️<span>تأخر العثور على سائق</span></div><div class="srow">📍<span>أريد تعديل نقطة الانطلاق</span></div><div class="srow">📝<span>سبب آخر</span></div><div class="bnr am">يعرض النظام أي أثر مالي قبل التأكيد، ولا يفترض رسماً غير معلن.</div><div class="mbtn r">متابعة الإلغاء</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م2</span><div class="ptitle">إلغاء بعد تعيين السائق</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">تأكيد الإلغاء</div></div><div class="bd"><div class="srow">🚗<span>تم تعيين السائق وهو في الطريق</span></div><div class="srow">💵<span>رسم الإلغاء: يُجلب من السياسة الفعالة</span></div><div class="srow">📜<span>سبب الرسم وشروطه</span></div><div class="bnr am">لن يُخصم أي مبلغ غير معروض لك قبل التأكيد.</div><div class="mbtn r">تأكيد الإلغاء</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م3</span><div class="ptitle">وصول السائق / No-Show</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">السائق وصل</div></div><div class="bd"><div class="bnr am">⏱️ المهلة المجانية: حسب الدولة/الموقع/الفئة</div><div class="srow">📍<span>نقطة الوصول المؤكدة</span></div><div class="srow">🕐<span>وقت الوصول وبدء الانتظار</span></div><div class="srow">💬<span>تواصل مع السائق</span></div><div class="bnr rd">عدم الحضور لا يعني تلقائياً استحقاق قيمة رحلة كاملة؛ يطبق القرار المالي المعتمد.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م4</span><div class="ptitle">إلغاء رحلة مجدولة</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">رحلة مجدولة</div></div><div class="bd"><div class="srow">📅<span>موعد الرحلة وشروط الإلغاء</span></div><div class="bnr gn">✓ إلغاء مجاني حتى 60 دقيقة قبل الموعد وفق المرجع الحالي</div><div class="bnr am">بعد ذلك: يعرض رسم الإلغاء المعتمد قبل التأكيد، ولا تعتبر قيمة الرحلة كاملة مستحقة تلقائياً إذا لم تبدأ.</div><div class="srow">🚗<span>وصول السائق مبكراً لا يبدأ الانتظار قبل الموعد المعروض</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م5</span><div class="ptitle">طلب الاسترداد</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">الاسترداد</div></div><div class="bd"><div class="srow">🧾<span>الرحلة والعملية المرتبطة</span></div><div class="srow">💰<span>المبلغ المتوقع: كامل / جزئي</span></div><div class="srow">↩️<span>جهة الاسترداد / المصدر المعتمد</span></div><div class="srow">📝<span>سبب الطلب</span></div><div class="mbtn g">إرسال طلب الاسترداد</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م6</span><div class="ptitle">حالة الاسترداد</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">حالة الاسترداد</div></div><div class="bd"><div class="bnr am">قيد المراجعة</div><div class="srow">#️⃣<span>رقم مرجعي</span></div><div class="srow">💵<span>المبلغ المعتمد</span></div><div class="srow">💳<span>وسيلة العودة</span></div><div class="srow">📌<span>الحالة: قيد المراجعة / معتمد / جزئي / مرفوض / مكتمل</span></div><div class="srow">📄<span>سبب القرار عند الحاجة</span></div></div></div></div></div></div>
+</div>
+<div class="section-hdr blue">📍 نقاط الالتقاء والانتظار والأدلة — حالات الموقع الخاصة</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م7</span><div class="ptitle">نقطة التقاء معتمدة</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">اختر نقطة الالتقاء</div></div><div class="bd"><div class="bnr am">في المواقع الحساسة قد تُستخدم نقاط ثابتة بدلاً من GPS الحر.</div><div class="srow">🚪<span>البوابة الرئيسية</span></div><div class="srow">🅿️<span>موقف الاستلام المعتمد</span></div><div class="srow">📍<span>النقطة B — المدخل الشرقي</span></div><div class="mbtn">تأكيد نقطة الالتقاء</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م8</span><div class="ptitle">استلام من المطار</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">الاستلام من المطار</div></div><div class="bd"><div class="srow">✈️<span>الصالة / البوابة / نقطة الاستلام</span></div><div class="bnr gn">✓ المهلة المجانية تُجلب من سياسة المطار؛ المرجع الحالي يذكر نطاقاً تقريبياً 8–10 دقائق للاستلام.</div><div class="srow">⏱️<span>عداد الانتظار بعد انتهاء المهلة</span></div><div class="srow">💵<span>أي رسم مطار/انتظار يظهر حسب السياسة المعتمدة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م9</span><div class="ptitle">التوصيل إلى المطار</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">إلى المطار</div></div><div class="bd"><div class="bnr gn">اتجاه المغادرة يعامل كرحلة عادية وفق المرجع الحالي.</div><div class="srow">📍<span>صالة المغادرة</span></div><div class="srow">🧳<span>ملاحظات الأمتعة</span></div><div class="srow">⏱️<span>قواعد الانتظار القياسية المعتمدة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م10</span><div class="ptitle">أدلة الرحلة GPS</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">أدلة الرحلة</div></div><div class="bd"><div class="srow">📍<span>نقطة وصول السائق</span></div><div class="srow">🕐<span>وقت الوصول ووقت بدء الانتظار</span></div><div class="srow">🗺️<span>المسار المسجل</span></div><div class="srow">📡<span>لقطات الموقع المحفوظة للنزاع</span></div><div class="bnr am">تُعرض الأدلة المسموح بها عند فتح شكوى/نزاع وفق الخصوصية والسياسة.</div></div></div></div></div></div>
+</div>
+<div class="section-hdr orange">💳 السعر والدفع — الإفصاح الكامل وحالات الدفع</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م11</span><div class="ptitle">تفصيل السعر الكامل</div></div><div class="frame"><div class="screen"><div class="tb a"><div class="back">→</div><div class="tbt">تفاصيل السعر</div></div><div class="bd"><div class="srow">🚗<span>سعر الخدمة</span></div><div class="srow">➕<span>الإضافات</span></div><div class="srow">🎁<span>الخصم / الكوبون</span></div><div class="srow">🧾<span>الضريبة</span></div><div class="srow">💼<span>رسوم العميل</span></div><div class="srow">💳<span>رسوم وسيلة الدفع إن انطبقت</span></div><div class="srow">🌍<span>بطاقة دولية / FX إن انطبق ومسموح</span></div><div class="srow">💰<span>الإجمالي النهائي</span></div><div class="bnr gn">لا يظهر رسم جديد لأول مرة بعد التأكيد.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م12</span><div class="ptitle">تأكيد السعر والشروط المالية</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">تأكيد الرحلة</div></div><div class="bd"><div class="srow">💵<span>الإجمالي النهائي المعروض</span></div><div class="srow">↩️<span>قابلية الاسترداد عند اللزوم</span></div><div class="srow">❌<span>مرجع الإلغاء / No-Show</span></div><div class="srow">💳<span>وسيلة الدفع المختارة</span></div><div class="srow">📜<span>الشروط الفعالة المرتبطة بالتأكيد</span></div><div class="mbtn">تأكيد السعر وطلب الرحلة</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م13</span><div class="ptitle">فشل الدفع</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">تعذر الدفع</div></div><div class="bd"><div class="bnr rd">لم تكتمل عملية الدفع.</div><div class="srow">🔁<span>إعادة المحاولة عندما تصبح الحالة نهائية</span></div><div class="srow">💳<span>اختيار وسيلة دفع أخرى</span></div><div class="srow">🎧<span>مساعدة الدفع</span></div><div class="bnr am">لا تنشئ محاولة بديلة أثناء وجود محاولة معلقة قد تسبب خصماً مزدوجاً.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م14</span><div class="ptitle">الدفع معلّق</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">الدفع قيد التحقق</div></div><div class="bd"><div class="bnr am">⏳ العملية معلقة — لا تعِد الدفع الآن.</div><div class="srow">#️⃣<span>مرجع العملية</span></div><div class="srow">🔔<span>سنبلغك عند حسم النتيجة</span></div><div class="srow">🎧<span>تواصل مع الدعم</span></div></div></div></div></div></div>
+</div>
+<div class="section-hdr purple">🔐 الموافقات والتحقق الأمني — الحالات التي يجب أن يراها الراكب</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م15</span><div class="ptitle">شروط جديدة / إعادة موافقة</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">تحديث الشروط</div></div><div class="bd"><div class="bnr am">حدث تغيير جوهري يتطلب موافقتك قبل متابعة الإجراء الحساس.</div><div class="srow">📄<span>عرض الشروط والسياسة الفعالة</span></div><div class="srow">🕐<span>تاريخ النفاذ</span></div><div class="srow">☐<span>أوافق — غير محدد مسبقاً</span></div><div class="mbtn p">موافقة ومتابعة</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م16</span><div class="ptitle">رفض الشروط</div></div><div class="frame"><div class="screen"><div class="tb r"><div class="back">→</div><div class="tbt">تعذر متابعة الإجراء</div></div><div class="bd"><div class="bnr rd">لم تتم الموافقة على الشروط المطلوبة لهذا الإجراء.</div><div class="srow">📄<span>مراجعة الشروط</span></div><div class="srow">ℹ️<span>يوضح النظام الإجراء/الخدمة المتأثرة فقط وفق السياسة</span></div><div class="srow">🎧<span>المساعدة</span></div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م17</span><div class="ptitle">تحقق إضافي</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">تحقق أمني</div></div><div class="bd"><div class="bnr am">لأمان حسابك نحتاج تحققاً إضافياً.</div><div class="srow">📱<span>جهاز جديد / سياق حساس</span></div><div class="lbl">رمز التحقق OTP</div><div class="card" style="text-align:center;letter-spacing:5px">• • • • • •</div><div class="mbtn">تحقق</div><div class="bnr gn">الجهاز الموثوق لا يلغي PIN المالي عند وجوبه.</div></div></div></div></div></div>
+</div>
+<div class="section-hdr green">⚖️ النزاع المالي — منفصل عن تذكرة الدعم العامة</div>
+<div class="flow-row">
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م18</span><div class="ptitle">فتح نزاع على رحلة</div></div><div class="frame"><div class="screen"><div class="tb g"><div class="back">→</div><div class="tbt">اعتراض مالي</div></div><div class="bd"><div class="srow">🧾<span>الرحلة والفاتورة</span></div><div class="lbl">نوع الاعتراض</div><div class="srow">⏱️<span>رسم انتظار</span></div><div class="srow">❌<span>رسم إلغاء / عدم حضور</span></div><div class="srow">💵<span>أجرة / مبلغ آخر مرتبط بالرحلة</span></div><div class="srow">📎<span>إرفاق أدلة</span></div><div class="mbtn g">فتح النزاع</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م19</span><div class="ptitle">أدلة النزاع</div></div><div class="frame"><div class="screen"><div class="tb b"><div class="back">→</div><div class="tbt">أدلة الرحلة</div></div><div class="bd"><div class="srow">📍<span>بيانات GPS المسموح بعرضها</span></div><div class="srow">🕐<span>الوصول والانتظار والتوقيتات</span></div><div class="srow">📷<span>مرفقات الراكب</span></div><div class="srow">💬<span>السجل المرتبط بالنزاع حسب السياسة</span></div><div class="bnr am">لا يُطلب من الراكب إعادة إرسال البيانات التي يحتفظ بها النظام أصلاً.</div></div></div></div></div></div>
+<div class="flow-item"><div class="phone"><div class="phone-badge"><span class="pnum">م20</span><div class="ptitle">قرار النزاع</div></div><div class="frame"><div class="screen"><div class="tb p"><div class="back">→</div><div class="tbt">نتيجة الاعتراض</div></div><div class="bd"><div class="bnr gn">تم اتخاذ القرار</div><div class="srow">📄<span>ملخص القرار وسببه</span></div><div class="srow">💰<span>الأثر المالي / الاسترداد إن وجد</span></div><div class="srow">#️⃣<span>الرقم المرجعي</span></div><div class="srow">🔁<span>طلب إعادة مراجعة عندما تسمح السياسة</span></div></div></div></div></div></div>
+</div>
+<div class="section-hdr navy">🧩 ملاحظات تنفيذية للمبرمج — لا تتحول إلى شاشات مستقلة</div>
+<div style="background:#fff;border-radius:12px;padding:14px 18px;display:grid;grid-template-columns:repeat(3,minmax(220px,1fr));gap:8px;font-size:10px;line-height:1.6">
+<div class="bnr">Backend هو مصدر الحقيقة للسعر والرسوم والضريبة والخصم والسياسات وحالة الطلب.</div>
+<div class="bnr">تأكيد السعر يرتبط بنسخة Quote/Policy فعالة؛ لا يعتمد التطبيق على رقم خام فقط.</div>
+<div class="bnr">Price/Terms snapshots التاريخية لا يعاد حسابها بقواعد اليوم ولا تُعدل بصمت.</div>
+<div class="bnr">Idempotency مطلوبة للأوامر الحساسة لمنع التكرار والخصم المزدوج.</div>
+<div class="bnr">Audit Log وسجل الأدلة والحالات التاريخية تُحفظ على الخادم وفق الصلاحيات والاحتفاظ.</div>
+<div class="bnr">Risk/Fraud/Policy engines قد تنتج Allow / Challenge / Restrict؛ الواجهة تعرض النتيجة المناسبة ولا تحسب القرار محلياً.</div>
+<div class="bnr">الموقع الدقيق وبيانات الرحلة تستخدم وفق الحاجة التشغيلية والخصوصية وسياسة الاحتفاظ.</div>
+<div class="bnr">الرسوم اللاحقة المشروطة مثل انتظار/إلغاء/No-Show لا تُختلق في التطبيق؛ مصدرها محركات القرار والسياسة.</div>
+<div class="bnr">Reverb للتحديث الفوري فقط ولا يحل محل التحقق الخادمي أو إعادة التحقق من السعر والحالة.</div>
+</div>
+<div class="section-hdr green">✅ قائمة تحقق التصميم النهائي — مزايا الراكب المرتبطة بتوصيل الركاب</div>
+<div style="background:#fff;border-radius:12px;padding:14px 18px;display:grid;grid-template-columns:repeat(4,minmax(180px,1fr));gap:8px;font-size:10px;line-height:1.6">
+<div class="bnr gn">✓ الرئيسية + 31 خدمة + خريطة + آخر الرحلات</div><div class="bnr gn">✓ تحديد الوجهة + GPS + وجهات سريعة + حجز مسبق + لشخص آخر</div><div class="bnr gn">✓ الفئات الـ11 كبطاقات مستقلة</div><div class="bnr gn">✓ شفافية السعر والضرائب والرسوم قبل التأكيد</div><div class="bnr gn">✓ وسيلة الدفع المختارة قبل التأكيد</div><div class="bnr gn">✓ البحث عن سائق وإلغاء الطلب</div><div class="bnr gn">✓ بيانات السائق والمركبة + التقييم + رتبة التميز</div><div class="bnr gn">✓ اتصال + رسالة + مشاركة + SOS</div><div class="bnr gn">✓ PIN قبل الركوب عند تطبيق السياسة</div><div class="bnr gn">✓ عداد الانتظار</div><div class="bnr gn">✓ تغيير الوجهة وموافقة السائق وفرق السعر</div><div class="bnr gn">✓ التتبع المباشر ومشاركة الرحلة</div><div class="bnr gn">✓ التقييم التفصيلي والإكرامية الاختيارية</div><div class="bnr gn">✓ اكتمال الرحلة + الفاتورة + وصلت بأمان</div><div class="bnr gn">✓ الولاء والنقاط والاستبدال والتحديات</div><div class="bnr gn">✓ حساب العائلة وتتبع الأطفال والوجهات المسموحة</div><div class="bnr gn">✓ المحفظة والمعاملات والتحويل</div><div class="bnr gn">✓ الشكاوى والدعم + فتح تذكرة + مرفقات + رقم مرجعي + متابعة الردود والحالات</div><div class="bnr gn">✓ الأمان والسلامة والطوارئ</div><div class="bnr gn">✓ الرحلات الحالية/السابقة/المجدولة + إعادة الطلب</div><div class="bnr gn">✓ الإشعارات</div><div class="bnr gn">✓ الملف الشخصي والمفضلة</div><div class="bnr gn">✓ اللغة RTL/LTR والمظهر وإمكانية الوصول</div><div class="bnr gn">✓ الخصوصية والموافقات ومعلومات التطبيق</div><div class="bnr gn">✓ العروض: 3 سائقين/3 عروض والسعر ثابت بعد القبول</div><div class="bnr gn">✓ ذوو الاحتياجات: نوع الاحتياج وتجهيزات ووقت مساعدة</div><div class="bnr gn">✓ العائلية: عدد الركاب حتى 7 والسعر للرحلة</div><div class="bnr gn">✓ بين المدن: مدينة/مدينة ومسافة ومدة</div><div class="bnr gn">✓ الباص: ذهاب/عودة + مقاعد + Hold + دفع إلكتروني + QR</div><div class="bnr gn">✓ الدراجة: مدة + تسعير وقت + لا Surge + تمديد بموافقة</div><div class="bnr gn">✓ البحري: كامل/مشترك + مدة ومسار وعودة + أمان</div><div class="bnr gn">✓ عدم إظهار الرحلة المشتركة متعددة الغرباء بالسيارة لأنها ملغاة</div>
+<div class="bnr gn">✓ الإلغاء قبل/بعد تعيين السائق + عرض الأثر المالي قبل التأكيد</div>
+<div class="bnr gn">✓ No-Show + وصول السائق + المهلة المجانية + قرار مالي من السياسة</div>
+<div class="bnr gn">✓ الرحلة المجدولة: إلغاء مجاني حتى 60 دقيقة وفق المرجع الحالي + عرض الرسم بعد ذلك</div>
+<div class="bnr gn">✓ الاسترداد: طلب + مبلغ + مصدر + حالة + رقم مرجعي + قرار</div>
+<div class="bnr gn">✓ نقاط التقاء ثابتة للمواقع الحساسة</div>
+<div class="bnr gn">✓ المطار: استلام/مغادرة + مهلة انتظار وسياسة موقع</div>
+<div class="bnr gn">✓ أدلة GPS للنزاع: الوصول + التوقيت + المسار + لقطات الموقع المسموح بها</div>
+<div class="bnr gn">✓ Breakdown كامل: خدمة + إضافات + خصم + ضريبة + رسوم عميل + دفع + FX/بطاقة دولية + إجمالي</div>
+<div class="bnr gn">✓ لا رسوم مخفية تظهر لأول مرة بعد التأكيد</div>
+<div class="bnr gn">✓ فشل الدفع / الدفع المعلق / تغيير وسيلة الدفع بدون خصم مزدوج</div>
+<div class="bnr gn">✓ إعادة الموافقة عند تغير الشروط + Checkbox غير محدد مسبقاً + حالة الرفض</div>
+<div class="bnr gn">✓ Challenge/OTP إضافي للجهاز الجديد أو السياق الحساس عند قرار المحرك</div>
+<div class="bnr gn">✓ النزاع المالي منفصل عن الدعم العام ومرتبط بالرحلة والأدلة والقرار</div>
+<div class="bnr gn">✓ متطلبات Backend غير المرئية موثقة للمبرمج: snapshots + idempotency + audit + policy/risk authority</div>
+<div class="bnr gn">✓ Safety Center موحد + Trusted Contacts + Smart Ride Check + Scheduled Check-In</div>
+<div class="bnr gn">✓ فحص تطابق السائق/المركبة + حظر سائق + سائق مفضل</div>
+<div class="bnr gn">✓ تسجيل صوت/فيديو وفق القانون + تفضيلات السلامة + تذكير الحزام</div>
+<div class="bnr gn">✓ Wait &amp; Save + Priority Pickup كخيارات تشغيلية قابلة للتفعيل</div>
+<div class="bnr gn">✓ Child Seat + Pet + Service Animal حسب الدولة والتوفر</div>
+<div class="bnr gn">✓ لغة التواصل + ترجمة الدردشة/Speech-to-Text عند توفرها</div>
+<div class="bnr gn">✓ حسابات اليافعين بإشراف ولي الأمر + تتبع + محادثة ثلاثية + قفل الوجهة</div>
+<div class="bnr gn">✓ مركز الخصوصية + إعدادات مشاركة الموقع والتسجيل والتسويق وحقوق البيانات</div>
+<div class="bnr gn">✓ إمكانية الوصول الموسعة + حالات Loading/Empty/Offline/Permission/No Driver</div>
+<div class="bnr am">مستبعد بطلب المالك: Flight Tracking، وتحويل «لكِ سيدتي» من فئة مستقلة إلى Preference</div>
+</div><div class="footer-note">
+<strong style="color:#1a3a5c;font-size:13px">تطبيق الراكب DORR — FINAL MASTER v4 — COMPETITOR COMPLETE FOR DESIGN &amp; DEVELOPMENT • 11 فئة معتمدة • تدفقات الراكب + الحالات المالية والاستثنائية + الأمان + الحساب</strong><br/>
+<span style="font-size:11px;color:#6b7280;margin-top:4px;display:block">سهم الرجوع في كل شاشة من أعلى اليمين • سهم الانتقال بين الشاشات • عدد السيارات المتاحة في شاشة اختيار الفئة والبحث</span>
+</div>
+</body>
+</html>

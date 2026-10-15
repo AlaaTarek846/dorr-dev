@@ -219,9 +219,15 @@ if (! function_exists('sendPushNotification')) {
         ?array $buttons = null,
         ?string $schedule = null,
         array $options = [],
+        string $audience = 'default',
     ): bool {
         $appId = config('services.onesignal.app_id') ?: env('ONESIGNAL_APP_ID');
         $restApiKey = config('services.onesignal.rest_api_key') ?: env('ONESIGNAL_REST_API_KEY');
+        // The captain app can be its own OneSignal app; both keys must be set for it, else it shares the main one.
+        if ($audience === 'driver' && config('services.onesignal.driver_app_id') && config('services.onesignal.driver_rest_api_key')) {
+            $appId = config('services.onesignal.driver_app_id');
+            $restApiKey = config('services.onesignal.driver_rest_api_key');
+        }
         $timeout = (int) env('ONESIGNAL_GUZZLE_CLIENT_TIMEOUT', 10);
 
         if (! $appId || ! $restApiKey) {
@@ -251,13 +257,12 @@ if (! function_exists('sendPushNotification')) {
             $params['included_segments'] = ['All'];
         }
 
-
         if ($headings) {
             $params['headings'] = $headings;
         }
 
-            $params['big_picture'] = $image?? "https://dorr-app.com/dorr.jpg";
-            $params['large_icon'] = $image?? "https://dorr-app.com/dorr.jpg";
+        $params['big_picture'] = $image ?? 'https://dorr-app.com/dorr.jpg';
+        $params['large_icon'] = $image ?? 'https://dorr-app.com/dorr.jpg';
 
         if ($url) {
             $params['url'] = $url;

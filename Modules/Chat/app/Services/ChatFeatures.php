@@ -37,6 +37,7 @@ final class ChatFeatures
             'ai' => $settings->aiEnabled(),
             default => true,
         };
+
         return $on && $this->allowsHere($account, $feature);
     }
 

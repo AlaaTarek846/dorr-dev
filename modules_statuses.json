@@ -7,5 +7,7 @@
     "Sms": true,
     "Chat": true,
     "Discover": true,
-    "Sports": true
+    "Sports": true,
+    "Driver": true,
+    "Rides": true
 }

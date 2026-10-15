@@ -117,7 +117,8 @@ class MessageViewContext
         }
 
         // Polls: totals and my own ticks.
-        $polls = $messages->filter(fn (ChatMessage $m) => $m->type === MessageType::Poll)->pluck('id')->all();
+        // (Interactive messages keep their taps the same way: my choice, and how many answered.)
+        $polls = $messages->filter(fn (ChatMessage $m) => $m->type === MessageType::Poll || $m->type === MessageType::Interactive)->pluck('id')->all();
         if ($polls !== []) {
             $votes = ChatPollVote::query()->whereIn('message_id', $polls)->get(['message_id', 'participant_id', 'option_id']);
             foreach ($polls as $id) {

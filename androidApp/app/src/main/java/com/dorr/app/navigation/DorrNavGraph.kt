@@ -269,10 +269,10 @@ fun DorrNavGraph(navController: NavHostController = rememberNavController()) {
             )
         }
         composable(Routes.NOTIFICATIONS) {
-            NotificationsScreen(onBack = { navController.popBackStack() })
+            com.dorr.app.ui.theme.ProvideAppFont { NotificationsScreen(onBack = { navController.popBackStack() }) }
         }
         composable(Routes.SERVICES) {
-            ServicesScreen(onBack = { navController.popBackStack() })
+            com.dorr.app.ui.theme.ProvideAppFont { ServicesScreen(onBack = { navController.popBackStack() }) }
         }
     }
 }

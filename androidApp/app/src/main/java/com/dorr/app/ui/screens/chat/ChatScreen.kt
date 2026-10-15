@@ -168,6 +168,10 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
                 host.joinToken = link.token
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
             }
+            if (link is com.dorr.app.chat.ChatDeepLink.CallLink) {
+                host.callLinkToken = link.token
+                com.dorr.app.chat.ChatPush.consumeDeepLink()
+            }
             if (link is com.dorr.app.chat.ChatDeepLink.ChatLink) {
                 host.openChatLink(link.payload)
                 com.dorr.app.chat.ChatPush.consumeDeepLink()
@@ -222,6 +226,10 @@ fun ChatScreen(onExit: () -> Unit, openWalletQr: (String) -> Unit, initialConver
             ChatToast(host)
             // A group invite link was tapped: preview + "Join" / "Ask to join".
             host.joinToken?.let { token -> JoinGroupSheet(token) { host.joinToken = null } }
+            // A call link was opened: who made it, then "Join".
+            host.callLinkToken?.let { token -> CallLinkSheet(token) { host.callLinkToken = null } }
+            // Once: let calls show over other apps and the lock screen.
+            CallPermissionPrompt()
             // The admins answered my request to join.
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
                 AnimatedVisibility(host.joinDecided != null, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it } + fadeOut()) {
@@ -291,6 +299,8 @@ private fun ChatPage(route: ChRoute) {
         ChRoute.Starred -> StarredPage()
         ChRoute.ReadLater -> FollowUpsPage()
         ChRoute.Calls -> CallsPage()
+        ChRoute.Communities -> CommunitiesPage()
+        is ChRoute.Community -> CommunityPage(route.id)
         is ChRoute.StoryComposer -> StoryComposerPage(route.media)
         ChRoute.StoryPrivacy -> StoryPrivacyPage()
         is ChRoute.Thread -> ThreadPage(route.conversationId, route.rootId)

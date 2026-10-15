@@ -188,10 +188,6 @@ HTML;
             $audiences[] = ServiceAudience::Provider->value;
         }
 
-        if ($row['module_name'] === 'driver_without_vehicle') {
-            $audiences[] = ServiceAudience::Driver->value;
-        }
-
         return array_values(array_unique($audiences));
     }
 }

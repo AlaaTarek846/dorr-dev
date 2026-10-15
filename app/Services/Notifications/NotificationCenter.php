@@ -59,7 +59,7 @@ class NotificationCenter
      * @param  array<string, scalar|null>  $variables  placeholders shared by title and body
      * @param  array<string, mixed>  $data  machine-readable payload (ids for deep links) — no secrets
      */
-    public function send(mixed $receivers, string $event, string $title, string $body, array $variables = [], array $data = [], bool $push = true): void
+    public function send(mixed $receivers, string $event, string $title, string $body, array $variables = [], array $data = [], bool $push = true, array $pushOptions = []): void
     {
         $list = $this->normalize($receivers);
 
@@ -69,7 +69,7 @@ class NotificationCenter
 
         $data += ['event' => $event];
 
-        DB::afterCommit(function () use ($list, $event, $title, $body, $variables, $data, $push) {
+        DB::afterCommit(function () use ($list, $event, $title, $body, $variables, $data, $push, $pushOptions) {
             try {
                 sendNotification($event, $list, $data, '', $title, $body, $variables);
             } catch (Throwable $e) {
@@ -78,7 +78,7 @@ class NotificationCenter
 
             if ($push) {
                 foreach ($list as $receiver) {
-                    $this->push($receiver, $title, $body, $variables, $data);
+                    $this->push($receiver, $title, $body, $variables, $data, $pushOptions);
                 }
             }
         });
@@ -172,7 +172,8 @@ class NotificationCenter
         return $texts;
     }
 
-    private function push(Model $receiver, string $title, string $body, array $variables, array $data): void
+    /** @param  array<string, mixed>  $options  extra OneSignal fields (a ride request: top priority, a short ttl) */
+    private function push(Model $receiver, string $title, string $body, array $variables, array $data, array $options = []): void
     {
         if (! method_exists($receiver, 'notificationDevices')) {
             return;
@@ -188,7 +189,8 @@ class NotificationCenter
             $headings = $this->inEveryLanguage($title, $variables);
             $contents = $this->inEveryLanguage($body, $variables);
 
-            $send = fn () => sendPushNotification(message: $contents, playerIds: $playerIds, title: $headings, data: $data);
+            $audience = $receiver instanceof \Modules\Driver\Models\Driver ? 'driver' : 'default';
+            $send = fn () => sendPushNotification(message: $contents, playerIds: $playerIds, title: $headings, data: $data, options: $options, audience: $audience);
 
             // The HTTP call to OneSignal happens after the response is sent, so a slow push service never slows down
             // (or fails) a payment. Already after the response (later()): now — deferring again would drop it.

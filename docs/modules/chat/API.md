@@ -434,7 +434,7 @@ Albums of messages I chose to keep. Each item is a **copy** (text, sender name, 
 | POST | `capsules/{id}/items` | `message_id`, `note?` | A message I can see (not view-once, not deleted). The same message twice keeps one copy. Up to 300 items (`chat_capsule_full`) |
 | DELETE | `capsules/{id}/items/{item}` | | |
 
-**Admin:** `GET/POST /api/admin/v1/chat-moments` (+ `/{id}`, POST `/{id}` to update, `/{id}/status`, DELETE) — multipart `key`, `kind`, `date_rule`, `month`, `day`, `duration_days`, `show_before_days`, `show_after_days`, `countries[]` (codes), `default_on`, `theme`, `primary_color`, `secondary_color`, `emoji`, `animation`, `translations[i][locale/name/greeting]`, `card`, `remove_card`, `status`, `sort_order`. `GET chat-moments/{id}/dates?year=` (computed, everywhere and per-country effective dates for 3 years) · `PUT chat-moments/{id}/dates` `{country_id?, year, date}` (`date: null` removes the correction). Permission `chat-moments.*`. `chat-settings` also takes `moments_enabled`.
+**Admin:** `GET/POST /api/admin/v1/chat-moments` (+ `/{id}`, POST `/{id}` to update, `/{id}/status`, DELETE, POST `delete-multiple` `{ids}`) — multipart `key`, `kind`, `date_rule`, `month`, `day`, `duration_days`, `show_before_days`, `show_after_days`, `countries[]` (codes), `default_on`, `theme`, `primary_color`, `secondary_color`, `emoji`, `animation`, `translations[i][locale/name/greeting]`, `card`, `remove_card`, `status`, `sort_order`. `GET chat-moments/{id}/dates?year=` (computed, everywhere and per-country effective dates for 3 years) · `PUT chat-moments/{id}/dates` `{country_id?, year, date}` (`date: null` removes the correction). Permission `chat-moments.*`. `chat-settings` also takes `moments_enabled`.
 
 ## Closing the partial items (2026-10-10)
 
@@ -466,9 +466,9 @@ One calendar of only the sources I keep on: my appointments (`events`), occasion
 | Method | Path | Body | Notes |
 |---|---|---|---|
 | GET | `calendar?from=Y-m-d&to=Y-m-d&types[]=` | | **203.** `{enabled, items[]}`, at most 62 days (`chat_calendar_range`). Item: `{id: "<type>:<ref>", type: event\|task\|reminder\|moment\|personal, ref, title, starts_at, ends_at, all_day, date, end_date?, timezone?, origin_time?, location?, note?, color?, emoji?, reminders?, done?, overdue?, message_id?, conversation_id?}` |
-| GET | `calendar/today` | | **202 + 207.** `{enabled, date, timezone, sections{order[], hidden[]}, next, events[], tasks[] (overdue first), reminders[], moments[], around{week_count, coming[], might_miss[{kind: overdue_tasks\|personal_soon\|early_tomorrow, …}], based_on{country, picked_occasions, sources[]}}}` — `around` is `null` when I turned personalisation off |
-| GET | `calendar/search?q=` | | **206.** My appointments, tasks, own dates, occasions and capsules — never messages |
-| POST | `calendar/items` | `title`, `starts_at` + `ends_at?` or `all_day` + `date`, `timezone?`, `location?`, `note?`, `color?` (#RRGGBB), `reminders?[]` (minutes before: 0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080; all-day = before 09:00 that day), `message_id?` (from a chat) | **201.** Without `reminders`, my defaults apply. The same title at the same minute (all-day: day) returns the existing one with `duplicate: true` (200), never a second (AT-CAL-02) |
+| GET | `calendar/today` | | **202 + 207.** `{enabled, date, timezone, sections{order[], hidden[]}, sources[] (the sources I keep on — a section whose sources are all off is not shown), next, events[], tasks[] (overdue first), reminders[], moments[], around{week_count, coming[], might_miss[{kind: overdue_tasks\|personal_soon\|early_tomorrow, …}], based_on{country, picked_occasions, sources[]}}}` — `around` is `null` when I turned personalisation off |
+| GET | `calendar/search?q=` | | **206.** `{enabled, items[]}` — my appointments, tasks, own dates, occasions, capsules, and the Discover events and matches on my calendar (last month to next year) — never messages. Only the sources I keep on are searched; `enabled: false` (and no items) when the admin switched the calendar off. Nearest upcoming first, then the past, then what has no day. `%`, `_` and `!` in the word are plain characters |
+| POST | `calendar/items` | `title`, `category?` (`appointment` default · `meeting` · `match` · `event` · `trip` · `study` · `health` · `work`), `starts_at` + `ends_at?` or `all_day` + `date`, `timezone?`, `location?`, `note?`, `color?` (#RRGGBB), `reminders?[]` (minutes before: 0, 5, 10, 15, 30, 60, 120, 180, 1440, 2880, 10080; all-day = before 09:00 that day), `message_id?` (from a chat) | **201.** Without `reminders`, my defaults apply. The same title at the same minute (all-day: day) returns the existing one with `duplicate: true` (200), never a second (AT-CAL-02) |
 | GET / PATCH / DELETE | `calendar/items/{id}` | same fields | A new time is reminded again. Only mine (`chat_calendar_not_found`); a change that would duplicate another one: `chat_calendar_duplicate` |
 | GET / PUT | `calendar/preferences` | `sources{events, moments, personal, tasks, reminders, discover: bool}` (`discover` = DORR Discover events I'm interested in, type `discover` in the feed — see [../discover/API.md](../discover/API.md)), `default_reminders[]`, `all_day_reminders[]`, `respect_quiet`, `personalised`, `today_sections{order[], hidden[]}` | Sections: `next, events, tasks, reminders, moments, around` |
 
@@ -630,6 +630,99 @@ Numbers are the WhatsApp list in the spec's backlog. Test: `ChatBacklogTest` (8)
   - A long video gets the bitrate its length allows.
   - If it still can't fit, it isn't sent and the user sees a message.
 - Video isn't sent to the server at a bigger size. The server's own limit is `max_file_size_mb`.
+
+## WhatsApp backlog, second batch (2026-10-12)
+
+**Status stickers, GIFs, text and drawing (79, 80)**
+
+- `POST stories` accepts `style[layers]`, a JSON string up to 120 KB, on any type.
+  - Photo and video stories also take `style[aspect]`: the picture's width ÷ height, between 0.2 and 5.
+  - The layers sit in that frame, or on the whole screen for a text status.
+- `Modules\Chat\Support\StoryLayers::clean()` keeps at most 40 layers and 6000 pen points.
+- All positions are fractions from 0 to 1. Each layer has a kind `k`:
+
+  | `k` | Kind | Fields |
+  |---|---|---|
+  | `t` | Text | `x, y, s` (size), `r` (degrees), `text` (≤ 200), `c` (`#RRGGBB`), `f` (a status font), `bg` (0 or 1, coloured pill) |
+  | `s` | Sticker or GIF | `x, y, s, r`, `url`, `a` (width ÷ height) |
+  | `d` | Pen line | `c`, `w` (stroke as a fraction of the width), `p` (`[x, y, x, y, …]`) |
+
+- `url` must be http(s) or one of our own `/…` paths. Anything else is dropped.
+- A story's `style` comes back with `aspect` and `layers`. GIFs keep moving for the viewer.
+- Test: `ChatStoryTest::test_stickers_text_and_drawing_ride_on_top_of_a_photo_status`.
+
+**Call links (72)**
+
+Calling a link joins one LiveKit room (`link-{token}`). Nobody is rung and no chat is needed. The usual call rules still apply: calls must be on in my country, and a person blocked by either side can't join.
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `call-links` | My links that still work |
+| POST | `call-links` | `{type: audio\|video}`. At most 20 at a time (`chat_call_link_limit`). Each lasts 30 days |
+| GET | `call-links/{token}` | `{token, type, link, payload, owner, is_mine, expires_at, last_joined_at}` |
+| POST | `call-links/{token}/join` | `{link, join: {url, room, token}}` |
+| DELETE | `call-links/{token}` | Owner only |
+
+- `link` is `https://…/call/{token}`: a web page that opens `dorr://chat/call/{token}` in the app.
+  - `/c/` was already taken by "click to chat".
+- An invalid, expired or cancelled link returns `chat_call_link_invalid` (404).
+- When someone else joins, the owner gets a push: `event: chat.call_link.joined`, with `token`. It goes out once per person per 10 minutes.
+- Table: `chat_call_links` (migration `2026_10_20_100000`).
+- Test: `ChatCallLinkTest` (2).
+
+**Screen sharing (71)** works on the phone only, with no server changes:
+- The phone asks the system for permission, then calls LiveKit `setScreenShareEnabled(true, intent)`. The LiveKit SDK runs the screen-capture foreground service itself.
+- Viewers see the shared screen in place of the camera, scaled to fit with no cropping.
+
+**Reply buttons and lists (123–125)**
+
+- `type=interactive` works through the normal send endpoint. `body` is the text, plus these fields:
+
+  | Field | Meaning |
+  |---|---|
+  | `interactive_kind` | `buttons` or `list` |
+  | `interactive_options[]` | Up to 3 buttons (≤ 20 characters each), or up to 10 list choices (≤ 24 characters each) |
+  | `interactive_descriptions[]` | For a list only: one line under each choice (≤ 72 characters) |
+  | `interactive_button` | For a list only: the label of the button that opens it |
+  | `interactive_footer` | Optional (≤ 60 characters) |
+
+- The message gains `interactive: {kind, options: [{id, title, description?}], button, footer, my_choice, answers}`.
+- `POST messages/{id}/choose {option_id}` keeps my choice in `chat_poll_votes`. It returns my answer:
+  - The answer is a text message that replies to the interactive one, with `meta.choice = {message_id, option_id}`.
+  - Errors: `chat_interactive_own` when answering my own message, and `chat_interactive_invalid` for a bad option.
+- `GET messages/{id}/votes` shows the sender who picked what.
+- Test: `ChatExtrasTest::test_reply_buttons_and_lists_answer_in_the_chat`.
+
+**Communities (93–98)**
+
+Table `chat_communities`, plus `chat_groups.community_id` (migration `2026_10_20_100100`).
+
+How it fits together:
+- Each community has an announcements group, created with the community. Only admins post there and nobody is added to it by hand.
+- **Members:** the community's members are that group's members. Anyone who comes into one of its groups is added to it, through the hook in `ConversationService::addParticipant`.
+- **Admins:** that group's admins are the community's admins, up to 20 (`chat_community_admins_full`).
+- **Creator:** the creator is that group's owner.
+  - Nobody can remove or demote them.
+  - They can't leave or hand it over, and the announcements group can't be deleted on its own (`chat_community_creator_stays` / `chat_community_delete_instead`).
+
+| Method | Path | Notes |
+|---|---|---|
+| GET | `communities` | Mine |
+| POST | `communities` | `{name, description?, groups?: [ids of groups I run, not in a community], avatar?}`. A group already in a community returns `chat_community_group_taken` |
+| GET | `communities/{id}` | See the fields below |
+| POST | `communities/{id}` | `{name?, description?, avatar?}`. Admins only |
+| POST | `communities/{id}/groups` | `{groups: [...]}` links existing groups. `{name}` makes a new one. Up to 50 groups |
+| DELETE | `communities/{id}/groups/{conversation}` | Unlinks a group. It goes on as a plain group |
+| POST | `communities/{id}/groups/{conversation}/join` | `{status: joined\|pending}`. "Pending" when that group approves new members |
+| GET | `communities/{id}/members` | The announcements group's members |
+| DELETE | `communities/{id}/members/{participant}` | Out of the community and every group in it, except groups they own |
+| PATCH | `communities/{id}/members/{participant}/role` | `{role: admin\|member}` |
+| POST | `communities/{id}/leave` | Leaves the community and all its groups |
+| DELETE | `communities/{id}` | Creator only. Groups are unlinked and the announcements group is deleted |
+
+- `GET communities/{id}` returns `{id, name, description, avatar, announcement_id, members_count, groups_count, my_role, is_admin, is_creator, admins_count, max_admins, max_groups, groups: [{id, name, avatar, members_count, is_member, approve_joins, request_pending}]}`.
+- A group's conversation JSON has `group.community: {id, name, is_announcement}`.
+- Test: `ChatCommunityTest` (3).
 
 ## Admin
 

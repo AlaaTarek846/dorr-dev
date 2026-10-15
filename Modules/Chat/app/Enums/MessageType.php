@@ -15,6 +15,10 @@ enum MessageType: string
     case Contact = 'contact';
     // body = the question; meta = {options: [{id, text}], multiple}; votes in chat_poll_votes.
     case Poll = 'poll';
+    // Reply buttons (up to 3) or a list (up to 10 choices) — WhatsApp list 123–125. body = the text;
+    // meta = {kind: buttons|list, options: [{id, title, description?}], button?, footer?}. A tap is
+    // kept like a poll vote (chat_poll_votes) and answers in the chat with the choice.
+    case Interactive = 'interactive';
     // "Send me 50" (direct chats) and a bill shared between members — paid with the wallet PIN.
     // meta = the media (Giphy, or one of Dorr's sticker packs) — built on the server from an id.
     case Gif = 'gif';
@@ -59,7 +63,7 @@ enum MessageType: string
     {
         return array_map(fn (self $t) => $t->value, [
             self::Text, self::Image, self::Video, self::Audio, self::Voice, self::Document,
-            self::Location, self::Contact, self::Poll, self::WalletTransfer, self::WalletQr,
+            self::Location, self::Contact, self::Poll, self::Interactive, self::WalletTransfer, self::WalletQr,
             self::MoneyRequest, self::BillSplit, self::Gif, self::Sticker,
         ]);
     }

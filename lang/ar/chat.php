@@ -35,6 +35,16 @@ return [
     ],
 
     'errors' => [
+        'community_group_taken' => 'الجروب ده موجود في مجتمع تاني.',
+        'community_groups_full' => 'المجتمع يقدر يضم لحد :max جروب.',
+        'community_admins_full' => 'المجتمع يقدر يكون فيه لحد :max مشرف.',
+        'community_creator_stays' => 'اللي عمل المجتمع بيفضل مشرف عليه دايمًا. لو عاوز تنهيه، امسح المجتمع.',
+        'community_announcement_fixed' => 'جروب الإعلانات بيفضل في المجتمع دايمًا.',
+        'community_delete_instead' => 'ده جروب إعلانات مجتمع: امسح المجتمع نفسه.',
+        'interactive_invalid' => 'ضيف من زرار لـ 3 أزرار، أو من اختيار لـ 10 اختيارات في القايمة، ومعاهم رسالة.',
+        'interactive_own' => 'مينفعش ترد على رسالتك انت.',
+        'call_link_invalid' => 'لينك المكالمة ده مبقاش شغال.',
+        'call_link_limit' => 'تقدر تحتفظ بـ :max لينك مكالمات بس. الغي واحد الأول.',
         'live_not_in_call' => 'ادخل المكالمة الأول.',
         'live_ended' => 'البث ده خلص.',
         'live_not_found' => 'البث مش موجود.',
@@ -121,7 +131,7 @@ return [
         'owner_only' => 'لا يمكن تغيير مالك المجموعة أو إزالته.',
         'group_only' => 'هذا متاح في المجموعات فقط.',
         'group_full' => 'الحد الأقصى لأعضاء المجموعة :max عضو.',
-    'join_request_missing' => 'طلب الانضمام هذا لم يعد قيد الانتظار.',
+        'join_request_missing' => 'طلب الانضمام هذا لم يعد قيد الانتظار.',
         'leave_group_first' => 'اخرج من المجموعة قبل حذفها.',
         'empty_message' => 'الرسالة فارغة.',
         'attachment_required' => 'أرفق ملفاً لإرسال هذا النوع من الرسائل.',
@@ -246,6 +256,7 @@ return [
         'document' => '📄 مستند',
         'location' => '📍 موقع',
         'contact' => '👤 جهة اتصال',
+        'interactive' => '🔘 اختيارات',
         'poll' => '📊 استطلاع',
         'gif' => '🎞️ صورة متحركة',
         'sticker' => '💟 ملصق',
@@ -269,6 +280,8 @@ return [
     ],
 
     'push' => [
+        'call_link_joined_title' => 'حد دخل لينك مكالمتك',
+        'call_link_joined' => ':name دخل المكالمة — اضغط عشان تدخل',
         'silenced_call' => 'مكالمة صامتة — الرقم ده مش محفوظ عندك',
         'attention_digest_title' => '📬 ملخصك',
         'attention_digest_body' => ':messages رسالة في :chats محادثة مستنياك',
@@ -305,6 +318,10 @@ return [
     ],
 
     'system' => [
+        'community_created' => ':actor عمل المجتمع ":name"',
+        'group_added_to_community' => ':actor ضاف الجروب ده للمجتمع ":name"',
+        'group_removed_from_community' => 'الجروب ده مبقاش في المجتمع ":name"',
+        'member_joined_via_community' => ':actor دخل من المجتمع',
         'agreement_agreed' => '🤝 الكل وافق: ":name"',
         'decision_approved' => ':actor اعتمد القرار ":name"',
         'decision_rejected' => ':actor رفض القرار ":name"',

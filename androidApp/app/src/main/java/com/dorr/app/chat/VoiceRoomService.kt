@@ -54,7 +54,7 @@ class VoiceRoomService : Service() {
 
         val speaker = VoiceRoomController.room?.me?.role != "listener"
         val builder = NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(com.dorr.app.R.drawable.ic_stat_onesignal_default)
             .setContentTitle(VoiceRoomController.chatTitle ?: getString(R.string.vr_title))
             .setContentText(getString(if (!speaker) R.string.vr_note_listening else if (VoiceRoomController.micOn) R.string.vr_note_mic_on else R.string.vr_note_mic_off))
             .setOngoing(true)

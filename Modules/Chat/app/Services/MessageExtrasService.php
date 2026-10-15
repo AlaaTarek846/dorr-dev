@@ -51,6 +51,73 @@ class MessageExtrasService
     }
 
     /**
+     * An interactive message's choices (WhatsApp list 123–125): up to 3 short buttons, or a list of
+     * up to 10 (each with an optional line under it) opened from one button.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    public static function interactiveMeta(array $data): array
+    {
+        $kind = ($data['interactive_kind'] ?? 'buttons') === 'list' ? 'list' : 'buttons';
+        $descriptions = array_values((array) ($data['interactive_descriptions'] ?? []));
+        $options = [];
+        $seen = [];
+        foreach (array_values((array) ($data['interactive_options'] ?? [])) as $i => $title) {
+            $title = mb_substr(trim((string) $title), 0, $kind === 'list' ? 24 : 20);
+            if ($title === '' || isset($seen[mb_strtolower($title)])) {
+                continue;
+            }
+            $seen[mb_strtolower($title)] = true;
+            $description = $kind === 'list' ? mb_substr(trim((string) ($descriptions[$i] ?? '')), 0, 72) : '';
+            $options[] = ['id' => count($options) + 1, 'title' => $title] + ($description !== '' ? ['description' => $description] : []);
+        }
+
+        if ($options === [] || count($options) > ($kind === 'list' ? 10 : 3)) {
+            throw new ChatException('interactive_invalid', 422);
+        }
+
+        return array_filter([
+            'kind' => $kind,
+            'options' => $options,
+            'button' => $kind === 'list' ? (mb_substr(trim((string) ($data['interactive_button'] ?? '')), 0, 20) ?: null) : null,
+            'footer' => mb_substr(trim((string) ($data['interactive_footer'] ?? '')), 0, 60) ?: null,
+        ], fn ($v) => $v !== null);
+    }
+
+    /**
+     * Tap a button / pick from the list: my choice is kept (a new tap replaces it) and answers in
+     * the chat as a reply to that message, so the sender sees it like any message.
+     */
+    public function choose(Model $me, ChatMessage $message, int $optionId): ChatMessage
+    {
+        $participant = $this->conversations->participantOf($me, $message->conversation, true);
+        if ($message->type !== MessageType::Interactive || $message->isGone()) {
+            throw ChatException::messageDeleted();
+        }
+        if ($message->isFrom($participant->participant_type, (int) $participant->participant_id)) {
+            throw new ChatException('interactive_own', 422);
+        }
+        $option = collect((array) data_get($message->meta, 'options'))->firstWhere('id', $optionId);
+        if ($option === null) {
+            throw new ChatException('interactive_invalid', 422);
+        }
+
+        $reply = app(MessageService::class)->send($me, $message->conversation, [
+            'type' => MessageType::Text->value,
+            'body' => (string) $option['title'],
+            'reply_to' => $message->uuid,
+        ]);
+        DB::transaction(function () use ($message, $participant, $optionId, $reply) {
+            ChatPollVote::query()->where('message_id', $message->id)->where('participant_id', $participant->id)->delete();
+            ChatPollVote::query()->create(['message_id' => $message->id, 'participant_id' => $participant->id, 'option_id' => $optionId]);
+            $reply->update(['meta' => ['choice' => ['message_id' => $message->uuid, 'option_id' => $optionId]]]);
+        });
+
+        return $reply;
+    }
+
+    /**
      * Replace my answer. `[]` takes my vote back; one option only unless the poll allows many.
      *
      * @param  list<int>  $optionIds
@@ -96,7 +163,12 @@ class MessageExtrasService
     public function voters(Model $me, ChatMessage $message): array
     {
         $this->conversations->participantOf($me, $message->conversation);
-        $this->assertPoll($message);
+        // An interactive message's answers read the same way (its options carry a title).
+        if ($message->type === MessageType::Interactive && ! $message->isGone()) {
+            $message->meta = ['options' => collect((array) data_get($message->meta, 'options'))->map(fn ($o) => ['id' => $o['id'], 'text' => $o['title']])->all()];
+        } else {
+            $this->assertPoll($message);
+        }
 
         $votes = ChatPollVote::query()->where('message_id', $message->id)->orderBy('created_at')->get();
         $rows = ChatParticipant::query()->whereIn('id', $votes->pluck('participant_id')->unique())->get()->keyBy('id');

@@ -51,6 +51,14 @@ class LegalPageRepository extends TranslatableRepository
      * The active legal page of a given type for a service (or the general one
      * when no service is requested) — what the mobile apps show.
      */
+    /**
+     * The page in force for an action of a service (R-179): the service's own page, else the general one.
+     */
+    public function effectiveForType(string $type, ?int $serviceId): ?LegalPage
+    {
+        return ($serviceId !== null ? $this->activeForType($type, $serviceId) : null) ?? $this->activeForType($type);
+    }
+
     public function activeForType(string $type, ?int $serviceId = null): ?LegalPage
     {
         return $this->model->newQuery()

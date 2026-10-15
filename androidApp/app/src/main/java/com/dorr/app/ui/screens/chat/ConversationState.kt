@@ -369,6 +369,14 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 multiple = out.extra["poll_multiple"] == true,
                 options = (out.extra["poll_options"] as? List<*>).orEmpty().mapIndexed { i, text -> com.dorr.app.network.PollOptionDto(i + 1, text.toString()) },
             ) else null,
+            interactive = if (out.type == "interactive") com.dorr.app.network.InteractiveDto(
+                kind = out.extra["interactive_kind"]?.toString() ?: "buttons",
+                options = (out.extra["interactive_options"] as? List<*>).orEmpty().mapIndexed { i, title ->
+                    com.dorr.app.network.InteractiveOptionDto(i + 1, title.toString(), (out.extra["interactive_descriptions"] as? List<*>)?.getOrNull(i)?.toString()?.takeIf { it.isNotBlank() })
+                },
+                button = out.extra["interactive_button"]?.toString(),
+                footer = out.extra["interactive_footer"]?.toString(),
+            ) else null,
             payment = when (out.type) {
                 "money_request" -> com.dorr.app.network.PaymentDto(kind = "request", status = "pending", amountMinor = (out.extra["amount_minor"] as? Number)?.toLong() ?: 0, isRequester = true)
                 "bill_split" -> com.dorr.app.network.PaymentDto(kind = "split", status = "open", totalMinor = (out.extra["amount_minor"] as? Number)?.toLong() ?: 0, isRequester = true)
@@ -439,6 +447,26 @@ class ConversationState(val id: String, private val scope: CoroutineScope, priva
                 replaceMessage(message.id, message)
                 // Never silent: a vote that didn't count says why (it used to just spring back).
                 android.util.Log.w("DorrChat", "vote failed", e)
+                com.dorr.app.CrashReports.record(e)
+                host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
+            }
+        }
+    }
+
+    /**
+     * Tap a button / pick from a list (WhatsApp list 123–125): my pick shows at once, and my
+     * answer lands in the chat as a reply.
+     */
+    fun choose(message: UiMessage, optionId: Int) {
+        val ui = message.dto.interactive ?: return
+        replaceMessage(message.id, message.copy(dto = message.dto.copy(interactive = ui.copy(myChoice = optionId))))
+        scope.launch {
+            try {
+                ApiClient.chat.chooseOption(chatAuth(), message.id, mapOf("option_id" to optionId)).data?.let { reply -> replaceMessage(reply.id, UiMessage(reply)) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                replaceMessage(message.id, message)
                 com.dorr.app.CrashReports.record(e)
                 host.showToast(e.apiFailure().message ?: context.getString(com.dorr.app.R.string.ch_error_network))
             }

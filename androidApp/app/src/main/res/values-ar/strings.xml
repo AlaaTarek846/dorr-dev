@@ -58,6 +58,7 @@
     <string name="tab_items">الخدمات</string>
     <string name="tab_history">السجل</string>
     <string name="tab_account">الحساب</string>
+    <string name="tab_ai">المساعد</string>
 
     <string name="placeholder_title">قريباً</string>
     <string name="placeholder_body">سيتم إضافة شاشات هذا القسم لاحقاً.</string>
@@ -1358,5 +1359,7 @@
     <string name="ch_join_code_sub">دعوة لجروب أو قناة: اكتب الكود أو الصق اللينك</string>
     <string name="ch_join_code_go">انضم</string>
     <string name="ch_join_code_bad">ده مش كود أو لينك دعوة</string>
+    <string name="push_channel_messages">الرسايل</string>
+    <string name="push_channel_general">الإشعارات</string>
 
 </resources>

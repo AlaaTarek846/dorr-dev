@@ -12,9 +12,13 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('discover-settings', [DiscoverSettingController::class, 'show']);
         Route::put('discover-settings', [DiscoverSettingController::class, 'update']);
 
+        Route::post('discover-categories/delete-multiple', [DiscoverCategoryController::class, 'deleteMultiple']);
+        Route::put('discover-categories/reorder', [DiscoverCategoryController::class, 'reorder']);
         Route::patch('discover-categories/{discover_category}/status', [DiscoverCategoryController::class, 'status']);
         Route::apiResource('discover-categories', DiscoverCategoryController::class);
 
+        Route::post('discover-cities/delete-multiple', [DiscoverCityController::class, 'deleteMultiple']);
+        Route::put('discover-cities/reorder', [DiscoverCityController::class, 'reorder']);
         Route::patch('discover-cities/{discover_city}/status', [DiscoverCityController::class, 'status']);
         Route::apiResource('discover-cities', DiscoverCityController::class);
 
@@ -29,6 +33,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::post('discover-events/{event}', [DiscoverEventController::class, 'update']);
         Route::patch('discover-events/{event}/review', [DiscoverEventController::class, 'review']);
         Route::patch('discover-events/{event}/status', [DiscoverEventController::class, 'status']);
+        Route::post('discover-events/delete-multiple', [DiscoverEventController::class, 'deleteMultiple']);
         Route::delete('discover-events/{event}', [DiscoverEventController::class, 'destroy']);
     });
 });

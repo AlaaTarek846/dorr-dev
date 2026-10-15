@@ -290,7 +290,7 @@ fun PollVotesSheet(message: MessageDto, onDismiss: () -> Unit) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(Icons.Rounded.Poll, Ch.Red)
                 Spacer(Modifier.width(12.dp))
-                Text(message.poll?.question.orEmpty(), color = Ch.Ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(message.poll?.question ?: message.body.orEmpty(), color = Ch.Ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Spacer(Modifier.height(12.dp))
             val list = rows
@@ -781,7 +781,7 @@ fun JoinRequestsSheet(conversationId: String, onDismiss: () -> Unit, onChanged: 
 // =============================================================================== small shared bits
 
 @Composable
-private fun IconBadge(icon: ImageVector, color: Color, size: Int = 42) {
+internal fun IconBadge(icon: ImageVector, color: Color, size: Int = 42) {
     Box(Modifier.size(size.dp).clip(CircleShape).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
         Icon(icon, null, tint = color, modifier = Modifier.size((size * 0.52f).dp))
     }
@@ -798,7 +798,7 @@ private fun RoundIcon(icon: ImageVector, background: Color, tint: Color, onClick
 }
 
 @Composable
-private fun SheetField(value: String, hint: String, bold: Boolean = false, icon: ImageVector? = null, onChange: (String) -> Unit) {
+internal fun SheetField(value: String, hint: String, bold: Boolean = false, icon: ImageVector? = null, onChange: (String) -> Unit) {
     ChField(value, onChange, hint, icon = icon, bold = bold, singleLine = !bold, minLines = 1)
 }
 

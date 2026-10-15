@@ -161,6 +161,16 @@ fun ProfileScreen(
     onOpenWallet: () -> Unit,
     onAccountDeleted: () -> Unit = {},
 ) {
+    // The app font on every Account page (and its settings, support and address pages), as on the wallet.
+    com.dorr.app.ui.theme.ProvideAppFont { ProfileScreenContent(onLogout, onOpenWallet, onAccountDeleted) }
+}
+
+@Composable
+private fun ProfileScreenContent(
+    onLogout: () -> Unit,
+    onOpenWallet: () -> Unit,
+    onAccountDeleted: () -> Unit,
+) {
     var subScreen by remember { mutableStateOf(ProfileSub.NONE) }
     // A tapped support notification: open that ticket.
     var openTicketId by remember { mutableStateOf<Int?>(null) }

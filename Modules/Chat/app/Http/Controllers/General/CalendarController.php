@@ -112,6 +112,7 @@ class CalendarController extends Controller
 
         return $request->validate([
             'title' => [$sometimes, 'string', 'max:160'],
+            'category' => ['sometimes', Rule::in(ChatCalendarItem::CATEGORIES)],
             'all_day' => ['sometimes', 'boolean'],
             'starts_at' => ['nullable', 'date'],
             'ends_at' => ['nullable', 'date'],

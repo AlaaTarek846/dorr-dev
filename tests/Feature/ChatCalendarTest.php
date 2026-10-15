@@ -108,6 +108,29 @@ class ChatCalendarTest extends TestCase
         $this->getJson('/api/mobile/v1/chat/calendar?from=2026-01-01&to=2026-12-31', $this->headers())->assertStatus(422);
     }
 
+    public function test_an_appointment_has_a_kind_chosen_in_the_form(): void
+    {
+        $this->as($this->alice);
+
+        // No kind: a plain appointment. A match, a trip… comes back as chosen, and can be changed.
+        $this->postJson('/api/mobile/v1/chat/calendar/items', ['title' => 'Dinner', 'starts_at' => '2026-10-13 20:00'], $this->headers())
+            ->assertCreated()->assertJsonPath('data.category', 'appointment');
+        $id = $this->postJson('/api/mobile/v1/chat/calendar/items', ['title' => 'Derby night', 'category' => 'match', 'starts_at' => '2026-10-14 21:00'], $this->headers())
+            ->assertCreated()->assertJsonPath('data.category', 'match')->json('data.ref');
+
+        $this->patchJson("/api/mobile/v1/chat/calendar/items/{$id}", ['category' => 'event'], $this->headers())
+            ->assertOk()->assertJsonPath('data.category', 'event')->assertJsonPath('data.title', 'Derby night');
+        // Editing something else keeps the kind.
+        $this->patchJson("/api/mobile/v1/chat/calendar/items/{$id}", ['location' => 'Stadium'], $this->headers())
+            ->assertOk()->assertJsonPath('data.category', 'event');
+
+        $this->postJson('/api/mobile/v1/chat/calendar/items', ['title' => 'Odd', 'category' => 'banana', 'starts_at' => '2026-10-15 10:00'], $this->headers())->assertUnprocessable();
+
+        // The calendar carries it too.
+        $kinds = collect($this->getJson('/api/mobile/v1/chat/calendar?from=2026-10-12&to=2026-10-18', $this->headers())->json('data.items'))->pluck('category', 'title');
+        $this->assertSame(['Dinner' => 'appointment', 'Derby night' => 'event'], $kinds->only(['Dinner', 'Derby night'])->all());
+    }
+
     public function test_dorr_today_in_my_order_with_what_i_might_miss(): void
     {
         $this->as($this->alice);
@@ -122,6 +145,7 @@ class ChatCalendarTest extends TestCase
             ->assertJsonPath('data.date', '2026-10-12')
             ->assertJsonPath('data.sections.order.0', 'tasks')
             ->assertJsonPath('data.sections.hidden', ['reminders'])
+            ->assertJsonPath('data.sources', ['events', 'moments', 'personal', 'tasks', 'reminders', 'discover', 'sports'])
             ->assertJsonPath('data.next.title', 'Gym')
             ->assertJsonPath('data.tasks.0.title', 'Pay the rent')
             ->assertJsonPath('data.tasks.0.overdue', true)
@@ -149,6 +173,38 @@ class ChatCalendarTest extends TestCase
         $this->assertFalse($items->contains(fn ($i) => str_contains($i['title'], 'gossip')));
 
         $this->assertNotEmpty($this->getJson('/api/mobile/v1/chat/calendar/search?q=Eid', $this->headers())->json('data.items'));
+    }
+
+    public function test_search_follows_the_admins_switch_my_sources_and_orders_by_the_nearest(): void
+    {
+        $this->as($this->alice);
+        $h = $this->headers();
+        foreach ([['Dentist old', '2026-09-01 10:00'], ['Dentist later', '2026-12-01 09:00'], ['Dentist soon', '2026-10-13 15:00']] as [$title, $at]) {
+            $this->postJson('/api/mobile/v1/chat/calendar/items', ['title' => $title, 'starts_at' => $at], $h)->assertCreated();
+        }
+        $this->postJson('/api/mobile/v1/chat/tasks', ['tasks' => [['text' => 'Book the dentist', 'due_at' => '2026-10-20T09:00:00Z']]], $h)->assertCreated();
+
+        $search = fn (string $q) => collect($this->getJson('/api/mobile/v1/chat/calendar/search?q='.urlencode($q), $h)->assertOk()->json('data.items'));
+
+        // The nearest upcoming first, then the past.
+        $this->assertSame(['Dentist soon', 'Book the dentist', 'Dentist later', 'Dentist old'], $search('dentist')->pluck('title')->all());
+
+        // What I switched off in "what shows in my calendar" is not searched.
+        $this->putJson('/api/mobile/v1/chat/calendar/preferences', ['sources' => ['tasks' => false]], $h)->assertOk();
+        $this->assertNotContains('task', $search('dentist')->pluck('type')->all());
+        $this->putJson('/api/mobile/v1/chat/calendar/preferences', ['sources' => ['events' => false]], $h)->assertOk();
+        $this->assertSame([], $search('dentist')->all());
+        $this->putJson('/api/mobile/v1/chat/calendar/preferences', ['sources' => ['events' => true, 'tasks' => true]], $h)->assertOk();
+
+        // % and \ are what I typed, not wildcards.
+        $this->postJson('/api/mobile/v1/chat/calendar/items', ['title' => 'Save 100% now', 'starts_at' => '2026-10-14 10:00'], $h)->assertCreated();
+        $this->postJson('/api/mobile/v1/chat/calendar/items', ['title' => 'Save 1000 now', 'starts_at' => '2026-10-14 11:00'], $h)->assertCreated();
+        $this->assertSame(['Save 100% now'], $search('100%')->pluck('title')->all());
+        $this->assertSame([], $search(chr(92).'s')->all());
+
+        // The admin's switch: no calendar, no search.
+        ChatSetting::current()->update(['calendar_enabled' => false]);
+        $this->getJson('/api/mobile/v1/chat/calendar/search?q=dentist', $h)->assertOk()->assertJsonPath('data.enabled', false)->assertJsonPath('data.items', []);
     }
 
     public function test_smart_reminders_once_at_my_times_waiting_for_my_quiet_hours(): void

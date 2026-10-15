@@ -1,0 +1,23 @@
+{
+    "name": "nwidart/driver",
+    "description": "DORR drivers: their own account (driver_api), documents, vehicles, presence and location log.",
+    "authors": [],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {}
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Driver\\": "app/",
+            "Modules\\Driver\\Database\\Factories\\": "database/factories/",
+            "Modules\\Driver\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Driver\\Tests\\": "tests/"
+        }
+    }
+}

@@ -15,6 +15,15 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Completed Work
 
+### Chat — WhatsApp backlog, second batch (2026-10-12)
+- Status stickers, GIFs, text and drawing as layers (`style.layers`, `StoryLayers`).
+- Call links: `/call/{token}`, `chat_call_links`.
+- Screen sharing in calls (Android).
+- Reply buttons and lists: message type `interactive`, `POST messages/{id}/choose`.
+- Communities: `chat_communities`, `chat_groups.community_id`, `CommunityService`.
+- Migrations `2026_10_20_100000` and `2026_10_20_100100`.
+- See `docs/modules/chat/API.md`.
+
 ### Backend
 - Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
 - Shared catalog in `app/.../General/` (Country, Currency, Flag, Language, ServiceCategory, Faq, LegalPage, PlatformSetting)
@@ -54,6 +63,31 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Rides phase 3, booking ahead — done (2026-10-14):** backend (`ScheduledRideService`, captain reservations, reminders, start at lead time, waiting from the booked time), both apps and the admin ride page. 10 new tests (`RidesScheduledTest`). Spec status files: `docs/modules/Bookings/*_status.docx` (green done / red left). Then safety (SOS + family link + admin page, `RidesSafetyTest` 4) and changing the destination / adding a stop mid-trip (`RidesChangeTest` 4) — done the same day; 86 rides/driver tests pass. Next: the remaining red items in `docs/modules/Bookings/*_status.docx`.
+
+- **Rides plan (2026-10-13), no code yet:**
+  - The ride-hailing plan is in `docs/rides-plan.md`. It merges the client files in `docs/modules/Bookings/`, the Jawad app (trip cycle, pricing, VAT on commission, Wasl), and LeeTaxi.
+  - Owner decisions taken:
+    - The driver is its own account type, not a `Provider`: a new `Modules/Driver`, the `driver_api` guard and `/api/driver/v1/*`. Providers get a separate third app later.
+    - A separate driver app (store name proposed: DORR Captain).
+    - Google Maps, with navigation handed off to the Google Maps app.
+    - Pricing set per admin setting: upfront or metered. Open-destination trips are always metered.
+    - inDrive-style bidding.
+    - Multi-stop trips.
+    - An admin switch for every feature.
+    - The captain's location logged on the phone every 30 s for Wasl.
+    - In Saudi Arabia no captain goes online without Wasl approval.
+  - Open items are listed in §20.2 of the plan.
+  - Table structure: `docs/rides-structure.md`. Also decided: Wasl city names must match letter for letter (`ride_regulator_cities`, set by the admin; only Riyadh known); the ride chat ends with the ride and stays readable by admins; collected tax goes to its own category ("ضريبة التوصيل").
+  - **Phase 0 done:** `Modules/Driver` (account, `driver_api`, OTP), `Modules/Rides` (categories, feature switches, policies, tax, zones, Wasl city names, Google Routes), `audit_logs`, and `driverApp/` (separate driver app + shared `:core`). See `docs/modules/driver/README.md` and `docs/modules/rides/README.md`.
+  - **Needs:** `GOOGLE_MAPS_SERVER_KEY`; the official Wasl city list; the real prices.
+  - **Phase 1 backend core done (2026-10-14):** an Economy ride end to end on the server — quotes, request, dispatch (`rides:dispatch-tick` every 10 s), accept, arrived, PIN, start, stops, end (upfront or metered), wallet / cash payment, settlement (`rides:release-earnings` hourly), cancellations, no-show, ratings, driver earnings. APIs `mobile/v1/rides/*` and `driver/v1/{offers,rides,earnings}`; channel `rides.{uuid}`. Tests: `RidesFlowTest`.
+  - **Card payment and Wasl done (2026-10-14):** card rides go through the shared payment screen (checkout purpose `ride`, `ReservesFunds`); Wasl registration, daily eligibility, trips and locations as in Jawad, with no nationality exception. Tests: `RidesWaslTest`.
+  - **Apps (2026-10-14):** the DORR app's ride screens and the driver app (shift service, requests outside the app, sign-up, ride, earnings) — compile-checked, not yet tried on a phone. Admin → Rides has drivers and document types.
+  - **Admin complete (2026-10-14):** rides (story + Wasl resend), switches, categories, prices & rules, Wasl logs, reasons & tags, settings.
+  - **Phase 2, bidding (2026-10-14):** server, both apps and the admin ride page (`RidesBiddingTest`). Turn on with the `bidding` switch + `category.offers` and the «العروض» category, and price it in Prices & rules.
+  - Next: try the whole ride (instant and bidding) on two phones (needs the Android Maps key and a priced, switched-on city).
+- **Admin Chat occasions (2026-10-12):** `/admin/chat/moments` list matches flags (filters, checkboxes, bulk delete, status toast). Create/edit form fields match catalog (input-group, PrimeVue Select, toggles, card picker).
 - **Admin sidebar Chat (2026-10-12):** Chat admin links (reports, themes, settings, …) show only when the header service is Chat (`module_name=chat`), same pattern as AI. They are no longer listed under General.
 - **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
 - **Ratings (2026-10-08):** polymorphic `ratings` + mobile API (POST creates then updates the same row) + admin page + Android Play In-App Review; see CHANGELOG.

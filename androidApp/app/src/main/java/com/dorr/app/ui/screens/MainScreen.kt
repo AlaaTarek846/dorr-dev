@@ -34,7 +34,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.ui.graphics.RectangleShape
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.GridView
@@ -123,8 +124,10 @@ fun MainScreen(
     // Public stories on the home page — their own small chat host (viewer + composer).
     val homeStories = com.dorr.app.ui.screens.chat.rememberHomeStories()
     var serviceDetail by remember { mutableStateOf<Pair<ServiceDto, Color>?>(null) }
+    // Passenger rides open their own map screen, not the generic service page.
+    var ridesOpen by rememberSaveable { mutableStateOf(false) }
     val openServiceDetail: (ServiceDto, Color) -> Unit = { service, color ->
-        serviceDetail = service to color
+        if (service.moduleName == "passenger_ride") ridesOpen = true else serviceDetail = service to color
     }
 
     // A tapped notification: open the chat (the chat itself opens the conversation), or ring the call.
@@ -133,7 +136,7 @@ fun MainScreen(
         com.dorr.app.chat.ChatPush.deepLink.collect { link ->
             when (link) {
                 is com.dorr.app.chat.ChatDeepLink.Conversation -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
-                is com.dorr.app.chat.ChatDeepLink.ChatLink, is com.dorr.app.chat.ChatDeepLink.Join -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.ChatLink, is com.dorr.app.chat.ChatDeepLink.Join, is com.dorr.app.chat.ChatDeepLink.CallLink -> { walletOpen = false; calendarOpen = false; com.dorr.app.ui.screens.events.EventsLink.close(); chatOpen = true }
                 is com.dorr.app.chat.ChatDeepLink.Sports -> {
                     walletOpen = false
                     com.dorr.app.ui.screens.sports.SportsLink.show(link.matchId)
@@ -233,6 +236,7 @@ fun MainScreen(
 
     // The tab bar is hidden inside a chat, the AI assistant and the support conversation (they get the whole screen).
     val tabBarVisible = !aiChatOpen && !com.dorr.app.ui.screens.profile.SupportChatState.open && !(chatOpen && com.dorr.app.chat.ChatStore.immersive)
+    com.dorr.app.ui.theme.ProvideAppFont {
     Box(Modifier.fillMaxSize()) {
     Scaffold(
         containerColor = if (night) AccountDark.bg else MaterialTheme.colorScheme.background,
@@ -275,7 +279,7 @@ fun MainScreen(
             top = padding.calculateTopPadding(),
             // Only while the tab bar shows: without it the bottom padding is the system navigation bar itself, and the
             // page (a chat's text box) must stay above it, not run under it.
-            bottom = if (tabBarVisible) (padding.calculateBottomPadding() - BOTTOM_BAR_HEADROOM).coerceAtLeast(0.dp) else padding.calculateBottomPadding(),
+            bottom = padding.calculateBottomPadding(),
         )
         Box(Modifier.padding(contentPadding).consumeWindowInsets(padding)) {
             AnimatedContent(
@@ -393,7 +397,7 @@ fun MainScreen(
         enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
-        com.dorr.app.ui.screens.moments.MomentsScreen(onExit = { momentsOpen = false })
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.moments.MomentsScreen(onExit = { momentsOpen = false }) }
     }
 
     // DORR Calendar & DORR Today: my appointments, occasions, tasks and reminders.
@@ -411,7 +415,7 @@ fun MainScreen(
         enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
-        com.dorr.app.ui.screens.events.EventsScreen(onExit = { com.dorr.app.ui.screens.events.EventsLink.close() })
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.events.EventsScreen(onExit = { com.dorr.app.ui.screens.events.EventsLink.close() }) }
     }
 
     // DORR Sports: my teams, live scores, tables.
@@ -420,58 +424,32 @@ fun MainScreen(
         enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
         exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
     ) {
-        com.dorr.app.ui.screens.sports.SportsScreen(onExit = { com.dorr.app.ui.screens.sports.SportsLink.close() })
+        com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsScreen(onExit = { com.dorr.app.ui.screens.sports.SportsLink.close() }) }
     }
 
     // A public story being watched or written (from the home page's circles).
     com.dorr.app.ui.screens.chat.HomeStoriesLayer(homeStories)
 
+    // DORR Rides: booking and following a ride, on its own map (the payment screen opens over it).
+    AnimatedVisibility(
+        visible = ridesOpen,
+        enter = slideInVertically(animationSpec = tween(420, easing = FastOutSlowInEasing), initialOffsetY = { it }) + fadeIn(animationSpec = tween(320)),
+        exit = slideOutVertically(animationSpec = tween(340, easing = FastOutSlowInEasing), targetOffsetY = { it }) + fadeOut(animationSpec = tween(260)),
+    ) {
+        com.dorr.app.ui.screens.rides.RidesHost(onExit = { ridesOpen = false })
+    }
+
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
 
     // The goal moment and match banners, over anything (197, 198).
-    com.dorr.app.ui.screens.sports.SportsCelebrationHost()
+    com.dorr.app.ui.theme.ProvideAppFont { com.dorr.app.ui.screens.sports.SportsCelebrationHost() }
 
     // A call can ring over anything (it's the only chat screen that takes the whole display).
     com.dorr.app.ui.screens.chat.CallOverlay()
     }
-}
-
-/**
- * The bar's top edge: flat under the four tabs, and under the centre button a smooth well — like
- * a planet bending space-time, a bell curve with gentle shoulders and a round bottom. Only the
- * middle dips; the tabs sit on the flat part.
- */
-private fun gravityWellEdge(width: Float, top: Float, wellWidth: Float, depth: Float): androidx.compose.ui.graphics.Path {
-    val cx = width / 2f
-    val half = wellWidth / 2f
-    return androidx.compose.ui.graphics.Path().apply {
-        moveTo(0f, top)
-        lineTo(cx - half, top)
-        // Shoulder → slope → the round bottom of the well (two cubics per side keep it smooth).
-        cubicTo(cx - half * 0.62f, top, cx - half * 0.52f, top + depth, cx, top + depth)
-        cubicTo(cx + half * 0.52f, top + depth, cx + half * 0.62f, top, cx + half, top)
-        lineTo(width, top)
     }
 }
-
-private class GravityWellShape(private val wellWidth: Float, private val depth: Float) : androidx.compose.ui.graphics.Shape {
-    override fun createOutline(
-        size: androidx.compose.ui.geometry.Size,
-        layoutDirection: androidx.compose.ui.unit.LayoutDirection,
-        density: androidx.compose.ui.unit.Density,
-    ): androidx.compose.ui.graphics.Outline {
-        val path = gravityWellEdge(size.width, 0f, wellWidth, depth).apply {
-            lineTo(size.width, size.height)
-            lineTo(0f, size.height)
-            close()
-        }
-        return androidx.compose.ui.graphics.Outline.Generic(path)
-    }
-}
-
-/** The transparent band above the bottom bar that the centre button rises into. */
-private val BOTTOM_BAR_HEADROOM = 26.dp
 
 @Composable
 private fun DorrBottomNavigationBar(
@@ -482,143 +460,34 @@ private fun DorrBottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val barHeight = 64.dp
-    val fabSize = 54.dp
-    // Room above the bar for the button's top (it rises out of the well).
-    val headroom = BOTTOM_BAR_HEADROOM
-    val wellWidth = 156.dp
-    // The gap between the button and the bottom of the well.
-    val wellGap = 7.dp
     val night = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
-    val accountDark = night
-    val barColor = if (accountDark) AccountDark.bg else appearanceColor("background", Color.White, night = false)
-    val ringColor = barColor
+    val barColor = if (night) AccountDark.bg else appearanceColor("background", Color.White, night = false)
     val edgeColor = if (barColor.luminance() > 0.6f) Color.Black.copy(alpha = 0.07f) else Color.White.copy(alpha = 0.10f)
 
-    // Pressing the button makes the well a little deeper — the "planet" sinks in, then springs back.
-    val fabInteraction = remember { MutableInteractionSource() }
-    val pressed by fabInteraction.collectIsPressedAsState()
-    val depth by androidx.compose.animation.core.animateDpAsState(
-        if (pressed) 32.dp else 26.dp,
-        androidx.compose.animation.core.spring(dampingRatio = 0.42f, stiffness = 420f),
-        label = "wellDepth",
-    )
-    val density = androidx.compose.ui.platform.LocalDensity.current
-    val wellWidthPx = with(density) { wellWidth.toPx() }
-    val depthPx = with(density) { depth.toPx() }
-    val shape = remember(wellWidthPx, depthPx) { GravityWellShape(wellWidthPx, depthPx) }
-
-    Box(modifier = modifier.fillMaxWidth(), contentAlignment = Alignment.BottomCenter) {
-        Column(Modifier.fillMaxWidth()) {
-            Spacer(Modifier.height(headroom))
-            // The bar: its top edge dips under the button; a soft shadow and a hairline follow the curve.
-            Box(
-                Modifier
-                    .fillMaxWidth()
-                    .shadow(16.dp, shape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
-                    .background(barColor, shape)
-                    .drawBehind {
-                        drawPath(
-                            gravityWellEdge(size.width, 0f, wellWidthPx, depthPx),
-                            color = edgeColor,
-                            style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.dp.toPx()),
-                        )
-                    },
-            ) {
-                // 4 Tab items evenly distributed around the center FAB space
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .navigationBarsPadding()
-                        .height(barHeight)
-                        .padding(horizontal = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TabItem(
-                        tab = tabs[0],
-                        selected = currentTab == 0 && !walletOpen,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectTab(0) },
-                    )
-                    TabItem(
-                        tab = tabs[1],
-                        selected = currentTab == 1 && !walletOpen,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectTab(1) },
-                    )
-
-                    // The well's room: no tab here.
-                    Spacer(modifier = Modifier.width(wellWidth * 0.55f))
-
-                    TabItem(
-                        tab = tabs[2],
-                        selected = currentTab == 2 && !walletOpen,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectTab(2) },
-                    )
-                    TabItem(
-                        tab = tabs[3],
-                        selected = currentTab == 3 && !walletOpen,
-                        modifier = Modifier.weight(1f),
-                        onClick = { onSelectTab(3) },
-                    )
-                }
+    // A flat bar: Home, Services, the AI assistant (same size and level as the rest), History, Account.
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(16.dp, RectangleShape, ambientColor = Color.Black.copy(alpha = 0.10f), spotColor = Color.Black.copy(alpha = 0.10f))
+            .background(barColor)
+            .drawBehind {
+                drawLine(edgeColor, androidx.compose.ui.geometry.Offset(0f, 0f), androidx.compose.ui.geometry.Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
             }
-        }
-
-        // The button resting in the well (its bottom a small gap above the curve), with its glow.
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .offset(y = headroom + depth - wellGap - fabSize - 13.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            // Soft radial glow that diffuses onto the bar surface
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .background(
-                        brush = Brush.radialGradient(
-                            colors = listOf(
-                                settingsAccent().copy(alpha = 0.36f),
-                                settingsAccent().copy(alpha = 0.15f),
-                                settingsAccent().copy(alpha = 0.03f),
-                                Color.Transparent,
-                            ),
-                        ),
-                        shape = CircleShape,
-                    ),
-            )
-
-            // Circular button with a crisp ring in the bar's colour
-            Box(
-                modifier = Modifier
-                    .size(fabSize)
-                    .shadow(
-                        elevation = 8.dp,
-                        shape = CircleShape,
-                        spotColor = settingsAccent().copy(alpha = 0.40f),
-                        ambientColor = settingsAccent().copy(alpha = 0.18f),
-                    )
-                    .background(settingsAccent(), CircleShape)
-                    .border(3.5.dp, ringColor, CircleShape)
-                    .clip(CircleShape)
-                    .clickable(
-                        interactionSource = fabInteraction,
-                        indication = ripple(bounded = false, radius = 28.dp, color = Color.White),
-                        onClick = onFabClick,
-                    ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Add,
-                    contentDescription = stringResource(R.string.ai_fab_content_description),
-                    tint = Color.White,
-                    modifier = Modifier.size(24.dp),
-                )
-            }
-        }
+            .navigationBarsPadding()
+            .height(barHeight)
+            .padding(horizontal = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        TabItem(tab = tabs[0], selected = currentTab == 0 && !walletOpen, modifier = Modifier.weight(1f), onClick = { onSelectTab(0) })
+        TabItem(tab = tabs[1], selected = currentTab == 1 && !walletOpen, modifier = Modifier.weight(1f), onClick = { onSelectTab(1) })
+        // The AI assistant opens over the tabs, so it is never the "current" tab.
+        TabItem(tab = aiTab, selected = false, modifier = Modifier.weight(1f), onClick = onFabClick)
+        TabItem(tab = tabs[2], selected = currentTab == 2 && !walletOpen, modifier = Modifier.weight(1f), onClick = { onSelectTab(2) })
+        TabItem(tab = tabs[3], selected = currentTab == 3 && !walletOpen, modifier = Modifier.weight(1f), onClick = { onSelectTab(3) })
     }
 }
+
+private val aiTab = Tab(R.string.tab_ai, Icons.Rounded.AutoAwesome, Icons.Rounded.AutoAwesome)
 
 @Composable
 private fun TabItem(

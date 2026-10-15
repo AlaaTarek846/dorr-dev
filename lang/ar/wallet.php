@@ -77,6 +77,17 @@ return [
         'transfer_fee' => 'رسوم التحويل',
         'service_payment' => ':title',
         'reward' => 'جايزة: :title',
+        'ride_payment' => 'رحلة :number',
+        'ride_earning' => 'أرباح رحلة :number',
+        'ride_commission' => 'عمولة رحلة :number',
+        'ride_tax' => 'ضريبة رحلة :number',
+        'ride_cancel_fee' => 'رسوم إلغاء رحلة :number',
+        'ride_debt_collected' => 'دين اتحصّل في رحلة :number',
+        'ride_change' => 'باقي الكاش من رحلة :number',
+        'ride_tip' => 'إكرامية رحلة :number',
+        'ride_customer_fee' => 'رسوم خدمة رحلة :number',
+        'ride_payment_fee' => 'رسوم دفع رحلة :number',
+        'ride_discount' => 'خصم رحلة :number',
     ],
 
     'types' => [
@@ -94,6 +105,11 @@ return [
         'service_earning' => 'أرباح خدمة',
         'manual_adjustment' => 'تسوية يدوية',
         'reversal' => 'عكس عملية',
+        'commission' => 'عمولة التطبيق',
+        'tax' => 'ضريبة التوصيل',
+        'tip' => 'إكرامية',
+        'discount_compensation' => 'تعويض خصم',
+        'debt_settlement' => 'تسوية دين',
     ],
 
     'sandbox_page' => [

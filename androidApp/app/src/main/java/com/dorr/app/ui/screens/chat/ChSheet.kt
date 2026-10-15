@@ -81,6 +81,10 @@ internal fun ChSheet(
                 }
             }
         },
-        content = content,
+        // A sheet is a window of its own: it gets the app font like the page under it.
+        content = {
+            val sheet = this
+            com.dorr.app.ui.theme.ProvideAppFont { sheet.content() }
+        },
     )
 }

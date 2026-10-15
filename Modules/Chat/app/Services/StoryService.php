@@ -22,6 +22,9 @@ use Modules\Chat\Models\ChatStoryView;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 use Modules\Chat\Support\SharedMedia;
+use Modules\Chat\Support\StoryLayers;
+use Modules\User\Models\User;
+use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
  * Stories / Status (docs/chat-plan.md §10.1).
@@ -46,7 +49,7 @@ class StoryService
     /**
      * @param  array<string, mixed>  $data  type, body, style, duration_ms, allow_replies
      */
-    public function create(Model $owner, array $data, ?UploadedFile $file, ?\Spatie\MediaLibrary\MediaCollections\Models\Media $copyMedia = null): ChatStory
+    public function create(Model $owner, array $data, ?UploadedFile $file, ?Media $copyMedia = null): ChatStory
     {
         $settings = $this->assertEnabled();
         $type = $data['type'];
@@ -83,10 +86,14 @@ class StoryService
                 'type' => $type,
                 'body' => isset($data['body']) ? trim((string) $data['body']) ?: null : null,
                 'style' => match ($type) {
-                    'text' => $data['style'] ?? null,
+                    'text' => array_filter(['layers' => StoryLayers::clean($data['style']['layers'] ?? null)] + ($data['style'] ?? []), fn ($v) => $v !== null) ?: null,
                     // A voice status: its colour and its bars.
                     'voice' => array_filter(['background' => $data['style']['background'] ?? null, 'waveform' => $data['style']['waveform'] ?? null], fn ($v) => $v !== null) ?: null,
-                    default => null,
+                    // A photo / video: the shape of the picture and what was put on top of it.
+                    default => array_filter([
+                        'aspect' => isset($data['style']['aspect']) ? round((float) $data['style']['aspect'], 4) : null,
+                        'layers' => StoryLayers::clean($data['style']['layers'] ?? null),
+                    ], fn ($v) => $v !== null) ?: null,
                 },
                 'duration_ms' => in_array($type, ['video', 'voice'], true) ? ($data['duration_ms'] ?? null) : null,
                 'mentions' => $mentioned->map(fn (Model $m) => ParticipantType::key($m))->values()->all() ?: null,
@@ -488,16 +495,16 @@ class StoryService
      * The people I may mention: my saved contacts on DORR (at most ten), never myself.
      *
      * @param  list<int|string>  $userIds
-     * @return \Illuminate\Support\Collection<int, Model>
+     * @return Collection<int, Model>
      */
-    private function mentionable(Model $owner, array $userIds): \Illuminate\Support\Collection
+    private function mentionable(Model $owner, array $userIds): Collection
     {
         if ($userIds === []) {
             return collect();
         }
         $privacy = app(ChatPrivacy::class);
 
-        return \Modules\User\Models\User::query()->whereIn('id', array_slice(array_map('intval', $userIds), 0, 10))->get()
+        return User::query()->whereIn('id', array_slice(array_map('intval', $userIds), 0, 10))->get()
             ->reject(fn (Model $u) => ParticipantType::key($u) === ParticipantType::key($owner))
             ->filter(fn (Model $u) => $privacy->hasInContacts($owner, $u) && ! $privacy->isBlockedBetween($owner, $u))
             ->values();

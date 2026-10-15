@@ -24,7 +24,14 @@ interface ContentApi {
     @GET("mobile/v1/faqs")
     suspend fun getFaqs(): ApiEnvelope<List<FaqDto>>
 
-    /** GET /api/mobile/v1/legal-pages?type= — active general legal page (privacy/term) */
+    /**
+     * GET /api/mobile/v1/legal-pages?type= — active general legal page (privacy/term); with a service and
+     * `fallback` the page in force for that service (its own, else the general one — R-179).
+     */
     @GET("mobile/v1/legal-pages")
-    suspend fun getLegalPage(@Query("type") type: String = "privacy"): ApiEnvelope<LegalPageDto?>
+    suspend fun getLegalPage(
+        @Query("type") type: String = "privacy",
+        @Query("service_id") serviceId: Int? = null,
+        @Query("fallback") fallback: Int? = null,
+    ): ApiEnvelope<LegalPageDto?>
 }

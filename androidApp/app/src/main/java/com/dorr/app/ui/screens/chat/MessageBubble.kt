@@ -122,6 +122,8 @@ class BubbleActions(
     val onMessageContact: (String) -> Unit,
     val onVote: (UiMessage, Int) -> Unit = { _, _ -> },
     val onShowVotes: (MessageDto) -> Unit = {},
+    /** A reply button / list choice was tapped (WhatsApp list 123–125). */
+    val onChoose: (UiMessage, Int) -> Unit = { _, _ -> },
     val onOpenViewOnce: (UiMessage) -> Unit = {},
     val onStopLive: (UiMessage) -> Unit = {},
     /** A Dorr group invite link (dorr://chat/join/…) was tapped. */
@@ -402,6 +404,7 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
             Footer(m, mine, overlay = false)
         }
         "poll" -> PollCard(m, mine, onVote = { actions.onVote(m, it) }, onShowVotes = { actions.onShowVotes(dto) }) { Footer(m, mine, overlay = false) }
+        "interactive" -> InteractiveCard(m, mine, onChoose = { actions.onChoose(m, it) }, onShowAnswers = { actions.onShowVotes(dto) }) { Footer(m, mine, overlay = false) }
         // A greeting card (DORR Moments): the occasion's look, words, voices, photos, a gift.
         "moment_card" -> com.dorr.app.ui.screens.moments.MomentCardBubble(
             dto, mine, onOpenSealed = { actions.onOpenSealed(m) }, onOpenPhoto = { actions.onOpenMedia(dto, it) },
@@ -543,6 +546,12 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
             modifier = Modifier.padding(end = 62.dp, bottom = 2.dp),
             onClick = { offset ->
                 annotated.getStringAnnotations("url", offset, offset).firstOrNull()?.let { a ->
+                    // A call link: its sheet, right here.
+                    val callToken = callLinkTokenOf(a.item.trimEnd('.', ',', ')'))
+                    if (callToken != null) {
+                        chatHost.callLinkToken = callToken
+                        return@let
+                    }
                     // A Dorr group invite opens the join sheet right here, not a browser.
                     val invite = a.item.trimEnd('.', ',', ')').takeIf { it.startsWith("dorr://chat/join/") || Regex("^https?://[^/]+/j/[A-Za-z0-9]{8,64}$").matches(it) }
                     if (invite != null) {
