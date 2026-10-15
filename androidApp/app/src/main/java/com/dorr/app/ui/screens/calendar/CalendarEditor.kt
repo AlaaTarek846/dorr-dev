@@ -387,7 +387,7 @@ private fun SummaryLine(icon: ImageVector, text: String) {
 
 /** A select: the same pill as the other fields, with a down arrow; tapping opens the options under it. */
 @Composable
-private fun SelectRow(icon: ImageVector, value: String, open: Boolean, onOpen: (Boolean) -> Unit, menu: @Composable ColumnScope.() -> Unit) {
+internal fun SelectRow(icon: ImageVector, value: String, open: Boolean, onOpen: (Boolean) -> Unit, menu: @Composable ColumnScope.() -> Unit) {
     val dark = settingsNight()
     val density = androidx.compose.ui.platform.LocalDensity.current
     var fieldWidth by remember { mutableStateOf(0.dp) }

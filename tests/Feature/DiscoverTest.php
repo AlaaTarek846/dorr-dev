@@ -463,6 +463,23 @@ class DiscoverTest extends TestCase
         $this->assertCount(1, $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2&page=2", $this->headers())->json('data'));
     }
 
+    public function test_following_a_region_follows_its_cities_events_on_my_home(): void
+    {
+        $dubaiRegion = \App\Models\Region::query()->create(['country_id' => $this->emirates->id, 'status' => true, 'sort_order' => 1]);
+        $dubaiRegion->translations()->create(['locale' => 'en', 'name' => 'Dubai Emirate']);
+        $this->city('Dubai')->update(['region_id' => $dubaiRegion->id]);
+        $this->adminEvent('Dubai fair', 'Dubai', '2026-11-05 18:00', 'exhibitions');
+
+        $this->as($this->alice);
+        $followed = fn () => collect($this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertOk()->json('data.sections'))->keyBy('key');
+        $this->assertArrayNotHasKey('followed', $followed()->all());
+
+        $this->postJson('/api/mobile/v1/discover/follows', ['kind' => 'region', 'target_id' => 999999], $this->headers())->assertStatus(404);
+        $this->postJson('/api/mobile/v1/discover/follows', ['kind' => 'region', 'target_id' => $dubaiRegion->id], $this->headers())->assertOk()
+            ->assertJsonPath('data.0.kind', 'region')->assertJsonPath('data.0.name', 'Dubai Emirate');
+        $this->assertSame(['Dubai fair'], array_column($followed()['followed']['items'], 'title'));
+    }
+
     public function test_the_admin_removes_an_events_cover(): void
     {
         Storage::fake('public');

@@ -65,6 +65,8 @@
     <string name="cal_src_reminders">Message reminders</string>
     <string name="cal_default_reminders">Default reminders</string>
     <string name="cal_all_day_reminders">For all-day ones</string>
+    <string name="cal_default_reminders_sub">Used for every new appointment unless you pick others.</string>
+    <string name="cal_all_day_reminders_sub">Used for appointments that last the whole day.</string>
     <string name="cal_respect_quiet">Wait for my quiet hours</string>
     <string name="cal_respect_quiet_sub">Reminders during quiet hours come when they end.</string>
     <string name="cal_search_hint">Search appointments, tasks, occasions…</string>

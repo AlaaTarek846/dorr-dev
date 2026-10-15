@@ -1374,4 +1374,11 @@
     <string name="ev_place_apply">Apply</string>
     <string name="ev_place_none">Nothing on here yet</string>
     <string name="ev_list_end">That\'s everything</string>
+    <string name="ev_menu_interests_sub">The kinds Discover suggests</string>
+    <string name="ev_menu_alerts_sub">Don\'t-miss-it alerts and family-only</string>
+    <string name="ev_menu_follows_sub">Places whose events you follow</string>
+    <string name="ev_alert_days">Alert me before</string>
+    <string name="ev_pick_region">Follow a region</string>
+    <string name="ev_filter_title">Filter</string>
+    <string name="ev_when">When</string>
 </resources>

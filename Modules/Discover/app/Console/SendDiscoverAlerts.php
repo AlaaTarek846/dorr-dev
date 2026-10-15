@@ -66,6 +66,11 @@ class SendDiscoverAlerts extends Command
 
         $follows = DiscoverFollow::query()->where('owner_type', $prefs->owner_type)->where('owner_id', $prefs->owner_id)->get();
         $cityIds = $follows->where('kind', 'city')->pluck('target_id')->all();
+        // A followed region follows its cities.
+        $regionIds = $follows->where('kind', 'region')->pluck('target_id')->all();
+        if ($regionIds !== []) {
+            $cityIds = array_values(array_unique([...$cityIds, ...\Modules\Discover\Models\DiscoverCity::query()->whereIn('region_id', $regionIds)->pluck('id')->all()]));
+        }
         $countryIds = array_values(array_filter([...$follows->where('kind', 'country')->pluck('target_id')->all(), $owner->country_id ?? null]));
         if (! $settings->onIn($owner->country_id ?? null) && $cityIds === [] && $countryIds === []) {
             return false;

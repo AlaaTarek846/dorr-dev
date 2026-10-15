@@ -455,19 +455,28 @@ internal fun CalendarSettings(onBack: () -> Unit) {
             }
 
             CalSub.Reminders -> {
-                WaSectionTitle(stringResource(R.string.cal_default_reminders), Modifier.waRise(0), topPadding = 4.dp)
-                ReminderPicker(ReminderChoices, p.defaultReminders, false) { list ->
-                    change({ it.copy(defaultReminders = list) }, JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) })
-                }
-                Text(stringResource(R.string.cal_all_day_reminders), color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                ReminderPicker(AllDayChoices, p.allDayReminders, true) { list ->
-                    change({ it.copy(allDayReminders = list) }, JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                // Waiting for quiet hours comes first: it decides when every reminder below actually arrives.
+                SettingsToggleCard(Modifier.waRise(0)) {
+                    SettingsToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.cal_respect_quiet), stringResource(R.string.cal_respect_quiet_sub), p.respectQuiet, divider = false) { on ->
+                        change({ it.copy(respectQuiet = on) }, JsonObject().apply { addProperty("respect_quiet", on) })
+                    }
                 }
 
                 Spacer(Modifier.height(14.dp))
                 SettingsToggleCard(Modifier.waRise(1)) {
-                    SettingsToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.cal_respect_quiet), stringResource(R.string.cal_respect_quiet_sub), p.respectQuiet, divider = false) { on ->
-                        change({ it.copy(respectQuiet = on) }, JsonObject().apply { addProperty("respect_quiet", on) })
+                    ReminderSection(Icons.Rounded.Alarm, stringResource(R.string.cal_default_reminders), stringResource(R.string.cal_default_reminders_sub)) {
+                        ReminderPicker(ReminderChoices, p.defaultReminders, false) { list ->
+                            change({ it.copy(defaultReminders = list) }, JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                SettingsToggleCard(Modifier.waRise(2)) {
+                    ReminderSection(Icons.Rounded.Event, stringResource(R.string.cal_all_day_reminders), stringResource(R.string.cal_all_day_reminders_sub)) {
+                        ReminderPicker(AllDayChoices, p.allDayReminders, true) { list ->
+                            change({ it.copy(allDayReminders = list) }, JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                        }
                     }
                 }
             }
@@ -537,16 +546,30 @@ private fun SmallIcon(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) 
 
 /** A card of toggle rows — the notification settings' card. */
 @Composable
-private fun SettingsToggleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsToggleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp),
         content = content,
     )
 }
 
+/** A settings card section: icon well, title and one line of help, then its own content (the reminder chips). */
+@Composable
+private fun ReminderSection(icon: ImageVector, title: String, help: String, content: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+            Text(help, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+    Box(Modifier.padding(horizontal = 4.dp).padding(bottom = 12.dp)) { content() }
+}
+
 /** An icon, a title with one line of help, and the settings toggle; a thin line under it unless it is the last. */
 @Composable
-private fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, on: Boolean, divider: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, on: Boolean, divider: Boolean, onChange: (Boolean) -> Unit) {
     val dark = settingsNight()
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         PinkIcon(icon)
@@ -562,7 +585,7 @@ private fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, o
 
 /** One entry of the settings menu — same row as Account (icon well, 13.5/11 type, 14.dp card). */
 @Composable
-private fun CalSettingsRow(icon: ImageVector, title: Int, subtitle: Int, onClick: () -> Unit) {
+internal fun CalSettingsRow(icon: ImageVector, title: Int, subtitle: Int, onClick: () -> Unit) {
     val dark = settingsNight()
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val shape = RoundedCornerShape(14.dp)
