@@ -118,7 +118,13 @@ fun TripScreen(onDone: () -> Unit) {
             if (trip?.status != "completed") onDone()
         }
     }
-    LaunchedEffect(Unit) { while (true) { refresh(); delay(5000) } }
+    // The trip follows the server through real-time: one reload now, then whenever it changes for me.
+    LaunchedEffect(Unit) {
+        refresh()
+        com.dorr.driver.live.DriverLive.events.collect { e ->
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name == "ride.changed") refresh()
+        }
+    }
     BackHandler { onDone() }
 
     fun act(call: suspend (String) -> ApiResult<TripDto>) {
@@ -459,12 +465,16 @@ private fun TripChat(t: TripDto, onClose: () -> Unit) {
     var quick by remember { mutableStateOf<List<QuickDto>>(emptyList()) }
     var open by remember { mutableStateOf(true) }
     var text by remember { mutableStateOf("") }
-    LaunchedEffect(Unit) {
-        while (true) {
-            (apiCall { DriverBackend.api.messages(t.uuid) } as? ApiResult.Ok)?.data?.let { messages = it.messages; quick = it.quickReplies; open = it.open }
-            delay(3000)
+    // The chat: loaded once, then each message arrives on the ride's channel as it is sent.
+    LaunchedEffect(t.uuid) {
+        com.dorr.driver.live.DriverLive.watchRide(t.uuid)
+        suspend fun load() { (apiCall { DriverBackend.api.messages(t.uuid) } as? ApiResult.Ok)?.data?.let { messages = it.messages; quick = it.quickReplies; open = it.open } }
+        load()
+        com.dorr.driver.live.DriverLive.events.collect { e ->
+            if (e.name == "ride.message" || e.name == "ride.changed") load()
         }
     }
+    androidx.compose.runtime.DisposableEffect(t.uuid) { onDispose { com.dorr.driver.live.DriverLive.unwatchRide(t.uuid) } }
     fun send(body: String?, key: String?) {
         scope.launch {
             val payload = JsonObject().apply { body?.let { addProperty("body", it) }; key?.let { addProperty("quick", it) }; addProperty("client_id", UUID.randomUUID().toString()) }

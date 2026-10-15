@@ -100,8 +100,12 @@ fun ScheduledScreen(onBack: () -> Unit, onStarted: () -> Unit) {
         if (r is ApiResult.Failed) error = r.error.displayMessage
         if (r is ApiResult.Offline) error = context.getString(R.string.error_offline)
     }
-    // "Head out" turns on by itself when the time comes.
-    LaunchedEffect(tab) { while (tab == 1) { delay(30_000); refresh++ } }
+    // "Head out" turns on by itself when the time comes — by the phone's clock, no request; and a change of mine reloads the list.
+    LaunchedEffect(tab) {
+        com.dorr.driver.live.DriverLive.events.collect { e ->
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED) refresh++
+        }
+    }
 
     fun act(uuid: String, block: suspend () -> ApiResult<*>, after: (ApiResult<*>) -> Unit) {
         busy = uuid

@@ -107,11 +107,17 @@ internal fun BiddingPanel(state: RidesState, onCancel: () -> Unit) {
     var error by remember { mutableStateOf<String?>(null) }
     val myPrice = board.riderPriceMinor ?: ride.bidding?.riderPriceMinor ?: 0
 
+    // The offers arrive as they are made (`ride.changed` on the ride's channel); an offer whose timer ends
+    // is reloaded once at its own deadline — by the clock, not by asking.
+    suspend fun reload() { runCatching { ApiClient.rides.bids(ridesAuth(), ride.uuid).data }.getOrNull()?.let { board = it } }
     LaunchedEffect(ride.uuid) {
-        while (true) {
-            runCatching { ApiClient.rides.bids(ridesAuth(), ride.uuid).data }.getOrNull()?.let { board = it }
-            delay(2000)
-        }
+        reload()
+        com.dorr.app.chat.ChatRealtime.events.collect { e -> if (e.name == "ride.changed") reload() }
+    }
+    LaunchedEffect(board.bids.map { it.uuid to it.secondsLeft }) {
+        val next = board.bids.map { it.secondsLeft }.filter { it > 0 }.minOrNull() ?: return@LaunchedEffect
+        delay(next * 1000L + 1000L)
+        reload()
     }
 
     fun raise(by: Long) {

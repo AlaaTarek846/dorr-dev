@@ -10,6 +10,7 @@ import retrofit2.Response
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
+import retrofit2.http.HTTP
 import retrofit2.http.Header
 import retrofit2.http.Multipart
 import retrofit2.http.POST
@@ -17,6 +18,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Part
 import retrofit2.http.PartMap
 import retrofit2.http.Path
+import retrofit2.http.Query
 
 /** `/api/driver/v1/…` — the driver's own API (guard `driver_api`, Modules/Driver + Modules/Rides). */
 interface DriverApi {
@@ -38,6 +40,25 @@ interface DriverApi {
 
     @POST("driver/v1/notifications/devices")
     suspend fun registerDevice(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
+
+    @HTTP(method = "DELETE", path = "driver/v1/notifications/devices", hasBody = true)
+    suspend fun unregisterDevice(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
+
+    // ---------------------------------------------------------------- real-time + the notification list
+    @GET("driver/v1/realtime-config")
+    suspend fun realtimeConfig(): Response<ApiEnvelope<RealtimeConfigDto>>
+
+    @GET("driver/v1/notifications")
+    suspend fun notifications(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 30): Response<ApiEnvelope<List<NotificationDto>>>
+
+    @GET("driver/v1/notifications/unread-count")
+    suspend fun unreadCount(): Response<ApiEnvelope<UnreadCountDto>>
+
+    @POST("driver/v1/notifications/{id}/read")
+    suspend fun markRead(@Path("id") id: String): Response<ApiEnvelope<UnreadCountDto>>
+
+    @POST("driver/v1/notifications/read-all")
+    suspend fun markAllRead(): Response<ApiEnvelope<UnreadCountDto>>
 
     // ---------------------------------------------------------------- signing up
     @GET("driver/v1/onboarding")
@@ -113,6 +134,53 @@ interface DriverApi {
 
     @POST("driver/v1/rides/{uuid}/sos")
     suspend fun sos(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<SosDto>>
+
+    // ---------------------------------------------------------------- the captain's wallet (same wallet as the rider's)
+    @GET("driver/v1/wallet")
+    suspend fun wallet(): Response<ApiEnvelope<WalletDto>>
+
+    @GET("driver/v1/wallet/transactions")
+    suspend fun walletTransactions(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 25): Response<ApiEnvelope<List<WalletRowDto>>>
+
+    @GET("driver/v1/wallet/pin")
+    suspend fun walletPin(): Response<ApiEnvelope<WalletPinDto>>
+
+    @POST("driver/v1/wallet/pin")
+    suspend fun createWalletPin(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
+
+    @POST("driver/v1/wallet/pin/verify")
+    suspend fun verifyWalletPin(@Header("X-Wallet-Pin") pin: String): Response<ApiEnvelope<JsonElement>>
+
+    // Top-up with a card or a gateway — paid on the gateway's page; the result arrives as a real-time event.
+    @GET("driver/v1/wallet/payment-methods")
+    suspend fun paymentMethods(): Response<ApiEnvelope<List<PaymentMethodDto>>>
+
+    @POST("driver/v1/wallet/topups/quote")
+    suspend fun topupQuote(@Body body: JsonObject): Response<ApiEnvelope<TopupQuoteDto>>
+
+    @POST("driver/v1/wallet/topups")
+    suspend fun topup(@Header("X-Wallet-Pin") pin: String, @Header("Idempotency-Key") key: String, @Body body: JsonObject): Response<ApiEnvelope<TopupDto>>
+
+    @GET("driver/v1/wallet/topups/{uuid}")
+    suspend fun topupStatus(@Path("uuid") uuid: String): Response<ApiEnvelope<TopupDto>>
+
+    @POST("driver/v1/wallet/topups/{uuid}/confirm")
+    suspend fun confirmTopup(@Header("X-Wallet-Pin") pin: String, @Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<TopupDto>>
+
+    @GET("driver/v1/wallet/withdrawal-methods")
+    suspend fun withdrawalMethods(): Response<ApiEnvelope<List<WithdrawalMethodDto>>>
+
+    @POST("driver/v1/wallet/withdrawal-methods")
+    suspend fun addWithdrawalMethod(@Header("X-Wallet-Pin") pin: String, @Body body: JsonObject): Response<ApiEnvelope<WithdrawalMethodDto>>
+
+    @DELETE("driver/v1/wallet/withdrawal-methods/{id}")
+    suspend fun deleteWithdrawalMethod(@Path("id") id: Int): Response<ApiEnvelope<JsonElement>>
+
+    @GET("driver/v1/wallet/withdrawals")
+    suspend fun withdrawals(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 25): Response<ApiEnvelope<List<WithdrawalDto>>>
+
+    @POST("driver/v1/wallet/withdrawals")
+    suspend fun withdraw(@Header("X-Wallet-Pin") pin: String, @Header("Idempotency-Key") key: String, @Body body: JsonObject): Response<ApiEnvelope<WithdrawalDto>>
 
     // ---------------------------------------------------------------- the Safety Center (D-140..160)
     @GET("driver/v1/safety")

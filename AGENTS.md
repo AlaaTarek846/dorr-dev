@@ -63,6 +63,12 @@ Route → Controller → Service → Repository → Model
 
 ---
 
+## Modern, event-driven apps — no polling
+
+Owner's standing rule: mobile/web screens never ask the server on a timer (`while(true){delay(...)}`, Timer, periodic refresh). Use real-time (Pusher/Reverb events → one reload), push (OneSignal, high priority + ttl for urgent), the device clock for times already known, and one catch-up request on open / reconnect. Connection settings come from the server (`realtime-config`). Details: [docs/rides_tasks.md](docs/rides_tasks.md).
+
+---
+
 ## After Implementation
 
 1. Run `composer test` (and `npm run build` if frontend changed)

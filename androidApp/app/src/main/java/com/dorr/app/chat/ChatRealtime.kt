@@ -60,6 +60,10 @@ object ChatRealtime {
         "support.ticket.created", "support.message", "support.ticket.updated",
     )
 
+    /** A ride's private channel while its screen is open (`private-rides.{uuid}`): status, the car's place, its chat. */
+    val RIDE_EVENTS = listOf("ride.changed", "ride.message", "ride.driver_location")
+    private val watchedRides = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */
     private val publicChannels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
 
@@ -151,6 +155,7 @@ object ChatRealtime {
 
             client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
             publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
+            watchedRides.forEach { subscribeRide(client, it) }
         }
     }
 
@@ -160,6 +165,36 @@ object ChatRealtime {
      */
     fun watchPublic(channel: String, events: List<String>) {
         if (publicChannels.put(channel, events) == null) pusher?.let { subscribePublic(it, channel, events) }
+    }
+
+    /**
+     * Listen to one ride (`ride.changed`, `ride.message`, `ride.driver_location` arrive on [events]).
+     * Safe before the connection is up; the screens use this instead of asking the server on a timer.
+     */
+    fun watchRide(uuid: String) {
+        if (watchedRides.add(uuid)) pusher?.let { subscribeRide(it, uuid) }
+    }
+
+    fun unwatchRide(uuid: String) {
+        if (watchedRides.remove(uuid)) runCatching { pusher?.unsubscribe("private-rides.$uuid") }
+    }
+
+    private fun subscribeRide(client: Pusher, uuid: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-rides.$uuid") != null) return
+            client.subscribePrivate("private-rides.$uuid", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Ride channel auth failed: $message", e)
+                }
+            }, *RIDE_EVENTS.toTypedArray())
+        }.onFailure { Log.w(TAG, "Ride channel $uuid failed", it) }
     }
 
     fun unwatchPublic(channel: String) {
@@ -185,6 +220,7 @@ object ChatRealtime {
         heartbeat = null
         runCatching { pusher?.disconnect() }
         pusher = null
+        watchedRides.clear()
         userId = null
         starting = false
         _connected.value = false

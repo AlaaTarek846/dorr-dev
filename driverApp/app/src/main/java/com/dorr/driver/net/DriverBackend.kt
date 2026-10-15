@@ -27,12 +27,15 @@ object DriverBackend {
     /** Ticks each time the server answers 401 to a signed-in call. */
     val signedOut: StateFlow<Int> = _signedOut.asStateFlow()
 
+    fun isReady(): Boolean = ::session.isInitialized
+
     fun init(context: Context) {
         session = TokenStore(context, "driver_session")
         val client = CoreHttp.client(
             deviceId = { session.deviceId },
             token = { session.token },
             onUnauthorized = {
+                com.dorr.driver.live.DriverLive.stop()
                 session.clear()
                 _signedOut.value += 1
             },

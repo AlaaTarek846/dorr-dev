@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Event
@@ -82,7 +83,10 @@ import kotlinx.coroutines.launch
  * and — when they can't work yet — exactly why, with the way to fix it (sign-up, Wasl).
  */
 @Composable
-fun HomeScreen(onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenScheduled: () -> Unit, onOpenSafety: () -> Unit) {
+fun HomeScreen(
+    onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenScheduled: () -> Unit,
+    onOpenSafety: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var driver by remember { mutableStateOf<DriverDto?>(null) }
@@ -111,8 +115,14 @@ fun HomeScreen(onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: ()
         // Online on the server but the shift isn't running on this phone (rebooted…): start it again.
         if (presence?.status in setOf("online", "on_trip") && permissionsOk) Duty.start(context)
     }
-    // The presence follows the server every half minute (a paused / timed-out shift shows here).
-    LaunchedEffect(Unit) { while (true) { delay(30_000); (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data } } }
+    // The presence follows the server through real-time: any change for me (a paused / timed-out shift, a ride) reloads it.
+    LaunchedEffect(Unit) {
+        com.dorr.driver.live.DriverLive.events.collect { e ->
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.")) {
+                (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
+            }
+        }
+    }
 
     fun goOnline() {
         busy = true
@@ -159,11 +169,15 @@ fun HomeScreen(onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: ()
                         Text(String.format("%.1f", it), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                     }
                 }
+                // The bell: the unread count follows real-time.
+                NotificationBell(onClick = onOpenNotifications)
                 IconButton(onClick = {
                     scope.launch {
                         Duty.stop(context)
                         apiCall { DriverBackend.api.goOffline() }
+                        com.dorr.driver.live.DriverPush.signedOut()
                         apiCall { DriverBackend.api.logout() }
+                        com.dorr.driver.live.DriverLive.stop()
                         DriverBackend.session.clear()
                         onSignedOut()
                     }
@@ -235,6 +249,20 @@ fun HomeScreen(onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: ()
                             scope.launch { (apiCall { DriverBackend.api.lastRide(JsonObject().apply { addProperty("on", on) }) } as? ApiResult.Ok)?.let { presence = it.data } }
                         })
                     }
+                }
+            }
+            // The wallet: the balance, the statement, withdrawing the earnings.
+            Card(Modifier.clickable(onClick = onOpenWallet)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.success.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.AccountBalanceWallet, null, tint = DorrBrand.success)
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.wl_title), fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.wl_home_hint), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.Filled.ChevronRight, null)
                 }
             }
             // The Safety Center (D-140, D-381).
