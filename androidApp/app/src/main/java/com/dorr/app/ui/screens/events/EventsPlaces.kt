@@ -218,7 +218,7 @@ internal fun EvPlaceSheet(current: EvPlace, myCountryCode: String?, onApply: (Ev
         val list = EvPlaces.countries()
         countries = list
         // Nothing chosen yet: start from the country I'm in.
-        if (place.countryId == null) list.firstOrNull { it.code == myCountryCode }?.let { place = place.copy(countryId = it.id, countryName = it.name) }
+        if (place.countryId == null) list.firstOrNull { it.code == myCountryCode }?.let { place = place.copy(countryId = it.id, countryName = it.name?.takeIf { n -> n.isNotBlank() } ?: it.code) }
     }
     LaunchedEffect(place.countryId) {
         regions = null
@@ -229,14 +229,14 @@ internal fun EvPlaceSheet(current: EvPlace, myCountryCode: String?, onApply: (Ev
         place.regionId?.let { cities = EvPlaces.cities(it) }
     }
 
-    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
+    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), fullHeight = true) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 22.dp)) {
             Text(stringResource(R.string.ev_place_title), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(4.dp))
-            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
+            Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState())) {
                 PlaceStep(Icons.Rounded.Public, stringResource(R.string.ev_country), true, null) {
-                    ChoiceFlow(countries, place.countryId, { it.id }, { it.name.orEmpty() }) { c ->
-                        place = EvPlace(countryId = c.id, countryName = c.name)
+                    ChoiceFlow(countries, place.countryId, { it.id }, { it.name?.takeIf { n -> n.isNotBlank() } ?: it.code.orEmpty() }) { c ->
+                        place = EvPlace(countryId = c.id, countryName = c.name?.takeIf { n -> n.isNotBlank() } ?: c.code)
                     }
                 }
                 PlaceStep(Icons.Rounded.Map, stringResource(R.string.ev_region), place.countryId != null, stringResource(R.string.ev_pick_country_first)) {

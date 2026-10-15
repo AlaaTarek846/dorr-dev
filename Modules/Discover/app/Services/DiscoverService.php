@@ -458,7 +458,7 @@ class DiscoverService
 
         return Country::query()->whereIn('id', DiscoverCity::query()->where('status', true)->select('country_id'))->get()
             ->filter(fn (Country $c) => $settings->onIn($c->id))
-            ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName(), 'code' => $c->code])
+            ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName() ?: $c->code, 'code' => $c->code])
             ->values()->all();
     }
 
