@@ -7,11 +7,14 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.location.Location
+import android.location.LocationManager
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import android.os.Build
@@ -21,6 +24,7 @@ import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
 import com.dorr.driver.MainActivity
@@ -62,6 +66,8 @@ class DriverDutyService : Service() {
     private var locationJob: Job? = null
     private var callback: LocationCallback? = null
     private var lastFix: Location? = null
+    private var gpsReceiver: BroadcastReceiver? = null
+    private var gpsReported: Boolean? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -88,9 +94,25 @@ class DriverDutyService : Service() {
             locationJob = scope.launch { Duty.onTrip.collectLatest { onTrip -> track(onTrip) } }
             scope.launch { flushLoop() }
         }
+        // The phone's location switch is told to the server when it flips (D-44) — a captain with GPS off isn't offered requests.
+        if (gpsReceiver == null) {
+            val receiver = object : BroadcastReceiver() {
+                override fun onReceive(context: Context, intent: Intent) = reportGps()
+            }
+            ContextCompat.registerReceiver(this, receiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
+            gpsReceiver = receiver
+            reportGps()
+        }
         // Requests reach the shift through real-time and push, never by asking the server on a timer.
         com.dorr.driver.live.DriverLive.start(this)
         return START_STICKY
+    }
+
+    private fun reportGps() {
+        val on = LocationManagerCompat.isLocationEnabled(getSystemService(LocationManager::class.java))
+        if (on == gpsReported) return
+        gpsReported = on
+        scope.launch { apiCall { DriverBackend.api.gps(JsonObject().apply { addProperty("enabled", on) }) } }
     }
 
     @SuppressLint("MissingPermission")
@@ -140,6 +162,8 @@ class DriverDutyService : Service() {
     }
 
     override fun onDestroy() {
+        gpsReceiver?.let { runCatching { unregisterReceiver(it) } }
+        gpsReceiver = null
         callback?.let { LocationServices.getFusedLocationProviderClient(this).removeLocationUpdates(it) }
         scope.cancel()
         super.onDestroy()

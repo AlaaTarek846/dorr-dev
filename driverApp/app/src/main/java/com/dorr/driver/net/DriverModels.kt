@@ -579,3 +579,17 @@ data class PreferencesDto(
     @SerializedName("pickup_radius_max_m") val pickupRadiusMaxM: Int? = null,
     @SerializedName("auto_accept") val autoAccept: AutoAcceptDto = AutoAcceptDto(),
 )
+
+// ---------------------------------------------------------------- driving time (D-42, D-43)
+
+data class DrivingHoursDto(
+    val enabled: Boolean = false,
+    @SerializedName("window_h") val windowH: Int = 24,
+    @SerializedName("used_s") val usedS: Long = 0,
+    @SerializedName("warn_s") val warnS: Long = 0,
+    @SerializedName("max_s") val maxS: Long = 0,
+    @SerializedName("remaining_s") val remainingS: Long? = null,
+    /** ok | warn | limit */
+    val level: String = "ok",
+    @SerializedName("free_at") val freeAt: String? = null,
+)

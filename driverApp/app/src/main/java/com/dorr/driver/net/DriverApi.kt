@@ -108,8 +108,9 @@ interface DriverApi {
     @POST("driver/v1/presence/last-ride")
     suspend fun lastRide(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
 
+    // The server answers an empty list here, not a presence — read it as plain JSON.
     @POST("driver/v1/presence/gps")
-    suspend fun gps(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
+    suspend fun gps(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
 
     @POST("driver/v1/locations/batch")
     suspend fun locations(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
@@ -300,6 +301,9 @@ interface DriverApi {
 
     @GET("driver/v1/earnings")
     suspend fun earnings(): Response<ApiEnvelope<EarningsDto>>
+
+    @GET("driver/v1/driving-hours")
+    suspend fun drivingHours(): Response<ApiEnvelope<DrivingHoursDto>>
 
     // ---------------------------------------------------------------- driving preferences (D-32..D-37)
     @GET("driver/v1/preferences")

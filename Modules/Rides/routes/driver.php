@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use Modules\Rides\Http\Controllers\Driver\DriverAirportController;
+use Modules\Rides\Http\Controllers\Driver\DriverDrivingHoursController;
 use Modules\Rides\Http\Controllers\Driver\DriverEarningsController;
 use Modules\Rides\Http\Controllers\Driver\DriverPreferencesController;
 use Modules\Rides\Http\Controllers\RideChangeController;
@@ -27,6 +28,7 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::get('earnings/report', [DriverEarningsController::class, 'report']);
 
         // What the captain wants to be asked (D-32..D-37): categories, pickup range, Auto-Accept.
+        Route::get('driving-hours', DriverDrivingHoursController::class);
         Route::get('preferences', [DriverPreferencesController::class, 'show']);
         Route::put('preferences', [DriverPreferencesController::class, 'update']);
 

@@ -1,7 +1,13 @@
 package com.dorr.driver.ui
 
 import android.Manifest
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.location.LocationManager
+import android.provider.Settings
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -35,9 +41,11 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.GpsOff
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.PowerSettingsNew
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
@@ -46,6 +54,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -68,6 +77,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.core.location.LocationManagerCompat
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
 import com.dorr.core.ui.DorrBrand
@@ -76,6 +86,7 @@ import com.dorr.driver.duty.Duty
 import com.dorr.driver.net.AirportQueueDto
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.net.DriverDto
+import com.dorr.driver.net.DrivingHoursDto
 import com.dorr.driver.net.EarningsDto
 import com.dorr.driver.net.PresenceDto
 import com.google.gson.JsonObject
@@ -97,6 +108,7 @@ fun HomeScreen(
     var presence by remember { mutableStateOf<PresenceDto?>(null) }
     var earnings by remember { mutableStateOf<EarningsDto?>(null) }
     var airport by remember { mutableStateOf<AirportQueueDto?>(null) }
+    var driving by remember { mutableStateOf<DrivingHoursDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
@@ -110,6 +122,7 @@ fun HomeScreen(
         (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
         (apiCall { DriverBackend.api.earnings() } as? ApiResult.Ok)?.let { earnings = it.data }
         (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
+        (apiCall { DriverBackend.api.drivingHours() } as? ApiResult.Ok)?.let { driving = it.data }
         // A ride running (accepted from the notification, or the app was closed): straight to it.
         val current = apiCall { DriverBackend.api.currentRide() }
         if (current is ApiResult.Ok && current.data.isJsonObject && current.data.asJsonObject.has("uuid")) {
@@ -128,8 +141,22 @@ fun HomeScreen(
                 (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
                 // My place in the airport queue moves with the line.
                 (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
+                // The driving-time limit moves with the shift (a reminder, or being taken offline).
+                (apiCall { DriverBackend.api.drivingHours() } as? ApiResult.Ok)?.let { driving = it.data }
             }
         }
+    }
+
+    // The phone's location switch (D-44): the banner follows it as it flips, no asking.
+    var locationOn by remember { mutableStateOf(LocationManagerCompat.isLocationEnabled(context.getSystemService(LocationManager::class.java))) }
+    DisposableEffect(Unit) {
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context, intent: Intent) {
+                locationOn = LocationManagerCompat.isLocationEnabled(c.getSystemService(LocationManager::class.java))
+            }
+        }
+        ContextCompat.registerReceiver(context, receiver, IntentFilter(LocationManager.PROVIDERS_CHANGED_ACTION), ContextCompat.RECEIVER_NOT_EXPORTED)
+        onDispose { context.unregisterReceiver(receiver) }
     }
 
     // A break ends by the clock (D-41): one reload when it's due — no asking the server meanwhile.
@@ -230,7 +257,7 @@ fun HomeScreen(
         ) {
             // Why not, when they can't work — with the way out.
             val problem = presence?.reason
-            if (presence != null && !presence!!.canGoOnline && problem != null) {
+            if (presence != null && !presence!!.canGoOnline && problem != null && problem != "driving_limit") {
                 Card(Modifier.clickable(onClick = onOpenSignup)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.warning.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
@@ -272,6 +299,25 @@ fun HomeScreen(
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
 
+            // D-44: GPS off — nothing can be offered.
+            if (online && !locationOn) {
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.danger.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.GpsOff, null, tint = DorrBrand.danger)
+                        }
+                        Spacer(Modifier.size(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.gps_off_title), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.gps_off_body), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    BigButton(stringResource(R.string.gps_turn_on), color = DorrBrand.danger) { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
+                }
+            }
+            // D-42, D-43: the driving-time limit — how much is used, a reminder, and when they can work again.
+            driving?.takeIf { it.enabled }?.let { DrivingTimeCard(it) }
             // D-41: a break — no requests until it ends, then online again by itself.
             val breakEnd = instantOf(presence?.pausedUntil)
             val onBreak = presence?.status == "paused" && (breakEnd == null || breakEnd.isAfter(java.time.Instant.now()))
@@ -442,5 +488,42 @@ private fun OnlineButton(online: Boolean, enabled: Boolean, busy: Boolean, onCli
                 )
             }
         }
+    }
+}
+
+/** Driving time in the last window against the country's limit: a bar, the words for where they stand, and when work resumes. */
+@Composable
+private fun DrivingTimeCard(d: DrivingHoursDto) {
+    val context = LocalContext.current
+    val limit = if (d.maxS > 0) d.maxS else d.warnS
+    val color = when (d.level) { "limit" -> DorrBrand.danger; "warn" -> DorrBrand.warning; else -> DorrBrand.success }
+    fun hours(s: Long) = context.getString(R.string.earn_hours, (s / 3600).toInt(), ((s % 3600) / 60).toInt())
+    Card {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.size(44.dp).clip(CircleShape).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Schedule, null, tint = color)
+            }
+            Spacer(Modifier.size(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(stringResource(R.string.dh_title, d.windowH), fontWeight = FontWeight.Bold)
+                // The state in words as well as colour.
+                Text(
+                    when (d.level) {
+                        "limit" -> d.freeAt?.let { instantOf(it) }?.let { stringResource(R.string.dh_limit_until, timeOfDay(it)) } ?: stringResource(R.string.dh_limit)
+                        "warn" -> stringResource(R.string.dh_warn)
+                        else -> stringResource(R.string.dh_ok)
+                    },
+                    fontSize = 13.sp, color = color, fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(color.copy(alpha = 0.15f))) {
+            Box(Modifier.fillMaxWidth((d.usedS.toFloat() / limit.coerceAtLeast(1)).coerceIn(0.02f, 1f)).height(8.dp).clip(CircleShape).background(color))
+        }
+        Text(
+            if (d.maxS > 0) stringResource(R.string.dh_of, hours(d.usedS), hours(d.maxS)) else hours(d.usedS),
+            fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), modifier = Modifier.padding(top = 6.dp),
+        )
     }
 }

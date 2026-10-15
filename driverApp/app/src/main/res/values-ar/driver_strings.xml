@@ -422,4 +422,15 @@
     <string name="br_title">أنت في استراحة</string>
     <string name="br_until">لا طلبات حتى %1$s</string>
     <string name="br_back">العودة الآن</string>
+    <!-- وقت القيادة وحالة GPS (D-42, D-43, D-44) -->
+    <string name="problem_driving_limit">بلغت حد وقت القيادة</string>
+    <string name="dh_title">وقت القيادة (آخر %1$d ساعة)</string>
+    <string name="dh_of">%1$s من %2$s</string>
+    <string name="dh_ok">ضمن الحد</string>
+    <string name="dh_warn">تقترب من الحد — خطّط لاستراحة</string>
+    <string name="dh_limit">بلغت الحد — لا طلبات حتى يمضي جزء منه</string>
+    <string name="dh_limit_until">بلغت الحد — تستطيع العمل مجدداً نحو %1$s</string>
+    <string name="gps_off_title">الموقع مقفول</string>
+    <string name="gps_off_body">لا تصلك طلبات بدون موقعك. شغّله لتكمل.</string>
+    <string name="gps_turn_on">شغّل الموقع</string>
 </resources>

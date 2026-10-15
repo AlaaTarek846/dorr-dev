@@ -186,6 +186,12 @@ Four steps, as in the idea: **(1)** the rider switches "Ask my favorite captains
 - **App (captain):** `PreferencesScreen.kt` (category pills, range pills, the Auto-Accept card with its rules, price and payment rules shown only where allowed), a Home card and the break card.
 - **Not here:** Destination Filter / "I'm with you" (D-38, D-39), driving-hour limits (D-42, D-43), the demand heat map (D-29..D-31) — still to do.
 
+## Driving time and the GPS state (D-42, D-43, D-44; `Services/Drivers/DrivingHours`, command `rides:driving-hours`)
+- **What is counted:** the time the captain was online in the last `driving.window_h` hours (24), from `driver_presence_sessions` (clipped to the window). **Every limit is the country's policy and 0 = off**: `driving.warn_s` (a rest reminder) and `driving.max_s` (the mandatory limit). Nothing is limited until they are set (Admin → Prices & rules → Driving time). A break (pause) keeps the session open, so it counts as online time; going offline is the rest (NEEDS-DECISION if a break should count as rest).
+- **Reminder (D-42):** `rides:driving-hours` (every minute) sends `ride.driving_warn` once per window to anyone online past `warn_s`; the captain app's Home shows a Driving-time card (bar + words: within the limit / getting close / limit reached) from `GET driver/v1/driving-hours` → `{enabled, window_h, used_s, warn_s, max_s, remaining_s, level: ok|warn|limit, free_at}`.
+- **Mandatory limit (D-43):** at `max_s` `DriverEligibility::reasonNotToWork` says `driving_limit` — going online is refused (`driver_cannot_go_online`), no new requests are offered, and the same command takes a captain with **no ride running** offline (session end reason `driving_limit`) and tells them (`ride.driving_limit`); a ride in progress finishes first. `free_at` is exact: the moment enough of the oldest time has slid out of the window to be under the limit again. Everyone's app reloads on `driver.changed` (event `driving_hours`).
+- **GPS (D-44):** the captain app's duty service reports the phone's location switch to `POST presence/gps` when it flips (the server already keeps a `gps_enabled=false` captain out of dispatch); Home shows a "Location is off" card with a button to the location settings. A weak signal (poor accuracy) is not handled yet.
+
 ## Changing the trip during the ride (`RideChangeService`, `ride_change_requests`)
 R-91..95, D-131..137, wireflow 6أ / 6ب / 6ج. Switch `change_destination` (one more stop: `multi_stop`). Not for open-destination rides; one at a time.
 1. **Preview** `POST mobile/v1/rides/{uuid}/changes {type: destination|add_stop, lat, lng, address}` → the new route (origin → stops → destination) and `distance_delta_m`, `duration_delta_s`, `price_delta_minor`, `new_total_minor` — nothing changes yet (lives 3 minutes).
@@ -232,6 +238,7 @@ Driver (`driver_api`, prefix `driver/v1`):
 | POST | `rides/{uuid}/cancel` · `no-show` · `rate` | `reason_id` · — · `stars`, `tags?`, `comment?` | |
 | GET | `airport-queue` · `restricted-zones` · POST `airport-queue/join` · `airport-queue/leave` | | The airport queue and restricted areas (D-276..D-283) |
 | GET | `earnings` | | Today / week / month, the last 7 days, pending earnings, wallet, rating, points |
+| GET | `driving-hours` | | Driving time used in the window against the country's warning and mandatory limits (D-42, D-43) |
 | GET · PUT | `preferences` | `categories?`, `pickup_radius_m?`, `auto_accept?{enabled, max_pickup_m, min_fare_minor, min_per_km_minor, payment_methods}` | Driving preferences and Auto-Accept (D-32..D-37) |
 | GET | `earnings/report` | `period` (`3m`/`6m`/`9m`/`12m`/`custom`), `from`, `to` | The period's totals, the period before it, the change (value, basis points, direction) and the series |
 | GET | `wallet/transactions/{uuid}` | | One statement row in full: its ride, the other rows of the same operation, reversed or not |
@@ -258,6 +265,8 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 
 ## Tests
 `RidesSavedPlacesTest` (2): Home, Work, favourites and recent destinations in one call (only completed rides, one per place, saved ones left out, policy limits, others' addresses never shown); nothing without the switch or any places.
+
+`RidesDrivingHoursTest` (5): no limits until the country sets them; the window counting stretches clipped at its start and the ok / warn levels; the rest reminder sent once per window and not to a rested captain; over the limit — the level, `free_at`, `driving_limit` as the reason, the sweep taking them offline and the refusal to go online until the limit is lifted; a ride in progress finishing before the captain is taken offline.
 
 `RidesDriverPreferencesTest` (5): categories picked, kept as "all" when everything is on, never empty or unknown, and a ride in a switched-off category not reaching the captain; the pickup range keeping a far request away until widened (and refused above the search's maximum); Auto-Accept needing its switch, taking the request that fits at once (ride accepted, offer accepted, a notification, current ride) and ringing the captain whose pickup limit it exceeds; the price (net and per km) and payment filters refused until the policy allows them and then honoured; the switch turned off later stopping it while the captain's own setting stays.
 

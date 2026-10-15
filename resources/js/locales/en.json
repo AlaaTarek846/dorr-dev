@@ -4329,6 +4329,7 @@
                 "circle": "DORR Circle",
                 "earnings": "Earnings report",
                 "auto_accept": "Auto-Accept",
+                "driving": "Driving time",
                 "places": "Saved places",
                 "stops": "Stops",
                 "open_destination": "No destination",
@@ -4437,7 +4438,10 @@
                 "places__favorites_max": "Favourite places offered as shortcuts",
                 "earnings__report_max_days": "Longest custom range in the earnings report (days)",
                 "auto_accept__price_filter": "Captains may set a minimum fare / per-km for Auto-Accept",
-                "auto_accept__payment_filter": "Captains may pick the payment methods Auto-Accept takes"
+                "auto_accept__payment_filter": "Captains may pick the payment methods Auto-Accept takes",
+                "driving__window_h": "Driving time is counted over the last (hours)",
+                "driving__warn_s": "Rest reminder after this much time online (0 = none)",
+                "driving__max_s": "Mandatory limit: no going online / new requests at this much (0 = no limit)"
             }
         },
         "safety": {

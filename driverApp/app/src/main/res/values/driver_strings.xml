@@ -422,4 +422,15 @@
     <string name="br_title">You are on a break</string>
     <string name="br_until">No requests until %1$s</string>
     <string name="br_back">Back online now</string>
+    <!-- Driving time and GPS (D-42, D-43, D-44) -->
+    <string name="problem_driving_limit">You reached the driving-time limit</string>
+    <string name="dh_title">Driving time (last %1$d h)</string>
+    <string name="dh_of">%1$s of %2$s</string>
+    <string name="dh_ok">Within the limit</string>
+    <string name="dh_warn">Getting close — plan a rest</string>
+    <string name="dh_limit">Limit reached — no requests until some of it passes</string>
+    <string name="dh_limit_until">Limit reached — you can work again around %1$s</string>
+    <string name="gps_off_title">Location is off</string>
+    <string name="gps_off_body">You can\'t get requests without your location. Turn it on to carry on.</string>
+    <string name="gps_turn_on">Turn location on</string>
 </resources>

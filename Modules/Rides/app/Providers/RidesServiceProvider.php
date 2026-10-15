@@ -9,6 +9,7 @@ use Modules\Driver\Contracts\DriverWorkGate;
 use Modules\Driver\Events\DriverLocationUpdated;
 use Modules\Driver\Models\Driver;
 use Modules\Rides\Console\DispatchTick;
+use Modules\Rides\Console\DrivingHoursSweep;
 use Modules\Rides\Console\ReleaseEarnings;
 use Modules\Rides\Console\WaslEligibility;
 use Modules\Rides\Console\WaslLocations;
@@ -47,6 +48,7 @@ class RidesServiceProvider extends ModuleServiceProvider
      */
     protected array $commands = [
         DispatchTick::class,
+        DrivingHoursSweep::class,
         ReleaseEarnings::class,
         WaslTrips::class,
         WaslLocations::class,
@@ -89,6 +91,8 @@ class RidesServiceProvider extends ModuleServiceProvider
         // Jawad's dispatch rounds are 10 s apart (`search.round_interval_s`).
         $schedule->command(DispatchTick::class)->everyTenSeconds()->withoutOverlapping();
         $schedule->command(ReleaseEarnings::class)->hourly()->withoutOverlapping();
+        // Driving-time reminders and the mandatory limit (D-42, D-43).
+        $schedule->command(DrivingHoursSweep::class)->everyMinute()->withoutOverlapping();
 
         // Wasl (Jawad's schedule): trips and locations every minute, eligibility daily at 00:01 Riyadh.
         $schedule->command(WaslTrips::class)->everyMinute()->withoutOverlapping();
