@@ -54,9 +54,10 @@ return new class extends Migration
             $table->timestamp('first_recorded_at', 3)->nullable();
             $table->timestamp('last_recorded_at', 3)->nullable();
             $table->integer('clock_offset_ms')->default(0)->comment('فرق ساعة الموبايل عن السيرفر');
-            $table->timestamp('received_at');
+            $table->timestamp('received_at')->useCurrent();
             $table->unique(['driver_id', 'batch_uuid']);
         });
+//
 
         // Append-only (evidence for disputes and for Wasl): no updated_at, no cascade from the driver.
         Schema::create('driver_location_log', function (Blueprint $table) {
