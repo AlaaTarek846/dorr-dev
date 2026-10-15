@@ -61,7 +61,6 @@ import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.TextStyle
-import java.util.Locale
 
 // =============================================================================== recent apps
 
@@ -209,7 +208,7 @@ private fun PrivacyScheduleSheet(privacy: PrivacyDto, onDismiss: () -> Unit, qui
                     val on = d in days
                     val bg by animateColorAsState(if (on) Ch.Red else Ch.SurfaceMuted, label = "day")
                     Box(Modifier.size(40.dp).clip(CircleShape).background(bg).clickable { if (on) days.remove(d) else days.add(d) }, contentAlignment = Alignment.Center) {
-                        Text(DayOfWeek.of(if (d == 0) 7 else d).getDisplayName(TextStyle.NARROW, Locale.getDefault()), color = if (on) Color.White else Ch.Ink, fontWeight = FontWeight.Bold)
+                        Text(DayOfWeek.of(if (d == 0) 7 else d).getDisplayName(TextStyle.NARROW, com.dorr.app.network.AppLocale.java()), color = if (on) Color.White else Ch.Ink, fontWeight = FontWeight.Bold)
                     }
                 }
             }
@@ -263,19 +262,22 @@ private fun TimeBox(label: String, time: String, modifier: Modifier, onClick: ()
 /** "While you were private: 5 messages in 2 chats" (spec 113). */
 @Composable
 internal fun PrivacySummaryDialog(summary: PrivacySummaryDto, onDismiss: () -> Unit) {
+    val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Ch.Surface,
-        icon = { Icon(Icons.Rounded.Shield, null, tint = Ch.Red) },
-        title = { Text(stringResource(R.string.ch_privacy_summary_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) },
+        icon = { locale.Provide { Icon(Icons.Rounded.Shield, null, tint = Ch.Red) } },
+        title = { locale.Provide { Text(stringResource(R.string.ch_privacy_summary_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) } },
         text = {
-            Text(
-                if (summary.messages == 0) stringResource(R.string.ch_privacy_summary_none)
-                else stringResource(R.string.ch_privacy_summary, summary.messages, summary.conversations),
-                color = Ch.Mut,
-            )
+            locale.Provide {
+                Text(
+                    if (summary.messages == 0) stringResource(R.string.ch_privacy_summary_none)
+                    else stringResource(R.string.ch_privacy_summary, summary.messages, summary.conversations),
+                    color = Ch.Mut,
+                )
+            }
         },
-        confirmButton = { TextButton(onDismiss) { Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold) } },
+        confirmButton = { locale.Provide { TextButton(onDismiss) { Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold) } } },
     )
 }
 

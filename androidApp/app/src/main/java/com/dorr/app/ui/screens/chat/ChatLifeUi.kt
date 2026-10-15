@@ -79,7 +79,6 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /*
  * Daily intelligence in the chat, batch A (spec 148, 149, 152, 154): "turn it into…" on any
@@ -96,7 +95,7 @@ private val LifeGreen = Color(0xFF16A34A)
 private val LifePurple = Color(0xFF7C3AED)
 
 internal fun lifeWhen(iso: String?): String? = iso?.let {
-    runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", Locale.getDefault())) }.getOrNull()
+    runCatching { Instant.parse(it).atZone(ZoneId.systemDefault()).format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", com.dorr.app.network.AppLocale.java())) }.getOrNull()
 }
 
 @Composable

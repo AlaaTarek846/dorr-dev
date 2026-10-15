@@ -64,8 +64,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
@@ -350,7 +350,7 @@ private fun ColorPickerDialog(initial: String, onConfirm: (String) -> Unit, onDi
     val color = hsvColor(hue, sat, value)
     val rgb = color.toRgb()
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             modifier = Modifier
                 .fillMaxSize()

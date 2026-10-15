@@ -60,7 +60,8 @@ import com.dorr.app.ui.theme.appearanceColor
  * as tall as its content plus padding.
  *
  * [icon] draws the leading icon; [password] hides the text and adds an eye to show it. [label] is a
- * small caption above the field (never a floating label, which squashes layouts).
+ * small caption above the field (never a floating label, which squashes layouts). [onClick] makes
+ * the pill a tap target (date / time pickers) without opening the keyboard — same look as typing.
  */
 @Composable
 fun DorrTextField(
@@ -78,6 +79,7 @@ fun DorrTextField(
     minLines: Int = 1,
     error: Boolean = false,
     enabled: Boolean = true,
+    onClick: (() -> Unit)? = null,
     minHeight: Dp = 46.dp,
     shape: Shape? = null,
     containerColor: Color? = null,
@@ -106,6 +108,7 @@ fun DorrTextField(
         tween(200), label = "fieldBorder",
     )
     val iconTint by animateColorAsState(if (error) danger else if (focused) accent else accent.copy(alpha = 0.8f), tween(200), label = "fieldIcon")
+    val typing = enabled && onClick == null
 
     Column(modifier) {
         if (label != null) {
@@ -114,7 +117,7 @@ fun DorrTextField(
         BasicTextField(
             value = value,
             onValueChange = onValueChange,
-            enabled = enabled,
+            enabled = typing,
             singleLine = singleLine,
             minLines = minLines,
             keyboardOptions = keyboardOptions,
@@ -130,6 +133,7 @@ fun DorrTextField(
                         .clip(fieldShape)
                         .background(fill)
                         .border(if (focused || error) 1.5.dp else 1.dp, borderColor, fieldShape)
+                        .then(if (onClick != null && enabled) Modifier.clickable(onClick = onClick) else Modifier)
                         .padding(horizontal = 14.dp, vertical = if (singleLine) 8.dp else 12.dp),
                     verticalAlignment = if (singleLine) Alignment.CenterVertically else Alignment.Top,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

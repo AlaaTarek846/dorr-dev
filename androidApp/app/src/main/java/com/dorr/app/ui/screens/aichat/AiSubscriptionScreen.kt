@@ -45,7 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.R
 import com.dorr.app.network.AiAutoRenewRequestDto
 import com.dorr.app.network.AiChangePlanRequestDto
@@ -445,7 +445,7 @@ internal fun AiWalletPinSheet(
     onDismiss: () -> Unit,
     onSubmit: suspend (String) -> PadResult,
 ) {
-    Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         val surface = if (night) Ai.surfaceDark else Ai.surfaceLight
         Column(Modifier.clip(RoundedCornerShape(24.dp)).background(surface).padding(vertical = 24.dp)) {
             WaPinPad(
@@ -466,7 +466,7 @@ internal fun AiWalletPinSheet(
 internal fun AiInfoDialog(night: Boolean, message: String, onDismiss: () -> Unit) {
     val surface = if (night) Ai.surfaceDark else Ai.surfaceLight
     val ink = if (night) Ai.inkDark else Ai.inkLight
-    Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(20.dp)).background(surface).padding(20.dp)) {
             Text(message, color = ink, fontSize = 14.sp)
             Spacer(Modifier.height(16.dp))

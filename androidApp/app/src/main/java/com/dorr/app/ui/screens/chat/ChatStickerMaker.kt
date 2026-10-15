@@ -68,8 +68,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.StickerDto
@@ -144,7 +144,7 @@ fun StickerMakerDialog(onDismiss: () -> Unit, onCreated: (StickerDto) -> Unit) {
 
     val source = if (shape == StickerShape.Cutout) cutout else photo
 
-    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(Color(0xFF0E1116)).statusBarsPadding().navigationBarsPadding()) {
             // ---------------------------------------------------------------- top bar
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

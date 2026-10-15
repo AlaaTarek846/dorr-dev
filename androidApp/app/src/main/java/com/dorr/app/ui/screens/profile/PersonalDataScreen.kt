@@ -244,9 +244,9 @@ fun PersonalDataScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
         },
     ) { currentSub ->
         when (currentSub) {
-            PdSub.NAME -> EditNameScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
-            PdSub.PHONE -> EditPhoneScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
-            PdSub.EMAIL -> EditEmailScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
+        PdSub.NAME -> EditNameScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
+        PdSub.PHONE -> EditPhoneScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
+        PdSub.EMAIL -> EditEmailScreen(onBack = { sub = PdSub.NONE }, onSaved = { onSaved(it); refresh++ })
             PdSub.NONE -> PdHub(onBack = onBack, onOpen = { sub = it })
         }
     }
@@ -361,8 +361,8 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                 enter = slideInVertically(tween(400, delayMillis = 60, easing = FastOutSlowInEasing)) { -it / 3 } +
                     fadeIn(tween(360, delayMillis = 60)),
             ) {
-                Box(
-                    modifier = Modifier
+            Box(
+                modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 6.dp, bottom = 14.dp),
                     contentAlignment = Alignment.Center,
@@ -380,10 +380,10 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                             modifier = Modifier
                                 .fillMaxSize()
                                 .then(if (settingsNight()) Modifier else Modifier.shadow(8.dp, CircleShape, ambientColor = Color(0x1F001B53), spotColor = Color(0x1F001B53)))
-                                .clip(CircleShape)
+                    .clip(CircleShape)
                                 .background(com.dorr.app.ui.screens.profile.settingsCard()),
-                            contentAlignment = Alignment.Center,
-                        ) {
+                contentAlignment = Alignment.Center,
+            ) {
                             // Server avatar first (rewritten to a host the device
                             // can reach), then the locally cached photo, then
                             // the placeholder icon. If the server image fails
@@ -477,7 +477,7 @@ private fun PdHub(onBack: () -> Unit, onOpen: (PdSub) -> Unit) {
                         tween(380, delayMillis = 120 + index * 60, easing = FastOutSlowInEasing)
                     ) { it / 3 } + fadeIn(tween(320, delayMillis = 120 + index * 60)),
                 ) {
-                    PdFieldRow(
+            PdFieldRow(
                         icon = field.icon,
                         label = field.label,
                         value = field.value,
@@ -526,15 +526,15 @@ private fun PdFieldRow(
             Text(label, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = settingsMut())
             Row(verticalAlignment = Alignment.CenterVertically) {
                 val valueText: @Composable () -> Unit = {
-                    Text(
-                        value,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        Text(
+                            value,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
                         color = settingsInk(),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 if (ltr) {
                     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) { valueText() }
                 } else {
@@ -635,7 +635,7 @@ private fun EditNameScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                         envelope.data?.let { AuthSession.user = it }
                         if (gender == "male" || gender == "female") saveGender(context, gender)
                         onSaved(envelope.message.ifBlank { updated })
-                        onBack()
+                onBack()
                     }.onFailure {
                         Toast.makeText(
                             context,
@@ -826,7 +826,7 @@ private fun EditPhoneScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
         )
         else -> PdScreen(title = stringResource(R.string.edit_phone_title), onBack = onBack) {
             FormColumn {
-                PdFormCard {
+            PdFormCard {
                     Text(
                         stringResource(R.string.edit_phone_label),
                         fontSize = 13.sp,
@@ -932,8 +932,8 @@ private fun EditEmailScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
         FormColumn {
             PdFormCard {
                 IconField(
-                    value = email,
-                    onValueChange = { email = it },
+                        value = email,
+                        onValueChange = { email = it },
                     label = stringResource(R.string.edit_email_label),
                     icon = Icons.Rounded.Email,
                     placeholder = "name@example.com",
@@ -955,8 +955,8 @@ private fun EditEmailScreen(onBack: () -> Unit, onSaved: (String) -> Unit) {
                         .onSuccess { dto ->
                             maskedEmail = dto?.maskedEmail ?: value
                             cooldownSeconds = dto?.resendCooldownSeconds ?: 60
-                            stepOtp = true
-                        }
+                stepOtp = true
+            }
                         .onFailure {
                             Toast.makeText(
                                 context,
@@ -1014,8 +1014,8 @@ private fun PdOtpStep(
                     val user = envelope.data
                     if (user != null) {
                         onVerified(user, envelope.message)
-                    } else {
-                        hasError = true
+        } else {
+            hasError = true
                         Toast.makeText(
                             context,
                             envelope.message.ifBlank { wrongCode },
@@ -1364,9 +1364,9 @@ private fun IconField(
 
 @Composable
 private fun Hint(text: String) {
-    Text(
+            Text(
         text,
-        fontSize = 12.sp,
+                fontSize = 12.sp,
         lineHeight = 19.sp,
         color = if (settingsNight()) settingsMut() else AppColors.textSecondary,
         modifier = Modifier.padding(top = 10.dp, start = 2.dp, end = 2.dp),

@@ -63,7 +63,6 @@ import com.dorr.app.ui.screens.wallet.waRise
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /*
  * A competition, complete (spec 192, docs/sports-plan.md §10.3.2): overview, the table (all ·
@@ -355,7 +354,7 @@ private fun CompRounds(id: Int, p: SpCompetitionPageDto, rounds: SpRoundsDto?, n
 }
 
 internal fun shortDate(iso: String): String =
-    runCatching { LocalDate.parse(iso.take(10)).format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault())) }.getOrDefault(iso)
+    runCatching { LocalDate.parse(iso.take(10)).format(DateTimeFormatter.ofPattern("d MMM", com.dorr.app.network.AppLocale.java())) }.getOrDefault(iso)
 
 // ------------------------------------------------------------------ leaders
 

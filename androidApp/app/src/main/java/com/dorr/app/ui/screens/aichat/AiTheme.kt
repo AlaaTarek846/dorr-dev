@@ -20,7 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.ui.screens.profile.settingsAccent
 
 /**
@@ -62,7 +62,7 @@ internal fun AiConfirmDialog(
     val resolvedDismiss = dismissLabel ?: androidx.compose.ui.res.stringResource(com.dorr.app.R.string.ai_cancel)
     val resolvedConfirm = confirmLabel ?: androidx.compose.ui.res.stringResource(com.dorr.app.R.string.ai_delete)
 
-    Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(
             Modifier.clip(RoundedCornerShape(20.dp)).background(surface).padding(20.dp),
         ) {
