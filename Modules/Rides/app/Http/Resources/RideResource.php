@@ -12,6 +12,7 @@ use Modules\Rides\Models\DriverRideProfile;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RidePriceLine;
 use Modules\Rides\Models\RideStop;
+use Modules\Rides\Services\Geo\PickupPoints;
 use Modules\Rides\Services\Geo\RideProgress;
 use Modules\Rides\Services\Lifecycle\RideChangeService;
 use Modules\Rides\Services\Payment\RidePaymentChangeService;
@@ -106,6 +107,9 @@ class RideResource extends JsonResource
             'pickup_note' => $ride->pickup_note,
             // R-13: booked for someone else — who to pick up, by first name only (never their number).
             'beneficiary' => empty($ride->beneficiary['name']) ? null : ['name' => Str::before($ride->beneficiary['name'], ' ')],
+            // R-16..R-18, D-111: the approved points the trip starts / ends at — name, kind, how to find it.
+            'pickup_point' => PickupPoints::present($ride->pickup_point),
+            'dropoff_point' => PickupPoints::present($ride->dropoff_point),
             'payment_method' => $ride->payment_method->value,
             'payment_status' => $ride->payment_status->value,
             'currency' => ['code' => $ride->currency?->code, 'symbol' => $ride->currency?->symbol, 'decimal_places' => (int) ($ride->currency?->decimal_places ?? 2)],

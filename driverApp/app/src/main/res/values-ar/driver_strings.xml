@@ -239,6 +239,8 @@
     <string name="trip_passengers">%1$d ركاب</string>
     <string name="trip_beneficiary">الراكب: %1$s</string>
     <string name="trip_beneficiary_hint">محجوزة من راكب آخر — المحادثة تصل لمن حجز.</string>
+    <string name="trip_pickup_point">نقطة الالتقاء (معتمدة)</string>
+    <string name="trip_dropoff_point">نقطة النزول (معتمدة)</string>
     <string name="trip_pickup_note">ملاحظة الراكب</string>
     <string name="trip_to_pickup_short">نقطة الالتقاط</string>
     <string name="trip_to_stop_short">المحطة</string>

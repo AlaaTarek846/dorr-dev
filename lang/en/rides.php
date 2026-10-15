@@ -89,6 +89,9 @@ return [
         'too_many_passengers' => 'This category takes up to :max riders.',
         'pickup_note_too_long' => 'Keep the note to :max characters.',
         'pickup_note_contact' => 'Leave phone numbers and links out — use the in-app chat and call.',
+        'pickup_point_required' => 'Pickups at :zone are only from an approved point — choose one.',
+        'dropoff_point_required' => 'Drop-offs at :zone are only at an approved point — choose one.',
+        'pickup_point_invalid' => 'That point isn\'t available here — choose another.',
         'beneficiary_is_you' => 'That\'s your own number — book for someone else with their number.',
         'payment_change_unavailable' => 'The way you pay can\'t be changed now.',
     ],
@@ -232,6 +235,13 @@ return [
         'silver' => 'Silver captain',
         'gold' => 'Gold captain',
         'diamond' => 'Diamond captain',
+    ],
+
+    'point_kinds' => [
+        'gate' => 'Gate',
+        'terminal' => 'Terminal',
+        'entrance' => 'Entrance',
+        'parking' => 'Parking',
     ],
 
     'payment_methods' => [

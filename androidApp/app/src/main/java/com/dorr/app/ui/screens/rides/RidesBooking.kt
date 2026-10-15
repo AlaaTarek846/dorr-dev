@@ -298,9 +298,14 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
     state.error = null
     state.busy = true
     kotlinx.coroutines.MainScope().launch {
+        // R-16..R-18: in an airport or other sensitive place, the rider picks an approved point first.
+        if (!reprice && state.feature("pickup_points") && askForPoint(state, pickup, state.destination?.takeIf { !state.openDestination })) {
+            state.busy = false
+            return@launch
+        }
         val body = JsonObject().apply {
-            add("origin", pickup.json())
-            state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json()) }
+            add("origin", pickup.json().apply { state.pickupPointId?.let { addProperty("point_id", it) } })
+            state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json().apply { state.dropoffPointId?.let { id -> addProperty("point_id", id) } }) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
             state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
         }
@@ -374,6 +379,11 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 }
             state.busy = false
         }
+    }
+
+    if (state.pointsChooser != null) {
+        PickupPointsPanel(state)
+        return
     }
 
     // The promo code, the price details and the cancellation rules make this sheet taller: it scrolls.

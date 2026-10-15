@@ -20,6 +20,9 @@ use Modules\Rides\Models\RideCancelReason;
 use Modules\Rides\Models\RideRatingTag;
 use Modules\Rides\Services\Bidding\BiddingService;
 use Modules\Rides\Services\Chat\RideChatService;
+use Modules\Rides\Services\Features\RideFeatures;
+use Modules\Rides\Services\Geo\CityResolver;
+use Modules\Rides\Services\Geo\PickupPoints;
 use Modules\Rides\Services\Lifecycle\RideCancellationService;
 use Modules\Rides\Services\Lifecycle\RideRatingService;
 use Modules\Rides\Services\Lifecycle\RideRequestService;
@@ -41,6 +44,8 @@ class RideController extends Controller
             "$p.lat" => [$required ? 'required' : "required_with:$p", 'numeric', 'between:-90,90'],
             "$p.lng" => [$required ? 'required' : "required_with:$p", 'numeric', 'between:-180,180'],
             "$p.address" => ['nullable', 'string', 'max:255'],
+            // R-16..R-18: an approved pickup / drop-off point picked from `GET pickup-points`.
+            "$p.point_id" => ['nullable', 'integer', 'min:1'],
         ];
         $data = $request->validate([
             ...$point('origin', true),
@@ -59,6 +64,27 @@ class RideController extends Controller
         $quotes = $engine->quote($this->rider($request), $data);
 
         return ApiResponse::success(RideQuoteResource::collection($quotes)->resolve($request), __('api.retrieved'));
+    }
+
+    /**
+     * R-16..R-18, D-111: the approved points around a place — `purpose` = pickup | dropoff. Empty when
+     * the place isn't in an airport / pickup-only zone, or the feature is off there.
+     */
+    public function pickupPoints(Request $request, PickupPoints $points, CityResolver $cities, RideFeatures $features): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+            'purpose' => ['nullable', Rule::in([PickupPoints::PICKUP, PickupPoints::DROPOFF])],
+        ]);
+        $rider = $this->rider($request);
+        $cityId = $cities->cityAt((float) $data['lat'], (float) $data['lng']);
+        $countryId = ($cityId !== null ? $cities->countryOf($cityId) : null) ?? $rider->country_id;
+        if ($countryId === null || ! $features->allows($countryId, $cityId, 'pickup_points')) {
+            return ApiResponse::success(['zone' => null, 'required' => false, 'points' => []], __('api.retrieved'));
+        }
+
+        return ApiResponse::success($points->around($countryId, (float) $data['lat'], (float) $data['lng'], $data['purpose'] ?? PickupPoints::PICKUP), __('api.retrieved'));
     }
 
     public function store(Request $request, RideRequestService $service): JsonResponse

@@ -21,7 +21,11 @@ interface RidesApi {
     @GET("mobile/v1/rides/features")
     suspend fun features(@Header("Authorization") auth: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<RideFeaturesDto>
 
-    /** `{origin{lat,lng,address}, destination?{…}, stops?[…], category?}` → one quote per category. */
+    /** R-16..R-18: the approved pickup / drop-off points around a place (`purpose` = pickup | dropoff). */
+    @GET("mobile/v1/rides/pickup-points")
+    suspend fun pickupPoints(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double, @Query("purpose") purpose: String): ApiEnvelope<RidePickupPointsDto>
+
+    /** `{origin{lat,lng,address,point_id?}, destination?{…}, stops?[…], category?}` → one quote per category. */
     @POST("mobile/v1/rides/quotes")
     suspend fun quotes(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<List<RideQuoteDto>>
 
@@ -399,6 +403,22 @@ data class RideProgressDto(val to: String = "pickup", @SerializedName("distance_
 
 data class RideCategoryRefDto(val slug: String? = null, val name: String? = null)
 
+data class RidePickupPointDto(
+    val id: Int = 0,
+    val kind: String? = null,
+    @SerializedName("kind_label") val kindLabel: String? = null,
+    val name: String? = null,
+    val instructions: String? = null,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    @SerializedName("distance_m") val distanceM: Int? = null,
+)
+
+data class RidePickupZoneDto(val id: Int = 0, val type: String? = null, val name: String? = null)
+
+/** R-16..R-18: what is around a place — the zone, whether choosing a point is a must, the points. */
+data class RidePickupPointsDto(val zone: RidePickupZoneDto? = null, val required: Boolean = false, val points: List<RidePickupPointDto> = emptyList())
+
 data class RideBeneficiaryDto(val name: String? = null, val phone: String? = null)
 
 data class RideDto(
@@ -418,6 +438,9 @@ data class RideDto(
     @SerializedName("pickup_note") val pickupNote: String? = null,
     /** R-13: booked for someone else — whom, as the rider typed it. */
     val beneficiary: RideBeneficiaryDto? = null,
+    /** R-16..R-18: the approved points the trip starts / ends at. */
+    @SerializedName("pickup_point") val pickupPoint: RidePickupPointDto? = null,
+    @SerializedName("dropoff_point") val dropoffPoint: RidePickupPointDto? = null,
     val progress: RideProgressDto? = null,
     val currency: RideCurrencyDto? = null,
     val origin: RidePlaceDto? = null,

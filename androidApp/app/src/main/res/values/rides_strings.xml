@@ -245,6 +245,14 @@
     <string name="rd_for_other_privacy">The captain sees their first name only. We send them who is coming and a live link.</string>
     <string name="rd_for_other_consent">They agreed that DORR may contact them about this ride.</string>
     <string name="rd_for_other_ride">For %1$s</string>
+    <string name="rd_points_title_pickup">Choose your pickup point</string>
+    <string name="rd_points_title_dropoff">Choose where to be dropped off</string>
+    <string name="rd_points_required">Rides here start and end only at approved points.</string>
+    <string name="rd_points_optional">Pick an approved point, or keep your own spot.</string>
+    <string name="rd_points_keep">Keep my location</string>
+    <string name="rd_point_away">%1$d m away</string>
+    <string name="rd_pickup_point">Pickup point</string>
+    <string name="rd_dropoff_point">Drop-off point</string>
     <string name="rd_eta_pickup">Arrives in %1$s · %2$s</string>
     <string name="rd_eta_stop">To the stop: %1$s · %2$s</string>
     <string name="rd_eta_destination">To your destination: %1$s · %2$s</string>

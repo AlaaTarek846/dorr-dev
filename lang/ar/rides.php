@@ -89,6 +89,9 @@ return [
         'too_many_passengers' => 'هذه الفئة تتسع لـ :max ركاب كحد أقصى.',
         'pickup_note_too_long' => 'اجعل الملاحظة في حدود :max حرفاً.',
         'pickup_note_contact' => 'لا تكتب أرقام هواتف أو روابط — استخدم المحادثة والاتصال داخل التطبيق.',
+        'pickup_point_required' => 'الاستلام من :zone يكون من نقطة معتمدة فقط — اختر واحدة.',
+        'dropoff_point_required' => 'التوصيل إلى :zone يكون عند نقطة معتمدة فقط — اختر واحدة.',
+        'pickup_point_invalid' => 'هذه النقطة غير متاحة هنا — اختر نقطة أخرى.',
         'beneficiary_is_you' => 'هذا رقمك أنت — للحجز لشخص آخر أدخل رقمه هو.',
         'payment_change_unavailable' => 'لا يمكن تغيير طريقة الدفع الآن.',
     ],
@@ -232,6 +235,13 @@ return [
         'silver' => 'كابتن فضي',
         'gold' => 'كابتن ذهبي',
         'diamond' => 'كابتن ماسي',
+    ],
+
+    'point_kinds' => [
+        'gate' => 'بوابة',
+        'terminal' => 'صالة',
+        'entrance' => 'مدخل',
+        'parking' => 'موقف',
     ],
 
     'payment_methods' => [

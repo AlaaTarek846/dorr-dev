@@ -58,6 +58,7 @@ import androidx.core.content.ContextCompat
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideDto
+import com.dorr.app.network.RidePickupPointsDto
 import com.dorr.app.network.RideFeaturesDto
 import com.dorr.app.network.RideQuoteDto
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -118,6 +119,14 @@ internal class RidesState {
     fun beneficiaryReady(): Boolean =
         !forOther || (beneficiaryName.trim().length >= 2 && beneficiaryPhone.count { it.isDigit() } >= 8 && beneficiaryConsent)
 
+    /** R-16..R-18: the approved points being chosen from ("pickup" | "dropoff"), what is there, and what was picked or declined. */
+    var pointsChooser by mutableStateOf<String?>(null)
+    var pointChoices by mutableStateOf<RidePickupPointsDto?>(null)
+    var pickupPointId by mutableStateOf<Int?>(null)
+    var dropoffPointId by mutableStateOf<Int?>(null)
+    var decidedPickup by mutableStateOf<String?>(null)
+    var decidedDropoff by mutableStateOf<String?>(null)
+
     /** Bidding: the price the rider offers (starts at the suggested price). */
     var riderPrice by mutableStateOf<Long?>(null)
 
@@ -171,6 +180,12 @@ internal class RidesState {
         beneficiaryName = ""
         beneficiaryPhone = ""
         beneficiaryConsent = false
+        pointsChooser = null
+        pointChoices = null
+        pickupPointId = null
+        dropoffPointId = null
+        decidedPickup = null
+        decidedDropoff = null
     }
 }
 

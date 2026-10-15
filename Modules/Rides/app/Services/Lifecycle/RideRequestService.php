@@ -145,6 +145,9 @@ class RideRequestService
                 'pickup_note' => $pickupNote,
                 // R-13: who is picked up when it isn't the rider; the rider stays the one who pays.
                 'beneficiary' => $beneficiary,
+                // R-16..R-18: the approved points the trip starts / ends at, frozen with it.
+                'pickup_point' => $quote->pickup_point,
+                'dropoff_point' => $quote->dropoff_point,
                 'quote_id' => $quote->id,
                 'confirmed_snapshot' => [],
                 'agreed_price_minor' => $quote->total_minor,

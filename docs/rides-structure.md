@@ -403,7 +403,11 @@
 
 | العمود | الوصف |
 |---|---|
-| `id`، و`zone_id` (`cascadeOnDelete`)، و`lat` / `lng`، و`kind` (gate / terminal / entrance / parking)، و`status`، و`sort_order` + `softDeletes` | |
+| `id`، و`zone_id` (`cascadeOnDelete`)، و`lat` / `lng`، و`kind` (gate / terminal / entrance / parking)، و`for_pickup` / `for_dropoff` (إضافة: الاستلام فقط أو التوصيل فقط، مثل صالة المغادرة)، و`status`، و`sort_order` + `softDeletes` | |
+
+- **في `ride_zones.config`:** `pickup_required` / `dropoff_required` (نقطة معتمدة إجبارية)، والنوع `pickup_only` يعني إجبارية للاستلام دايماً.
+- **على `ride_quotes` و`rides`:** `pickup_point` و`dropoff_point` (JSON: `id`، و`zone_id`، و`kind`، و`lat` / `lng`، و`name` و`instructions` بالعربي والإنجليزي) — النقطة اللي اختارها الراكب، متجمدة مع الحجز.
+- **مفتاح السياسة:** `pickup.match_m` (40) — الوقوف قريب من نقطة معتمدة بالمسافة دي يتحسب اختيار لها.
 
 - **الترجمة:** `name`، و`instructions`.
 

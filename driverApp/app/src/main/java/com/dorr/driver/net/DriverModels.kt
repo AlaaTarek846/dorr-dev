@@ -143,6 +143,9 @@ data class OfferDto(
     @SerializedName("pickup_note") val pickupNote: String? = null,
     /** R-13: booked for someone else — whom to pick up (first name only). */
     val beneficiary: BeneficiaryDto? = null,
+    /** R-16..R-18, D-111: the approved points to meet / drop at. */
+    @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
+    @SerializedName("dropoff_point") val dropoffPoint: PickupPointDto? = null,
     val currency: CurrencyDto? = null,
     val origin: PlaceDto? = null,
     val destination: PlaceDto? = null,
@@ -184,6 +187,17 @@ data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @S
 data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
 
 data class BeneficiaryDto(val name: String? = null)
+
+/** An approved pickup / drop-off point: a gate, terminal, entrance or parking, and how to find it. */
+data class PickupPointDto(
+    val id: Int = 0,
+    val kind: String? = null,
+    @SerializedName("kind_label") val kindLabel: String? = null,
+    val name: String? = null,
+    val instructions: String? = null,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+)
 
 data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String)
 
@@ -385,6 +399,8 @@ data class TripDto(
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
     val beneficiary: BeneficiaryDto? = null,
+    @SerializedName("pickup_point") val pickupPoint: PickupPointDto? = null,
+    @SerializedName("dropoff_point") val dropoffPoint: PickupPointDto? = null,
     val progress: ProgressDto? = null,
     @SerializedName("needs_pin") val needsPin: Boolean = false,
     @SerializedName("earning_minor") val earningMinor: Long? = null,

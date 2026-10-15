@@ -9,6 +9,7 @@ use Modules\Rides\Http\Controllers\Admin\RideListController;
 use Modules\Rides\Http\Controllers\Admin\RidePolicyController;
 use Modules\Rides\Http\Controllers\Admin\RideSafetyIncidentController;
 use Modules\Rides\Http\Controllers\Admin\RideSettingController;
+use Modules\Rides\Http\Controllers\Admin\RideZoneController;
 use Modules\Rides\Http\Controllers\Admin\WaslLogController;
 
 // Admin → Rides (docs/rides-plan.md §4.4): settings, switches, categories, prices & rules, rides, Wasl, lists.
@@ -32,6 +33,16 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('ride-policies/scopes', [RidePolicyController::class, 'index']);
         Route::get('ride-policies', [RidePolicyController::class, 'show']);
         Route::put('ride-policies', [RidePolicyController::class, 'update']);
+
+        // Zones (airport, pickup-only, blocked…) and their approved pickup points (R-16..R-18).
+        Route::get('ride-zones/options', [RideZoneController::class, 'options']);
+        Route::get('ride-zones', [RideZoneController::class, 'index']);
+        Route::post('ride-zones', [RideZoneController::class, 'store']);
+        Route::put('ride-zones/{zone}', [RideZoneController::class, 'update'])->whereNumber('zone');
+        Route::delete('ride-zones/{zone}', [RideZoneController::class, 'destroy'])->whereNumber('zone');
+        Route::post('ride-zones/{zone}/points', [RideZoneController::class, 'storePoint'])->whereNumber('zone');
+        Route::put('ride-zones/{zone}/points/{point}', [RideZoneController::class, 'updatePoint'])->whereNumber(['zone', 'point']);
+        Route::delete('ride-zones/{zone}/points/{point}', [RideZoneController::class, 'destroyPoint'])->whereNumber(['zone', 'point']);
 
         Route::get('rides', [RideAdminController::class, 'index']);
         Route::get('rides/{ride}', [RideAdminController::class, 'show'])->whereNumber('ride');

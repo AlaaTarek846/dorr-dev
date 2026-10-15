@@ -245,6 +245,14 @@
     <string name="rd_for_other_privacy">الكابتن يرى اسمه الأول فقط. نرسل له من القادم ورابط متابعة مباشر.</string>
     <string name="rd_for_other_consent">وافق على أن تتواصل معه دُرر بخصوص هذه الرحلة.</string>
     <string name="rd_for_other_ride">لـ %1$s</string>
+    <string name="rd_points_title_pickup">اختر نقطة الالتقاء</string>
+    <string name="rd_points_title_dropoff">اختر مكان النزول</string>
+    <string name="rd_points_required">الرحلات هنا تبدأ وتنتهي عند نقاط معتمدة فقط.</string>
+    <string name="rd_points_optional">اختر نقطة معتمدة أو أبقِ موقعك.</string>
+    <string name="rd_points_keep">إبقاء موقعي</string>
+    <string name="rd_point_away">على بُعد %1$d م</string>
+    <string name="rd_pickup_point">نقطة الالتقاء</string>
+    <string name="rd_dropoff_point">نقطة النزول</string>
     <string name="rd_eta_pickup">يصل خلال %1$s · %2$s</string>
     <string name="rd_eta_stop">إلى المحطة: %1$s · %2$s</string>
     <string name="rd_eta_destination">إلى وجهتك: %1$s · %2$s</string>

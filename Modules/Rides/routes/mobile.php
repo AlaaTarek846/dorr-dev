@@ -12,6 +12,8 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:120,1', 'remember-locale'])->group(function () {
         // What is switched on where the rider is: the whole service, each category, each feature (§5).
         Route::get('features', [RideFeaturesController::class, 'index']);
+        // R-16..R-18: the approved pickup / drop-off points around a place.
+        Route::get('pickup-points', [RideController::class, 'pickupPoints']);
 
         Route::get('cancel-reasons', [RideController::class, 'cancelReasons']);
         Route::get('rating-tags', [RideController::class, 'ratingTags']);

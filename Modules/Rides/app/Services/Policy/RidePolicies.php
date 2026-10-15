@@ -39,7 +39,8 @@ class RidePolicies
         $seen = [];
         // A scope whose part wasn't asked for collapses onto a broader one; $seen keeps each row once.
         foreach ($scopes as [$city, $zone, $category]) {
-            $row = $rows->first(fn (RidePolicy $p) => $p->city_id === $city && $p->zone_id === $zone && $p->category_id === $category);
+            // A zone sits in one place, so its rows apply whatever city the trip resolved to.
+            $row = $rows->first(fn (RidePolicy $p) => $p->zone_id === $zone && $p->category_id === $category && ($zone !== null || $p->city_id === $city));
             if ($row === null || isset($seen[$row->id]) || $row->id === $skipPolicyId) {
                 continue;
             }

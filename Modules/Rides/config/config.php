@@ -85,6 +85,7 @@ return [
         'waiting.warn_before_s' => 60,                    // D-122: "free waiting ends soon" this long before
         'eta.speed_kmh' => 30,                            // D-129: the average city speed the remaining time is worked out at
         'booking.note_max_chars' => 120,                  // D-61: the pickup note — what's needed only
+        'pickup.match_m' => 40,                           // R-16: a place this close to an approved point is that point
         'stops.max' => 3,
         'stops.free_wait_s' => 120,
         'open_destination.hold_minor' => 10000,

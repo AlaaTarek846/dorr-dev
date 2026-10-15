@@ -8,7 +8,7 @@ Passenger rides. The plan and the owner's decisions are in [../../rides-plan.md]
 
 ## Feature switches (`RideFeatures`, `ride_feature_rules`)
 - Same shape as the chat's rules (country, or one of its cities — `discover_cities.id`, no FK), but **no rule means off**, and nothing works unless `rides` itself is on there. A city rule beats the country rule.
-- Features: `rides`, `category.{slug}`, `bidding`, `multi_stop`, `open_destination`, `scheduled`, `book_for_other`, `cash`, `wallet`, `card`, `tips`, `pin`, `share`, `change_driver`, `driver_points`, `one_touch`.
+- Features: `rides`, `category.{slug}`, `bidding`, `multi_stop`, `open_destination`, `scheduled`, `book_for_other`, `cash`, `wallet`, `card`, `tips`, `pin`, `share`, `change_driver`, `driver_points`, `one_touch`, `pickup_points`.
 - `EnsureRideFeature::class.':feature'` refuses with `403 rides_feature_disabled`, using the city of `lat`/`lng` when sent, else the account's country.
 
 ## Where a point is (`CityResolver`)
@@ -133,6 +133,15 @@ R-61, R-81, D-60, D-61, D-122, D-129.
 - **Apps:** DORR app (`RidesTripDetails.kt → BookForOtherRow`) — a switch, name and number, the responsibility note, the privacy line and the consent box; Confirm stays off until all are filled; a "For Mona" chip while searching and on the ride. Driver app (`TripDetailViews.kt → RiderDetails`) — "Pick up Mona · booked by another rider" on the request card and the ride.
 - **Not here:** a link for a person without the app to follow and manage the booking (R-IDEA-09), number masking between the captain and the person (R-84 — NEEDS-DECISION).
 
+## Approved pickup points and the airport (R-16, R-17, R-18, D-111; switch `pickup_points`, `Services/Geo/PickupPoints`)
+- **Zones:** the governing zone of a place is the highest-priority `airport` or `pickup_only` zone around it (`ride_zones`: polygon + `config`). Admin → Rides → **Zones & pickup points** creates them (boundary typed one corner per line, names ar + en) and the **points** inside (`ride_pickup_points`: `kind` gate / terminal / entrance / parking, lat / lng, name + "how to find it" in both languages, `for_pickup` / `for_dropoff`, `sort_order`, `status`).
+- **Must or may:** a point is a **must** for pickups in a `pickup_only` zone, or where the zone's `config` says `pickup_required`; for drop-offs where it says `dropoff_required` (e.g. airport departures). A zone with no active point for that purpose requires nothing — nobody gets locked out.
+- **Choosing:** `GET mobile/v1/rides/pickup-points?lat&lng&purpose=pickup|dropoff` → `{zone, required, points[{id, kind, kind_label, name, instructions, lat, lng, distance_m}]}` (empty outside such a zone or with the switch off). The quote takes `origin.point_id` / `destination.point_id`; without one, standing within `pickup.match_m` (40 m) of a point counts as choosing it. Where a point is a must and none is chosen → `422 rides_pickup_point_required` / `rides_dropoff_point_required` with the same list in `data`; a point of another zone or not for that purpose → `rides_pickup_point_invalid`.
+- **What it does:** the trip starts (or ends) exactly at the point — the quote and the ride carry its coordinates and name as address; both are frozen in `pickup_point` / `dropoff_point` (names in both languages, so each side reads them in their own). The captain's request card, ride and navigation go to it (`pickup_point{name, kind_label, instructions}` in `RideResource::common`, so offers, the ride and booked-ahead lists all carry it).
+- **Airport rules (R-17):** the pickup's zone is also the policy scope (`RidePolicies::for(country, city, zone, category)`, a zone's rows apply whatever city the trip resolved to), so the airport has its own `waiting.free_s`, `no_show.wait_s`, `arrival.radius_m`… — set under Prices & rules → *Zone*, or from the zone card's "Prices & rules". A fee for the airport and the captain's queue are still to come (D-276..D-284).
+- **Not covered:** changing the destination during the ride (R-91..95) does not re-check a required drop-off point; flight tracking is never built (rules in `docs/rides_tasks.md`).
+- **Apps:** DORR app (`RidesPickupPoints.kt`) — before pricing, if the pickup (or drop-off) is in such a place the quotes sheet turns into "Choose your pickup point" (nearest first, a kind icon, how to find it, "Keep my location" only where it isn't a must), then the trip is priced from the point; the ride shows the point card. Driver app (`TripDetailViews.kt → RiderDetails`) — "Meet at (approved point)" with the note on the card and the ride. Admin: the ride page shows both points.
+
 ## Changing the trip during the ride (`RideChangeService`, `ride_change_requests`)
 R-91..95, D-131..137, wireflow 6أ / 6ب / 6ج. Switch `change_destination` (one more stop: `multi_stop`). Not for open-destination rides; one at a time.
 1. **Preview** `POST mobile/v1/rides/{uuid}/changes {type: destination|add_stop, lat, lng, address}` → the new route (origin → stops → destination) and `distance_delta_m`, `duration_delta_s`, `price_delta_minor`, `new_total_minor` — nothing changes yet (lives 3 minutes).
@@ -156,7 +165,7 @@ Jawad's production integration (docs/rides-plan.md §11), keys in `.env` (`WASL_
 Rider (`user_api`, prefix `mobile/v1/rides`):
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| POST | `quotes` | `origin{lat,lng,address?}`, `destination?`, `stops?[]`, `category?`, `coupon_code?` | One quote per category: `uuid`, `fingerprint`, `expires_at`, `category`, `pricing_mode`, `total_minor` or `estimate{min,max}`, `hold_minor`, `route`, rider-visible `lines`, `coupon`, `payment_fees`, `policy_summary` |
+| POST | `quotes` | `origin{lat,lng,address?,point_id?}`, `destination?{…,point_id?}`, `stops?[]`, `category?`, `coupon_code?` | One quote per category: `uuid`, `fingerprint`, `expires_at`, `category`, `pricing_mode`, `total_minor` or `estimate{min,max}`, `hold_minor`, `route`, rider-visible `lines`, `coupon`, `payment_fees`, `policy_summary` |
 | POST | `{uuid}/tip` | `amount_minor`, header `Idempotency-Key` | The ride with `tip` (R-144) |
 | POST | `{uuid}/payment-method` | `payment_method` (`wallet`/`cash`), header `Idempotency-Key` | The ride, re-priced and re-held (R-61) |
 | POST | `/` | `quote_uuid`, `fingerprint`, `payment_method` (`wallet`/`card`/`cash`), `passengers?`, `pickup_note?`, `beneficiary?{name, phone, consent}`, header `Idempotency-Key` | The ride (201); a card ride comes back `awaiting_payment` with `checkout_id` |
@@ -190,6 +199,7 @@ Driver (`driver_api`, prefix `driver/v1`):
 | Wasl | `GET wasl-logs` (type, success, subject, result code) · `GET wasl-logs/{id}` (request / response); the trip queue is Rides filtered by `wasl_status` | `wasl-logs.view` |
 | Reasons & tags | `ride-lists/{cancel-reasons|rating-tags}` CRUD (labels ar+en) | `ride-lists.*` |
 | Settings | `ride-settings` (Google key, free estimate) | `ride-settings.view / update` |
+| Zones & pickup points | `GET ride-zones` (+ `/options`) · `POST` · `PUT` · `DELETE ride-zones/{id}` · `POST ride-zones/{id}/points` · `PUT` · `DELETE …/points/{point}`; a zone's own rules: `ride-policies` with `zone_id` | `ride-zones.view / create / update / delete` |
 
 The policy form shows money in the currency (stored in minor units), rates in percent (stored in basis points), times in seconds; each key can be overridden or left to inherit.
 
@@ -197,6 +207,10 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 - `audit_logs` + `App\Services\General\AuditLogger` (append-only; actor `admin` or `system`).
 
 ## Tests
+`RidesPickupPointsTest` (5): the points around a place (pickup vs drop-off lists, distance, Arabic names, nothing elsewhere); a chosen point — or standing at it — moving the pickup onto it and both sides reading it (offer card, ride, navigation); a pickup-only zone making a point a must (with the list in the error, a wrong or switched-off one refused / ignored); a required drop-off point for the airport; the airport's own waiting and no-show rules applying to a pickup there only.
+
+`RidesZonesAdminTest` (2): a zone with its boundary and rules, points in both languages (clearing an instruction), the zone's own waiting rule in Prices & rules (and the scopes / options), deleting; the permission.
+
 `RidesBookForOtherTest` (3): the consent tick required and your own number refused; the rider sees the whole entry, the captain only the first name on the request card and the ride (never the number); a person off DORR texted with the live link once a captain takes it, one on DORR told in the app with the ride code (no link when sharing is off); the switch, and a normal booking telling nobody.
 
 `RidesTripDetailsTest` (5): riders over the seats, a phone number (Latin or Arabic-Indic digits) or a long note refused, then riders and a tidied note on the captain's request card and ride; wallet → cash (hold released, the cash fee on the lines and price, idempotent) → wallet (held again) with card refused, not enough balance changing nothing, no change once the trip started and the fee reaching the end; cash switched off; the gold tier and the time / distance left (to the pickup, none while waiting, then to the destination); "free waiting ends soon" not too early and only once.

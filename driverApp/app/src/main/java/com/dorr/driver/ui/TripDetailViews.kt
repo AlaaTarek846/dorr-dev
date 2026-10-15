@@ -28,6 +28,7 @@ import androidx.compose.material.icons.filled.EditNote
 import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.HourglassBottom
 import androidx.compose.material.icons.filled.PersonPinCircle
+import androidx.compose.material.icons.filled.PinDrop
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -46,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.ui.DorrBrand
 import com.dorr.driver.R
+import com.dorr.driver.net.PickupPointDto
 import com.dorr.driver.net.ProgressDto
 
 /*
@@ -59,9 +61,11 @@ import com.dorr.driver.net.ProgressDto
  * the ride was booked for someone else (first name only — the app chat still reaches the rider who booked).
  */
 @Composable
-internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null) {
-    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank()) return
+internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null, pickupPoint: PickupPointDto? = null, dropoffPoint: PickupPointDto? = null) {
+    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank() && pickupPoint == null && dropoffPoint == null) return
     Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        pickupPoint?.let { PointRow(stringResource(R.string.trip_pickup_point), it) }
+        dropoffPoint?.let { PointRow(stringResource(R.string.trip_dropoff_point), it) }
         beneficiary?.takeIf { it.isNotBlank() }?.let { name ->
             Row(
                 Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(DorrBrand.navy.copy(alpha = 0.08f)).padding(10.dp),
@@ -97,6 +101,23 @@ internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? 
                     Text("“$it”", fontSize = 14.sp, fontStyle = FontStyle.Italic, fontWeight = FontWeight.Medium)
                 }
             }
+        }
+    }
+}
+
+/** D-111: the approved point to meet at (a gate, a terminal…) with how to find it — where the navigation goes. */
+@Composable
+private fun PointRow(title: String, point: PickupPointDto) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(DorrBrand.navy.copy(alpha = 0.08f)).padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Filled.PinDrop, null, tint = DorrBrand.navy, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Column {
+            Text(title, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            Text("${point.name.orEmpty()} · ${point.kindLabel.orEmpty()}", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = DorrBrand.navy)
+            point.instructions?.takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 12.sp, fontStyle = FontStyle.Italic) }
         }
     }
 }
