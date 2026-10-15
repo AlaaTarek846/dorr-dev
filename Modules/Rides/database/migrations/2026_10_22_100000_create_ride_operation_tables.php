@@ -204,7 +204,7 @@ return new class extends Migration
             $table->string('status', 10)->comment('sent / accepted / declined / expired / withdrawn');
             $table->boolean('auto_accepted')->default(false);
             $table->timestamp('sent_at');
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamp('responded_at')->nullable();
             $table->string('decline_reason', 32)->nullable();
             $table->unique(['ride_id', 'driver_id', 'round']);
