@@ -5,8 +5,12 @@ import com.dorr.app.ui.screens.profile.settingsSurface
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.RedToggle
+import com.dorr.app.ui.screens.profile.PinkBackdrop
 import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.profile.SubHeader
 import com.dorr.app.ui.screens.AccountDark
 import androidx.compose.material.icons.rounded.SportsSoccer
 import androidx.compose.material.icons.rounded.Celebration
@@ -22,11 +26,8 @@ import com.dorr.app.network.CalSectionsDto
 import androidx.compose.runtime.mutableIntStateOf
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.Mutex
-import com.dorr.app.ui.screens.wallet.rememberPressScale
-import androidx.compose.ui.draw.scale
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
@@ -39,9 +40,11 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -88,8 +91,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -105,14 +113,12 @@ import com.dorr.app.network.CalPrefsDto
 import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.ui.screens.chat.TimePickDialog
-import com.dorr.app.ui.screens.wallet.Tone
 import com.dorr.app.ui.screens.wallet.Wa
 import com.dorr.app.ui.screens.wallet.WaButton
 import com.dorr.app.ui.screens.wallet.WaButtonStyle
 import com.dorr.app.ui.screens.wallet.WaCard
 import com.dorr.app.ui.screens.wallet.WaEmpty
 import com.dorr.app.ui.screens.wallet.WaError
-import com.dorr.app.ui.screens.wallet.WaIconWell
 import com.dorr.app.ui.screens.wallet.WaPage
 import com.dorr.app.ui.screens.wallet.WaSectionTitle
 import com.dorr.app.ui.screens.wallet.WaSkeleton
@@ -162,55 +168,96 @@ internal fun ItemSheet(item: CalItemDto, onDismiss: () -> Unit, onOpenMoments: (
     val deleteFailedText = stringResource(R.string.cal_delete_failed)
     val color = typeColor(item)
 
-    ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-      com.dorr.app.ui.theme.ProvideAppFont {
-        Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp).padding(bottom = 26.dp)) {
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Wa.Surface,
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 18.dp)
+                .padding(bottom = 20.dp),
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(46.dp).clip(RoundedCornerShape(15.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-                    if (item.emoji != null) Text(item.emoji, fontSize = 22.sp) else Icon(itemIcon(item), null, tint = color, modifier = Modifier.size(24.dp))
+                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(color.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                    if (item.emoji != null) Text(item.emoji, fontSize = 20.sp) else Icon(itemIcon(item), null, tint = color, modifier = Modifier.size(20.dp))
                 }
-                Spacer(Modifier.width(12.dp))
+                Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(item.title, color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
-                    Text(kindLabel(item.type), color = color, fontSize = 12.5.sp, fontWeight = FontWeight.Bold)
+                    Text(item.title, color = Wa.Ink, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 20.sp)
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        kindLabel(item.type),
+                        color = color,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(color.copy(alpha = 0.12f))
+                            .padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
                 }
             }
-            Spacer(Modifier.height(14.dp))
+            Spacer(Modifier.height(12.dp))
             val date = runCatching { LocalDate.parse(item.date) }.getOrNull()
-            InfoLine(Icons.Rounded.Schedule, listOfNotNull(
-                date?.let { dayTitle(it) },
-                if (item.allDay || item.startsAt == null) stringResource(R.string.cal_all_day) else timeText(item.startsAt) + (item.endsAt?.let { " – " + timeText(it) } ?: ""),
-            ).joinToString("  ·  "))
-            item.originTime?.let { InfoLine(Icons.Rounded.Public, stringResource(R.string.cal_origin_time, it, item.timezone.orEmpty().substringAfterLast('/').replace('_', ' '))) }
-            item.location?.let { InfoLine(Icons.Rounded.Place, it) }
-            item.note?.let { InfoLine(Icons.Rounded.Notes, it) }
-            item.reminders?.takeIf { it.isNotEmpty() }?.let { r -> InfoLine(Icons.Rounded.Alarm, r.map { reminderLabel(it, item.allDay) }.joinToString(listSeparator())) }
-            if (item.overdue) Text(stringResource(R.string.cal_overdue), color = Wa.Danger, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            val lines = buildList {
+                add(
+                    Icons.Rounded.Schedule to listOfNotNull(
+                        date?.let { dayTitle(it) },
+                        if (item.allDay || item.startsAt == null) stringResource(R.string.cal_all_day) else timeText(item.startsAt) + (item.endsAt?.let { " – " + timeText(it) } ?: ""),
+                    ).joinToString("  ·  "),
+                )
+                item.originTime?.let { add(Icons.Rounded.Public to stringResource(R.string.cal_origin_time, it, item.timezone.orEmpty().substringAfterLast('/').replace('_', ' '))) }
+                item.location?.let { add(Icons.Rounded.Place to it) }
+                item.note?.let { add(Icons.Rounded.Notes to it) }
+                item.reminders?.takeIf { it.isNotEmpty() }?.let { r -> add(Icons.Rounded.Alarm to r.map { reminderLabel(it, item.allDay) }.joinToString(listSeparator())) }
+            }
+            val shape = RoundedCornerShape(16.dp)
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .border(1.dp, Wa.Line, shape)
+                    .clip(shape)
+                    .background(Wa.Surface)
+                    .padding(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                lines.forEachIndexed { i, (icon, text) ->
+                    InfoLine(icon, text)
+                    if (i != lines.lastIndex) {
+                        Box(Modifier.fillMaxWidth().padding(start = 46.dp).height(1.dp).background(Wa.Line))
+                    }
+                }
+                if (item.overdue) {
+                    Text(stringResource(R.string.cal_overdue), color = Wa.Danger, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp))
+                }
+            }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(12.dp))
             when (item.type) {
                 "event" -> {
-                    WaButton(stringResource(R.string.cal_edit), { onDismiss(); onEdit(item) }, icon = Icons.Rounded.Edit)
-                    Spacer(Modifier.height(6.dp))
-                    // Deleting asks first (the same question the app asks everywhere else).
-                    WaButton(stringResource(R.string.cal_delete), { confirmDelete = true }, style = WaButtonStyle.Quiet, icon = Icons.Rounded.Delete)
+                    SheetAction(stringResource(R.string.cal_edit), { onDismiss(); onEdit(item) }, icon = Icons.Rounded.Edit)
+                    Spacer(Modifier.height(8.dp))
+                    SheetAction(stringResource(R.string.cal_delete), { confirmDelete = true }, icon = Icons.Rounded.Delete, tone = SheetActionTone.Quiet)
                 }
-                "task" -> WaButton(stringResource(if (item.done) R.string.cal_task_undo else R.string.cal_task_done), {
+                "task" -> SheetAction(stringResource(if (item.done) R.string.cal_task_undo else R.string.cal_task_done), {
                     scope.launch {
                         runCatching { ApiClient.aiTools.updateTask(calAuth(), item.ref, JsonObject().apply { addProperty("done", !item.done) }) }
                         CalendarStore.changed()
                         onDismiss()
                     }
                 }, icon = Icons.Rounded.CheckCircle)
-                "moment", "personal" -> WaButton(stringResource(R.string.cal_open_moments), { onDismiss(); onOpenMoments() }, icon = Icons.Rounded.Event)
+                "moment", "personal" -> SheetAction(stringResource(R.string.cal_open_moments), { onDismiss(); onOpenMoments() }, icon = Icons.Rounded.Event)
             }
             item.conversationId?.let { c ->
-                Spacer(Modifier.height(6.dp))
-                WaButton(stringResource(R.string.cal_open_chat), { onDismiss(); ChatPush.open(ChatDeepLink.Conversation(c)) }, style = WaButtonStyle.Ghost, icon = Icons.Rounded.Chat)
+                Spacer(Modifier.height(8.dp))
+                SheetAction(stringResource(R.string.cal_open_chat), { onDismiss(); ChatPush.open(ChatDeepLink.Conversation(c)) }, icon = Icons.Rounded.Chat, tone = SheetActionTone.Ghost)
             }
         }
     }
-      }
 
     if (confirmDelete) {
         ConfirmDialog(
@@ -252,12 +299,49 @@ private fun kindLabel(type: String): String = stringResource(
     },
 )
 
+private enum class SheetActionTone { Primary, Quiet, Ghost }
+
+@Composable
+private fun SheetAction(text: String, onClick: () -> Unit, icon: ImageVector? = null, tone: SheetActionTone = SheetActionTone.Primary) {
+    val shape = RoundedCornerShape(14.dp)
+    val row = Modifier
+        .fillMaxWidth()
+        .height(44.dp)
+        .clip(shape)
+        .then(
+            when (tone) {
+                SheetActionTone.Primary -> Modifier.background(Wa.HeroBrush)
+                SheetActionTone.Quiet -> Modifier.background(Wa.Field)
+                SheetActionTone.Ghost -> Modifier.border(1.dp, Wa.Line, shape)
+            },
+        )
+        .clickable(onClick = onClick)
+        .padding(horizontal = 14.dp)
+    val fg = when (tone) {
+        SheetActionTone.Primary -> Color.White
+        SheetActionTone.Quiet -> Wa.Danger
+        SheetActionTone.Ghost -> Wa.Ink
+    }
+    Row(row, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+        icon?.let {
+            Icon(it, null, tint = fg, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+        }
+        Text(text, color = fg, fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
 @Composable
 private fun InfoLine(icon: ImageVector, text: String) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 5.dp), verticalAlignment = Alignment.Top) {
-        Icon(icon, null, tint = Wa.Mut, modifier = Modifier.size(19.dp))
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Wa.Field),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, tint = Wa.Ink, modifier = Modifier.size(16.dp))
+        }
         Spacer(Modifier.width(10.dp))
-        Text(text, color = Wa.Ink, fontSize = 14.5.sp)
+        Text(text, color = Wa.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), lineHeight = 18.sp)
     }
 }
 
@@ -331,19 +415,30 @@ internal fun CalendarSettings(onBack: () -> Unit) {
         CalSub.Today -> stringResource(R.string.cal_today_order)
     }
 
-    WaPage(title = title, onBack = { if (sub == CalSub.Menu) onBack() else sub = CalSub.Menu }) {
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(title) { if (sub == CalSub.Menu) onBack() else sub = CalSub.Menu }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 14.dp)
+                    .padding(top = 6.dp, bottom = 16.dp),
+            ) {
         val p = prefs
         if (p == null) {
             repeat(4) { WaSkeleton(Modifier.fillMaxWidth().height(56.dp).padding(bottom = 8.dp), RoundedCornerShape(16.dp)) }
-            return@WaPage
+            return@Column
         }
         WaError(error)
 
         when (sub) {
             CalSub.Menu -> {
-                CalSettingsRow(Icons.Rounded.CalendarMonth, R.string.cal_sources, R.string.cal_menu_sources_sub, 1) { sub = CalSub.Sources }
-                CalSettingsRow(Icons.Rounded.Alarm, R.string.cal_menu_reminders, R.string.cal_menu_reminders_sub, 2) { sub = CalSub.Reminders }
-                CalSettingsRow(Icons.Rounded.Schedule, R.string.cal_today_order, R.string.cal_menu_today_sub, 3) { sub = CalSub.Today }
+                CalSettingsRow(Icons.Rounded.CalendarMonth, R.string.cal_sources, R.string.cal_menu_sources_sub) { sub = CalSub.Sources }
+                CalSettingsRow(Icons.Rounded.Alarm, R.string.cal_menu_reminders, R.string.cal_menu_reminders_sub) { sub = CalSub.Reminders }
+                CalSettingsRow(Icons.Rounded.Schedule, R.string.cal_today_order, R.string.cal_menu_today_sub) { sub = CalSub.Today }
             }
 
             CalSub.Sources -> {
@@ -360,19 +455,28 @@ internal fun CalendarSettings(onBack: () -> Unit) {
             }
 
             CalSub.Reminders -> {
-                WaSectionTitle(stringResource(R.string.cal_default_reminders), Modifier.waRise(0), topPadding = 4.dp)
-                ReminderPicker(ReminderChoices, p.defaultReminders, false) { list ->
-                    change({ it.copy(defaultReminders = list) }, JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) })
-                }
-                Text(stringResource(R.string.cal_all_day_reminders), color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 12.dp, bottom = 6.dp))
-                ReminderPicker(AllDayChoices, p.allDayReminders, true) { list ->
-                    change({ it.copy(allDayReminders = list) }, JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                // Waiting for quiet hours comes first: it decides when every reminder below actually arrives.
+                SettingsToggleCard(Modifier.waRise(0)) {
+                    SettingsToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.cal_respect_quiet), stringResource(R.string.cal_respect_quiet_sub), p.respectQuiet, divider = false) { on ->
+                        change({ it.copy(respectQuiet = on) }, JsonObject().apply { addProperty("respect_quiet", on) })
+                    }
                 }
 
                 Spacer(Modifier.height(14.dp))
                 SettingsToggleCard(Modifier.waRise(1)) {
-                    SettingsToggleRow(Icons.Rounded.Bedtime, stringResource(R.string.cal_respect_quiet), stringResource(R.string.cal_respect_quiet_sub), p.respectQuiet, divider = false) { on ->
-                        change({ it.copy(respectQuiet = on) }, JsonObject().apply { addProperty("respect_quiet", on) })
+                    ReminderSection(Icons.Rounded.Alarm, stringResource(R.string.cal_default_reminders), stringResource(R.string.cal_default_reminders_sub)) {
+                        ReminderPicker(ReminderChoices, p.defaultReminders, false) { list ->
+                            change({ it.copy(defaultReminders = list) }, JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(14.dp))
+                SettingsToggleCard(Modifier.waRise(2)) {
+                    ReminderSection(Icons.Rounded.Event, stringResource(R.string.cal_all_day_reminders), stringResource(R.string.cal_all_day_reminders_sub)) {
+                        ReminderPicker(AllDayChoices, p.allDayReminders, true) { list ->
+                            change({ it.copy(allDayReminders = list) }, JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) })
+                        }
                     }
                 }
             }
@@ -413,6 +517,8 @@ internal fun CalendarSettings(onBack: () -> Unit) {
                 }
             }
         }
+            }
+        }
     }
 }
 
@@ -440,16 +546,30 @@ private fun SmallIcon(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) 
 
 /** A card of toggle rows — the notification settings' card. */
 @Composable
-private fun SettingsToggleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+internal fun SettingsToggleCard(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp),
         content = content,
     )
 }
 
+/** A settings card section: icon well, title and one line of help, then its own content (the reminder chips). */
+@Composable
+private fun ReminderSection(icon: ImageVector, title: String, help: String, content: @Composable () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+            Text(help, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
+        }
+    }
+    Box(Modifier.padding(horizontal = 4.dp).padding(bottom = 12.dp)) { content() }
+}
+
 /** An icon, a title with one line of help, and the settings toggle; a thin line under it unless it is the last. */
 @Composable
-private fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, on: Boolean, divider: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, on: Boolean, divider: Boolean, onChange: (Boolean) -> Unit) {
     val dark = settingsNight()
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         PinkIcon(icon)
@@ -463,32 +583,44 @@ private fun SettingsToggleRow(icon: ImageVector, title: String, help: String?, o
     if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
 }
 
-/** One entry of the settings menu: brand-tinted icon, title + one line of help, chevron (the wallet's security menu look). */
+/** One entry of the settings menu — same row as Account (icon well, 13.5/11 type, 14.dp card). */
 @Composable
-private fun CalSettingsRow(icon: ImageVector, title: Int, subtitle: Int, index: Int, onClick: () -> Unit) {
-    val source = remember { MutableInteractionSource() }
-    val scale by rememberPressScale(source, 0.97f)
-    val shape = RoundedCornerShape(20.dp)
+internal fun CalSettingsRow(icon: ImageVector, title: Int, subtitle: Int, onClick: () -> Unit) {
+    val dark = settingsNight()
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val shape = RoundedCornerShape(14.dp)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(vertical = 6.dp)
-            .waRise(index)
-            .scale(scale)
+            .padding(vertical = 4.dp)
+            .then(if (dark) Modifier else Modifier.shadow(6.dp, shape, spotColor = settingsAccent().copy(alpha = 0.07f)))
             .clip(shape)
-            .background(Wa.Surface)
-            .border(1.dp, Wa.Red.copy(alpha = 0.3f), shape)
-            .clickable(interactionSource = source, indication = null, onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 16.dp),
+            .background(settingsCard())
+            .then(if (dark) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        WaIconWell(icon, Tone.Red, size = 48.dp, iconSize = 24.dp)
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(title), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
-            Text(stringResource(subtitle), fontSize = 12.5.sp, lineHeight = 19.sp, color = Wa.Mut, modifier = Modifier.padding(top = 3.dp))
+        Box(
+            Modifier
+                .size(34.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(if (dark) AccountDark.well else settingsAccent().copy(alpha = 0.14f)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
         }
-        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = Wa.Soft, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(title), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+            Text(stringResource(subtitle), fontSize = 11.sp, color = settingsInk().copy(alpha = 0.65f))
+        }
+        Icon(
+            Icons.Rounded.ChevronRight,
+            null,
+            tint = if (dark) AccountDark.chevron else settingsAccent().copy(alpha = 0.55f),
+            modifier = Modifier.size(16.dp).graphicsLayer { if (rtl) scaleX = -1f },
+        )
     }
 }
 
@@ -565,10 +697,10 @@ internal fun CalendarSearch(onBack: () -> Unit, onOpenMoments: () -> Unit, onEdi
                 Icons.Rounded.Warning, stringResource(R.string.cal_search_failed), stringResource(R.string.cal_search_failed_sub),
                 action = { WaButton(stringResource(R.string.wa_retry), { attempt++ }, style = WaButtonStyle.Ghost, modifier = Modifier.padding(horizontal = 40.dp)) },
             )
-            r == null && loading -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(74.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
+            r == null && loading -> repeat(2) { WaSkeleton(Modifier.fillMaxWidth().height(58.dp).padding(bottom = 8.dp), RoundedCornerShape(14.dp)) }
             r == null -> CalEmptyState(Icons.Rounded.Search, stringResource(R.string.cal_search_idle), stringResource(R.string.cal_search_idle_sub))
             r.isEmpty() -> CalEmptyState(Icons.Rounded.SearchOff, stringResource(R.string.cal_search_none), stringResource(R.string.cal_search_none_sub))
-            else -> r.forEachIndexed { i, item -> ItemRow(item, Modifier.padding(bottom = 10.dp).waRise(i), showDate = true) { if (item.type != "capsule") open = item } }
+            else -> r.forEachIndexed { i, item -> ItemRow(item, Modifier.padding(bottom = 8.dp).waRise(i), showDate = true) { if (item.type != "capsule") open = item } }
         }
     }
     open?.let { item -> ItemSheet(item, onDismiss = { open = null }, onOpenMoments = onOpenMoments, onEdit = onEdit) }

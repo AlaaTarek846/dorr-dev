@@ -191,6 +191,31 @@ private fun initialLanguage(context: Context): String {
     return "en"
 }
 
+/** Capture the locale-aware locals *outside* a Dialog/sheet, then [Provide] them inside the new window. */
+class AppLocaleFrame(
+    val context: Context,
+    val configuration: Configuration,
+    val layoutDirection: LayoutDirection,
+) {
+    @Composable
+    fun Provide(content: @Composable () -> Unit) {
+        CompositionLocalProvider(
+            LocalContext provides context,
+            LocalConfiguration provides configuration,
+            LocalLayoutDirection provides layoutDirection,
+        ) {
+            com.dorr.app.ui.theme.ProvideAppFont(content)
+        }
+    }
+}
+
+@Composable
+fun rememberAppLocaleFrame(): AppLocaleFrame = AppLocaleFrame(
+    LocalContext.current,
+    LocalConfiguration.current,
+    LocalLayoutDirection.current,
+)
+
 /**
  * [Dialog] content is composed in a separate window that keeps the Activity's
  * default [Context], so [stringResource] would ignore [LocalizedApp] and fall
@@ -203,17 +228,9 @@ fun LocaleAwareDialog(
     properties: DialogProperties = DialogProperties(),
     content: @Composable () -> Unit,
 ) {
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val layoutDirection = LocalLayoutDirection.current
+    val frame = rememberAppLocaleFrame()
     Dialog(onDismissRequest = onDismissRequest, properties = properties) {
-        CompositionLocalProvider(
-            LocalContext provides context,
-            LocalConfiguration provides configuration,
-            LocalLayoutDirection provides layoutDirection,
-        ) {
-            com.dorr.app.ui.theme.ProvideAppFont(content)
-        }
+        frame.Provide(content)
     }
 }
 
@@ -253,19 +270,11 @@ fun LocaleAwareBottomSheet(
     fullHeight: Boolean = false,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
-    val context = LocalContext.current
-    val configuration = LocalConfiguration.current
-    val layoutDirection = LocalLayoutDirection.current
+    val frame = rememberAppLocaleFrame()
     androidx.compose.material3.ModalBottomSheet(
         onDismissRequest = onDismissRequest, containerColor = containerColor, shape = shape,
         sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = fullHeight),
     ) {
-        CompositionLocalProvider(
-            LocalContext provides context,
-            LocalConfiguration provides configuration,
-            LocalLayoutDirection provides layoutDirection,
-        ) {
-            com.dorr.app.ui.theme.ProvideAppFont { content() }
-        }
+        frame.Provide { content() }
     }
 }

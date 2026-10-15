@@ -33,6 +33,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import com.dorr.app.network.AppLocale
 
 /** Icon + tint for each ledger type, the same table as the preview's `TX_META`. */
 internal fun txMeta(type: String): Pair<ImageVector, Tone> = when (type) {
@@ -72,7 +73,7 @@ internal fun daysAgo(iso: String?): Long? {
 /** "24 سبتمبر 2026" / "24 September 2026" in the app's language. */
 internal fun longDate(iso: String?): String {
     val day = dayKey(iso) ?: return ""
-    return DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(Locale.getDefault()).format(day)
+    return DateTimeFormatter.ofLocalizedDate(FormatStyle.LONG).withLocale(AppLocale.java()).format(day)
 }
 
 /** Minor units → "1,234.50" (no currency) — the currency is shown next to it by the caller. */

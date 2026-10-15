@@ -193,7 +193,10 @@ class DiscoverService
         };
 
         $cityIds = $follows->where('kind', 'city')->pluck('target_id')->all();
+        $regionIds = $follows->where('kind', 'region')->pluck('target_id')->all();
         $countryIds = $follows->where('kind', 'country')->pluck('target_id')->all();
+        // A followed region follows its cities.
+        $cityIds = array_values(array_unique([...$cityIds, ...($regionIds === [] ? [] : DiscoverCity::query()->whereIn('region_id', $regionIds)->pluck('id')->all())]));
 
         $sections = [
             $prefs->categoryIds() !== [] ? $section('for_you', fn ($q) => $here($q)->whereIn('category_id', $prefs->categoryIds())) : null,
@@ -293,16 +296,26 @@ class DiscoverService
         $rows = DiscoverFollow::query()->ownedBy($me)->orderBy('id')->get();
         $cities = DiscoverCity::query()->with(['translations', 'country'])->whereIn('id', $rows->where('kind', 'city')->pluck('target_id'))->get()->keyBy('id');
         $countries = Country::query()->with('translations')->whereIn('id', $rows->where('kind', 'country')->pluck('target_id'))->get()->keyBy('id');
+        $regions = Region::query()->with(['translations', 'country'])->whereIn('id', $rows->where('kind', 'region')->pluck('target_id'))->get()->keyBy('id');
 
-        return $rows->map(function (DiscoverFollow $f) use ($cities, $countries) {
+        return $rows->map(function (DiscoverFollow $f) use ($cities, $countries, $regions) {
             $city = $f->kind === 'city' ? $cities->get($f->target_id) : null;
-            $country = $f->kind === 'country' ? $countries->get($f->target_id) : $city?->country;
+            $region = $f->kind === 'region' ? $regions->get($f->target_id) : null;
+            $country = match ($f->kind) {
+                'country' => $countries->get($f->target_id),
+                'region' => $region?->country,
+                default => $city?->country,
+            };
 
             return [
                 'id' => $f->id,
                 'kind' => $f->kind,
                 'target_id' => (int) $f->target_id,
-                'name' => $f->kind === 'city' ? $city?->translatedName() : $country?->translatedName(),
+                'name' => match ($f->kind) {
+                    'city' => $city?->translatedName(),
+                    'region' => $region?->translatedName(),
+                    default => $country?->translatedName(),
+                },
                 'country' => $country?->code,
             ];
         })->values()->all();
@@ -313,9 +326,11 @@ class DiscoverService
      */
     public function follow(Model $me, string $kind, int $targetId): array
     {
-        $exists = $kind === 'city'
-            ? DiscoverCity::query()->where('status', true)->whereKey($targetId)->exists()
-            : Country::query()->whereKey($targetId)->exists();
+        $exists = match ($kind) {
+            'city' => DiscoverCity::query()->where('status', true)->whereKey($targetId)->exists(),
+            'region' => Region::query()->where('status', true)->whereKey($targetId)->exists(),
+            default => Country::query()->whereKey($targetId)->exists(),
+        };
         if (! $exists) {
             throw DiscoverException::notFound();
         }
@@ -456,7 +471,7 @@ class DiscoverService
     {
         $settings = $this->settings();
 
-        return Country::query()->whereIn('id', DiscoverCity::query()->where('status', true)->select('country_id'))->get()
+        return Country::query()->with('translations')->whereIn('id', DiscoverCity::query()->where('status', true)->select('country_id'))->get()
             ->filter(fn (Country $c) => $settings->onIn($c->id))
             ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName() ?: $c->code, 'code' => $c->code])
             ->values()->all();

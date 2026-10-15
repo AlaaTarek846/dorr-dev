@@ -65,6 +65,8 @@
     <string name="cal_src_reminders">تذكيرات الرسايل</string>
     <string name="cal_default_reminders">التذكيرات الافتراضية</string>
     <string name="cal_all_day_reminders">للمواعيد اللي طول اليوم</string>
+    <string name="cal_default_reminders_sub">بتتطبق على أي ميعاد جديد إلا لو اخترت غيرها.</string>
+    <string name="cal_all_day_reminders_sub">بتتطبق على المواعيد اللي طول اليوم.</string>
     <string name="cal_respect_quiet">استنى لما وقت الهدوء يخلص</string>
     <string name="cal_respect_quiet_sub">التذكيرات اللي في وقت الهدوء بتوصل لما يخلص.</string>
     <string name="cal_search_hint">دوّر في المواعيد والمهام والمناسبات…</string>

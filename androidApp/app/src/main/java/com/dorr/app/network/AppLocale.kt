@@ -11,4 +11,7 @@ package com.dorr.app.network
 object AppLocale {
     @Volatile
     var current: String = "ar"
+
+    /** Java locale for dates and weekday names — the app language, not the phone's. */
+    fun java(): java.util.Locale = java.util.Locale.forLanguageTag(current.ifBlank { "ar" })
 }

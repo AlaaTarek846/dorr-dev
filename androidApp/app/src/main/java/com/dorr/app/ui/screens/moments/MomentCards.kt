@@ -18,9 +18,11 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,6 +31,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -41,8 +44,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.Pause
@@ -55,11 +60,10 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Send
 import androidx.compose.material.icons.rounded.Stop
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.Switch
-import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -74,10 +78,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shadow
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -95,24 +104,35 @@ import com.dorr.app.chat.VoiceClip
 import com.dorr.app.chat.VoicePlayer
 import com.dorr.app.chat.VoiceRecorder
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AppLocale
 import com.dorr.app.network.CardLookDto
 import com.dorr.app.network.ContactDto
 import com.dorr.app.network.MessageDto
 import com.dorr.app.network.OpenDirectRequest
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.components.DorrTextField
+import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.chat.Ch
 import com.dorr.app.ui.screens.chat.arr
 import com.dorr.app.ui.screens.chat.int
 import com.dorr.app.ui.screens.chat.long
 import com.dorr.app.ui.screens.chat.obj
-import com.dorr.app.ui.screens.chat.ChField
-import com.dorr.app.ui.screens.chat.ChPrimaryButton
 import com.dorr.app.ui.screens.chat.LocalFile
 import com.dorr.app.ui.screens.chat.ScheduleSheet
 import com.dorr.app.ui.screens.chat.chatAuth
 import com.dorr.app.ui.screens.chat.compressImage
 import com.dorr.app.ui.screens.chat.copyToCache
+import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.profile.RedToggle
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSurface
 import com.dorr.app.ui.screens.wallet.PadResult
+import com.dorr.app.ui.screens.wallet.Wa
+import com.dorr.app.ui.screens.wallet.WaButton
+import com.dorr.app.ui.screens.wallet.WaError
 import com.dorr.app.ui.screens.wallet.WaPinPad
 import com.dorr.app.ui.screens.wallet.formatMinor
 import com.dorr.app.ui.screens.wallet.parseAmountToMinor
@@ -183,7 +203,7 @@ private fun textPart(v: String): RequestBody = v.toRequestBody("text/plain".toMe
 
 private val sendAtFormat: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
-private fun whenText(at: ZonedDateTime): String = at.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))
+private fun whenText(at: ZonedDateTime): String = at.format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(AppLocale.java()))
 
 // =============================================================================== the composer
 
@@ -279,10 +299,10 @@ fun MomentCardSheet(
 
     ChSheet(
         onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+        containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
     ) {
         if (chatId == null && toUser != null) {
-            Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Ch.Red) }
+            Box(Modifier.fillMaxWidth().padding(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = settingsAccent()) }
             return@ChSheet
         }
         if (chatId == null) {
@@ -319,62 +339,86 @@ fun MomentCardSheet(
                 }
                 return@AnimatedContent
             }
-            Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).imePadding().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 28.dp),
+            ) {
                 Text(
                     if (name.isNullOrBlank()) stringResource(R.string.mo_card_title) else stringResource(R.string.mo_card_to, name.orEmpty()),
-                    color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+                    color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
                 )
-                Spacer(Modifier.height(12.dp))
-                // The card as they'll see it.
-                choice?.let { c -> CardFace(c.look.copy(title = title.trim().ifEmpty { c.name }), Modifier.fillMaxWidth().height(170.dp)) }
                 Spacer(Modifier.height(10.dp))
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(choices, key = { "${it.momentId}-${it.kind}" }) { c ->
+                choice?.let { c -> CardFace(c.look.copy(title = title.trim().ifEmpty { c.name }), Modifier.fillMaxWidth()) }
+                Spacer(Modifier.height(10.dp))
+                MoSheetSelect(
+                    label = stringResource(R.string.mo_occasion),
+                    value = choice?.let { "${it.look.emoji ?: "✨"}  ${it.name}" }.orEmpty(),
+                    icon = Icons.Rounded.AutoAwesome,
+                ) { close ->
+                    choices.forEach { c ->
                         val on = choice == c
-                        Row(
-                            Modifier.clip(RoundedCornerShape(50)).background(if (on) momentColor(c.look.primaryColor, Ch.Red) else Ch.SurfaceMuted)
-                                .clickable { choice = c }.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(c.look.emoji ?: "✨", fontSize = 15.sp)
-                            Spacer(Modifier.width(5.dp))
-                            Text(c.name, color = if (on) Color.White else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        }
+                        DropdownMenuItem(
+                            text = { Text("${c.look.emoji ?: "✨"}  ${c.name}", color = if (on) settingsAccent() else settingsInk(), fontWeight = if (on) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                            trailingIcon = { if (on) Icon(Icons.Rounded.CheckCircle, null, tint = settingsAccent(), modifier = Modifier.size(16.dp)) },
+                            onClick = { choice = c; close() },
+                        )
                     }
                 }
-                Spacer(Modifier.height(12.dp))
-                ChField(title, { title = it.take(120) }, stringResource(R.string.mo_card_title_hint))
+                Spacer(Modifier.height(10.dp))
+                DorrTextField(
+                    title, { title = it.take(120) }, modifier = Modifier.fillMaxWidth(),
+                    label = stringResource(R.string.mo_lbl_title), placeholder = stringResource(R.string.mo_card_title_hint), icon = Icons.Rounded.Edit,
+                )
+                Spacer(Modifier.height(10.dp))
+                DorrTextField(
+                    body, { body = it.take(2000) }, modifier = Modifier.fillMaxWidth(),
+                    placeholder = stringResource(R.string.mo_card_text_hint), icon = Icons.Rounded.Edit,
+                    singleLine = false, minLines = 3,
+                )
                 Spacer(Modifier.height(8.dp))
-                ChField(body, { body = it.take(2000) }, stringResource(R.string.mo_card_text_hint), singleLine = false, minLines = 3)
-                Spacer(Modifier.height(6.dp))
                 Row(
-                    Modifier.clip(RoundedCornerShape(50)).background(Ch.Red.copy(alpha = 0.1f)).clickable { aiOpen = !aiOpen }.padding(horizontal = 12.dp, vertical = 7.dp),
+                    Modifier.clip(RoundedCornerShape(50)).background(settingsAccent().copy(alpha = 0.1f)).clickable { aiOpen = !aiOpen }.padding(horizontal = 12.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Icon(Icons.Rounded.AutoAwesome, null, tint = Ch.Red, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Rounded.AutoAwesome, null, tint = settingsAccent(), modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(stringResource(R.string.mo_card_ai), color = Ch.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.mo_card_ai), color = settingsAccent(), fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
                 AnimatedVisibility(aiOpen, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     GreetingSuggestions(choice, name) { body = it; aiOpen = false }
                 }
-
-                // My own voice and photos.
-                Spacer(Modifier.height(12.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    val clip = voice
+                Spacer(Modifier.height(10.dp))
+                DorrTextField(
                     when {
-                        recorder.recording -> OptionChip(Icons.Rounded.Stop, stringResource(R.string.mo_card_voice_stop, durationLabel(recorder.elapsedMs)), active = true) { voice = recorder.finish() }
-                        clip != null -> OptionChip(Icons.Rounded.Delete, stringResource(R.string.mo_card_voice_done, durationLabel(clip.durationMs)), active = true) { clip.file.delete(); voice = null }
-                        else -> OptionChip(Icons.Rounded.Mic, stringResource(R.string.mo_card_voice)) {
-                            if (androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) recorder.start()
-                            else mic.launch(Manifest.permission.RECORD_AUDIO)
+                        recorder.recording -> stringResource(R.string.mo_card_voice_stop, durationLabel(recorder.elapsedMs))
+                        voice != null -> stringResource(R.string.mo_card_voice_done, durationLabel(voice!!.durationMs))
+                        else -> stringResource(R.string.mo_card_voice)
+                    },
+                    {},
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = if (recorder.recording) Icons.Rounded.Stop else if (voice != null) Icons.Rounded.Delete else Icons.Rounded.Mic,
+                    onClick = {
+                        when {
+                            recorder.recording -> voice = recorder.finish()
+                            voice != null -> { voice!!.file.delete(); voice = null }
+                            androidx.core.content.ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED -> recorder.start()
+                            else -> mic.launch(Manifest.permission.RECORD_AUDIO)
                         }
-                    }
-                    OptionChip(Icons.Rounded.Photo, if (photos.isEmpty()) stringResource(R.string.mo_card_photos) else "${photos.size}/10") {
-                        if (photos.size < 10) gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
-                }
+                    },
+                )
+                Spacer(Modifier.height(10.dp))
+                DorrTextField(
+                    if (photos.isEmpty()) stringResource(R.string.mo_card_photos) else "${photos.size}/10",
+                    {},
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Rounded.Photo,
+                    onClick = { if (photos.size < 10) gallery.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                )
                 if (photos.isNotEmpty()) {
                     Spacer(Modifier.height(8.dp))
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -389,58 +433,70 @@ fun MomentCardSheet(
                         }
                     }
                 }
-
-                // Surprise · later · gift.
                 Spacer(Modifier.height(14.dp))
-                ToggleLine(
-                    Icons.Rounded.Lock, stringResource(R.string.mo_card_surprise),
-                    revealAt?.let { stringResource(R.string.mo_card_surprise_at, whenText(it)) } ?: stringResource(R.string.mo_card_surprise_sub),
-                    checked = revealAt != null,
-                ) { if (it) picking = "reveal" else revealAt = null }
-                ToggleLine(
-                    Icons.Rounded.Schedule, stringResource(R.string.mo_card_later),
-                    sendAt?.let { stringResource(R.string.mo_card_later_at, it.toLocalDateTime().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT))) } ?: stringResource(R.string.mo_card_later_sub),
-                    checked = sendAt != null,
-                ) { if (it) picking = "send" else sendAt = null }
-                if (sendAt != null && direct) {
-                    Row(Modifier.padding(start = 40.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf(true to stringResource(R.string.mo_card_their_time, name.orEmpty()), false to stringResource(R.string.mo_card_my_time)).forEach { (theirs, label) ->
-                            val on = theirZone == theirs
-                            Text(
-                                label, color = if (on) Color.White else Ch.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
-                                modifier = Modifier.clip(RoundedCornerShape(50)).background(if (on) Ch.Red else Ch.SurfaceMuted).clickable { theirZone = theirs }.padding(horizontal = 12.dp, vertical = 6.dp),
+                Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                    ToggleLine(
+                        Icons.Rounded.Lock, stringResource(R.string.mo_card_surprise),
+                        revealAt?.let { stringResource(R.string.mo_card_surprise_at, whenText(it)) } ?: stringResource(R.string.mo_card_surprise_sub),
+                        checked = revealAt != null, divider = true,
+                    ) { if (it) picking = "reveal" else revealAt = null }
+                    ToggleLine(
+                        Icons.Rounded.Schedule, stringResource(R.string.mo_card_later),
+                        sendAt?.let { stringResource(R.string.mo_card_later_at, it.toLocalDateTime().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(AppLocale.java()))) } ?: stringResource(R.string.mo_card_later_sub),
+                        checked = sendAt != null, divider = direct,
+                    ) { if (it) picking = "send" else sendAt = null }
+                    if (sendAt != null && direct) {
+                        MoSheetSelect(
+                            label = stringResource(R.string.mo_card_later),
+                            value = if (theirZone) stringResource(R.string.mo_card_their_time, name.orEmpty()) else stringResource(R.string.mo_card_my_time),
+                            icon = Icons.Rounded.Schedule,
+                        ) { close ->
+                            listOf(true to stringResource(R.string.mo_card_their_time, name.orEmpty()), false to stringResource(R.string.mo_card_my_time)).forEach { (theirs, label) ->
+                                val on = theirZone == theirs
+                                DropdownMenuItem(
+                                    text = { Text(label, color = if (on) settingsAccent() else settingsInk(), fontWeight = if (on) FontWeight.Bold else FontWeight.Medium) },
+                                    trailingIcon = { if (on) Icon(Icons.Rounded.CheckCircle, null, tint = settingsAccent(), modifier = Modifier.size(16.dp)) },
+                                    onClick = { theirZone = theirs; close() },
+                                )
+                            }
+                        }
+                    }
+                    if (direct) {
+                        ToggleLine(
+                            Icons.Rounded.Redeem, stringResource(R.string.mo_card_gift),
+                            stringResource(if (sendAt != null) R.string.mo_card_gift_now_only else R.string.mo_card_gift_sub),
+                            checked = giftOn && sendAt == null, enabled = sendAt == null, divider = false,
+                        ) { giftOn = it }
+                        AnimatedVisibility(giftOn && sendAt == null) {
+                            DorrTextField(
+                                gift, { v -> gift = v.filter { it.isDigit() || it == '.' }.take(12) },
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp),
+                                label = stringResource(R.string.mo_card_gift_amount), icon = Icons.Rounded.Payments,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             )
                         }
                     }
                 }
-                if (direct) {
-                    ToggleLine(
-                        Icons.Rounded.Redeem, stringResource(R.string.mo_card_gift),
-                        stringResource(if (sendAt != null) R.string.mo_card_gift_now_only else R.string.mo_card_gift_sub),
-                        checked = giftOn && sendAt == null, enabled = sendAt == null,
-                    ) { giftOn = it }
-                    AnimatedVisibility(giftOn && sendAt == null) {
-                        ChField(gift, { v -> gift = v.filter { it.isDigit() || it == '.' }.take(12) }, stringResource(R.string.mo_card_gift_amount), icon = Icons.Rounded.Payments, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal))
-                    }
-                }
-
-                error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
+                WaError(error)
                 Spacer(Modifier.height(16.dp))
-                ChPrimaryButton(
-                    stringResource(if (sendAt != null) R.string.mo_card_schedule else R.string.mo_card_send), icon = Icons.Rounded.Send, modifier = Modifier.fillMaxWidth(),
+                WaButton(
+                    stringResource(if (sendAt != null) R.string.mo_card_schedule else R.string.mo_card_send),
+                    {
+                        if (giftMinor != null) {
+                            step = 1
+                            return@WaButton
+                        }
+                        busy = true
+                        error = null
+                        scope.launch {
+                            runCatching { send(null) }.onFailure { error = it.apiFailure().message }
+                            busy = false
+                        }
+                    },
                     enabled = !busy && choice != null && !recorder.recording && (!giftOn || sendAt != null || giftMinor != null),
-                ) {
-                    if (giftMinor != null) {
-                        step = 1
-                        return@ChPrimaryButton
-                    }
-                    busy = true
-                    error = null
-                    scope.launch {
-                        runCatching { send(null) }.onFailure { error = it.apiFailure().message }
-                        busy = false
-                    }
-                }
+                    icon = Icons.Rounded.Send,
+                    loading = busy,
+                )
             }
         }
     }
@@ -459,22 +515,22 @@ private fun WhoFor(onPick: (ContactDto) -> Unit) {
     var contacts by remember { mutableStateOf<List<ContactDto>?>(null) }
     var query by remember { mutableStateOf("") }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty().filter { it.profile != null } }
-    Column(Modifier.fillMaxWidth().heightIn(min = 420.dp).padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
-        Text(stringResource(R.string.mo_card_who), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-        Spacer(Modifier.height(8.dp))
-        ChField(query, { query = it }, stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search)
-        Spacer(Modifier.height(8.dp))
+    Column(Modifier.fillMaxWidth().navigationBarsPadding().heightIn(min = 420.dp).padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
+        Text(stringResource(R.string.mo_card_who), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(Modifier.height(10.dp))
+        DorrTextField(query, { query = it }, modifier = Modifier.fillMaxWidth(), placeholder = stringResource(R.string.ch_search_contacts), icon = Icons.Rounded.Search)
+        Spacer(Modifier.height(10.dp))
         val list = contacts
-        if (list == null) CircularProgressIndicator(color = Ch.Red, modifier = Modifier.align(Alignment.CenterHorizontally).padding(20.dp))
-        else Column(Modifier.verticalScroll(rememberScrollState()).heightIn(max = 460.dp)) {
+        if (list == null) CircularProgressIndicator(color = settingsAccent(), modifier = Modifier.align(Alignment.CenterHorizontally).padding(20.dp))
+        else Column(Modifier.verticalScroll(rememberScrollState()).heightIn(max = 460.dp).fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 6.dp, vertical = 2.dp)) {
             list.filter { query.isBlank() || it.name.contains(query.trim(), ignoreCase = true) || it.phone.contains(query.trim()) }.forEach { c ->
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable { onPick(c) }.padding(vertical = 10.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(40.dp).clip(CircleShape).background(Ch.SurfaceMuted), contentAlignment = Alignment.Center) {
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { onPick(c) }.padding(vertical = 10.dp, horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(settingsAccent().copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
                         c.profile?.avatar?.let { AsyncImage(ApiClient.mediaUrl(it), null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize()) }
-                            ?: Text(c.name.take(1), color = Ch.Ink, fontWeight = FontWeight.Bold)
+                            ?: Text(c.name.take(1), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 13.5.sp)
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text(c.name, color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                    Text(c.name, color = settingsInk(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -493,12 +549,12 @@ private fun GreetingSuggestions(choice: CardChoice?, name: String?, onUse: (Stri
     val relations = listOf("family" to R.string.mo_rel_family, "friend" to R.string.mo_rel_friend, "partner" to R.string.mo_rel_partner, "work" to R.string.mo_rel_work, "other" to R.string.mo_rel_other)
     val tones = listOf("warm" to R.string.mo_tone_warm, "formal" to R.string.mo_tone_formal, "funny" to R.string.mo_tone_funny, "short" to R.string.mo_tone_short, "poetic" to R.string.mo_tone_poetic)
 
-    Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(18.dp)).background(Ch.SurfaceMuted).padding(12.dp)) {
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp).settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(12.dp)) {
         PillRow(relations, relation) { relation = it }
         Spacer(Modifier.height(6.dp))
         PillRow(tones, tone) { tone = it }
         Spacer(Modifier.height(8.dp))
-        ChPrimaryButton(stringResource(R.string.mo_card_ai_go), icon = Icons.Rounded.AutoAwesome, modifier = Modifier.fillMaxWidth(), enabled = !loading && choice != null) {
+        WaButton(stringResource(R.string.mo_card_ai_go), {
             loading = true
             error = null
             scope.launch {
@@ -513,13 +569,12 @@ private fun GreetingSuggestions(choice: CardChoice?, name: String?, onUse: (Stri
                 }.onSuccess { results = it }.onFailure { error = it.apiFailure().message }
                 loading = false
             }
-        }
-        if (loading) CircularProgressIndicator(color = Ch.Red, modifier = Modifier.align(Alignment.CenterHorizontally).padding(10.dp).size(26.dp))
+        }, icon = Icons.Rounded.AutoAwesome, enabled = !loading && choice != null, loading = loading)
         error?.let { Text(it, color = Color(0xFFDC2626), fontSize = 12.5.sp, modifier = Modifier.padding(top = 6.dp)) }
         results.forEach { g ->
             Text(
-                g, color = Ch.Ink, fontSize = 13.5.sp,
-                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp)).background(Ch.Surface).clickable { onUse(g) }.padding(12.dp),
+                g, color = settingsInk(), fontSize = 13.5.sp,
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(14.dp)).background(if (settingsNight()) AccountDark.well else Color(0xFFF7F8FA)).clickable { onUse(g) }.padding(12.dp),
             )
         }
     }
@@ -530,40 +585,40 @@ private fun PillRow(options: List<Pair<String, Int>>, selected: String, onPick: 
     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         items(options, key = { it.first }) { (key, label) ->
             val on = key == selected
-            val bg by animateColorAsState(if (on) Ch.Red else Ch.Surface, label = "pill")
+            val accent = settingsAccent()
+            val bg by animateColorAsState(if (on) accent else Color.Transparent, label = "pill")
             Text(
-                stringResource(label), color = if (on) Color.White else Ch.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).clickable { onPick(key) }.padding(horizontal = 12.dp, vertical = 6.dp),
+                stringResource(label), color = if (on) Color.White else settingsInk(), fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
+                modifier = Modifier.clip(RoundedCornerShape(50)).border(1.dp, if (on) accent else Color(0xFFE6E8EC), RoundedCornerShape(50)).background(bg).clickable { onPick(key) }.padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
     }
 }
 
 @Composable
-private fun OptionChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, active: Boolean = false, onClick: () -> Unit) {
+private fun ToggleLine(
+    icon: ImageVector,
+    title: String,
+    sub: String,
+    checked: Boolean,
+    enabled: Boolean = true,
+    divider: Boolean = false,
+    onChange: (Boolean) -> Unit,
+) {
+    val dark = settingsNight()
     Row(
-        Modifier.clip(RoundedCornerShape(50)).background(if (active) Ch.Red else Ch.SurfaceMuted).clickable(onClick = onClick).padding(horizontal = 14.dp, vertical = 9.dp),
+        Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.45f).padding(horizontal = 4.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = if (active) Color.White else Ch.Red, modifier = Modifier.size(17.dp))
-        Spacer(Modifier.width(6.dp))
-        Text(label, color = if (active) Color.White else Ch.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun ToggleLine(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, sub: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(32.dp).clip(CircleShape).background(Ch.Red.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(17.dp))
-        }
-        Spacer(Modifier.width(8.dp))
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Ch.Ink, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-            Text(sub, color = Ch.Mut, fontSize = 12.sp, maxLines = 2)
+            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+            Text(sub, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp), maxLines = 2)
         }
-        Switch(checked = checked, onCheckedChange = onChange, enabled = enabled, colors = SwitchDefaults.colors(checkedTrackColor = Ch.Red))
+        RedToggle(checked, dark) { if (enabled) onChange(!checked) }
     }
+    if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
 }
 
 private fun durationLabel(ms: Long): String {
@@ -576,12 +631,30 @@ private fun durationLabel(ms: Long): String {
 /** The occasion's face: its gradient (or the admin's card image), animation, emoji and title. */
 @Composable
 internal fun CardFace(look: CardLookDto, modifier: Modifier = Modifier, effects: String = MomentsStore.center?.effects ?: "full", content: @Composable () -> Unit = {}) {
-    Box(modifier.clip(RoundedCornerShape(22.dp)).background(momentBrush(look.primaryColor, look.secondaryColor))) {
+    Box(modifier.defaultMinSize(minHeight = 156.dp).clip(RoundedCornerShape(22.dp)).background(momentBrush(look.primaryColor, look.secondaryColor))) {
         look.cardImage?.let { AsyncImage(ApiClient.mediaUrl(it), null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize()) }
         MomentEffect(look.animation, look.emoji, look.primaryColor, look.secondaryColor, effects, Modifier.matchParentSize())
-        Column(Modifier.fillMaxWidth().padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(look.emoji ?: "✨", fontSize = 44.sp)
-            Text(look.title.orEmpty(), color = Color.White, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = 18.dp, vertical = 16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(look.emoji ?: "✨", fontSize = 40.sp)
+            val heading = look.title.orEmpty()
+            if (heading.isNotBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    heading,
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = TextStyle(
+                        shadow = Shadow(Color.Black.copy(alpha = 0.7f), offset = Offset(0f, 1f), blurRadius = 12f),
+                    ),
+                )
+            }
             content()
         }
     }

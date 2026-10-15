@@ -467,10 +467,12 @@ internal fun ServiceChildrenSheet(service: ServiceDto, color: Color, onDismiss: 
     val comingSoon = stringResource(R.string.services_coming_soon)
 
     val night = settingsNight()
+    val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         containerColor = if (night) AccountDark.card else MaterialTheme.colorScheme.surface,
     ) {
+        locale.Provide {
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 ServiceAvatar(service.image, serviceIcon(service.moduleName), color, size = 48)
@@ -492,6 +494,7 @@ internal fun ServiceChildrenSheet(service: ServiceDto, color: Color, onDismiss: 
             Spacer(Modifier.height(12.dp))
             children.forEach { child -> ChildRow(child, color) { Toast.makeText(context, comingSoon, Toast.LENGTH_SHORT).show() } }
             Spacer(Modifier.height(24.dp))
+        }
         }
     }
 }
