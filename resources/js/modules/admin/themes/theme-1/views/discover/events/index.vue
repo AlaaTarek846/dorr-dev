@@ -28,6 +28,17 @@
                             <i class="ri-close-line"></i>
                         </button>
                     </div>
+                    <button v-if="filtersActive" type="button" class="btn btn-light border btn-sm" @click="clearFilters">
+                        <i class="ri-filter-off-line me-1 align-middle"></i>{{ t('discover.events.clear_filters') }}
+                    </button>
+                    <Select
+                        v-model="filters.review_status"
+                        :options="reviewOptions"
+                        option-label="label"
+                        option-value="value"
+                        class="wallet-filter-select"
+                        @change="load(1)"
+                    />
                     <Select
                         v-model="filters.status"
                         :options="statusOptions"
@@ -39,16 +50,42 @@
                         @change="load(1)"
                     />
                     <Select
+                        v-model="filters.country_id"
+                        :options="countryOptions"
+                        option-label="label"
+                        option-value="value"
+                        :placeholder="t('discover.events.any_country')"
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
+                        show-clear
+                        class="wallet-filter-select"
+                        @change="onFilter('country_id')"
+                    />
+                    <Select
+                        v-model="filters.region_id"
+                        :options="filterRegionOptions"
+                        option-label="label"
+                        option-value="value"
+                        :placeholder="t('discover.events.any_region')"
+                        filter
+                        :filter-placeholder="t('search_placeholder')"
+                        show-clear
+                        :disabled="!filters.country_id"
+                        class="wallet-filter-select"
+                        @change="onFilter('region_id')"
+                    />
+                    <Select
                         v-model="filters.city_id"
-                        :options="cityOptions"
+                        :options="filterCityOptions"
                         option-label="label"
                         option-value="value"
                         :placeholder="t('discover.events.any_city')"
                         filter
                         :filter-placeholder="t('search_placeholder')"
                         show-clear
+                        :disabled="!filters.country_id"
                         class="wallet-filter-select"
-                        @change="load(1)"
+                        @change="onFilter('city_id')"
                     />
                     <Select
                         v-model="filters.when"
@@ -62,14 +99,6 @@
                     />
                 </div>
                 <div class="catalog-toolbar-actions d-flex flex-wrap align-items-center gap-2">
-                    <ul class="nav nav-pills nav-style-3 gap-1">
-                        <li v-for="tab in reviewTabs" :key="tab.key" class="nav-item">
-                            <button type="button" class="nav-link py-1 px-3" :class="{ active: filters.review_status === tab.key }" @click="setReview(tab.key)">
-                                {{ t(`discover.review.${tab.key || 'all'}`) }}
-                                <span v-if="tab.key === 'pending' && pendingCount" class="badge bg-warning ms-1">{{ pendingCount }}</span>
-                            </button>
-                        </li>
-                    </ul>
                     <button v-if="canMultipleDelete && selectedCount" type="button" class="btn btn-danger btn-sm btn-wave" @click="confirmDeleteSelected">
                         <i class="ri-delete-bin-line me-1 align-middle"></i>{{ t('catalog.bulk_delete_count', { count: selectedCount }) }}
                     </button>
@@ -100,8 +129,9 @@
                             <tr v-else-if="!rows.length">
                                 <td :colspan="canMultipleDelete ? 8 : 7" class="border-0">
                                     <div class="text-center py-5">
-                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3"><i class="ri-calendar-event-line fs-2 text-primary"></i></span>
-                                        <p class="text-muted mb-0">{{ t('wallet.common.empty') }}</p>
+                                        <span class="avatar avatar-xxl avatar-rounded bg-primary-transparent mb-3"><i :class="filtersActive ? 'ri-search-eye-line' : 'ri-calendar-event-line'" class="fs-2 text-primary"></i></span>
+                                        <p class="text-muted mb-2">{{ filtersActive ? t('discover.events.no_results') : t('wallet.common.empty') }}</p>
+                                        <button v-if="filtersActive" type="button" class="btn btn-light border btn-sm" @click="clearFilters">{{ t('discover.events.clear_filters') }}</button>
                                     </div>
                                 </td>
                             </tr>
@@ -118,7 +148,7 @@
                                             </span>
                                             <div>
                                                 <div class="fw-semibold text-truncate" style="max-width: 260px;">{{ row.title }}</div>
-                                                <div class="text-muted fs-12">{{ row.category?.name }} · {{ row.city?.name }}<span v-if="row.venue"> · {{ row.venue }}</span></div>
+                                                <div class="text-muted fs-12">{{ row.category?.name }} · {{ [row.city?.name, row.region, row.country].filter(Boolean).join(' · ') }}<span v-if="row.venue"> · {{ row.venue }}</span></div>
                                             </div>
                                         </div>
                                     </td>
@@ -157,10 +187,18 @@
                     </table>
                 </div>
             </div>
-            <div v-if="meta.last_page > 1" class="card-footer border-top-0">
+            <div v-if="meta.total && !loading" class="card-footer border-top-0">
                 <div class="d-flex align-items-center flex-wrap gap-3">
-                    <div class="text-muted fs-13">{{ meta.current_page }} / {{ meta.last_page }}</div>
-                    <nav class="pagination-style-4 ms-md-auto">
+                    <div class="text-muted fs-13">{{ t('countries.showing_entries', { from: meta.from ?? 0, to: meta.to ?? 0, total: meta.total }) }}</div>
+                    <div class="d-flex align-items-center gap-2 ms-md-auto">
+                        <label class="text-muted fs-13 mb-0" for="events-per-page">{{ t('countries.per_page') }}</label>
+                        <select id="events-per-page" v-model.number="perPage" class="form-select form-select-sm w-auto" @change="load(1)">
+                            <option :value="15">15</option>
+                            <option :value="25">25</option>
+                            <option :value="50">50</option>
+                        </select>
+                    </div>
+                    <nav v-if="meta.last_page > 1" class="pagination-style-4">
                         <ul class="pagination mb-0">
                             <li class="page-item" :class="{ disabled: meta.current_page <= 1 }">
                                 <button type="button" class="page-link" @click="load(meta.current_page - 1)">{{ t('countries.previous') }}</button>
@@ -182,6 +220,28 @@
             <form id="discover-event-form" novalidate @submit.prevent="save">
                 <div class="row g-3">
                     <div class="col-12">
+                        <label class="form-label d-block">{{ t('discover.events.f_cover') }}</label>
+                        <div class="event-image-row">
+                            <span class="event-image-box">
+                                <img v-if="coverPreview" :src="coverPreview" alt="" class="event-image-box__img">
+                                <i v-else class="ri-image-add-line event-image-box__empty"></i>
+                                <label class="event-image-box__badge">
+                                    <input ref="coverInput" type="file" accept="image/jpeg,image/png,image/webp" class="position-absolute w-100 h-100 op-0" @change="pickCover">
+                                    <i class="fe fe-camera"></i>
+                                </label>
+                            </span>
+                            <div class="event-image-actions">
+                                <button type="button" class="btn btn-primary btn-sm btn-wave event-image-actions__btn" @click="coverInput?.click()">
+                                    <i class="ri-image-edit-line"></i><span>{{ t('service_categories.change_image') }}</span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-wave event-image-actions__btn" :class="coverPreview ? 'btn-outline-danger' : 'btn-light'" :disabled="!coverPreview" @click="removeCover">
+                                    <i class="ri-delete-bin-line"></i><span>{{ t('service_categories.remove_image') }}</span>
+                                </button>
+                            </div>
+                        </div>
+                        <div v-if="fieldError('cover')" class="text-danger fs-12 mt-1">{{ fieldError('cover') }}</div>
+                    </div>
+                    <div class="col-12">
                         <label class="form-label">{{ t('discover.events.f_title') }} <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="ri-calendar-event-line"></i></span>
@@ -198,11 +258,25 @@
                         <div v-if="fieldError('category_id')" class="text-danger fs-12 mt-1">{{ fieldError('category_id') }}</div>
                     </div>
                     <div class="col-md-6">
+                        <label class="form-label">{{ t('discover.events.f_country') }} <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ri-earth-line"></i></span>
+                            <Select v-model="form.country_id" :options="countryOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :placeholder="t('discover.events.f_country')" append-to="self" @change="onFormChange('country')" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label">{{ t('discover.events.f_region') }} <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ri-map-2-line"></i></span>
+                            <Select v-model="form.region_id" :options="formRegionOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :placeholder="t('discover.events.f_region')" :disabled="!form.country_id" append-to="self" @change="onFormChange('region')" />
+                        </div>
+                    </div>
+                    <div class="col-md-6">
                         <label class="form-label">{{ t('discover.events.f_city') }} <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="ri-building-2-line"></i></span>
-                                <Select v-model="form.city_id" :options="cityOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :invalid="!!fieldError('city_id')" append-to="self" />
-                            </div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ri-building-2-line"></i></span>
+                            <Select v-model="form.city_id" :options="formCityOptions" option-label="label" option-value="value" filter :filter-placeholder="t('search_placeholder')" :placeholder="t('discover.events.f_city')" :disabled="form.region_id === null" :invalid="!!fieldError('city_id')" append-to="self" />
+                        </div>
                         <div v-if="fieldError('city_id')" class="text-danger fs-12 mt-1">{{ fieldError('city_id') }}</div>
                     </div>
                     <div class="col-md-6">
@@ -255,18 +329,38 @@
                         <div v-if="fieldError('booking_url')" class="text-danger fs-12 mt-1">{{ fieldError('booking_url') }}</div>
                     </div>
                     <div class="col-md-4">
-                        <div class="form-check form-switch mt-md-4"><input id="de-free" v-model="form.is_free" class="form-check-input" type="checkbox"><label class="form-check-label" for="de-free">{{ t('discover.events.f_free') }}</label></div>
-                    </div>
-                    <div class="col-md-4">
                         <label class="form-label">{{ t('discover.events.f_price') }}</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="ri-price-tag-line"></i></span>
-                                <input v-model="form.price_text" type="text" class="form-control" :class="{ 'is-invalid': !!fieldError('price_text') }" :disabled="form.is_free">
-                            </div>
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="ri-price-tag-line"></i></span>
+                            <input v-model="form.price_text" type="text" class="form-control" :class="{ 'is-invalid': !!fieldError('price_text') }" :disabled="form.is_free">
+                        </div>
                         <div v-if="fieldError('price_text')" class="text-danger fs-12 mt-1">{{ fieldError('price_text') }}</div>
                     </div>
                     <div class="col-md-4">
-                        <div class="form-check form-switch mt-md-4"><input id="de-family" v-model="form.family_friendly" class="form-check-input" type="checkbox"><label class="form-check-label" for="de-family">{{ t('discover.events.f_family') }}</label></div>
+                        <label class="form-label d-block mb-2">{{ t('discover.events.f_free') }}</label>
+                        <div
+                            class="toggle toggle-primary mb-0 catalog-modal-toggle"
+                            :class="{ on: form.is_free }"
+                            role="button"
+                            tabindex="0"
+                            @click="form.is_free = !form.is_free"
+                            @keydown.enter.space.prevent="form.is_free = !form.is_free"
+                        >
+                            <span></span>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label d-block mb-2">{{ t('discover.events.f_family') }}</label>
+                        <div
+                            class="toggle toggle-primary mb-0 catalog-modal-toggle"
+                            :class="{ on: form.family_friendly }"
+                            role="button"
+                            tabindex="0"
+                            @click="form.family_friendly = !form.family_friendly"
+                            @keydown.enter.space.prevent="form.family_friendly = !form.family_friendly"
+                        >
+                            <span></span>
+                        </div>
                     </div>
                     <div class="col-12">
                         <label class="form-label">{{ t('discover.events.f_description') }}</label>
@@ -275,13 +369,6 @@
                                 <textarea v-model="form.description" rows="3" class="form-control" :class="{ 'is-invalid': !!fieldError('description') }"></textarea>
                             </div>
                         <div v-if="fieldError('description')" class="text-danger fs-12 mt-1">{{ fieldError('description') }}</div>
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">{{ t('discover.events.f_cover') }}</label>
-                        <div class="d-flex align-items-center gap-3">
-                            <span class="avatar avatar-xl bg-light border"><img v-if="coverPreview" :src="coverPreview" alt="" style="object-fit: cover;"><i v-else class="ri-image-add-line fs-20 text-muted"></i></span>
-                            <input type="file" accept="image/png,image/jpeg,image/webp" class="form-control" @change="pickCover">
-                        </div>
                     </div>
                 </div>
                 <div v-if="errors.general" class="text-danger mt-2 fs-13">{{ errors.general }}</div>
@@ -395,13 +482,17 @@ async function deleteSelected() {
 }
 
 const statuses = ['confirmed', 'postponed', 'cancelled', 'sold_out', 'ended'];
-const reviewTabs = [{ key: 'pending' }, { key: 'approved' }, { key: 'rejected' }, { key: '' }];
+const reviewOptions = computed(() => ['pending', 'approved', 'rejected', ''].map((key) => ({
+    value: key,
+    label: t(`discover.review.${key || 'all'}`) + (key === 'pending' && pendingCount.value ? ` (${pendingCount.value})` : ''),
+})));
 
 const rows = ref([]);
+const perPage = ref(15);
 const meta = ref({});
 const pendingCount = ref(0);
 const loading = ref(false);
-const filters = reactive({ review_status: 'pending', status: '', city_id: '', when: '', search: '' });
+const filters = reactive({ review_status: 'pending', status: '', country_id: null, region_id: null, city_id: null, when: '', search: '' });
 const categories = ref([]);
 const cities = ref([]);
 
@@ -409,7 +500,7 @@ const showForm = ref(false);
 const editingId = ref(null);
 const saving = ref(false);
 const errors = reactive({});
-const blank = () => ({ title: '', category_id: null, city_id: null, starts_at: '', ends_at: '', venue: '', address: '', source_url: '', booking_url: '', is_free: false, price_text: '', family_friendly: false, description: '', cover: null });
+const blank = () => ({ title: '', category_id: null, country_id: null, region_id: null, city_id: null, starts_at: '', ends_at: '', venue: '', address: '', source_url: '', booking_url: '', is_free: false, price_text: '', family_friendly: false, description: '', cover: null, remove_cover: false });
 const form = reactive(blank());
 
 const { requiredField, maxString } = useValidation();
@@ -442,9 +533,43 @@ function fieldError(name) {
     return errors[name] || '';
 }
 const coverPreview = ref(null);
+const coverInput = ref(null);
 const statusOptions = computed(() => statuses.map((s) => ({ value: s, label: t(`discover.status.${s}`) })));
 const whenOptions = computed(() => [{ value: 'upcoming', label: t('discover.events.upcoming') }, { value: 'past', label: t('discover.events.past') }]);
-const cityOptions = computed(() => cities.value.map((c) => ({ value: c.id, label: `${c.name} · ${c.country_code}` })));
+// Country → region → city, each depending on the one before. A city with no region sits under "no region" (0).
+const NO_REGION = 0;
+const countryOptions = computed(() => {
+    const seen = new Map();
+    cities.value.forEach((c) => { if (!seen.has(c.country_id)) seen.set(c.country_id, c.country || c.country_code); });
+    return [...seen].map(([value, label]) => ({ value, label }));
+});
+function regionOptionsOf(countryId) {
+    const seen = new Map();
+    cities.value.filter((c) => c.country_id === countryId).forEach((c) => {
+        const id = c.region_id ?? NO_REGION;
+        if (!seen.has(id)) seen.set(id, id === NO_REGION ? t('discover.events.no_region') : c.region);
+    });
+    return [...seen].map(([value, label]) => ({ value, label }));
+}
+const citiesOf = (countryId, regionId) => cities.value
+    .filter((c) => c.country_id === countryId && (regionId === null || (c.region_id ?? NO_REGION) === regionId))
+    .map((c) => ({ value: c.id, label: c.name }));
+const filterRegionOptions = computed(() => regionOptionsOf(filters.country_id));
+const filterCityOptions = computed(() => citiesOf(filters.country_id, filters.region_id));
+const formRegionOptions = computed(() => regionOptionsOf(form.country_id));
+const formCityOptions = computed(() => citiesOf(form.country_id, form.region_id));
+
+/** A filter changed: what depends on it is cleared. */
+function onFilter(name) {
+    if (name === 'country_id') { filters.region_id = null; filters.city_id = null; }
+    if (name === 'region_id') filters.city_id = null;
+    load(1);
+}
+/** The form's country / region changed: the choices below it start again. */
+function onFormChange(level) {
+    if (level === 'country') form.region_id = null;
+    form.city_id = null;
+}
 const categoryOptions = computed(() => categories.value.map((c) => ({ value: c.id, label: `${c.emoji || ''} ${c.name}`.trim() })));
 const pageNumbers = computed(() => {
     const last = meta.value.last_page || 1;
@@ -477,13 +602,16 @@ function reviewClass(s) {
     return { pending: 'bg-warning', approved: 'bg-success', rejected: 'bg-danger' }[s] || 'bg-light';
 }
 
-function clearSearch() {
-    filters.search = '';
+const DEFAULT_REVIEW = 'pending';
+/** Anything beyond the default view (waiting review, no other filter) narrows the list. */
+const filtersActive = computed(() => !!(filters.search || filters.status || filters.country_id || filters.region_id !== null || filters.city_id || filters.when || filters.review_status !== DEFAULT_REVIEW));
+function clearFilters() {
+    Object.assign(filters, { review_status: DEFAULT_REVIEW, status: '', country_id: null, region_id: null, city_id: null, when: '', search: '' });
     load(1);
 }
 
-function setReview(key) {
-    filters.review_status = key;
+function clearSearch() {
+    filters.search = '';
     load(1);
 }
 
@@ -494,14 +622,22 @@ function resetErrors() {
 function pickCover(event) {
     const file = event.target.files?.[0] || null;
     form.cover = file;
+    form.remove_cover = false;
     if (file) coverPreview.value = URL.createObjectURL(file);
+}
+
+function removeCover() {
+    form.cover = null;
+    form.remove_cover = true;
+    coverPreview.value = null;
+    if (coverInput.value) coverInput.value.value = '';
 }
 
 function openCreate() {
     v$.value.$reset();
     editingId.value = null;
     resetErrors();
-    Object.assign(form, blank(), { category_id: categories.value[0]?.id ?? null, city_id: cities.value[0]?.id ?? null });
+    Object.assign(form, blank(), { category_id: categories.value[0]?.id ?? null });
     coverPreview.value = null;
     showForm.value = true;
 }
@@ -514,7 +650,7 @@ async function openEdit(row) {
         const e = data.data;
         editingId.value = e.id;
         Object.assign(form, blank(), {
-            title: e.title, category_id: e.category_id, city_id: e.city_id, starts_at: e.starts_local || '', ends_at: e.ends_local || '',
+            title: e.title, category_id: e.category_id, country_id: e.country_id, region_id: cities.value.find((c) => c.id === e.city_id)?.region_id ?? NO_REGION, city_id: e.city_id, starts_at: e.starts_local || '', ends_at: e.ends_local || '',
             venue: e.venue || '', address: e.address || '', source_url: e.source_url || '', booking_url: e.booking_url || '',
             is_free: !!e.is_free, price_text: e.price_text || '', family_friendly: !!e.family_friendly, description: e.description || '',
         });
@@ -606,7 +742,7 @@ async function load(page = 1) {
     loading.value = true;
     selectedIds.value = [];
     try {
-        const params = { page, per_page: 15 };
+        const params = { page, per_page: perPage.value };
         Object.entries(filters).forEach(([key, value]) => { if (value !== '' && value !== null) params[key] = value; });
         const { data } = await adminAxios.get('/api/admin/v1/discover-events', { params });
         rows.value = data.data ?? [];
@@ -634,3 +770,19 @@ onMounted(() => {
     loadCatalog();
 });
 </script>
+
+<style scoped>
+.event-image-row { display: flex; align-items: center; gap: 0.875rem; flex-wrap: wrap; }
+.event-image-actions { display: flex; flex-direction: column; gap: 0.5rem; min-width: 9.75rem; }
+.event-image-actions__btn { display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; padding-inline: 0.875rem; font-weight: 500; white-space: nowrap; }
+.event-image-actions__btn i { font-size: 1rem; line-height: 1; }
+.event-image-actions__btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.event-image-box { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 5rem; height: 5rem; flex-shrink: 0; overflow: hidden; border-radius: 0.5rem; background: #eef1f5; border: 1px solid var(--default-border, #dee2e6); }
+.event-image-box__img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.event-image-box__empty { font-size: 1.75rem; color: #9aa4b2; }
+.event-image-box__badge { position: absolute; inset-inline-end: 0.35rem; inset-block-end: 0.35rem; display: inline-flex; align-items: center; justify-content: center; width: 1.75rem; height: 1.75rem; margin: 0; border-radius: 999px; background: rgb(var(--primary-rgb, 132, 90, 223)); color: #fff; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15); }
+.event-image-box__badge i { font-size: 0.875rem; line-height: 1; }
+.catalog-modal-toggle.toggle-primary.on {
+    background-color: rgb(var(--primary-rgb, 132, 90, 223)) !important;
+}
+</style>

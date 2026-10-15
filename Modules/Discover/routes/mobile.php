@@ -13,6 +13,8 @@ Route::middleware('locale')->prefix('mobile/v1/discover')->group(function () {
         Route::post('ask', [DiscoverController::class, 'ask'])->middleware('throttle:20,1');
         Route::get('categories', [DiscoverController::class, 'categories']);
         Route::get('cities', [DiscoverController::class, 'cities']);
+        Route::get('regions', [DiscoverController::class, 'regions']);
+        Route::get('countries', [DiscoverController::class, 'countries']);
         Route::get('interests', [DiscoverController::class, 'interests']);
         Route::get('preferences', [DiscoverController::class, 'preferences']);
         Route::put('preferences', [DiscoverController::class, 'savePreferences']);

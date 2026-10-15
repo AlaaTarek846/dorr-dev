@@ -35,9 +35,10 @@ class DiscoverController extends Controller
         $this->on();
         $f = $request->validate($this->filterRules() + [
             'city_id' => ['nullable', 'integer'],
+            'region_id' => ['nullable', 'integer'],
             'country_id' => ['nullable', 'integer'],
         ]);
-        if (empty($f['city_id']) && empty($f['country_id'])) {
+        if (empty($f['city_id']) && empty($f['region_id']) && empty($f['country_id'])) {
             $f['country_id'] = currentCountry()?->id;
         }
         $result = $this->discover->search($request->user(), $this->near($f), $this->zone($request));
@@ -77,12 +78,35 @@ class DiscoverController extends Controller
         return ApiResponse::success($this->discover->categories(), __('api.retrieved'));
     }
 
-    /** GET cities?country_id= — all active cities (for travel), or one country's. */
+    /** GET cities?country_id=&region_id=&with_events= — all active cities (for travel), or one country's / region's. */
     public function cities(Request $request)
     {
-        $data = $request->validate(['country_id' => ['nullable', 'integer']]);
+        $data = $request->validate(['country_id' => ['nullable', 'integer'], 'region_id' => ['nullable', 'integer'], 'with_events' => ['nullable', 'boolean']]);
 
-        return ApiResponse::success($this->discover->cities(isset($data['country_id']) ? (int) $data['country_id'] : null), __('api.retrieved'));
+        return ApiResponse::success($this->discover->cities(
+            isset($data['country_id']) ? (int) $data['country_id'] : null,
+            isset($data['region_id']) ? (int) $data['region_id'] : null,
+            (bool) ($data['with_events'] ?? false),
+        ), __('api.retrieved'));
+    }
+
+    /** GET regions?country_id=&page=&per_page= — a country's regions with something on, in batches (default: where I am). */
+    public function regions(Request $request)
+    {
+        $data = $request->validate(['country_id' => ['nullable', 'integer'], 'page' => ['nullable', 'integer', 'min:1'], 'per_page' => ['nullable', 'integer', 'min:1', 'max:50']]);
+        $result = $this->discover->regions(
+            isset($data['country_id']) ? (int) $data['country_id'] : currentCountry()?->id,
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? DiscoverService::REGIONS_PAGE),
+        );
+
+        return ApiResponse::success($result['items'], __('api.retrieved'), 200, $result['meta']);
+    }
+
+    /** GET countries — where Discover is on and has cities (the place filter's first step). */
+    public function countries()
+    {
+        return ApiResponse::success($this->discover->countries(), __('api.retrieved'));
     }
 
     /** POST events/{event}/interest {notify} — saved, in my calendar, told when it changes (177). */

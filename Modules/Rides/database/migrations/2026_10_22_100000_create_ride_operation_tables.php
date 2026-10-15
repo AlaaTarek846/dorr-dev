@@ -42,7 +42,7 @@ return new class extends Migration
             $table->unsignedSmallInteger('version')->default(1);
             $table->char('fingerprint', 64);
             $table->json('policy_snapshot');
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamp('created_at')->nullable();
             $table->index(['user_id', 'created_at']);
             $table->index('expires_at');
