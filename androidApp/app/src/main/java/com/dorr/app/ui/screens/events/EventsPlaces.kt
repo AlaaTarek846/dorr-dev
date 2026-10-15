@@ -233,6 +233,7 @@ internal data class EvFilter(
  * before is picked, changing one clears what is under it), then the kind and the time. "Apply"
  * narrows the list; "Clear" goes back to everything where I am.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>, myCountryCode: String?, onApply: (EvFilter) -> Unit, onClose: () -> Unit) {
     var filter by remember { mutableStateOf(current) }
@@ -264,11 +265,11 @@ internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>,
             Text(stringResource(R.string.ev_filter_title), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
             Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(FieldGap)) {
-                // The quick switches first, the same toggle rows as the settings.
-                com.dorr.app.ui.screens.calendar.SettingsToggleCard {
-                    com.dorr.app.ui.screens.calendar.SettingsToggleRow(Icons.Rounded.ConfirmationNumber, stringResource(R.string.ev_free), null, filter.free, divider = true) { filter = filter.copy(free = it) }
-                    com.dorr.app.ui.screens.calendar.SettingsToggleRow(Icons.Rounded.FamilyRestroom, stringResource(R.string.ev_family), null, filter.family, divider = true) { filter = filter.copy(family = it) }
-                    com.dorr.app.ui.screens.calendar.SettingsToggleRow(Icons.Rounded.LocalFireDepartment, stringResource(R.string.ev_popular), null, filter.popular, divider = false) { filter = filter.copy(popular = it) }
+                // The quick ones first, as the chips they were on the page.
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EvChip(stringResource(R.string.ev_free), filter.free, icon = "🎟️") { filter = filter.copy(free = !filter.free) }
+                    EvChip(stringResource(R.string.ev_family), filter.family, icon = "👨‍👩‍👧") { filter = filter.copy(family = !filter.family) }
+                    EvChip(stringResource(R.string.ev_popular), filter.popular, icon = "🔥") { filter = filter.copy(popular = !filter.popular) }
                 }
                 FilterSelect(
                     stringResource(R.string.ev_f_category), Icons.Rounded.Category,
@@ -314,7 +315,7 @@ internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>,
 
 /** A select with a label above; locked (dimmed, doesn't open) until `enabled`; its options are a dropdown with a ✓ on the chosen one. */
 @Composable
-private fun FilterSelect(label: String, icon: ImageVector, value: String, options: List<Pair<String, () -> Unit>>, selected: String?, enabled: Boolean = true) {
+internal fun FilterSelect(label: String, icon: ImageVector, value: String, options: List<Pair<String, () -> Unit>>, selected: String?, enabled: Boolean = true) {
     var open by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f)) {
         FieldLabel(label)

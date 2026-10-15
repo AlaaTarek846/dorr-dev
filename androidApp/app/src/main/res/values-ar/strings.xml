@@ -510,7 +510,10 @@
     <string name="ev_none_title">مفيش فعاليات</string>
     <string name="ev_none_text">جرّب تواريخ تانية أو مدينة تانية.</string>
     <string name="ev_travel_title">رايح فين؟</string>
-    <string name="ev_travel_sub">شوف الفعاليات في المدينة اللي رايحها في أيام سفرك — من أي مكان.</string>
+    <string name="ev_travel_sub">شوف الفعاليات في الدولة أو المحافظة اللي رايحها في أيام سفرك — من أي مكان.</string>
+    <string name="ev_pick_country">اختار دولة</string>
+    <string name="ev_travel_start_title">رايح فين؟</string>
+    <string name="ev_travel_start_text">اختار الدولة (والمحافظة لو عايز) وأيام سفرك.</string>
     <string name="ev_travel_city">المدينة</string>
     <string name="ev_pick_city">اختار مدينة</string>
     <string name="ev_from">من</string>

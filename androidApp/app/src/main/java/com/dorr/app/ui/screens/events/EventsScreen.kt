@@ -67,6 +67,7 @@ import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.Flight
+import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.DatePicker
@@ -113,11 +114,20 @@ import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
 import com.dorr.app.network.DiscAskDto
 import com.dorr.app.network.DiscCityDto
+import com.dorr.app.network.DiscCountryDto
+import com.dorr.app.network.DiscRegionDto
+import com.dorr.app.network.DiscTravelDto
 import com.dorr.app.network.DiscEventDto
 import com.dorr.app.network.DiscHomeDto
 import com.dorr.app.network.DiscOrganizerHomeDto
 import com.dorr.app.network.DiscPrefsDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.wallet.WaPage
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import com.dorr.app.ui.components.DarkHeroButton
+import com.dorr.app.ui.components.DarkHeroPanel
 import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.ui.screens.wallet.Tone
 import com.dorr.app.ui.screens.wallet.Wa
@@ -127,7 +137,6 @@ import com.dorr.app.ui.screens.wallet.WaCard
 import com.dorr.app.ui.screens.wallet.WaCircleButton
 import com.dorr.app.ui.screens.wallet.WaEmpty
 import com.dorr.app.ui.screens.wallet.WaNote
-import com.dorr.app.ui.screens.wallet.WaPage
 import com.dorr.app.ui.screens.wallet.WaSectionTitle
 import com.dorr.app.ui.screens.wallet.WaSkeleton
 import com.dorr.app.ui.screens.wallet.waRise
@@ -258,13 +267,14 @@ private fun EvHome(onBack: () -> Unit, go: (EvPage) -> Unit) {
     LaunchedEffect(Unit) { EventsStore.refresh() }
     val home = EventsStore.home
 
-    WaPage(
+    EvFrame(
         title = stringResource(R.string.ev_title),
         onBack = onBack,
         actions = {
-            WaCircleButton(Icons.Rounded.FavoriteBorder, { go(EvPage.Saved) }, contentDescription = stringResource(R.string.ev_saved))
-            WaCircleButton(Icons.Rounded.Settings, { go(EvPage.Settings) }, contentDescription = stringResource(R.string.ev_settings))
+            DarkHeroButton(Icons.Rounded.FavoriteBorder, { go(EvPage.Saved) }, stringResource(R.string.ev_saved))
+            DarkHeroButton(Icons.Rounded.Settings, { go(EvPage.Settings) }, stringResource(R.string.ev_settings))
         },
+        hero = if (!EventsStore.off && home != null) ({ HomeHero(home, go) }) else null,
     ) {
         when {
             EventsStore.off -> WaCard(Modifier.fillMaxWidth()) { WaEmpty(Icons.Rounded.Explore, Tone.Gray, stringResource(R.string.ev_off_title), stringResource(R.string.ev_off_text)) }
@@ -278,25 +288,28 @@ private fun EvHome(onBack: () -> Unit, go: (EvPage) -> Unit) {
     }
 }
 
+/** What's on around me, and "ask DORR AI" — inside the dark header panel, like the calendar's. */
 @Composable
-private fun HomeContent(home: DiscHomeDto, go: (EvPage) -> Unit) {
-    // Hero: what's on around me, and "ask DORR AI".
-    Column(Modifier.fillMaxWidth().waRise(0).clip(RoundedCornerShape(26.dp)).background(EvHeroBrush).padding(18.dp)) {
-        Text(stringResource(R.string.ev_hero_title), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
-        Text(stringResource(R.string.ev_hero_sub), color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
-        if (home.ai) {
-            Spacer(Modifier.height(14.dp))
-            Row(
-                Modifier.fillMaxWidth().clip(CircleShape).background(Color.White).clickable { go(EvPage.Ask) }.padding(horizontal = 14.dp, vertical = 11.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.AutoAwesome, null, tint = EvPurple, modifier = Modifier.size(19.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.ev_ask_hint), color = Wa.Mut, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            }
+private fun ColumnScope.HomeHero(home: DiscHomeDto, go: (EvPage) -> Unit) {
+    Spacer(Modifier.height(14.dp))
+    Text(stringResource(R.string.ev_hero_title), color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.ExtraBold)
+    Text(stringResource(R.string.ev_hero_sub), color = Color.White.copy(alpha = 0.85f), fontSize = 13.sp)
+    if (home.ai) {
+        Spacer(Modifier.height(14.dp))
+        Row(
+            Modifier.fillMaxWidth().clip(CircleShape).background(Color.White).clickable { go(EvPage.Ask) }.padding(horizontal = 14.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.AutoAwesome, null, tint = EvPurple, modifier = Modifier.size(19.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.ev_ask_hint), color = Wa.Mut, fontSize = 13.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         }
     }
+    Spacer(Modifier.height(4.dp))
+}
 
+@Composable
+private fun HomeContent(home: DiscHomeDto, go: (EvPage) -> Unit) {
     // Quick ways in.
     Row(Modifier.fillMaxWidth().padding(top = 14.dp).waRise(1), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         QuickTile("✈️", stringResource(R.string.ev_travel), Modifier.weight(1f)) { go(EvPage.Travel) }
@@ -409,7 +422,7 @@ private fun EvBrowse(start: EvPage.Browse, onBack: () -> Unit, go: (EvPage) -> U
     }
 
     val title = place.cityName ?: place.regionName ?: stringResource(R.string.ev_browse)
-    WaPage(title = title, onBack = onBack, scroll = false) {
+    EvFrame(title = title, onBack = onBack, scroll = false) {
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
             item("search") {
                 Row(Modifier.fillMaxWidth().waRise(0), verticalAlignment = Alignment.CenterVertically) {
@@ -484,54 +497,88 @@ internal fun EventList(items: List<DiscEventDto>, loading: Boolean, onOpen: (Dis
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EvTravel(onBack: () -> Unit, go: (EvPage) -> Unit) {
-    var city by remember { mutableStateOf<DiscCityDto?>(null) }
+    var country by remember { mutableStateOf<DiscCountryDto?>(null) }
+    var region by remember { mutableStateOf<DiscRegionDto?>(null) }
+    var countries by remember { mutableStateOf<List<DiscCountryDto>>(emptyList()) }
+    var regions by remember { mutableStateOf<List<DiscRegionDto>>(emptyList()) }
     var from by remember { mutableStateOf(LocalDate.now().plusDays(7)) }
     var to by remember { mutableStateOf(LocalDate.now().plusDays(10)) }
     var picking by remember { mutableStateOf<String?>(null) }
-    var result by remember { mutableStateOf<List<DiscEventDto>?>(null) }
+    var result by remember { mutableStateOf<DiscTravelDto?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
-    WaPage(
+    LaunchedEffect(Unit) { countries = EvPlaces.countries() }
+    // The regions of the chosen country only; changing the country clears the region.
+    LaunchedEffect(country?.id) {
+        region = null
+        regions = emptyList()
+        country?.id?.let { regions = EvPlaces.regions(it) }
+    }
+
+    EvFrame(
         title = stringResource(R.string.ev_travel_title),
         onBack = onBack,
         cta = {
             WaButton(stringResource(R.string.ev_travel_go), {
-                val c = city ?: run { picking = "city"; return@WaButton }
+                val c = country ?: return@WaButton
                 busy = true
                 error = null
                 scope.launch {
-                    runCatching { ApiClient.events.travel(evAuth(), c.id, from.toString(), to.toString(), evZone()).data }
-                        .onSuccess { result = it?.items.orEmpty() }
+                    runCatching {
+                        ApiClient.events.travel(
+                            evAuth(), from.toString(), to.toString(), evZone(),
+                            regionId = region?.id, countryId = if (region == null) c.id else null,
+                        ).data
+                    }
+                        .onSuccess { result = it }
                         .onFailure { error = it.apiFailure().message; result = null }
                     busy = false
                 }
-            }, icon = Icons.Rounded.Search, loading = busy)
+            }, icon = Icons.Rounded.Search, loading = busy, enabled = country != null)
         },
     ) {
         Text(stringResource(R.string.ev_travel_sub), color = Wa.Mut, fontSize = 13.sp, modifier = Modifier.waRise(0))
         Spacer(Modifier.height(14.dp))
-        PickRow("🌍", stringResource(R.string.ev_travel_city), city?.let { listOfNotNull(it.name, it.country).joinToString(" · ") } ?: stringResource(R.string.ev_pick_city), Modifier.waRise(1)) { picking = "city" }
-        Spacer(Modifier.height(8.dp))
-        Row(Modifier.fillMaxWidth().waRise(2), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            PickRow("🛫", stringResource(R.string.ev_from), dayText(from), Modifier.weight(1f)) { picking = "from" }
-            PickRow("🛬", stringResource(R.string.ev_to), dayText(to), Modifier.weight(1f)) { picking = "to" }
+        Column(Modifier.fillMaxWidth().waRise(1), verticalArrangement = Arrangement.spacedBy(FieldGap)) {
+            FilterSelect(
+                stringResource(R.string.ev_country), Icons.Rounded.Public, country?.let { it.name?.takeIf { n -> n.isNotBlank() } ?: it.code.orEmpty() } ?: stringResource(R.string.ev_pick_country),
+                options = countries.map { c -> (c.name?.takeIf { n -> n.isNotBlank() } ?: c.code.orEmpty()) to { country = c; result = null } },
+                selected = country?.let { it.name?.takeIf { n -> n.isNotBlank() } ?: it.code },
+            )
+            FilterSelect(
+                stringResource(R.string.ev_region), Icons.Rounded.Map, region?.name ?: stringResource(R.string.ev_all_regions),
+                enabled = country != null,
+                options = listOf(stringResource(R.string.ev_all_regions) to { region = null; result = null }) +
+                    regions.map { r -> r.name.orEmpty() to { region = r; result = null } },
+                selected = region?.name,
+            )
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PickRow("🛫", stringResource(R.string.ev_from), dayText(from), Modifier.weight(1f)) { picking = "from" }
+                PickRow("🛬", stringResource(R.string.ev_to), dayText(to), Modifier.weight(1f)) { picking = "to" }
+            }
         }
         error?.let { Text(it, color = Wa.Danger, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp)) }
-        result?.let { list ->
-            city?.timezone?.let { z ->
-                WaNote(stringResource(R.string.ev_travel_zone_note, z.substringAfterLast('/').replace('_', ' ')), Modifier.padding(top = 14.dp))
+        Spacer(Modifier.height(14.dp))
+        val found = result
+        if (found == null) {
+            // Before a search: the empty state, asking where to.
+            WaCard(Modifier.fillMaxWidth()) {
+                WaEmpty(Icons.Rounded.Flight, Tone.Gray, stringResource(R.string.ev_travel_start_title), stringResource(R.string.ev_travel_start_text))
             }
-            WaSectionTitle(stringResource(R.string.ev_travel_found, list.size))
-            EventList(list, false, onOpen = { go(EvPage.Event(it.id)) }, empty = stringResource(R.string.ev_travel_none))
+        } else {
+            (found.place?.timezone ?: found.city?.timezone)?.let { z ->
+                WaNote(stringResource(R.string.ev_travel_zone_note, z.substringAfterLast('/').replace('_', ' ')), Modifier.padding(bottom = 4.dp))
+            }
+            WaSectionTitle(stringResource(R.string.ev_travel_found, found.items.size))
+            EventList(found.items, false, onOpen = { go(EvPage.Event(it.id)) }, empty = stringResource(R.string.ev_travel_none))
         }
         Spacer(Modifier.height(24.dp))
     }
 
     val locale = rememberAppLocaleFrame()
     when (picking) {
-        "city" -> CityPickerSheet(onDismiss = { picking = null }) { city = it; picking = null; result = null }
         "from", "to" -> {
             val initial = if (picking == "from") from else to
             val state = rememberDatePickerState(initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
@@ -594,7 +641,7 @@ private fun EvAsk(onBack: () -> Unit, go: (EvPage) -> Unit) {
         }
     }
 
-    WaPage(title = stringResource(R.string.ev_ask_title), onBack = onBack) {
+    EvFrame(title = stringResource(R.string.ev_ask_title), onBack = onBack) {
         Row(Modifier.fillMaxWidth().waRise(0), verticalAlignment = Alignment.CenterVertically) {
             DorrTextField(text, { text = it.take(500) }, placeholder = stringResource(R.string.ev_ask_hint), icon = Icons.Rounded.AutoAwesome, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
@@ -646,7 +693,7 @@ private fun EvSaved(onBack: () -> Unit, go: (EvPage) -> Unit) {
         items = null
         items = runCatching { ApiClient.events.interests(evAuth(), evZone(), if (past) 1 else 0).data }.getOrNull().orEmpty()
     }
-    WaPage(title = stringResource(R.string.ev_saved), onBack = onBack) {
+    EvFrame(title = stringResource(R.string.ev_saved), onBack = onBack) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Wa.Surface).padding(4.dp)) {
             listOf(false to R.string.ev_upcoming, true to R.string.ev_past).forEach { (p, label) ->
                 Text(
@@ -825,7 +872,7 @@ private fun EvOrganizer(onBack: () -> Unit, go: (EvPage) -> Unit) {
     val org = data?.organizer
     val canAdd = data?.canSubmit == true && org != null && org.status != "rejected" && org.status != "suspended"
 
-    WaPage(
+    EvFrame(
         title = stringResource(R.string.ev_organizer),
         onBack = onBack,
         cta = if (canAdd && !editing) ({ WaButton(stringResource(R.string.ev_org_add_event), { go(EvPage.Submit) }, icon = Icons.Rounded.Add) }) else null,
@@ -938,7 +985,7 @@ private fun EvSubmit(onBack: () -> Unit) {
     val sentLive = stringResource(R.string.ev_submit_live)
     val hm = DateTimeFormatter.ofPattern("HH:mm")
 
-    WaPage(
+    EvFrame(
         title = stringResource(R.string.ev_org_add_event),
         onBack = onBack,
         cta = {
@@ -1065,4 +1112,45 @@ internal fun EvChip(text: String, selected: Boolean, icon: String? = null, onCli
         modifier = Modifier.clip(CircleShape).background(if (selected) Wa.Red else Wa.Surface).border(1.dp, if (selected) Color.Transparent else Wa.Line, CircleShape)
             .clickable(onClick = onClick).padding(horizontal = 13.dp, vertical = 8.dp),
     )
+}
+
+
+/**
+ * The frame of every Discover page: the dark header panel the calendar has (title in Cairo Black, round
+ * translucent buttons, back last), an optional hero under the title, then the page.
+ */
+@Composable
+internal fun EvFrame(
+    title: String,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+    actions: @Composable RowScope.() -> Unit = {},
+    cta: (@Composable ColumnScope.() -> Unit)? = null,
+    scroll: Boolean = true,
+    hero: (@Composable ColumnScope.() -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    WaPage(title = title, onBack = onBack, modifier = modifier, showHeader = false, cta = cta, scroll = scroll) {
+        DarkHeroPanel {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    title,
+                    color = Color.White,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Black,
+                    fontFamily = com.dorr.app.ui.theme.CairoFontFamily,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                    actions()
+                    DarkHeroButton(Icons.AutoMirrored.Rounded.ArrowBack, onBack, stringResource(R.string.common_back), flip = true)
+                }
+            }
+            hero?.invoke(this)
+        }
+        Spacer(Modifier.height(14.dp))
+        content()
+    }
 }
