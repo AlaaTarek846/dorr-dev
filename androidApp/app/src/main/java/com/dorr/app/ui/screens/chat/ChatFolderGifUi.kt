@@ -52,8 +52,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -210,7 +210,7 @@ internal fun GifMakerDialog(source: LocalFile, onDismiss: () -> Unit, onSend: (c
     val ratio = info?.let { if (it.width > 0 && it.height > 0) (it.width / it.height.toFloat()).coerceIn(0.5f, 2f) else null } ?: 1f
     val length = (range.endInclusive - range.start).toLong()
 
-    Dialog(onDismissRequest = { if (!making) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = { if (!making) onDismiss() }, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Column(Modifier.fillMaxSize().background(Color(0xFF0E1116)).statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(

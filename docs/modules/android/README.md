@@ -1,6 +1,6 @@
 # Android App (`androidApp/`)
 
-**Last updated:** 2026-09-30
+**Last updated:** 2026-10-14
 
 Native Kotlin app for end users. It talks to the Laravel backend through `/api/mobile/v1/*` (guard `user_api`, Sanctum Bearer token) and `general/v1/services` for the service catalog. There is no Provider or Admin app here.
 
@@ -50,6 +50,10 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
 - **Offline:** unknown host / refused connection shows the app-wide no-internet screen.
 - **Chat features by country and city (`ChatFeatures`):** on chat open the app reads `GET chat/features` and hides what's off (voice rooms, the live toggle, stories; AI buttons follow `GET chat/ai`, call buttons `can_call`). With approximate location allowed it sends `PUT chat/location` at most every 6 hours (the server keeps only the nearest city). The permission is asked once, after our own explanation sheet.
 - **Chat header and sheets (spec header rule):** the chat list has no back arrow (the tab bar and system back leave it; search and the special lists step back). Every inner screen starts with `ChBack` — back (mirrored in RTL) with the DORR logo beside it. Every bottom sheet in chat, Moments, Calendar, Discover and Sports is a `ChSheet`: Material's sheet with a × beside the drag handle.
+- **Moments preferences (spec 168):** Settings is one Account-style card: Show occasions, Animations, and Country occasions. The last two open inner screens. Country occasions is a searchable dropdown (login country first) with "which occasions" under it; changing country calls `PUT moments/preferences` then `GET moments/catalog?country_id=`.
+- **Moments sheets:** add-occasion and new group card use `ChSheet` with `skipPartiallyExpanded` so the action button is not cut off, and the same labeled pill fields (`DorrTextField` / `MoSheetSelect`) as the calendar form.
+- **Dark hero panel:** Calendar Today / Week / Month and the Moments center share `DarkHeroPanel` (navy + brand-red in light, the same appearance primary as Home in dark). It reads `LocalThemeState` so flipping dark/light updates the panel. Translucent round buttons. Moments uses the same settings cog; the occasion card sits on the page below the panel.
+- **App language in overlays:** a `Dialog` / `ModalBottomSheet` is a new window. Capture the app locale with `rememberAppLocaleFrame()` / `LocaleAwareDialog` (and `ChSheet`) so `stringResource` and dates stay in the in-app language, not the phone's.
 - **Data and performance (chat menu → "Data and performance", spec 82, 87, 83):** data saver (`ChatDataSaver`: off / mobile data / always) holds others' photos until tapped (Coil cache-only first, then the server's `preview`), stops GIF clips playing by themselves, sends lighter photos and videos, and makes calls 360p. Lite mode (`ChatLite`: auto at ≤3 GB memory / on / off) drops bubble animations, blur, animated GIFs and stickers, and camera backgrounds. Usage stats (`ChatUsage`) count on the phone only: an OkHttp **network** interceptor measures chat API calls and media, split mobile / Wi-Fi, and a call's data is the app's own traffic (TrafficStats) while it lasts. All three load in `DorrApp.onCreate`.
 - **Never crash on a message's data:** read `meta` with `obj()` / `arr()` / `bool()` / `int()` / `long()` / `dbl()` / `str()` (ChatHost.kt).
   - These return null for a missing field or JSON null.

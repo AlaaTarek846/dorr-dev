@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-12  
+**Last updated:** 2026-10-14  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -54,6 +54,9 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Android Moments page (2026-10-14):** Center uses the same navy hero as the calendar; the occasion card has a bottom scrim so the title and subtitle stay readable. Settings: Animations and Country occasions are inner screens; country occasions has a dropdown plus the list for that country. New group card sheet opens fully (`skipPartiallyExpanded`) with the same labeled pills as add-occasion (occasion, title, recipient, invite).
+- **Android Moments settings (2026-10-14):** Animations and Country occasions are inner screens from the settings menu. Country occasions has a country dropdown plus the occasion list for that country (`moments/catalog?country_id=`).
+- **Android calendar top panel (2026-10-14):** Today / Week / Month open with a navy + brand-red header and a rounded bottom edge; the week strip is inside that panel. Lists and the month grid stay on the light page.
 - **Admin Chat occasions (2026-10-12):** `/admin/chat/moments` list matches flags (filters, checkboxes, bulk delete, status toast). Create/edit form fields match catalog (input-group, PrimeVue Select, toggles, card picker).
 - **Admin sidebar Chat (2026-10-12):** Chat admin links (reports, themes, settings, …) show only when the header service is Chat (`module_name=chat`), same pattern as AI. They are no longer listed under General.
 - **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
@@ -219,6 +222,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 - **Interface translation management (2026-09-30, ADR-011):** Admin → Languages → Translations. New languages (e.g. `fr`) get backend / Vue / Android JSON groups via export → translate → import (draft) → publish. `ar`/`en` untouched and remain the bundled sources (`en` = base + fallback). Backend and Vue load published locales at runtime. Migration `2026_09_30_120000_create_translation_files_table`. Config `config/translations.php`.
 - **Dynamic Android translations (2026-10-01, ADR-011):** the Android app lists languages from `GET /api/general/v1/translations/languages?platform=android` and downloads `GET /api/general/v1/translations/{code}/android` when a non-bundled language is chosen (ar/en stay bundled; `en` = fallback). One language file on the device (`filesDir/translations/{code}.json`), served by `ui/locale/DynamicResources.kt`; direction saved with it for offline cold starts; newer `android_version` downloaded on launch / when the language dialog opens; a language no longer offered falls back to `en`. The XML ZIP export still exists. Not covered: strings built outside Compose (`chat/CallNotifications.kt`, `chat/LiveLocationService.kt`) stay English for downloaded languages.
+- **Android overlays follow the app language (2026-10-14):** `Dialog` / `ModalBottomSheet` windows re-provide the app locale (`rememberAppLocaleFrame`, `LocaleAwareDialog`, `ChSheet`). Dates/weekdays use `AppLocale.java()` instead of the phone default.
 - Provider dashboard SPA **documented** (module docs + API spec aligned with code, 2026-09-20)
 - Provider profile services dropdown + sidebar links from `services[]` / `category.module_name`
 - **Mobile phone auth (Android):** `/api/mobile/v1/*` guard `user_api`; combined login/register by phone only; fixed demo OTP `123456` via `App\Traits\SendsPhoneOtp` (writes `verification_codes`); phone validated against `countries.phone_starts_with` / `phone_length`; `EnsurePhoneVerified` middleware blocks routes until `phone_verified_at` set; Android `LoginScreen`/`OtpScreen` wired to real APIs (`MobileAuthApi`)

@@ -97,7 +97,7 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
-import java.util.Locale
+import com.dorr.app.network.AppLocale
 
 internal sealed interface SpPage {
     data object Home : SpPage
@@ -299,7 +299,7 @@ private fun DateStrip(selected: LocalDate, modifier: Modifier = Modifier, onPick
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
-                    when (d) { today -> stringResource(R.string.sp_today); today.plusDays(1) -> stringResource(R.string.sp_tomorrow); today.minusDays(1) -> stringResource(R.string.sp_yesterday); else -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) },
+                    when (d) { today -> stringResource(R.string.sp_today); today.plusDays(1) -> stringResource(R.string.sp_tomorrow); today.minusDays(1) -> stringResource(R.string.sp_yesterday); else -> d.dayOfWeek.getDisplayName(TextStyle.SHORT, AppLocale.java()) },
                     color = if (on) Color.White else Wa.Mut, fontSize = 10.5.sp, fontWeight = FontWeight.Bold, maxLines = 1,
                 )
                 Text(d.dayOfMonth.toString(), color = if (on) Color.White else Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
@@ -359,7 +359,7 @@ private fun zoneColor(description: String?): Color? {
 internal fun MatchDayRow(m: SpMatchDto, now: Long, onClick: () -> Unit) {
     val date = m.localDate?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
     Column(Modifier.padding(bottom = 6.dp)) {
-        date?.let { Text(it.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault())), color = Wa.Soft, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, bottom = 2.dp)) }
+        date?.let { Text(it.format(DateTimeFormatter.ofPattern("EEE d MMM", AppLocale.java())), color = Wa.Soft, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 6.dp, bottom = 2.dp)) }
         MatchRow(m, now, emptySet(), hideScore = SportsLive.prefs.noSpoilers, onClick = onClick)
     }
 }

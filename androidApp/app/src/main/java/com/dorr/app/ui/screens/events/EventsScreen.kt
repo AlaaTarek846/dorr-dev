@@ -113,7 +113,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.TemporalAdjusters
-import java.util.Locale
+import com.dorr.app.network.AppLocale
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
 
 /*
  * DORR Discover (spec 169–182): public events from trusted sources — the admin and verified
@@ -471,6 +472,7 @@ private fun EvTravel(onBack: () -> Unit, go: (EvPage) -> Unit) {
         Spacer(Modifier.height(24.dp))
     }
 
+    val locale = rememberAppLocaleFrame()
     when (picking) {
         "city" -> CityPickerSheet(onDismiss = { picking = null }) { city = it; picking = null; result = null }
         "from", "to" -> {
@@ -479,16 +481,18 @@ private fun EvTravel(onBack: () -> Unit, go: (EvPage) -> Unit) {
             DatePickerDialog(
                 onDismissRequest = { picking = null },
                 confirmButton = {
-                    TextButton({
-                        state.selectedDateMillis?.let {
-                            val d = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                            if (picking == "from") { from = d; if (to.isBefore(d)) to = d } else to = if (d.isBefore(from)) from else d
-                        }
-                        picking = null
-                    }) { Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold) }
+                    locale.Provide {
+                        TextButton({
+                            state.selectedDateMillis?.let {
+                                val d = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
+                                if (picking == "from") { from = d; if (to.isBefore(d)) to = d } else to = if (d.isBefore(from)) from else d
+                            }
+                            picking = null
+                        }) { Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold) }
+                    }
                 },
-                dismissButton = { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } },
-            ) { DatePicker(state) }
+                dismissButton = { locale.Provide { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } } },
+            ) { locale.Provide { DatePicker(state) } }
         }
     }
 }
@@ -505,7 +509,7 @@ internal fun PickRow(emoji: String, label: String, value: String, modifier: Modi
     }
 }
 
-internal fun dayText(d: LocalDate): String = d.format(DateTimeFormatter.ofPattern("EEE d MMM", Locale.getDefault()))
+internal fun dayText(d: LocalDate): String = d.format(DateTimeFormatter.ofPattern("EEE d MMM", AppLocale.java()))
 
 // =============================================================================== ask DORR AI (181)
 
@@ -857,10 +861,10 @@ private fun EvSubmit(onBack: () -> Unit) {
         Spacer(Modifier.height(8.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PickRow("📅", stringResource(R.string.ev_f_date), dayText(date), Modifier.weight(1.3f)) { picking = "date" }
-            PickRow("🕗", stringResource(R.string.ev_f_time), time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)), Modifier.weight(1f)) { picking = "time" }
+            PickRow("🕗", stringResource(R.string.ev_f_time), time.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java())), Modifier.weight(1f)) { picking = "time" }
         }
         Spacer(Modifier.height(8.dp))
-        PickRow("🏁", stringResource(R.string.ev_f_end), endTime?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)) ?: stringResource(R.string.ev_f_end_none)) { picking = "end" }
+        PickRow("🏁", stringResource(R.string.ev_f_end), endTime?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java())) ?: stringResource(R.string.ev_f_end_none)) { picking = "end" }
         city?.timezone?.let { Text(stringResource(R.string.ev_f_local_hint, it.substringAfterLast('/').replace('_', ' ')), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
         Spacer(Modifier.height(12.dp))
         DorrTextField(venue, { venue = it.take(160) }, label = stringResource(R.string.ev_f_venue), modifier = Modifier.fillMaxWidth())
@@ -885,6 +889,7 @@ private fun EvSubmit(onBack: () -> Unit) {
         Spacer(Modifier.height(24.dp))
     }
 
+    val locale = rememberAppLocaleFrame()
     when (picking) {
         "city" -> CityPickerSheet(onDismiss = { picking = null }) { city = it; picking = null }
         "date" -> {
@@ -892,12 +897,14 @@ private fun EvSubmit(onBack: () -> Unit) {
             DatePickerDialog(
                 onDismissRequest = { picking = null },
                 confirmButton = {
-                    TextButton({ state.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; picking = null }) {
-                        Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold)
+                    locale.Provide {
+                        TextButton({ state.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; picking = null }) {
+                            Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold)
+                        }
                     }
                 },
-                dismissButton = { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } },
-            ) { DatePicker(state) }
+                dismissButton = { locale.Provide { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } } },
+            ) { locale.Provide { DatePicker(state) } }
         }
         "time" -> com.dorr.app.ui.screens.chat.TimePickDialog(time, onDismiss = { picking = null }) { time = it; picking = null }
         "end" -> com.dorr.app.ui.screens.chat.TimePickDialog(endTime ?: time.plusHours(2), onDismiss = { picking = null }) { endTime = it; picking = null }
