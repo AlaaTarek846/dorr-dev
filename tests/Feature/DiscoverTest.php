@@ -226,6 +226,27 @@ class DiscoverTest extends TestCase
 
     // ------------------------------------------------------------------ AT-DISC-03
 
+    public function test_travel_search_also_works_by_country_or_governorate(): void
+    {
+        $dubai = $this->city('Dubai');
+        $this->adminEvent('Dubai night', 'Dubai', '2026-11-21 20:00');
+        $this->adminEvent('Riyadh night', 'Riyadh', '2026-11-21 20:00');
+
+        $this->as($this->alice);
+        // The whole country (the UAE): only its own events.
+        $this->getJson("/api/mobile/v1/discover/travel?country_id={$dubai->country_id}&from=2026-11-21&to=2026-11-22", ['X-Country' => 'EG'])
+            ->assertOk()->assertJsonPath('data.place.country_id', $dubai->country_id)->assertJsonCount(1, 'data.items');
+
+        // A governorate: its cities' events.
+        $region = \App\Models\Region::query()->create(['country_id' => $dubai->country_id, 'status' => true, 'sort_order' => 1]);
+        $dubai->update(['region_id' => $region->id]);
+        $this->getJson("/api/mobile/v1/discover/travel?region_id={$region->id}&from=2026-11-21&to=2026-11-22", ['X-Country' => 'EG'])
+            ->assertOk()->assertJsonPath('data.place.region_id', $region->id)->assertJsonCount(1, 'data.items');
+
+        // Nothing at all to go on: asked to say where.
+        $this->getJson('/api/mobile/v1/discover/travel?from=2026-11-21&to=2026-11-22', ['X-Country' => 'EG'])->assertStatus(422);
+    }
+
     public function test_travel_search_shows_the_destinations_events_on_its_own_days_wherever_i_am(): void
     {
         $dubai = $this->city('Dubai');

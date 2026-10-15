@@ -78,7 +78,6 @@ import com.dorr.app.ui.screens.wallet.WaButtonStyle
 import com.dorr.app.ui.screens.wallet.WaCard
 import com.dorr.app.ui.screens.wallet.WaEmpty
 import com.dorr.app.ui.screens.wallet.WaNote
-import com.dorr.app.ui.screens.wallet.WaPage
 import com.dorr.app.ui.screens.wallet.WaSkeleton
 import com.dorr.app.ui.screens.wallet.rememberPressScale
 import com.dorr.app.ui.screens.wallet.waRise
@@ -302,7 +301,7 @@ internal fun EventDetail(id: String, onBack: () -> Unit) {
     }
     val open: (String?) -> Unit = { url -> url?.let { runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(it))) } } }
 
-    WaPage(
+    EvFrame(
         title = e?.title ?: stringResource(R.string.ev_title),
         onBack = onBack,
         cta = e?.takeIf { it.status != "cancelled" && it.status != "ended" && it.reviewStatus.let { r -> r == null || r == "approved" } }?.let { ev ->

@@ -94,18 +94,39 @@ class DiscoverService
      * @param  array<string, mixed>  $f
      * @return array<string, mixed>
      */
-    public function travel(Model $me, int $cityId, string $from, string $to, array $f, string $zone): array
+    public function travel(Model $me, array $f, string $from, string $to, string $zone): array
     {
-        $city = DiscoverCity::query()->with(['translations', 'country'])->where('status', true)->find($cityId) ?? throw DiscoverException::notFound();
-        $this->assertOn($city->country);
-        $start = CarbonImmutable::parse($from, $city->timezone);
-        $end = CarbonImmutable::parse($to, $city->timezone);
+        $city = null;
+        $region = null;
+        if (! empty($f['city_id'])) {
+            $city = DiscoverCity::query()->with(['translations', 'country'])->where('status', true)->find((int) $f['city_id']) ?? throw DiscoverException::notFound();
+            $country = $city->country;
+            $place = ['city_id' => $city->id];
+            $placeZone = $city->timezone;
+        } elseif (! empty($f['region_id'])) {
+            $region = \App\Models\Region::query()->with('country')->find((int) $f['region_id']) ?? throw DiscoverException::notFound();
+            $country = $region->country;
+            $place = ['region_id' => $region->id];
+            $placeZone = DiscoverCity::query()->where('status', true)->where('region_id', $region->id)->orderBy('sort_order')->value('timezone');
+        } else {
+            $country = Country::query()->find((int) $f['country_id']) ?? throw DiscoverException::notFound();
+            $place = ['country_id' => $country->id];
+            $placeZone = DiscoverCity::query()->where('status', true)->where('country_id', $country->id)->orderBy('sort_order')->value('timezone');
+        }
+        $this->assertOn($country);
+        // The days are cut in the destination's own zone (a city's; else its first city's; else mine).
+        $placeZone ??= $zone;
+        $start = CarbonImmutable::parse($from, $placeZone);
+        $end = CarbonImmutable::parse($to, $placeZone);
         if ($end->lt($start) || $start->diffInDays($end) > self::MAX_TRAVEL_DAYS) {
             throw new DiscoverException('travel_range', 422, ['max' => self::MAX_TRAVEL_DAYS]);
         }
 
-        return ['city' => $this->presentCity($city), 'from' => $from, 'to' => $to]
-            + $this->search($me, ['city_id' => $city->id, 'from' => $from, 'to' => $to] + array_intersect_key($f, array_flip(['category_ids', 'free', 'family', 'q', 'sort', 'page'])), $zone);
+        return [
+            'city' => $city ? $this->presentCity($city) : null,
+            'place' => ['country_id' => $country?->id, 'region_id' => $region?->id, 'timezone' => $placeZone],
+            'from' => $from, 'to' => $to,
+        ] + $this->search($me, $place + ['from' => $from, 'to' => $to] + array_intersect_key($f, array_flip(['category_ids', 'free', 'family', 'q', 'sort', 'page'])) + ['day_zone' => $placeZone], $zone);
     }
 
     /**
@@ -125,7 +146,7 @@ class DiscoverService
             $q->whereIn('category_id', array_map('intval', (array) $f['category_ids']));
         }
         // One city: its own days; several: mine.
-        $dayZone = $city?->timezone ?? $zone;
+        $dayZone = $city?->timezone ?? ($f['day_zone'] ?? $zone);
         $this->overlapping(
             $q,
             ! empty($f['from']) ? CarbonImmutable::parse($f['from'], $dayZone)->startOfDay() : null,

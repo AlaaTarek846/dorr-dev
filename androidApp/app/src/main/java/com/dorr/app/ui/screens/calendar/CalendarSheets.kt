@@ -464,8 +464,8 @@ internal fun CalendarSettings(onBack: () -> Unit) {
 
                 Spacer(Modifier.height(14.dp))
                 SettingsToggleCard(Modifier.waRise(1)) {
-                    ReminderSection(Icons.Rounded.Alarm, stringResource(R.string.cal_default_reminders), stringResource(R.string.cal_default_reminders_sub)) {
-                        ReminderPicker(ReminderChoices, p.defaultReminders, false) { list ->
+                    ReminderSection(stringResource(R.string.cal_default_reminders), stringResource(R.string.cal_default_reminders_sub)) {
+                        ReminderRows(Icons.Rounded.Alarm, ReminderChoices, p.defaultReminders, false) { list ->
                             change({ it.copy(defaultReminders = list) }, JsonObject().apply { add("default_reminders", JsonArray().apply { list.forEach { add(it) } }) })
                         }
                     }
@@ -473,8 +473,8 @@ internal fun CalendarSettings(onBack: () -> Unit) {
 
                 Spacer(Modifier.height(14.dp))
                 SettingsToggleCard(Modifier.waRise(2)) {
-                    ReminderSection(Icons.Rounded.Event, stringResource(R.string.cal_all_day_reminders), stringResource(R.string.cal_all_day_reminders_sub)) {
-                        ReminderPicker(AllDayChoices, p.allDayReminders, true) { list ->
+                    ReminderSection(stringResource(R.string.cal_all_day_reminders), stringResource(R.string.cal_all_day_reminders_sub)) {
+                        ReminderRows(Icons.Rounded.Event, AllDayChoices, p.allDayReminders, true) { list ->
                             change({ it.copy(allDayReminders = list) }, JsonObject().apply { add("all_day_reminders", JsonArray().apply { list.forEach { add(it) } }) })
                         }
                     }
@@ -553,18 +553,14 @@ internal fun SettingsToggleCard(modifier: Modifier = Modifier, content: @Composa
     )
 }
 
-/** A settings card section: icon well, title and one line of help, then its own content (the reminder chips). */
+/** A settings card section: title and one line of help (no icon beside them), then its own content (the reminder rows). */
 @Composable
-private fun ReminderSection(icon: ImageVector, title: String, help: String, content: @Composable () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(top = 12.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        PinkIcon(icon)
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
-            Text(help, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
-        }
+private fun ReminderSection(title: String, help: String, content: @Composable () -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(horizontal = 4.dp).padding(top = 12.dp, bottom = 10.dp)) {
+        Text(title, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+        Text(help, fontSize = 11.sp, color = settingsMut(), lineHeight = 15.sp, modifier = Modifier.padding(top = 2.dp))
     }
-    Box(Modifier.padding(horizontal = 4.dp).padding(bottom = 12.dp)) { content() }
+    Column(Modifier.fillMaxWidth().padding(bottom = 4.dp)) { content() }
 }
 
 /** An icon, a title with one line of help, and the settings toggle; a thin line under it unless it is the last. */
@@ -637,17 +633,28 @@ internal fun ToggleRow(title: String, on: Boolean, sub: String? = null, onChange
 }
 
 @OptIn(ExperimentalLayoutApi::class)
+/** The reminder choices as a list: icon well, name, a tick when chosen (up to five), a thin line between rows. */
 @Composable
-private fun ReminderPicker(choices: List<Int>, selected: List<Int>, allDay: Boolean, onChange: (List<Int>) -> Unit) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        choices.forEach { m ->
-            val on = m in selected
-            Text(
-                reminderLabel(m, allDay), color = if (on) Color.White else Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold,
-                modifier = Modifier.clip(CircleShape).background(if (on) Wa.Red else Wa.Surface).border(1.dp, if (on) Color.Transparent else Wa.Line, CircleShape)
-                    .clickable { onChange(if (on) selected - m else (selected + m).take(5)) }.padding(horizontal = 12.dp, vertical = 7.dp),
-            )
+private fun ReminderRows(icon: ImageVector, choices: List<Int>, selected: List<Int>, allDay: Boolean, onChange: (List<Int>) -> Unit) {
+    val dark = settingsNight()
+    choices.forEachIndexed { index, m ->
+        val on = m in selected
+        val rowShape = RoundedCornerShape(12.dp)
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clip(rowShape)
+                .background(if (on) (if (dark) AccountDark.line else Color(0xFFEDEEF3)) else Color.Transparent)
+                .clickable { onChange(if (on) selected - m else (selected + m).take(5)) }
+                .padding(horizontal = 4.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PinkIcon(icon)
+            Spacer(Modifier.width(10.dp))
+            Text(reminderLabel(m, allDay), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = settingsInk(), modifier = Modifier.weight(1f))
+            if (on) Icon(Icons.Rounded.CheckCircle, null, tint = Wa.Ink, modifier = Modifier.size(22.dp))
         }
+        if (index != choices.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
     }
 }
 
