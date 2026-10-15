@@ -391,4 +391,35 @@
     <string name="wl_det_reversed">This transaction was reversed.</string>
     <string name="wl_det_reversal">This reverses an earlier transaction.</string>
     <string name="wl_det_failed">Couldn\'t load this transaction. Try again.</string>
+    <!-- Driving preferences and a break (D-32..D-37, D-41) -->
+    <string name="pf_title">Driving preferences</string>
+    <string name="pf_home_hint">Categories, pickup range and Auto-Accept</string>
+    <string name="pf_categories">Ride categories</string>
+    <string name="pf_categories_hint">You are only asked for the categories you keep on. Keep at least one.</string>
+    <string name="pf_not_eligible">✕ = not available for your car or account</string>
+    <string name="pf_keep_one">Keep at least one category on.</string>
+    <string name="pf_range">Pickup range</string>
+    <string name="pf_range_hint">Requests farther than this from you are not sent to you.</string>
+    <string name="pf_no_limit">No limit</string>
+    <string name="pf_any">Any</string>
+    <string name="pf_km">%1$d km</string>
+    <string name="pf_auto">Auto-Accept</string>
+    <string name="pf_auto_hint">A request that fits your rules is accepted for you — you go straight to the pickup.</string>
+    <string name="pf_auto_pickup">Pickup no farther than</string>
+    <string name="pf_price">Price rules</string>
+    <string name="pf_min_fare">Lowest earning per ride (%1$s)</string>
+    <string name="pf_min_km">Lowest earning per km (%1$s)</string>
+    <string name="pf_payment">Payment methods</string>
+    <string name="pf_payment_hint">Auto-Accept takes only these. None picked = all.</string>
+    <string name="pf_pay_cash">Cash</string>
+    <string name="pf_pay_wallet">Wallet</string>
+    <string name="pf_pay_card">Card</string>
+    <string name="pf_save">Save the rules</string>
+    <string name="pf_saved">Saved</string>
+    <string name="br_take">Take a break</string>
+    <string name="br_hint">No requests until it ends — then you are back online by yourself.</string>
+    <string name="br_min">%1$d min</string>
+    <string name="br_title">You are on a break</string>
+    <string name="br_until">No requests until %1$s</string>
+    <string name="br_back">Back online now</string>
 </resources>

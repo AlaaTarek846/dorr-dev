@@ -391,4 +391,35 @@
     <string name="wl_det_reversed">تم عكس هذه الحركة.</string>
     <string name="wl_det_reversal">هذه الحركة تعكس حركة سابقة.</string>
     <string name="wl_det_failed">تعذّر تحميل هذه الحركة. حاول مرة أخرى.</string>
+    <!-- تفضيلات القيادة والاستراحة (D-32..D-37, D-41) -->
+    <string name="pf_title">تفضيلات القيادة</string>
+    <string name="pf_home_hint">الفئات ونطاق الالتقاط والقبول التلقائي</string>
+    <string name="pf_categories">فئات الرحلات</string>
+    <string name="pf_categories_hint">تصلك الطلبات للفئات المفعّلة فقط. أبقِ فئة واحدة على الأقل.</string>
+    <string name="pf_not_eligible">✕ = غير متاحة لسيارتك أو حسابك</string>
+    <string name="pf_keep_one">أبقِ فئة واحدة على الأقل مفعّلة.</string>
+    <string name="pf_range">نطاق الالتقاط</string>
+    <string name="pf_range_hint">الطلبات الأبعد من هذه المسافة عنك لا تُرسل لك.</string>
+    <string name="pf_no_limit">بلا حد</string>
+    <string name="pf_any">أي مسافة</string>
+    <string name="pf_km">%1$d كم</string>
+    <string name="pf_auto">القبول التلقائي</string>
+    <string name="pf_auto_hint">الطلب الذي يناسب قواعدك يُقبل عنك — فتتوجه مباشرة إلى نقطة الالتقاط.</string>
+    <string name="pf_auto_pickup">الالتقاط على بُعد لا يزيد عن</string>
+    <string name="pf_price">قواعد السعر</string>
+    <string name="pf_min_fare">أقل ربح للرحلة (%1$s)</string>
+    <string name="pf_min_km">أقل ربح للكيلومتر (%1$s)</string>
+    <string name="pf_payment">طرق الدفع</string>
+    <string name="pf_payment_hint">القبول التلقائي يأخذ هذه فقط. بدون اختيار = الكل.</string>
+    <string name="pf_pay_cash">نقداً</string>
+    <string name="pf_pay_wallet">المحفظة</string>
+    <string name="pf_pay_card">البطاقة</string>
+    <string name="pf_save">احفظ القواعد</string>
+    <string name="pf_saved">تم الحفظ</string>
+    <string name="br_take">خذ استراحة</string>
+    <string name="br_hint">لا طلبات حتى تنتهي — ثم تعود متصلاً بنفسك.</string>
+    <string name="br_min">%1$d دقيقة</string>
+    <string name="br_title">أنت في استراحة</string>
+    <string name="br_until">لا طلبات حتى %1$s</string>
+    <string name="br_back">العودة الآن</string>
 </resources>

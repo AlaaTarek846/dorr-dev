@@ -13,6 +13,7 @@ data class PresenceDto(
     @SerializedName("can_go_online") val canGoOnline: Boolean = false,
     val reason: String? = null,
     @SerializedName("active_ride_id") val activeRideId: Long? = null,
+    @SerializedName("paused_until") val pausedUntil: String? = null,
 )
 
 // ---------------------------------------------------------------- signing up
@@ -549,4 +550,32 @@ data class EarningsReportDto(
     val previous: ReportPreviousDto = ReportPreviousDto(),
     val change: ReportChangesDto = ReportChangesDto(),
     val series: SeriesDto = SeriesDto(),
+)
+
+// ---------------------------------------------------------------- driving preferences (D-32..D-37)
+
+data class PrefCategoryDto(val slug: String, val name: String? = null, val eligible: Boolean = false, val selected: Boolean = false)
+
+data class PriceFilterDto(
+    val allowed: Boolean = false,
+    @SerializedName("min_fare_minor") val minFareMinor: Long? = null,
+    @SerializedName("min_per_km_minor") val minPerKmMinor: Long? = null,
+)
+
+data class PaymentFilterDto(val allowed: Boolean = false, val methods: List<String> = emptyList(), val options: List<String> = emptyList())
+
+data class AutoAcceptDto(
+    val available: Boolean = false,
+    val enabled: Boolean = false,
+    @SerializedName("max_pickup_m") val maxPickupM: Int? = null,
+    @SerializedName("price_filter") val priceFilter: PriceFilterDto = PriceFilterDto(),
+    @SerializedName("payment_filter") val paymentFilter: PaymentFilterDto = PaymentFilterDto(),
+)
+
+data class PreferencesDto(
+    val currency: CurrencyDto? = null,
+    val categories: List<PrefCategoryDto> = emptyList(),
+    @SerializedName("pickup_radius_m") val pickupRadiusM: Int? = null,
+    @SerializedName("pickup_radius_max_m") val pickupRadiusMaxM: Int? = null,
+    @SerializedName("auto_accept") val autoAccept: AutoAcceptDto = AutoAcceptDto(),
 )

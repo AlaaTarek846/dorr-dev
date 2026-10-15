@@ -180,6 +180,8 @@ return [
     'ride_canceled_body' => 'Ride :number was cancelled.',
     'ride_offer_title' => 'New ride request',
     'ride_offer_body' => ':distance km away — you net :amount.',
+    'ride_auto_accepted_title' => 'Ride accepted for you',
+    'ride_auto_accepted_body' => 'Auto-Accept took ride :number. Head to the pickup.',
     'ride_rider_canceled_title' => 'The rider cancelled',
     'ride_rider_canceled_body' => 'Ride :number was cancelled by the rider.',
     'ride_wasl_valid_title' => 'Wasl approved you',

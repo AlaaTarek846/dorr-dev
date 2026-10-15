@@ -33,11 +33,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -87,7 +89,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenScheduled: () -> Unit, onOpenAirport: () -> Unit,
-    onOpenSafety: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit,
+    onOpenSafety: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenPreferences: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -127,6 +129,29 @@ fun HomeScreen(
                 // My place in the airport queue moves with the line.
                 (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
             }
+        }
+    }
+
+    // A break ends by the clock (D-41): one reload when it's due — no asking the server meanwhile.
+    LaunchedEffect(presence?.pausedUntil) {
+        val end = instantOf(presence?.pausedUntil) ?: return@LaunchedEffect
+        val wait = java.time.Duration.between(java.time.Instant.now(), end).toMillis()
+        if (wait > 0) {
+            delay(wait + 1500)
+            reload++
+        }
+    }
+
+    fun pause(minutes: Int) {
+        busy = true
+        error = null
+        scope.launch {
+            when (val result = apiCall { DriverBackend.api.pause(JsonObject().apply { addProperty("minutes", minutes) }) }) {
+                is ApiResult.Ok -> presence = result.data
+                is ApiResult.Failed -> error = result.error.displayMessage
+                is ApiResult.Offline -> error = context.getString(R.string.error_offline)
+            }
+            busy = false
         }
     }
 
@@ -247,6 +272,47 @@ fun HomeScreen(
             )
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, textAlign = TextAlign.Center) }
 
+            // D-41: a break — no requests until it ends, then online again by itself.
+            val breakEnd = instantOf(presence?.pausedUntil)
+            val onBreak = presence?.status == "paused" && (breakEnd == null || breakEnd.isAfter(java.time.Instant.now()))
+            if (onBreak) {
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.warning.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Coffee, null, tint = DorrBrand.warning)
+                        }
+                        Spacer(Modifier.size(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.br_title), fontWeight = FontWeight.Bold)
+                            breakEnd?.let { Text(stringResource(R.string.br_until, timeOfDay(it)), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f)) }
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    BigButton(stringResource(R.string.br_back), color = DorrBrand.success, busy = busy) { goOnline() }
+                }
+            } else if (presence?.status == "online" || presence?.status == "paused") {
+                Card {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.warning.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Filled.Coffee, null, tint = DorrBrand.warning)
+                        }
+                        Spacer(Modifier.size(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.br_take), fontWeight = FontWeight.Bold)
+                            Text(stringResource(R.string.br_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                        }
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(15, 30, 60).forEach { minutes ->
+                            Text(
+                                stringResource(R.string.br_min, minutes), color = DorrBrand.navy, fontWeight = FontWeight.SemiBold, fontSize = 13.sp,
+                                modifier = Modifier.clip(RoundedCornerShape(50)).background(DorrBrand.navy.copy(alpha = 0.07f)).clickable(enabled = !busy) { pause(minutes) }.padding(horizontal = 16.dp, vertical = 8.dp),
+                            )
+                        }
+                    }
+                }
+            }
             if (online) {
                 Card {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -255,6 +321,20 @@ fun HomeScreen(
                             scope.launch { (apiCall { DriverBackend.api.lastRide(JsonObject().apply { addProperty("on", on) }) } as? ApiResult.Ok)?.let { presence = it.data } }
                         })
                     }
+                }
+            }
+            // Driving preferences: categories, pickup range, Auto-Accept (D-32..D-37).
+            Card(Modifier.clickable(onClick = onOpenPreferences)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.navy.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Tune, null, tint = DorrBrand.navy)
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.pf_title), fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.pf_home_hint), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.Filled.ChevronRight, null)
                 }
             }
             // The wallet: the balance, the statement, withdrawing the earnings.

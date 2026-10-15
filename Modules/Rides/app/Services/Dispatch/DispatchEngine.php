@@ -14,6 +14,7 @@ use Modules\Rides\Enums\RidePaymentMethod;
 use Modules\Rides\Enums\RidePaymentStatus;
 use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Exceptions\RidesException;
+use Modules\Rides\Models\DriverPreference;
 use Modules\Rides\Models\FavoriteDriver;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideActiveLock;
@@ -26,6 +27,7 @@ use Modules\Rides\Services\Bidding\BidBoard;
 use Modules\Rides\Services\Bidding\BidPricing;
 use Modules\Rides\Services\Circle\FavoriteCircle;
 use Modules\Rides\Services\Drivers\DriverEligibility;
+use Modules\Rides\Services\Drivers\DriverPreferences;
 use Modules\Rides\Services\Lifecycle\RideCloser;
 use Modules\Rides\Services\Lifecycle\RideStateMachine;
 use Modules\Rides\Services\Notifications\RideNotifier;
@@ -59,6 +61,7 @@ class DispatchEngine
         private readonly RideCloser $closer,
         private readonly AirportQueue $queue,
         private readonly FavoriteCircle $circle,
+        private readonly DriverPreferences $preferences,
     ) {}
 
     /** Every few seconds (rides:dispatch-tick): offers that ran out, card rides never paid, then rounds that are due. */
@@ -155,7 +158,19 @@ class DispatchEngine
         }
 
         $this->stats->bump($offer->driver_id, ['offers_received' => 1]);
-        $this->notifier->offer($offer->setRelation('driver', Driver::query()->find($offer->driver_id)), $ride);
+        $driver = Driver::query()->find($offer->driver_id);
+        // Auto-Accept (D-34..D-37): a request that fits the captain's own rules is taken for them, not rung.
+        if ($driver !== null && $this->preferences->autoAccepts($ride, $driver, (float) $offer->distance_m, (int) $offer->driver_net_minor)) {
+            try {
+                $accepted = $this->accept($driver, $offer->uuid);
+                $this->notifier->driver($driver, $accepted, 'auto_accepted');
+
+                return;
+            } catch (RidesException) {
+                // Lost the race or can't be assigned: it rings like any request.
+            }
+        }
+        $this->notifier->offer($offer->setRelation('driver', $driver), $ride);
         $this->notifier->changed($ride, 'search_progress');
     }
 
@@ -422,7 +437,7 @@ class DispatchEngine
             ->pluck('reserved_driver_id');
         $minBalance = (int) ($policy['driver.min_balance_minor'] ?? -5000);
 
-        return DriverPresence::query()
+        $presences = DriverPresence::query()
             ->where('status', PresenceStatus::Online->value)
             ->where('gps_enabled', true)
             ->where('last_seen_at', '>=', now()->subSeconds($staleAfter))
@@ -432,9 +447,13 @@ class DispatchEngine
             ->whereBetween('lng', [$minLng, $maxLng])
             ->whereNotIn('driver_id', $refused->merge($released)->merge($busyWithOffer)->merge($blocked)->merge($reservedSoon)->unique()->values())
             ->whereNotIn('driver_id', RideActiveLock::query()->where('lock_key', 'like', 'driver:%')->pluck('lock_key')->map(fn (string $k) => (int) substr($k, 7)))
-            ->get()
+            ->get();
+        // How far each captain said they will go for a pickup (D-33); none = as far as the search reaches.
+        $reach = DriverPreference::query()->whereIn('driver_id', $presences->pluck('driver_id'))->whereNotNull('pickup_radius_m')->pluck('pickup_radius_m', 'driver_id');
+
+        return $presences
             ->map(fn (DriverPresence $p) => [$p, Geo::metres($ride->origin_lat, $ride->origin_lng, (float) $p->lat, (float) $p->lng)])
-            ->filter(fn (array $pair) => $pair[1] <= $radius)
+            ->filter(fn (array $pair) => $pair[1] <= $radius && $pair[1] <= (int) ($reach[$pair[0]->driver_id] ?? PHP_INT_MAX))
             // The captains in the airport's line first, in line order; then the rider's favourites, when close enough (R-226: a preference, not a promise).
             ->sortBy([fn (array $a, array $b) => ($queued[$a[0]->driver_id] ?? PHP_INT_MAX) <=> ($queued[$b[0]->driver_id] ?? PHP_INT_MAX), fn (array $a, array $b) => ($favorites->contains($b[0]->driver_id) <=> $favorites->contains($a[0]->driver_id)), fn (array $a, array $b) => $a[1] <=> $b[1]])
             ->filter(function (array $pair) use ($ride, $category, $riderPhone, $minBalance) {

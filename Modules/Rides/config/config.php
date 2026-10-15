@@ -88,6 +88,8 @@ return [
         'circle.ask_after_s' => 90,                       // R-INN-07: no favourite took it this long → the rider is asked before it goes to everyone
         'places.recent_max' => 5,                         // R-5: recent destinations offered as shortcuts
         'places.favorites_max' => 12,                     // R-174: saved favourite places shown as shortcuts
+        'auto_accept.price_filter' => false,              // D-36: a captain may set a minimum fare / per-km for Auto-Accept (off until the country allows it)
+        'auto_accept.payment_filter' => false,            // D-37: …and the payment methods Auto-Accept takes
         'earnings.report_max_days' => 366,                // D-197: the longest range the earnings report takes
         'pickup.match_m' => 40,                           // R-16: a place this close to an approved point is that point
 

@@ -104,6 +104,10 @@ return [
         'payment_change_unavailable' => 'لا يمكن تغيير طريقة الدفع الآن.',
         'earnings_range_in_future' => 'لا يمكن أن تبدأ الفترة بعد اليوم — اختر تواريخ حتى اليوم.',
         'earnings_range_too_long' => 'هذه الفترة طويلة — اختر حتى :days يوماً على الأكثر.',
+        'preferences_no_category' => 'أبقِ فئة واحدة على الأقل مفعّلة.',
+        'preferences_category_unavailable' => 'إحدى هذه الفئات غير متاحة لك.',
+        'preferences_radius_too_far' => 'لا يمكن أن يتجاوز نطاق الالتقاط :km كم.',
+        'auto_accept_filter_not_allowed' => 'هذا الفلتر للقبول التلقائي غير متاح في منطقتك.',
     ],
 
     'checkout' => [

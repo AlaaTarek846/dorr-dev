@@ -180,6 +180,8 @@ return [
     'ride_canceled_body' => 'تم إلغاء الرحلة :number.',
     'ride_offer_title' => 'طلب رحلة جديد',
     'ride_offer_body' => 'على بُعد :distance كم — صافي ربحك :amount.',
+    'ride_auto_accepted_title' => 'قُبلت رحلة لك',
+    'ride_auto_accepted_body' => 'القبول التلقائي أخذ الرحلة :number. توجّه إلى نقطة الالتقاط.',
     'ride_rider_canceled_title' => 'ألغى الراكب الرحلة',
     'ride_rider_canceled_body' => 'ألغى الراكب الرحلة :number.',
     'ride_wasl_valid_title' => 'اعتمدك وصل',

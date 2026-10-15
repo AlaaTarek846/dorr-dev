@@ -102,6 +102,9 @@ interface DriverApi {
     @POST("driver/v1/presence/offline")
     suspend fun goOffline(): Response<ApiEnvelope<PresenceDto>>
 
+    @POST("driver/v1/presence/pause")
+    suspend fun pause(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
+
     @POST("driver/v1/presence/last-ride")
     suspend fun lastRide(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
 
@@ -297,6 +300,13 @@ interface DriverApi {
 
     @GET("driver/v1/earnings")
     suspend fun earnings(): Response<ApiEnvelope<EarningsDto>>
+
+    // ---------------------------------------------------------------- driving preferences (D-32..D-37)
+    @GET("driver/v1/preferences")
+    suspend fun preferences(): Response<ApiEnvelope<PreferencesDto>>
+
+    @PUT("driver/v1/preferences")
+    suspend fun savePreferences(@Body body: JsonObject): Response<ApiEnvelope<PreferencesDto>>
 
     @GET("driver/v1/earnings/report")
     suspend fun earningsReport(@Query("period") period: String, @Query("from") from: String? = null, @Query("to") to: String? = null): Response<ApiEnvelope<EarningsReportDto>>

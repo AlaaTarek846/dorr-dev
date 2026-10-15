@@ -104,6 +104,10 @@ return [
         'payment_change_unavailable' => 'The way you pay can\'t be changed now.',
         'earnings_range_in_future' => 'The range can\'t start after today — pick dates up to today.',
         'earnings_range_too_long' => 'That range is too long — pick at most :days days.',
+        'preferences_no_category' => 'Keep at least one category on.',
+        'preferences_category_unavailable' => 'One of those categories isn\'t available to you.',
+        'preferences_radius_too_far' => 'The pickup range can\'t be more than :km km.',
+        'auto_accept_filter_not_allowed' => 'That Auto-Accept filter isn\'t available in your area.',
     ],
 
     'checkout' => [

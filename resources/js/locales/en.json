@@ -4262,6 +4262,7 @@
                 "restricted_zones": "Restricted areas (list and alerts)",
                 "saved_places": "Saved places (Home, Work, favourites, recent)",
                 "favorite_circle": "DORR Circle (ask favourite captains first)",
+                "auto_accept": "Auto-Accept (captains can have fitting requests taken for them)",
                 "cash": "Cash",
                 "wallet": "Wallet",
                 "card": "Card",
@@ -4327,6 +4328,7 @@
                 "zones": "Restricted areas",
                 "circle": "DORR Circle",
                 "earnings": "Earnings report",
+                "auto_accept": "Auto-Accept",
                 "places": "Saved places",
                 "stops": "Stops",
                 "open_destination": "No destination",
@@ -4433,7 +4435,9 @@
                 "circle__ask_after_s": "Ask the rider before widening a Circle search after",
                 "places__recent_max": "Recent destinations offered as shortcuts",
                 "places__favorites_max": "Favourite places offered as shortcuts",
-                "earnings__report_max_days": "Longest custom range in the earnings report (days)"
+                "earnings__report_max_days": "Longest custom range in the earnings report (days)",
+                "auto_accept__price_filter": "Captains may set a minimum fare / per-km for Auto-Accept",
+                "auto_accept__payment_filter": "Captains may pick the payment methods Auto-Accept takes"
             }
         },
         "safety": {
