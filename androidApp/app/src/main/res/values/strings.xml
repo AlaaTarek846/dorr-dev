@@ -1362,4 +1362,16 @@
     <string name="push_channel_messages">Messages</string>
     <string name="push_channel_general">Notifications</string>
 
+    <string name="ev_regions">Regions</string>
+    <string name="ev_place_title">Place</string>
+    <string name="ev_country">Country</string>
+    <string name="ev_region">Region</string>
+    <string name="ev_city">City</string>
+    <string name="ev_all_regions">All regions</string>
+    <string name="ev_pick_country_first">Pick a country first</string>
+    <string name="ev_pick_region_first">Pick a region first</string>
+    <string name="ev_place_clear">Clear</string>
+    <string name="ev_place_apply">Apply</string>
+    <string name="ev_place_none">Nothing on here yet</string>
+    <string name="ev_list_end">That\'s everything</string>
 </resources>

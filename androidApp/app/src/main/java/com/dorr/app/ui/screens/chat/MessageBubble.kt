@@ -270,7 +270,8 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
                 )
                 .padding(if (media || isCard) 3.dp else 0.dp),
         ) {
-            Column(Modifier.width(IntrinsicSize.Max)) {
+            // Cards with their own lists (moments, matches, polls…) can't be measured by their content width: compose forbids it for lazy lists.
+            Column(if (dto.type in CardsWithLists) Modifier else Modifier.width(IntrinsicSize.Max)) {
                 if (isGroup && !mine && firstInRun && dto.sender != null) {
                     Text(
                         dto.sender.name.orEmpty(), color = Ch.colorFor(dto.sender.key), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
@@ -440,6 +441,9 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         }
     }
 }
+
+/** Message kinds whose card holds a lazy list: they keep their own width instead of the bubble's intrinsic one. */
+private val CardsWithLists = setOf("moment_card", "match_card", "live_card", "event_card", "interactive", "poll", "bill_split", "commitment", "handoff", "agreement")
 
 /** The story a reply answers: "Status" + a small copy of it (its gradient and text, or its photo). */
 @Composable
