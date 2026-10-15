@@ -72,11 +72,26 @@ fun DriverNavHost() {
                     onOpenEarnings = { nav.navigate("earnings") },
                     onOpenScheduled = { nav.navigate("scheduled") },
                     onOpenSafety = { nav.navigate("safety") },
+                    onOpenNotifications = { nav.navigate("notifications") },
+                    onOpenWallet = { nav.navigate("wallet") },
                 )
             }
             composable("signup") { SignupScreen(onBack = { nav.popBackStack() }) }
             composable("trip") { TripScreen(onDone = { nav.popBackStack("home", inclusive = false) }) }
             composable("earnings") { EarningsScreen(onBack = { nav.popBackStack() }) }
+            composable("wallet") { WalletScreen(onBack = { nav.popBackStack() }) }
+            composable("notifications") {
+                NotificationsScreen(onBack = { nav.popBackStack() }, onOpen = { n ->
+                    // A tap goes where the notification is about.
+                    val event = n.event.orEmpty()
+                    when {
+                        event.startsWith("wallet") || event.contains("earnings") -> nav.navigate("wallet")
+                        event.contains("safety") || event.contains("contact") -> nav.navigate("safety")
+                        event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
+                        event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")
+                    }
+                })
+            }
             composable("safety") { SafetyCenterScreen(onBack = { nav.popBackStack() }) }
             composable("scheduled") {
                 ScheduledScreen(onBack = { nav.popBackStack() }, onStarted = { nav.navigate("trip") { popUpTo("home") } })

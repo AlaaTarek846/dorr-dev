@@ -69,6 +69,9 @@ return [
         'app_id' => env('ONESIGNAL_APP_ID'),
         'rest_api_key' => env('ONESIGNAL_REST_API_KEY'),
         'timeout' => (int) env('ONESIGNAL_GUZZLE_CLIENT_TIMEOUT', 10),
+        // The driver app may be its own OneSignal app (its own app id and REST key); left empty it shares the one above.
+        'driver_app_id' => env('ONESIGNAL_DRIVER_APP_ID'),
+        'driver_rest_api_key' => env('ONESIGNAL_DRIVER_REST_API_KEY'),
     ],
 
 ];

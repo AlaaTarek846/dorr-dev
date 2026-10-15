@@ -7,6 +7,7 @@ use App\Services\Notifications\NotificationCenter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Modules\Driver\Models\Driver;
+use Modules\Rides\Events\DriverChanged;
 use Modules\Rides\Events\RideChanged;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideOffer;
@@ -26,6 +27,13 @@ class RideNotifier
         DB::afterCommit(function () use ($ride, $event) {
             try {
                 broadcast(RideChanged::of($ride, $event));
+                // The captains it concerns hear it on their own channel: the ride's driver, the one who
+                // reserved it, and anyone asked in the last few minutes (their request may be gone now).
+                $drivers = RideOffer::query()->where('ride_id', $ride->id)->where('sent_at', '>=', now()->subMinutes(5))->pluck('driver_id')
+                    ->push($ride->driver_id)->push($ride->reserved_driver_id)->filter()->unique();
+                foreach ($drivers as $driverId) {
+                    broadcast(new DriverChanged((int) $driverId, $ride->uuid, $event));
+                }
             } catch (Throwable $e) {
                 Log::warning('[Rides] ride broadcast failed: '.$e->getMessage());
             }
@@ -63,6 +71,11 @@ class RideNotifier
             'offer_uuid' => $offer->uuid,
             'ride_uuid' => $ride->uuid,
             'expires_at' => $offer->expires_at->toIso8601String(),
+        ], true, [
+            // A request must reach a closed phone at once, and be worthless once it has expired.
+            'priority' => 10,
+            'ttl' => max(5, (int) now()->diffInSeconds($offer->expires_at, false)),
+            'android_visibility' => 1,
         ]);
     }
 

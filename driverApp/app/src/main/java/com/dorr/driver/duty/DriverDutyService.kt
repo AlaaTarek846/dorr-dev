@@ -53,8 +53,8 @@ import java.util.UUID
  * The driver's shift, alive while they are online — even with the app closed:
  *  - the position every 30 s (owner's decision), every 5 s on a ride, sent in batches to
  *    `locations/batch` (the server keeps the log and passes it to Wasl); points wait while offline;
- *  - the requests: asked every few seconds; a new one rings as a full-screen notification with
- *    Accept / Decline right on it (docs/rides-plan.md §17.2).
+ *  - the requests: they arrive on the captain's real-time channel and by push (DriverLive / DriverPush);
+ *    a new one rings as a full-screen notification with Accept / Decline right on it (docs/rides-plan.md §17.2).
  */
 class DriverDutyService : Service() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -87,8 +87,9 @@ class DriverDutyService : Service() {
         if (locationJob == null) {
             locationJob = scope.launch { Duty.onTrip.collectLatest { onTrip -> track(onTrip) } }
             scope.launch { flushLoop() }
-            scope.launch { offersLoop() }
         }
+        // Requests reach the shift through real-time and push, never by asking the server on a timer.
+        com.dorr.driver.live.DriverLive.start(this)
         return START_STICKY
     }
 
@@ -135,47 +136,6 @@ class DriverDutyService : Service() {
             if (apiCall { DriverBackend.api.locations(body) } is ApiResult.Ok) {
                 synchronized(pending) { pending.removeAll(points.toSet()) }
             }
-        }
-    }
-
-    /** New requests, rung once each. A ride already running means no requests (the server agrees). */
-    private suspend fun offersLoop() {
-        var round = 0
-        while (scope.isActive) {
-            delay(if (Duty.onTrip.value) 15_000 else 4_000)
-            if (Duty.onTrip.value) continue
-            // About every 30 s: a booking I reserved may have become my ride at its time (D-268).
-            if (++round % 8 == 0) {
-                val current = apiCall { DriverBackend.api.currentRide() }
-                if (current is ApiResult.Ok && current.data.isJsonObject && current.data.asJsonObject.has("uuid")) {
-                    Duty.setOnTrip(true)
-                    Duty.rideChanged()
-                    continue
-                }
-            }
-            val result = apiCall { DriverBackend.api.offers() }
-            if (result !is ApiResult.Ok) continue
-            val offer = result.data.firstOrNull { it.uuid !in Duty.dismissed }
-            if (offer == null) {
-                val hadBid = Duty.offer.value?.bid?.myBid?.status == "pending"
-                Duty.offer.value?.let { NotificationManagerCompat.from(this).cancel(ID_OFFER) }
-                Duty.showOffer(null)
-                // My offer was taken by the rider: the ride is mine — open it.
-                if (hadBid) {
-                    val current = apiCall { DriverBackend.api.currentRide() }
-                    if (current is ApiResult.Ok && current.data.isJsonObject && current.data.asJsonObject.has("uuid")) {
-                        Duty.setOnTrip(true)
-                        Duty.rideChanged()
-                    }
-                }
-                continue
-            }
-            if (Duty.seen.add(offer.uuid)) {
-                if (Duty.seen.size > 50) Duty.seen.remove(Duty.seen.first())
-                ring(this, offer)
-            }
-            // Fresh every time: a bidding request's price, my offer's state and its timer move.
-            Duty.showOffer(offer)
         }
     }
 

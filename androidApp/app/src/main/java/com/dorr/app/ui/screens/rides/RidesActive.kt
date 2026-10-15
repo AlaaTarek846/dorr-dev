@@ -100,16 +100,31 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
     var shareOpen by remember { mutableStateOf(false) }
     var reportOpen by remember { mutableStateOf(false) }
 
-    // The server is the truth: read the ride again every few seconds while it moves.
-    LaunchedEffect(ride.uuid, ride.status) {
-        while (ride.status !in FINAL) {
-            delay(when (ride.status) { "searching" -> 3000L; "scheduled" -> 15000L; else -> 4000L })
+    // The server is the truth, and it tells us when it changes (real-time on the ride's channel) —
+    // nothing asks it on a timer. A reload on open and after a lost connection catches up on what was missed.
+    LaunchedEffect(ride.uuid) {
+        com.dorr.app.chat.ChatRealtime.watchRide(ride.uuid)
+        suspend fun reload() {
             runCatching { ApiClient.rides.ride(ridesAuth(), ride.uuid).data }.getOrNull()?.let { fresh ->
-                if (fresh.version != state.ride?.version || fresh.driver?.location != state.ride?.driver?.location) state.ride = fresh
+                if (fresh.version != state.ride?.version) state.ride = fresh
             }
-            if (state.ride?.status != ride.status) break
+        }
+        launch { com.dorr.app.chat.ChatRealtime.connected.collect { up -> if (up) reload() } }
+        com.dorr.app.chat.ChatRealtime.events.collect { e ->
+            when (e.name) {
+                "ride.changed" -> reload()
+                // The car moves on the map from the event itself, without a reload.
+                "ride.driver_location" -> state.ride?.let { current ->
+                    val d = current.driver ?: return@let
+                    state.ride = current.copy(driver = d.copy(location = com.dorr.app.network.RideDriverLocationDto(
+                        lat = e.data.get("lat").asDouble, lng = e.data.get("lng").asDouble,
+                        heading = e.data.get("heading")?.takeIf { it.isJsonPrimitive }?.asInt, at = e.data.get("at")?.takeIf { it.isJsonPrimitive }?.asString,
+                    )))
+                }
+            }
         }
     }
+    androidx.compose.runtime.DisposableEffect(ride.uuid) { onDispose { com.dorr.app.chat.ChatRealtime.unwatchRide(ride.uuid) } }
 
     PanelCard {
         when (ride.status) {
@@ -457,7 +472,11 @@ private fun RideChatSheet(ride: RideDto, onClose: () -> Unit) {
             open = it.open
         }
     }
-    LaunchedEffect(Unit) { while (true) { refresh(); delay(3000) } }
+    // Loaded once, then each message arrives on the ride's channel as it is sent.
+    LaunchedEffect(ride.uuid) {
+        refresh()
+        com.dorr.app.chat.ChatRealtime.events.collect { e -> if (e.name == "ride.message" || e.name == "ride.changed") refresh() }
+    }
     LaunchedEffect(messages.size) { if (messages.isNotEmpty()) list.animateScrollToItem(messages.size - 1) }
 
     fun send(body: String?, quickKey: String?) {

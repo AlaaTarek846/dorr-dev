@@ -52,5 +52,10 @@
         <receiver
             android:name=".duty.OfferActionReceiver"
             android:exported="false" />
+
+        <!-- Every push passes through here first: a ride request becomes a ringing, full-screen request. -->
+        <meta-data
+            android:name="com.onesignal.NotificationServiceExtension"
+            android:value="com.dorr.driver.live.DriverPushExtension" />
     </application>
 </manifest>

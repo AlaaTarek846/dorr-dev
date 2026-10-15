@@ -11,6 +11,8 @@ use RuntimeException;
  * context-dependent catalog/pricing/eligibility check), so it lives in
  * app/Services/General next to CountryService, not inside Modules/Wallet.
  *
+ * (A captain's own country counts like a rider's or a provider's.)
+ *
  * Priority (docs/wallet-plan.md §8 — decided this way specifically because
  * IP is spoofable and must never be trusted to *gate* anything, only to
  * guess a sensible default):
@@ -50,7 +52,7 @@ class CountryResolver
 
     private function fromAuthenticatedProfile(): ?Country
     {
-        foreach (['user_api', 'provider_api'] as $guard) {
+        foreach (['user_api', 'provider_api', 'driver_api'] as $guard) {
             $owner = auth($guard)->user();
 
             foreach ([$owner?->logged_in_country_id ?? null, $owner?->country_id] as $countryId) {
