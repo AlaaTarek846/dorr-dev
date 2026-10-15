@@ -88,6 +88,7 @@ return [
         'circle.ask_after_s' => 90,                       // R-INN-07: no favourite took it this long → the rider is asked before it goes to everyone
         'places.recent_max' => 5,                         // R-5: recent destinations offered as shortcuts
         'places.favorites_max' => 12,                     // R-174: saved favourite places shown as shortcuts
+        'earnings.report_max_days' => 366,                // D-197: the longest range the earnings report takes
         'pickup.match_m' => 40,                           // R-16: a place this close to an approved point is that point
 
         'queue.entry' => 'manual',                        // D-277: how a captain gets in line at an airport — auto | manual

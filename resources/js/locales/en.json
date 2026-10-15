@@ -4326,6 +4326,7 @@
                 "queue": "Airport queue",
                 "zones": "Restricted areas",
                 "circle": "DORR Circle",
+                "earnings": "Earnings report",
                 "places": "Saved places",
                 "stops": "Stops",
                 "open_destination": "No destination",
@@ -4431,7 +4432,8 @@
                 "zones__alert_cooldown_s": "Same restricted-area alert at most every",
                 "circle__ask_after_s": "Ask the rider before widening a Circle search after",
                 "places__recent_max": "Recent destinations offered as shortcuts",
-                "places__favorites_max": "Favourite places offered as shortcuts"
+                "places__favorites_max": "Favourite places offered as shortcuts",
+                "earnings__report_max_days": "Longest custom range in the earnings report (days)"
             }
         },
         "safety": {

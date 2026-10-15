@@ -102,6 +102,8 @@ return [
         'pickup_point_invalid' => 'That point isn\'t available here — choose another.',
         'beneficiary_is_you' => 'That\'s your own number — book for someone else with their number.',
         'payment_change_unavailable' => 'The way you pay can\'t be changed now.',
+        'earnings_range_in_future' => 'The range can\'t start after today — pick dates up to today.',
+        'earnings_range_too_long' => 'That range is too long — pick at most :days days.',
     ],
 
     'checkout' => [

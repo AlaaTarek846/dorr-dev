@@ -100,6 +100,8 @@ fun EarningsScreen(onBack: () -> Unit) {
                     }
                 }
             }
+            // D-193..D-202: 3 / 6 / 9 / 12 months or two dates, against the period before.
+            EarningsReportCard(currency)
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Card(Modifier.weight(1f)) {
                     Text(stringResource(R.string.earn_pending), fontSize = 12.sp)

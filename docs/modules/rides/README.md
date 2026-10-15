@@ -168,6 +168,15 @@ Four steps, as in the idea: **(1)** the rider switches "Ask my favorite captains
 - **No flight tracking** (owner's rule). **Not here (NEEDS-DECISION):** the airport / road fee on the price (D-284) — who receives it and how it settles isn't decided. What a captain who declines the head of the line loses (nothing today) is not defined either.
 - **App (captain):** `AirportScreen.kt` — a Home card ("You're #12 of 30", or "You're at …"), the rolling place number, the estimate or why there is none, Join / Leave with the way out said in plain words, the official points and the restricted areas.
 
+## The captain's earnings report and statement (D-193..D-202, D-212, D-213; `DriverEarningsController::report`, wallet `transactions/{uuid}`)
+- **Report (D-193..D-197):** `GET driver/v1/earnings/report?period=3m|6m|9m|12m|custom[&from=&to=]`. A preset is "N months back from today" (3 months on 15 Oct = 16 Jul … 15 Oct, in the city's time zone); `custom` takes `from` / `to` (`Y-m-d`, `to` before `from` refused, a `to` after today is cut to today, a range wholly in the future → `rides_earnings_range_in_future`, longer than policy `earnings.report_max_days` (366) → `rides_earnings_range_too_long` with `max_days`). Figures come from `driver_daily_stats` (so a day is the captain's local day, same as the Earnings screen): `totals{trips, net_minor, gross_minor, tips_minor, online_s, distance_m, acceptance_bp}`.
+- **Against the period before (D-200..D-202):** `previous{from, to, totals}` is the period of the same number of days that ends the day before; `change{net_minor, gross_minor, trips, tips_minor, online_s}` each `{value, pct_bp, direction}` — `value` = now − before, `pct_bp` = basis points of the earlier figure (`null` when there was nothing before), `direction` = `up` | `down` | `same` | `new` (something now, nothing before). The app writes the direction in words with an arrow ("Up 12.5% (+30.00 SAR)"), so colour is never the only signal.
+- **Series:** `series{unit: day|month, points[{key, trips, net_minor}]}` — by day up to 62 days, by month beyond; every slot of the range is there (empty ones as zeros).
+- **A row in full (D-212):** `GET {driver|mobile|provider}/v1/wallet/transactions/{uuid}` (shared wallet route) = the statement row + `reference` (`{type: ride, uuid, number, status}` — only for a ride the wallet's owner is on, resolved by `Modules\Wallet\Support\TransactionReferences`, which Rides registers `ride` with in its provider's `boot()`), `related[]` (the other rows of the same `operation_id` in this wallet: a payment and its commission…), `reversed` and `reverses_uuid`. Another owner's row, another country's, or an unknown uuid → 404 (`wallet.errors.transaction_not_found`).
+- **Filters (D-213):** the statement already took `from`, `to`, `type`, `bucket`, `direction`; the captain app now offers money in / out, the kinds that matter to a captain (ride earnings, tips, commission, withdrawals, top-ups, penalties) and a day range.
+- **App (captain):** `EarningsReport.kt` (period chips, the two date pickers, the bars, one line per figure with its change), `WalletDetail.kt` (`StatementFilters`, `TransactionDetailSheet`), `DatePick.kt`; tap a statement row for the sheet. No polling — the report loads when the period changes, the statement already reloads on wallet events.
+- **Not here:** incentives / bonuses (D-205) wait for a decision on how they are set and paid; D-211 (the statement itself) and D-215 (the wallet PIN) were already done by the shared wallet screens.
+
 ## Changing the trip during the ride (`RideChangeService`, `ride_change_requests`)
 R-91..95, D-131..137, wireflow 6أ / 6ب / 6ج. Switch `change_destination` (one more stop: `multi_stop`). Not for open-destination rides; one at a time.
 1. **Preview** `POST mobile/v1/rides/{uuid}/changes {type: destination|add_stop, lat, lng, address}` → the new route (origin → stops → destination) and `distance_delta_m`, `duration_delta_s`, `price_delta_minor`, `new_total_minor` — nothing changes yet (lives 3 minutes).
@@ -214,6 +223,8 @@ Driver (`driver_api`, prefix `driver/v1`):
 | POST | `rides/{uuid}/cancel` · `no-show` · `rate` | `reason_id` · — · `stars`, `tags?`, `comment?` | |
 | GET | `airport-queue` · `restricted-zones` · POST `airport-queue/join` · `airport-queue/leave` | | The airport queue and restricted areas (D-276..D-283) |
 | GET | `earnings` | | Today / week / month, the last 7 days, pending earnings, wallet, rating, points |
+| GET | `earnings/report` | `period` (`3m`/`6m`/`9m`/`12m`/`custom`), `from`, `to` | The period's totals, the period before it, the change (value, basis points, direction) and the series |
+| GET | `wallet/transactions/{uuid}` | | One statement row in full: its ride, the other rows of the same operation, reversed or not |
 | GET | `regulator` | | Wasl approval: driver / vehicle status, expiry dates, criminal record, `reasons[{code, message}]` in the driver's language, `blocked_until`, `work_problem` |
 | POST | `regulator/register` · `regulator/check` | | Register the driver and the vehicle at Wasl · check again (5 an hour) |
 
@@ -237,6 +248,8 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 
 ## Tests
 `RidesSavedPlacesTest` (2): Home, Work, favourites and recent destinations in one call (only completed rides, one per place, saved ones left out, policy limits, others' addresses never shown); nothing without the switch or any places.
+
+`RidesEarningsReportTest` (5): a preset summed, compared (+7000 / +87.5% / up, tips "new") and split by month with its empty months; every preset reaching back its months and an empty history saying "same"; a custom range by day going down (−3000 / −60%) or new; the range rules (missing / back-to-front dates, unknown period, wholly in the future, cut at today, the policy's longest range); sign-in required. `WalletTransactionDetailTest` (4): a ride row with its ride and the same-operation rows; a reversed row and its reversal pointing at each other; the ride shown only to the people on it (wrong ride, unknown type, missing ride → the row only); another owner's row, a made-up uuid and no login not served.
 
 `RidesCircleTest` (3): a circle ride going to the nearest favourite then the other, never to a closer stranger; the rider asked once after the time and still nobody else asked; "search all captains" opening it up (and repeating being a no-op); picking some favourites; a non-favourite and an empty circle refused; the switch; widening a normal ride refused.
 

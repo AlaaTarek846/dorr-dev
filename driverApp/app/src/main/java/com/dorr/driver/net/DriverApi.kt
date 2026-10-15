@@ -140,7 +140,17 @@ interface DriverApi {
     suspend fun wallet(): Response<ApiEnvelope<WalletDto>>
 
     @GET("driver/v1/wallet/transactions")
-    suspend fun walletTransactions(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 25): Response<ApiEnvelope<List<WalletRowDto>>>
+    suspend fun walletTransactions(
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 25,
+        @Query("type") type: String? = null,
+        @Query("direction") direction: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null,
+    ): Response<ApiEnvelope<List<WalletRowDto>>>
+
+    @GET("driver/v1/wallet/transactions/{uuid}")
+    suspend fun walletTransaction(@Path("uuid") uuid: String): Response<ApiEnvelope<WalletDetailDto>>
 
     @GET("driver/v1/wallet/pin")
     suspend fun walletPin(): Response<ApiEnvelope<WalletPinDto>>
@@ -287,6 +297,9 @@ interface DriverApi {
 
     @GET("driver/v1/earnings")
     suspend fun earnings(): Response<ApiEnvelope<EarningsDto>>
+
+    @GET("driver/v1/earnings/report")
+    suspend fun earningsReport(@Query("period") period: String, @Query("from") from: String? = null, @Query("to") to: String? = null): Response<ApiEnvelope<EarningsReportDto>>
 }
 
 data class PhoneBody(

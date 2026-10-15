@@ -23,6 +23,7 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('offers/{uuid}/bid', [DriverRideController::class, 'bid'])->whereUuid('uuid');
 
         Route::get('earnings', [DriverEarningsController::class, 'summary']);
+        Route::get('earnings/report', [DriverEarningsController::class, 'report']);
 
         // The airport queue (D-276..D-280), its official points (D-281) and the restricted areas (D-282).
         Route::get('airport-queue', [DriverAirportController::class, 'show']);

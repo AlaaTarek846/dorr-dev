@@ -312,6 +312,34 @@ data class WalletRowDto(
     @SerializedName("created_at") val createdAt: String? = null,
 )
 
+/** One statement row in full (D-212): what it points at, the other rows of the same operation, whether it was reversed. */
+data class WalletRefDto(val type: String = "", val uuid: String? = null, val number: String? = null, val status: String? = null)
+
+data class WalletRelatedDto(
+    val uuid: String,
+    @SerializedName("type_label") val typeLabel: String = "",
+    val direction: String = "credit",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class WalletDetailDto(
+    val uuid: String,
+    val type: String = "",
+    @SerializedName("type_label") val typeLabel: String = "",
+    val direction: String = "credit",
+    val bucket: String = "",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("balance_after_minor") val balanceAfterMinor: Long? = null,
+    @SerializedName("total_balance_after_minor") val totalBalanceAfterMinor: Long? = null,
+    val note: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+    val reference: WalletRefDto? = null,
+    val related: List<WalletRelatedDto> = emptyList(),
+    val reversed: Boolean = false,
+    @SerializedName("reverses_uuid") val reversesUuid: String? = null,
+)
+
 data class WalletPinDto(
     @SerializedName("has_pin") val hasPin: Boolean = false,
     @SerializedName("must_change") val mustChange: Boolean = false,
@@ -491,4 +519,34 @@ data class EarningsDto(
     @SerializedName("wallet_minor") val walletMinor: Long = 0,
     val profile: ProfileStatsDto = ProfileStatsDto(),
     @SerializedName("recent_points") val recentPoints: List<PointEntryDto> = emptyList(),
+)
+
+// ---------------------------------------------------------------- earnings report (D-193..D-202)
+
+data class ReportPeriodDto(val key: String = "3m", val from: String = "", val to: String = "", val days: Int = 0)
+
+/** This period against the one before: the difference, its share in basis points (none when there was nothing before) and a word for the direction. */
+data class ChangeDto(val value: Long = 0, @SerializedName("pct_bp") val pctBp: Int? = null, val direction: String = "same")
+
+data class ReportChangesDto(
+    @SerializedName("net_minor") val net: ChangeDto = ChangeDto(),
+    @SerializedName("gross_minor") val gross: ChangeDto = ChangeDto(),
+    val trips: ChangeDto = ChangeDto(),
+    @SerializedName("tips_minor") val tips: ChangeDto = ChangeDto(),
+    @SerializedName("online_s") val online: ChangeDto = ChangeDto(),
+)
+
+data class ReportPreviousDto(val from: String = "", val to: String = "", val totals: PeriodDto = PeriodDto())
+
+data class SeriesPointDto(val key: String, val trips: Int = 0, @SerializedName("net_minor") val netMinor: Long = 0)
+
+data class SeriesDto(val unit: String = "day", val points: List<SeriesPointDto> = emptyList())
+
+data class EarningsReportDto(
+    val currency: CurrencyDto? = null,
+    val period: ReportPeriodDto = ReportPeriodDto(),
+    val totals: PeriodDto = PeriodDto(),
+    val previous: ReportPreviousDto = ReportPreviousDto(),
+    val change: ReportChangesDto = ReportChangesDto(),
+    val series: SeriesDto = SeriesDto(),
 )

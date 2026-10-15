@@ -436,20 +436,20 @@
 
 ## الأرباح والمحفظة والسحب  ·  متبقي 28 من 39
 
-- [ ] **D-193** 3 أشهر · 👤 —
-- [ ] **D-194** 6 أشهر · 👤 —
-- [ ] **D-195** 9 أشهر · 👤 —
-- [ ] **D-196** 12 شهراً · 👤 —
-- [ ] **D-197** فترة مخصصة · 👤 —
-- [ ] **D-200** مقارنة بالفترة السابقة · 👤 —
-- [ ] **D-201** قيمة ونسبة الفرق · 👤 —
-- [ ] **D-202** الاتجاه لا يعتمد على اللون وحده · 👤 —
+- [ ] **D-193** 3 أشهر · 📝 الباك إند (`GET driver/v1/earnings/report?period=3m`) واختباراته (`RidesEarningsReportTest`) والـ README خلصوا، وشاشة الأرباح في تطبيق السائق اتكتبت (`EarningsReport.kt`)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-194** 6 أشهر · 📝 نفس D-193 (`period=6m`)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-195** 9 أشهر · 📝 نفس D-193 (`period=9m`)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-196** 12 شهراً · 📝 نفس D-193 (`period=12m`)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-197** فترة مخصصة · 📝 نفس D-193 (`period=custom&from&to`، أطول فترة من سياسة `earnings.report_max_days` = 366 يوم، والنهاية بتتقطع عند النهارده)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-200** مقارنة بالفترة السابقة · 📝 المقارنة بالفترة اللي قبلها بنفس عدد الأيام (`previous` + `change`) — نفس D-193؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-201** قيمة ونسبة الفرق · 📝 `change{value, pct_bp, direction}` — الفرق بالفلوس وبالنسبة (basis points، ومفيش نسبة لما الفترة اللي قبلها صفر) — نفس D-193؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-202** الاتجاه لا يعتمد على اللون وحده · 📝 الاتجاه كلمة (`up/down/same/new`) + سهم + إشارة +/− في التطبيق، مش لون بس — نفس D-193؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
 - [x] **D-204** الإكراميات · 📝 نفس R-144 (الإكرامية) · 👤 Claude ✅ 2026-10-15
 - [ ] **D-205** المكافآت/الحوافز · 👤 —
 - [ ] **D-210** آخر رصيد مؤكد عند الوضع المالي الآمن · 👤 —
-- [ ] **D-211** كشف الحركات · 📝 المحفظة فيها كشف حركات للمستخدم؛ تطبيق السائق مش بيعرضه · 👤 —
-- [ ] **D-212** تفاصيل كل حركة · 👤 —
-- [ ] **D-213** فلترة الحركات · 👤 —
+- [ ] **D-211** كشف الحركات · 📝 اتنفّذ فعلاً: شاشة المحفظة في تطبيق السائق بتعرض الكشف (`WalletScreen.kt`) على نفس محفظة المستخدم (`WalletStatementTest`)؛ اتعدّلت دلوقتي (فلاتر + تفاصيل D-212/D-213)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-212** تفاصيل كل حركة · 📝 الباك إند (`GET wallet/transactions/{uuid}` المشترك: الرحلة المرتبطة عن طريق `TransactionReferences`، حركات نفس العملية، معكوسة/عكس) واختباراته (`WalletTransactionDetailTest`) والـ README خلصوا، وشاشة التفاصيل في تطبيق السائق اتكتبت (`WalletDetail.kt`)؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
+- [ ] **D-213** فلترة الحركات · 📝 فلاتر الكشف في تطبيق السائق (داخل/خارج، نوع الحركة، من–إلى) فوق فلاتر الباك إند الموجودة (`from/to/type/direction`) — الاختبار في `WalletStatementTest` الموجود؛ ناقص `gradlew :app:compileDebugKotlin` لتطبيق السائق (مفيش Android SDK في بيئة Claude) قبل ما تتعلّم ✅ · 👤 Claude 🚧
 - [ ] **D-214** الإبلاغ: لم أنفذ هذه العملية عندما تكون مؤهلة · 👤 —
 - [ ] **D-215** PIN مالي للعمليات الحساسة · 👤 —
 - [ ] **D-216** KYC/مستوى التحقق المطلوب للسحب · 👤 —

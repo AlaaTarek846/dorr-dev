@@ -3,9 +3,11 @@
 namespace Modules\Rides\Providers;
 
 use Illuminate\Console\Scheduling\Schedule;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Event;
 use Modules\Driver\Contracts\DriverWorkGate;
 use Modules\Driver\Events\DriverLocationUpdated;
+use Modules\Driver\Models\Driver;
 use Modules\Rides\Console\DispatchTick;
 use Modules\Rides\Console\ReleaseEarnings;
 use Modules\Rides\Console\WaslEligibility;
@@ -13,11 +15,13 @@ use Modules\Rides\Console\WaslLocations;
 use Modules\Rides\Console\WaslTrips;
 use Modules\Rides\Listeners\HandleDriverLocation;
 use Modules\Rides\Listeners\RelayDriverLocation;
+use Modules\Rides\Models\Ride;
 use Modules\Rides\Services\Drivers\DriverEligibility;
 use Modules\Rides\Services\Geo\GeoProvider;
 use Modules\Rides\Services\Geo\ResilientGeoProvider;
 use Modules\Rides\Services\Payment\RideCheckoutPurpose;
 use Modules\Wallet\Support\Payments\CheckoutPurposes;
+use Modules\Wallet\Support\TransactionReferences;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 /**
@@ -70,6 +74,14 @@ class RidesServiceProvider extends ModuleServiceProvider
 
         // A card ride is paid on the app's one payment screen, which then holds the amount (ReservesFunds).
         $this->app->make(CheckoutPurposes::class)->register(RideCheckoutPurpose::KEY, RideCheckoutPurpose::class);
+
+        // A wallet row that came from a ride says which one (D-212) — to the rider or captain of that ride only.
+        $this->app->make(TransactionReferences::class)->register('ride', function (int $id, Model $owner) {
+            $ride = Ride::query()->find($id);
+            $isParty = $ride !== null && ($owner instanceof Driver ? $ride->driver_id === $owner->getKey() : $ride->user_id === $owner->getKey());
+
+            return ! $isParty ? null : ['uuid' => $ride->uuid, 'number' => $ride->number, 'status' => $ride->status->value];
+        });
     }
 
     protected function configureSchedules(Schedule $schedule): void

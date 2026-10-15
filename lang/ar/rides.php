@@ -102,6 +102,8 @@ return [
         'pickup_point_invalid' => 'هذه النقطة غير متاحة هنا — اختر نقطة أخرى.',
         'beneficiary_is_you' => 'هذا رقمك أنت — للحجز لشخص آخر أدخل رقمه هو.',
         'payment_change_unavailable' => 'لا يمكن تغيير طريقة الدفع الآن.',
+        'earnings_range_in_future' => 'لا يمكن أن تبدأ الفترة بعد اليوم — اختر تواريخ حتى اليوم.',
+        'earnings_range_too_long' => 'هذه الفترة طويلة — اختر حتى :days يوماً على الأكثر.',
     ],
 
     'checkout' => [

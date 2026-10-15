@@ -103,18 +103,27 @@ fun WalletScreen(onBack: () -> Unit) {
     var withdrawOpen by remember { mutableStateOf(false) }
     var topupOpen by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var filter by remember { mutableStateOf(StatementFilter()) }
+    var detailId by remember { mutableStateOf<String?>(null) }
     BackHandler(onBack = onBack)
 
+    // The statement, narrowed by the filters (D-213); the same filters apply to "show more".
+    suspend fun loadRows() {
+        (apiCall { DriverBackend.api.walletTransactions(1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)
+            ?.let { rows = it.data; page = 1; more = it.data.size >= 25 }
+    }
     suspend fun load() {
         (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
-        (apiCall { DriverBackend.api.walletTransactions(1) } as? ApiResult.Ok)?.let { rows = it.data; page = 1; more = it.data.size >= 25 }
+        loadRows()
         (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.let { withdrawals = it.data }
     }
     LaunchedEffect(Unit) {
-        load()
+        (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
+        (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.let { withdrawals = it.data }
         // A settlement, a payout decision, a transfer: the wallet reloads by itself.
         DriverLive.events.collect { e -> if (e.name.startsWith("wallet") || e.name.contains("withdrawal") || e.name.contains("earnings")) load() }
     }
+    LaunchedEffect(filter) { loadRows() }
 
     val w = wallet
     Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
@@ -158,10 +167,11 @@ fun WalletScreen(onBack: () -> Unit) {
                 )
             }
         }
+        if (tab == 0) StatementFilters(filter) { filter = it }
         if (tab == 0) {
-            if (rows.isEmpty()) EmptyHint(stringResource(R.string.wl_empty))
+            if (rows.isEmpty()) EmptyHint(stringResource(if (filter.active) R.string.wl_empty_filtered else R.string.wl_empty))
             else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(rows, key = { it.uuid }) { r -> TransactionRow(r, w) }
+                items(rows, key = { it.uuid }) { r -> TransactionRow(r, w) { detailId = r.uuid } }
                 if (more) item {
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
                         if (loadingMore) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = DorrBrand.orange)
@@ -170,7 +180,7 @@ fun WalletScreen(onBack: () -> Unit) {
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
                                 loadingMore = true
                                 scope.launch {
-                                    val next = (apiCall { DriverBackend.api.walletTransactions(page + 1) } as? ApiResult.Ok)?.data.orEmpty()
+                                    val next = (apiCall { DriverBackend.api.walletTransactions(page + 1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)?.data.orEmpty()
                                     if (next.isNotEmpty()) { rows = rows + next; page += 1 }
                                     more = next.size >= 25
                                     loadingMore = false
@@ -191,6 +201,7 @@ fun WalletScreen(onBack: () -> Unit) {
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     if (topupOpen && w != null) TopupSheet(w, onClose = { topupOpen = false }, onDone = { topupOpen = false; scope.launch { load() } })
+    detailId?.let { id -> TransactionDetailSheet(id, w, onClose = { detailId = null }) }
     if (withdrawOpen && w != null) WithdrawSheet(w, onClose = { withdrawOpen = false }, onDone = { withdrawOpen = false; tab = 1; scope.launch { load() } })
 }
 
@@ -210,9 +221,9 @@ private fun Chip(label: String, value: String) {
 }
 
 @Composable
-private fun TransactionRow(r: WalletRowDto, w: WalletDto?) {
+private fun TransactionRow(r: WalletRowDto, w: WalletDto?, onClick: () -> Unit) {
     val credit = r.direction == "credit"
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).clip(CircleShape).background((if (credit) DorrBrand.success else DorrBrand.danger).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
             Icon(if (credit) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, null, tint = if (credit) DorrBrand.success else DorrBrand.danger, modifier = Modifier.size(20.dp))
         }
@@ -394,10 +405,10 @@ private fun PinField(value: String, label: String, onChange: (String) -> Unit) {
 }
 
 /** "125.50 ر.س" from minor units (the wallet's currency; two decimals). */
-private fun amount(minor: Long, w: WalletDto?): String =
+internal fun amount(minor: Long, w: WalletDto?): String =
     "${String.format(Locale.getDefault(), "%.2f", minor / 100.0)} ${w?.currencySymbol ?: w?.currencyCode.orEmpty()}".trim()
 
-private fun whenText(iso: String?): String {
+internal fun whenText(iso: String?): String {
     val at = iso?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() } ?: return ""
     return at.atZoneSameInstant(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(Locale.getDefault()))
 }
