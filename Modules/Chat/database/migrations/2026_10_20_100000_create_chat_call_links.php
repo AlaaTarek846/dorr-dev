@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('owner_type', 20);
             $table->unsignedBigInteger('owner_id');
             $table->string('type', 10); // audio | video
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamp('revoked_at')->nullable();
             $table->timestamp('last_joined_at')->nullable();
             $table->timestamps();
