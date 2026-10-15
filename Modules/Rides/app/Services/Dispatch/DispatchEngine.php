@@ -21,6 +21,7 @@ use Modules\Rides\Models\RideBid;
 use Modules\Rides\Models\RideBlock;
 use Modules\Rides\Models\RideHold;
 use Modules\Rides\Models\RideOffer;
+use Modules\Rides\Services\Airport\AirportQueue;
 use Modules\Rides\Services\Bidding\BidBoard;
 use Modules\Rides\Services\Bidding\BidPricing;
 use Modules\Rides\Services\Drivers\DriverEligibility;
@@ -55,6 +56,7 @@ class DispatchEngine
         private readonly PresenceService $presence,
         private readonly DriverStats $stats,
         private readonly RideCloser $closer,
+        private readonly AirportQueue $queue,
     ) {}
 
     /** Every few seconds (rides:dispatch-tick): offers that ran out, card rides never paid, then rounds that are due. */
@@ -303,6 +305,8 @@ class DispatchEngine
         BidBoard::closeRide($ride, $bid);
 
         $this->presence->rideStarted($driver);
+        // Whatever the ride, the captain is no longer waiting in an airport line (D-280).
+        $this->queue->onAssigned($driver);
 
         return $ride;
     }
@@ -405,6 +409,8 @@ class DispatchEngine
         $riderPhone = $ride->rider()->value('phone');
         $category = $ride->category()->firstOrFail();
         $favorites = FavoriteDriver::query()->where('user_id', $ride->user_id)->pluck('driver_id');
+        // An airport ride goes first to the captains waiting their turn there, in line order (D-276); nobody queued and eligible → the usual search.
+        $queued = $this->queue->orderFor($ride);
         // A captain whose reserved ride starts before this one could end is kept for it (D-267).
         $reservedSoon = Ride::query()->where('status', RideStatus::Scheduled->value)->whereNotNull('reserved_driver_id')
             ->where('next_dispatch_at', '<=', now()->addSeconds((int) ($ride->planned_duration_s ?? 1800) + 900))
@@ -422,8 +428,8 @@ class DispatchEngine
             ->get()
             ->map(fn (DriverPresence $p) => [$p, Geo::metres($ride->origin_lat, $ride->origin_lng, (float) $p->lat, (float) $p->lng)])
             ->filter(fn (array $pair) => $pair[1] <= $radius)
-            // The rider's favourite captains first, when close enough (R-226: a preference, not a promise).
-            ->sortBy([fn (array $a, array $b) => ($favorites->contains($b[0]->driver_id) <=> $favorites->contains($a[0]->driver_id)), fn (array $a, array $b) => $a[1] <=> $b[1]])
+            // The captains in the airport's line first, in line order; then the rider's favourites, when close enough (R-226: a preference, not a promise).
+            ->sortBy([fn (array $a, array $b) => ($queued[$a[0]->driver_id] ?? PHP_INT_MAX) <=> ($queued[$b[0]->driver_id] ?? PHP_INT_MAX), fn (array $a, array $b) => ($favorites->contains($b[0]->driver_id) <=> $favorites->contains($a[0]->driver_id)), fn (array $a, array $b) => $a[1] <=> $b[1]])
             ->filter(function (array $pair) use ($ride, $category, $riderPhone, $minBalance) {
                 $driver = Driver::query()->find($pair[0]->driver_id);
                 if ($driver === null || $driver->phone === $riderPhone || $this->eligibility->reasonNotToWork($driver) !== null) {

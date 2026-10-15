@@ -48,6 +48,17 @@ class RidesZonesAdminTest extends TestCase
         ])->assertCreated()->assertJsonPath('data.config.pickup_required', true)->assertJsonPath('data.names.ar', 'مطار الملك خالد')->json('data.id');
         $this->assertEqualsWithDelta(24.95, RideZone::query()->findOrFail($zone)->min_lat, 0.0001);
 
+        // The airport queue is the zone's own switch (D-276): on for an airport, never for other kinds.
+        $this->putJson("/api/admin/v1/ride-zones/{$zone}", [
+            'country_id' => $this->saudi->id, 'type' => 'airport', 'name' => ['ar' => 'مطار الملك خالد', 'en' => 'King Khalid Airport'],
+            'polygon' => [[24.95, 46.68], [24.95, 46.75], [25.00, 46.75], [25.00, 46.68]], 'config' => ['pickup_required' => true, 'queue_enabled' => true], 'priority' => 2, 'status' => true,
+        ])->assertOk()->assertJsonPath('data.config.queue_enabled', true)->assertJsonPath('data.queue_size', 0);
+        $mall = $this->postJson('/api/admin/v1/ride-zones', [
+            'country_id' => $this->saudi->id, 'type' => 'pickup_only', 'name' => ['ar' => 'مول', 'en' => 'Mall'], 'polygon' => [[24.70, 46.60], [24.70, 46.61], [24.71, 46.61]],
+            'config' => ['queue_enabled' => true], 'status' => true,
+        ])->assertCreated()->assertJsonMissingPath('data.config.queue_enabled')->json('data.id');
+        $this->deleteJson("/api/admin/v1/ride-zones/{$mall}")->assertOk();
+
         // A boundary needs at least three corners.
         $this->postJson('/api/admin/v1/ride-zones', [
             'country_id' => $this->saudi->id, 'type' => 'airport', 'name' => ['ar' => 'س', 'en' => 's'], 'polygon' => [[24.95, 46.68], [24.95, 46.75]], 'status' => true,

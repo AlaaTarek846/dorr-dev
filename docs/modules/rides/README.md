@@ -8,7 +8,7 @@ Passenger rides. The plan and the owner's decisions are in [../../rides-plan.md]
 
 ## Feature switches (`RideFeatures`, `ride_feature_rules`)
 - Same shape as the chat's rules (country, or one of its cities — `discover_cities.id`, no FK), but **no rule means off**, and nothing works unless `rides` itself is on there. A city rule beats the country rule.
-- Features: `rides`, `category.{slug}`, `bidding`, `multi_stop`, `open_destination`, `scheduled`, `book_for_other`, `cash`, `wallet`, `card`, `tips`, `pin`, `share`, `change_driver`, `driver_points`, `one_touch`, `pickup_points`.
+- Features: `rides`, `category.{slug}`, `bidding`, `multi_stop`, `open_destination`, `scheduled`, `book_for_other`, `cash`, `wallet`, `card`, `tips`, `pin`, `share`, `change_driver`, `driver_points`, `one_touch`, `pickup_points`, `airport_queue`, `restricted_zones`.
 - `EnsureRideFeature::class.':feature'` refuses with `403 rides_feature_disabled`, using the city of `lat`/`lng` when sent, else the account's country.
 
 ## Where a point is (`CityResolver`)
@@ -142,6 +142,18 @@ R-61, R-81, D-60, D-61, D-122, D-129.
 - **Not covered:** changing the destination during the ride (R-91..95) does not re-check a required drop-off point; flight tracking is never built (rules in `docs/rides_tasks.md`).
 - **Apps:** DORR app (`RidesPickupPoints.kt`) — before pricing, if the pickup (or drop-off) is in such a place the quotes sheet turns into "Choose your pickup point" (nearest first, a kind icon, how to find it, "Keep my location" only where it isn't a must), then the trip is priced from the point; the ride shows the point card. Driver app (`TripDetailViews.kt → RiderDetails`) — "Meet at (approved point)" with the note on the card and the ride. Admin: the ride page shows both points.
 
+## The airport queue and restricted areas (D-276..D-283; switches `airport_queue`, `restricted_zones`; `Services/Airport`)
+- **Where it exists:** an `airport` zone with `queue_enabled` in its `config` (Admin → Zones & pickup points), in a country / city where the **Airport queue** switch is on. Nothing else changes where it isn't.
+- **Getting in line (D-277):** policy `queue.entry` (per zone, under Prices & rules): `manual` (default) = the Join button on the captain's Airport screen; `auto` = arriving inside the zone while online puts them in line (`HandleDriverLocation` on every location batch). To join the captain must be online with a fresh location inside the zone, not on a ride, and able to work (`DriverEligibility`) — else `rides_airport_queue_offline|stale|busy|not_eligible|not_inside`. Joining twice is the same place.
+- **Place and estimate (D-278, D-279):** first come first served (`joined_at`, then id). The wait estimate is the average seconds-per-place of finished waits that ended in a trip (last `queue.stats_days` = 14 days, at least `queue.min_samples` = 5), times the captain's place — `null` ("when available") until there is enough to say.
+- **Ways out (D-280):** Leave by hand · going offline / paused · no location for `queue.stale_after_s` (300 s) · outside the zone for `queue.leave_grace_s` (120 s; coming back stops the clock) · waiting more than `queue.max_wait_s` (0 = no limit) · being assigned any ride (`got_trip`) · the zone or the market's switch turned off (`removed`). `AirportQueue::sweep()` runs with `rides:dispatch-tick`. Each row keeps why and how long (`ride_queue_entries`).
+- **Dispatch (D-276):** an airport ride (its pickup is in the zone — frozen as `confirmed_snapshot.zone_id`) is offered to the captains in line first, in line order, each for the usual `search.offer_ttl_s`; a decline or timeout moves to the next; nobody in line and eligible → the usual nearest-first search, so a ride is never stranded.
+- **Live, no polling:** whoever's place changes gets `driver.changed` (event `queue`) on their own channel and the app reloads once.
+- **API (captain, `driver/v1`):** `GET airport-queue` → `{zone, inside, queued, entry, entry_mode, position, size, estimated_wait_s, joined_at, can_join, cannot_join_reason, pickup_points[…], rules{leave_grace_s, max_wait_s, stale_after_s}}` (`zone` null when no queue is around) · `POST airport-queue/join` · `POST airport-queue/leave` · `GET restricted-zones`.
+- **Official points (D-281):** the zone's pickup points (R-16) are on the same screen. **Restricted areas (D-282):** `blocked` and `pickup_only` zones of the captain's country, listed with their type. **The alert (D-283):** the first location inside a `blocked` zone sends `ride.zone_restricted` once per captain and zone per `zones.alert_cooldown_s` (600 s).
+- **No flight tracking** (owner's rule). **Not here (NEEDS-DECISION):** the airport / road fee on the price (D-284) — who receives it and how it settles isn't decided. What a captain who declines the head of the line loses (nothing today) is not defined either.
+- **App (captain):** `AirportScreen.kt` — a Home card ("You're #12 of 30", or "You're at …"), the rolling place number, the estimate or why there is none, Join / Leave with the way out said in plain words, the official points and the restricted areas.
+
 ## Changing the trip during the ride (`RideChangeService`, `ride_change_requests`)
 R-91..95, D-131..137, wireflow 6أ / 6ب / 6ج. Switch `change_destination` (one more stop: `multi_stop`). Not for open-destination rides; one at a time.
 1. **Preview** `POST mobile/v1/rides/{uuid}/changes {type: destination|add_stop, lat, lng, address}` → the new route (origin → stops → destination) and `distance_delta_m`, `duration_delta_s`, `price_delta_minor`, `new_total_minor` — nothing changes yet (lives 3 minutes).
@@ -184,6 +196,7 @@ Driver (`driver_api`, prefix `driver/v1`):
 | POST | `rides/{uuid}/stops/{seq}` | `action` (`arrived`/`departed`) | |
 | POST | `rides/{uuid}/collect-cash` | `received_minor` | Above the total → the change goes to the rider's wallet |
 | POST | `rides/{uuid}/cancel` · `no-show` · `rate` | `reason_id` · — · `stars`, `tags?`, `comment?` | |
+| GET | `airport-queue` · `restricted-zones` · POST `airport-queue/join` · `airport-queue/leave` | | The airport queue and restricted areas (D-276..D-283) |
 | GET | `earnings` | | Today / week / month, the last 7 days, pending earnings, wallet, rating, points |
 | GET | `regulator` | | Wasl approval: driver / vehicle status, expiry dates, criminal record, `reasons[{code, message}]` in the driver's language, `blocked_until`, `work_problem` |
 | POST | `regulator/register` · `regulator/check` | | Register the driver and the vehicle at Wasl · check again (5 an hour) |
@@ -207,6 +220,8 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 - `audit_logs` + `App\Services\General\AuditLogger` (append-only; actor `admin` or `system`).
 
 ## Tests
+`RidesAirportQueueTest` (7): joining by hand, the place, the official points, the rules and leaving (the line moves up and the others hear it on their channels); the switch, the zone's own flag, offline / silent phone refusals; arriving into an automatic zone; every way out (offline, silent, strayed past the grace — and coming back, too long a wait, the switch turned off); the estimate learning from finished waits (and forgetting old ones); an airport ride going to the first captain in line, then the next after a decline, before a free captain, and taking it moving the line; restricted areas listed and one alert per cooldown.
+
 `RidesPickupPointsTest` (5): the points around a place (pickup vs drop-off lists, distance, Arabic names, nothing elsewhere); a chosen point — or standing at it — moving the pickup onto it and both sides reading it (offer card, ride, navigation); a pickup-only zone making a point a must (with the list in the error, a wrong or switched-off one refused / ignored); a required drop-off point for the airport; the airport's own waiting and no-show rules applying to a pickup there only.
 
 `RidesZonesAdminTest` (2): a zone with its boundary and rules, points in both languages (clearing an instruction), the zone's own waiting rule in Prices & rules (and the scopes / options), deleting; the permission.

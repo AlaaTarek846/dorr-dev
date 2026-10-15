@@ -27,6 +27,7 @@
                             <span class="badge bg-info-transparent fs-11">{{ t(`rides.zones.type.${zone.type}`) }}</span>
                             <span v-if="zone.config.pickup_required || zone.type === 'pickup_only'" class="badge bg-warning-transparent fs-11 ms-1">{{ t('rides.zones.for_pickup') }} ✓</span>
                             <span v-if="zone.config.dropoff_required" class="badge bg-warning-transparent fs-11 ms-1">{{ t('rides.zones.for_dropoff') }} ✓</span>
+                            <span v-if="zone.config.queue_enabled" class="badge bg-success-transparent fs-11 ms-1"><i class="ri-team-line me-1"></i>{{ t('rides.zones.queue_size', { n: zone.queue_size }) }}</span>
                         </div>
                         <div class="ms-auto d-flex gap-1">
                             <router-link v-if="can('ride-policies.view')" class="btn btn-sm btn-light" :to="{ name: 'admin.rides.policies', query: { country_id: zone.country_id, zone_id: zone.id } }">
@@ -107,6 +108,8 @@
                 <div class="form-check form-switch"><input id="pr" v-model="zoneForm.pickup_required" class="form-check-input" type="checkbox" :disabled="zoneForm.type === 'pickup_only'"><label class="form-check-label" for="pr">{{ t('rides.zones.pickup_required') }}</label></div>
                 <div v-if="zoneForm.type === 'pickup_only'" class="form-text mb-1">{{ t('rides.zones.pickup_only_note') }}</div>
                 <div class="form-check form-switch"><input id="dr" v-model="zoneForm.dropoff_required" class="form-check-input" type="checkbox"><label class="form-check-label" for="dr">{{ t('rides.zones.dropoff_required') }}</label></div>
+                <div v-if="zoneForm.type === 'airport'" class="form-check form-switch"><input id="qe" v-model="zoneForm.queue_enabled" class="form-check-input" type="checkbox"><label class="form-check-label" for="qe">{{ t('rides.zones.queue_enabled') }}</label></div>
+                <div v-if="zoneForm.type === 'airport'" class="form-text mb-1">{{ t('rides.zones.queue_hint') }}</div>
                 <div class="row g-2 mt-1">
                     <div class="col-md-6">
                         <label class="form-label">{{ t('rides.zones.priority') }}</label>
@@ -212,14 +215,15 @@ function openZone(zone) {
         polygonText: polygonToText(zone?.polygon),
         pickup_required: !!zone?.config?.pickup_required || zone?.type === 'pickup_only',
         dropoff_required: !!zone?.config?.dropoff_required,
+        queue_enabled: !!zone?.config?.queue_enabled,
         priority: zone?.priority ?? 0,
         status: zone?.status ?? true,
     };
 }
 
 async function saveZone() {
-    const { id, polygonText, pickup_required: pickup, dropoff_required: dropoff, ...rest } = zoneForm.value;
-    const body = { ...rest, polygon: textToPolygon(polygonText), config: { pickup_required: pickup, dropoff_required: dropoff } };
+    const { id, polygonText, pickup_required: pickup, dropoff_required: dropoff, queue_enabled: queue, ...rest } = zoneForm.value;
+    const body = { ...rest, polygon: textToPolygon(polygonText), config: { pickup_required: pickup, dropoff_required: dropoff, queue_enabled: queue } };
     try {
         if (id) await adminAxios.put(`/api/admin/v1/ride-zones/${id}`, body);
         else await adminAxios.post('/api/admin/v1/ride-zones', body);

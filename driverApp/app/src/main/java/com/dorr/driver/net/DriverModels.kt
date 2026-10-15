@@ -188,6 +188,34 @@ data class RiderDto(val name: String? = null, val rating: Double? = null, @Seria
 
 data class BeneficiaryDto(val name: String? = null)
 
+/** D-276..D-281: the Airport screen — where the captain is, their place in line, the estimate, the official points. */
+data class AirportQueueDto(
+    val zone: ZoneRefDto? = null,
+    val inside: Boolean = false,
+    val queued: Boolean = false,
+    val entry: String? = null,
+    @SerializedName("entry_mode") val entryMode: String? = null,
+    val position: Int? = null,
+    val size: Int = 0,
+    @SerializedName("estimated_wait_s") val estimatedWaitS: Int? = null,
+    @SerializedName("joined_at") val joinedAt: String? = null,
+    @SerializedName("can_join") val canJoin: Boolean = false,
+    @SerializedName("cannot_join_reason") val cannotJoinReason: String? = null,
+    @SerializedName("pickup_points") val pickupPoints: List<PickupPointDto> = emptyList(),
+    val rules: AirportRulesDto? = null,
+)
+
+data class ZoneRefDto(val id: Int = 0, val name: String? = null)
+
+data class AirportRulesDto(
+    @SerializedName("leave_grace_s") val leaveGraceS: Int = 0,
+    @SerializedName("max_wait_s") val maxWaitS: Int = 0,
+    @SerializedName("stale_after_s") val staleAfterS: Int = 0,
+)
+
+/** D-282: an area where pickups aren't allowed (`blocked`) or only at approved points (`pickup_only`). */
+data class RestrictedZoneDto(val id: Int = 0, val type: String? = null, val name: String? = null)
+
 /** An approved pickup / drop-off point: a gate, terminal, entrance or parking, and how to find it. */
 data class PickupPointDto(
     val id: Int = 0,

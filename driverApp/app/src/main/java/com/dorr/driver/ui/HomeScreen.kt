@@ -35,6 +35,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Event
+import androidx.compose.material.icons.filled.Flight
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Icon
@@ -70,6 +71,7 @@ import com.dorr.core.network.apiCall
 import com.dorr.core.ui.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.duty.Duty
+import com.dorr.driver.net.AirportQueueDto
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.net.DriverDto
 import com.dorr.driver.net.EarningsDto
@@ -84,7 +86,7 @@ import kotlinx.coroutines.launch
  */
 @Composable
 fun HomeScreen(
-    onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenScheduled: () -> Unit,
+    onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenScheduled: () -> Unit, onOpenAirport: () -> Unit,
     onOpenSafety: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -92,6 +94,7 @@ fun HomeScreen(
     var driver by remember { mutableStateOf<DriverDto?>(null) }
     var presence by remember { mutableStateOf<PresenceDto?>(null) }
     var earnings by remember { mutableStateOf<EarningsDto?>(null) }
+    var airport by remember { mutableStateOf<AirportQueueDto?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var reload by remember { mutableIntStateOf(0) }
@@ -104,6 +107,7 @@ fun HomeScreen(
         (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
         (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
         (apiCall { DriverBackend.api.earnings() } as? ApiResult.Ok)?.let { earnings = it.data }
+        (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
         // A ride running (accepted from the notification, or the app was closed): straight to it.
         val current = apiCall { DriverBackend.api.currentRide() }
         if (current is ApiResult.Ok && current.data.isJsonObject && current.data.asJsonObject.has("uuid")) {
@@ -120,6 +124,8 @@ fun HomeScreen(
         com.dorr.driver.live.DriverLive.events.collect { e ->
             if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.")) {
                 (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
+                // My place in the airport queue moves with the line.
+                (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
             }
         }
     }
@@ -289,6 +295,27 @@ fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.sch_title), fontWeight = FontWeight.Bold)
                         Text(stringResource(R.string.sch_home_hint), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.Filled.ChevronRight, null)
+                }
+            }
+            // The airport queue, its official points and the restricted areas (D-276..D-283).
+            Card(Modifier.clickable(onClick = onOpenAirport)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.navy.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Flight, null, tint = DorrBrand.navy)
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.air_title), fontWeight = FontWeight.Bold)
+                        Text(
+                            when {
+                                airport?.queued == true -> stringResource(R.string.air_home_queued, airport?.position ?: 0, airport?.size ?: 0)
+                                airport?.zone != null -> stringResource(R.string.air_home_at, airport?.zone?.name.orEmpty())
+                                else -> stringResource(R.string.air_home_hint)
+                            },
+                            fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f),
+                        )
                     }
                     Icon(Icons.Filled.ChevronRight, null)
                 }

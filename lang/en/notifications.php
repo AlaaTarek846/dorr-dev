@@ -248,6 +248,8 @@ return [
     'ride_contact_alert_title' => 'Check on :name',
     'ride_contact_alert_body' => ':name didn\'t answer a DORR safety check. :url',
     'ride_contact_alert_sms' => 'DORR: :name didn\'t answer a safety check on their ride. Check on them. :url',
+    'ride_zone_restricted_title' => 'Restricted area',
+    'ride_zone_restricted_body' => 'You entered :zone — pickups aren\'t allowed here.',
     'ride_beneficiary_title' => ':name booked you a DORR ride',
     'ride_beneficiary_body' => 'Captain :driver is on the way — :car :plate.',
     'ride_beneficiary_pin_title' => ':name booked you a DORR ride',

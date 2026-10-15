@@ -411,6 +411,21 @@
 
 - **الترجمة:** `name`، و`instructions`.
 
+### 2.7.1 `ride_queue_entries` (طابور المطار، D-276..D-280)
+مكان الكابتن في الطابور عند منطقة مطار. الصف بيفضل بعد ما الكابتن يطلع (عشان السبب والمدة، ومنها تتعلم تقدير الانتظار).
+
+| العمود | الوصف |
+|---|---|
+| `zone_id` (`cascadeOnDelete`)، و`driver_id` (`cascadeOnDelete`) | |
+| `status` | `waiting` / `left` |
+| `entry` | `auto` / `manual` (`queue.entry`) |
+| `position_at_join`، و`joined_at`، و`outside_since` | مكانه وقت الدخول؛ ووقت ما خرج بره المنطقة (مهلة `queue.leave_grace_s`) |
+| `left_at`، و`left_reason`، و`wait_s` | `manual` / `offline` / `stale` / `left_zone` / `timeout` / `got_trip` / `removed`؛ ومدة الانتظار |
+| `active_driver_id` | = `driver_id` وهو منتظر وبعدها `null`، تحت `unique`: مكان واحد بس لكل كابتن |
+
+- **مفاتيح السياسة (على مستوى المنطقة):** `queue.entry` (`auto` / `manual`)، و`queue.leave_grace_s` (120)، و`queue.stale_after_s` (300)، و`queue.max_wait_s` (0 = بلا حد)، و`queue.min_samples` (5)، و`queue.stats_days` (14)، و`zones.alert_cooldown_s` (600).
+- **في `ride_zones.config` للمطار:** `queue_enabled`.
+
 ### 2.8 أسباب الإلغاء ووسوم التقييم (+ ترجمات)
 | الجدول | الأعمدة |
 |---|---|

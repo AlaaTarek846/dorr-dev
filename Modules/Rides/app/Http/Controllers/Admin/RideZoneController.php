@@ -16,6 +16,7 @@ use Modules\Rides\Enums\PickupPointKind;
 use Modules\Rides\Enums\ZoneType;
 use Modules\Rides\Http\Controllers\Admin\Concerns\RideAdminOptions;
 use Modules\Rides\Models\RidePickupPoint;
+use Modules\Rides\Models\RideQueueEntry;
 use Modules\Rides\Models\RideZone;
 
 /**
@@ -150,12 +151,18 @@ class RideZoneController extends Controller implements HasMiddleware
             'config' => ['nullable', 'array'],
             'config.pickup_required' => ['nullable', 'boolean'],
             'config.dropoff_required' => ['nullable', 'boolean'],
+            'config.queue_enabled' => ['nullable', 'boolean'],
             'priority' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'status' => ['required', 'boolean'],
         ]);
         $data['polygon'] = array_map(fn (array $p) => [(float) $p[0], (float) $p[1]], $data['polygon']);
         $data['config'] = array_filter(
-            ['pickup_required' => (bool) ($data['config']['pickup_required'] ?? false), 'dropoff_required' => (bool) ($data['config']['dropoff_required'] ?? false)],
+            [
+                'pickup_required' => (bool) ($data['config']['pickup_required'] ?? false),
+                'dropoff_required' => (bool) ($data['config']['dropoff_required'] ?? false),
+                // D-276: the airport queue (only an airport zone has one; the market's `airport_queue` switch decides too).
+                'queue_enabled' => $data['type'] === ZoneType::Airport->value && (bool) ($data['config']['queue_enabled'] ?? false),
+            ],
         ) ?: null;
         $data['priority'] ??= 0;
 
@@ -201,6 +208,7 @@ class RideZoneController extends Controller implements HasMiddleware
             'config' => (object) ((array) $zone->config),
             'priority' => $zone->priority,
             'status' => (bool) $zone->status,
+            'queue_size' => RideQueueEntry::query()->where('zone_id', $zone->id)->where('status', 'waiting')->count(),
             'points' => $zone->pickupPoints->sortBy([['sort_order', 'asc'], ['id', 'asc']])->map(fn (RidePickupPoint $p) => $this->presentPoint($p))->values(),
         ];
     }

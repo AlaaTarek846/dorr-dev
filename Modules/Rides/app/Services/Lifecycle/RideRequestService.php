@@ -226,6 +226,8 @@ class RideRequestService
                     'tax' => $quote->policy_snapshot['tax'] ?? null,
                     'quote_uuid' => $quote->uuid,
                     'quote_version' => $quote->version,
+                    // The airport / pickup-only zone the pickup is in (R-17, D-276): its queue serves this ride first.
+                    'zone_id' => $quote->policy_snapshot['zone_id'] ?? null,
                     'hold_minor' => $bid !== null ? $riderPrice : (int) $quote->hold_minor + $paymentFee,
                     'route_estimated' => $quote->route_estimated,
                     'estimate' => ['min_minor' => $quote->estimate_min_minor, 'max_minor' => $quote->estimate_max_minor],

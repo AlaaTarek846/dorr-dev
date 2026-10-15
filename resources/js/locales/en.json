@@ -4258,6 +4258,8 @@
                 "scheduled": "Scheduled rides",
                 "book_for_other": "Book for someone else",
                 "pickup_points": "Approved pickup points (airports…)",
+                "airport_queue": "Airport queue",
+                "restricted_zones": "Restricted areas (list and alerts)",
                 "cash": "Cash",
                 "wallet": "Wallet",
                 "card": "Card",
@@ -4319,6 +4321,8 @@
                 "price": "Price & commission",
                 "waiting": "Waiting",
                 "pickup": "Pickup points",
+                "queue": "Airport queue",
+                "zones": "Restricted areas",
                 "stops": "Stops",
                 "open_destination": "No destination",
                 "search": "Finding a captain",
@@ -4344,7 +4348,9 @@
                 "percent": "Percent",
                 "fixed": "Fixed amount",
                 "route": "Road route",
-                "straight": "Straight line × factor"
+                "straight": "Straight line × factor",
+                "auto": "Automatic (on arriving)",
+                "manual": "By hand (Join button)"
             },
             "keys": {
                 "change__driver_response_s": "Change of destination: captain answers within",
@@ -4411,7 +4417,14 @@
                 "waiting__warn_before_s": "Warn before free waiting ends",
                 "eta__speed_kmh": "City speed for the time left (km/h)",
                 "booking__note_max_chars": "Pickup note: most characters",
-                "pickup__match_m": "Standing this close to an approved point counts as choosing it (m)"
+                "pickup__match_m": "Standing this close to an approved point counts as choosing it (m)",
+                "queue__entry": "Joining the airport queue (auto / manual)",
+                "queue__leave_grace_s": "Out of the queue after being outside the zone this long",
+                "queue__stale_after_s": "Out of the queue after no location for",
+                "queue__max_wait_s": "Longest wait in the queue (0 = no limit)",
+                "queue__min_samples": "Finished waits needed for a wait estimate",
+                "queue__stats_days": "Days of finished waits the estimate uses",
+                "zones__alert_cooldown_s": "Same restricted-area alert at most every"
             }
         },
         "safety": {
@@ -4472,6 +4485,9 @@
             "pickup_required": "Riders must pick an approved point to be picked up",
             "dropoff_required": "Riders must pick an approved point to be dropped off",
             "pickup_only_note": "Pickup-only zones always require a point for pickups.",
+            "queue_enabled": "Airport queue (captains wait their turn here)",
+            "queue_hint": "Also needs the Airport queue switch on for the country or city. How captains get in and out is set under Prices & rules → this zone.",
+            "queue_size": "{n} in the queue",
             "priority": "Priority (higher wins where zones overlap)",
             "points": "Points",
             "no_points": "No points yet — riders pick the exact spot themselves.",
