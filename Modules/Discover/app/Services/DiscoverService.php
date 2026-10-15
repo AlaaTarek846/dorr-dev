@@ -3,6 +3,7 @@
 namespace Modules\Discover\Services;
 
 use App\Models\Country;
+use App\Models\Region;
 use App\Support\Api\ApiPaginator;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -31,6 +32,9 @@ class DiscoverService
     public const MAX_FOLLOWS = 30;
 
     private const SECTION_SIZE = 10;
+
+    /** Regions come in batches of this many (the home strip loads more as it scrolls). */
+    public const REGIONS_PAGE = 10;
 
     public function settings(): DiscoverSetting
     {
@@ -111,6 +115,9 @@ class DiscoverService
     {
         if ($city !== null) {
             $q->where('city_id', $city->id);
+        } elseif (! empty($f['region_id'])) {
+            // A region: the events of its cities.
+            $q->whereIn('city_id', DiscoverCity::query()->where('region_id', (int) $f['region_id'])->select('id'));
         } elseif (! empty($f['country_id'])) {
             $q->where('country_id', (int) $f['country_id']);
         }
@@ -205,6 +212,8 @@ class DiscoverService
             'country' => $country?->code,
             'categories' => $this->categories(),
             'cities' => $this->cities($country?->id),
+            // The regions of the country I'm in that have something on — the first batch (more: GET regions).
+            'regions' => $this->regions($country?->id, 1, self::REGIONS_PAGE),
             'follows' => $this->follows($me),
             'preferences' => $this->presentPreferences($prefs),
             'can_submit' => (bool) $settings->submissions_enabled,
@@ -390,10 +399,12 @@ class DiscoverService
     /**
      * @return list<array<string, mixed>>
      */
-    public function cities(?int $countryId = null): array
+    public function cities(?int $countryId = null, ?int $regionId = null, bool $withEvents = false): array
     {
         return DiscoverCity::query()->with(['translations', 'country'])->where('status', true)
             ->when($countryId !== null, fn ($q) => $q->where('country_id', $countryId))
+            ->when($regionId !== null, fn ($q) => $q->where('region_id', $regionId))
+            ->when($withEvents, fn ($q) => $q->whereIn('id', $this->upcomingCityIds()))
             ->orderBy('sort_order')->orderBy('id')->get()
             ->map(fn (DiscoverCity $c) => $this->presentCity($c))->values()->all();
     }
@@ -403,7 +414,58 @@ class DiscoverService
      */
     public function presentCity(DiscoverCity $c): array
     {
-        return ['id' => $c->id, 'name' => $c->translatedName(), 'country' => $c->country?->code, 'country_id' => $c->country_id, 'timezone' => $c->timezone, 'lat' => $c->lat, 'lng' => $c->lng];
+        return ['id' => $c->id, 'name' => $c->translatedName(), 'country' => $c->country?->code, 'country_id' => $c->country_id, 'region_id' => $c->region_id, 'timezone' => $c->timezone, 'lat' => $c->lat, 'lng' => $c->lng];
+    }
+
+    /**
+     * A country's active regions that have something on (an upcoming public event in one of their
+     * cities), in the admin's order, a page at a time — with how many events each has.
+     *
+     * @return array{items: list<array{id: int, name: ?string, country_id: int, events_count: int}>, meta: array<string, mixed>}
+     */
+    public function regions(?int $countryId, int $page = 1, int $perPage = self::REGIONS_PAGE): array
+    {
+        // Events per city, then cities → their region (no join: the scopes' columns stay unambiguous).
+        $perCity = DiscoverEvent::query()->public()->upcoming()
+            ->when($countryId !== null, fn ($q) => $q->where('country_id', $countryId))
+            ->groupBy('city_id')->selectRaw('city_id, count(*) as total')->pluck('total', 'city_id');
+        $counts = DiscoverCity::query()->whereIn('id', $perCity->keys()->all() ?: [0])->whereNotNull('region_id')->pluck('region_id', 'id')
+            ->groupBy(fn ($regionId) => $regionId, true)
+            ->map(fn ($cities) => $cities->keys()->sum(fn ($cityId) => (int) $perCity[$cityId]));
+
+        $paginator = Region::query()->with('translations')->where('status', true)
+            ->when($countryId !== null, fn ($q) => $q->where('country_id', $countryId))
+            ->whereIn('id', $counts->keys()->all() ?: [0])
+            ->orderBy('sort_order')->orderBy('id')
+            ->paginate(min(max(1, $perPage), 50), ['*'], 'page', max(1, $page));
+
+        return [
+            'items' => $paginator->getCollection()->map(fn (Region $r) => [
+                'id' => $r->id, 'name' => $r->translatedName(), 'country_id' => $r->country_id, 'events_count' => (int) ($counts[$r->id] ?? 0),
+            ])->values()->all(),
+            'meta' => ApiPaginator::meta($paginator),
+        ];
+    }
+
+    /**
+     * The countries Discover is on in that have active cities — the first step of the place filter.
+     *
+     * @return list<array{id: int, name: ?string, code: ?string}>
+     */
+    public function countries(): array
+    {
+        $settings = $this->settings();
+
+        return Country::query()->whereIn('id', DiscoverCity::query()->where('status', true)->select('country_id'))->get()
+            ->filter(fn (Country $c) => $settings->onIn($c->id))
+            ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName(), 'code' => $c->code])
+            ->values()->all();
+    }
+
+    /** The cities with an upcoming public event (a subquery). */
+    private function upcomingCityIds(): Builder
+    {
+        return DiscoverEvent::query()->public()->upcoming()->select('city_id');
     }
 
     // ------------------------------------------------------------------ presenting
