@@ -43,7 +43,7 @@ Broadcast::channel('ai-conversation.{conversationId}', function ($user, int $con
 |
 */
 
-Broadcast::routes(['middleware' => ['auth:admin_api,user_api,provider_api']]);
+Broadcast::routes(['middleware' => ['auth:admin_api,user_api,provider_api,driver_api']]);
 
 Broadcast::channel('App.Models.Admin.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
@@ -56,3 +56,19 @@ Broadcast::channel('Modules.User.Models.User.{id}', function ($user, $id) {
 Broadcast::channel('Modules.Provider.Models.Provider.{id}', function ($user, $id) {
     return (int) $user->id === (int) $id;
 }, ['guards' => ['provider_api']]);
+
+Broadcast::channel('Modules.Driver.Models.Driver.{id}', function ($driver, $id) {
+    return (int) $driver->id === (int) $id;
+}, ['guards' => ['driver_api']]);
+
+// A passenger ride (Modules/Rides): its rider and its current driver follow the status and the car.
+Broadcast::channel('rides.{uuid}', function ($person, string $uuid) {
+    $ride = \Modules\Rides\Models\Ride::query()->where('uuid', $uuid)->first(['user_id', 'driver_id']);
+    if ($ride === null) {
+        return false;
+    }
+
+    return $person instanceof \Modules\Driver\Models\Driver
+        ? (int) $ride->driver_id === (int) $person->id
+        : $person instanceof \Modules\User\Models\User && (int) $ride->user_id === (int) $person->id;
+}, ['guards' => ['user_api', 'driver_api']]);

@@ -71,6 +71,9 @@ Professional documentation system for developers and AI assistants:
 | [14-DEPLOYMENT.md](./docs/14-DEPLOYMENT.md) | Deployment |
 | [config_requirements.md](./docs/config_requirements.md) | Every external service and key to obtain (Pusher, OneSignal, LiveKit, Giphy, SMS, payments…) and whether it runs on shared hosting |
 | [remaining_chat.md](./docs/remaining_chat.md) | Chat spec v5 (items 1–207 + AI rules) against what's built: done / partial / remaining, what depends on other systems, and the suggested order |
+| [rides-plan.md](./docs/rides-plan.md) | Ride-hailing plan (rider + driver + admin + Wasl), merged from the client files in `docs/modules/Bookings/`, Jawad and LeeTaxi — phases and open decisions |
+| [rides_tasks.md](./docs/rides_tasks.md) | Ride-hailing task list: every client spec item not built yet, who is on it, what's done |
+| [rides-structure.md](./docs/rides-structure.md) | Ride-hailing database structure (draft, not approved): `Modules/Driver` and `Modules/Rides` tables, enums, policy keys, migration order |
 | [15-CONTRIBUTING.md](./docs/15-CONTRIBUTING.md) | Contributing |
 | [16-STYLEGUIDE.md](./docs/16-STYLEGUIDE.md) | Coding standards |
 | [AI-INSTRUCTIONS.md](./docs/AI-INSTRUCTIONS.md) | **AI assistants — read first** |
@@ -87,6 +90,8 @@ Professional documentation system for developers and AI assistants:
 | SMS | [docs/modules/sms/README.md](./docs/modules/sms/README.md) |
 | Discover (events) | [docs/modules/discover/README.md](./docs/modules/discover/README.md) |
 | Sports | [docs/modules/sports/README.md](./docs/modules/sports/README.md) |
+| Driver (account + `driverApp/`) | [docs/modules/driver/README.md](./docs/modules/driver/README.md) |
+| Rides | [docs/modules/rides/README.md](./docs/modules/rides/README.md) |
 | Android app | [docs/modules/android/README.md](./docs/modules/android/README.md) |
 
 ---

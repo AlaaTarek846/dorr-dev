@@ -79,6 +79,17 @@ return [
         'transfer_fee' => 'Transfer fee',
         'service_payment' => ':title',
         'reward' => 'Prize: :title',
+        'ride_payment' => 'Ride :number',
+        'ride_earning' => 'Earnings, ride :number',
+        'ride_commission' => 'Commission, ride :number',
+        'ride_tax' => 'Tax, ride :number',
+        'ride_cancel_fee' => 'Cancellation fee, ride :number',
+        'ride_debt_collected' => 'Debt collected on ride :number',
+        'ride_change' => 'Cash change from ride :number',
+        'ride_tip' => 'Tip, ride :number',
+        'ride_customer_fee' => 'Service fee, ride :number',
+        'ride_payment_fee' => 'Payment fee, ride :number',
+        'ride_discount' => 'Discount, ride :number',
     ],
 
     // Statement row labels (wallet_transactions.type).
@@ -97,6 +108,11 @@ return [
         'service_earning' => 'Service earnings',
         'manual_adjustment' => 'Manual adjustment',
         'reversal' => 'Reversal',
+        'commission' => 'App commission',
+        'tax' => 'Ride tax',
+        'tip' => 'Tip',
+        'discount_compensation' => 'Discount compensation',
+        'debt_settlement' => 'Debt settlement',
     ],
 
     'sandbox_page' => [

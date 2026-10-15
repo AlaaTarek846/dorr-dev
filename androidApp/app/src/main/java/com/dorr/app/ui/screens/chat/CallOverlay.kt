@@ -24,6 +24,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material.icons.rounded.ScreenShare
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -51,6 +55,7 @@ import androidx.compose.material.icons.rounded.Cameraswitch
 import androidx.compose.material.icons.rounded.BlurOn
 import androidx.compose.material.icons.rounded.Podcasts
 import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material.icons.rounded.MicOff
 import androidx.compose.material.icons.rounded.Videocam
@@ -129,11 +134,107 @@ fun rememberCallStarter(): (String, Boolean, String, String?, String?) -> Unit {
 fun CallOverlay() {
     val phase = CallController.phase
     AnimatedVisibility(
-        visible = phase != null,
+        visible = phase != null && !CallController.minimized && !CallController.inPip,
         enter = slideInVertically(spring(dampingRatio = 0.85f, stiffness = 320f)) { it } + fadeIn(),
         exit = slideOutVertically(tween(320)) { it } + fadeOut(tween(260)),
     ) {
         CallScreen()
+    }
+    // Minimised: a small window over the app that I can drag; a tap brings the call back.
+    if (phase != null && phase != CallPhase.Ended && CallController.minimized && !CallController.inPip) CallMiniBubble()
+}
+
+/** The call, minimised: its video (or photo, name and timer), anywhere on screen. */
+@Composable
+private fun CallMiniBubble() {
+    val density = LocalDensity.current
+    val scope = rememberCoroutineScope()
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        val job = CallController.keepTicking { tick = CallController.elapsedSeconds() }
+        try { kotlinx.coroutines.awaitCancellation() } finally { job.cancel() }
+    }
+    val remote = CallController.videos.firstOrNull { !it.isLocal }
+    val w = if (remote != null) 112.dp else 190.dp
+    val h = if (remote != null) 168.dp else 62.dp
+    BoxWithConstraints(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding().padding(12.dp)) {
+        val wPx = with(density) { w.toPx() }
+        val hPx = with(density) { h.toPx() }
+        val maxX = (constraints.maxWidth - wPx).coerceAtLeast(0f)
+        val maxY = (constraints.maxHeight - hPx).coerceAtLeast(0f)
+        val x = remember { Animatable(maxX) }
+        val y = remember { Animatable(with(density) { 64.dp.toPx() }.coerceAtMost(maxY)) }
+        Box(
+            Modifier
+                .offset { IntOffset(x.value.roundToInt(), y.value.roundToInt()) }
+                .size(w, h)
+                .shadow(18.dp, RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF001B53))
+                .pointerInput(maxX, maxY) {
+                    detectDragGestures(
+                        // Let go: it snaps to the nearest side.
+                        onDragEnd = { scope.launch { x.animateTo(if (x.value < maxX / 2) 0f else maxX, spring(dampingRatio = 0.7f)) } },
+                    ) { change, drag ->
+                        change.consume()
+                        scope.launch {
+                            x.snapTo((x.value + drag.x).coerceIn(0f, maxX))
+                            y.snapTo((y.value + drag.y).coerceIn(0f, maxY))
+                        }
+                    }
+                }
+                .clickable { CallController.minimized = false },
+        ) {
+            if (remote != null) {
+                key(remote.track) { VideoSurface(remote, Modifier.fillMaxSize()) }
+                Text(
+                    durationText(tick * 1000), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(6.dp).clip(RoundedCornerShape(8.dp)).background(Color.Black.copy(alpha = 0.45f)).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            } else {
+                Row(Modifier.fillMaxSize().padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    ChAvatar(CallController.avatar, CallController.title, CallController.peerKey, size = 40.dp)
+                    Spacer(Modifier.width(8.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(CallController.title, color = Color.White, fontSize = 13.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                        Text(
+                            if (CallController.phase == CallPhase.Active) durationText(tick * 1000) else stringResource(R.string.ch_call_calling),
+                            color = Color.White.copy(alpha = 0.75f), fontSize = 12.sp,
+                        )
+                    }
+                    Box(
+                        Modifier.size(34.dp).clip(CircleShape).background(Ch.Danger).clickable { CallController.hangUp() },
+                        contentAlignment = Alignment.Center,
+                    ) { Icon(Icons.Rounded.CallEnd, null, tint = Color.White, modifier = Modifier.size(18.dp)) }
+                }
+            }
+        }
+    }
+}
+
+/** The call in the picture-in-picture window (over other apps): their video, or their photo and the timer. */
+@Composable
+fun CallPipView() {
+    var tick by remember { mutableLongStateOf(0L) }
+    LaunchedEffect(Unit) {
+        val job = CallController.keepTicking { tick = CallController.elapsedSeconds() }
+        try { kotlinx.coroutines.awaitCancellation() } finally { job.cancel() }
+    }
+    val remote = CallController.videos.firstOrNull { !it.isLocal }
+    Box(Modifier.fillMaxSize().background(Color(0xFF001B53)), contentAlignment = Alignment.Center) {
+        if (remote != null) {
+            key(remote.track) { VideoSurface(remote, Modifier.fillMaxSize()) }
+        } else {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                ChAvatar(CallController.avatar, CallController.title, CallController.peerKey, size = 56.dp)
+                Spacer(Modifier.height(6.dp))
+                Text(CallController.title, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(
+                    if (CallController.phase == CallPhase.Active) durationText(tick * 1000) else stringResource(R.string.ch_call_calling),
+                    color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp,
+                )
+            }
+        }
     }
 }
 
@@ -150,7 +251,11 @@ private fun CallScreen() {
     val grouped = phase == CallPhase.Active &&
         (CallController.call?.conversationType == "group" || CallController.members.count { !it.isLocal } > 1)
 
-    BackHandler(enabled = true) { /* a call is ended with the red button, not by accident */ }
+    // Back minimises the call (it goes on, small, while I use the app) — it's ended with the red
+    // button, never by accident. A ringing call stays on screen until answered or declined.
+    BackHandler(enabled = true) {
+        if (phase == CallPhase.Outgoing || phase == CallPhase.Connecting || phase == CallPhase.Active) CallController.minimized = true
+    }
 
     LaunchedEffect(Unit) {
         val job = CallController.keepTicking { tick = CallController.elapsedSeconds() }
@@ -222,6 +327,31 @@ private fun CallScreen() {
                     )
                 }
             }
+        }
+
+        // ------------------------------------------------------------ minimise (like the back button)
+        if (phase == CallPhase.Outgoing || phase == CallPhase.Connecting || phase == CallPhase.Active) {
+            Box(
+                Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp).size(42.dp).clip(CircleShape)
+                    .background(Color.White.copy(alpha = 0.16f)).clickable { CallController.minimized = true },
+                contentAlignment = Alignment.Center,
+            ) { Icon(Icons.Rounded.KeyboardArrowDown, stringResource(R.string.ch_call_minimize), tint = Color.White, modifier = Modifier.size(26.dp)) }
+        }
+
+        // ------------------------------------------------------------ my screen is going out: say so, with "Stop"
+        if (CallController.sharingScreen && phase == CallPhase.Active) Row(
+            Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 8.dp).clip(RoundedCornerShape(20.dp)).background(Ch.Danger)
+                .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.ScreenShare, null, tint = Color.White, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text(stringResource(R.string.ch_call_sharing), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.ch_call_stop_sharing), color = Ch.Danger, fontWeight = FontWeight.ExtraBold, fontSize = 13.sp,
+                modifier = Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).clickable { CallController.stopScreenShare() }.padding(horizontal = 10.dp, vertical = 4.dp),
+            )
         }
 
         // ------------------------------------------------------------ my camera (drag it anywhere, it snaps to a corner)
@@ -355,6 +485,11 @@ private fun IncomingControls(onDecline: () -> Unit, onAccept: () -> Unit) {
 @Composable
 private fun ActiveControls(video: Boolean) {
     val context = LocalContext.current
+    // Share my screen (WhatsApp list 71): Android asks first, then LiveKit captures it.
+    val screenAsk = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val data = result.data
+        if (result.resultCode == android.app.Activity.RESULT_OK && data != null) CallController.startScreenShare(data)
+    }
     var backgrounds by remember { mutableStateOf(false) }
     var goLive by remember { mutableStateOf(false) }
     var liveShare by remember { mutableStateOf(false) }
@@ -363,7 +498,9 @@ private fun ActiveControls(video: Boolean) {
         else android.widget.Toast.makeText(context, context.getString(R.string.ch_call_camera_denied), android.widget.Toast.LENGTH_SHORT).show()
     }
     Row(
-        Modifier.clip(RoundedCornerShape(36.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 18.dp, vertical = 14.dp),
+        // Many buttons on a narrow phone: the row scrolls instead of squeezing them.
+        Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(36.dp)).background(Color.White.copy(alpha = 0.12f))
+            .horizontalScroll(rememberScrollState()).padding(horizontal = 18.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically,
     ) {
         ToggleAction(if (CallController.micOn) Icons.Rounded.Mic else Icons.Rounded.MicOff, !CallController.micOn) { CallController.toggleMic() }
@@ -376,6 +513,10 @@ private fun ActiveControls(video: Boolean) {
         // Blur or a picture behind me (spec 94), made on the phone.
         // Camera backgrounds are heavy: not in lite mode (spec 87).
         if (CallController.cameraOn && !com.dorr.app.chat.ChatLite.active) ToggleAction(Icons.Rounded.BlurOn, com.dorr.app.chat.CallEffects.mode != com.dorr.app.chat.CallEffects.Mode.None) { backgrounds = true }
+        ToggleAction(Icons.Rounded.ScreenShare, CallController.sharingScreen) {
+            if (CallController.sharingScreen) CallController.stopScreenShare()
+            else context.getSystemService(android.media.projection.MediaProjectionManager::class.java)?.let { screenAsk.launch(it.createScreenCaptureIntent()) }
+        }
         // Go live (spec 93) — or, once live, share / end it.
         if (com.dorr.app.chat.ChatFeatures.allows("live") || CallController.live?.status == "live") ToggleAction(Icons.Rounded.Podcasts, CallController.live?.status == "live") { if (CallController.live?.status == "live") liveShare = true else goLive = true }
         RoundAction(Icons.Rounded.CallEnd, null, Ch.Danger, size = 60.dp) { CallController.hangUp() }
@@ -420,6 +561,8 @@ private fun VideoSurface(video: CallVideo, modifier: Modifier) {
             TextureViewRenderer(ctx).apply {
                 room.initVideoRenderer(this)
                 setMirror(video.isLocal)
+                // A shared screen is shown whole, never cropped.
+                if (video.screen) setScalingType(livekit.org.webrtc.RendererCommon.ScalingType.SCALE_ASPECT_FIT)
                 video.track.addRenderer(this)
             }
         },

@@ -29,7 +29,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -64,6 +68,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -171,7 +178,7 @@ object EventsStore {
 
 internal sealed interface EvPage {
     data object Home : EvPage
-    data class Browse(val cityId: Int? = null, val categoryId: Int? = null) : EvPage
+    data class Browse(val categoryId: Int? = null, val place: EvPlace = EvPlace()) : EvPage
     data object Travel : EvPage
     data object Ask : EvPage
     data object Saved : EvPage
@@ -275,12 +282,8 @@ private fun HomeContent(home: DiscHomeDto, go: (EvPage) -> Unit) {
         if (home.canSubmit) QuickTile("🎤", stringResource(R.string.ev_organizer), Modifier.weight(1f)) { go(EvPage.Organizer) }
     }
 
-    if (home.cities.isNotEmpty()) {
-        WaSectionTitle(stringResource(R.string.ev_cities), Modifier.waRise(2))
-        LazyRow(Modifier.waRise(2), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(home.cities, key = { it.id }) { c -> EvChip(c.name.orEmpty(), selected = false, icon = "📍") { go(EvPage.Browse(cityId = c.id)) } }
-        }
-    }
+    // The regions of my country with something on — more load as the strip scrolls.
+    RegionsStrip(home.regions, rise = 2) { r -> go(EvPage.Browse(place = EvPlace(regionId = r.id, regionName = r.name))) }
     if (home.categories.isNotEmpty()) {
         WaSectionTitle(stringResource(R.string.ev_categories), Modifier.waRise(3))
         LazyRow(Modifier.waRise(3), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -336,7 +339,8 @@ private enum class When { Any, Today, Weekend, Week, Month }
 @Composable
 private fun EvBrowse(start: EvPage.Browse, onBack: () -> Unit, go: (EvPage) -> Unit) {
     val home = EventsStore.home
-    var cityId by remember { mutableStateOf(start.cityId) }
+    var place by remember { mutableStateOf(start.place) }
+    var placeOpen by remember { mutableStateOf(false) }
     var categoryId by remember { mutableStateOf(start.categoryId) }
     var whenPick by remember { mutableStateOf(When.Any) }
     var free by remember { mutableStateOf(false) }
@@ -347,53 +351,96 @@ private fun EvBrowse(start: EvPage.Browse, onBack: () -> Unit, go: (EvPage) -> U
     var page by remember { mutableIntStateOf(1) }
     var more by remember { mutableStateOf(false) }
     var loading by remember { mutableStateOf(true) }
-    val scope = rememberCoroutineScope()
+    val list = rememberLazyListState()
 
     suspend fun load(next: Int) {
         loading = true
         val (from, to) = whenPick.range()
         runCatching {
             ApiClient.events.events(
-                evAuth(), evZone(), cityId = cityId, categories = categoryId?.let { listOf(it) }, from = from, to = to,
-                free = if (free) 1 else null, family = if (family) 1 else null, q = query.trim().ifEmpty { null }, sort = if (popular) "popular" else null, page = next,
+                evAuth(), evZone(), cityId = place.cityId, categories = categoryId?.let { listOf(it) },
+                regionId = place.regionId.takeIf { place.cityId == null }, countryId = place.countryId.takeIf { place.cityId == null && place.regionId == null },
+                from = from, to = to, free = if (free) 1 else null, family = if (family) 1 else null, q = query.trim().ifEmpty { null },
+                sort = if (popular) "popular" else null, page = next,
             )
         }.onSuccess { r ->
             if (next == 1) items.clear()
-            items.addAll(r.data.orEmpty())
+            val known = items.map { it.id }.toSet()
+            items.addAll(r.data.orEmpty().filter { it.id !in known })
             page = next
             more = r.pagination?.hasMorePages == true
         }.onFailure { if (next == 1) items.clear(); more = false }
         loading = false
     }
-    LaunchedEffect(cityId, categoryId, whenPick, free, family, popular, query) { load(1) }
-
-    WaPage(title = home?.cities?.firstOrNull { it.id == cityId }?.name ?: stringResource(R.string.ev_browse), onBack = onBack) {
-        DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.ev_search_hint), icon = Icons.Rounded.Search, modifier = Modifier.fillMaxWidth().waRise(0))
-        Spacer(Modifier.height(10.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            item { EvChip(stringResource(R.string.ev_all_cities), cityId == null) { cityId = null } }
-            items(home?.cities.orEmpty(), key = { it.id }) { c -> EvChip(c.name.orEmpty(), cityId == c.id) { cityId = c.id } }
-        }
-        Spacer(Modifier.height(6.dp))
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            item { EvChip(stringResource(R.string.ev_all_kinds), categoryId == null) { categoryId = null } }
-            items(home?.categories.orEmpty(), key = { it.id }) { c -> EvChip(c.name.orEmpty(), categoryId == c.id, icon = c.emoji) { categoryId = c.id } }
-        }
-        Spacer(Modifier.height(6.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf(When.Any to R.string.ev_when_any, When.Today to R.string.ev_when_today, When.Weekend to R.string.ev_when_weekend, When.Week to R.string.ev_when_week, When.Month to R.string.ev_when_month)
-                .forEach { (w, label) -> EvChip(stringResource(label), whenPick == w) { whenPick = w } }
-            EvChip(stringResource(R.string.ev_free), free, icon = "🎟️") { free = !free }
-            EvChip(stringResource(R.string.ev_family), family, icon = "👨‍👩‍👧") { family = !family }
-            EvChip(stringResource(R.string.ev_popular), popular, icon = "🔥") { popular = !popular }
-        }
-        Spacer(Modifier.height(14.dp))
-        EventList(items, loading && items.isEmpty(), onOpen = { go(EvPage.Event(it.id)) })
-        if (more) {
-            WaButton(stringResource(R.string.ev_more), { scope.launch { load(page + 1) } }, style = WaButtonStyle.Ghost, loading = loading, modifier = Modifier.fillMaxWidth().padding(top = 6.dp))
-        }
-        Spacer(Modifier.height(24.dp))
+    // A new filter starts over from the first page, back at the top.
+    LaunchedEffect(place, categoryId, whenPick, free, family, popular, query) {
+        load(1)
+        list.scrollToItem(0)
     }
+    // Infinite scroll: near the end of what's loaded, the next page comes.
+    LaunchedEffect(list) {
+        snapshotFlow { (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= list.layoutInfo.totalItemsCount - 3 }
+            .distinctUntilChanged().filter { it }
+            .collect { if (more && !loading) load(page + 1) }
+    }
+
+    val title = place.cityName ?: place.regionName ?: stringResource(R.string.ev_browse)
+    WaPage(title = title, onBack = onBack, scroll = false) {
+        LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
+            item("search") {
+                Row(Modifier.fillMaxWidth().waRise(0), verticalAlignment = Alignment.CenterVertically) {
+                    DorrTextField(query, { query = it.take(100) }, placeholder = stringResource(R.string.ev_search_hint), icon = Icons.Rounded.Search, modifier = Modifier.weight(1f))
+                    Spacer(Modifier.width(8.dp))
+                    // The place filter: country → region → city.
+                    Box {
+                        WaCircleButton(Icons.Rounded.Tune, { placeOpen = true }, contentDescription = stringResource(R.string.ev_place_title))
+                        Box(Modifier.align(Alignment.TopEnd)) { FilterBadgeDot(place.count()) }
+                    }
+                }
+            }
+            item("place") {
+                Column(Modifier.padding(top = 10.dp)) { PlaceChips(place) { place = it } }
+            }
+            item("kinds") {
+                LazyRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    item { EvChip(stringResource(R.string.ev_all_kinds), categoryId == null) { categoryId = null } }
+                    items(home?.categories.orEmpty(), key = { it.id }) { c -> EvChip(c.name.orEmpty(), categoryId == c.id, icon = c.emoji) { categoryId = c.id } }
+                }
+            }
+            item("when") {
+                LazyRow(Modifier.padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    items(listOf(When.Any to R.string.ev_when_any, When.Today to R.string.ev_when_today, When.Weekend to R.string.ev_when_weekend, When.Week to R.string.ev_when_week, When.Month to R.string.ev_when_month)) { (w, label) ->
+                        EvChip(stringResource(label), whenPick == w) { whenPick = w }
+                    }
+                    item { EvChip(stringResource(R.string.ev_free), free, icon = "🎟️") { free = !free } }
+                    item { EvChip(stringResource(R.string.ev_family), family, icon = "👨‍👩‍👧") { family = !family } }
+                    item { EvChip(stringResource(R.string.ev_popular), popular, icon = "🔥") { popular = !popular } }
+                }
+            }
+            item("gap") { Spacer(Modifier.height(14.dp)) }
+            when {
+                loading && items.isEmpty() -> items(4) { WaSkeleton(Modifier.fillMaxWidth().height(86.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
+                items.isEmpty() -> item("empty") {
+                    WaCard(Modifier.fillMaxWidth()) {
+                        WaEmpty(Icons.Rounded.CalendarMonth, Tone.Gray, stringResource(R.string.ev_none_title), stringResource(R.string.ev_none_text)) {
+                            if (place.isSet) WaButton(stringResource(R.string.ev_place_clear), { place = EvPlace() }, style = WaButtonStyle.Ghost)
+                        }
+                    }
+                }
+                else -> {
+                    itemsIndexed(items, key = { _, e -> e.id }) { i, e -> EventRow(e, Modifier.padding(bottom = 10.dp).waRise(i.coerceAtMost(6))) { go(EvPage.Event(e.id)) } }
+                    if (more || loading) item("more") {
+                        Box(Modifier.fillMaxWidth().padding(vertical = 12.dp), contentAlignment = Alignment.Center) {
+                            androidx.compose.material3.CircularProgressIndicator(color = Wa.Red, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
+                        }
+                    } else item("end") {
+                        Text(stringResource(R.string.ev_list_end), color = Wa.Mut, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(vertical = 10.dp))
+                    }
+                }
+            }
+        }
+    }
+    if (placeOpen) EvPlaceSheet(place, home?.country, onApply = { place = it; placeOpen = false }, onClose = { placeOpen = false })
 }
 
 /** The Arab weekend: Friday and Saturday. */

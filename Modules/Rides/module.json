@@ -1,0 +1,11 @@
+{
+    "name": "Rides",
+    "alias": "rides",
+    "description": "DORR passenger rides: categories, policies, pricing, dispatch, the ride itself and Wasl (docs/rides-plan.md).",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Rides\\Providers\\RidesServiceProvider"
+    ],
+    "files": []
+}

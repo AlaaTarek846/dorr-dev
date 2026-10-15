@@ -257,11 +257,11 @@ class AdminPermissionSeeder extends Seeder
             ],
             'discover-categories' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
-            'discover-cities' => [
+            'cities' => [
                 'module_name' => 'general_services',
-                'actions' => ['view', 'create', 'update', 'delete'],
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
             ],
             'discover-organizers' => [
                 'module_name' => 'general_services',
@@ -269,8 +269,29 @@ class AdminPermissionSeeder extends Seeder
             ],
             'discover-events' => [
                 'module_name' => 'general_services',
+                'actions' => ['view', 'create', 'update', 'delete', 'multiple-delete'],
+            ],
+            // Drivers (Modules/Driver): registered from the dashboard, their vehicles and documents; the document types.
+            'drivers' => [
+                'module_name' => 'passenger_ride',
+                'actions' => ['view', 'create', 'update'],
+            ],
+            'driver-document-types' => [
+                'module_name' => 'passenger_ride',
                 'actions' => ['view', 'create', 'update', 'delete'],
             ],
+            // Rides (docs/rides-plan.md): the Google key and the free estimate.
+            'ride-settings' => [
+                'module_name' => 'passenger_ride',
+                'actions' => ['view', 'update'],
+            ],
+            'ride-feature-rules' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'ride-categories' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
+            'ride-policies' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
+            'rides' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
+            'wasl-logs' => ['module_name' => 'passenger_ride', 'actions' => ['view']],
+            'ride-safety' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
+            'ride-lists' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             // DORR Sports (spec 183–200).
             'sports-settings' => [
                 'module_name' => 'general_services',

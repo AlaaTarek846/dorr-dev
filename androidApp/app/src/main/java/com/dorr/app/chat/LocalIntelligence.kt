@@ -73,7 +73,7 @@ object LocalIntelligence {
             builder.setContentText(shown).setStyle(NotificationCompat.BigTextStyle().bigText(shown))
             builder.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
             builder.setPublicVersion(
-                NotificationCompat.Builder(context, "dorr_private_public").setSmallIcon(android.R.drawable.stat_notify_chat)
+                NotificationCompat.Builder(context, "dorr_private_public").setSmallIcon(com.dorr.app.R.drawable.ic_stat_onesignal_default)
                     .setContentTitle(context.getString(R.string.app_name)).setContentText(shown).build(),
             )
         }

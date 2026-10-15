@@ -237,10 +237,15 @@ fun NewChatPage() {
     var joinByCode by remember { mutableStateOf(false) }
     val badCode = stringResource(R.string.ch_join_code_bad)
     if (joinByCode) TextInputSheet(stringResource(R.string.ch_join_code), action = stringResource(R.string.ch_join_code_go), icon = Icons.Rounded.Key, onDismiss = { joinByCode = false }) { text ->
-        inviteTokenOf(text)?.let { host.joinToken = it } ?: host.showToast(badCode)
+        callLinkTokenOf(text)?.let { host.callLinkToken = it } ?: inviteTokenOf(text)?.let { host.joinToken = it } ?: host.showToast(badCode)
     }
     val scanner = rememberLauncherForActivityResult(ScanContract()) { result ->
         val text = result.contents ?: return@rememberLauncherForActivityResult
+        // A call link's QR: its sheet.
+        callLinkTokenOf(text)?.let {
+            host.callLinkToken = it
+            return@rememberLauncherForActivityResult
+        }
         // A group's invite QR: the join sheet (join / ask to join), not a person.
         if (text.startsWith("dorr://chat/join/") || Regex("^https?://[^/]+/j/").containsMatchIn(text)) {
             inviteTokenOf(text)?.let { host.joinToken = it }

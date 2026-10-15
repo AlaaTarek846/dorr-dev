@@ -179,7 +179,7 @@ class LiveLocationService : Service() {
         val stop = PendingIntent.getService(this, 1, Intent(this, LiveLocationService::class.java).setAction(ACTION_STOP_ALL), PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val count = LiveLocationSharing.active(this).size.coerceAtLeast(1)
         val notification = NotificationCompat.Builder(this, CHANNEL)
-            .setSmallIcon(android.R.drawable.ic_menu_mylocation)
+            .setSmallIcon(com.dorr.app.R.drawable.ic_stat_onesignal_default)
             .setContentTitle(getString(R.string.ch_live_sharing_title))
             .setContentText(resources.getQuantityString(R.plurals.ch_live_sharing_text, count, count))
             .setOngoing(true)

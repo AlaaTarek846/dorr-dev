@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Diversity3
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Gavel
@@ -197,6 +198,17 @@ fun ChatInfoPage(id: String) {
                                     QuickAction(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members), 2) { host.push(ChRoute.NewGroup(addTo = id)) }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // ------------------------------------------------------------ its community (WhatsApp list 93)
+            conversation?.group?.community?.let { community ->
+                item(key = "community") {
+                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                        SettingRow(Icons.Rounded.Diversity3, stringResource(if (community.isAnnouncement) R.string.cm_announcements_of else R.string.cm_part_of, community.name)) {
+                            host.push(ChRoute.Community(community.id))
                         }
                     }
                 }

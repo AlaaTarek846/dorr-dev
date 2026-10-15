@@ -13,7 +13,7 @@ class DiscoverCity extends Model
 {
     use HasTranslations;
 
-    protected $fillable = ['country_id', 'timezone', 'lat', 'lng', 'status', 'sort_order'];
+    protected $fillable = ['country_id', 'region_id', 'timezone', 'lat', 'lng', 'status', 'sort_order'];
 
     protected function casts(): array
     {
@@ -23,6 +23,11 @@ class DiscoverCity extends Model
     public function country(): BelongsTo
     {
         return $this->belongsTo(Country::class);
+    }
+
+    public function region(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Region::class);
     }
 
     public function translations(): HasMany

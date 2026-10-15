@@ -37,6 +37,15 @@ Native Kotlin app for end users. It talks to the Laravel backend through `/api/m
 
 Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on top of it. Home order: themed greeting header, ads, stories, calendar (today card), sports, events, moments, wallet, services.
 
+## Passenger rides (`ui/screens/rides/`, `network/RidesApi.kt`)
+Tapping the service with module `passenger_ride` opens `RidesHost` (MainScreen) instead of the generic service page:
+- **Map** (Google Maps for Compose; key `dorr.mapsKey` in `local.properties` → manifest `com.google.android.geo.API_KEY` — without it the map is blank and the rest works). The pickup is under the centre pin (it lifts while the map moves); addresses and the place search use the phone's free `Geocoder`, never Google's paid APIs.
+- **Where to?** → search page (pickup, destination, stops when `multi_stop` is on, "pick on the map") or **No set destination** (when `open_destination` is on) → **prices** (`POST rides/quotes`: one card per category, fixed price or range, route drawn) → payment (wallet / card / cash, as switched on here) → book (`Idempotency-Key`).
+- **Card:** the ride comes back `awaiting_payment`; the app opens the shared payment screen with `CheckoutLauncher.open(CheckoutRequest("ride", {ride_uuid}))`. Wallet short of money → "pay by card instead".
+- **Following the ride:** polled every 3–4 s (searching radar → captain card with rating, car, a drawn plate, the PIN → free-waiting countdown at pickup → on the way); chat sheet (ready-made messages + text, closed when the ride ends); cancel sheet showing the fee first, with reasons; at the end the receipt lines and the rating (stars + tags + comment).
+- **Bidding (`RidesBidding.kt`):** a bid category shows "Name your price"; the sheet's price editor stops at the floor. After booking: my price with +5 / +10 raises, and every captain's offer as a card (cheapest first, cheapest / nearest badges, a draining timer bar, decline / take), polled every 2 s.
+- An active ride is resumed when the screen opens (`GET rides/current`). Strings: `res/values*/rides_strings.xml`.
+
 ## Behaviour to remember
 
 - **Auth:** phone + OTP only (fixed demo code, see CHECKPOINT). A soft-deleted account is restored by signing in with the same phone.
@@ -86,6 +95,36 @@ Main screen: 4 tabs (Home, Services, History, Account). Wallet and chat open on 
   - **Profile and QR:** a ready message on my QR / link.
   - **Statuses:** a voice status (the "Voice" tile, `ChRoute.StoryComposer("voice")`), "@ Mention" on every status editor, and "Mentioned you" with "Add to my status" in the viewer and in the chat (`story_mention`).
   - **Links:** `dorr://chat/{token}` links open the chat (manifest intent filter, `ChatDeepLink.ChatLink`). Exports are shared through the FileProvider `${applicationId}.files`.
+- **A call outside its screen, Messenger-style (2026-10-13):**
+  - **Minimise:** back or ⌄ sets `CallController.minimized`. The call becomes a draggable bubble (`CallMiniBubble` in `CallOverlay.kt`) showing their video, or their photo, the timer and hang up. A tap opens it again.
+  - **Leaving the app mid-call:** home or another app triggers `onUserLeaveHint` → `CallPip.enter`, which opens a picture-in-picture window. `CallController.inPip` makes the activity draw only `CallPipView`, and the window goes away once the call ends. Both activities declare `supportsPictureInPicture`.
+  - **`CallService`:** a foreground service (`microphone|camera|mediaPlayback`) that runs from "calling" to the end, so the mic and camera keep working in the background. Its notification shows who and the timer, with Mute and Hang up. A tap opens the app with `EXTRA_OPEN_CALL`, which un-minimises the call.
+  - **Ringing over other apps:** with "display over other apps" allowed (`SYSTEM_ALERT_WINDOW`, `CallPermissions`), `CallNotifications.showIncoming` also opens `IncomingCallActivity` directly. Without it, an unlocked phone only gets a banner.
+    - Android 14+ also needs full-screen notifications allowed (`canUseFullScreenIntent`).
+    - Both are asked once in the chat (`CallPermissionPrompt`), and offered on the calls page while missing.
+  - **Back on `IncomingCallActivity` after answering:** it opens the app with the call minimised. On the lock screen, it moves out of the way instead.
+- **WhatsApp backlog, second batch (2026-10-12):**
+  - **Status layers (79, 80) — `StoryLayers.kt`:**
+    - `StoryLayerEditor` holds the stickers, GIFs, emoji, text and pen lines. They can be dragged, pinched and turned.
+    - Tapping a layer picks it and shows a delete button. Tapping picked text rewrites it.
+    - Layers are placed in the photo or video's own frame (`style[aspect]`). The viewer draws them with `StoryLayersView`.
+  - **Call links (72) — `ChatCallLinks.kt`:**
+    - The calls page has "Create call link", plus my links (copy, share, join, cancel).
+    - `CallLinkSheet` opens from `dorr://chat/call/X`, https `/call/X`, a QR, a typed code, or the "someone joined" push.
+    - `CallController.joinLink` joins the room with no call row and no hang-up when alone.
+  - **Screen sharing (71):**
+    - The screen-share button in the call asks Android first, then calls `CallController.startScreenShare`.
+    - A red "sharing" bar with Stop shows while it runs.
+    - A remote screen is shown whole (`CallVideo.screen`, `SCALE_ASPECT_FIT`). The call buttons row now scrolls.
+  - **Reply buttons and lists (123–125) — `ChatInteractiveUi.kt`:**
+    - The attach menu has "Buttons", which opens the composer for buttons or a list.
+    - The bubble shows buttons, or a list button that opens a sheet. `ConversationState.choose` handles a tap.
+    - The sender sees "N answered" and who picked what.
+  - **Communities (93–98) — `ChatCommunityUi.kt`:**
+    - Chat menu → Communities, routes `ChRoute.Communities` and `ChRoute.Community(id)`.
+    - A community page has announcements, my groups, and other groups (join or ask).
+    - Admin tools: add or make groups, members and admins, rename, delete (creator) or leave.
+    - A group's info page links to its community.
 
 - **Tablets and wide screens (spec 89):** from 700 dp wide (`TWO_PANE_MIN_WIDTH`, measured with `BoxWithConstraints`, so split screen and folding count) the chat shows its list and the open page side by side. `ChatHost.twoPane` makes opening a conversation replace the one beside the list. `detail` is what shows there (a placeholder when nothing is open), and the list marks `openConversationId`. `MainActivity` declares `configChanges` for orientation, size and keyboard, so turning or resizing re-lays the app out instead of restarting it: open chats, typed text and the call screen stay. `LocalizedApp` rebuilds its locale context from the new configuration. Nothing may count on the activity being recreated for those changes.
 - **Call recording (spec 92):** `CallController.recording` / `recordingAvailable` / `joinConsent`, UI in `ChatCallRecordingUi.kt`: the REC badge (always shown, never hidden with the controls), "N of M agreed" while asking, the yes / no question with a countdown, "agree and join" when the server answers `409 chat_recording_consent_required`, and the recordings sheet (`ChatViewers.recordings`) from a call line marked `recorded` or the call log (`recordings_count`).

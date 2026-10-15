@@ -48,6 +48,9 @@ android {
         ndk { abiFilters += abis.split(",").map { it.trim() }.filter { it.isNotEmpty() } }
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
+        // The Android Maps key (restricted to this app's package), per developer / build like the host:
+        //   dorr.mapsKey=AIza... in local.properties, or -Pdorr.mapsKey=... — without it the map stays blank, the rest works.
+        manifestPlaceholders["mapsApiKey"] = (findProperty("dorr.mapsKey") as String?) ?: local.getProperty("dorr.mapsKey", "")
     }
 
     buildTypes {
@@ -142,6 +145,11 @@ dependencies {
     implementation("com.google.android.play:review-ktx:2.0.2")
     // Play Install Referrer (no-op until the app is published; same API as share/copy today)
     implementation("com.android.installreferrer:installreferrer:2.2")
+
+    // Passenger rides: the map (Google Maps for Compose) and the phone's location (fused provider).
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.1.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

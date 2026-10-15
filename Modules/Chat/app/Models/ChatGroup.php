@@ -13,6 +13,8 @@ class ChatGroup extends Model implements HasMedia
 
     protected $fillable = [
         'conversation_id',
+        // In a community (WhatsApp list 93–98).
+        'community_id',
         'name',
         'description',
         'invite_token',

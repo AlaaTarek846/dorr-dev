@@ -7,12 +7,14 @@ Middleware: `auth:user_api`, `ensure-phone-verified:user_api`, `country`, `local
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `home` | `timezone` | `{country, categories[], cities[] (my country), follows[], preferences, can_submit, ai, sections[{key, items[]}]}`. Section keys: `for_you`, `this_week`, `weekend`, `free`, `popular`, `followed`. Empty sections are left out |
-| GET | `events` | `city_id` or `country_id` (default: my country), `category_ids[]`, `from`, `to` (Y-m-d), `free`, `family`, `q`, `lat`, `lng`, `km`, `sort=soon\|popular`, `page`, `per_page`, `timezone` | `data: Event[]` + `pagination`. With one city the days are cut in that city's zone, otherwise in mine |
+| GET | `home` | `timezone` | `{country, categories[], cities[] (my country), regions{items[{id, name, country_id, events_count}], meta} (my country's regions with something on, first batch), follows[], preferences, can_submit, ai, sections[{key, items[]}]}`. Section keys: `for_you`, `this_week`, `weekend`, `free`, `popular`, `followed`. Empty sections are left out |
+| GET | `events` | `city_id`, `region_id` (its cities' events) or `country_id` (default: my country), `category_ids[]`, `from`, `to` (Y-m-d), `free`, `family`, `q`, `lat`, `lng`, `km`, `sort=soon\|popular`, `page`, `per_page`, `timezone` | `data: Event[]` + `pagination`. With one city the days are cut in that city's zone, otherwise in mine |
 | GET | `travel` | `city_id`, `from`, `to` (at most 31 days apart), plus the same filters | `{city, from, to, items: Event[], meta}`. Days are cut in the city's zone (AT-DISC-03). `422 discover_travel_range` |
 | POST | `ask` | `{text}` | `{filters: {city_id?, city?, category_ids?, categories[], from?, to?, free?, family?, q?}, items: Event[], meta}`. Throttled to 20 per minute. `403 discover_ai_off`, `503 chat_ai_unavailable` |
 | GET | `categories` | — | `[{id, key, name, emoji, color}]` |
-| GET | `cities` | `country_id?` | `[{id, name, country, country_id, timezone, lat, lng}]` (all active cities when `country_id` is left out) |
+| GET | `cities` | `country_id?`, `region_id?`, `with_events?` | `[{id, name, country, country_id, region_id, timezone, lat, lng}]` (all active cities when nothing is given; `with_events=1` keeps those with an upcoming event) |
+| GET | `regions` | `country_id?` (default: my country), `page`, `per_page` (10) | `data: [{id, name, country_id, events_count}]` + `pagination` — only regions with an upcoming public event, in the admin's order |
+| GET | `countries` | — | `[{id, name, code}]` — where Discover is on and has cities (the place filter's first step) |
 | GET | `events/{uuid}` | `timezone` | The full Event. A pending or rejected event is visible only to its own organizer, and `404 discover_not_found` to everyone else |
 | POST | `events/{uuid}/interest` | `{notify?: bool}` (default true) | The Event with `interested` and `notify` |
 | DELETE | `events/{uuid}/interest` | — | `null` |
@@ -41,13 +43,13 @@ Middleware: `auth:admin_api`. Permissions are listed per resource.
 |---|---|---|---|
 | GET / PUT | `discover-settings` | `discover-settings.view` / `.update` | `enabled`, `enabled_countries[]` (empty means everywhere), `submissions_enabled`, `auto_publish_verified`, `alerts_enabled`, `max_alerts_per_week` (0–21), `room_close_hours` (0–720), `ai_enabled` |
 | apiResource + PATCH `{id}/status` | `discover-categories` | `discover-categories.*` | `{key, emoji?, color?, status?, sort_order?, translations[{locale, name}]}`. You can't delete one that events use (`422 discover_in_use`) |
-| apiResource + PATCH `{id}/status` | `discover-cities` | `discover-cities.*` | `{country_id, timezone, lat?, lng?, status?, sort_order?, translations[]}`; `?country_id=` filter |
+| apiResource + PATCH `{id}/status` | `discover-cities` | `cities.*` | `{country_id, timezone, lat?, lng?, status?, sort_order?, translations[]}`; `?country_id=` filter |
 | GET | `discover-organizers` | `discover-organizers.view` | `?status=&search=&per_page=`, with `pending_count`. Rows include the account (name, phone) |
 | GET | `discover-organizers/{id}` | `.view` | |
 | PATCH | `discover-organizers/{id}/review` | `discover-organizers.update` | `{status: verified\|rejected\|suspended\|pending, note?}` |
 | GET | `discover-events` | `discover-events.view` | `?review_status=&status=&country_id=&city_id=&category_id=&organizer_id=&when=upcoming\|past&search=&per_page=`. Pending events come first, and the response has `pending_count` |
 | GET | `discover-events/{uuid}` | `.view` | The full Event plus `starts_local` / `ends_local` (`Y-m-d\TH:i` in its zone) for the form |
-| POST | `discover-events` | `discover-events.create` | Multipart with the same fields as the organizer form, plus `cover`. Published at once as `source = admin` |
+| POST | `discover-events` | `discover-events.create` | Multipart with the same fields as the organizer form, plus `cover`. Published at once as `source = admin` | `country_id` and `region_id` (0 = a city in no region) are optional but, when sent, the city must be in them (422 on `city_id` otherwise); the list filters by `country_id`, `region_id`, `city_id` and returns `region`, `region_id`, `country`.
 | POST | `discover-events/{uuid}` | `.update` | Edit. A new time on a public event goes through the status history |
 | PATCH | `discover-events/{uuid}/review` | `.update` | `{review_status: approved\|rejected\|pending, note?}` |
 | PATCH | `discover-events/{uuid}/status` | `.update` | `{status, note?, starts_at?, ends_at?}` (the event's local time). The interested who asked are told |

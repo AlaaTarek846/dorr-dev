@@ -59,6 +59,7 @@ class MessageResource extends JsonResource
             // Channels: how many followers saw this post.
             'views' => $ctx->conversation->isChannel() && $m->sender_type !== null ? ($ctx->views[$m->id] ?? 0) : null,
             'poll' => $m->type === MessageType::Poll && ! $gone ? $this->poll($m) : null,
+            'interactive' => $m->type === MessageType::Interactive && ! $gone ? $this->interactive($m) : null,
             'live_location' => $m->type === MessageType::Location && ! $gone ? $this->live($m) : null,
             // Money request / bill split, as this viewer sees it (can I pay? my share…).
             'payment' => in_array($m->type, [MessageType::MoneyRequest, MessageType::BillSplit], true) && ! $gone
@@ -140,6 +141,23 @@ class MessageResource extends JsonResource
             ])->values()->all(),
             'my_votes' => $this->context->myVotes[$m->id] ?? [],
             'voters' => $summary['voters'],
+        ];
+    }
+
+    /**
+     * Buttons / a list (WhatsApp list 123–125): the choices, mine, and how many answered.
+     *
+     * @return array<string, mixed>
+     */
+    private function interactive(ChatMessage $m): array
+    {
+        return [
+            'kind' => (string) data_get($m->meta, 'kind', 'buttons'),
+            'options' => array_values((array) data_get($m->meta, 'options')),
+            'button' => data_get($m->meta, 'button'),
+            'footer' => data_get($m->meta, 'footer'),
+            'my_choice' => ($this->context->myVotes[$m->id] ?? [])[0] ?? null,
+            'answers' => (int) ($this->context->polls[$m->id]['voters'] ?? 0),
         ];
     }
 

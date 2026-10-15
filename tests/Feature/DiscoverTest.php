@@ -363,7 +363,7 @@ class DiscoverTest extends TestCase
 
     public function test_the_admin_switches_discover_off_per_country_and_manages_the_catalog(): void
     {
-        $this->asAdmin(['discover-settings.update', 'discover-settings.view', 'discover-categories.create', 'discover-cities.view']);
+        $this->asAdmin(['discover-settings.update', 'discover-settings.view', 'discover-categories.create', 'cities.view']);
         $this->putJson('/api/admin/v1/discover-settings', ['enabled_countries' => [$this->egypt->id]])->assertOk()->assertJsonPath('data.enabled_countries', [$this->egypt->id]);
         $this->postJson('/api/admin/v1/discover-categories', ['key' => 'gaming', 'emoji' => '🎮', 'translations' => [['locale' => 'en', 'name' => 'Gaming']]])
             ->assertCreated()->assertJsonPath('data.name', 'Gaming');
@@ -372,6 +372,134 @@ class DiscoverTest extends TestCase
         $this->as($this->alice);
         $this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertForbidden()->assertJsonPath('error_code', 'discover_off');
         $this->getJson('/api/mobile/v1/discover/home', ['X-Country' => 'EG'])->assertOk();
+    }
+
+    public function test_the_admin_drags_categories_and_cities_into_a_new_order(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.update', 'discover-categories.view', 'cities.update', 'cities.view']);
+
+        $a = $this->postJson('/api/admin/v1/discover-categories', ['key' => 'ord_a', 'translations' => [['locale' => 'en', 'name' => 'A']]])->assertCreated()->json('data');
+        $b = $this->postJson('/api/admin/v1/discover-categories', ['key' => 'ord_b', 'translations' => [['locale' => 'en', 'name' => 'B']]])->assertCreated()->json('data');
+        // No sort_order sent: a new one goes to the end.
+        $this->assertGreaterThan($a['sort_order'], $b['sort_order']);
+
+        $this->putJson('/api/admin/v1/discover-categories/reorder', ['ordered_ids' => [$b['id'], $a['id']]])->assertOk();
+        $order = collect($this->getJson('/api/admin/v1/discover-categories')->json('data'))->pluck('sort_order', 'id');
+        $this->assertSame(1, $order[$b['id']]);
+        $this->assertSame(2, $order[$a['id']]);
+
+        $cities = collect($this->getJson('/api/admin/v1/discover-cities')->json('data'))->take(2)->pluck('id')->all();
+        $this->putJson('/api/admin/v1/discover-cities/reorder', ['ordered_ids' => array_reverse($cities)])->assertOk();
+        $after = collect($this->getJson('/api/admin/v1/discover-cities')->json('data'))->pluck('sort_order', 'id');
+        $this->assertSame(1, $after[$cities[1]]);
+        $this->assertSame(2, $after[$cities[0]]);
+    }
+
+    public function test_the_admin_deletes_several_catalog_rows_at_once_and_the_ones_in_use_are_skipped(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.view', 'discover-categories.multiple-delete', 'cities.view', 'cities.multiple-delete']);
+
+        $ids = [];
+        foreach (['bulk_a', 'bulk_b'] as $key) {
+            $ids[] = $this->postJson('/api/admin/v1/discover-categories', ['key' => $key, 'translations' => [['locale' => 'en', 'name' => $key]]])->assertCreated()->json('data.id');
+        }
+        $this->postJson('/api/admin/v1/discover-categories/delete-multiple', ['ids' => $ids])->assertOk()->assertJsonPath('data.deleted', 2)->assertJsonPath('data.skipped', 0);
+        $this->assertSame(0, \Modules\Discover\Models\DiscoverCategory::query()->whereIn('id', $ids)->count());
+
+        // A city with an event is skipped, never deleted.
+        $cityId = \Modules\Discover\Models\DiscoverEvent::query()->value('city_id');
+        if ($cityId) {
+            $this->postJson('/api/admin/v1/discover-cities/delete-multiple', ['ids' => [$cityId]])->assertOk()->assertJsonPath('data.skipped', 1);
+            $this->assertNotNull(\Modules\Discover\Models\DiscoverCity::query()->find($cityId));
+        }
+    }
+
+    public function test_a_city_can_name_its_governorate_but_only_one_of_its_own_country(): void
+    {
+        $this->asAdmin(['cities.create', 'cities.update', 'cities.view']);
+        $own = \App\Models\Region::query()->where('country_id', $this->egypt->id)->first() ?? \App\Models\Region::query()->create(['country_id' => $this->egypt->id, 'status' => true, 'sort_order' => 1]);
+        $other = \App\Models\Region::query()->where('country_id', '!=', $this->egypt->id)->first() ?? \App\Models\Region::query()->create(['country_id' => \App\Models\Country::query()->where('id', '!=', $this->egypt->id)->value('id'), 'status' => true, 'sort_order' => 1]);
+        $body = ['country_id' => $this->egypt->id, 'timezone' => 'Africa/Cairo', 'translations' => [['locale' => 'en', 'name' => 'Tanta']]];
+
+        $this->postJson('/api/admin/v1/discover-cities', $body + ['region_id' => $other->id])->assertStatus(422);
+        $id = $this->postJson('/api/admin/v1/discover-cities', $body + ['region_id' => $own->id])->assertCreated()->assertJsonPath('data.region_id', $own->id)->json('data.id');
+
+        // Moving the city to another country without a new governorate clears the old one.
+        $this->putJson("/api/admin/v1/discover-cities/{$id}", ['country_id' => $other->country_id])->assertOk()->assertJsonPath('data.region_id', null);
+    }
+
+    public function test_the_app_browses_by_region_in_batches_and_filters_by_country_region_and_city(): void
+    {
+        $riyadhRegion = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 1]);
+        $makkah = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 2]);
+        $empty = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 3]);
+        $this->city('Riyadh')->update(['region_id' => $riyadhRegion->id]);
+        $this->city('Jeddah')->update(['region_id' => $makkah->id]);
+        $this->adminEvent('Big concert', 'Riyadh', '2026-11-03 21:00');
+        $this->adminEvent('Expo', 'Riyadh', '2026-11-04 10:00', 'exhibitions');
+        $this->adminEvent('Sea fest', 'Jeddah', '2026-11-05 18:00');
+
+        $this->as($this->alice);
+        // Home: the regions with something on, where I am — the empty one is left out.
+        $home = $this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertOk()->json('data.regions');
+        $this->assertSame([$riyadhRegion->id, $makkah->id], array_column($home['items'], 'id'));
+        $this->assertSame([2, 1], array_column($home['items'], 'events_count'));
+        $this->assertNotContains($empty->id, array_column($home['items'], 'id'));
+
+        // In batches.
+        $first = $this->getJson('/api/mobile/v1/discover/regions?per_page=1', $this->headers())->assertOk();
+        $first->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $riyadhRegion->id);
+        $this->getJson('/api/mobile/v1/discover/regions?per_page=1&page=2', $this->headers())->assertOk()->assertJsonPath('data.0.id', $makkah->id);
+
+        // The filter's steps: countries → a region's cities with events.
+        $this->assertContains($this->saudi->id, array_column($this->getJson('/api/mobile/v1/discover/countries', $this->headers())->assertOk()->json('data'), 'id'));
+        $this->assertSame(['Riyadh'], array_column($this->getJson("/api/mobile/v1/discover/cities?region_id={$riyadhRegion->id}&with_events=1", $this->headers())->assertOk()->json('data'), 'name'));
+
+        // Browsing: by region, by city, a page at a time.
+        $this->assertEqualsCanonicalizing(['Big concert', 'Expo'], array_column($this->getJson("/api/mobile/v1/discover/events?region_id={$riyadhRegion->id}", $this->headers())->assertOk()->json('data'), 'title'));
+        $this->assertSame(['Sea fest'], array_column($this->getJson("/api/mobile/v1/discover/events?region_id={$makkah->id}", $this->headers())->json('data'), 'title'));
+        $page = $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2", $this->headers())->assertOk();
+        $this->assertCount(2, $page->json('data'));
+        $this->assertCount(1, $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2&page=2", $this->headers())->json('data'));
+    }
+
+    public function test_the_admin_removes_an_events_cover(): void
+    {
+        Storage::fake('public');
+        $this->asAdmin(['discover-events.create', 'discover-events.update']);
+        $headers = ['Accept' => 'application/json'];
+        $id = $this->post('/api/admin/v1/discover-events', $this->eventData('Jazz night') + ['cover' => UploadedFile::fake()->image('c.jpg', 800, 600)], $headers)
+            ->assertCreated()->json('data.id');
+
+        $this->post("/api/admin/v1/discover-events/{$id}", ['remove_cover' => '0'], $headers)->assertOk()->assertJsonPath('data.cover', fn ($v) => $v !== null);
+        $this->post("/api/admin/v1/discover-events/{$id}", ['remove_cover' => '1'], $headers)->assertOk()->assertJsonPath('data.cover', null);
+    }
+
+    public function test_the_admin_places_an_event_by_country_region_and_city_that_depend_on_each_other(): void
+    {
+        $region = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 1]);
+        $other = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 2]);
+        $riyadh = $this->city('Riyadh');
+        $riyadh->update(['region_id' => $region->id]);
+        $jeddah = $this->city('Jeddah');
+        $this->asAdmin(['discover-events.create', 'discover-events.view']);
+        $body = $this->eventData('Jazz night') + ['country_id' => $this->saudi->id];
+
+        // A city that is not in the chosen region, or not in the chosen country, is refused.
+        $this->postJson('/api/admin/v1/discover-events', $body + ['region_id' => $other->id])->assertStatus(422)->assertJsonValidationErrors('city_id');
+        $this->postJson('/api/admin/v1/discover-events', ['country_id' => $this->egypt->id] + $body)->assertStatus(422)->assertJsonValidationErrors('city_id');
+        $this->postJson('/api/admin/v1/discover-events', $body + ['region_id' => 0])->assertStatus(422);
+
+        $this->postJson('/api/admin/v1/discover-events', $body + ['region_id' => $region->id])->assertCreated()
+            ->assertJsonPath('data.country_id', $this->saudi->id)->assertJsonPath('data.region_id', $region->id);
+        // A city with no region sits under region 0.
+        $this->postJson('/api/admin/v1/discover-events', ['title' => 'Sea fest', 'city_id' => $jeddah->id, 'region_id' => 0] + $body)->assertCreated()->assertJsonPath('data.region_id', null);
+
+        // Filtering by region keeps only its cities' events; 0 is "no region".
+        $this->getJson('/api/admin/v1/discover-events?region_id='.$region->id)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Jazz night')
+            ->assertJsonPath('data.0.region_id', $region->id)->assertJsonPath('data.0.country_id', $this->saudi->id);
+        $this->getJson('/api/admin/v1/discover-events?region_id=0')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Sea fest');
+        $this->getJson('/api/admin/v1/discover-events?country_id='.$this->saudi->id)->assertOk()->assertJsonCount(2, 'data');
     }
 
     // ------------------------------------------------------------------ helpers

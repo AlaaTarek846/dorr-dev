@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">دُرر كابتن</string>
+
+    <string name="login_title">أهلًا يا كابتن</string>
+    <string name="login_subtitle">ادخل برقم موبايلك</string>
+    <string name="login_phone_label">رقم الموبايل</string>
+    <string name="login_send_code">ابعت الكود</string>
+
+    <string name="otp_title">اكتب الكود</string>
+    <string name="otp_subtitle">بعتنا الكود على %1$s</string>
+    <string name="otp_verify">تأكيد</string>
+    <string name="otp_resend">ابعت الكود تاني</string>
+    <string name="otp_resend_in">ابعت تاني بعد %1$d ثانية</string>
+    <string name="otp_change_number">غيّر الرقم</string>
+
+    <string name="home_greeting">أهلًا يا كابتن</string>
+    <string name="home_logout">خروج</string>
+    <string name="home_go_online">ابدأ الشغل</string>
+    <string name="home_rides_soon">طلبات الرحلات هتوصلك هنا قريب</string>
+
+    <string name="status_pending_documents">ابعت مستنداتك</string>
+    <string name="status_pending_documents_hint">ضيف رخصتك وعربيتك عشان نراجع حسابك.</string>
+    <string name="status_under_review">حسابك تحت المراجعة</string>
+    <string name="status_under_review_hint">هنبلغك أول ما يتوافق عليه.</string>
+    <string name="status_active">حسابك شغال</string>
+    <string name="status_active_hint">تقدر تبدأ الشغل وتستقبل رحلات.</string>
+    <string name="status_suspended">حسابك موقوف مؤقتًا</string>
+    <string name="status_restricted">حسابك عليه قيود</string>
+    <string name="status_blocked">حسابك محظور</string>
+
+    <string name="error_offline">مفيش نت. جرّب تاني.</string>
+    <string name="error_generic">حصلت مشكلة. جرّب تاني.</string>
+    <string name="retry">جرّب تاني</string>
+</resources>

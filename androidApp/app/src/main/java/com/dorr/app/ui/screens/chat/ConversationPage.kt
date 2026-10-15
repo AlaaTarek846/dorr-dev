@@ -278,6 +278,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
             },
             onVote = { m, option -> state.vote(m, option) },
             onShowVotes = { votesFor = it },
+            onChoose = { m, option -> state.choose(m, option) },
             onOpenViewOnce = { m -> scope.launch { state.openViewOnce(m)?.takeIf { it.isNotEmpty() }?.let { viewOnceFiles = it } } },
             onStopLive = { state.stopLive(it) },
             onJoinGroup = { host.joinToken = it },

@@ -22,6 +22,7 @@ use Modules\Chat\Models\ChatStoryView;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
 use Modules\Chat\Support\SharedMedia;
+use Modules\Chat\Support\StoryLayers;
 use Modules\User\Models\User;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
@@ -85,10 +86,14 @@ class StoryService
                 'type' => $type,
                 'body' => isset($data['body']) ? trim((string) $data['body']) ?: null : null,
                 'style' => match ($type) {
-                    'text' => $data['style'] ?? null,
+                    'text' => array_filter(['layers' => StoryLayers::clean($data['style']['layers'] ?? null)] + ($data['style'] ?? []), fn ($v) => $v !== null) ?: null,
                     // A voice status: its colour and its bars.
                     'voice' => array_filter(['background' => $data['style']['background'] ?? null, 'waveform' => $data['style']['waveform'] ?? null], fn ($v) => $v !== null) ?: null,
-                    default => null,
+                    // A photo / video: the shape of the picture and what was put on top of it.
+                    default => array_filter([
+                        'aspect' => isset($data['style']['aspect']) ? round((float) $data['style']['aspect'], 4) : null,
+                        'layers' => StoryLayers::clean($data['style']['layers'] ?? null),
+                    ], fn ($v) => $v !== null) ?: null,
                 },
                 'duration_ms' => in_array($type, ['video', 'voice'], true) ? ($data['duration_ms'] ?? null) : null,
                 'mentions' => $mentioned->map(fn (Model $m) => ParticipantType::key($m))->values()->all() ?: null,
