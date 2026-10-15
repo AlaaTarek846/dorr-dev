@@ -30,6 +30,8 @@ interface EventsApi {
         @Query("timezone") timezone: String,
         @Query("city_id") cityId: Int? = null,
         @Query("category_ids[]") categories: List<Int>? = null,
+        @Query("region_id") regionId: Int? = null,
+        @Query("country_id") countryId: Int? = null,
         @Query("from") from: String? = null,
         @Query("to") to: String? = null,
         @Query("free") free: Int? = null,
@@ -55,7 +57,25 @@ interface EventsApi {
     suspend fun ask(@Header("Authorization") auth: String, @Body body: JsonObject, @Query("timezone") timezone: String): ApiEnvelope<DiscAskDto>
 
     @GET("mobile/v1/discover/cities")
-    suspend fun cities(@Header("Authorization") auth: String, @Query("country_id") countryId: Int? = null): ApiEnvelope<List<DiscCityDto>>
+    suspend fun cities(
+        @Header("Authorization") auth: String,
+        @Query("country_id") countryId: Int? = null,
+        @Query("region_id") regionId: Int? = null,
+        @Query("with_events") withEvents: Int? = null,
+    ): ApiEnvelope<List<DiscCityDto>>
+
+    /** A country's regions with something on, a batch at a time (default: where I am). */
+    @GET("mobile/v1/discover/regions")
+    suspend fun regions(
+        @Header("Authorization") auth: String,
+        @Query("country_id") countryId: Int? = null,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 10,
+    ): ApiEnvelope<List<DiscRegionDto>>
+
+    /** Where Discover is on — the place filter's first step. */
+    @GET("mobile/v1/discover/countries")
+    suspend fun countries(@Header("Authorization") auth: String): ApiEnvelope<List<DiscCountryDto>>
 
     @GET("mobile/v1/discover/events/{id}")
     suspend fun event(@Header("Authorization") auth: String, @Path("id") id: String, @Query("timezone") timezone: String): ApiEnvelope<DiscEventDto>
@@ -133,11 +153,26 @@ data class DiscCategoryDto(
     val color: String? = null,
 )
 
+data class DiscRegionDto(
+    val id: Int = 0,
+    val name: String? = null,
+    @SerializedName("country_id") val countryId: Int? = null,
+    @SerializedName("events_count") val eventsCount: Int = 0,
+)
+
+data class DiscRegionsMetaDto(@SerializedName("current_page") val currentPage: Int = 1, @SerializedName("has_more_pages") val hasMorePages: Boolean = false)
+
+/** The home's first batch of regions; more come from GET regions. */
+data class DiscRegionsDto(val items: List<DiscRegionDto> = emptyList(), val meta: DiscRegionsMetaDto = DiscRegionsMetaDto())
+
+data class DiscCountryDto(val id: Int = 0, val name: String? = null, val code: String? = null)
+
 data class DiscCityDto(
     val id: Int = 0,
     val name: String? = null,
     val country: String? = null,
     @SerializedName("country_id") val countryId: Int? = null,
+    @SerializedName("region_id") val regionId: Int? = null,
     val timezone: String? = null,
 )
 
@@ -215,6 +250,7 @@ data class DiscHomeDto(
     val country: String? = null,
     val categories: List<DiscCategoryDto> = emptyList(),
     val cities: List<DiscCityDto> = emptyList(),
+    val regions: DiscRegionsDto = DiscRegionsDto(),
     val follows: List<DiscFollowDto> = emptyList(),
     val preferences: DiscPrefsDto? = null,
     @SerializedName("can_submit") val canSubmit: Boolean = false,
