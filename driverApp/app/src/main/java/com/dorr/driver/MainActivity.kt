@@ -8,6 +8,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import com.dorr.core.ui.DorrTheme
 import com.dorr.driver.duty.DriverDutyService
+import com.dorr.driver.live.DriverLive
+import com.dorr.driver.live.DriverPush
+import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.ui.DriverNavHost
 
 class MainActivity : ComponentActivity() {
@@ -20,6 +23,23 @@ class MainActivity : ComponentActivity() {
                 DriverNavHost()
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        DriverLive.inForeground = true
+        if (DriverBackend.session.isSignedIn) {
+            // Connect (idempotent); coming back to the screen reloads once for anything missed.
+            DriverLive.start(this)
+            DriverLive.requestSync()
+            DriverLive.refreshUnread()
+            DriverPush.requestPermission()
+        }
+    }
+
+    override fun onStop() {
+        DriverLive.inForeground = false
+        super.onStop()
     }
 
     override fun onNewIntent(intent: Intent) {

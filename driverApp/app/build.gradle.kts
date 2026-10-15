@@ -65,6 +65,11 @@ dependencies {
     // The shift's location (fused provider), and pictures (avatars, documents).
     implementation("com.google.android.gms:play-services-location:21.3.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // Real-time (requests, rides, wallet, notifications): speaks the Pusher protocol, so it keeps working when
+    // the server moves to our own Reverb / Soketi — the connection details come from `driver/v1/realtime-config`.
+    implementation("com.pusher:pusher-java-client:2.4.4")
+    // Push: reaches the captain with the app closed (a request rings like a call).
+    implementation("com.onesignal:OneSignal:5.1.6")
 
     testImplementation("junit:junit:4.13.2")
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -5,6 +5,7 @@ use Modules\Rides\Http\Controllers\Driver\DriverEarningsController;
 use Modules\Rides\Http\Controllers\RideChangeController;
 use Modules\Rides\Http\Controllers\RideSafetyController;
 use Modules\Rides\Http\Controllers\SafetyCenterController;
+use Modules\Rides\Http\Controllers\Driver\DriverRealtimeController;
 use Modules\Rides\Http\Controllers\Driver\DriverRegulatorController;
 use Modules\Rides\Http\Controllers\Driver\DriverRideController;
 use Modules\Rides\Http\Controllers\Driver\DriverScheduledController;
@@ -12,6 +13,9 @@ use Modules\Rides\Http\Controllers\Driver\DriverScheduledController;
 // The driver app's ride screens (docs/rides-plan.md §17) — same prefix and guard as Modules/Driver.
 Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_api', 'throttle:120,1', 'remember-locale'])
     ->prefix('driver/v1')->group(function () {
+        // Real-time + push settings for the captain app (replaces asking the server every few seconds).
+        Route::get('realtime-config', DriverRealtimeController::class);
+
         Route::get('offers', [DriverRideController::class, 'offers']);
         Route::post('offers/{uuid}/accept', [DriverRideController::class, 'accept'])->whereUuid('uuid');
         Route::post('offers/{uuid}/decline', [DriverRideController::class, 'decline'])->whereUuid('uuid');

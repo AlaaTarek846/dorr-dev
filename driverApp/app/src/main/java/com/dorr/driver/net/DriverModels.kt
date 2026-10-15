@@ -1,5 +1,6 @@
 package com.dorr.driver.net
 
+import com.google.gson.JsonObject
 import com.google.gson.annotations.SerializedName
 
 // ---------------------------------------------------------------- presence
@@ -189,6 +190,105 @@ data class TimesDto(
     /** The free waiting counts from here: a booked ride's time when the captain came early (D-119). */
     @SerializedName("waiting_from") val waitingFrom: String? = null,
     @SerializedName("started_at") val startedAt: String? = null,
+)
+
+/** How to connect to real-time and push (from the server, never built into the app). */
+data class RealtimeConfigDto(
+    val enabled: Boolean = false,
+    val key: String? = null,
+    val cluster: String? = null,
+    val host: String? = null,
+    val port: Int? = null,
+    @SerializedName("use_tls") val useTls: Boolean = true,
+    @SerializedName("auth_path") val authPath: String = "/broadcasting/auth",
+    val channel: String? = null,
+    @SerializedName("onesignal_app_id") val onesignalAppId: String? = null,
+)
+
+/** One row of the captain's notification list — already in the app's language. */
+data class NotificationDto(
+    val id: String,
+    val title: String = "",
+    val message: String = "",
+    val type: String? = null,
+    val event: String? = null,
+    val data: JsonObject? = null,
+    @SerializedName("created_at_iso") val createdAtIso: String? = null,
+    @SerializedName("read_at") val readAt: String? = null,
+)
+
+data class UnreadCountDto(val count: Int = 0)
+
+// ---------------------------------------------------------------- the captain's wallet
+
+data class WalletDto(
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    @SerializedName("currency_symbol") val currencySymbol: String? = null,
+    @SerializedName("wallet_number_formatted") val walletNumber: String? = null,
+    @SerializedName("total_minor") val totalMinor: Long = 0,
+    @SerializedName("withdrawable_minor") val withdrawableMinor: Long = 0,
+    @SerializedName("spend_only_minor") val spendOnlyMinor: Long = 0,
+    @SerializedName("held_minor") val heldMinor: Long = 0,
+)
+
+data class PaymentMethodDto(
+    val id: Int,
+    val name: String? = null,
+    val gateway: String? = null,
+    @SerializedName("logo_url") val logoUrl: String? = null,
+    @SerializedName("coming_soon") val comingSoon: Boolean = false,
+)
+
+data class TopupQuoteDto(
+    @SerializedName("paid_amount_minor") val paidAmountMinor: Long = 0,
+    @SerializedName("fee_minor") val feeMinor: Long = 0,
+    @SerializedName("bonus_minor") val bonusMinor: Long = 0,
+    @SerializedName("total_credited_minor") val totalCreditedMinor: Long = 0,
+)
+
+data class TopupDto(
+    val uuid: String,
+    val status: String = "pending",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("redirect_url") val redirectUrl: String? = null,
+    @SerializedName("requires_otp") val requiresOtp: Boolean = false,
+)
+
+data class WalletRowDto(
+    val uuid: String,
+    val type: String = "",
+    @SerializedName("type_label") val typeLabel: String = "",
+    val direction: String = "credit",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    val note: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+data class WalletPinDto(
+    @SerializedName("has_pin") val hasPin: Boolean = false,
+    @SerializedName("must_change") val mustChange: Boolean = false,
+    @SerializedName("is_frozen") val isFrozen: Boolean = false,
+    @SerializedName("locked_until") val lockedUntil: String? = null,
+)
+
+data class WithdrawalMethodDto(
+    val id: Int,
+    val type: String = "bank",
+    val label: String? = null,
+    val display: String? = null,
+    @SerializedName("is_favorite") val isFavorite: Boolean = false,
+)
+
+data class WithdrawalMethodShortDto(val type: String = "bank", val label: String? = null, val display: String? = null)
+
+data class WithdrawalDto(
+    val id: Int,
+    val status: String = "pending",
+    @SerializedName("amount_minor") val amountMinor: Long = 0,
+    @SerializedName("currency_code") val currencyCode: String? = null,
+    val method: WithdrawalMethodShortDto? = null,
+    @SerializedName("rejection_reason") val rejectionReason: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
 )
 
 data class TrustedContactDto(
