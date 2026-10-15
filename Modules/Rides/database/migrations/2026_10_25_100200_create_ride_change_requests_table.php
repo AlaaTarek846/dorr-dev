@@ -33,7 +33,7 @@ return new class extends Migration
             $table->timestamp('driver_responded_at')->nullable();
             $table->string('status', 12)->default('preview')->comment('preview / pending / applied / rejected / expired / canceled');
             $table->string('result_code', 32)->nullable();
-            $table->timestamp('expires_at');
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
             $table->index(['ride_id', 'status']);
             $table->index(['status', 'expires_at']);
