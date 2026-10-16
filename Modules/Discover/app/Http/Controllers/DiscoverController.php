@@ -50,11 +50,14 @@ class DiscoverController extends Controller
     public function travel(Request $request)
     {
         $f = $request->validate($this->filterRules() + [
-            'city_id' => ['required', 'integer'],
+            // Where I am going: a city, or a governorate / state, or a whole country (one of them).
+            'city_id' => ['nullable', 'integer', 'required_without_all:region_id,country_id'],
+            'region_id' => ['nullable', 'integer'],
+            'country_id' => ['nullable', 'integer'],
             'from' => ['required', 'date_format:Y-m-d'],
             'to' => ['required', 'date_format:Y-m-d'],
         ]);
-        $result = $this->discover->travel($request->user(), (int) $f['city_id'], $f['from'], $f['to'], $f, $this->zone($request));
+        $result = $this->discover->travel($request->user(), $f, $f['from'], $f['to'], $this->zone($request));
 
         return ApiResponse::success($result, __('api.retrieved'));
     }

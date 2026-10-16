@@ -6,10 +6,10 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Modules\Chat\Support\ParticipantType;
 
-/** A city or country I follow, wherever I am (spec 170). */
+/** A region, city or country I follow, wherever I am (spec 170). */
 class DiscoverFollow extends Model
 {
-    public const KINDS = ['city', 'country'];
+    public const KINDS = ['region', 'city', 'country'];
 
     protected $fillable = ['owner_type', 'owner_id', 'kind', 'target_id'];
 

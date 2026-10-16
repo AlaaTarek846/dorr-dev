@@ -45,10 +45,12 @@ interface EventsApi {
     @GET("mobile/v1/discover/travel")
     suspend fun travel(
         @Header("Authorization") auth: String,
-        @Query("city_id") cityId: Int,
         @Query("from") from: String,
         @Query("to") to: String,
         @Query("timezone") timezone: String,
+        @Query("city_id") cityId: Int? = null,
+        @Query("region_id") regionId: Int? = null,
+        @Query("country_id") countryId: Int? = null,
         @Query("category_ids[]") categories: List<Int>? = null,
     ): ApiEnvelope<DiscTravelDto>
 
@@ -258,8 +260,12 @@ data class DiscHomeDto(
     val sections: List<DiscSectionDto> = emptyList(),
 )
 
+/** Where the search ran: its time zone (the days are cut in it). */
+data class DiscTravelPlaceDto(val timezone: String? = null)
+
 data class DiscTravelDto(
     val city: DiscCityDto? = null,
+    val place: DiscTravelPlaceDto? = null,
     val from: String? = null,
     val to: String? = null,
     val items: List<DiscEventDto> = emptyList(),

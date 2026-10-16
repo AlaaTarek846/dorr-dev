@@ -266,10 +266,15 @@ fun LocaleAwareBottomSheet(
     onDismissRequest: () -> Unit,
     containerColor: androidx.compose.ui.graphics.Color,
     shape: androidx.compose.ui.graphics.Shape,
+    /** Open to full height at once (a tall form) instead of half-way first. */
+    fullHeight: Boolean = false,
     content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
 ) {
     val frame = rememberAppLocaleFrame()
-    androidx.compose.material3.ModalBottomSheet(onDismissRequest = onDismissRequest, containerColor = containerColor, shape = shape) {
+    androidx.compose.material3.ModalBottomSheet(
+        onDismissRequest = onDismissRequest, containerColor = containerColor, shape = shape,
+        sheetState = androidx.compose.material3.rememberModalBottomSheetState(skipPartiallyExpanded = fullHeight),
+    ) {
         frame.Provide { content() }
     }
 }
