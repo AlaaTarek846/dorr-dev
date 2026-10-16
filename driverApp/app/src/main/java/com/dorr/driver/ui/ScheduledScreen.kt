@@ -61,7 +61,9 @@ import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.Chip
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.duty.Duty
 import com.dorr.driver.net.DriverBackend
@@ -121,20 +123,10 @@ fun ScheduledScreen(onBack: () -> Unit, onStarted: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(bottom = 16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-                Text(stringResource(R.string.sch_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(R.string.sch_available, R.string.sch_mine).forEachIndexed { i, label ->
-                    val bg by animateColorAsState(if (tab == i) Color.White else Color.White.copy(alpha = 0.12f), tween(220), label = "tab")
-                    Text(
-                        stringResource(label), color = if (tab == i) DorrBrand.navy else Color.White, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(bg).clickable { tab = i }.padding(horizontal = 16.dp, vertical = 7.dp),
-                    )
-                }
+    ScreenScaffold(stringResource(R.string.sch_title), onBack) {
+        Row(Modifier.padding(horizontal = 16.dp).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            listOf(R.string.sch_available, R.string.sch_mine).forEachIndexed { i, label ->
+                Chip(stringResource(label), selected = tab == i, onClick = { tab = i })
             }
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) }

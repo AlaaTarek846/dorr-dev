@@ -59,7 +59,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.live.DriverLive
 import com.dorr.driver.net.AirportQueueDto
@@ -110,11 +111,7 @@ fun AirportScreen(onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-            Text(stringResource(R.string.air_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
+    ScreenScaffold(stringResource(R.string.air_title), onBack) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp),

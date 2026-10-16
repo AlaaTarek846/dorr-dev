@@ -319,4 +319,7 @@
     <string name="rd_cases_ev_completed">Trip ended</string>
     <string name="rd_cases_ev_canceled">Cancelled</string>
     <string name="rd_cases_ev_no_show">No-show</string>
+    <string name="rd_na_title">Rides aren\'t available here yet</string>
+    <string name="rd_na_not_enabled">The ride service hasn\'t been switched on for your country or city. Once it is, you can book right here.</string>
+    <string name="rd_na_no_country">We couldn\'t tell where you are. Allow location, or set your country in your account, then try again.</string>
 </resources>

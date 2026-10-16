@@ -61,7 +61,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.duty.Duty
 import com.dorr.driver.duty.DriverDutyService
@@ -115,6 +115,9 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
                 .padding(22.dp).navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // The grabber of a sheet, as in the DORR app's panels.
+            Box(Modifier.size(width = 38.dp, height = 4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
+            Spacer(Modifier.height(14.dp))
             Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.size(120.dp)) {
                     drawArc(Color.LightGray.copy(alpha = 0.3f), 0f, 360f, false, style = Stroke(10f), topLeft = Offset(6f, 6f), size = Size(size.width - 12f, size.height - 12f))

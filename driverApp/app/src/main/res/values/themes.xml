@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- The window behind the first frame: white, like the splash, so there is no flash before Compose draws. -->
     <style name="Theme.DorrDriver" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:statusBarColor">#001B53</item>
-        <item name="android:windowBackground">#F7F8FB</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowBackground">#FFFFFF</item>
     </style>
 </resources>

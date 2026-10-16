@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.dorr.app.R
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideDto
 import com.dorr.app.network.RideLineDto
@@ -370,10 +371,11 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
             }
         }
         Spacer(Modifier.height(8.dp))
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(12.dp)) {
-            if (comment.isEmpty()) Text(stringResource(R.string.rd_rate_comment), color = settingsMut(), fontSize = 13.sp)
-            BasicTextField(comment, { comment = it.take(500) }, textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp), cursorBrush = SolidColor(settingsAccent()), modifier = Modifier.fillMaxWidth())
-        }
+        DorrTextField(
+            value = comment, onValueChange = { comment = it.take(500) },
+            placeholder = stringResource(R.string.rd_rate_comment), singleLine = false, minLines = 2,
+            modifier = Modifier.fillMaxWidth(),
+        )
         // Wireflow step 7: "Tip (optional)" under the note, before sending the rating.
         TipSection(ride, onTipped)
         Spacer(Modifier.height(12.dp))
@@ -526,10 +528,11 @@ private fun RideChatSheet(ride: RideDto, onClose: () -> Unit) {
                 }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.weight(1f).clip(RoundedCornerShape(22.dp)).background(settingsBackground()).padding(horizontal = 14.dp, vertical = 12.dp)) {
-                    if (text.isEmpty()) Text(stringResource(R.string.rd_chat_hint), color = settingsMut())
-                    BasicTextField(text, { text = it.take(1000) }, textStyle = TextStyle(color = settingsInk(), fontSize = 15.sp), cursorBrush = SolidColor(settingsAccent()), modifier = Modifier.fillMaxWidth())
-                }
+                DorrTextField(
+                    value = text, onValueChange = { text = it.take(1000) },
+                    placeholder = stringResource(R.string.rd_chat_hint), minHeight = 48.dp,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(8.dp))
                 Box(
                     Modifier.size(46.dp).clip(CircleShape).background(if (text.isBlank()) settingsMut() else settingsAccent())

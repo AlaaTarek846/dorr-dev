@@ -79,6 +79,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideCurrencyDto
 import com.dorr.app.network.RideDto
@@ -210,20 +211,13 @@ internal fun PromoCodeRow(state: RidesState) {
                 Expander(Icons.Rounded.LocalOffer, stringResource(R.string.rd_promo_title), null, open) { open = !open }
                 AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(
-                            Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(settingsBackground())
-                                .border(BorderStroke(1.dp, if (state.couponError != null) AppColors.danger else Color.Transparent), RoundedCornerShape(12.dp))
-                                .padding(horizontal = 12.dp, vertical = 12.dp),
-                        ) {
-                            if (code.isEmpty()) Text(stringResource(R.string.rd_promo_hint), color = settingsMut(), fontSize = 14.sp)
-                            BasicTextField(
-                                code, { code = it.uppercase().filter { c -> !c.isWhitespace() }.take(40); state.couponError = null },
-                                singleLine = true, textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp),
-                                cursorBrush = SolidColor(settingsAccent()),
-                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
+                        DorrTextField(
+                            value = code, onValueChange = { code = it.uppercase().filter { c -> !c.isWhitespace() }.take(40); state.couponError = null },
+                            placeholder = stringResource(R.string.rd_promo_hint), icon = Icons.Rounded.LocalOffer,
+                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                            error = state.couponError != null,
+                            modifier = Modifier.weight(1f),
+                        )
                         Spacer(Modifier.width(8.dp))
                         Box(
                             Modifier.clip(RoundedCornerShape(12.dp)).background(if (code.isNotBlank()) settingsAccent() else settingsAccent().copy(alpha = 0.35f))
@@ -440,15 +434,12 @@ internal fun TipSection(ride: RideDto, onTipped: (RideDto) -> Unit) {
                         TipChip(stringResource(R.string.rd_tip_other), other, Modifier.weight(1f)) { other = !other; chosen = null; error = null }
                     }
                     AnimatedVisibility(other, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                        Box(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(12.dp)) {
-                            if (typed.isEmpty()) Text(stringResource(R.string.rd_tip_amount_hint, money(tip.maxMinor, ride.currency)), color = settingsMut(), fontSize = 13.sp)
-                            BasicTextField(
-                                typed, { v -> typed = v.filter { it.isDigit() || it == '.' }.take(8); error = null }, singleLine = true,
-                                textStyle = TextStyle(color = settingsInk(), fontSize = 15.sp, fontWeight = FontWeight.SemiBold),
-                                cursorBrush = SolidColor(settingsAccent()), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
+                        DorrTextField(
+                            value = typed, onValueChange = { v -> typed = v.filter { it.isDigit() || it == '.' }.take(8); error = null },
+                            placeholder = stringResource(R.string.rd_tip_amount_hint, money(tip.maxMinor, ride.currency)), icon = Icons.Rounded.Savings,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                        )
                     }
                     error?.let { Text(it, color = AppColors.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
                     AnimatedVisibility(amount != null && amount > 0) {

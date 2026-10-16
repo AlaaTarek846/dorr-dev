@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideChangeDto
 import com.dorr.app.network.RideDto
@@ -258,18 +259,13 @@ internal fun ChangeTripPage(state: RidesState, onClose: () -> Unit) {
 
         val p = preview
         if (p == null) {
-            Row(
-                Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsCard()).padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.Search, null, tint = settingsMut())
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.weight(1f)) {
-                    if (query.isEmpty()) Text(stringResource(if (adding) R.string.rd_change_search_stop else R.string.rd_change_search), color = settingsMut())
-                    BasicTextField(value = query, onValueChange = { query = it }, singleLine = true, textStyle = TextStyle(color = settingsInk(), fontSize = 16.sp), cursorBrush = SolidColor(settingsAccent()), modifier = Modifier.fillMaxWidth())
-                }
-                if (searching || busy) CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-            }
+            DorrTextField(
+                value = query, onValueChange = { query = it },
+                placeholder = stringResource(if (adding) R.string.rd_change_search_stop else R.string.rd_change_search), icon = Icons.Rounded.Search,
+                trailing = if (searching || busy) ({ CircularProgressIndicator(strokeWidth = 2.dp, color = settingsAccent(), modifier = Modifier.size(18.dp)) }) else null,
+                minHeight = 52.dp,
+                modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+            )
             error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp, modifier = Modifier.padding(16.dp)) }
             LazyColumn(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
                 items(results) { place ->

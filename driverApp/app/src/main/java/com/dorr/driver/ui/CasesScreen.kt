@@ -38,7 +38,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,7 +57,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.RoundIconButton
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.net.CaseDto
 import com.dorr.driver.net.CaseOptionsDto
@@ -99,14 +101,15 @@ fun CasesScreen(onBack: () -> Unit) {
     LaunchedEffect(openUuid, creating) { if (openUuid == null && !creating) load() }
     BackHandler { if (openUuid != null) openUuid = null else if (creating) creating = false else onBack() }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { if (openUuid != null) openUuid = null else if (creating) creating = false else onBack() }) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-            Text(stringResource(R.string.cs_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
+    ScreenScaffold(
+        stringResource(R.string.cs_title),
+        onBack = { if (openUuid != null) openUuid = null else if (creating) creating = false else onBack() },
+        actions = {
             if (openUuid == null && !creating && options?.available == true) {
-                IconButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, stringResource(R.string.cs_new), tint = Color.White) }
+                RoundIconButton(Icons.Filled.Add, stringResource(R.string.cs_new), onClick = { creating = true })
             }
-        }
+        },
+    ) {
         when {
             openUuid != null -> CaseDetail(openUuid.orEmpty())
             creating -> NewCase(options, onCreated = { uuid -> creating = false; openUuid = uuid })
@@ -219,7 +222,7 @@ private fun NewCase(options: CaseOptionsDto?, onCreated: (String) -> Unit) {
             }
         }
         Card {
-            OutlinedTextField(
+            DorrField(
                 value = summary, onValueChange = { summary = it }, label = { Text(stringResource(R.string.cs_summary)) },
                 modifier = Modifier.fillMaxWidth(), minLines = 3,
             )
@@ -355,7 +358,7 @@ private fun CaseDetail(uuid: String) {
             }
             if (d.canMessage) {
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(stringResource(R.string.cs_write)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                DorrField(value = text, onValueChange = { text = it }, label = { Text(stringResource(R.string.cs_write)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
                 Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     // D-232: photos of what the captain has (a screenshot, a receipt…).
                     Row(
@@ -384,7 +387,7 @@ private fun CaseDetail(uuid: String) {
                     Spacer(Modifier.height(8.dp))
                     BigButton(stringResource(R.string.cs_appeal), color = DorrBrand.navy) { appealing = true }
                 } else {
-                    OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(stringResource(R.string.cs_appeal_why)) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                    DorrField(value = note, onValueChange = { note = it }, label = { Text(stringResource(R.string.cs_appeal_why)) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
                     Spacer(Modifier.height(8.dp))
                     BigButton(stringResource(R.string.cs_appeal_send), color = DorrBrand.navy, enabled = note.trim().length >= 3, busy = busy) {
                         act { apiCall { DriverBackend.api.appealCase(uuid, JsonObject().apply { addProperty("note", note.trim()) }) } }

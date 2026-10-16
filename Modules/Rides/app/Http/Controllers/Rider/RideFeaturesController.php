@@ -29,9 +29,13 @@ class RideFeaturesController extends Controller
             ? ['service' => false, 'categories' => [], 'features' => array_fill_keys(RideFeatures::FEATURES, false)]
             : $features->snapshot($countryId, $cityId);
 
+        // Why the service is off, so the app can say so: we don't know the country, or nobody switched `rides` on there.
+        $reason = $snapshot['service'] ? null : ($countryId === null ? 'no_country' : 'not_enabled');
+
         return ApiResponse::success([
             'country_id' => $countryId,
             'city_id' => $cityId,
+            'reason' => $reason,
             ...$snapshot,
         ], __('api.retrieved'));
     }

@@ -319,4 +319,7 @@
     <string name="rd_cases_ev_completed">انتهت الرحلة</string>
     <string name="rd_cases_ev_canceled">أُلغيت</string>
     <string name="rd_cases_ev_no_show">عدم حضور</string>
+    <string name="rd_na_title">خدمة التوصيل غير متاحة في موقعك بعد</string>
+    <string name="rd_na_not_enabled">لم يتم تشغيل خدمة التوصيل في دولتك أو مدينتك حتى الآن. بمجرد تشغيلها تقدر تطلب من هنا مباشرة.</string>
+    <string name="rd_na_no_country">لم نتمكن من تحديد موقعك. اسمح بالوصول للموقع أو حدّد دولتك في حسابك ثم حاول مرة أخرى.</string>
 </resources>

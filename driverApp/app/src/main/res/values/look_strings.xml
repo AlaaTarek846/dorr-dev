@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The captain app's shell: splash, bottom bar, account and settings (same design as the DORR app). -->
+<resources>
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="app_tagline">Powered by Dorr</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_earnings">Earnings</string>
+    <string name="nav_wallet">Wallet</string>
+    <string name="nav_account">Account</string>
+
+    <string name="login_hero">Drive with DORR</string>
+    <string name="login_terms">By continuing you agree to the terms of use and the privacy policy.</string>
+    <string name="otp_wrong">That code isn\'t right. Try again.</string>
+
+    <string name="acct_title">Account</string>
+    <string name="acct_driving">Driving</string>
+    <string name="acct_app">The app</string>
+    <string name="acct_account_status">Account status</string>
+    <string name="acct_signup">Documents &amp; vehicle</string>
+    <string name="acct_signup_hint">Your licence, your vehicle and their review</string>
+    <string name="acct_appearance">Appearance</string>
+    <string name="acct_mode_system">Like the phone</string>
+    <string name="acct_mode_light">Light</string>
+    <string name="acct_mode_dark">Dark</string>
+    <string name="acct_language">Language</string>
+    <string name="acct_lang_system">Like the phone</string>
+    <string name="acct_lang_ar">العربية</string>
+    <string name="acct_lang_en">English</string>
+    <string name="acct_notifications_hint">Requests, payments and account news</string>
+    <string name="acct_logout_title">Sign out?</string>
+    <string name="acct_logout_message">You\'ll go offline and stop receiving requests on this phone.</string>
+    <string name="acct_version">Version %1$s</string>
+    <string name="acct_rating">Rating</string>
+    <string name="acct_trips_total">Trips</string>
+
+    <string name="home_today_title">Today</string>
+    <string name="home_open_earnings">Details</string>
+    <string name="home_offline_hint">Go online to start receiving requests</string>
+</resources>

@@ -216,6 +216,8 @@ data class RideFeaturesDto(
     @SerializedName("country_id") val countryId: Int? = null,
     @SerializedName("city_id") val cityId: Int? = null,
     val service: Boolean = false,
+    /** Why `service` is off: `no_country` (we can't tell where you are) or `not_enabled` (nobody switched rides on there). */
+    val reason: String? = null,
     val categories: Map<String, Boolean> = emptyMap(),
     val features: Map<String, Boolean> = emptyMap(),
 )

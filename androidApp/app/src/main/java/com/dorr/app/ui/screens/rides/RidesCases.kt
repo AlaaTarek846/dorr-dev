@@ -27,7 +27,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.SupportAgent
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -45,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideCaseDto
 import com.dorr.app.network.RideCaseOptionsDto
@@ -217,7 +217,7 @@ private fun NewCase(state: RidesState, options: RideCaseOptionsDto?, onCreated: 
             }
         }
         CaseCard {
-            OutlinedTextField(value = summary, onValueChange = { summary = it }, label = { Text(stringResource(R.string.rd_cases_summary)) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+            DorrTextField(value = summary, onValueChange = { summary = it }, label = stringResource(R.string.rd_cases_summary), modifier = Modifier.fillMaxWidth(), singleLine = false, minLines = 3)
             error?.let { Text(it, color = com.dorr.app.ui.theme.AppColors.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
         }
         AccentButton(
@@ -328,7 +328,7 @@ private fun CaseDetail(uuid: String) {
             }
             if (d.canMessage) {
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(value = text, onValueChange = { text = it }, label = { Text(stringResource(R.string.rd_cases_write)) }, modifier = Modifier.fillMaxWidth(), minLines = 2)
+                DorrTextField(value = text, onValueChange = { text = it }, label = stringResource(R.string.rd_cases_write), modifier = Modifier.fillMaxWidth(), singleLine = false, minLines = 2)
                 Spacer(Modifier.height(8.dp))
                 AccentButton(stringResource(R.string.rd_cases_reply), enabled = text.isNotBlank(), busy = busy) {
                     act { ApiClient.rides.caseMessage(ridesAuth(), uuid, JsonObject().apply { addProperty("body", text.trim()) }).data }
@@ -344,7 +344,7 @@ private fun CaseDetail(uuid: String) {
                     Spacer(Modifier.height(8.dp))
                     AccentButton(stringResource(R.string.rd_cases_appeal)) { appealing = true }
                 } else {
-                    OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text(stringResource(R.string.rd_cases_appeal_why)) }, modifier = Modifier.fillMaxWidth(), minLines = 3)
+                    DorrTextField(value = note, onValueChange = { note = it }, label = stringResource(R.string.rd_cases_appeal_why), modifier = Modifier.fillMaxWidth(), singleLine = false, minLines = 3)
                     Spacer(Modifier.height(8.dp))
                     AccentButton(stringResource(R.string.rd_cases_appeal_send), enabled = note.trim().length >= 3, busy = busy) {
                         act { ApiClient.rides.appealCase(ridesAuth(), uuid, JsonObject().apply { addProperty("note", note.trim()) }).data }

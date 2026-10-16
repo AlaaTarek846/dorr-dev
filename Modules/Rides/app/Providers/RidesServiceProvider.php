@@ -10,6 +10,7 @@ use Modules\Driver\Events\DriverLocationUpdated;
 use Modules\Driver\Models\Driver;
 use Modules\Rides\Console\DispatchTick;
 use Modules\Rides\Console\DrivingHoursSweep;
+use Modules\Rides\Console\EnableCountry;
 use Modules\Rides\Console\ReleaseEarnings;
 use Modules\Rides\Console\WaslEligibility;
 use Modules\Rides\Console\WaslLocations;
@@ -49,6 +50,7 @@ class RidesServiceProvider extends ModuleServiceProvider
     protected array $commands = [
         DispatchTick::class,
         DrivingHoursSweep::class,
+        EnableCountry::class,
         ReleaseEarnings::class,
         WaslTrips::class,
         WaslLocations::class,

@@ -38,6 +38,10 @@ interface DriverApi {
     @POST("driver/v1/auth/logout")
     suspend fun logout(): Response<ApiEnvelope<Any>>
 
+    /** The platform's colours, the same ones the DORR app reads (public — also before signing in). */
+    @GET("general/v1/mobile-appearance-defaults")
+    suspend fun appearanceDefaults(): Response<ApiEnvelope<AppearanceDefaultsDto>>
+
     @POST("driver/v1/notifications/devices")
     suspend fun registerDevice(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
 
@@ -357,6 +361,11 @@ data class OtpSent(
     @SerializedName("masked_phone") val maskedPhone: String? = null,
     @SerializedName("is_new_driver") val isNewDriver: Boolean = false,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int = 60,
+)
+
+data class AppearanceDefaultsDto(
+    @SerializedName("light_tokens") val lightTokens: Map<String, String>? = null,
+    @SerializedName("dark_tokens") val darkTokens: Map<String, String>? = null,
 )
 
 data class SignedIn(
