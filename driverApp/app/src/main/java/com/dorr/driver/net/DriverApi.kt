@@ -305,6 +305,32 @@ interface DriverApi {
     @GET("driver/v1/driving-hours")
     suspend fun drivingHours(): Response<ApiEnvelope<DrivingHoursDto>>
 
+    // ---------------------------------------------------------------- cases (D-229..D-238)
+    @GET("driver/v1/rides")
+    suspend fun rideHistory(@Query("page") page: Int = 1): Response<ApiEnvelope<DriverRideListDto>>
+
+    @GET("driver/v1/cases/options")
+    suspend fun caseOptions(): Response<ApiEnvelope<CaseOptionsDto>>
+
+    @GET("driver/v1/cases")
+    suspend fun cases(): Response<ApiEnvelope<List<CaseDto>>>
+
+    @POST("driver/v1/cases")
+    suspend fun openCase(@Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    @GET("driver/v1/cases/{uuid}")
+    suspend fun caseOf(@Path("uuid") uuid: String): Response<ApiEnvelope<CaseDto>>
+
+    @POST("driver/v1/cases/{uuid}/messages")
+    suspend fun caseMessage(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    @Multipart
+    @POST("driver/v1/cases/{uuid}/files")
+    suspend fun caseFile(@Path("uuid") uuid: String, @Part file: MultipartBody.Part): Response<ApiEnvelope<CaseDto>>
+
+    @POST("driver/v1/cases/{uuid}/appeal")
+    suspend fun appealCase(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
     // ---------------------------------------------------------------- driving preferences (D-32..D-37)
     @GET("driver/v1/preferences")
     suspend fun preferences(): Response<ApiEnvelope<PreferencesDto>>

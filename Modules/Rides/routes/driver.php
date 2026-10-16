@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Rides\Http\Controllers\Cases\PartyCaseController;
 use Modules\Rides\Http\Controllers\Driver\DriverAirportController;
 use Modules\Rides\Http\Controllers\Driver\DriverDrivingHoursController;
 use Modules\Rides\Http\Controllers\Driver\DriverEarningsController;
@@ -29,6 +30,15 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
 
         // What the captain wants to be asked (D-32..D-37): categories, pickup range, Auto-Accept.
         Route::get('driving-hours', DriverDrivingHoursController::class);
+
+        // Disputes and "the rider left without paying" reports, as cases of their own (D-229..D-238).
+        Route::get('cases/options', [PartyCaseController::class, 'options']);
+        Route::get('cases', [PartyCaseController::class, 'index']);
+        Route::post('cases', [PartyCaseController::class, 'store']);
+        Route::get('cases/{uuid}', [PartyCaseController::class, 'show'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/messages', [PartyCaseController::class, 'message'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/files', [PartyCaseController::class, 'file'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/appeal', [PartyCaseController::class, 'appeal'])->whereUuid('uuid');
         Route::get('preferences', [DriverPreferencesController::class, 'show']);
         Route::put('preferences', [DriverPreferencesController::class, 'update']);
 

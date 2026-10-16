@@ -146,6 +146,11 @@ internal class RidesState {
     var scheduleOpen by mutableStateOf(false)
     var myRidesOpen by mutableStateOf(false)
 
+    /** Complaints and disputes (R-133..R-140): the page is open, and the ride a new one is about (null = pick). */
+    var casesOpen by mutableStateOf(false)
+    var caseRideUuid by mutableStateOf<String?>(null)
+    var caseStartNew by mutableStateOf(false)
+
     /** The Safety Center page is open (R-219). */
     var safetyOpen by mutableStateOf(false)
 
@@ -260,6 +265,7 @@ fun RidesHost(onExit: () -> Unit) {
             state.scheduleOpen -> state.scheduleOpen = false
             state.safetyOpen -> state.safetyOpen = false
             state.changing != null -> state.changing = null
+            state.casesOpen -> state.casesOpen = false
             state.myRidesOpen -> state.myRidesOpen = false
             state.ride != null && state.fromHistory -> { state.ride = null; state.resetBooking() }
             state.ride != null -> onExit()
@@ -327,6 +333,12 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { MyRidesPage(state, onClose = { state.myRidesOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.casesOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { CasesPage(state, onClose = { state.casesOpen = false }) }
 
         androidx.compose.animation.AnimatedVisibility(
             visible = state.changing != null && state.ride != null,

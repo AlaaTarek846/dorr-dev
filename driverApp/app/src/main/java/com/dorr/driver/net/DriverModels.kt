@@ -593,3 +593,85 @@ data class DrivingHoursDto(
     val level: String = "ok",
     @SerializedName("free_at") val freeAt: String? = null,
 )
+
+// ---------------------------------------------------------------- cases: disputes and unpaid-ride reports (D-229..D-238)
+
+data class CaseOptionDto(val code: String, val label: String = "")
+
+data class CaseOptionsDto(
+    val available: Boolean = false,
+    val kinds: List<CaseOptionDto> = emptyList(),
+    @SerializedName("dispute_reasons") val disputeReasons: List<CaseOptionDto> = emptyList(),
+    @SerializedName("max_files") val maxFiles: Int = 6,
+)
+
+data class CaseRideRefDto(val uuid: String = "", val number: String? = null, val status: String? = null)
+
+data class CaseMessageDto(val id: Long = 0, val from: String = "", val body: String = "", val at: String? = null)
+
+data class CaseFileDto(val id: Long = 0, val name: String = "", val mime: String? = null, val size: Long = 0, val url: String = "", val mine: Boolean = false)
+
+data class CaseDecisionDto(
+    val outcome: String = "",
+    val reason: String? = null,
+    @SerializedName("decided_at") val decidedAt: String? = null,
+)
+
+data class CaseMilestoneDto(
+    val event: String = "",
+    val at: String? = null,
+    @SerializedName("distance_to_pickup_m") val distanceToPickupM: Int? = null,
+)
+
+data class CaseLineDto(val code: String = "", @SerializedName("amount_minor") val amountMinor: Long = 0)
+
+data class CaseWaitingDto(@SerializedName("pickup_s") val pickupS: Long = 0, @SerializedName("free_s") val freeS: Long = 0)
+
+data class CaseRouteDto(@SerializedName("planned_m") val plannedM: Long? = null, @SerializedName("driven_m") val drivenM: Long? = null)
+
+data class CaseEvidenceDto(
+    val timeline: List<CaseMilestoneDto> = emptyList(),
+    val waiting: CaseWaitingDto? = null,
+    val route: CaseRouteDto? = null,
+    val lines: List<CaseLineDto> = emptyList(),
+)
+
+/** A case as the captain sees it: the list carries the headline only, the detail adds the rest. */
+data class CaseDto(
+    val uuid: String = "",
+    val number: String = "",
+    val kind: String = "",
+    @SerializedName("kind_label") val kindLabel: String = "",
+    @SerializedName("category_label") val categoryLabel: String = "",
+    val status: String = "submitted",
+    @SerializedName("status_label") val statusLabel: String = "",
+    val decided: Boolean = false,
+    val summary: String? = null,
+    val ride: CaseRideRefDto? = null,
+    @SerializedName("disputed_minor") val disputedMinor: Long? = null,
+    val currency: CurrencyDto? = null,
+    val evidence: CaseEvidenceDto? = null,
+    val messages: List<CaseMessageDto> = emptyList(),
+    val files: List<CaseFileDto> = emptyList(),
+    val decision: CaseDecisionDto? = null,
+    @SerializedName("can_message") val canMessage: Boolean = false,
+    @SerializedName("can_appeal") val canAppeal: Boolean = false,
+    @SerializedName("appealed_at") val appealedAt: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
+)
+
+/** One finished ride in the captain's recent list — what a dispute or an unpaid report is about. */
+data class DriverRideItemDto(
+    val uuid: String = "",
+    val number: String? = null,
+    val status: String = "",
+    val category: String? = null,
+    @SerializedName("origin_address") val originAddress: String? = null,
+    @SerializedName("destination_address") val destinationAddress: String? = null,
+    @SerializedName("earning_minor") val earningMinor: Long? = null,
+    @SerializedName("payment_method") val paymentMethod: String? = null,
+    val currency: String? = null,
+    @SerializedName("completed_at") val completedAt: String? = null,
+)
+
+data class DriverRideListDto(val items: List<DriverRideItemDto> = emptyList())

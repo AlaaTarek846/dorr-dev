@@ -76,6 +76,7 @@ fun DriverNavHost() {
                     onOpenNotifications = { nav.navigate("notifications") },
                     onOpenWallet = { nav.navigate("wallet") },
                     onOpenPreferences = { nav.navigate("preferences") },
+                    onOpenCases = { nav.navigate("cases") },
                 )
             }
             composable("signup") { SignupScreen(onBack = { nav.popBackStack() }) }
@@ -91,6 +92,7 @@ fun DriverNavHost() {
                         event.contains("safety") || event.contains("contact") -> nav.navigate("safety")
                         event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
                         event.startsWith("ride.zone_") -> nav.navigate("airport")
+                        event.startsWith("ride.case_") -> nav.navigate("cases")
                         event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")
                     }
                 })
@@ -98,6 +100,7 @@ fun DriverNavHost() {
             composable("safety") { SafetyCenterScreen(onBack = { nav.popBackStack() }) }
             composable("airport") { AirportScreen(onBack = { nav.popBackStack() }) }
             composable("preferences") { PreferencesScreen(onBack = { nav.popBackStack() }) }
+            composable("cases") { CasesScreen(onBack = { nav.popBackStack() }) }
             composable("scheduled") {
                 ScheduledScreen(onBack = { nav.popBackStack() }, onStarted = { nav.navigate("trip") { popUpTo("home") } })
             }

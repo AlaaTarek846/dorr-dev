@@ -845,6 +845,7 @@ const ridesItems = [
     { route: 'admin.rides.policies', permission: 'ride-policies.view', icon: 'ri-price-tag-3-line', label: 'rides.policies.title' },
     { route: 'admin.rides.zones', permission: 'ride-zones.view', icon: 'ri-map-pin-range-line', label: 'rides.zones.title' },
     { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
+    { route: 'admin.rides.cases', permission: 'ride-cases.view', icon: 'ri-customer-service-2-line', label: 'rides.cases.title' },
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },

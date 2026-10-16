@@ -41,6 +41,7 @@ import androidx.compose.material.icons.filled.AccountBalanceWallet
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Coffee
 import androidx.compose.material.icons.filled.ErrorOutline
+import androidx.compose.material.icons.filled.Gavel
 import androidx.compose.material.icons.filled.GpsOff
 import androidx.compose.material.icons.filled.Event
 import androidx.compose.material.icons.filled.Flight
@@ -100,7 +101,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreen(
     onSignedOut: () -> Unit, onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenScheduled: () -> Unit, onOpenAirport: () -> Unit,
-    onOpenSafety: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenPreferences: () -> Unit,
+    onOpenSafety: () -> Unit, onOpenNotifications: () -> Unit, onOpenWallet: () -> Unit, onOpenPreferences: () -> Unit, onOpenCases: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -379,6 +380,20 @@ fun HomeScreen(
                     Column(Modifier.weight(1f)) {
                         Text(stringResource(R.string.pf_title), fontWeight = FontWeight.Bold)
                         Text(stringResource(R.string.pf_home_hint), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                    }
+                    Icon(Icons.Filled.ChevronRight, null)
+                }
+            }
+            // Disputes and "the rider left without paying" reports (D-229..D-238).
+            Card(Modifier.clickable(onClick = onOpenCases)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(44.dp).clip(CircleShape).background(DorrBrand.warning.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Filled.Gavel, null, tint = DorrBrand.warning)
+                    }
+                    Spacer(Modifier.size(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.cs_title), fontWeight = FontWeight.Bold)
+                        Text(stringResource(R.string.cs_home_hint), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
                     }
                     Icon(Icons.Filled.ChevronRight, null)
                 }

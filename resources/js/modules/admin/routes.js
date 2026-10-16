@@ -645,6 +645,18 @@ export default [
                 meta: { middleware: [auth], permission: 'ride-zones.view' },
             },
             {
+                path: 'rides/cases',
+                name: 'admin.rides.cases',
+                component: page('rides/cases/index'),
+                meta: { middleware: [auth], permission: 'ride-cases.view' },
+            },
+            {
+                path: 'rides/cases/:id(\\d+)',
+                name: 'admin.rides.cases.show',
+                component: page('rides/cases/show'),
+                meta: { middleware: [auth], permission: 'ride-cases.view' },
+            },
+            {
                 path: 'rides/safety',
                 name: 'admin.rides.safety',
                 component: page('rides/safety/index'),

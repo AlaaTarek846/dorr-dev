@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Support\Api\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Modules\User\Enums\SupportTicketStatus;
 use Modules\User\Http\Requests\StoreSupportMessageRequest;
 use Modules\User\Http\Requests\StoreSupportTicketRequest;
@@ -48,7 +49,10 @@ class SupportTicketController extends Controller
         $user = $request->user('user_api');
         $data = $request->validated();
 
-        $ticket = $this->service->open($user, $data['title'], $data['body'], $request->file('image'));
+        // R-127: the ride the ticket is about, found by its uuid among this customer's own rides (validated).
+        $rideId = empty($data['ride_uuid']) ? null : DB::table('rides')->where('uuid', $data['ride_uuid'])->where('user_id', $user->getKey())->value('id');
+
+        $ticket = $this->service->open($user, $data['title'], $data['body'], $request->file('image'), $rideId);
 
         return ApiResponse::success(new SupportTicketResource($ticket), __('api.support_ticket_created'), 201);
     }

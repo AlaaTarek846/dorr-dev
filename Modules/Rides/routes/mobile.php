@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Rides\Http\Controllers\Cases\PartyCaseController;
 use Modules\Rides\Http\Controllers\RideChangeController;
 use Modules\Rides\Http\Controllers\RideSafetyController;
 use Modules\Rides\Http\Controllers\SafetyCenterController;
@@ -20,6 +21,15 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::get('places', [PlacesController::class, 'index']);
         // R-INN-07 DORR Circle: my favourite captains to choose from.
         Route::get('circle', [CircleController::class, 'index']);
+
+        // Complaints and financial disputes, apart from general support (R-133..R-140).
+        Route::get('cases/options', [PartyCaseController::class, 'options']);
+        Route::get('cases', [PartyCaseController::class, 'index']);
+        Route::post('cases', [PartyCaseController::class, 'store']);
+        Route::get('cases/{uuid}', [PartyCaseController::class, 'show'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/messages', [PartyCaseController::class, 'message'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/files', [PartyCaseController::class, 'file'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/appeal', [PartyCaseController::class, 'appeal'])->whereUuid('uuid');
 
         Route::get('cancel-reasons', [RideController::class, 'cancelReasons']);
         Route::get('rating-tags', [RideController::class, 'ratingTags']);

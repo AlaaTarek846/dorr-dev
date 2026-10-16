@@ -19,6 +19,8 @@ class SupportTicketResource extends JsonResource
             'id' => $this->id,
             'number' => $this->number,
             'title' => $this->title,
+            // R-127: the ride it is about, when it is about one.
+            'ride' => $this->rideRef(),
             'body' => $this->body,
             'image_url' => $this->imageUrl(),
             'status' => $this->status->value,
