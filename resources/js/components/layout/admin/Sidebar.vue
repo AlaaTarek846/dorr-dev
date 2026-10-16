@@ -843,6 +843,7 @@ const ridesItems = [
     { route: 'admin.rides.switches', permission: 'ride-feature-rules.view', icon: 'ri-toggle-line', label: 'rides.switches.title' },
     { route: 'admin.rides.categories', permission: 'ride-categories.view', icon: 'ri-apps-2-line', label: 'rides.categories.title' },
     { route: 'admin.rides.policies', permission: 'ride-policies.view', icon: 'ri-price-tag-3-line', label: 'rides.policies.title' },
+    { route: 'admin.rides.zones', permission: 'ride-zones.view', icon: 'ri-map-pin-range-line', label: 'rides.zones.title' },
     { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
     { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },

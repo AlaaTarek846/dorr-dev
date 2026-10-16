@@ -71,9 +71,11 @@ fun DriverNavHost() {
                     onOpenRide = { if (nav.currentDestination?.route != "trip") nav.navigate("trip") },
                     onOpenEarnings = { nav.navigate("earnings") },
                     onOpenScheduled = { nav.navigate("scheduled") },
+                    onOpenAirport = { nav.navigate("airport") },
                     onOpenSafety = { nav.navigate("safety") },
                     onOpenNotifications = { nav.navigate("notifications") },
                     onOpenWallet = { nav.navigate("wallet") },
+                    onOpenPreferences = { nav.navigate("preferences") },
                 )
             }
             composable("signup") { SignupScreen(onBack = { nav.popBackStack() }) }
@@ -88,11 +90,14 @@ fun DriverNavHost() {
                         event.startsWith("wallet") || event.contains("earnings") -> nav.navigate("wallet")
                         event.contains("safety") || event.contains("contact") -> nav.navigate("safety")
                         event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
+                        event.startsWith("ride.zone_") -> nav.navigate("airport")
                         event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")
                     }
                 })
             }
             composable("safety") { SafetyCenterScreen(onBack = { nav.popBackStack() }) }
+            composable("airport") { AirportScreen(onBack = { nav.popBackStack() }) }
+            composable("preferences") { PreferencesScreen(onBack = { nav.popBackStack() }) }
             composable("scheduled") {
                 ScheduledScreen(onBack = { nav.popBackStack() }, onStarted = { nav.navigate("trip") { popUpTo("home") } })
             }

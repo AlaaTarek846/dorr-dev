@@ -639,6 +639,12 @@ export default [
                 meta: { middleware: [auth], permission: 'ride-policies.view' },
             },
             {
+                path: 'rides/zones',
+                name: 'admin.rides.zones',
+                component: page('rides/zones/index'),
+                meta: { middleware: [auth], permission: 'ride-zones.view' },
+            },
+            {
                 path: 'rides/safety',
                 name: 'admin.rides.safety',
                 component: page('rides/safety/index'),

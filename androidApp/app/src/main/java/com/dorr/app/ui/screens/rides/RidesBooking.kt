@@ -118,6 +118,7 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
             Spacer(Modifier.width(10.dp))
             Text(stringResource(R.string.rd_where_to), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 18.sp)
         }
+        if (state.feature("saved_places")) SavedPlacesRow(state)
         if (state.feature("scheduled")) {
             Spacer(Modifier.height(10.dp))
             WhenChips(state)
@@ -180,17 +181,30 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
     LaunchedEffect(state.editing) { runCatching { focus.requestFocus() } }
 
     fun picked(point: RidePoint) {
+        // R-5: the search is choosing Home or Work to keep, not a trip.
+        state.savingPlace?.let { type ->
+            savePlace(state, point, type)
+            state.savingPlace = null
+            state.step = RideStep.Map
+            return
+        }
         state.set(point)
         if (state.destination != null && state.pickup != null) loadQuotes(state) else state.step = RideStep.Map
     }
 
     Column(Modifier.fillMaxSize().background(settingsBackground()).statusBarsPadding().imePadding()) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            RoundButton(Icons.AutoMirrored.Rounded.ArrowBack) { state.step = if (state.quotes.isNotEmpty()) RideStep.Quotes else RideStep.Map }
+            RoundButton(Icons.AutoMirrored.Rounded.ArrowBack) {
+                state.savingPlace = null
+                state.step = if (state.quotes.isNotEmpty()) RideStep.Quotes else RideStep.Map
+            }
             Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.rd_where_to), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            Text(
+                stringResource(when (state.savingPlace) { "home" -> R.string.rd_place_pick_home; "work" -> R.string.rd_place_pick_work; else -> R.string.rd_where_to }),
+                color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp,
+            )
         }
-        Column(Modifier.padding(horizontal = 16.dp).clip(RoundedCornerShape(18.dp)).background(settingsCard()).padding(12.dp)) {
+        if (state.savingPlace == null) Column(Modifier.padding(horizontal = 16.dp).clip(RoundedCornerShape(18.dp)).background(settingsCard()).padding(12.dp)) {
             FieldRow(AppColors.brandNavy, stringResource(R.string.rd_pickup), state.pickup?.address, state.editing == "pickup") { state.editing = "pickup" }
             state.stops.forEachIndexed { i, stop ->
                 FieldRow(AppColors.warning, stringResource(R.string.rd_stop, i + 1), stop.address, state.editing == "stop:$i", onRemove = { state.stops.removeAt(i) }) { state.editing = "stop:$i" }
@@ -221,7 +235,7 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
             if (searching) androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
         }
         LazyColumn(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
-            item {
+            if (state.savingPlace == null) item {
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
                         state.step = RideStep.PickOnMap
@@ -298,9 +312,14 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
     state.error = null
     state.busy = true
     kotlinx.coroutines.MainScope().launch {
+        // R-16..R-18: in an airport or other sensitive place, the rider picks an approved point first.
+        if (!reprice && state.feature("pickup_points") && askForPoint(state, pickup, state.destination?.takeIf { !state.openDestination })) {
+            state.busy = false
+            return@launch
+        }
         val body = JsonObject().apply {
-            add("origin", pickup.json())
-            state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json()) }
+            add("origin", pickup.json().apply { state.pickupPointId?.let { addProperty("point_id", it) } })
+            state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json().apply { state.dropoffPointId?.let { id -> addProperty("point_id", id) } }) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
             state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
         }
@@ -353,6 +372,14 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 state.scheduledAt?.let { addProperty("scheduled_at", it.toOffsetDateTime().toString()) }
                 addProperty("passengers", state.passengers)
                 state.pickupNote.trim().takeIf { it.isNotEmpty() }?.let { addProperty("pickup_note", it) }
+                // R-13: the person the ride is for, with the rider's own consent tick.
+                // R-INN-07: the favourite captains first.
+                circleBody(state)?.let { add("circle", it) }
+                if (state.forOther) add("beneficiary", JsonObject().apply {
+                    addProperty("name", state.beneficiaryName.trim())
+                    addProperty("phone", state.beneficiaryPhone.trim())
+                    addProperty("consent", state.beneficiaryConsent)
+                })
             }
             runCatching { ApiClient.rides.book(ridesAuth(), UUID.randomUUID().toString(), body).data }
                 .onSuccess { ride ->
@@ -368,6 +395,11 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 }
             state.busy = false
         }
+    }
+
+    if (state.pointsChooser != null) {
+        PickupPointsPanel(state)
+        return
     }
 
     // The promo code, the price details and the cancellation rules make this sheet taller: it scrolls.
@@ -402,8 +434,14 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 if (state.feature("cash") && quote.category.cashAllowed != false) PayChip(Icons.Rounded.Payments, stringResource(R.string.rd_pay_cash), state.payment == "cash", Modifier.weight(1f), fee("cash")) { state.payment = "cash" }
             }
             Spacer(Modifier.height(6.dp))
+            // R-5, R-174: keep this destination as Home, Work or a favourite.
+            if (state.feature("saved_places")) SaveDestinationRow(state)
             // D-60, D-61: how many ride and a note for the captain.
             TripDetailsRow(state)
+            // R-13: the ride is for someone else.
+            if (state.feature("book_for_other")) BookForOtherRow(state)
+            // R-INN-07: ask my favourite captains first.
+            if (state.feature("favorite_circle")) CircleRow(state)
             // Wireflow م11 / م12: the promo code, every line of the price, and the rules it comes with.
             PromoCodeRow(state)
             PriceDetails(quote, state.payment)
@@ -432,7 +470,7 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
             AccentButton(
                 if (at != null) stringResource(R.string.rd_confirm_scheduled, quote.category.name ?: "", whenText(at, today, tomorrow))
                 else stringResource(R.string.rd_confirm, quote.category.name ?: ""),
-                enabled = at == null || quote.scheduling != null, busy = state.busy,
+                enabled = (at == null || quote.scheduling != null) && state.beneficiaryReady(), busy = state.busy,
             ) { book() }
         } ?: state.error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
     } }

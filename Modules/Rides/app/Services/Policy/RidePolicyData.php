@@ -70,6 +70,7 @@ final class RidePolicyData
                 $key === 'pricing_mode' => is_string($value) && PricingMode::tryFrom($value) !== null,
                 $key === 'gps_gap.strategy' => in_array($value, ['route', 'straight'], true),
                 $key === 'price.commission_type' => in_array($value, ['percent', 'fixed'], true),
+                $key === 'queue.entry' => in_array($value, ['auto', 'manual'], true),
                 is_bool($default) => is_bool($value),
                 is_int($default) => is_int($value),
                 is_array($default) => is_array($value) && array_is_list($value) && collect($value)->every(fn ($v) => is_int($v) && $v > 0),

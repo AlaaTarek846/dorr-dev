@@ -89,7 +89,25 @@ return [
         'too_many_passengers' => 'هذه الفئة تتسع لـ :max ركاب كحد أقصى.',
         'pickup_note_too_long' => 'اجعل الملاحظة في حدود :max حرفاً.',
         'pickup_note_contact' => 'لا تكتب أرقام هواتف أو روابط — استخدم المحادثة والاتصال داخل التطبيق.',
+        'pickup_point_required' => 'الاستلام من :zone يكون من نقطة معتمدة فقط — اختر واحدة.',
+        'dropoff_point_required' => 'التوصيل إلى :zone يكون عند نقطة معتمدة فقط — اختر واحدة.',
+        'airport_queue_not_inside' => 'لست داخل مطار فيه طابور.',
+        'airport_queue_offline' => 'اتصل بالإنترنت أولاً لتنضم إلى الطابور.',
+        'airport_queue_stale' => 'موقعك لا يصلنا — فعّل GPS وحاول مرة أخرى.',
+        'airport_queue_busy' => 'أنهِ رحلتك الحالية قبل الانضمام إلى الطابور.',
+        'airport_queue_not_eligible' => 'لا يمكنك استقبال رحلات الآن، فلا يمكنك الانضمام إلى الطابور.',
+        'circle_empty' => 'أضف كباتن إلى المفضلة أولاً — ثم احجز لدائرتك.',
+        'circle_invalid' => 'اختر الكباتن من مفضلتك.',
+        'circle_not_active' => 'هذه الرحلة لا تبحث في دائرتك الآن.',
+        'pickup_point_invalid' => 'هذه النقطة غير متاحة هنا — اختر نقطة أخرى.',
+        'beneficiary_is_you' => 'هذا رقمك أنت — للحجز لشخص آخر أدخل رقمه هو.',
         'payment_change_unavailable' => 'لا يمكن تغيير طريقة الدفع الآن.',
+        'earnings_range_in_future' => 'لا يمكن أن تبدأ الفترة بعد اليوم — اختر تواريخ حتى اليوم.',
+        'earnings_range_too_long' => 'هذه الفترة طويلة — اختر حتى :days يوماً على الأكثر.',
+        'preferences_no_category' => 'أبقِ فئة واحدة على الأقل مفعّلة.',
+        'preferences_category_unavailable' => 'إحدى هذه الفئات غير متاحة لك.',
+        'preferences_radius_too_far' => 'لا يمكن أن يتجاوز نطاق الالتقاط :km كم.',
+        'auto_accept_filter_not_allowed' => 'هذا الفلتر للقبول التلقائي غير متاح في منطقتك.',
     ],
 
     'checkout' => [
@@ -110,6 +128,8 @@ return [
     ],
 
     'messages' => [
+        'queue_joined' => 'أنت الآن في الطابور.',
+        'queue_left' => 'غادرت الطابور.',
         'bid_accepted' => 'تم الاتفاق! الكابتن في الطريق.',
         'bid_sent' => 'أُرسل عرضك للراكب.',
         'requested' => 'جارٍ البحث عن كابتن.',
@@ -231,6 +251,13 @@ return [
         'silver' => 'كابتن فضي',
         'gold' => 'كابتن ذهبي',
         'diamond' => 'كابتن ماسي',
+    ],
+
+    'point_kinds' => [
+        'gate' => 'بوابة',
+        'terminal' => 'صالة',
+        'entrance' => 'مدخل',
+        'parking' => 'موقف',
     ],
 
     'payment_methods' => [

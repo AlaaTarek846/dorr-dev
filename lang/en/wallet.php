@@ -14,6 +14,7 @@ return [
         'pin_reset_value' => 'Choose a PIN other than 0000.',
         'pin_already_set' => 'A wallet PIN already exists. Use the change-PIN option.',
         'payment_not_found' => 'Payment not found.',
+        'transaction_not_found' => 'That transaction wasn\'t found.',
         'payment_not_pending' => 'This payment is no longer pending.',
         'method_coming_soon' => 'This payment method is coming soon.',
         'method_unavailable' => 'This payment method is not available in your country.',

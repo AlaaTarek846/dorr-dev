@@ -18,6 +18,18 @@
                 <div class="col-xl-4">
                     <WalletSection :title="t('rides.rides.people')" icon="ri-team-line" class="mb-3">
                         <WalletInfoTile :label="t('rides.rides.rider')" icon="ri-user-line" class="mb-2">{{ ride.rider?.name || '—' }} <span class="text-muted fs-12" dir="ltr">{{ ride.rider?.phone }}</span></WalletInfoTile>
+                        <WalletInfoTile v-if="ride.beneficiary" :label="t('rides.rides.beneficiary')" icon="ri-user-shared-line" class="mb-2">
+                            {{ ride.beneficiary.name }} <span class="text-muted fs-12" dir="ltr">{{ ride.beneficiary.phone }}</span>
+                            <div class="text-muted fs-12">{{ t('rides.rides.beneficiary_consent') }} · {{ formatDate(ride.beneficiary.consented_at) }}</div>
+                        </WalletInfoTile>
+                        <WalletInfoTile v-if="ride.pickup_point" :label="t('rides.rides.pickup_point')" icon="ri-map-pin-user-line" class="mb-2">
+                            {{ ride.pickup_point.name }} <span class="badge bg-light text-default fs-10">{{ ride.pickup_point.kind_label }}</span>
+                            <div v-if="ride.pickup_point.instructions" class="text-muted fs-12">{{ ride.pickup_point.instructions }}</div>
+                        </WalletInfoTile>
+                        <WalletInfoTile v-if="ride.dropoff_point" :label="t('rides.rides.dropoff_point')" icon="ri-map-pin-2-line" class="mb-2">
+                            {{ ride.dropoff_point.name }} <span class="badge bg-light text-default fs-10">{{ ride.dropoff_point.kind_label }}</span>
+                            <div v-if="ride.dropoff_point.instructions" class="text-muted fs-12">{{ ride.dropoff_point.instructions }}</div>
+                        </WalletInfoTile>
                         <WalletInfoTile :label="t('rides.drivers.driver')" icon="ri-steering-2-line" class="mb-2">
                             <router-link v-if="ride.driver" :to="{ name: 'admin.rides.drivers.show', params: { id: ride.driver.id } }">{{ ride.driver.name || ride.driver.phone }}</router-link>
                             <span v-else>—</span>

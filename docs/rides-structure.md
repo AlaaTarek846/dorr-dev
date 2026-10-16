@@ -403,9 +403,31 @@
 
 | العمود | الوصف |
 |---|---|
-| `id`، و`zone_id` (`cascadeOnDelete`)، و`lat` / `lng`، و`kind` (gate / terminal / entrance / parking)، و`status`، و`sort_order` + `softDeletes` | |
+| `id`، و`zone_id` (`cascadeOnDelete`)، و`lat` / `lng`، و`kind` (gate / terminal / entrance / parking)، و`for_pickup` / `for_dropoff` (إضافة: الاستلام فقط أو التوصيل فقط، مثل صالة المغادرة)، و`status`، و`sort_order` + `softDeletes` | |
+
+- **في `ride_zones.config`:** `pickup_required` / `dropoff_required` (نقطة معتمدة إجبارية)، والنوع `pickup_only` يعني إجبارية للاستلام دايماً.
+- **على `ride_quotes` و`rides`:** `pickup_point` و`dropoff_point` (JSON: `id`، و`zone_id`، و`kind`، و`lat` / `lng`، و`name` و`instructions` بالعربي والإنجليزي) — النقطة اللي اختارها الراكب، متجمدة مع الحجز.
+- **مفتاح السياسة:** `pickup.match_m` (40) — الوقوف قريب من نقطة معتمدة بالمسافة دي يتحسب اختيار لها.
 
 - **الترجمة:** `name`، و`instructions`.
+
+### 2.7.0 على `rides` (DORR Circle، R-INN-07)
+`search_scope` (`all` / `circle`) و`circle_driver_ids` (JSON: الكباتن المفضلين اللي الرحلة اتحجزت ليهم، بتفضل بعد التوسيع) و`circle_asked_at` (الراكب اتسأل «ابحث في الكل؟» مرة واحدة). مفتاح السياسة `circle.ask_after_s` (90). الأماكن المحفوظة (R-5) من `user_addresses` ومفاتيحها `places.recent_max` (5) و`places.favorites_max` (12).
+
+### 2.7.1 `ride_queue_entries` (طابور المطار، D-276..D-280)
+مكان الكابتن في الطابور عند منطقة مطار. الصف بيفضل بعد ما الكابتن يطلع (عشان السبب والمدة، ومنها تتعلم تقدير الانتظار).
+
+| العمود | الوصف |
+|---|---|
+| `zone_id` (`cascadeOnDelete`)، و`driver_id` (`cascadeOnDelete`) | |
+| `status` | `waiting` / `left` |
+| `entry` | `auto` / `manual` (`queue.entry`) |
+| `position_at_join`، و`joined_at`، و`outside_since` | مكانه وقت الدخول؛ ووقت ما خرج بره المنطقة (مهلة `queue.leave_grace_s`) |
+| `left_at`، و`left_reason`، و`wait_s` | `manual` / `offline` / `stale` / `left_zone` / `timeout` / `got_trip` / `removed`؛ ومدة الانتظار |
+| `active_driver_id` | = `driver_id` وهو منتظر وبعدها `null`، تحت `unique`: مكان واحد بس لكل كابتن |
+
+- **مفاتيح السياسة (على مستوى المنطقة):** `queue.entry` (`auto` / `manual`)، و`queue.leave_grace_s` (120)، و`queue.stale_after_s` (300)، و`queue.max_wait_s` (0 = بلا حد)، و`queue.min_samples` (5)، و`queue.stats_days` (14)، و`zones.alert_cooldown_s` (600).
+- **في `ride_zones.config` للمطار:** `queue_enabled`.
 
 ### 2.8 أسباب الإلغاء ووسوم التقييم (+ ترجمات)
 | الجدول | الأعمدة |
@@ -465,7 +487,7 @@
 | `uuid` | `uuid` | unique | |
 | `number` | `string(24)` | unique | رقم مقروء بنفس شكل الـ Wireflow: `DR-250520-1048` (§3.14). وهو `tripId` في وصل |
 | `user_id` | `foreignId → users` | `restrictOnDelete` | الراكب |
-| `beneficiary` | `json` | nullable | لو الحجز لشخص تاني: الاسم والموبايل (المرحلة 3) |
+| `beneficiary` | `json` | nullable | لو الحجز لشخص تاني (R-13): `name`، و`phone` (أرقام بس)، و`consented_at` (إمتى أكّد الراكب موافقة الشخص) |
 | `category_id` | `foreignId → ride_categories` | `restrictOnDelete` | |
 | `country_id` / `city_id` / `currency_id` | | | |
 | `status` | `enum RideStatus` | | §11 |

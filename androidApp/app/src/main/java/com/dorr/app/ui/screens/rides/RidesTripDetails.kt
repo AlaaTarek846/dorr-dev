@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
@@ -41,9 +42,12 @@ import androidx.compose.material.icons.rounded.DirectionsCar
 import androidx.compose.material.icons.rounded.EditNote
 import androidx.compose.material.icons.rounded.Group
 import androidx.compose.material.icons.rounded.HourglassBottom
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.MilitaryTech
 import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.PersonAdd
 import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.Icon
@@ -65,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
@@ -87,7 +92,8 @@ import java.util.UUID
  *  - the captain's tier badge (R-81);
  *  - the time and distance left (D-129);
  *  - changing the way of paying before the trip starts (R-61);
- *  - the waiting countdown turning to a warning before the free minutes end (D-122).
+ *  - the waiting countdown turning to a warning before the free minutes end (D-122);
+ *  - booking for someone else (R-13).
  */
 
 /** D-60 / D-61 on the booking sheet: a − n + stepper up to the category's seats, and the pickup note. */
@@ -144,6 +150,78 @@ internal fun TripDetailsRow(state: RidesState) {
                 Text("${state.pickupNote.length}/120", color = settingsMut(), fontSize = 11.sp)
             }
         }
+    }
+}
+
+/**
+ * R-13 on the booking sheet: "The ride is for someone else" — their name and number, who pays and
+ * answers for the fees (the rider), what the captain sees (a first name only), and the rider's own
+ * consent tick, never pre-ticked. Confirm stays off until all three are filled.
+ */
+@Composable
+internal fun BookForOtherRow(state: RidesState) {
+    Row(
+        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { state.forOther = !state.forOther }.padding(vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(30.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.PersonAdd, null, tint = settingsAccent(), modifier = Modifier.size(17.dp))
+        }
+        Spacer(Modifier.width(10.dp))
+        Text(stringResource(R.string.rd_for_other_title), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
+        androidx.compose.material3.Switch(state.forOther, { state.forOther = it })
+    }
+    AnimatedVisibility(state.forOther, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            BeneficiaryField(state.beneficiaryName, stringResource(R.string.rd_for_other_name), KeyboardType.Text) { state.beneficiaryName = it.take(60) }
+            BeneficiaryField(state.beneficiaryPhone, stringResource(R.string.rd_for_other_phone), KeyboardType.Phone) { v ->
+                state.beneficiaryPhone = v.filter { it.isDigit() || it == '+' || it == ' ' }.take(18)
+            }
+            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AppColors.warning.copy(alpha = 0.1f)).padding(10.dp)) {
+                Icon(Icons.Rounded.Info, null, tint = AppColors.warning, modifier = Modifier.size(16.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.rd_for_other_responsibility), color = settingsInk(), fontSize = 12.sp)
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Rounded.Lock, null, tint = settingsMut(), modifier = Modifier.size(14.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(stringResource(R.string.rd_for_other_privacy), color = settingsMut(), fontSize = 11.sp)
+            }
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { state.beneficiaryConsent = !state.beneficiaryConsent },
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.material3.Checkbox(state.beneficiaryConsent, { state.beneficiaryConsent = it })
+                Text(stringResource(R.string.rd_for_other_consent), color = settingsInk(), fontSize = 13.sp, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun BeneficiaryField(value: String, hint: String, type: KeyboardType, onChange: (String) -> Unit) {
+    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(12.dp)) {
+        if (value.isEmpty()) Text(hint, color = settingsMut(), fontSize = 13.sp)
+        BasicTextField(
+            value, onChange, singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = type),
+            textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp), cursorBrush = SolidColor(settingsAccent()),
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** R-13 on the ride: "For Mona" — the rider booked it for someone else. */
+@Composable
+internal fun BeneficiaryChip(ride: RideDto) {
+    val name = ride.beneficiary?.name ?: return
+    Row(
+        Modifier.padding(top = 6.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)).padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Rounded.PersonAdd, null, tint = settingsAccent(), modifier = Modifier.size(15.dp))
+        Spacer(Modifier.width(6.dp))
+        Text(stringResource(R.string.rd_for_other_ride, name), color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
 
