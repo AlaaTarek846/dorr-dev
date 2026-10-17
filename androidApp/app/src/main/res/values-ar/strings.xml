@@ -510,7 +510,10 @@
     <string name="ev_none_title">مفيش فعاليات</string>
     <string name="ev_none_text">جرّب تواريخ تانية أو مدينة تانية.</string>
     <string name="ev_travel_title">رايح فين؟</string>
-    <string name="ev_travel_sub">شوف الفعاليات في المدينة اللي رايحها في أيام سفرك — من أي مكان.</string>
+    <string name="ev_travel_sub">شوف الفعاليات في الدولة أو المحافظة اللي رايحها في أيام سفرك — من أي مكان.</string>
+    <string name="ev_pick_country">اختار دولة</string>
+    <string name="ev_travel_start_title">رايح فين؟</string>
+    <string name="ev_travel_start_text">اختار الدولة (والمحافظة لو عايز) وأيام سفرك.</string>
     <string name="ev_travel_city">المدينة</string>
     <string name="ev_pick_city">اختار مدينة</string>
     <string name="ev_from">من</string>
@@ -1374,4 +1377,11 @@
     <string name="ev_place_apply">تطبيق</string>
     <string name="ev_place_none">مفيش فعاليات هنا لسه</string>
     <string name="ev_list_end">ده كل اللي موجود</string>
+    <string name="ev_menu_interests_sub">الأنواع اللي بنقترحها عليك</string>
+    <string name="ev_menu_alerts_sub">تنبيهات «متفوّتهاش» وللعيلة بس</string>
+    <string name="ev_menu_follows_sub">أماكن بتتابع فعالياتها</string>
+    <string name="ev_alert_days">نبّهني قبلها بـ</string>
+    <string name="ev_pick_region">تابع محافظة</string>
+    <string name="ev_filter_title">تصفية</string>
+    <string name="ev_when">الوقت</string>
 </resources>

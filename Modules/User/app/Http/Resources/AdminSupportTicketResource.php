@@ -19,6 +19,8 @@ class AdminSupportTicketResource extends JsonResource
             'id' => $this->id,
             'number' => $this->number,
             'title' => $this->title,
+            // R-127: the ride it is about, when it is about one.
+            'ride' => $this->rideRef(),
             'status' => $this->status->value,
             'accepts_replies' => $this->status->acceptsReplies(),
             // The customer asked for a person: no more automatic replies on this ticket.

@@ -6,23 +6,35 @@ use App\Models\AuditLog;
 use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
+use App\Models\ServiceCategory;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Laravel\Sanctum\Sanctum;
+use Modules\Admin\Models\Admin;
 use Modules\Discover\Models\DiscoverCity;
+use Modules\Driver\Database\Seeders\DriverDatabaseSeeder;
+use Modules\Driver\Models\DriverDocumentRequirement;
+use Modules\Driver\Models\VehicleMake;
+use Modules\Driver\Models\VehicleModel;
+use Modules\Rides\Database\Seeders\RidesDatabaseSeeder;
 use Modules\Rides\Enums\PricingMode;
 use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Models\RideCategory;
 use Modules\Rides\Models\RideFeatureRule;
+use Modules\Rides\Models\RidePolicy;
 use Modules\Rides\Models\RideRegulatorCity;
 use Modules\Rides\Models\RideSetting;
+use Modules\Rides\Models\RideTaxRule;
 use Modules\Rides\Models\RideZone;
-use Modules\Rides\Services\Regulator\RegulatorCityNames;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Geo\CityResolver;
 use Modules\Rides\Services\Geo\GeoProvider;
 use Modules\Rides\Services\Policy\RidePolicies;
+use Modules\Rides\Services\Regulator\RegulatorCityNames;
 use Modules\Rides\Support\Geo;
 use Modules\User\Models\User;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /**
@@ -107,6 +119,46 @@ class RidesFoundationTest extends TestCase
             ->assertJsonPath('data.features.multi_stop', true);
     }
 
+    public function test_the_features_endpoint_says_why_the_service_is_off(): void
+    {
+        $rider = User::query()->create(['phone' => '+966500000002', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+
+        // Nobody switched `rides` on in the rider's country.
+        $this->actingAs($rider, 'user_api')->getJson('/api/mobile/v1/rides/features')
+            ->assertOk()
+            ->assertJsonPath('data.service', false)
+            ->assertJsonPath('data.reason', 'not_enabled');
+
+        // No country on the account and no usable point: nothing to look the switches up by.
+        $stranger = User::query()->create(['phone' => '+966500000003', 'status' => 'active', 'phone_verified_at' => now()]);
+        $this->actingAs($stranger, 'user_api')->getJson('/api/mobile/v1/rides/features')
+            ->assertOk()
+            ->assertJsonPath('data.reason', 'no_country');
+
+        $this->rule('rides', true);
+        $this->actingAs($rider, 'user_api')->getJson('/api/mobile/v1/rides/features')
+            ->assertOk()
+            ->assertJsonPath('data.service', true)
+            ->assertJsonPath('data.reason', null);
+    }
+
+    public function test_the_enable_country_command_switches_the_phase_one_features(): void
+    {
+        $this->artisan('rides:enable-country', ['code' => 'sa'])->assertSuccessful();
+
+        $features = app(RideFeatures::class);
+        $this->assertTrue($features->allows($this->saudi->id, null, 'rides'));
+        $this->assertTrue($features->allows($this->saudi->id, null, 'category.economy'));
+        $this->assertTrue($features->allows($this->saudi->id, null, 'cash'));
+        $this->assertFalse($features->allows($this->saudi->id, null, 'bidding'));
+
+        $this->artisan('rides:enable-country', ['code' => 'SA', '--off' => true])->assertSuccessful();
+        RideFeatures::forget();
+        $this->assertFalse(app(RideFeatures::class)->allows($this->saudi->id, null, 'rides'));
+
+        $this->artisan('rides:enable-country', ['code' => 'ZZ'])->assertFailed();
+    }
+
     public function test_a_service_area_polygon_decides_the_city_before_the_nearest_centre(): void
     {
         // A square around a point far from both centres, assigned to Jeddah.
@@ -143,7 +195,7 @@ class RidesFoundationTest extends TestCase
 
         // Saving the same scope again replaces it instead of adding a second row, and is audited.
         $policies->save($this->saudi->id, null, null, null, ['waiting.free_s' => 300]);
-        $this->assertSame(3, \Modules\Rides\Models\RidePolicy::query()->count());
+        $this->assertSame(3, RidePolicy::query()->count());
         $this->assertSame(300, $policies->for($this->saudi->id)->int('waiting.free_s'));
         $this->assertSame(4, AuditLog::query()->where('action', 'ride_policy.saved')->count());
     }
@@ -168,13 +220,13 @@ class RidesFoundationTest extends TestCase
 
     public function test_the_seeders_set_up_saudi_rides_and_can_run_twice(): void
     {
-        \App\Models\ServiceCategory::query()->create(['module_name' => 'passenger_ride', 'requires_provider' => true, 'status' => true]);
+        ServiceCategory::query()->create(['module_name' => 'passenger_ride', 'requires_provider' => true, 'status' => true]);
         $this->riyadh->translations()->create(['locale' => 'ar', 'name' => 'الرياض']);
         RideCategory::query()->forceDelete();
 
         foreach ([1, 2] as $run) {
-            $this->seed(\Modules\Driver\Database\Seeders\DriverDatabaseSeeder::class);
-            $this->seed(\Modules\Rides\Database\Seeders\RidesDatabaseSeeder::class);
+            $this->seed(DriverDatabaseSeeder::class);
+            $this->seed(RidesDatabaseSeeder::class);
         }
         RideFeatures::forget();
         RidePolicies::forget();
@@ -182,10 +234,10 @@ class RidesFoundationTest extends TestCase
         $this->assertSame(11, RideCategory::query()->count());
         $this->assertSame(['economy'], RideCategory::query()->where('status', true)->pluck('slug')->all(), 'phase 1 is Economy only');
 
-        $vat = \Modules\Rides\Models\RideTaxRule::query()->sole();
+        $vat = RideTaxRule::query()->sole();
         $this->assertSame(['commission', 1500, 'driver'], [$vat->base->value, $vat->rate_bp, $vat->borne_by->value]);
 
-        $wasl = \Modules\Rides\Models\RideRegulatorCity::query()->sole();
+        $wasl = RideRegulatorCity::query()->sole();
         $this->assertSame('الرياض', $wasl->official_name);
         $this->assertSame($this->riyadh->id, $wasl->city_id);
 
@@ -196,9 +248,9 @@ class RidesFoundationTest extends TestCase
         $this->assertTrue(app(RideFeatures::class)->allows($this->saudi->id, $this->riyadh->id, 'category.economy'));
         $this->assertFalse(app(RideFeatures::class)->allows($this->saudi->id, $this->riyadh->id, 'bidding'), 'bidding is phase 2');
 
-        $this->assertSame(4, \Modules\Driver\Models\DriverDocumentRequirement::query()->count());
-        $this->assertGreaterThan(10, \Modules\Driver\Models\VehicleModel::query()->count());
-        $this->assertSame(1, \Modules\Driver\Models\VehicleMake::query()->whereHas('translations', fn ($q) => $q->where('name', 'Toyota'))->count());
+        $this->assertSame(4, DriverDocumentRequirement::query()->count());
+        $this->assertGreaterThan(10, VehicleModel::query()->count());
+        $this->assertSame(1, VehicleMake::query()->whereHas('translations', fn ($q) => $q->where('name', 'Toyota'))->count());
     }
 
     public function test_geo_helpers(): void
@@ -313,13 +365,13 @@ class RidesFoundationTest extends TestCase
 
     public function test_the_admin_sets_the_key_without_ever_seeing_it_back(): void
     {
-        $admin = \Modules\Admin\Models\Admin::query()->create(['name' => 'Admin', 'email' => 'admin@dorr.test', 'password' => 'secret123', 'status' => 'active']);
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        $admin = Admin::query()->create(['name' => 'Admin', 'email' => 'admin@dorr.test', 'password' => 'secret123', 'status' => 'active']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
         foreach (['ride-settings.view', 'ride-settings.update'] as $name) {
-            \Spatie\Permission\Models\Permission::findOrCreate($name, 'admin_api');
+            Permission::findOrCreate($name, 'admin_api');
         }
         $admin->givePermissionTo(['ride-settings.view', 'ride-settings.update']);
-        \Laravel\Sanctum\Sanctum::actingAs($admin, [], 'admin_api');
+        Sanctum::actingAs($admin, [], 'admin_api');
 
         $this->putJson('/api/admin/v1/ride-settings', ['google_maps_key' => 'AIzaSy-secret-1234', 'fallback_speed_kmh' => 50])
             ->assertOk()

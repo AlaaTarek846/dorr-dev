@@ -10,6 +10,7 @@ use Modules\Wallet\Http\Controllers\General\WalletEligibilityController;
 use Modules\Wallet\Http\Controllers\General\WalletPinController;
 use Modules\Wallet\Http\Controllers\General\WalletRecoveryController;
 use Modules\Wallet\Http\Controllers\General\WalletTransactionController;
+use Modules\Wallet\Http\Controllers\General\WalletTransactionDetailController;
 use Modules\Wallet\Http\Middleware\RequiresWalletPin;
 
 /*
@@ -19,6 +20,7 @@ use Modules\Wallet\Http\Middleware\RequiresWalletPin;
  */
 Route::get('wallet', WalletBalanceController::class);
 Route::get('wallet/transactions', WalletTransactionController::class);
+Route::get('wallet/transactions/{uuid}', WalletTransactionDetailController::class)->whereUuid('uuid');
 Route::get('wallet/eligibility', WalletEligibilityController::class);
 Route::get('wallet/payment-methods', AvailablePaymentMethodController::class);
 

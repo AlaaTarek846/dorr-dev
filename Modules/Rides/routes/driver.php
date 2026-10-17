@@ -1,7 +1,11 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Rides\Http\Controllers\Cases\PartyCaseController;
+use Modules\Rides\Http\Controllers\Driver\DriverAirportController;
+use Modules\Rides\Http\Controllers\Driver\DriverDrivingHoursController;
 use Modules\Rides\Http\Controllers\Driver\DriverEarningsController;
+use Modules\Rides\Http\Controllers\Driver\DriverPreferencesController;
 use Modules\Rides\Http\Controllers\RideChangeController;
 use Modules\Rides\Http\Controllers\RideSafetyController;
 use Modules\Rides\Http\Controllers\SafetyCenterController;
@@ -22,6 +26,27 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('offers/{uuid}/bid', [DriverRideController::class, 'bid'])->whereUuid('uuid');
 
         Route::get('earnings', [DriverEarningsController::class, 'summary']);
+        Route::get('earnings/report', [DriverEarningsController::class, 'report']);
+
+        // What the captain wants to be asked (D-32..D-37): categories, pickup range, Auto-Accept.
+        Route::get('driving-hours', DriverDrivingHoursController::class);
+
+        // Disputes and "the rider left without paying" reports, as cases of their own (D-229..D-238).
+        Route::get('cases/options', [PartyCaseController::class, 'options']);
+        Route::get('cases', [PartyCaseController::class, 'index']);
+        Route::post('cases', [PartyCaseController::class, 'store']);
+        Route::get('cases/{uuid}', [PartyCaseController::class, 'show'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/messages', [PartyCaseController::class, 'message'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/files', [PartyCaseController::class, 'file'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/appeal', [PartyCaseController::class, 'appeal'])->whereUuid('uuid');
+        Route::get('preferences', [DriverPreferencesController::class, 'show']);
+        Route::put('preferences', [DriverPreferencesController::class, 'update']);
+
+        // The airport queue (D-276..D-280), its official points (D-281) and the restricted areas (D-282).
+        Route::get('airport-queue', [DriverAirportController::class, 'show']);
+        Route::post('airport-queue/join', [DriverAirportController::class, 'join']);
+        Route::post('airport-queue/leave', [DriverAirportController::class, 'leave']);
+        Route::get('restricted-zones', [DriverAirportController::class, 'restrictedZones']);
 
         // The captain's Safety Center (D-140, D-143): trusted contacts, preferences, blocked riders.
         Route::get('safety', [SafetyCenterController::class, 'show']);

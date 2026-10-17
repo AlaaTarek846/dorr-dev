@@ -21,7 +21,42 @@ interface RidesApi {
     @GET("mobile/v1/rides/features")
     suspend fun features(@Header("Authorization") auth: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<RideFeaturesDto>
 
-    /** `{origin{lat,lng,address}, destination?{…}, stops?[…], category?}` → one quote per category. */
+    /** R-16..R-18: the approved pickup / drop-off points around a place (`purpose` = pickup | dropoff). */
+    @GET("mobile/v1/rides/pickup-points")
+    suspend fun pickupPoints(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double, @Query("purpose") purpose: String): ApiEnvelope<RidePickupPointsDto>
+
+    /** R-INN-07 DORR Circle: my favourite captains, to choose from when booking. */
+    @GET("mobile/v1/rides/circle")
+    suspend fun circle(@Header("Authorization") auth: String): ApiEnvelope<RideCircleDriversDto>
+
+    /** "Search all captains" once the circle had no one. */
+    @POST("mobile/v1/rides/{uuid}/circle/widen")
+    suspend fun widenCircle(@Header("Authorization") auth: String, @Header("Idempotency-Key") key: String, @Path("uuid") uuid: String): ApiEnvelope<RideDto>
+
+    /** Complaints and disputes (R-133..R-140): what can be opened, my cases, one case, and its conversation. */
+    @GET("mobile/v1/rides/cases/options")
+    suspend fun caseOptions(@Header("Authorization") auth: String): ApiEnvelope<RideCaseOptionsDto>
+
+    @GET("mobile/v1/rides/cases")
+    suspend fun cases(@Header("Authorization") auth: String): ApiEnvelope<List<RideCaseDto>>
+
+    @POST("mobile/v1/rides/cases")
+    suspend fun openCase(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<RideCaseDto>
+
+    @GET("mobile/v1/rides/cases/{uuid}")
+    suspend fun caseOf(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideCaseDto>
+
+    @POST("mobile/v1/rides/cases/{uuid}/messages")
+    suspend fun caseMessage(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideCaseDto>
+
+    @POST("mobile/v1/rides/cases/{uuid}/appeal")
+    suspend fun appealCase(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideCaseDto>
+
+    /** R-5, R-174: Home, Work, favourite places and recent destinations. */
+    @GET("mobile/v1/rides/places")
+    suspend fun places(@Header("Authorization") auth: String): ApiEnvelope<RidePlacesDto>
+
+    /** `{origin{lat,lng,address,point_id?}, destination?{…}, stops?[…], category?}` → one quote per category. */
     @POST("mobile/v1/rides/quotes")
     suspend fun quotes(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<List<RideQuoteDto>>
 
@@ -181,6 +216,8 @@ data class RideFeaturesDto(
     @SerializedName("country_id") val countryId: Int? = null,
     @SerializedName("city_id") val cityId: Int? = null,
     val service: Boolean = false,
+    /** Why `service` is off: `no_country` (we can't tell where you are) or `not_enabled` (nobody switched rides on there). */
+    val reason: String? = null,
     val categories: Map<String, Boolean> = emptyMap(),
     val features: Map<String, Boolean> = emptyMap(),
 )
@@ -399,6 +436,46 @@ data class RideProgressDto(val to: String = "pickup", @SerializedName("distance_
 
 data class RideCategoryRefDto(val slug: String? = null, val name: String? = null)
 
+data class RidePickupPointDto(
+    val id: Int = 0,
+    val kind: String? = null,
+    @SerializedName("kind_label") val kindLabel: String? = null,
+    val name: String? = null,
+    val instructions: String? = null,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+    @SerializedName("distance_m") val distanceM: Int? = null,
+)
+
+data class RidePickupZoneDto(val id: Int = 0, val type: String? = null, val name: String? = null)
+
+/** R-16..R-18: what is around a place — the zone, whether choosing a point is a must, the points. */
+data class RidePickupPointsDto(val zone: RidePickupZoneDto? = null, val required: Boolean = false, val points: List<RidePickupPointDto> = emptyList())
+
+/** A shortcut under "where to?": a saved address of the account (home / work / favourite) or a recent destination. */
+data class RideSavedPlaceDto(
+    val id: Long? = null,
+    val kind: String = "recent",
+    val title: String? = null,
+    val address: String? = null,
+    val lat: Double = 0.0,
+    val lng: Double = 0.0,
+)
+
+data class RidePlacesDto(
+    val home: RideSavedPlaceDto? = null,
+    val work: RideSavedPlaceDto? = null,
+    val favorites: List<RideSavedPlaceDto> = emptyList(),
+    val recent: List<RideSavedPlaceDto> = emptyList(),
+)
+
+data class RideCircleDriversDto(val drivers: List<FavoriteDriverDto> = emptyList())
+
+/** A ride booked for the favourite captains: still only them (`active`), how many, and whether the rider was asked. */
+data class RideCircleDto(val active: Boolean = false, val count: Int = 0, val asked: Boolean = false)
+
+data class RideBeneficiaryDto(val name: String? = null, val phone: String? = null)
+
 data class RideDto(
     val uuid: String,
     val number: String? = null,
@@ -414,6 +491,13 @@ data class RideDto(
     /** D-60, D-61. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-13: booked for someone else — whom, as the rider typed it. */
+    val beneficiary: RideBeneficiaryDto? = null,
+    /** R-INN-07: booked for the favourite captains. */
+    val circle: RideCircleDto? = null,
+    /** R-16..R-18: the approved points the trip starts / ends at. */
+    @SerializedName("pickup_point") val pickupPoint: RidePickupPointDto? = null,
+    @SerializedName("dropoff_point") val dropoffPoint: RidePickupPointDto? = null,
     val progress: RideProgressDto? = null,
     val currency: RideCurrencyDto? = null,
     val origin: RidePlaceDto? = null,
@@ -479,4 +563,68 @@ data class RideChatDto(
     val open: Boolean = false,
     @SerializedName("quick_replies") val quickReplies: List<RideQuickReplyDto> = emptyList(),
     val messages: List<RideMessageDto> = emptyList(),
+)
+
+// ---------------------------------------------------------------- cases: complaints and disputes (R-133..R-140)
+
+data class RideCaseOptionDto(val code: String, val label: String = "")
+
+data class RideCaseOptionsDto(
+    val available: Boolean = false,
+    val kinds: List<RideCaseOptionDto> = emptyList(),
+    @SerializedName("complaint_categories") val complaintCategories: List<RideCaseOptionDto> = emptyList(),
+    @SerializedName("dispute_reasons") val disputeReasons: List<RideCaseOptionDto> = emptyList(),
+)
+
+data class RideCaseRefDto(val uuid: String = "", val number: String? = null, val status: String? = null)
+
+data class RideCaseMessageDto(val id: Long = 0, val from: String = "", val body: String = "", val at: String? = null)
+
+data class RideCaseDecisionDto(
+    val outcome: String = "",
+    val reason: String? = null,
+    @SerializedName("refund_minor") val refundMinor: Long? = null,
+    @SerializedName("refund_applied") val refundApplied: Boolean? = null,
+)
+
+data class RideCaseMilestoneDto(
+    val event: String = "",
+    val at: String? = null,
+    @SerializedName("distance_to_pickup_m") val distanceToPickupM: Int? = null,
+)
+
+data class RideCaseLineDto(val code: String = "", @SerializedName("amount_minor") val amountMinor: Long = 0)
+
+data class RideCaseWaitingDto(@SerializedName("pickup_s") val pickupS: Long = 0, @SerializedName("free_s") val freeS: Long = 0)
+
+data class RideCaseRouteDto(@SerializedName("planned_m") val plannedM: Long? = null, @SerializedName("driven_m") val drivenM: Long? = null)
+
+data class RideCaseEvidenceDto(
+    val timeline: List<RideCaseMilestoneDto> = emptyList(),
+    val waiting: RideCaseWaitingDto? = null,
+    val route: RideCaseRouteDto? = null,
+    val lines: List<RideCaseLineDto> = emptyList(),
+)
+
+/** A case as the rider sees it: the list carries the headline only, the detail adds the rest. */
+data class RideCaseDto(
+    val uuid: String = "",
+    val number: String = "",
+    val kind: String = "",
+    @SerializedName("kind_label") val kindLabel: String = "",
+    @SerializedName("category_label") val categoryLabel: String = "",
+    val status: String = "submitted",
+    @SerializedName("status_label") val statusLabel: String = "",
+    val decided: Boolean = false,
+    val summary: String? = null,
+    val ride: RideCaseRefDto? = null,
+    @SerializedName("disputed_minor") val disputedMinor: Long? = null,
+    val currency: RideCurrencyDto? = null,
+    val evidence: RideCaseEvidenceDto? = null,
+    val messages: List<RideCaseMessageDto> = emptyList(),
+    val decision: RideCaseDecisionDto? = null,
+    @SerializedName("can_message") val canMessage: Boolean = false,
+    @SerializedName("can_appeal") val canAppeal: Boolean = false,
+    @SerializedName("appealed_at") val appealedAt: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
 )

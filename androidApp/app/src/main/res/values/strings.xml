@@ -510,7 +510,10 @@
     <string name="ev_none_title">No events</string>
     <string name="ev_none_text">Try other dates or another city.</string>
     <string name="ev_travel_title">Where are you going?</string>
-    <string name="ev_travel_sub">See what\'s on in a city on your dates — wherever you are now.</string>
+    <string name="ev_travel_sub">See what\'s on in a country or region on your dates — wherever you are now.</string>
+    <string name="ev_pick_country">Pick a country</string>
+    <string name="ev_travel_start_title">Where are you going?</string>
+    <string name="ev_travel_start_text">Pick a country (and a region if you like) and your dates.</string>
     <string name="ev_travel_city">City</string>
     <string name="ev_pick_city">Pick a city</string>
     <string name="ev_from">From</string>
@@ -1374,4 +1377,11 @@
     <string name="ev_place_apply">Apply</string>
     <string name="ev_place_none">Nothing on here yet</string>
     <string name="ev_list_end">That\'s everything</string>
+    <string name="ev_menu_interests_sub">The kinds Discover suggests</string>
+    <string name="ev_menu_alerts_sub">Don\'t-miss-it alerts and family-only</string>
+    <string name="ev_menu_follows_sub">Places whose events you follow</string>
+    <string name="ev_alert_days">Alert me before</string>
+    <string name="ev_pick_region">Follow a region</string>
+    <string name="ev_filter_title">Filter</string>
+    <string name="ev_when">When</string>
 </resources>

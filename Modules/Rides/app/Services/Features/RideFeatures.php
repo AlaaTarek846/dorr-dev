@@ -22,6 +22,8 @@ class RideFeatures
     public const FEATURES = [
         'bidding', 'multi_stop', 'open_destination', 'scheduled', 'book_for_other', 'cash', 'wallet', 'card',
         'tips', 'pin', 'share', 'change_driver', 'driver_points', 'one_touch', 'change_destination', 'coupons',
+        'pickup_points', 'airport_queue', 'restricted_zones', 'saved_places', 'favorite_circle',
+        'auto_accept', 'cases',
     ];
 
     public static function categoryFeature(string $slug): string

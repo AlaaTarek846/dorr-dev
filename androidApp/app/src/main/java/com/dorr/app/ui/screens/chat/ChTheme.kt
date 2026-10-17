@@ -72,7 +72,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.Locale
+import com.dorr.app.network.AppLocale
 import kotlin.math.absoluteValue
 
 /**
@@ -488,7 +488,7 @@ internal fun parseInstant(iso: String?): Instant? = iso?.let { runCatching { jav
 
 /** "14:05" */
 internal fun clockTime(iso: String?): String = parseInstant(iso)?.let {
-    DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()).withZone(zone).format(it)
+    DateTimeFormatter.ofPattern("HH:mm", AppLocale.java()).withZone(zone).format(it)
 }.orEmpty()
 
 /** Chat list: today → time, yesterday → "Yesterday", this week → weekday, else the date. */
@@ -500,8 +500,8 @@ internal fun listTime(iso: String?): String {
     return when {
         day == today -> clockTime(iso)
         day == today.minusDays(1) -> androidx.compose.ui.res.stringResource(R.string.ch_yesterday)
-        ChronoUnit.DAYS.between(day, today) < 7 -> DateTimeFormatter.ofPattern("EEEE", Locale.getDefault()).format(day)
-        else -> DateTimeFormatter.ofPattern("d/M/yyyy", Locale.getDefault()).format(day)
+        ChronoUnit.DAYS.between(day, today) < 7 -> DateTimeFormatter.ofPattern("EEEE", AppLocale.java()).format(day)
+        else -> DateTimeFormatter.ofPattern("d/M/yyyy", AppLocale.java()).format(day)
     }
 }
 
@@ -514,7 +514,7 @@ internal fun dayLabel(day: LocalDate): String {
     return when (day) {
         today -> androidx.compose.ui.res.stringResource(R.string.ch_today)
         today.minusDays(1) -> androidx.compose.ui.res.stringResource(R.string.ch_yesterday)
-        else -> DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault()).format(day)
+        else -> DateTimeFormatter.ofPattern("d MMMM yyyy", AppLocale.java()).format(day)
     }
 }
 

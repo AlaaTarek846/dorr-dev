@@ -85,6 +85,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.CompositionLocalProvider
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AppLocale
 import com.dorr.app.network.WalletBalanceDto
 import com.dorr.app.network.WalletCountry
 import com.dorr.app.network.WalletTransactionDto
@@ -96,7 +97,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun countryName(code: String?): String {
     if (code.isNullOrBlank()) return ""
-    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0] ?: java.util.Locale.getDefault()
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0] ?: AppLocale.java()
     if (locale.language == "ar") ARABIC_COUNTRY_NAMES[code.uppercase()]?.let { return it }
     return java.util.Locale("", code).getDisplayCountry(locale).ifBlank { code }
 }

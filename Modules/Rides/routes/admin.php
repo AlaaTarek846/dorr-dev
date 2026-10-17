@@ -3,12 +3,14 @@
 use Illuminate\Support\Facades\Route;
 use Modules\Rides\Http\Controllers\Admin\DriverRegulatorAdminController;
 use Modules\Rides\Http\Controllers\Admin\RideAdminController;
+use Modules\Rides\Http\Controllers\Admin\RideCaseController;
 use Modules\Rides\Http\Controllers\Admin\RideCategoryController;
 use Modules\Rides\Http\Controllers\Admin\RideFeatureRuleController;
 use Modules\Rides\Http\Controllers\Admin\RideListController;
 use Modules\Rides\Http\Controllers\Admin\RidePolicyController;
 use Modules\Rides\Http\Controllers\Admin\RideSafetyIncidentController;
 use Modules\Rides\Http\Controllers\Admin\RideSettingController;
+use Modules\Rides\Http\Controllers\Admin\RideZoneController;
 use Modules\Rides\Http\Controllers\Admin\WaslLogController;
 
 // Admin → Rides (docs/rides-plan.md §4.4): settings, switches, categories, prices & rules, rides, Wasl, lists.
@@ -32,6 +34,25 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('ride-policies/scopes', [RidePolicyController::class, 'index']);
         Route::get('ride-policies', [RidePolicyController::class, 'show']);
         Route::put('ride-policies', [RidePolicyController::class, 'update']);
+
+        // Zones (airport, pickup-only, blocked…) and their approved pickup points (R-16..R-18).
+        Route::get('ride-zones/options', [RideZoneController::class, 'options']);
+        Route::get('ride-zones', [RideZoneController::class, 'index']);
+        Route::post('ride-zones', [RideZoneController::class, 'store']);
+        Route::put('ride-zones/{zone}', [RideZoneController::class, 'update'])->whereNumber('zone');
+        Route::delete('ride-zones/{zone}', [RideZoneController::class, 'destroy'])->whereNumber('zone');
+        Route::post('ride-zones/{zone}/points', [RideZoneController::class, 'storePoint'])->whereNumber('zone');
+        Route::put('ride-zones/{zone}/points/{point}', [RideZoneController::class, 'updatePoint'])->whereNumber(['zone', 'point']);
+        Route::delete('ride-zones/{zone}/points/{point}', [RideZoneController::class, 'destroyPoint'])->whereNumber(['zone', 'point']);
+
+        // Cases: complaints, disputes, unpaid-ride reports (R-133..R-140, D-229..D-238).
+        Route::get('ride-cases/options', [RideCaseController::class, 'options']);
+        Route::get('ride-cases', [RideCaseController::class, 'index']);
+        Route::get('ride-cases/{case}', [RideCaseController::class, 'show'])->whereNumber('case');
+        Route::post('ride-cases/{case}/status', [RideCaseController::class, 'status'])->whereNumber('case');
+        Route::post('ride-cases/{case}/messages', [RideCaseController::class, 'message'])->whereNumber('case');
+        Route::post('ride-cases/{case}/files', [RideCaseController::class, 'file'])->whereNumber('case');
+        Route::post('ride-cases/{case}/decide', [RideCaseController::class, 'decide'])->whereNumber('case');
 
         Route::get('rides', [RideAdminController::class, 'index']);
         Route::get('rides/{ride}', [RideAdminController::class, 'show'])->whereNumber('ride');

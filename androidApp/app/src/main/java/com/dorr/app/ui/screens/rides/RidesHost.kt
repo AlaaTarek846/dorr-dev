@@ -13,6 +13,11 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.AccountDark
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.border
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -57,7 +62,10 @@ import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.FavoriteDriverDto
 import com.dorr.app.network.RideDto
+import com.dorr.app.network.RidePickupPointsDto
+import com.dorr.app.network.RidePlacesDto
 import com.dorr.app.network.RideFeaturesDto
 import com.dorr.app.network.RideQuoteDto
 import com.dorr.app.ui.screens.profile.settingsAccent
@@ -92,6 +100,9 @@ internal class RidesState {
     val stops = mutableStateListOf<RidePoint>()
     var openDestination by mutableStateOf(false)
     var features by mutableStateOf<RideFeaturesDto?>(null)
+
+    /** Bumped by "try again" on the unavailable card so the service switches are read again. */
+    var featuresTick by mutableIntStateOf(0)
     var step by mutableStateOf(RideStep.Map)
 
     /** Which point the search / the map pin is setting: "pickup", "destination" or "stop:<index>". */
@@ -108,6 +119,33 @@ internal class RidesState {
     var passengers by mutableIntStateOf(1)
     var pickupNote by mutableStateOf("")
 
+    /** R-13: booking for someone else — their name and number, and the rider's own consent tick (never pre-ticked). */
+    var forOther by mutableStateOf(false)
+    var beneficiaryName by mutableStateOf("")
+    var beneficiaryPhone by mutableStateOf("")
+    var beneficiaryConsent by mutableStateOf(false)
+
+    /** Booking for oneself, or everything about the other person is filled in and agreed. */
+    fun beneficiaryReady(): Boolean =
+        !forOther || (beneficiaryName.trim().length >= 2 && beneficiaryPhone.count { it.isDigit() } >= 8 && beneficiaryConsent)
+
+    /** R-INN-07 DORR Circle: ask my favourite captains first — the ones picked (none picked = all of them). */
+    var useCircle by mutableStateOf(false)
+    var circleDrivers by mutableStateOf<List<FavoriteDriverDto>>(emptyList())
+    val circlePicked = mutableStateListOf<Int>()
+
+    /** R-5, R-174: Home, Work, favourites and recent destinations; `savingPlace` = the search is picking Home / Work. */
+    var places by mutableStateOf<RidePlacesDto?>(null)
+    var savingPlace by mutableStateOf<String?>(null)
+
+    /** R-16..R-18: the approved points being chosen from ("pickup" | "dropoff"), what is there, and what was picked or declined. */
+    var pointsChooser by mutableStateOf<String?>(null)
+    var pointChoices by mutableStateOf<RidePickupPointsDto?>(null)
+    var pickupPointId by mutableStateOf<Int?>(null)
+    var dropoffPointId by mutableStateOf<Int?>(null)
+    var decidedPickup by mutableStateOf<String?>(null)
+    var decidedDropoff by mutableStateOf<String?>(null)
+
     /** Bidding: the price the rider offers (starts at the suggested price). */
     var riderPrice by mutableStateOf<Long?>(null)
 
@@ -115,6 +153,11 @@ internal class RidesState {
     var scheduledAt by mutableStateOf<java.time.ZonedDateTime?>(null)
     var scheduleOpen by mutableStateOf(false)
     var myRidesOpen by mutableStateOf(false)
+
+    /** Complaints and disputes (R-133..R-140): the page is open, and the ride a new one is about (null = pick). */
+    var casesOpen by mutableStateOf(false)
+    var caseRideUuid by mutableStateOf<String?>(null)
+    var caseStartNew by mutableStateOf(false)
 
     /** The Safety Center page is open (R-219). */
     var safetyOpen by mutableStateOf(false)
@@ -157,6 +200,19 @@ internal class RidesState {
         couponError = null
         passengers = 1
         pickupNote = ""
+        forOther = false
+        beneficiaryName = ""
+        beneficiaryPhone = ""
+        beneficiaryConsent = false
+        savingPlace = null
+        useCircle = false
+        circlePicked.clear()
+        pointsChooser = null
+        pointChoices = null
+        pickupPointId = null
+        dropoffPointId = null
+        decidedPickup = null
+        decidedDropoff = null
     }
 }
 
@@ -193,11 +249,13 @@ fun RidesHost(onExit: () -> Unit) {
     }
 
     // Where am I: the camera goes there, and the service switches for this city are read.
-    LaunchedEffect(hasLocation) {
+    LaunchedEffect(hasLocation, state.featuresTick) {
         val here = if (hasLocation) currentLocation(context) else null
         state.me = here
         if (here != null && state.ride == null) camera.move(CameraUpdateFactory.newLatLngZoom(here, 16f))
         state.features = runCatching { ApiClient.rides.features(ridesAuth(), here?.latitude, here?.longitude).data }.getOrNull()
+        loadPlaces(state)
+        loadCircle(state)
     }
 
     // The pin: when the map stops, the point under it becomes the pickup (or the point being picked).
@@ -215,6 +273,7 @@ fun RidesHost(onExit: () -> Unit) {
             state.scheduleOpen -> state.scheduleOpen = false
             state.safetyOpen -> state.safetyOpen = false
             state.changing != null -> state.changing = null
+            state.casesOpen -> state.casesOpen = false
             state.myRidesOpen -> state.myRidesOpen = false
             state.ride != null && state.fromHistory -> { state.ride = null; state.resetBooking() }
             state.ride != null -> onExit()
@@ -264,7 +323,12 @@ fun RidesHost(onExit: () -> Unit) {
                 when (panel) {
                     "ride" -> RideActivePanel(state, camera, onExit = onExit)
                     "loading" -> PanelCard { Text(stringResource(R.string.rd_locating), color = settingsInk(), modifier = Modifier.padding(8.dp)) }
-                    "off" -> PanelCard { Text(stringResource(R.string.rd_not_available), color = settingsInk(), fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(8.dp)) }
+                    "off" -> RidesUnavailablePanel(
+                        reason = state.features?.reason,
+                        hasLocation = hasLocation,
+                        onAskLocation = { askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) },
+                        onRetry = { state.featuresTick++ },
+                    )
                     RideStep.Map.name -> WhereToPanel(state, hasLocation, onAskLocation = {
                         askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
                     })
@@ -282,6 +346,12 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { MyRidesPage(state, onClose = { state.myRidesOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.casesOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { CasesPage(state, onClose = { state.casesOpen = false }) }
 
         androidx.compose.animation.AnimatedVisibility(
             visible = state.changing != null && state.ride != null,
@@ -364,17 +434,22 @@ private fun CenterPin(lifted: Boolean, color: Color) {
 @Composable
 internal fun RoundButton(icon: androidx.compose.ui.graphics.vector.ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Box(
-        modifier.size(44.dp).shadow(6.dp, CircleShape).clip(CircleShape).background(settingsCard()).clickable(onClick = onClick),
+        modifier.size(44.dp)
+            .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier.shadow(6.dp, CircleShape))
+            .clip(CircleShape).background(settingsCard()).pressable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) { Icon(icon, null, tint = settingsInk()) }
 }
 
-/** The white card at the bottom that every step draws into. */
+/** The white card at the bottom that every step draws into; it grows and shrinks smoothly as a step changes. */
 @Composable
 internal fun PanelCard(content: @Composable () -> Unit) {
+    val shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)
     Column(
-        Modifier.fillMaxWidth().shadow(18.dp, RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp))
-            .clip(RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)).background(settingsCard())
+        Modifier.fillMaxWidth().shadow(18.dp, shape)
+            .clip(shape).background(settingsCard())
+            .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
+            .animateContentSize()
             .padding(horizontal = 18.dp).padding(top = 10.dp, bottom = 24.dp),
     ) {
         Box(Modifier.align(Alignment.CenterHorizontally).size(width = 38.dp, height = 4.dp).clip(CircleShape).background(settingsInk().copy(alpha = 0.15f)))
@@ -383,15 +458,29 @@ internal fun PanelCard(content: @Composable () -> Unit) {
     }
 }
 
+/** The main action of a step: rounded, in the app colour, with its own glow by day and a small press-in. */
 @Composable
-internal fun AccentButton(text: String, enabled: Boolean = true, busy: Boolean = false, color: Color = settingsAccent(), onClick: () -> Unit) {
+internal fun AccentButton(
+    text: String,
+    enabled: Boolean = true,
+    busy: Boolean = false,
+    color: Color = settingsAccent(),
+    icon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    onClick: () -> Unit,
+) {
+    val shape = RoundedCornerShape(18.dp)
+    val fill by androidx.compose.animation.animateColorAsState(if (enabled) color else color.copy(alpha = 0.4f), tween(200), label = "accent-button")
     Box(
-        Modifier.fillMaxWidth().height(54.dp).clip(RoundedCornerShape(16.dp))
-            .background(if (enabled) color else color.copy(alpha = 0.4f))
-            .clickable(enabled = enabled && !busy, onClick = onClick),
+        Modifier.fillMaxWidth().height(54.dp)
+            .then(if (enabled && !busy && !settingsNight()) Modifier.shadow(10.dp, shape, ambientColor = color.copy(alpha = 0.3f), spotColor = color.copy(alpha = 0.38f)) else Modifier)
+            .clip(shape).background(fill)
+            .pressable(enabled = enabled && !busy, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         if (busy) androidx.compose.material3.CircularProgressIndicator(color = Color.White, strokeWidth = 2.dp, modifier = Modifier.size(22.dp))
-        else Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        else Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+            if (icon != null) Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
+            Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+        }
     }
 }

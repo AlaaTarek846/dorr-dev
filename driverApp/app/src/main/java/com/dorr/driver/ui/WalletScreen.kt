@@ -41,7 +41,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -66,7 +65,11 @@ import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.kit.bounceClick
+import com.dorr.driver.ui.kit.surface
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.live.DriverLive
 import com.dorr.driver.net.DriverBackend
@@ -91,7 +94,7 @@ import java.util.Locale
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun WalletScreen(onBack: () -> Unit) {
+fun WalletScreen(onBack: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
     var wallet by remember { mutableStateOf<WalletDto?>(null) }
     var rows by remember { mutableStateOf<List<WalletRowDto>>(emptyList()) }
@@ -103,36 +106,42 @@ fun WalletScreen(onBack: () -> Unit) {
     var withdrawOpen by remember { mutableStateOf(false) }
     var topupOpen by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
-    BackHandler(onBack = onBack)
+    var filter by remember { mutableStateOf(StatementFilter()) }
+    var detailId by remember { mutableStateOf<String?>(null) }
+    if (onBack != null) BackHandler(onBack = onBack)
 
+    // The statement, narrowed by the filters (D-213); the same filters apply to "show more".
+    suspend fun loadRows() {
+        (apiCall { DriverBackend.api.walletTransactions(1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)
+            ?.let { rows = it.data; page = 1; more = it.data.size >= 25 }
+    }
     suspend fun load() {
         (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
-        (apiCall { DriverBackend.api.walletTransactions(1) } as? ApiResult.Ok)?.let { rows = it.data; page = 1; more = it.data.size >= 25 }
+        loadRows()
         (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.let { withdrawals = it.data }
     }
     LaunchedEffect(Unit) {
-        load()
+        (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
+        (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.let { withdrawals = it.data }
         // A settlement, a payout decision, a transfer: the wallet reloads by itself.
         DriverLive.events.collect { e -> if (e.name.startsWith("wallet") || e.name.contains("withdrawal") || e.name.contains("earnings")) load() }
     }
+    LaunchedEffect(filter) { loadRows() }
 
     val w = wallet
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(bottom = 20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-                Text(stringResource(R.string.wl_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            val shown by animateFloatAsState((w?.totalMinor ?: 0).toFloat(), tween(600), label = "balance")
-            Text(stringResource(R.string.wl_balance), color = Color.White.copy(alpha = 0.7f), fontSize = 13.sp, modifier = Modifier.padding(start = 20.dp))
+    ScreenScaffold(stringResource(R.string.wl_title), onBack) {
+        // The balance, big, with what can be withdrawn and what is held.
+        val shown by animateFloatAsState((w?.totalMinor ?: 0).toFloat(), tween(600), label = "balance")
+        Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().surface(RoundedCornerShape(24.dp), elevation = 8.dp).padding(18.dp)) {
+            Text(stringResource(R.string.wl_balance), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 13.sp)
             Text(
-                amount(shown.toLong(), w), color = if ((w?.totalMinor ?: 0) < 0) Color(0xFFFFB4AB) else Color.White,
-                fontWeight = FontWeight.ExtraBold, fontSize = 36.sp, modifier = Modifier.padding(start = 20.dp, top = 2.dp),
+                amount(shown.toLong(), w), color = if ((w?.totalMinor ?: 0) < 0) DorrBrand.danger else DorrBrand.navy,
+                fontWeight = FontWeight.ExtraBold, fontSize = 36.sp, modifier = Modifier.padding(top = 2.dp),
             )
-            Row(Modifier.padding(horizontal = 16.dp).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Chip(stringResource(R.string.wl_withdrawable), amount(w?.withdrawableMinor ?: 0, w))
-                Chip(stringResource(R.string.wl_held), amount(w?.heldMinor ?: 0, w))
-                if ((w?.spendOnlyMinor ?: 0) != 0L) Chip(stringResource(R.string.wl_spend_only), amount(w?.spendOnlyMinor ?: 0, w))
+            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                BalanceChip(stringResource(R.string.wl_withdrawable), amount(w?.withdrawableMinor ?: 0, w))
+                BalanceChip(stringResource(R.string.wl_held), amount(w?.heldMinor ?: 0, w))
+                if ((w?.spendOnlyMinor ?: 0) != 0L) BalanceChip(stringResource(R.string.wl_spend_only), amount(w?.spendOnlyMinor ?: 0, w))
             }
         }
         if ((w?.totalMinor ?: 0) < 0) {
@@ -151,17 +160,14 @@ fun WalletScreen(onBack: () -> Unit) {
         }
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(R.string.wl_tab_statement, R.string.wl_tab_withdrawals).forEachIndexed { i, label ->
-                val bg by animateColorAsState(if (tab == i) DorrBrand.navy else DorrBrand.navy.copy(alpha = 0.07f), tween(200), label = "tab")
-                Text(
-                    stringResource(label), color = if (tab == i) Color.White else DorrBrand.navy, fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clip(CircleShape).background(bg).clickable { tab = i }.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+                com.dorr.driver.ui.kit.Chip(stringResource(label), selected = tab == i, onClick = { tab = i })
             }
         }
+        if (tab == 0) StatementFilters(filter) { filter = it }
         if (tab == 0) {
-            if (rows.isEmpty()) EmptyHint(stringResource(R.string.wl_empty))
+            if (rows.isEmpty()) EmptyHint(stringResource(if (filter.active) R.string.wl_empty_filtered else R.string.wl_empty))
             else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(rows, key = { it.uuid }) { r -> TransactionRow(r, w) }
+                items(rows, key = { it.uuid }) { r -> TransactionRow(r, w) { detailId = r.uuid } }
                 if (more) item {
                     Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
                         if (loadingMore) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = DorrBrand.orange)
@@ -170,7 +176,7 @@ fun WalletScreen(onBack: () -> Unit) {
                             modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
                                 loadingMore = true
                                 scope.launch {
-                                    val next = (apiCall { DriverBackend.api.walletTransactions(page + 1) } as? ApiResult.Ok)?.data.orEmpty()
+                                    val next = (apiCall { DriverBackend.api.walletTransactions(page + 1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)?.data.orEmpty()
                                     if (next.isNotEmpty()) { rows = rows + next; page += 1 }
                                     more = next.size >= 25
                                     loadingMore = false
@@ -191,6 +197,7 @@ fun WalletScreen(onBack: () -> Unit) {
     }
     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     if (topupOpen && w != null) TopupSheet(w, onClose = { topupOpen = false }, onDone = { topupOpen = false; scope.launch { load() } })
+    detailId?.let { id -> TransactionDetailSheet(id, w, onClose = { detailId = null }) }
     if (withdrawOpen && w != null) WithdrawSheet(w, onClose = { withdrawOpen = false }, onDone = { withdrawOpen = false; tab = 1; scope.launch { load() } })
 }
 
@@ -202,17 +209,17 @@ private fun EmptyHint(text: String) {
 }
 
 @Composable
-private fun Chip(label: String, value: String) {
-    Column(Modifier.clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-        Text(label, color = Color.White.copy(alpha = 0.7f), fontSize = 11.sp)
-        Text(value, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+private fun BalanceChip(label: String, value: String) {
+    Column(Modifier.clip(RoundedCornerShape(14.dp)).background(DorrBrand.navy.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
+        Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
+        Text(value, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
     }
 }
 
 @Composable
-private fun TransactionRow(r: WalletRowDto, w: WalletDto?) {
+private fun TransactionRow(r: WalletRowDto, w: WalletDto?, onClick: () -> Unit) {
     val credit = r.direction == "credit"
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().bounceClick(onClick = onClick).surface(RoundedCornerShape(16.dp), 3.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(40.dp).clip(CircleShape).background((if (credit) DorrBrand.success else DorrBrand.danger).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
             Icon(if (credit) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, null, tint = if (credit) DorrBrand.success else DorrBrand.danger, modifier = Modifier.size(20.dp))
         }
@@ -229,7 +236,7 @@ private fun TransactionRow(r: WalletRowDto, w: WalletDto?) {
 @Composable
 private fun WithdrawalRow(d: WithdrawalDto, w: WalletDto?) {
     val color = when (d.status) { "approved" -> DorrBrand.success; "rejected" -> DorrBrand.danger; else -> DorrBrand.warning }
-    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surface).padding(14.dp)) {
+    Column(Modifier.fillMaxWidth().surface(RoundedCornerShape(16.dp), 3.dp).padding(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(amount(d.amountMinor, w), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, modifier = Modifier.weight(1f))
             Text(
@@ -307,7 +314,7 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
                     }
                 }
                 Text(stringResource(R.string.wl_add_method), color = DorrBrand.orange, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { adding = true }.padding(8.dp))
-                OutlinedTextField(amountText, { amountText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(10) }, label = { Text(stringResource(R.string.wl_amount, w.currencySymbol ?: "")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                DorrField(amountText, { amountText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(10) }, label = { Text(stringResource(R.string.wl_amount, w.currencySymbol ?: "")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             } else {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("bank" to R.string.wl_bank, "mobile_wallet" to R.string.wl_mobile).forEach { (key, name) ->
@@ -315,14 +322,14 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
                         Text(stringResource(name), color = if (on) Color.White else DorrBrand.navy, modifier = Modifier.clip(CircleShape).background(if (on) DorrBrand.navy else DorrBrand.navy.copy(alpha = 0.07f)).clickable { type = key }.padding(horizontal = 16.dp, vertical = 8.dp))
                     }
                 }
-                OutlinedTextField(label, { label = it.take(60) }, label = { Text(stringResource(R.string.wl_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                DorrField(label, { label = it.take(60) }, label = { Text(stringResource(R.string.wl_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (type == "bank") {
-                    OutlinedTextField(bankName, { bankName = it.take(100) }, label = { Text(stringResource(R.string.wl_bank_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(holder, { holder = it.take(100) }, label = { Text(stringResource(R.string.wl_holder)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(iban, { iban = it.filter { c -> c.isLetterOrDigit() }.take(34) }, label = { Text("IBAN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    DorrField(bankName, { bankName = it.take(100) }, label = { Text(stringResource(R.string.wl_bank_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    DorrField(holder, { holder = it.take(100) }, label = { Text(stringResource(R.string.wl_holder)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    DorrField(iban, { iban = it.filter { c -> c.isLetterOrDigit() }.take(34) }, label = { Text("IBAN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 } else {
-                    OutlinedTextField(provider, { provider = it.take(100) }, label = { Text(stringResource(R.string.wl_provider)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(number, { number = it.filter { c -> c.isDigit() }.take(20) }, label = { Text(stringResource(R.string.wl_number)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    DorrField(provider, { provider = it.take(100) }, label = { Text(stringResource(R.string.wl_provider)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    DorrField(number, { number = it.filter { c -> c.isDigit() }.take(20) }, label = { Text(stringResource(R.string.wl_number)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                 }
             }
 
@@ -386,7 +393,7 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
 
 @Composable
 private fun PinField(value: String, label: String, onChange: (String) -> Unit) {
-    OutlinedTextField(
+    DorrField(
         value, { onChange(it.filter { c -> c.isDigit() }.take(4)) }, label = { Text(label) }, singleLine = true,
         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
         modifier = Modifier.fillMaxWidth(),
@@ -394,10 +401,10 @@ private fun PinField(value: String, label: String, onChange: (String) -> Unit) {
 }
 
 /** "125.50 ر.س" from minor units (the wallet's currency; two decimals). */
-private fun amount(minor: Long, w: WalletDto?): String =
+internal fun amount(minor: Long, w: WalletDto?): String =
     "${String.format(Locale.getDefault(), "%.2f", minor / 100.0)} ${w?.currencySymbol ?: w?.currencyCode.orEmpty()}".trim()
 
-private fun whenText(iso: String?): String {
+internal fun whenText(iso: String?): String {
     val at = iso?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() } ?: return ""
     return at.atZoneSameInstant(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(Locale.getDefault()))
 }

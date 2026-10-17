@@ -226,6 +226,27 @@ class DiscoverTest extends TestCase
 
     // ------------------------------------------------------------------ AT-DISC-03
 
+    public function test_travel_search_also_works_by_country_or_governorate(): void
+    {
+        $dubai = $this->city('Dubai');
+        $this->adminEvent('Dubai night', 'Dubai', '2026-11-21 20:00');
+        $this->adminEvent('Riyadh night', 'Riyadh', '2026-11-21 20:00');
+
+        $this->as($this->alice);
+        // The whole country (the UAE): only its own events.
+        $this->getJson("/api/mobile/v1/discover/travel?country_id={$dubai->country_id}&from=2026-11-21&to=2026-11-22", ['X-Country' => 'EG'])
+            ->assertOk()->assertJsonPath('data.place.country_id', $dubai->country_id)->assertJsonCount(1, 'data.items');
+
+        // A governorate: its cities' events.
+        $region = \App\Models\Region::query()->create(['country_id' => $dubai->country_id, 'status' => true, 'sort_order' => 1]);
+        $dubai->update(['region_id' => $region->id]);
+        $this->getJson("/api/mobile/v1/discover/travel?region_id={$region->id}&from=2026-11-21&to=2026-11-22", ['X-Country' => 'EG'])
+            ->assertOk()->assertJsonPath('data.place.region_id', $region->id)->assertJsonCount(1, 'data.items');
+
+        // Nothing at all to go on: asked to say where.
+        $this->getJson('/api/mobile/v1/discover/travel?from=2026-11-21&to=2026-11-22', ['X-Country' => 'EG'])->assertStatus(422);
+    }
+
     public function test_travel_search_shows_the_destinations_events_on_its_own_days_wherever_i_am(): void
     {
         $dubai = $this->city('Dubai');
@@ -461,6 +482,23 @@ class DiscoverTest extends TestCase
         $page = $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2", $this->headers())->assertOk();
         $this->assertCount(2, $page->json('data'));
         $this->assertCount(1, $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2&page=2", $this->headers())->json('data'));
+    }
+
+    public function test_following_a_region_follows_its_cities_events_on_my_home(): void
+    {
+        $dubaiRegion = \App\Models\Region::query()->create(['country_id' => $this->emirates->id, 'status' => true, 'sort_order' => 1]);
+        $dubaiRegion->translations()->create(['locale' => 'en', 'name' => 'Dubai Emirate']);
+        $this->city('Dubai')->update(['region_id' => $dubaiRegion->id]);
+        $this->adminEvent('Dubai fair', 'Dubai', '2026-11-05 18:00', 'exhibitions');
+
+        $this->as($this->alice);
+        $followed = fn () => collect($this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertOk()->json('data.sections'))->keyBy('key');
+        $this->assertArrayNotHasKey('followed', $followed()->all());
+
+        $this->postJson('/api/mobile/v1/discover/follows', ['kind' => 'region', 'target_id' => 999999], $this->headers())->assertStatus(404);
+        $this->postJson('/api/mobile/v1/discover/follows', ['kind' => 'region', 'target_id' => $dubaiRegion->id], $this->headers())->assertOk()
+            ->assertJsonPath('data.0.kind', 'region')->assertJsonPath('data.0.name', 'Dubai Emirate');
+        $this->assertSame(['Dubai fair'], array_column($followed()['followed']['items'], 'title'));
     }
 
     public function test_the_admin_removes_an_events_cover(): void

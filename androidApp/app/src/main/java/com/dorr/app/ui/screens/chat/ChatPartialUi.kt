@@ -80,6 +80,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CatchUpDto
 import com.dorr.app.network.ChatMoneyDto
@@ -466,16 +467,19 @@ fun MediaFilterRow(files: Boolean, date: String?, fileKind: String?, bigOnly: Bo
         }
     }
     if (picking) {
+        val locale = rememberAppLocaleFrame()
         val state = rememberDatePickerState()
         DatePickerDialog(
             onDismissRequest = { picking = false },
             confirmButton = {
-                TextButton({ state.selectedDateMillis?.let { onDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }; picking = false }) {
-                    Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold)
+                locale.Provide {
+                    TextButton({ state.selectedDateMillis?.let { onDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }; picking = false }) {
+                        Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold)
+                    }
                 }
             },
-            dismissButton = { TextButton({ picking = false }) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } },
-        ) { DatePicker(state) }
+            dismissButton = { locale.Provide { TextButton({ picking = false }) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } } },
+        ) { locale.Provide { DatePicker(state) } }
     }
 }
 

@@ -64,8 +64,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
 import kotlinx.coroutines.Dispatchers
@@ -109,7 +109,7 @@ fun ChatViewersHost() {
 private fun VideoPlayerDialog(url: String, onClose: () -> Unit) {
     var ready by remember { mutableStateOf(false) }
     var failed by remember { mutableStateOf(false) }
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BackHandler(onBack = onClose)
         Box(Modifier.fillMaxSize().background(Color.Black), contentAlignment = Alignment.Center) {
             AndroidView(
@@ -155,7 +155,7 @@ private fun PdfViewerDialog(target: PdfTarget, onClose: () -> Unit) {
     val list = rememberLazyListState()
     val page by remember { derivedStateOf { list.firstVisibleItemIndex + 1 } }
 
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         BackHandler(onBack = onClose)
         Column(Modifier.fillMaxSize().background(Color(0xFF1F2430))) {
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(10.dp), verticalAlignment = Alignment.CenterVertically) {

@@ -204,15 +204,18 @@ fun UsagePage() {
     fun data(kind: String, mobile: Boolean) = v(ChatUsage.dataKey(kind, true, mobile)) + v(ChatUsage.dataKey(kind, false, mobile))
 
     if (confirmReset) {
+        val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             containerColor = Ch.Surface,
-            title = { Text(stringResource(R.string.us_reset_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.us_reset_sub), color = Ch.Mut) },
+            title = { locale.Provide { Text(stringResource(R.string.us_reset_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) } },
+            text = { locale.Provide { Text(stringResource(R.string.us_reset_sub), color = Ch.Mut) } },
             confirmButton = {
-                TextButton(onClick = { ChatUsage.reset(); stats = ChatUsage.snapshot(); confirmReset = false }) { Text(stringResource(R.string.us_reset), color = Ch.Red, fontWeight = FontWeight.Bold) }
+                locale.Provide {
+                    TextButton(onClick = { ChatUsage.reset(); stats = ChatUsage.snapshot(); confirmReset = false }) { Text(stringResource(R.string.us_reset), color = Ch.Red, fontWeight = FontWeight.Bold) }
+                }
             },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.us_cancel), color = Ch.Mut) } },
+            dismissButton = { locale.Provide { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.us_cancel), color = Ch.Mut) } } },
         )
     }
 
@@ -375,6 +378,6 @@ internal fun usageBytes(bytes: Long): String = when {
 }
 
 private fun sinceDate(millis: Long): String =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault()).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(com.dorr.app.network.AppLocale.java()).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
 
 private fun dirSize(dir: File): Long = dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }

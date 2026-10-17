@@ -94,18 +94,39 @@ class DiscoverService
      * @param  array<string, mixed>  $f
      * @return array<string, mixed>
      */
-    public function travel(Model $me, int $cityId, string $from, string $to, array $f, string $zone): array
+    public function travel(Model $me, array $f, string $from, string $to, string $zone): array
     {
-        $city = DiscoverCity::query()->with(['translations', 'country'])->where('status', true)->find($cityId) ?? throw DiscoverException::notFound();
-        $this->assertOn($city->country);
-        $start = CarbonImmutable::parse($from, $city->timezone);
-        $end = CarbonImmutable::parse($to, $city->timezone);
+        $city = null;
+        $region = null;
+        if (! empty($f['city_id'])) {
+            $city = DiscoverCity::query()->with(['translations', 'country'])->where('status', true)->find((int) $f['city_id']) ?? throw DiscoverException::notFound();
+            $country = $city->country;
+            $place = ['city_id' => $city->id];
+            $placeZone = $city->timezone;
+        } elseif (! empty($f['region_id'])) {
+            $region = \App\Models\Region::query()->with('country')->find((int) $f['region_id']) ?? throw DiscoverException::notFound();
+            $country = $region->country;
+            $place = ['region_id' => $region->id];
+            $placeZone = DiscoverCity::query()->where('status', true)->where('region_id', $region->id)->orderBy('sort_order')->value('timezone');
+        } else {
+            $country = Country::query()->find((int) $f['country_id']) ?? throw DiscoverException::notFound();
+            $place = ['country_id' => $country->id];
+            $placeZone = DiscoverCity::query()->where('status', true)->where('country_id', $country->id)->orderBy('sort_order')->value('timezone');
+        }
+        $this->assertOn($country);
+        // The days are cut in the destination's own zone (a city's; else its first city's; else mine).
+        $placeZone ??= $zone;
+        $start = CarbonImmutable::parse($from, $placeZone);
+        $end = CarbonImmutable::parse($to, $placeZone);
         if ($end->lt($start) || $start->diffInDays($end) > self::MAX_TRAVEL_DAYS) {
             throw new DiscoverException('travel_range', 422, ['max' => self::MAX_TRAVEL_DAYS]);
         }
 
-        return ['city' => $this->presentCity($city), 'from' => $from, 'to' => $to]
-            + $this->search($me, ['city_id' => $city->id, 'from' => $from, 'to' => $to] + array_intersect_key($f, array_flip(['category_ids', 'free', 'family', 'q', 'sort', 'page'])), $zone);
+        return [
+            'city' => $city ? $this->presentCity($city) : null,
+            'place' => ['country_id' => $country?->id, 'region_id' => $region?->id, 'timezone' => $placeZone],
+            'from' => $from, 'to' => $to,
+        ] + $this->search($me, $place + ['from' => $from, 'to' => $to] + array_intersect_key($f, array_flip(['category_ids', 'free', 'family', 'q', 'sort', 'page'])) + ['day_zone' => $placeZone], $zone);
     }
 
     /**
@@ -125,7 +146,7 @@ class DiscoverService
             $q->whereIn('category_id', array_map('intval', (array) $f['category_ids']));
         }
         // One city: its own days; several: mine.
-        $dayZone = $city?->timezone ?? $zone;
+        $dayZone = $city?->timezone ?? ($f['day_zone'] ?? $zone);
         $this->overlapping(
             $q,
             ! empty($f['from']) ? CarbonImmutable::parse($f['from'], $dayZone)->startOfDay() : null,
@@ -193,7 +214,10 @@ class DiscoverService
         };
 
         $cityIds = $follows->where('kind', 'city')->pluck('target_id')->all();
+        $regionIds = $follows->where('kind', 'region')->pluck('target_id')->all();
         $countryIds = $follows->where('kind', 'country')->pluck('target_id')->all();
+        // A followed region follows its cities.
+        $cityIds = array_values(array_unique([...$cityIds, ...($regionIds === [] ? [] : DiscoverCity::query()->whereIn('region_id', $regionIds)->pluck('id')->all())]));
 
         $sections = [
             $prefs->categoryIds() !== [] ? $section('for_you', fn ($q) => $here($q)->whereIn('category_id', $prefs->categoryIds())) : null,
@@ -293,16 +317,26 @@ class DiscoverService
         $rows = DiscoverFollow::query()->ownedBy($me)->orderBy('id')->get();
         $cities = DiscoverCity::query()->with(['translations', 'country'])->whereIn('id', $rows->where('kind', 'city')->pluck('target_id'))->get()->keyBy('id');
         $countries = Country::query()->with('translations')->whereIn('id', $rows->where('kind', 'country')->pluck('target_id'))->get()->keyBy('id');
+        $regions = Region::query()->with(['translations', 'country'])->whereIn('id', $rows->where('kind', 'region')->pluck('target_id'))->get()->keyBy('id');
 
-        return $rows->map(function (DiscoverFollow $f) use ($cities, $countries) {
+        return $rows->map(function (DiscoverFollow $f) use ($cities, $countries, $regions) {
             $city = $f->kind === 'city' ? $cities->get($f->target_id) : null;
-            $country = $f->kind === 'country' ? $countries->get($f->target_id) : $city?->country;
+            $region = $f->kind === 'region' ? $regions->get($f->target_id) : null;
+            $country = match ($f->kind) {
+                'country' => $countries->get($f->target_id),
+                'region' => $region?->country,
+                default => $city?->country,
+            };
 
             return [
                 'id' => $f->id,
                 'kind' => $f->kind,
                 'target_id' => (int) $f->target_id,
-                'name' => $f->kind === 'city' ? $city?->translatedName() : $country?->translatedName(),
+                'name' => match ($f->kind) {
+                    'city' => $city?->translatedName(),
+                    'region' => $region?->translatedName(),
+                    default => $country?->translatedName(),
+                },
                 'country' => $country?->code,
             ];
         })->values()->all();
@@ -313,9 +347,11 @@ class DiscoverService
      */
     public function follow(Model $me, string $kind, int $targetId): array
     {
-        $exists = $kind === 'city'
-            ? DiscoverCity::query()->where('status', true)->whereKey($targetId)->exists()
-            : Country::query()->whereKey($targetId)->exists();
+        $exists = match ($kind) {
+            'city' => DiscoverCity::query()->where('status', true)->whereKey($targetId)->exists(),
+            'region' => Region::query()->where('status', true)->whereKey($targetId)->exists(),
+            default => Country::query()->whereKey($targetId)->exists(),
+        };
         if (! $exists) {
             throw DiscoverException::notFound();
         }
@@ -456,9 +492,9 @@ class DiscoverService
     {
         $settings = $this->settings();
 
-        return Country::query()->whereIn('id', DiscoverCity::query()->where('status', true)->select('country_id'))->get()
+        return Country::query()->with('translations')->whereIn('id', DiscoverCity::query()->where('status', true)->select('country_id'))->get()
             ->filter(fn (Country $c) => $settings->onIn($c->id))
-            ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName(), 'code' => $c->code])
+            ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName() ?: $c->code, 'code' => $c->code])
             ->values()->all();
     }
 

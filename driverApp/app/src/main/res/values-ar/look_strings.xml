@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The captain app's shell: splash, bottom bar, account and settings (same design as the DORR app). -->
+<resources>
+    <string name="back">رجوع</string>
+    <string name="cancel">إلغاء</string>
+    <string name="app_tagline">بدعم من درر</string>
+
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_earnings">الأرباح</string>
+    <string name="nav_wallet">المحفظة</string>
+    <string name="nav_account">حسابي</string>
+
+    <string name="login_hero">اشتغل مع دُرر</string>
+    <string name="login_terms">بالمتابعة أنت توافق على شروط الاستخدام وسياسة الخصوصية.</string>
+    <string name="otp_wrong">الرمز غير صحيح. حاول مرة أخرى.</string>
+
+    <string name="acct_title">حسابي</string>
+    <string name="acct_driving">القيادة</string>
+    <string name="acct_app">التطبيق</string>
+    <string name="acct_account_status">حالة الحساب</string>
+    <string name="acct_signup">المستندات والمركبة</string>
+    <string name="acct_signup_hint">رخصتك ومركبتك ومراجعتها</string>
+    <string name="acct_appearance">المظهر</string>
+    <string name="acct_mode_system">مثل الهاتف</string>
+    <string name="acct_mode_light">فاتح</string>
+    <string name="acct_mode_dark">داكن</string>
+    <string name="acct_language">اللغة</string>
+    <string name="acct_lang_system">مثل الهاتف</string>
+    <string name="acct_lang_ar">العربية</string>
+    <string name="acct_lang_en">English</string>
+    <string name="acct_notifications_hint">الطلبات والمدفوعات وأخبار الحساب</string>
+    <string name="acct_logout_title">تسجيل الخروج؟</string>
+    <string name="acct_logout_message">ستصبح غير متصل ولن تصلك طلبات على هذا الهاتف.</string>
+    <string name="acct_version">الإصدار %1$s</string>
+    <string name="acct_rating">التقييم</string>
+    <string name="acct_trips_total">الرحلات</string>
+
+    <string name="home_today_title">اليوم</string>
+    <string name="home_open_earnings">التفاصيل</string>
+    <string name="home_offline_hint">ابدأ العمل لتستقبل الطلبات</string>
+</resources>

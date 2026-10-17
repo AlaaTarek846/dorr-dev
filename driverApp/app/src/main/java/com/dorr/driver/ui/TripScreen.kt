@@ -43,7 +43,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -71,7 +71,8 @@ import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.duty.Duty
 import com.dorr.driver.net.DriverBackend
@@ -88,6 +89,9 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.Instant
 import java.util.UUID
+
+/** The status band at the top of the ride: rounded at the bottom, like the cards under it. */
+private val BandShape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
 
 /**
  * The ride, one big action at a time: to the rider (navigation opens in Google Maps), "I've
@@ -156,7 +160,7 @@ fun TripScreen(onDone: () -> Unit) {
             "in_progress" -> stringResource(R.string.trip_on_ride) to DorrBrand.success
             else -> stringResource(R.string.trip_done) to DorrBrand.success
         }
-        Column(Modifier.fillMaxWidth().background(Brush.verticalGradient(listOf(band, band.copy(alpha = 0.8f)))).statusBarsPadding().padding(20.dp)) {
+        Column(Modifier.fillMaxWidth().shadow(10.dp, BandShape).clip(BandShape).background(Brush.verticalGradient(listOf(band, band.copy(alpha = 0.8f)))).statusBarsPadding().padding(20.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
@@ -203,7 +207,7 @@ fun TripScreen(onDone: () -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(R.string.offer_dropoff), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                 Text(t.destination?.address ?: stringResource(R.string.offer_open_destination), fontWeight = FontWeight.SemiBold)
-                RiderDetails(t.passengers, t.pickupNote.takeIf { t.status == "accepted" || t.status == "arrived" })
+                RiderDetails(t.passengers, t.pickupNote.takeIf { t.status == "accepted" || t.status == "arrived" }, t.beneficiary?.name, t.pickupPoint, t.dropoffPoint, t.fromCircle)
                 Spacer(Modifier.height(8.dp))
                 Row {
                     Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
@@ -339,7 +343,7 @@ private fun PinDialog(onDismiss: () -> Unit, onPin: (String) -> Unit) {
             Column {
                 Text(stringResource(R.string.trip_pin_hint), fontSize = 13.sp)
                 Spacer(Modifier.height(10.dp))
-                OutlinedTextField(pin, { pin = it.filter(Char::isDigit).take(4) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
+                DorrField(pin, { pin = it.filter(Char::isDigit).take(4) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword))
             }
         },
         confirmButton = { TextButton(enabled = pin.length == 4, onClick = { onPin(pin) }) { Text(stringResource(R.string.trip_start)) } },
@@ -375,7 +379,7 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
         Card {
             Text(stringResource(R.string.trip_collect, money(due, t.currency)), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = DorrBrand.orange)
             Spacer(Modifier.height(8.dp))
-            OutlinedTextField(received, { received = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text(stringResource(R.string.trip_received)) }, singleLine = true,
+            DorrField(received, { received = it.filter { c -> c.isDigit() || c == '.' } }, label = { Text(stringResource(R.string.trip_received)) }, singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
             val receivedMinor = ((received.toDoubleOrNull() ?: 0.0) * 100).toLong()
             if (receivedMinor > due) Text(stringResource(R.string.trip_change, money(receivedMinor - due, t.currency)), fontSize = 13.sp, color = DorrBrand.info, modifier = Modifier.padding(top = 4.dp))
@@ -497,7 +501,7 @@ private fun TripChat(t: TripDto, onClose: () -> Unit) {
                 items(quick) { q -> Text(q.text, fontSize = 12.sp, modifier = Modifier.clip(CircleShape).border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape).clickable { send(null, q.key) }.padding(horizontal = 12.dp, vertical = 7.dp)) }
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(text, { text = it.take(1000) }, placeholder = { Text(stringResource(R.string.trip_chat_hint)) }, modifier = Modifier.weight(1f), singleLine = true)
+                DorrField(text, { text = it.take(1000) }, placeholder = { Text(stringResource(R.string.trip_chat_hint)) }, modifier = Modifier.weight(1f), singleLine = true)
                 Spacer(Modifier.width(8.dp))
                 Box(Modifier.size(48.dp).clip(CircleShape).background(DorrBrand.navy).clickable(enabled = text.isNotBlank()) { send(text.trim(), null); text = "" }, contentAlignment = Alignment.Center) {
                     Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White)

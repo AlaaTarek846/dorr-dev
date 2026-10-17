@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.LocationCity
 import androidx.compose.material.icons.rounded.Map
@@ -37,6 +38,13 @@ import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.ui.draw.alpha
+import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.Schedule
+import com.dorr.app.network.DiscCategoryDto
+import androidx.compose.material.icons.rounded.ConfirmationNumber
+import androidx.compose.material.icons.rounded.FamilyRestroom
+import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -173,15 +181,22 @@ private fun RegionChip(region: DiscRegionDto, onClick: () -> Unit) {
     }
 }
 
-/** The chosen place over the results — each part can be dropped with its ✕ (what's under it goes too). */
+/** What the list is narrowed to, over the results — each part can be dropped with its ✕ (a place part takes what is under it). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun PlaceChips(place: EvPlace, onChange: (EvPlace) -> Unit) {
-    if (!place.isSet) return
+internal fun PlaceChips(place: EvPlace, kind: DiscCategoryDto?, whenPick: When, onPlace: (EvPlace) -> Unit, onKind: () -> Unit, onWhen: () -> Unit) {
+    if (!place.isSet && kind == null && whenPick == When.Any) return
     FlowRow(Modifier.fillMaxWidth().animateContentSize(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        place.countryName?.let { SetChip(Icons.Rounded.Public, it) { onChange(EvPlace()) } }
-        place.regionName?.let { SetChip(Icons.Rounded.Map, it) { onChange(place.copy(regionId = null, regionName = null, cityId = null, cityName = null)) } }
-        place.cityName?.let { SetChip(Icons.Rounded.LocationCity, it) { onChange(place.copy(cityId = null, cityName = null)) } }
+        place.countryName?.let { SetChip(Icons.Rounded.Public, it) { onPlace(EvPlace()) } }
+        place.regionName?.let { SetChip(Icons.Rounded.Map, it) { onPlace(place.copy(regionId = null, regionName = null, cityId = null, cityName = null)) } }
+        place.cityName?.let { SetChip(Icons.Rounded.LocationCity, it) { onPlace(place.copy(cityId = null, cityName = null)) } }
+        kind?.let { SetChip(Icons.Rounded.Category, listOfNotNull(it.emoji, it.name).joinToString(" "), onKind) }
+        if (whenPick != When.Any) SetChip(Icons.Rounded.Schedule, stringResource(when (whenPick) {
+            When.Today -> R.string.ev_when_today
+            When.Weekend -> R.string.ev_when_weekend
+            When.Week -> R.string.ev_when_week
+            else -> R.string.ev_when_month
+        }), onWhen)
     }
 }
 
@@ -201,24 +216,38 @@ private fun SetChip(icon: ImageVector, text: String, onRemove: () -> Unit) {
     }
 }
 
+/** What the browse page is narrowed to besides the place: the kind and the time. */
+internal data class EvFilter(
+    val place: EvPlace = EvPlace(),
+    val categoryId: Int? = null,
+    val whenPick: When = When.Any,
+    val free: Boolean = false,
+    val family: Boolean = false,
+    val popular: Boolean = false,
+) {
+    fun count(): Int = place.count() + listOf(categoryId != null, whenPick != When.Any, free, family, popular).count { it }
+}
+
 /**
- * The place filter: country → region → city in one sheet. Each step opens once the one before is
- * picked, and changing a step clears what's under it. "Apply" narrows the list; "Clear" goes back
- * to everything where I am.
+ * The browse filter, one select for each thing: country → region → city (each opens once the one
+ * before is picked, changing one clears what is under it), then the kind and the time. "Apply"
+ * narrows the list; "Clear" goes back to everything where I am.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun EvPlaceSheet(current: EvPlace, myCountryCode: String?, onApply: (EvPlace) -> Unit, onClose: () -> Unit) {
-    var place by remember { mutableStateOf(current) }
+internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>, myCountryCode: String?, onApply: (EvFilter) -> Unit, onClose: () -> Unit) {
+    var filter by remember { mutableStateOf(current) }
     var countries by remember { mutableStateOf<List<DiscCountryDto>?>(null) }
     var regions by remember { mutableStateOf<List<DiscRegionDto>?>(null) }
     var cities by remember { mutableStateOf<List<DiscCityDto>?>(null) }
+    val place = filter.place
+    fun setPlace(next: EvPlace) { filter = filter.copy(place = next) }
 
     LaunchedEffect(Unit) {
         val list = EvPlaces.countries()
         countries = list
         // Nothing chosen yet: start from the country I'm in.
-        if (place.countryId == null) list.firstOrNull { it.code == myCountryCode }?.let { place = place.copy(countryId = it.id, countryName = it.name) }
+        if (place.countryId == null) list.firstOrNull { it.code == myCountryCode }?.let { setPlace(place.copy(countryId = it.id, countryName = it.name?.takeIf { n -> n.isNotBlank() } ?: it.code)) }
     }
     LaunchedEffect(place.countryId) {
         regions = null
@@ -228,39 +257,86 @@ internal fun EvPlaceSheet(current: EvPlace, myCountryCode: String?, onApply: (Ev
         cities = null
         place.regionId?.let { cities = EvPlaces.cities(it) }
     }
+    val whens = listOf(When.Any to R.string.ev_when_any, When.Today to R.string.ev_when_today, When.Weekend to R.string.ev_when_weekend, When.Week to R.string.ev_when_week, When.Month to R.string.ev_when_month)
+    val all = stringResource(R.string.ev_all_kinds)
 
-    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp)) {
+    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), fullHeight = true) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 22.dp)) {
-            Text(stringResource(R.string.ev_place_title), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
-            Spacer(Modifier.height(4.dp))
-            Column(Modifier.fillMaxWidth().heightIn(max = 460.dp).verticalScroll(rememberScrollState())) {
-                PlaceStep(Icons.Rounded.Public, stringResource(R.string.ev_country), true, null) {
-                    ChoiceFlow(countries, place.countryId, { it.id }, { it.name.orEmpty() }) { c ->
-                        place = EvPlace(countryId = c.id, countryName = c.name)
-                    }
+            Text(stringResource(R.string.ev_filter_title), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.fillMaxWidth().heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(FieldGap)) {
+                // The quick ones first, as the chips they were on the page.
+                androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    EvChip(stringResource(R.string.ev_free), filter.free, icon = "🎟️") { filter = filter.copy(free = !filter.free) }
+                    EvChip(stringResource(R.string.ev_family), filter.family, icon = "👨‍👩‍👧") { filter = filter.copy(family = !filter.family) }
+                    EvChip(stringResource(R.string.ev_popular), filter.popular, icon = "🔥") { filter = filter.copy(popular = !filter.popular) }
                 }
-                PlaceStep(Icons.Rounded.Map, stringResource(R.string.ev_region), place.countryId != null, stringResource(R.string.ev_pick_country_first)) {
-                    ChoiceFlow(regions, place.regionId, { it.id }, { "${it.name.orEmpty()} · ${it.eventsCount}" }, all = stringResource(R.string.ev_all_regions), onAll = {
-                        place = place.copy(regionId = null, regionName = null, cityId = null, cityName = null)
-                    }) { r -> place = place.copy(regionId = r.id, regionName = r.name, cityId = null, cityName = null) }
-                }
-                PlaceStep(Icons.Rounded.LocationCity, stringResource(R.string.ev_city), place.regionId != null, stringResource(R.string.ev_pick_region_first)) {
-                    ChoiceFlow(cities, place.cityId, { it.id }, { it.name.orEmpty() }, all = stringResource(R.string.ev_all_cities), onAll = {
-                        place = place.copy(cityId = null, cityName = null)
-                    }) { c -> place = place.copy(cityId = c.id, cityName = c.name) }
-                }
+                FilterSelect(
+                    stringResource(R.string.ev_f_category), Icons.Rounded.Category,
+                    categories.firstOrNull { it.id == filter.categoryId }?.let { listOfNotNull(it.emoji, it.name).joinToString(" ") } ?: all,
+                    options = listOf(all to { filter = filter.copy(categoryId = null) }) +
+                        categories.map { c -> listOfNotNull(c.emoji, c.name).joinToString(" ") to { filter = filter.copy(categoryId = c.id) } },
+                    selected = categories.firstOrNull { it.id == filter.categoryId }?.let { listOfNotNull(it.emoji, it.name).joinToString(" ") },
+                )
+                val whenLabels = whens.map { (w, label) -> w to stringResource(label) }
+                FilterSelect(
+                    stringResource(R.string.ev_when), Icons.Rounded.Schedule, whenLabels.first { it.first == filter.whenPick }.second,
+                    options = whenLabels.map { (w, label) -> label to { filter = filter.copy(whenPick = w) } },
+                    selected = whenLabels.first { it.first == filter.whenPick }.second,
+                )
+                FilterSelect(
+                    stringResource(R.string.ev_country), Icons.Rounded.Public, place.countryName ?: stringResource(R.string.ev_country),
+                    options = countries.orEmpty().map { c -> (c.name?.takeIf { n -> n.isNotBlank() } ?: c.code.orEmpty()) to { setPlace(EvPlace(countryId = c.id, countryName = c.name?.takeIf { n -> n.isNotBlank() } ?: c.code)) } },
+                    selected = place.countryName,
+                )
+                FilterSelect(
+                    stringResource(R.string.ev_region), Icons.Rounded.Map, place.regionName ?: stringResource(R.string.ev_all_regions),
+                    enabled = place.countryId != null,
+                    options = listOf(stringResource(R.string.ev_all_regions) to { setPlace(place.copy(regionId = null, regionName = null, cityId = null, cityName = null)) }) +
+                        regions.orEmpty().map { r -> "${r.name.orEmpty()} · ${r.eventsCount}" to { setPlace(place.copy(regionId = r.id, regionName = r.name, cityId = null, cityName = null)) } },
+                    selected = place.regionName,
+                )
+                FilterSelect(
+                    stringResource(R.string.ev_city), Icons.Rounded.LocationCity, place.cityName ?: stringResource(R.string.ev_all_cities),
+                    enabled = place.regionId != null,
+                    options = listOf(stringResource(R.string.ev_all_cities) to { setPlace(place.copy(cityId = null, cityName = null)) }) +
+                        cities.orEmpty().map { c -> c.name.orEmpty() to { setPlace(place.copy(cityId = c.id, cityName = c.name)) } },
+                    selected = place.cityName,
+                )
             }
             Spacer(Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                WaButton(stringResource(R.string.ev_place_clear), { onApply(EvPlace()) }, style = WaButtonStyle.Ghost, modifier = Modifier.weight(1f))
-                WaButton(stringResource(R.string.ev_place_apply), { onApply(place) }, modifier = Modifier.weight(1f))
+                WaButton(stringResource(R.string.ev_place_clear), { onApply(EvFilter()) }, style = WaButtonStyle.Ghost, modifier = Modifier.weight(1f))
+                WaButton(stringResource(R.string.ev_place_apply), { onApply(filter) }, modifier = Modifier.weight(1f))
+            }
+        }
+    }
+}
+
+/** A select with a label above; locked (dimmed, doesn't open) until `enabled`; its options are a dropdown with a ✓ on the chosen one. */
+@Composable
+internal fun FilterSelect(label: String, icon: ImageVector, value: String, options: List<Pair<String, () -> Unit>>, selected: String?, enabled: Boolean = true) {
+    var open by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f)) {
+        FieldLabel(label)
+        com.dorr.app.ui.screens.calendar.SelectRow(icon, value, open && enabled, { if (enabled) open = it }) {
+            if (options.isEmpty()) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.ev_place_none), color = Wa.Mut) }, onClick = { open = false }, enabled = false)
+            }
+            options.forEach { (text, pick) ->
+                val on = text == selected
+                androidx.compose.material3.DropdownMenuItem(
+                    text = { Text(text, color = if (on) Wa.Red else Wa.Ink, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium) },
+                    trailingIcon = { if (on) Icon(Icons.Rounded.Check, null, tint = Wa.Red, modifier = Modifier.size(16.dp)) },
+                    onClick = { pick(); open = false },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun PlaceStep(icon: ImageVector, title: String, open: Boolean, locked: String?, content: @Composable () -> Unit) {
+internal fun PlaceStep(icon: ImageVector, title: String, open: Boolean, locked: String?, content: @Composable () -> Unit) {
     Row(Modifier.padding(top = 14.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(28.dp).clip(CircleShape).background(if (open) Wa.Red.copy(alpha = 0.12f) else Wa.Line), contentAlignment = Alignment.Center) {
             Icon(icon, null, tint = if (open) Wa.Red else Wa.Mut, modifier = Modifier.size(16.dp))
@@ -275,7 +351,7 @@ private fun PlaceStep(icon: ImageVector, title: String, open: Boolean, locked: S
 /** The choices of one step as chips; skeleton chips while they load, a line when there are none. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun <T> ChoiceFlow(
+internal fun <T> ChoiceFlow(
     options: List<T>?,
     selected: Int?,
     id: (T) -> Int,
@@ -306,4 +382,56 @@ internal fun FilterBadgeDot(count: Int) {
         count.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
         modifier = Modifier.clip(CircleShape).background(Wa.Red).padding(horizontal = 6.dp, vertical = 1.dp),
     )
+}
+
+/**
+ * Pick a region to follow: the country first (mine is chosen), then its regions with something on, as
+ * rows — tap one to follow it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun RegionPickerSheet(myCountryCode: String?, followed: Set<Int>, onPick: (DiscRegionDto) -> Unit, onClose: () -> Unit) {
+    var countries by remember { mutableStateOf<List<DiscCountryDto>?>(null) }
+    var countryId by remember { mutableStateOf<Int?>(null) }
+    var regions by remember { mutableStateOf<List<DiscRegionDto>?>(null) }
+
+    LaunchedEffect(Unit) {
+        val list = EvPlaces.countries()
+        countries = list
+        countryId = (list.firstOrNull { it.code == myCountryCode } ?: list.firstOrNull())?.id
+    }
+    LaunchedEffect(countryId) {
+        regions = null
+        countryId?.let { regions = EvPlaces.regions(it) }
+    }
+
+    LocaleAwareBottomSheet(onDismissRequest = onClose, containerColor = Wa.Bg, shape = RoundedCornerShape(topStart = 26.dp, topEnd = 26.dp), fullHeight = true) {
+        Column(Modifier.fillMaxWidth().padding(horizontal = 18.dp).padding(bottom = 22.dp)) {
+            Text(stringResource(R.string.ev_pick_region), color = Wa.Ink, fontSize = 19.sp, fontWeight = FontWeight.ExtraBold)
+            PlaceStep(Icons.Rounded.Public, stringResource(R.string.ev_country), true, null) {
+                ChoiceFlow(countries, countryId, { it.id }, { it.name?.takeIf { n -> n.isNotBlank() } ?: it.code.orEmpty() }) { countryId = it.id }
+            }
+            Spacer(Modifier.height(10.dp))
+            Column(Modifier.fillMaxWidth().heightIn(max = 420.dp).verticalScroll(rememberScrollState())) {
+                when {
+                    regions == null -> repeat(3) { WaSkeleton(Modifier.fillMaxWidth().height(46.dp).padding(bottom = 8.dp), RoundedCornerShape(14.dp)) }
+                    regions.orEmpty().isEmpty() -> Text(stringResource(R.string.ev_place_none), color = Wa.Mut, fontSize = 12.5.sp)
+                    else -> regions.orEmpty().forEach { r ->
+                        val done = r.id in followed
+                        Row(
+                            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(14.dp)).background(Wa.Surface)
+                                .clickable(enabled = !done) { onPick(r) }.padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.Map, null, tint = Wa.Red, modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(10.dp))
+                            Text(r.name.orEmpty(), color = Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                            Text(r.eventsCount.toString(), color = Wa.Mut, fontSize = 12.sp)
+                            if (done) Icon(Icons.Rounded.Check, null, tint = Wa.Red, modifier = Modifier.padding(start = 8.dp).size(18.dp))
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

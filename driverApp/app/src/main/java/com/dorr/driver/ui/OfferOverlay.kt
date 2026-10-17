@@ -61,7 +61,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.duty.Duty
 import com.dorr.driver.duty.DriverDutyService
@@ -115,6 +115,9 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
                 .padding(22.dp).navigationBarsPadding(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            // The grabber of a sheet, as in the DORR app's panels.
+            Box(Modifier.size(width = 38.dp, height = 4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
+            Spacer(Modifier.height(14.dp))
             Box(Modifier.size(120.dp), contentAlignment = Alignment.Center) {
                 Canvas(Modifier.size(120.dp)) {
                     drawArc(Color.LightGray.copy(alpha = 0.3f), 0f, 360f, false, style = Stroke(10f), topLeft = Offset(6f, 6f), size = Size(size.width - 12f, size.height - 12f))
@@ -138,7 +141,7 @@ private fun OfferCard(offer: OfferDto, onAccepted: () -> Unit) {
             offer.stops.forEach { Point(DorrBrand.warning, "•", it.address) }
             Point(DorrBrand.orange, stringResource(R.string.offer_dropoff), offer.destination?.address ?: stringResource(R.string.offer_open_destination))
             // D-60, D-61: how many ride and the pickup note, before accepting.
-            RiderDetails(offer.passengers, offer.pickupNote)
+            RiderDetails(offer.passengers, offer.pickupNote, offer.beneficiary?.name, offer.pickupPoint, offer.dropoffPoint, offer.fromCircle)
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
             Spacer(Modifier.height(16.dp))
             // Bidding: the rider's price, "accept for", or my own offer.

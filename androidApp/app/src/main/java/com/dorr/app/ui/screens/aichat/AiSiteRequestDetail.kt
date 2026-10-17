@@ -51,7 +51,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
+import com.dorr.app.network.AppLocale
 import com.dorr.app.R
 import com.dorr.app.network.AiRequestInstallmentDto
 import com.dorr.app.network.AiRequestMessageDto
@@ -75,10 +76,10 @@ private fun money(value: Double?, currency: String?): String {
 }
 
 private fun fmtDate(value: String?): String =
-    parseInstant(value)?.let { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withZone(ZoneId.systemDefault()).format(it) }.orEmpty()
+    parseInstant(value)?.let { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(AppLocale.java()).withZone(ZoneId.systemDefault()).format(it) }.orEmpty()
 
 private fun fmtTime(value: String?): String =
-    parseInstant(value)?.let { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault()).format(it) }.orEmpty()
+    parseInstant(value)?.let { DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withLocale(AppLocale.java()).withZone(ZoneId.systemDefault()).format(it) }.orEmpty()
 
 /** 0..4 position on the journey: received, quoted, building, delivered, done. */
 private fun journeyIndex(code: String): Int = when (code) {
@@ -265,7 +266,7 @@ private fun ChatBubble(m: AiRequestMessageDto) {
 private fun DeclineDialog(onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
     val c = sitePalette()
     var reason by remember { mutableStateOf("") }
-    Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(24.dp)).background(c.surface).padding(20.dp)) {
             Text(stringResource(R.string.ai_req_decline_title), color = c.ink, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
             Text(stringResource(R.string.ai_req_decline_sub), color = c.mut, fontSize = 12.5.sp, modifier = Modifier.padding(top = 4.dp, bottom = 8.dp))

@@ -9,15 +9,22 @@
             <div class="card-body d-flex flex-wrap gap-2 align-items-end">
                 <div>
                     <label class="form-label fs-12 mb-1">{{ t('rides.drivers.country') }}</label>
-                    <select v-model="scope.country_id" class="form-select form-select-sm" style="min-width: 180px" @change="scope.city_id = null">
+                    <select v-model="scope.country_id" class="form-select form-select-sm" style="min-width: 180px" @change="scope.city_id = null; scope.zone_id = null">
                         <option v-for="c in options.countries" :key="c.id" :value="c.id">{{ c.name }}</option>
                     </select>
                 </div>
                 <div>
                     <label class="form-label fs-12 mb-1">{{ t('rides.drivers.city') }}</label>
-                    <select v-model="scope.city_id" class="form-select form-select-sm" style="min-width: 180px">
+                    <select v-model="scope.city_id" class="form-select form-select-sm" style="min-width: 180px" :disabled="!!scope.zone_id">
                         <option :value="null">{{ t('rides.switches.whole_country') }}</option>
                         <option v-for="c in cities" :key="c.id" :value="c.id">{{ c.name }}</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label fs-12 mb-1">{{ t('rides.policies.zone') }}</label>
+                    <select v-model="scope.zone_id" class="form-select form-select-sm" style="min-width: 180px">
+                        <option :value="null">{{ t('rides.policies.no_zone') }}</option>
+                        <option v-for="z in zonesOfCountry" :key="z.id" :value="z.id">{{ z.name }} ({{ t(`rides.zones.type.${z.type}`) }})</option>
                     </select>
                 </div>
                 <div>
@@ -83,6 +90,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 import adminAxios from '../../../../../../../api/adminAxios';
 import WalletPageHeader from '../../../../../../../components/wallet/WalletPageHeader.vue';
 import WalletSection from '../../../../../../../components/wallet/WalletSection.vue';
@@ -92,21 +100,23 @@ import { usePermission } from '../../../../../../../composables/usePermission';
 // Prices & rules, one scope at a time: what this scope inherits from the broader ones, and the keys
 // it changes. Money is typed in the currency (halalas are stored), rates in percent, times in seconds.
 const { t, te } = useI18n();
+const route = useRoute();
 const { can } = usePermission();
 const { showSuccess, showError } = useToast();
 const canUpdate = computed(() => can('ride-policies.update'));
 
-const options = reactive({ countries: [], cities: [], categories: [], defaults: {} });
+const options = reactive({ countries: [], cities: [], categories: [], zones: [], defaults: {} });
 const scopes = ref([]);
-const scope = reactive({ country_id: null, city_id: null, category_id: null });
+const scope = reactive({ country_id: null, city_id: null, zone_id: null, category_id: null });
 const own = ref({});
 const inherited = ref({});
 const loading = ref(false);
 const saving = ref(false);
 const defaults = computed(() => options.defaults);
-const choices = { pricing_mode: ['upfront', 'metered'], 'price.commission_type': ['percent', 'fixed'], 'gps_gap.strategy': ['route', 'straight'] };
+const choices = { pricing_mode: ['upfront', 'metered'], 'price.commission_type': ['percent', 'fixed'], 'gps_gap.strategy': ['route', 'straight'], 'queue.entry': ['auto', 'manual'] };
 
 const cities = computed(() => options.cities.filter((c) => c.country_id === scope.country_id));
+const zonesOfCountry = computed(() => options.zones.filter((z) => z.country_id === scope.country_id));
 const scopesOfCountry = computed(() => scopes.value.filter((s) => s.country_id === scope.country_id));
 const groups = computed(() => {
     const byGroup = {};
@@ -145,7 +155,7 @@ const display = (key, v) => {
     return `${shown} ${unit(key)}`.trim();
 };
 const groupIcon = (name) => ({ price: 'ri-money-dollar-circle-line', search: 'ri-radar-line', cancel: 'ri-close-circle-line', waiting: 'ri-time-line', bids: 'ri-auction-line', location: 'ri-map-pin-line', settlement: 'ri-bank-line', wasl: 'ri-government-line' }[name] ?? 'ri-settings-3-line');
-const scopeName = (s) => [options.cities.find((c) => c.id === s.city_id)?.name ?? t('rides.switches.whole_country'), options.categories.find((c) => c.id === s.category_id)?.name ?? t('rides.policies.all_categories')].join(' · ');
+const scopeName = (s) => [s.zone_id ? options.zones.find((z) => z.id === s.zone_id)?.name : (options.cities.find((c) => c.id === s.city_id)?.name ?? t('rides.switches.whole_country')), options.categories.find((c) => c.id === s.category_id)?.name ?? t('rides.policies.all_categories')].join(' · ');
 
 function toggleOwn(key, on) {
     const next = { ...own.value };
@@ -155,7 +165,7 @@ function toggleOwn(key, on) {
 }
 
 function jump(s) {
-    Object.assign(scope, { city_id: s.city_id, category_id: s.category_id });
+    Object.assign(scope, { city_id: s.city_id, zone_id: s.zone_id ?? null, category_id: s.category_id });
 }
 
 async function load() {
@@ -198,7 +208,10 @@ onMounted(async () => {
     try {
         const { data } = await adminAxios.get('/api/admin/v1/ride-policies/options');
         Object.assign(options, data.data ?? {});
-        scope.country_id = options.countries[0]?.id ?? null;
+        // Coming from Zones & pickup points: open that zone's own rules.
+        const zone = options.zones.find((z) => z.id === Number(route.query.zone_id));
+        scope.country_id = zone?.country_id ?? options.countries[0]?.id ?? null;
+        scope.zone_id = zone?.id ?? null;
         loadScopes();
     } catch (error) {
         showError(extractApiErrorMessage(error));

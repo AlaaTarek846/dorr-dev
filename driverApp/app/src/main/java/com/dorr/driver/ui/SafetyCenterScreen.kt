@@ -44,7 +44,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,7 +69,12 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.text.KeyboardOptions
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.DorrToggle
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.kit.bounceClick
+import com.dorr.driver.ui.kit.surface
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.net.DriverSafetyDto
@@ -101,26 +105,26 @@ fun SafetyCenterScreen(onBack: () -> Unit) {
     suspend fun load() { (apiCall { DriverBackend.api.safety() } as? ApiResult.Ok)?.let { data = it.data } }
     LaunchedEffect(Unit) { load() }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(bottom = 20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().padding(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-                Text(stringResource(R.string.sc_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Text(stringResource(R.string.sc_first), color = Color.White.copy(alpha = 0.8f), fontSize = 13.sp)
+    ScreenScaffold(stringResource(R.string.sc_title), onBack) {
+        // The SOS button first: one tap to the emergency number.
+        Column(
+            Modifier.padding(horizontal = 16.dp).fillMaxWidth().surface(RoundedCornerShape(24.dp), elevation = 8.dp).padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(stringResource(R.string.sc_first), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 13.sp)
             Spacer(Modifier.height(10.dp))
             val number = data?.emergencyNumber ?: "911"
             Box(
-                Modifier.size(84.dp).clip(CircleShape).background(SosRed).border(6.dp, SosRed.copy(alpha = 0.35f), CircleShape)
-                    .clickable { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) },
+                Modifier.size(84.dp).bounceClick { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$number"))) }
+                    .clip(CircleShape).background(SosRed).border(6.dp, SosRed.copy(alpha = 0.35f), CircleShape),
                 contentAlignment = Alignment.Center,
             ) { Text("SOS", color = Color.White, fontWeight = FontWeight.Black, fontSize = 22.sp) }
             Spacer(Modifier.height(6.dp))
-            Text(stringResource(R.string.trip_sos_call, number), color = Color.White, fontSize = 12.sp)
+            Text(stringResource(R.string.trip_sos_call, number), color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp)
         }
         val d = data ?: run {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = DorrBrand.orange) }
-            return@Column
+            return@ScreenScaffold
         }
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Card {
@@ -184,8 +188,8 @@ private fun ContactSheet(contact: TrustedContactDto?, onClose: () -> Unit, onSav
     ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
         Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(stringResource(if (contact == null) R.string.sc_add_contact else R.string.sc_edit_contact), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            OutlinedTextField(name, { name = it.take(80) }, label = { Text(stringResource(R.string.sc_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            OutlinedTextField(phone, { phone = it.take(18) }, label = { Text(stringResource(R.string.sc_phone)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
+            DorrField(name, { name = it.take(80) }, label = { Text(stringResource(R.string.sc_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            DorrField(phone, { phone = it.take(18) }, label = { Text(stringResource(R.string.sc_phone)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone), modifier = Modifier.fillMaxWidth())
             Text(stringResource(R.string.sc_when), fontSize = 12.sp)
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf("all", "night", "manual").forEach { key ->
@@ -196,7 +200,7 @@ private fun ContactSheet(contact: TrustedContactDto?, onClose: () -> Unit, onSav
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.sc_arrival), modifier = Modifier.weight(1f))
-                Switch(checked = arrival, onCheckedChange = { arrival = it })
+                DorrToggle(arrival) { arrival = it }
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
             BigButton(stringResource(R.string.ob_save), color = DorrBrand.navy, enabled = name.isNotBlank() && phone.length >= 8, busy = busy) {
@@ -262,7 +266,7 @@ internal fun DriverReportSheet(t: TripDto, onClose: () -> Unit) {
                         modifier = Modifier.clip(CircleShape).background(if (on) SosRed else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)).clickable { type = key }.padding(horizontal = 14.dp, vertical = 9.dp))
                 }
             }
-            OutlinedTextField(note, { note = it.take(500) }, label = { Text(stringResource(R.string.rp_note)) }, modifier = Modifier.fillMaxWidth())
+            DorrField(note, { note = it.take(500) }, label = { Text(stringResource(R.string.rp_note)) }, modifier = Modifier.fillMaxWidth())
             error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
             BigButton(stringResource(R.string.rp_send), color = SosRed, enabled = type != null, busy = busy) {
                 busy = true

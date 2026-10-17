@@ -40,6 +40,7 @@ class DriverRideResource extends JsonResource
                 'trips_count' => (int) ($profile?->trips_count ?? 0),
             ],
             'needs_pin' => $this->pin !== null,
+            'from_circle' => in_array((int) $request->user()?->getKey(), array_map('intval', (array) $this->circle_driver_ids), true),
             'earning_minor' => $this->driver_net_minor ?? $this->snapshot('breakdown.driver_net'),
             'cash_to_collect_minor' => $this->payment_status === RidePaymentStatus::CashDue ? $this->final_total_minor : null,
             'final_total_minor' => $this->final_total_minor,

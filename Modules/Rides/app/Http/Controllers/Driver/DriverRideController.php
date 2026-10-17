@@ -246,6 +246,8 @@ class DriverRideController extends Controller
             'earning_minor' => $offer->driver_net_minor,
             'rider_rating' => $profile !== null && $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
             'bid' => $ride->status === RideStatus::Bidding ? $this->bidCard($ride, $offer) : null,
+            // D-INN-07: the rider chose their favourite captains and this captain is one of them.
+            'from_circle' => in_array($offer->driver_id, array_map('intval', (array) $ride->circle_driver_ids), true),
             ...RideResource::common($ride),
         ];
     }

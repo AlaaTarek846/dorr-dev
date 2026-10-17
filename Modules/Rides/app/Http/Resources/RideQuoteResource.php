@@ -6,6 +6,7 @@ use App\Models\Currency;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Rides\Models\RideQuote;
+use Modules\Rides\Services\Geo\PickupPoints;
 use Modules\Rides\Services\Policy\RidePolicySummary;
 use Modules\Rides\Services\Policy\RideTerms;
 
@@ -41,6 +42,9 @@ class RideQuoteResource extends JsonResource
                 : ['code' => $currency->code, 'symbol' => $currency->symbol, 'decimal_places' => (int) ($currency->decimal_places ?? 2)],
             'pricing_mode' => $this->pricing_mode->value,
             'open_destination' => $this->destination_lat === null,
+            // R-16..R-18: the approved points this quote starts / ends at (the app shows them before confirming).
+            'pickup_point' => PickupPoints::present($this->pickup_point),
+            'dropoff_point' => PickupPoints::present($this->dropoff_point),
             'total_minor' => $this->total_minor,
             'estimate' => $this->estimate_min_minor === null ? null : ['min_minor' => $this->estimate_min_minor, 'max_minor' => $this->estimate_max_minor],
             'hold_minor' => $this->hold_minor,

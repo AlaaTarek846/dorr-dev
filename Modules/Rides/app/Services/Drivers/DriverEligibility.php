@@ -51,7 +51,7 @@ class DriverEligibility implements DriverWorkGate
             return $documents;
         }
 
-        return $this->regulatorProblem($driver, $vehicle);
+        return $this->regulatorProblem($driver, $vehicle) ?? (app(DrivingHours::class)->blocked($driver) ? 'driving_limit' : null);
     }
 
     public function activeRide(Driver $driver): ?array

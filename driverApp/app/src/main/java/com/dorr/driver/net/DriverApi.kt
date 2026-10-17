@@ -38,6 +38,10 @@ interface DriverApi {
     @POST("driver/v1/auth/logout")
     suspend fun logout(): Response<ApiEnvelope<Any>>
 
+    /** The platform's colours, the same ones the DORR app reads (public — also before signing in). */
+    @GET("general/v1/mobile-appearance-defaults")
+    suspend fun appearanceDefaults(): Response<ApiEnvelope<AppearanceDefaultsDto>>
+
     @POST("driver/v1/notifications/devices")
     suspend fun registerDevice(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
 
@@ -102,11 +106,15 @@ interface DriverApi {
     @POST("driver/v1/presence/offline")
     suspend fun goOffline(): Response<ApiEnvelope<PresenceDto>>
 
+    @POST("driver/v1/presence/pause")
+    suspend fun pause(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
+
     @POST("driver/v1/presence/last-ride")
     suspend fun lastRide(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
 
+    // The server answers an empty list here, not a presence — read it as plain JSON.
     @POST("driver/v1/presence/gps")
-    suspend fun gps(@Body body: JsonObject): Response<ApiEnvelope<PresenceDto>>
+    suspend fun gps(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
 
     @POST("driver/v1/locations/batch")
     suspend fun locations(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
@@ -140,7 +148,17 @@ interface DriverApi {
     suspend fun wallet(): Response<ApiEnvelope<WalletDto>>
 
     @GET("driver/v1/wallet/transactions")
-    suspend fun walletTransactions(@Query("page") page: Int = 1, @Query("per_page") perPage: Int = 25): Response<ApiEnvelope<List<WalletRowDto>>>
+    suspend fun walletTransactions(
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 25,
+        @Query("type") type: String? = null,
+        @Query("direction") direction: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null,
+    ): Response<ApiEnvelope<List<WalletRowDto>>>
+
+    @GET("driver/v1/wallet/transactions/{uuid}")
+    suspend fun walletTransaction(@Path("uuid") uuid: String): Response<ApiEnvelope<WalletDetailDto>>
 
     @GET("driver/v1/wallet/pin")
     suspend fun walletPin(): Response<ApiEnvelope<WalletPinDto>>
@@ -217,6 +235,19 @@ interface DriverApi {
     @POST("driver/v1/rides/{uuid}/changes/{change}/reject")
     suspend fun rejectChange(@Path("uuid") uuid: String, @Path("change") change: String): Response<ApiEnvelope<JsonElement>>
 
+    // ---------------------------------------------------------------- airport queue (D-276..D-283)
+    @GET("driver/v1/airport-queue")
+    suspend fun airportQueue(): Response<ApiEnvelope<AirportQueueDto>>
+
+    @POST("driver/v1/airport-queue/join")
+    suspend fun joinAirportQueue(): Response<ApiEnvelope<AirportQueueDto>>
+
+    @POST("driver/v1/airport-queue/leave")
+    suspend fun leaveAirportQueue(): Response<ApiEnvelope<AirportQueueDto>>
+
+    @GET("driver/v1/restricted-zones")
+    suspend fun restrictedZones(): Response<ApiEnvelope<List<RestrictedZoneDto>>>
+
     // ---------------------------------------------------------------- scheduled rides (D-260..269)
     @GET("driver/v1/scheduled")
     suspend fun scheduled(): Response<ApiEnvelope<List<ScheduledRideDto>>>
@@ -274,6 +305,45 @@ interface DriverApi {
 
     @GET("driver/v1/earnings")
     suspend fun earnings(): Response<ApiEnvelope<EarningsDto>>
+
+    @GET("driver/v1/driving-hours")
+    suspend fun drivingHours(): Response<ApiEnvelope<DrivingHoursDto>>
+
+    // ---------------------------------------------------------------- cases (D-229..D-238)
+    @GET("driver/v1/rides")
+    suspend fun rideHistory(@Query("page") page: Int = 1): Response<ApiEnvelope<DriverRideListDto>>
+
+    @GET("driver/v1/cases/options")
+    suspend fun caseOptions(): Response<ApiEnvelope<CaseOptionsDto>>
+
+    @GET("driver/v1/cases")
+    suspend fun cases(): Response<ApiEnvelope<List<CaseDto>>>
+
+    @POST("driver/v1/cases")
+    suspend fun openCase(@Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    @GET("driver/v1/cases/{uuid}")
+    suspend fun caseOf(@Path("uuid") uuid: String): Response<ApiEnvelope<CaseDto>>
+
+    @POST("driver/v1/cases/{uuid}/messages")
+    suspend fun caseMessage(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    @Multipart
+    @POST("driver/v1/cases/{uuid}/files")
+    suspend fun caseFile(@Path("uuid") uuid: String, @Part file: MultipartBody.Part): Response<ApiEnvelope<CaseDto>>
+
+    @POST("driver/v1/cases/{uuid}/appeal")
+    suspend fun appealCase(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    // ---------------------------------------------------------------- driving preferences (D-32..D-37)
+    @GET("driver/v1/preferences")
+    suspend fun preferences(): Response<ApiEnvelope<PreferencesDto>>
+
+    @PUT("driver/v1/preferences")
+    suspend fun savePreferences(@Body body: JsonObject): Response<ApiEnvelope<PreferencesDto>>
+
+    @GET("driver/v1/earnings/report")
+    suspend fun earningsReport(@Query("period") period: String, @Query("from") from: String? = null, @Query("to") to: String? = null): Response<ApiEnvelope<EarningsReportDto>>
 }
 
 data class PhoneBody(
@@ -291,6 +361,11 @@ data class OtpSent(
     @SerializedName("masked_phone") val maskedPhone: String? = null,
     @SerializedName("is_new_driver") val isNewDriver: Boolean = false,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int = 60,
+)
+
+data class AppearanceDefaultsDto(
+    @SerializedName("light_tokens") val lightTokens: Map<String, String>? = null,
+    @SerializedName("dark_tokens") val darkTokens: Map<String, String>? = null,
 )
 
 data class SignedIn(

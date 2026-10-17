@@ -24,6 +24,8 @@ class RideQuote extends Model
             'stops' => 'array',
             'lines' => 'array',
             'policy_snapshot' => 'array',
+            'pickup_point' => 'array',
+            'dropoff_point' => 'array',
             'route_estimated' => 'boolean',
             'city_id' => 'integer',
             'origin_lat' => 'float',

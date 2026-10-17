@@ -3,6 +3,7 @@
 namespace Modules\Rides\Console;
 
 use Illuminate\Console\Command;
+use Modules\Rides\Services\Airport\AirportQueue;
 use Modules\Rides\Services\Dispatch\DispatchEngine;
 use Modules\Rides\Services\Lifecycle\RideChangeService;
 use Modules\Rides\Services\Lifecycle\WaitingAlerts;
@@ -16,8 +17,9 @@ class DispatchTick extends Command
 
     protected $description = 'Run the next dispatch round for rides that are still searching for a driver';
 
-    public function handle(DispatchEngine $dispatch, ScheduledRideService $scheduled, RideChangeService $changes, SafetyCheckService $checks, WaitingAlerts $waiting): int
+    public function handle(DispatchEngine $dispatch, ScheduledRideService $scheduled, RideChangeService $changes, SafetyCheckService $checks, WaitingAlerts $waiting, AirportQueue $queue): int
     {
+        $queue->sweep();
         $changes->expireDue();
         $checks->tick();
         $waiting->tick();

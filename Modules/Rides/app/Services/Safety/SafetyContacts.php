@@ -118,6 +118,42 @@ class SafetyContacts
         $this->record($ride, 'alert', $contacts->pluck('id')->all());
     }
 
+    /**
+     * R-13: the ride was booked for someone else and a captain took it — that person hears who is coming
+     * (first name, car, plate), the ride code when there is one, and gets the rider's live link. Their
+     * number goes to no one else: the captain only ever sees their first name.
+     */
+    public function beneficiary(Ride $ride): void
+    {
+        $phone = (string) ($ride->beneficiary['phone'] ?? '');
+        if ($phone === '') {
+            return;
+        }
+        $ride->loadMissing(['rider', 'driver']);
+        try {
+            $url = $this->shares->share($ride, $ride->rider)->url();
+        } catch (Throwable) {
+            $url = ''; // sharing is switched off here: the message still says who is coming
+        }
+        $vehicle = (array) $ride->vehicle_snapshot;
+        $vars = [
+            'name' => $this->firstName($ride->rider),
+            'driver' => $this->firstName($ride->driver),
+            'car' => trim(($vehicle['make'] ?? '').' '.($vehicle['model'] ?? '')),
+            'plate' => trim(($vehicle['plate_letters'] ?? '').' '.($vehicle['plate_number'] ?? '')),
+            'pin' => (string) $ride->pin,
+            'url' => $url,
+        ];
+        $key = $ride->pin === null ? 'ride_beneficiary' : 'ride_beneficiary_pin';
+        $sms = implode(' ', array_filter([
+            __('notifications.ride_beneficiary_sms', $vars),
+            $ride->pin === null ? null : __('notifications.ride_beneficiary_sms_pin', $vars),
+            $url === '' ? null : __('notifications.ride_beneficiary_sms_url', $vars),
+        ]));
+        $channel = $this->deliver($ride, $phone, 'ride.beneficiary', $key, $vars, $url, $sms);
+        $this->machine->record($ride, 'beneficiary_notified', 'system', null, [], ['channel' => $channel, 'link' => $url !== '', 'pin' => $ride->pin !== null]);
+    }
+
     /** @param list<RideTrustedContact> $contacts */
     private function shareWith(Ride $ride, Model $owner, array $contacts, bool $auto): int
     {
@@ -143,38 +179,46 @@ class SafetyContacts
         return RideTrustedContact::query()->where('owner_type', self::typeOf($owner))->where('owner_id', $owner->getKey())->orderBy('id')->get();
     }
 
-    /**
-     * On DORR → in the app; else an SMS (when allowed and a provider is set for the country).
-     *
-     * @param  array<string, string>  $vars
-     */
+    /** @param  array<string, string>  $vars */
     private function send(Ride $ride, RideTrustedContact $contact, string $kind, array $vars): void
     {
-        $user = User::query()->where('phone', $contact->phone)->first();
-        if ($user !== null) {
-            $this->center->send($user, 'ride.contact_'.$kind, 'ride_contact_'.$kind.'_title', 'ride_contact_'.$kind.'_body', $vars + ['url' => ''], [
-                'type' => 'ride_share', 'url' => $vars['url'] ?? null,
-            ]);
+        $this->deliver($ride, $contact->phone, 'ride.contact_'.$kind, 'ride_contact_'.$kind, $vars + ['url' => ''], $vars['url'] ?? null,
+            __('notifications.ride_contact_'.$kind.'_sms', $vars + ['url' => '']));
+    }
 
-            return;
+    /**
+     * On DORR → in the app (`{$key}_title` / `{$key}_body`); else the SMS text (when `safety.contacts_sms`
+     * allows texting people outside DORR and the country has a provider).
+     *
+     * @param  array<string, string>  $vars
+     * @return string `app`, `sms` or `none`
+     */
+    private function deliver(Ride $ride, string $phone, string $event, string $key, array $vars, ?string $url, string $text): string
+    {
+        $user = User::query()->where('phone', $phone)->first();
+        if ($user !== null) {
+            $this->center->send($user, $event, $key.'_title', $key.'_body', $vars, ['type' => 'ride_share', 'url' => $url]);
+
+            return 'app';
         }
         if (! (bool) $ride->policy('safety.contacts_sms', true)) {
-            return;
+            return 'none';
         }
-        $text = __('notifications.ride_contact_'.$kind.'_sms', $vars + ['url' => '']);
         $countryId = $ride->country_id;
-        DB::afterCommit(function () use ($contact, $text, $countryId) {
+        DB::afterCommit(function () use ($phone, $text, $countryId) {
             try {
                 $country = Country::query()->find($countryId);
                 $provider = $country ? app(SmsProviderService::class)->activeProvidersForCountry($country)->first() : null;
                 if ($provider === null) {
                     return;
                 }
-                app(SmsService::class)->send($provider, $provider->configuration_plaintext, ['to' => $contact->phone, 'country_id' => $countryId, 'message' => $text]);
+                app(SmsService::class)->send($provider, $provider->configuration_plaintext, ['to' => $phone, 'country_id' => $countryId, 'message' => $text]);
             } catch (Throwable $e) {
-                Log::warning('[Rides] trusted contact SMS failed: '.$e->getMessage());
+                Log::warning('[Rides] ride SMS failed: '.$e->getMessage());
             }
         });
+
+        return 'sms';
     }
 
     /** @param list<int> $ids */

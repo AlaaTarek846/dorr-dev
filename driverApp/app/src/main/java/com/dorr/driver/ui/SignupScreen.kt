@@ -37,7 +37,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -59,7 +58,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.OutlineButton
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.net.OnboardingDto
@@ -111,11 +113,7 @@ fun SignupScreen(onBack: () -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-            Text(stringResource(R.string.ob_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
+    ScreenScaffold(stringResource(R.string.ob_title), onBack) {
         val s = state ?: run {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { androidx.compose.material3.CircularProgressIndicator() }
             return
@@ -201,7 +199,7 @@ fun SignupScreen(onBack: () -> Unit) {
                             doc.document?.rejectionReason?.let { Text(it, fontSize = 12.sp, color = DorrBrand.danger) }
                         }
                         if (doc.document?.status != "approved") {
-                            OutlinedButton(onClick = { uploading = doc }) { Text(stringResource(if (doc.document == null) R.string.ob_upload else R.string.ob_reupload)) }
+                            OutlineButton(stringResource(if (doc.document == null) R.string.ob_upload else R.string.ob_reupload)) { uploading = doc }
                         }
                     }
                 }
@@ -220,9 +218,9 @@ fun SignupScreen(onBack: () -> Unit) {
                     )
                     reg.reasons.forEach { Text("• ${it.message ?: it.code}", fontSize = 13.sp, color = DorrBrand.danger) }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { run({ apiCall { DriverBackend.api.checkRegulator() } }) { regulator = it } }) { Text(stringResource(R.string.ob_wasl_check)) }
+                        OutlineButton(stringResource(R.string.ob_wasl_check)) { run({ apiCall { DriverBackend.api.checkRegulator() } }) { regulator = it } }
                         if (reg.canRegister && reg.driverStatus != "valid") {
-                            OutlinedButton(onClick = { run({ apiCall { DriverBackend.api.registerRegulator() } }) { regulator = it } }) { Text(stringResource(R.string.ob_wasl_register)) }
+                            OutlineButton(stringResource(R.string.ob_wasl_register)) { run({ apiCall { DriverBackend.api.registerRegulator() } }) { regulator = it } }
                         }
                     }
                 }
@@ -254,7 +252,7 @@ private fun Step(title: String, done: Boolean, content: @Composable () -> Unit) 
 
 @Composable
 private fun Field(label: String, value: String, keyboard: KeyboardType = KeyboardType.Text, onChange: (String) -> Unit) {
-    OutlinedTextField(value, onChange, label = { Text(label) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = keyboard), modifier = Modifier.fillMaxWidth())
+    DorrField(value, onChange, label = { Text(label) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = keyboard), modifier = Modifier.fillMaxWidth())
 }
 
 @Composable
@@ -307,8 +305,8 @@ private fun UploadDialog(doc: RequiredDocDto, onDismiss: () -> Unit, onDone: (On
                 doc.type.instructions?.let { Text(it, fontSize = 12.sp) }
                 if (doc.type.hasNumber) Field(stringResource(R.string.ob_number), number) { number = it }
                 if (doc.type.hasExpiry) Field(stringResource(R.string.ob_expiry), expiry) { expiry = it }
-                OutlinedButton(onClick = { pickFront.launch(image) }, modifier = Modifier.fillMaxWidth()) { Text(if (front != null) stringResource(R.string.ob_picked) else stringResource(R.string.ob_front)) }
-                if (doc.type.needsBackSide) OutlinedButton(onClick = { pickBack.launch(image) }, modifier = Modifier.fillMaxWidth()) { Text(if (back != null) stringResource(R.string.ob_picked) else stringResource(R.string.ob_back)) }
+                OutlineButton(if (front != null) stringResource(R.string.ob_picked) else stringResource(R.string.ob_front), Modifier.fillMaxWidth()) { pickFront.launch(image) }
+                if (doc.type.needsBackSide) OutlineButton(if (back != null) stringResource(R.string.ob_picked) else stringResource(R.string.ob_back), Modifier.fillMaxWidth()) { pickBack.launch(image) }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
             }
         },

@@ -20,6 +20,9 @@ use Modules\Rides\Models\RideCancelReason;
 use Modules\Rides\Models\RideRatingTag;
 use Modules\Rides\Services\Bidding\BiddingService;
 use Modules\Rides\Services\Chat\RideChatService;
+use Modules\Rides\Services\Features\RideFeatures;
+use Modules\Rides\Services\Geo\CityResolver;
+use Modules\Rides\Services\Geo\PickupPoints;
 use Modules\Rides\Services\Lifecycle\RideCancellationService;
 use Modules\Rides\Services\Lifecycle\RideRatingService;
 use Modules\Rides\Services\Lifecycle\RideRequestService;
@@ -41,6 +44,8 @@ class RideController extends Controller
             "$p.lat" => [$required ? 'required' : "required_with:$p", 'numeric', 'between:-90,90'],
             "$p.lng" => [$required ? 'required' : "required_with:$p", 'numeric', 'between:-180,180'],
             "$p.address" => ['nullable', 'string', 'max:255'],
+            // R-16..R-18: an approved pickup / drop-off point picked from `GET pickup-points`.
+            "$p.point_id" => ['nullable', 'integer', 'min:1'],
         ];
         $data = $request->validate([
             ...$point('origin', true),
@@ -61,6 +66,27 @@ class RideController extends Controller
         return ApiResponse::success(RideQuoteResource::collection($quotes)->resolve($request), __('api.retrieved'));
     }
 
+    /**
+     * R-16..R-18, D-111: the approved points around a place — `purpose` = pickup | dropoff. Empty when
+     * the place isn't in an airport / pickup-only zone, or the feature is off there.
+     */
+    public function pickupPoints(Request $request, PickupPoints $points, CityResolver $cities, RideFeatures $features): JsonResponse
+    {
+        $data = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+            'purpose' => ['nullable', Rule::in([PickupPoints::PICKUP, PickupPoints::DROPOFF])],
+        ]);
+        $rider = $this->rider($request);
+        $cityId = $cities->cityAt((float) $data['lat'], (float) $data['lng']);
+        $countryId = ($cityId !== null ? $cities->countryOf($cityId) : null) ?? $rider->country_id;
+        if ($countryId === null || ! $features->allows($countryId, $cityId, 'pickup_points')) {
+            return ApiResponse::success(['zone' => null, 'required' => false, 'points' => []], __('api.retrieved'));
+        }
+
+        return ApiResponse::success($points->around($countryId, (float) $data['lat'], (float) $data['lng'], $data['purpose'] ?? PickupPoints::PICKUP), __('api.retrieved'));
+    }
+
     public function store(Request $request, RideRequestService $service): JsonResponse
     {
         $data = $request->validate([
@@ -73,6 +99,16 @@ class RideController extends Controller
             // D-60, D-61: how many ride (the category's seats are checked), a short note for the captain.
             'passengers' => ['nullable', 'integer', 'min:1', 'max:20'],
             'pickup_note' => ['nullable', 'string', 'max:255'],
+            // R-13: booked for someone else — their name and number, and the rider's own yes (never pre-ticked)
+            // that this person agreed to be contacted about the ride.
+            'beneficiary' => ['nullable', 'array'],
+            'beneficiary.name' => ['required_with:beneficiary', 'string', 'min:2', 'max:60'],
+            'beneficiary.phone' => ['required_with:beneficiary', 'string', 'regex:/^\+?[0-9 ]{8,18}$/'],
+            'beneficiary.consent' => ['exclude_without:beneficiary', 'accepted'],
+            // R-INN-07: offered to the rider's favourite captains first — none listed = all of them.
+            'circle' => ['nullable', 'array'],
+            'circle.driver_ids' => ['nullable', 'array', 'max:20'],
+            'circle.driver_ids.*' => ['integer', 'min:1'],
         ]);
 
         $ride = $service->request(
@@ -82,6 +118,8 @@ class RideController extends Controller
             isset($data['scheduled_at']) ? Carbon::parse($data['scheduled_at'])->utc() : null,
             isset($data['passengers']) ? (int) $data['passengers'] : null,
             $data['pickup_note'] ?? null,
+            isset($data['beneficiary']) ? ['name' => (string) $data['beneficiary']['name'], 'phone' => (string) $data['beneficiary']['phone']] : null,
+            array_key_exists('circle', $data) && $data['circle'] !== null ? array_map('intval', $data['circle']['driver_ids'] ?? []) : null,
         );
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);
@@ -119,6 +157,7 @@ class RideController extends Controller
                 'total_minor' => $r->final_total_minor ?? $r->agreed_price_minor,
                 'currency' => $r->currency?->symbol,
                 'driver_name' => $r->driver?->name ?? $r->reservedDriver?->name,
+                'beneficiary_name' => $r->beneficiary['name'] ?? null,
                 'requested_at' => $r->requested_at?->toIso8601String(),
                 'scheduled_at' => $r->scheduled_at?->toIso8601String(),
                 'free_cancel_until' => $r->scheduled_at === null ? null : $r->freeCancelUntil()?->toIso8601String(),

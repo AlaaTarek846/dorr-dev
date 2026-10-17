@@ -58,7 +58,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.HeroBadge
+import com.dorr.driver.ui.kit.RoundIconButton
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.kit.TileIcon
+import com.dorr.driver.ui.kit.bounceClick
+import com.dorr.driver.ui.kit.surface
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.live.DriverLive
 import com.dorr.driver.net.DriverBackend
@@ -95,20 +101,20 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (NotificationDto) -> Unit) {
         }
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Row(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-            Text(stringResource(R.string.nt_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp, modifier = Modifier.weight(1f))
-            val unread by DriverLive.unread.collectAsState()
+    val unread by DriverLive.unread.collectAsState()
+    ScreenScaffold(
+        stringResource(R.string.nt_title), onBack,
+        actions = {
             AnimatedVisibility(visible = unread > 0, enter = fadeIn(), exit = fadeOut()) {
-                IconButton(onClick = {
+                RoundIconButton(Icons.Filled.DoneAll, stringResource(R.string.nt_read_all), onClick = {
                     scope.launch {
                         (apiCall { DriverBackend.api.markAllRead() } as? ApiResult.Ok)?.let { DriverLive.setUnread(it.data.count) }
                         items = items?.map { it.copy(readAt = it.readAt ?: "now") }
                     }
-                }) { Icon(Icons.Filled.DoneAll, stringResource(R.string.nt_read_all), tint = Color.White) }
+                })
             }
-        }
+        },
+    ) {
         val list = items
         when {
             list == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -116,9 +122,7 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (NotificationDto) -> Unit) {
                 else CircularProgressIndicator(color = DorrBrand.orange)
             }
             list.isEmpty() -> Column(Modifier.fillMaxSize().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Box(Modifier.size(76.dp).clip(CircleShape).background(DorrBrand.orange.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Filled.Notifications, null, tint = DorrBrand.orange, modifier = Modifier.size(36.dp))
-                }
+                HeroBadge(Icons.Filled.Notifications, tint = DorrBrand.orange, size = 76.dp)
                 Spacer(Modifier.height(10.dp))
                 Text(stringResource(R.string.nt_empty), color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f))
             }
@@ -144,14 +148,12 @@ private fun NotificationRow(n: NotificationDto, onClick: () -> Unit) {
     val unread = n.readAt == null
     val (icon, tint) = iconFor(n.event)
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp))
-            .background(if (unread) DorrBrand.orange.copy(alpha = 0.07f) else MaterialTheme.colorScheme.surface)
-            .clickable(onClick = onClick).padding(14.dp),
+        Modifier.fillMaxWidth().bounceClick(onClick = onClick).surface(RoundedCornerShape(18.dp), 4.dp)
+            .background(if (unread) DorrBrand.orange.copy(alpha = 0.08f) else Color.Transparent)
+            .padding(14.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Box(Modifier.size(42.dp).clip(CircleShape).background(tint.copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
-        }
+        TileIcon(icon, tint, 42.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -186,17 +188,17 @@ private fun ago(iso: String?): String {
     }
 }
 
-/** The bell on Home: the unread count in a badge. */
+/** The bell: a round button with the unread count in a badge (Home and Account). */
 @Composable
 internal fun NotificationBell(onClick: () -> Unit) {
     val unread by DriverLive.unread.collectAsState()
-    Box(Modifier.size(44.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(Icons.Filled.Notifications, stringResource(R.string.nt_title), tint = Color.White)
+    Box(contentAlignment = Alignment.Center) {
+        com.dorr.driver.ui.kit.RoundIconButton(Icons.Filled.Notifications, stringResource(R.string.nt_title), onClick)
         AnimatedVisibility(
-            visible = unread > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 2.dp),
+            visible = unread > 0, modifier = Modifier.align(Alignment.TopEnd).padding(top = 0.dp, end = 0.dp),
             enter = fadeIn(tween(200)) + slideInVertically(tween(200)) { -it }, exit = fadeOut(),
         ) {
-            Box(Modifier.clip(CircleShape).background(DorrBrand.orange).padding(horizontal = 5.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
+            Box(Modifier.clip(CircleShape).background(DorrBrand.danger).padding(horizontal = 5.dp, vertical = 1.dp), contentAlignment = Alignment.Center) {
                 Text(if (unread > 99) "99+" else unread.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
         }

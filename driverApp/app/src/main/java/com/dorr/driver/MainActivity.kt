@@ -1,25 +1,34 @@
 package com.dorr.driver
 
+import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import com.dorr.core.ui.DorrTheme
 import com.dorr.driver.duty.DriverDutyService
 import com.dorr.driver.live.DriverLive
 import com.dorr.driver.live.DriverPush
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.ui.DriverNavHost
+import com.dorr.driver.ui.theme.DriverPrefs
+import com.dorr.driver.ui.theme.DriverTheme
+import com.dorr.driver.ui.theme.withDriverLanguage
 
 class MainActivity : ComponentActivity() {
+    /** Built on the language the captain chose in the app (Arabic / English), before anything is drawn. */
+    override fun attachBaseContext(newBase: Context) {
+        DriverPrefs.init(newBase)
+        super.attachBaseContext(newBase.withDriverLanguage())
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         wakeForOffer(intent)
         setContent {
-            DorrTheme {
+            DriverTheme {
                 DriverNavHost()
             }
         }

@@ -1,9 +1,12 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+use Modules\Rides\Http\Controllers\Cases\PartyCaseController;
 use Modules\Rides\Http\Controllers\RideChangeController;
 use Modules\Rides\Http\Controllers\RideSafetyController;
 use Modules\Rides\Http\Controllers\SafetyCenterController;
+use Modules\Rides\Http\Controllers\Rider\CircleController;
+use Modules\Rides\Http\Controllers\Rider\PlacesController;
 use Modules\Rides\Http\Controllers\Rider\RideController;
 use Modules\Rides\Http\Controllers\Rider\RideFeaturesController;
 
@@ -12,6 +15,21 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:120,1', 'remember-locale'])->group(function () {
         // What is switched on where the rider is: the whole service, each category, each feature (§5).
         Route::get('features', [RideFeaturesController::class, 'index']);
+        // R-16..R-18: the approved pickup / drop-off points around a place.
+        Route::get('pickup-points', [RideController::class, 'pickupPoints']);
+        // R-5, R-174: Home, Work, favourite places and recent destinations.
+        Route::get('places', [PlacesController::class, 'index']);
+        // R-INN-07 DORR Circle: my favourite captains to choose from.
+        Route::get('circle', [CircleController::class, 'index']);
+
+        // Complaints and financial disputes, apart from general support (R-133..R-140).
+        Route::get('cases/options', [PartyCaseController::class, 'options']);
+        Route::get('cases', [PartyCaseController::class, 'index']);
+        Route::post('cases', [PartyCaseController::class, 'store']);
+        Route::get('cases/{uuid}', [PartyCaseController::class, 'show'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/messages', [PartyCaseController::class, 'message'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/files', [PartyCaseController::class, 'file'])->whereUuid('uuid');
+        Route::post('cases/{uuid}/appeal', [PartyCaseController::class, 'appeal'])->whereUuid('uuid');
 
         Route::get('cancel-reasons', [RideController::class, 'cancelReasons']);
         Route::get('rating-tags', [RideController::class, 'ratingTags']);
@@ -56,6 +74,8 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::post('{uuid}/rate', [RideController::class, 'rate'])->whereUuid('uuid');
         Route::post('{uuid}/tip', [RideController::class, 'tip'])->whereUuid('uuid');
         Route::post('{uuid}/payment-method', [RideController::class, 'changePayment'])->whereUuid('uuid');
+        // "Search all captains", after the circle had no one (R-INN-07).
+        Route::post('{uuid}/circle/widen', [CircleController::class, 'widen'])->whereUuid('uuid');
 
         // Bidding (§9): the offers, take / decline one, raise my price.
         Route::post('{uuid}/bids/{bid}/accept', [RideController::class, 'acceptBid'])->whereUuid(['uuid', 'bid']);

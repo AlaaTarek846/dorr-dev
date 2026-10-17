@@ -16,6 +16,7 @@ use Modules\Rides\Services\Bidding\BidPricing;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Geo\CityResolver;
 use Modules\Rides\Services\Geo\GeoProvider;
+use Modules\Rides\Services\Geo\PickupPoints;
 use Modules\Rides\Services\Policy\RidePolicies;
 use Modules\User\Models\User;
 
@@ -37,6 +38,7 @@ class QuoteEngine
         private readonly TaxEngine $taxes,
         private readonly FareCalculator $calculator,
         private readonly RidePromotions $promotions,
+        private readonly PickupPoints $points,
     ) {}
 
     /**
@@ -62,6 +64,18 @@ class QuoteEngine
         if ($stops !== [] && ! $this->features->allows($country->id, $cityId, 'multi_stop')) {
             throw RidesException::featureDisabled('multi_stop');
         }
+
+        // R-16..R-18: in an airport / pickup-only zone the trip starts (and may end) at an approved point,
+        // and the zone's own policy (waiting, no-show…) applies to the pickup.
+        $pickupPoint = $dropoffPoint = $zone = null;
+        if ($this->features->allows($country->id, $cityId, 'pickup_points')) {
+            $match = $this->policies->for($country->id, $cityId)->int('pickup.match_m');
+            ['place' => $origin, 'point' => $pickupPoint, 'zone' => $zone] = $this->points->resolve($country->id, $origin, PickupPoints::PICKUP, $match);
+            if (! $open) {
+                ['place' => $destination, 'point' => $dropoffPoint] = $this->points->resolve($country->id, $destination, PickupPoints::DROPOFF, $match);
+            }
+        }
+
         foreach (array_filter([$origin, $destination, ...$stops]) as $point) {
             if ($this->isBlocked($country->id, (float) $point['lat'], (float) $point['lng'])) {
                 throw new RidesException('blocked_area', 422);
@@ -100,8 +114,8 @@ class QuoteEngine
             throw new RidesException('no_category_here', 422);
         }
 
-        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon) {
-            $policy = $this->policies->for($country->id, $cityId, null, $category->id);
+        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone) {
+            $policy = $this->policies->for($country->id, $cityId, $zone?->id, $category->id);
             if ($stops !== [] && count($stops) > $policy->int('stops.max')) {
                 throw new RidesException('too_many_stops', 422, ['max' => $policy->int('stops.max')]);
             }
@@ -151,6 +165,8 @@ class QuoteEngine
                 'destination_lng' => $destination['lng'] ?? null,
                 'destination_address' => $destination['address'] ?? null,
                 'stops' => $stops === [] ? null : $stops,
+                'pickup_point' => $pickupPoint,
+                'dropoff_point' => $dropoffPoint,
                 'distance_m' => $route?->distanceM,
                 'duration_s' => $route?->durationS,
                 'route_estimated' => (bool) $route?->estimated,
@@ -163,7 +179,7 @@ class QuoteEngine
                 'driver_net_minor' => $mode === PricingMode::Upfront ? $breakdown?->driverNet : null,
                 'fingerprint' => hash('sha256', (string) json_encode($fingerprintOf)),
                 'policy_snapshot' => [
-                    'policy' => $policy->all(), 'policy_ids' => $policy->policyIds, 'tax' => $tax,
+                    'policy' => $policy->all(), 'policy_ids' => $policy->policyIds, 'tax' => $tax, 'zone_id' => $zone?->id,
                     // The coupon only stays when it gave something here (a minimum it didn't reach = no coupon).
                     'extras' => ($breakdown?->discount ?? 0) > 0 ? $extras : array_diff_key($extras, ['coupon' => true]),
                     'coupon' => $coupon === null ? null : [

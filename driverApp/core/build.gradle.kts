@@ -1,6 +1,6 @@
 // :core — shared by the DORR app and the driver app (docs/rides-plan.md §4.3): the network base
-// (headers, the API envelope and its errors, Idempotency-Key), the signed-in session and the brand
-// theme. Ride logic for the driver stays in :app, never here (R-198, R-200).
+// (headers, the API envelope and its errors, Idempotency-Key) and the signed-in session. The look (theme, kit) is the
+// driver app's own (com.dorr.driver.ui.theme / .kit). Ride logic for the driver stays in :app, never here (R-198, R-200).
 plugins {
     id("com.android.library")
     id("org.jetbrains.kotlin.android")
