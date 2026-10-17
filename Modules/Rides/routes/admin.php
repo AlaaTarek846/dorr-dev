@@ -18,6 +18,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
     Route::middleware('auth:admin_api')->group(function () {
         Route::get('ride-settings', [RideSettingController::class, 'show']);
         Route::put('ride-settings', [RideSettingController::class, 'update']);
+        Route::post('ride-settings/check-google', [RideSettingController::class, 'checkGoogle']);
 
         // A driver's standing at Wasl, and the dashboard's "register" / "check again".
         Route::get('drivers/{driver}/regulator', [DriverRegulatorAdminController::class, 'show'])->whereNumber('driver');
