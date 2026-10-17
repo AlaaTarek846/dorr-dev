@@ -36,6 +36,7 @@ data class MyDocumentDto(
     val number: String? = null,
     @SerializedName("expires_at") val expiresAt: String? = null,
     @SerializedName("front_url") val frontUrl: String? = null,
+    @SerializedName("back_url") val backUrl: String? = null,
 )
 
 data class RequiredDocDto(val type: DocTypeDto, val document: MyDocumentDto? = null)
@@ -84,7 +85,7 @@ data class OnboardingDto(
     @SerializedName("work_problem") val workProblem: String? = null,
 )
 
-data class NamedDto(val id: Int, val name: String? = null)
+data class NamedDto(val id: Int, val name: String? = null, val code: String? = null)
 
 data class ModelOptionDto(val id: Int, val name: String? = null, @SerializedName("body_type") val bodyType: String? = null, val seats: Int? = null)
 
@@ -278,29 +279,6 @@ data class WalletDto(
     @SerializedName("withdrawable_minor") val withdrawableMinor: Long = 0,
     @SerializedName("spend_only_minor") val spendOnlyMinor: Long = 0,
     @SerializedName("held_minor") val heldMinor: Long = 0,
-)
-
-data class PaymentMethodDto(
-    val id: Int,
-    val name: String? = null,
-    val gateway: String? = null,
-    @SerializedName("logo_url") val logoUrl: String? = null,
-    @SerializedName("coming_soon") val comingSoon: Boolean = false,
-)
-
-data class TopupQuoteDto(
-    @SerializedName("paid_amount_minor") val paidAmountMinor: Long = 0,
-    @SerializedName("fee_minor") val feeMinor: Long = 0,
-    @SerializedName("bonus_minor") val bonusMinor: Long = 0,
-    @SerializedName("total_credited_minor") val totalCreditedMinor: Long = 0,
-)
-
-data class TopupDto(
-    val uuid: String,
-    val status: String = "pending",
-    @SerializedName("amount_minor") val amountMinor: Long = 0,
-    @SerializedName("redirect_url") val redirectUrl: String? = null,
-    @SerializedName("requires_otp") val requiresOtp: Boolean = false,
 )
 
 data class PaymentMethodDto(

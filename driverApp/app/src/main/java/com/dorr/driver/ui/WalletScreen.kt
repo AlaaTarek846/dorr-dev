@@ -1,75 +1,116 @@
 package com.dorr.driver.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.content.Intent
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.ArrowDownward
-import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.PhoneAndroid
-import androidx.compose.material.icons.filled.WarningAmber
+import androidx.compose.material.icons.rounded.AccountBalance
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CardGiftcard
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.CreditCard
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.DirectionsCar
+import androidx.compose.material.icons.rounded.Edit
+import androidx.compose.material.icons.rounded.ErrorOutline
+import androidx.compose.material.icons.rounded.History
+import androidx.compose.material.icons.rounded.LocalOffer
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.NorthEast
+import androidx.compose.material.icons.rounded.Numbers
+import androidx.compose.material.icons.rounded.Paid
+import androidx.compose.material.icons.rounded.PauseCircle
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Percent
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.PhoneAndroid
+import androidx.compose.material.icons.rounded.RadioButtonUnchecked
+import androidx.compose.material.icons.rounded.Receipt
+import androidx.compose.material.icons.rounded.Replay
+import androidx.compose.material.icons.rounded.RequestQuote
+import androidx.compose.material.icons.rounded.Share
+import androidx.compose.material.icons.rounded.ShoppingBag
+import androidx.compose.material.icons.rounded.SouthWest
+import androidx.compose.material.icons.rounded.Tune
+import androidx.compose.material.icons.rounded.Visibility
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.VolunteerActivism
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.driver.ui.kit.ScreenScaffold
-import com.dorr.driver.ui.kit.bounceClick
-import com.dorr.driver.ui.kit.surface
-import com.dorr.driver.ui.theme.DorrBrand
-import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.live.DriverLive
 import com.dorr.driver.net.DriverBackend
@@ -78,8 +119,23 @@ import com.dorr.driver.net.WalletPinDto
 import com.dorr.driver.net.WalletRowDto
 import com.dorr.driver.net.WithdrawalDto
 import com.dorr.driver.net.WithdrawalMethodDto
+import com.dorr.driver.ui.kit.Banner
+import com.dorr.driver.ui.kit.BannerKind
+import com.dorr.driver.ui.kit.Chip
+import com.dorr.driver.ui.kit.DorrTextField
+import com.dorr.driver.ui.kit.HeroBadge
+import com.dorr.driver.ui.kit.PrimaryButton
+import com.dorr.driver.ui.kit.RoundIconButton
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.kit.Segmented
+import com.dorr.driver.ui.kit.TileIcon
+import com.dorr.driver.ui.kit.bounceClick
+import com.dorr.driver.ui.kit.staggerIn
+import com.dorr.driver.ui.theme.Pal
 import com.google.gson.JsonObject
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -87,33 +143,35 @@ import java.time.format.FormatStyle
 import java.util.Locale
 
 /**
- * The captain's wallet — the same wallet as the rider's, with their earnings in it: the balance (a
- * negative one is what they owe the app from cash rides), the statement, and withdrawing to a bank or a
- * mobile wallet with the wallet PIN. It follows the server through real-time: a settlement, a payout
- * decision or any movement shows up by itself, no refreshing.
+ * The captain's wallet, in the DORR app's wallet design — the same wallet as the rider's, with their earnings in it:
+ * the balance card (the wallet number to copy or share, the total, what can be withdrawn and what is for services
+ * only, what is held), the four actions, then the statement or the withdrawals. A negative balance is what they owe
+ * the app from cash rides. It follows the server through real-time: a settlement, a payout decision or any movement
+ * shows up by itself, no refreshing.
  */
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WalletScreen(onBack: (() -> Unit)?) {
     val scope = rememberCoroutineScope()
     var wallet by remember { mutableStateOf<WalletDto?>(null) }
-    var rows by remember { mutableStateOf<List<WalletRowDto>>(emptyList()) }
-    var withdrawals by remember { mutableStateOf<List<WithdrawalDto>>(emptyList()) }
-    var tab by remember { mutableIntStateOf(0) }
+    var rows by remember { mutableStateOf<List<WalletRowDto>?>(null) }
+    var withdrawals by remember { mutableStateOf<List<WithdrawalDto>?>(null) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var hidden by rememberSaveable { mutableStateOf(false) }
     var page by remember { mutableIntStateOf(1) }
     var more by remember { mutableStateOf(true) }
     var loadingMore by remember { mutableStateOf(false) }
     var withdrawOpen by remember { mutableStateOf(false) }
     var topupOpen by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
     var filter by remember { mutableStateOf(StatementFilter()) }
     var detailId by remember { mutableStateOf<String?>(null) }
+    val list = rememberLazyListState()
     if (onBack != null) BackHandler(onBack = onBack)
 
     // The statement, narrowed by the filters (D-213); the same filters apply to "show more".
     suspend fun loadRows() {
         (apiCall { DriverBackend.api.walletTransactions(1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)
             ?.let { rows = it.data; page = 1; more = it.data.size >= 25 }
+        if (rows == null) rows = emptyList()
     }
     suspend fun load() {
         (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
@@ -122,138 +180,399 @@ fun WalletScreen(onBack: (() -> Unit)?) {
     }
     LaunchedEffect(Unit) {
         (apiCall { DriverBackend.api.wallet() } as? ApiResult.Ok)?.let { wallet = it.data }
-        (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.let { withdrawals = it.data }
+        withdrawals = (apiCall { DriverBackend.api.withdrawals(1) } as? ApiResult.Ok)?.data.orEmpty()
         // A settlement, a payout decision, a transfer: the wallet reloads by itself.
         DriverLive.events.collect { e -> if (e.name.startsWith("wallet") || e.name.contains("withdrawal") || e.name.contains("earnings")) load() }
     }
     LaunchedEffect(filter) { loadRows() }
 
     val w = wallet
-    ScreenScaffold(stringResource(R.string.wl_title), onBack) {
-        // The balance, big, with what can be withdrawn and what is held.
-        val shown by animateFloatAsState((w?.totalMinor ?: 0).toFloat(), tween(600), label = "balance")
-        Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().surface(RoundedCornerShape(24.dp), elevation = 8.dp).padding(18.dp)) {
-            Text(stringResource(R.string.wl_balance), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 13.sp)
-            Text(
-                amount(shown.toLong(), w), color = if ((w?.totalMinor ?: 0) < 0) DorrBrand.danger else DorrBrand.navy,
-                fontWeight = FontWeight.ExtraBold, fontSize = 36.sp, modifier = Modifier.padding(top = 2.dp),
-            )
-            Row(Modifier.padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                BalanceChip(stringResource(R.string.wl_withdrawable), amount(w?.withdrawableMinor ?: 0, w))
-                BalanceChip(stringResource(R.string.wl_held), amount(w?.heldMinor ?: 0, w))
-                if ((w?.spendOnlyMinor ?: 0) != 0L) BalanceChip(stringResource(R.string.wl_spend_only), amount(w?.spendOnlyMinor ?: 0, w))
+    val owing = (w?.totalMinor ?: 0) < 0
+    // Where the tabs sit in the list, for the actions that jump to them.
+    val tabsIndex = if (owing) 3 else 2
+    fun showTab(which: Int) {
+        tab = which
+        scope.launch { list.animateScrollToItem(tabsIndex) }
+    }
+
+    ScreenScaffold(
+        stringResource(R.string.wl_title), onBack,
+        actions = {
+            RoundIconButton(if (hidden) Icons.Rounded.VisibilityOff else Icons.Rounded.Visibility, stringResource(R.string.wl_hide), onClick = { hidden = !hidden })
+        },
+    ) {
+        LazyColumn(Modifier.fillMaxSize(), state = list, contentPadding = PaddingValues(bottom = 28.dp)) {
+            item(key = "hero") {
+                Box(Modifier.padding(horizontal = 16.dp).padding(top = 4.dp).staggerIn(0)) {
+                    if (w != null) WalletHero(w, hidden) else HeroSkeleton()
+                }
             }
-        }
-        if ((w?.totalMinor ?: 0) < 0) {
-            Row(
-                Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(16.dp)).background(DorrBrand.danger.copy(alpha = 0.1f)).padding(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Filled.WarningAmber, null, tint = DorrBrand.danger)
-                Spacer(Modifier.width(10.dp))
-                Text(stringResource(R.string.wl_owing), fontSize = 13.sp, modifier = Modifier.weight(1f))
+            if (owing) {
+                item(key = "owing") { Banner(stringResource(R.string.wl_owing), Modifier.padding(horizontal = 16.dp).padding(top = 10.dp), kind = BannerKind.Warning) }
             }
-        }
-        Row(Modifier.padding(horizontal = 16.dp).padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.weight(1f)) { BigButton(stringResource(R.string.wl_topup), color = DorrBrand.success, enabled = w != null) { topupOpen = true } }
-            Box(Modifier.weight(1f)) { BigButton(stringResource(R.string.wl_withdraw), color = DorrBrand.orange, enabled = (w?.withdrawableMinor ?: 0) > 0) { withdrawOpen = true } }
-        }
-        Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(R.string.wl_tab_statement, R.string.wl_tab_withdrawals).forEachIndexed { i, label ->
-                com.dorr.driver.ui.kit.Chip(stringResource(label), selected = tab == i, onClick = { tab = i })
+            item(key = "actions") {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp).padding(top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    WalletAction(Icons.Rounded.Add, stringResource(R.string.wl_topup), 1, Modifier.weight(1f), enabled = w != null) { topupOpen = true }
+                    WalletAction(Icons.Rounded.AccountBalance, stringResource(R.string.wl_withdraw), 2, Modifier.weight(1f), enabled = (w?.withdrawableMinor ?: 0) > 0) { withdrawOpen = true }
+                    WalletAction(Icons.Rounded.History, stringResource(R.string.wl_tab_statement), 3, Modifier.weight(1f)) { showTab(0) }
+                    WalletAction(Icons.Rounded.Payments, stringResource(R.string.wl_tab_withdrawals), 4, Modifier.weight(1f)) { showTab(1) }
+                }
             }
-        }
-        if (tab == 0) StatementFilters(filter) { filter = it }
-        if (tab == 0) {
-            if (rows.isEmpty()) EmptyHint(stringResource(if (filter.active) R.string.wl_empty_filtered else R.string.wl_empty))
-            else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(rows, key = { it.uuid }) { r -> TransactionRow(r, w) { detailId = r.uuid } }
-                if (more) item {
-                    Box(Modifier.fillMaxWidth().padding(8.dp), contentAlignment = Alignment.Center) {
-                        if (loadingMore) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = DorrBrand.orange)
-                        else Text(
-                            stringResource(R.string.wl_more), color = DorrBrand.orange, fontWeight = FontWeight.SemiBold,
-                            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
-                                loadingMore = true
-                                scope.launch {
-                                    val next = (apiCall { DriverBackend.api.walletTransactions(page + 1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)?.data.orEmpty()
-                                    if (next.isNotEmpty()) { rows = rows + next; page += 1 }
-                                    more = next.size >= 25
-                                    loadingMore = false
-                                }
-                            }.padding(12.dp),
+            item(key = "tabs") {
+                Segmented(
+                    listOf("0" to stringResource(R.string.wl_tab_statement), "1" to stringResource(R.string.wl_tab_withdrawals)),
+                    selected = tab.toString(), onSelect = { tab = it.toInt() },
+                    modifier = Modifier.padding(horizontal = 16.dp).padding(top = 18.dp, bottom = 12.dp).staggerIn(5),
+                )
+            }
+
+            if (tab == 0) {
+                item(key = "filters") { StatementFilters(filter) { filter = it } }
+                val shown = rows
+                when {
+                    shown == null -> item(key = "loading") { Loading() }
+                    shown.isEmpty() -> item(key = "empty") {
+                        WalletEmpty(
+                            Icons.Rounded.Receipt, stringResource(if (filter.active) R.string.wl_empty_filtered else R.string.wl_empty),
+                            action = if (filter.active || w == null) null else ({ topupOpen = true }),
                         )
                     }
+                    else -> {
+                        itemsIndexed(shown, key = { _, r -> r.uuid }) { i, r ->
+                            GroupItem(i, shown.lastIndex) { TxRow(r, w) { detailId = r.uuid } }
+                        }
+                        if (more) item(key = "more") {
+                            Box(Modifier.fillMaxWidth().padding(top = 12.dp), contentAlignment = Alignment.Center) {
+                                if (loadingMore) {
+                                    CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp, color = Pal.accent)
+                                } else {
+                                    Text(
+                                        stringResource(R.string.wl_more), color = Pal.accent, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).bounceClick {
+                                            loadingMore = true
+                                            scope.launch {
+                                                val next = (apiCall { DriverBackend.api.walletTransactions(page + 1, 25, filter.type, filter.direction, filter.from, filter.to) } as? ApiResult.Ok)?.data.orEmpty()
+                                                if (next.isNotEmpty()) { rows = shown + next; page += 1 }
+                                                more = next.size >= 25
+                                                loadingMore = false
+                                            }
+                                        }.padding(horizontal = 16.dp, vertical = 10.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
-                item { Spacer(Modifier.height(16.dp)) }
-            }
-        } else {
-            if (withdrawals.isEmpty()) EmptyHint(stringResource(R.string.wl_no_withdrawals))
-            else LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(withdrawals, key = { it.id }) { WithdrawalRow(it, w) }
-                item { Spacer(Modifier.height(16.dp)) }
+            } else {
+                val shown = withdrawals
+                when {
+                    shown == null -> item(key = "w-loading") { Loading() }
+                    shown.isEmpty() -> item(key = "w-empty") { WalletEmpty(Icons.Rounded.Payments, stringResource(R.string.wl_no_withdrawals), action = null) }
+                    else -> itemsIndexed(shown, key = { _, d -> "w${d.id}" }) { i, d -> GroupItem(i, shown.lastIndex) { WithdrawalRow(d, w) } }
+                }
             }
         }
     }
-    error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
     if (topupOpen && w != null) TopupSheet(w, onClose = { topupOpen = false }, onDone = { topupOpen = false; scope.launch { load() } })
     detailId?.let { id -> TransactionDetailSheet(id, w, onClose = { detailId = null }) }
-    if (withdrawOpen && w != null) WithdrawSheet(w, onClose = { withdrawOpen = false }, onDone = { withdrawOpen = false; tab = 1; scope.launch { load() } })
-}
-
-@Composable
-private fun EmptyHint(text: String) {
-    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) {
-        Text(text, color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.55f), textAlign = TextAlign.Center)
+    if (withdrawOpen && w != null) {
+        WithdrawSheet(w, onClose = { withdrawOpen = false }, onDone = {
+            withdrawOpen = false
+            tab = 1
+            scope.launch { load() }
+        })
     }
 }
 
+// ---------------------------------------------------------------- the balance card
+
+/** The balance card of the DORR app's wallet: number + copy / share, the total chip, the amount, the two parts, what is held. */
 @Composable
-private fun BalanceChip(label: String, value: String) {
-    Column(Modifier.clip(RoundedCornerShape(14.dp)).background(DorrBrand.navy.copy(alpha = 0.08f)).padding(horizontal = 12.dp, vertical = 8.dp)) {
-        Text(label, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f), fontSize = 11.sp)
-        Text(value, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+private fun WalletHero(w: WalletDto, hidden: Boolean) {
+    val context = LocalContext.current
+    val number = w.walletNumber.orEmpty()
+    val currency = w.currencySymbol ?: w.currencyCode.orEmpty()
+    val shareText = stringResource(R.string.wl_share_text, number)
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1600)
+            copied = false
+        }
+    }
+    // The total counts up to its new value.
+    val shown = remember { Animatable(0f) }
+    LaunchedEffect(w.totalMinor) { shown.animateTo(w.totalMinor.toFloat(), tween(900)) }
+
+    val brand = Pal.accent
+    val brush = Brush.linearGradient(listOf(brand, brand.darker(0.78f), brand.darker(0.45f)))
+    val shape = RoundedCornerShape(24.dp)
+    Box(
+        Modifier.fillMaxWidth()
+            .shadow(14.dp, shape, ambientColor = brand.copy(alpha = 0.22f), spotColor = brand.copy(alpha = 0.32f))
+            .clip(shape).background(brush),
+    ) {
+        Box(Modifier.size(150.dp).offset(x = (-30).dp, y = 50.dp).align(Alignment.BottomStart).background(Color(0x10FFFFFF), CircleShape))
+        Column(Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.wl_number_label), color = Color.White.copy(alpha = 0.68f), fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                    if (number.isNotBlank()) {
+                        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                            Text(number, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+                        }
+                    }
+                }
+                if (number.isNotBlank()) {
+                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+                            HeroCircle(if (copied) Icons.Rounded.Check else Icons.Rounded.ContentCopy) {
+                                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                                clipboard.setPrimaryClip(ClipData.newPlainText("wallet", number))
+                                copied = true
+                            }
+                            HeroCircle(Icons.Rounded.Share) {
+                                val send = Intent(Intent.ACTION_SEND).apply { type = "text/plain"; putExtra(Intent.EXTRA_TEXT, shareText) }
+                                context.startActivity(Intent.createChooser(send, null))
+                            }
+                        }
+                    }
+                }
+            }
+            AnimatedVisibility(copied) {
+                Text(stringResource(R.string.wl_copied), color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 4.dp))
+            }
+
+            Box(Modifier.fillMaxWidth().padding(vertical = 10.dp).height(1.dp).background(Color.White.copy(alpha = 0.16f)))
+
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(Color.White.copy(alpha = 0.12f))
+                    .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(50)).padding(horizontal = 9.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Rounded.AccountBalanceWallet, null, tint = Color.White.copy(alpha = 0.9f), modifier = Modifier.size(12.dp))
+                Spacer(Modifier.width(5.dp))
+                Text(stringResource(R.string.wl_balance), color = Color.White.copy(alpha = 0.92f), fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
+            }
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(Modifier.padding(top = 6.dp, bottom = 10.dp), verticalAlignment = Alignment.Bottom) {
+                    Text(
+                        if (hidden) "******" else figure(shown.value.toLong()), color = Color.White, fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.3).sp, maxLines = 1,
+                    )
+                    if (currency.isNotBlank()) {
+                        Spacer(Modifier.width(8.dp))
+                        Text(currency, color = Color.White.copy(alpha = 0.82f), fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 3.dp))
+                    }
+                }
+            }
+
+            // The glass bar: what can be withdrawn | what is for the app's services only.
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.12f)).padding(vertical = 9.dp, horizontal = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                HeroPart(Icons.Rounded.Check, stringResource(R.string.wl_withdrawable), if (hidden) "****" else "${figure(w.withdrawableMinor)} $currency", Modifier.weight(1f))
+                Box(Modifier.width(1.dp).height(34.dp).background(Color.White.copy(alpha = 0.22f)))
+                HeroPart(Icons.Rounded.CardGiftcard, stringResource(R.string.wl_spend_only), if (hidden) "****" else "${figure(w.spendOnlyMinor)} $currency", Modifier.weight(1f))
+            }
+            if (w.heldMinor > 0) {
+                Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Icon(Icons.Rounded.PauseCircle, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(16.dp))
+                    Text(
+                        stringResource(R.string.wl_held) + " " + (if (hidden) "****" else figure(w.heldMinor)) + " " + currency,
+                        color = Color.White.copy(alpha = 0.92f), fontSize = 12.sp,
+                    )
+                }
+            }
+        }
     }
 }
 
+/** The colour, darker (the card's gradient runs from the brand colour to a deep shade of it). */
+private fun Color.darker(factor: Float) = Color(red * factor, green * factor, blue * factor, alpha)
+
 @Composable
-private fun TransactionRow(r: WalletRowDto, w: WalletDto?, onClick: () -> Unit) {
+private fun HeroCircle(icon: ImageVector, onClick: () -> Unit) {
+    Box(
+        Modifier.size(32.dp).clip(CircleShape).border(1.dp, Color.White.copy(alpha = 0.40f), CircleShape).bounceClick(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) { Icon(icon, null, tint = Color.White, modifier = Modifier.size(16.dp)) }
+}
+
+/** One half of the glass bar: icon + label, the amount under it. */
+@Composable
+private fun HeroPart(icon: ImageVector, label: String, value: String, modifier: Modifier) {
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    Column(modifier.padding(horizontal = 10.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = Color.White.copy(alpha = 0.92f), modifier = Modifier.size(15.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(label, color = Color.White.copy(alpha = 0.86f), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            Text(
+                value, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1,
+                textAlign = if (rtl) TextAlign.Right else TextAlign.Left, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+            )
+        }
+    }
+}
+
+/** Until the wallet answers: the card's shape, breathing. */
+@Composable
+private fun HeroSkeleton() {
+    val pulse = rememberInfiniteTransition(label = "hero-skeleton")
+    val a by pulse.animateFloat(0.45f, 0.9f, infiniteRepeatable(tween(800), RepeatMode.Reverse), label = "hero-skeleton-alpha")
+    Box(Modifier.fillMaxWidth().height(186.dp).alpha(a).clip(RoundedCornerShape(24.dp)).background(Pal.well))
+}
+
+// ---------------------------------------------------------------- actions, lists
+
+/** One of the four tiles under the card: an icon in the brand colour over its name, in a thin brand-tinted frame. */
+@Composable
+private fun WalletAction(icon: ImageVector, label: String, index: Int, modifier: Modifier, enabled: Boolean = true, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Column(
+        modifier.staggerIn(index).alpha(if (enabled) 1f else 0.45f).clip(shape).background(Pal.card)
+            .border(1.dp, Pal.accent.copy(alpha = 0.3f), shape).bounceClick(enabled = enabled, onClick = onClick)
+            .padding(top = 10.dp, bottom = 8.dp, start = 2.dp, end = 2.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+    ) {
+        Icon(icon, null, tint = Pal.accent, modifier = Modifier.size(22.dp))
+        Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Pal.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+/** A row of one card made of many rows: rounded at its two ends, a hairline between rows. */
+@Composable
+private fun GroupItem(index: Int, last: Int, content: @Composable () -> Unit) {
+    val top = if (index == 0) 22.dp else 0.dp
+    val bottom = if (index == last) 22.dp else 0.dp
+    Column(
+        Modifier.padding(horizontal = 16.dp).fillMaxWidth().staggerIn(index.coerceAtMost(6))
+            .clip(RoundedCornerShape(topStart = top, topEnd = top, bottomStart = bottom, bottomEnd = bottom)).background(Pal.card),
+    ) {
+        if (index > 0) Box(Modifier.padding(horizontal = 14.dp).fillMaxWidth().height(1.dp).background(Pal.line.copy(alpha = 0.7f)))
+        content()
+    }
+}
+
+/** A statement row, as in the DORR app: an icon well for the kind, the kind and its note, the signed amount, the day and time. */
+@Composable
+private fun TxRow(r: WalletRowDto, w: WalletDto?, onClick: () -> Unit) {
     val credit = r.direction == "credit"
-    Row(Modifier.fillMaxWidth().bounceClick(onClick = onClick).surface(RoundedCornerShape(16.dp), 3.dp).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(40.dp).clip(CircleShape).background((if (credit) DorrBrand.success else DorrBrand.danger).copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
-            Icon(if (credit) Icons.Filled.ArrowDownward else Icons.Filled.ArrowUpward, null, tint = if (credit) DorrBrand.success else DorrBrand.danger, modifier = Modifier.size(20.dp))
-        }
-        Spacer(Modifier.width(12.dp))
+    val currency = w?.currencySymbol ?: w?.currencyCode.orEmpty()
+    Row(
+        Modifier.fillMaxWidth().bounceClick(onClick = onClick).padding(horizontal = 14.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        IconWell(txIcon(r.type), 36.dp)
         Column(Modifier.weight(1f)) {
-            Text(r.typeLabel, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            val sub = listOfNotNull(r.note, whenText(r.createdAt)).joinToString(" · ")
-            if (sub.isNotBlank()) Text(sub, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f), maxLines = 2)
+            Text(r.typeLabel, fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Pal.ink, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            r.note?.takeIf { it.isNotBlank() && it != r.typeLabel }?.let {
+                Text(it, color = Pal.mut, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 2.dp))
+            }
         }
-        Text((if (credit) "+" else "−") + amount(r.amountMinor, w), fontWeight = FontWeight.ExtraBold, color = if (credit) DorrBrand.success else DorrBrand.danger, fontSize = 15.sp)
+        Column(horizontalAlignment = Alignment.End) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text((if (credit) "+ " else "- ") + figure(r.amountMinor), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (credit) Pal.success else Pal.ink)
+                    if (currency.isNotBlank()) Text(currency, color = Pal.mut, fontSize = 11.sp, modifier = Modifier.padding(bottom = 1.dp))
+                }
+            }
+            Text(dayAndTime(LocalContext.current, r.createdAt), color = Pal.faint, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
+        }
     }
 }
 
 @Composable
 private fun WithdrawalRow(d: WithdrawalDto, w: WalletDto?) {
-    val color = when (d.status) { "approved" -> DorrBrand.success; "rejected" -> DorrBrand.danger; else -> DorrBrand.warning }
-    Column(Modifier.fillMaxWidth().surface(RoundedCornerShape(16.dp), 3.dp).padding(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(amount(d.amountMinor, w), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, modifier = Modifier.weight(1f))
-            Text(
-                stringResource(when (d.status) { "approved" -> R.string.wl_st_approved; "rejected" -> R.string.wl_st_rejected; else -> R.string.wl_st_pending }),
-                color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
-            )
+    val color = when (d.status) { "approved" -> Pal.success; "rejected" -> Pal.danger; else -> Pal.warning }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 13.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            IconWell(if (d.method?.type == "mobile_wallet") Icons.Rounded.PhoneAndroid else Icons.Rounded.AccountBalance, 36.dp)
+            Column(Modifier.weight(1f)) {
+                Text(amount(d.amountMinor, w), fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = Pal.ink)
+                Text(
+                    listOfNotNull(d.method?.label, d.method?.display).joinToString(" · ").ifBlank { whenText(d.createdAt) },
+                    fontSize = 11.5.sp, color = Pal.mut, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    stringResource(when (d.status) { "approved" -> R.string.wl_st_approved; "rejected" -> R.string.wl_st_rejected; else -> R.string.wl_st_pending }),
+                    color = color, fontSize = 11.sp, fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
+                )
+                Text(dayAndTime(LocalContext.current, d.createdAt), color = Pal.faint, fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp))
+            }
         }
-        Text(listOfNotNull(d.method?.label, d.method?.display).joinToString(" · "), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
-        whenText(d.createdAt).takeIf { it.isNotBlank() }?.let { Text(it, fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.45f)) }
-        d.rejectionReason?.let { Text(it, fontSize = 12.sp, color = DorrBrand.danger, modifier = Modifier.padding(top = 4.dp)) }
+        d.rejectionReason?.let { Banner(it, Modifier.padding(top = 10.dp)) }
     }
 }
 
+/** An icon on a soft brand-coloured tile (the app's colours; the icon alone says what it is). */
+@Composable
+private fun IconWell(icon: ImageVector, size: Dp) {
+    Box(Modifier.size(size).clip(RoundedCornerShape(size * 0.34f)).background(Pal.well), contentAlignment = Alignment.Center) {
+        Icon(icon, null, tint = Pal.accent, modifier = Modifier.size(size * 0.45f))
+    }
+}
+
+/** Nothing here yet: a floating icon, the words, and — on the statement — the way to top up. */
+@Composable
+private fun WalletEmpty(icon: ImageVector, text: String, action: (() -> Unit)?) {
+    val float = rememberInfiniteTransition(label = "empty-float")
+    val y by float.animateFloat(-5f, 5f, infiniteRepeatable(tween(1600), RepeatMode.Reverse), label = "empty-y")
+    Column(
+        Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Pal.card).padding(vertical = 28.dp, horizontal = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        HeroBadge(icon, Modifier.graphicsLayer { translationY = y * density })
+        Text(text, color = Pal.mut, fontSize = 14.sp, textAlign = TextAlign.Center, modifier = Modifier.padding(top = 14.dp))
+        if (action != null) {
+            Box(Modifier.padding(top = 16.dp).padding(horizontal = 24.dp)) {
+                PrimaryButton(stringResource(R.string.wl_topup), icon = Icons.Rounded.Add, onClick = action)
+            }
+        }
+    }
+}
+
+@Composable
+private fun Loading() {
+    Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = Pal.accent) }
+}
+
+private fun txIcon(type: String): ImageVector = when (type) {
+    "topup" -> Icons.Rounded.Add
+    "topup_fee", "transfer_fee" -> Icons.Rounded.Receipt
+    "topup_bonus", "reward" -> Icons.Rounded.CardGiftcard
+    "transfer_out" -> Icons.Rounded.NorthEast
+    "transfer_in" -> Icons.Rounded.SouthWest
+    "withdrawal" -> Icons.Rounded.AccountBalance
+    "refund", "reversal" -> Icons.Rounded.Replay
+    "penalty" -> Icons.Rounded.ErrorOutline
+    "service_payment" -> Icons.Rounded.ShoppingBag
+    "service_earning" -> Icons.Rounded.DirectionsCar
+    "commission" -> Icons.Rounded.Percent
+    "tax" -> Icons.Rounded.RequestQuote
+    "tip" -> Icons.Rounded.VolunteerActivism
+    "discount_compensation" -> Icons.Rounded.LocalOffer
+    "debt_settlement" -> Icons.Rounded.Paid
+    "manual_adjustment" -> Icons.Rounded.Tune
+    else -> Icons.Rounded.Receipt
+}
+
+// ---------------------------------------------------------------- withdrawing
+
 /** Withdraw: pick (or add) where to, the amount, then the wallet PIN — made first if there isn't one yet. */
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit) {
+    val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var methods by remember { mutableStateOf<List<WithdrawalMethodDto>?>(null) }
     var pinInfo by remember { mutableStateOf<WalletPinDto?>(null) }
@@ -282,81 +601,110 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
     LaunchedEffect(Unit) { load() }
 
     val minor = amountText.replace(',', '.').toDoubleOrNull()?.let { Math.round(it * 100) } ?: 0L
+    val tooMuch = minor > w.withdrawableMinor
     val needsPinSetup = pinInfo?.hasPin == false
+    val pinsDiffer = needsPinSetup && pinConfirm.length == 4 && pin != pinConfirm
 
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp).imePadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(stringResource(R.string.wl_withdraw), fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
-            Text(stringResource(R.string.wl_can_withdraw, amount(w.withdrawableMinor, w)), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f))
+    ModalBottomSheet(onDismissRequest = { if (!busy) onClose() }, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true), containerColor = Pal.card) {
+        Column(
+            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(bottom = 18.dp).navigationBarsPadding().imePadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Text(stringResource(if (adding) R.string.wl_add_method else R.string.wl_withdraw), color = Pal.ink, fontWeight = FontWeight.ExtraBold, fontSize = 19.sp)
+            Text(stringResource(R.string.wl_can_withdraw, amount(w.withdrawableMinor, w)), fontSize = 13.sp, color = Pal.mut)
             val list = methods
             if (list == null || pinInfo == null) {
-                Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = DorrBrand.orange) }
+                Loading()
                 return@Column
             }
             if (!adding) {
-                Text(stringResource(R.string.wl_to), fontSize = 12.sp)
+                Text(stringResource(R.string.wl_to), fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Pal.ink)
                 list.forEach { m ->
                     val on = m.id == methodId
+                    val shape = RoundedCornerShape(16.dp)
                     Row(
-                        Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).border(if (on) 2.dp else 1.dp, if (on) DorrBrand.orange else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), RoundedCornerShape(14.dp))
-                            .clickable { methodId = m.id }.padding(12.dp),
+                        Modifier.fillMaxWidth().clip(shape).background(if (on) Pal.well else Pal.fieldFill)
+                            .border(if (on) 1.5.dp else 1.dp, if (on) Pal.accent else Pal.fieldLine, shape)
+                            .bounceClick { methodId = m.id }.padding(12.dp),
                         verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        Icon(if (m.type == "bank") Icons.Filled.AccountBalance else Icons.Filled.PhoneAndroid, null, tint = DorrBrand.navy)
-                        Spacer(Modifier.width(10.dp))
+                        TileIcon(if (m.type == "bank") Icons.Rounded.AccountBalance else Icons.Rounded.PhoneAndroid, Pal.accent, 38.dp)
                         Column(Modifier.weight(1f)) {
-                            Text(m.label ?: stringResource(if (m.type == "bank") R.string.wl_bank else R.string.wl_mobile), fontWeight = FontWeight.SemiBold)
-                            Text(m.display.orEmpty(), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                            Text(m.label ?: stringResource(if (m.type == "bank") R.string.wl_bank else R.string.wl_mobile), color = Pal.ink, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                            Text(m.display.orEmpty(), fontSize = 12.sp, color = Pal.mut)
                         }
-                        Icon(Icons.Filled.Close, null, modifier = Modifier.size(18.dp).clip(CircleShape).clickable {
-                            scope.launch { apiCall { DriverBackend.api.deleteWithdrawalMethod(m.id) }; if (methodId == m.id) methodId = null; load() }
-                        })
+                        Icon(if (on) Icons.Rounded.CheckCircle else Icons.Rounded.RadioButtonUnchecked, null, tint = if (on) Pal.accent else Pal.line, modifier = Modifier.size(22.dp))
+                        Box(
+                            Modifier.size(30.dp).clip(CircleShape).bounceClick {
+                                scope.launch { apiCall { DriverBackend.api.deleteWithdrawalMethod(m.id) }; if (methodId == m.id) methodId = null; load() }
+                            },
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Rounded.DeleteOutline, null, tint = Pal.faint, modifier = Modifier.size(18.dp)) }
                     }
                 }
-                Text(stringResource(R.string.wl_add_method), color = DorrBrand.orange, fontWeight = FontWeight.SemiBold, modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable { adding = true }.padding(8.dp))
-                DorrField(amountText, { amountText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(10) }, label = { Text(stringResource(R.string.wl_amount, w.currencySymbol ?: "")) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth())
+                Row(
+                    Modifier.clip(RoundedCornerShape(12.dp)).bounceClick { adding = true }.padding(vertical = 6.dp, horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(Icons.Rounded.Add, null, tint = Pal.accent, modifier = Modifier.size(18.dp))
+                    Text(stringResource(R.string.wl_add_method), color = Pal.accent, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                }
+                DorrTextField(
+                    value = amountText, onValueChange = { amountText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(10) },
+                    label = stringResource(R.string.wl_amount, w.currencySymbol ?: ""), placeholder = "0.00", icon = Icons.Rounded.Payments, error = tooMuch,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    trailing = { Chip(stringResource(R.string.wl_all), onClick = { amountText = String.format(Locale.US, "%.2f", w.withdrawableMinor / 100.0) }) },
+                )
+                Banner(if (tooMuch) stringResource(R.string.wl_too_much) else null)
             } else {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("bank" to R.string.wl_bank, "mobile_wallet" to R.string.wl_mobile).forEach { (key, name) ->
-                        val on = key == type
-                        Text(stringResource(name), color = if (on) Color.White else DorrBrand.navy, modifier = Modifier.clip(CircleShape).background(if (on) DorrBrand.navy else DorrBrand.navy.copy(alpha = 0.07f)).clickable { type = key }.padding(horizontal = 16.dp, vertical = 8.dp))
-                    }
-                }
-                DorrField(label, { label = it.take(60) }, label = { Text(stringResource(R.string.wl_label)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Segmented(listOf("bank" to stringResource(R.string.wl_bank), "mobile_wallet" to stringResource(R.string.wl_mobile)), selected = type, onSelect = { type = it })
+                DorrTextField(value = label, onValueChange = { label = it.take(60) }, label = stringResource(R.string.wl_label), icon = Icons.Rounded.Edit)
                 if (type == "bank") {
-                    DorrField(bankName, { bankName = it.take(100) }, label = { Text(stringResource(R.string.wl_bank_name)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    DorrField(holder, { holder = it.take(100) }, label = { Text(stringResource(R.string.wl_holder)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    DorrField(iban, { iban = it.filter { c -> c.isLetterOrDigit() }.take(34) }, label = { Text("IBAN") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    DorrTextField(value = bankName, onValueChange = { bankName = it.take(100) }, label = stringResource(R.string.wl_bank_name), icon = Icons.Rounded.AccountBalance)
+                    DorrTextField(value = holder, onValueChange = { holder = it.take(100) }, label = stringResource(R.string.wl_holder), icon = Icons.Rounded.Person)
+                    DorrTextField(
+                        value = iban, onValueChange = { iban = it.filter { c -> c.isLetterOrDigit() }.uppercase().take(34) }, label = "IBAN", placeholder = "SA00 0000 0000 0000 0000 0000",
+                        icon = Icons.Rounded.CreditCard, error = iban.isNotEmpty() && iban.length < 15,
+                    )
                 } else {
-                    DorrField(provider, { provider = it.take(100) }, label = { Text(stringResource(R.string.wl_provider)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    DorrField(number, { number = it.filter { c -> c.isDigit() }.take(20) }, label = { Text(stringResource(R.string.wl_number)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                    DorrTextField(value = provider, onValueChange = { provider = it.take(100) }, label = stringResource(R.string.wl_provider), icon = Icons.Rounded.PhoneAndroid)
+                    DorrTextField(
+                        value = number, onValueChange = { number = it.filter { c -> c.isDigit() }.take(20) }, label = stringResource(R.string.wl_number), icon = Icons.Rounded.Numbers,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), error = number.isNotEmpty() && number.length < 6,
+                    )
+                }
+                if (list.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.cancel), color = Pal.mut, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                        modifier = Modifier.clip(RoundedCornerShape(12.dp)).bounceClick { adding = false }.padding(vertical = 6.dp, horizontal = 4.dp),
+                    )
                 }
             }
 
             // The wallet PIN: made once, asked for each time money moves.
-            if (needsPinSetup) {
-                Text(stringResource(R.string.wl_make_pin), fontWeight = FontWeight.SemiBold)
-                PinField(pin, stringResource(R.string.wl_pin)) { pin = it }
-                PinField(pinConfirm, stringResource(R.string.wl_pin_confirm)) { pinConfirm = it }
-            } else {
-                PinField(pin, stringResource(R.string.wl_pin)) { pin = it }
-            }
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
+            if (needsPinSetup) Text(stringResource(R.string.wl_make_pin), color = Pal.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            PinField(pin, stringResource(R.string.wl_pin)) { pin = it }
+            if (needsPinSetup) PinField(pinConfirm, stringResource(R.string.wl_pin_confirm), error = pinsDiffer) { pinConfirm = it }
+            Banner(error)
 
             val ready = if (adding) {
                 pin.length == 4 && (!needsPinSetup || pin == pinConfirm) &&
                     if (type == "bank") bankName.isNotBlank() && holder.isNotBlank() && iban.length >= 15 else provider.isNotBlank() && number.length >= 6
             } else {
-                pin.length == 4 && (!needsPinSetup || pin == pinConfirm) && methodId != null && minor > 0 && minor <= w.withdrawableMinor
+                pin.length == 4 && (!needsPinSetup || pin == pinConfirm) && methodId != null && minor > 0 && !tooMuch
             }
-            BigButton(stringResource(if (adding) R.string.wl_save_method else R.string.wl_send_request), color = DorrBrand.navy, enabled = ready, busy = busy) {
+            PrimaryButton(
+                stringResource(if (adding) R.string.wl_save_method else R.string.wl_send_request), enabled = ready, busy = busy,
+                icon = if (adding) Icons.Rounded.Check else Icons.Rounded.AccountBalance,
+            ) {
                 busy = true
                 error = null
                 scope.launch {
                     if (needsPinSetup) {
                         val made = apiCall { DriverBackend.api.createWalletPin(JsonObject().apply { addProperty("pin", pin); addProperty("pin_confirmation", pinConfirm) }) }
                         if (made !is ApiResult.Ok) {
-                            error = (made as? ApiResult.Failed)?.error?.displayMessage
+                            error = (made as? ApiResult.Failed)?.error?.displayMessage ?: context.getString(R.string.error_offline)
                             busy = false
                             return@launch
                         }
@@ -374,14 +722,14 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
                         when (val r = apiCall { DriverBackend.api.addWithdrawalMethod(pin, body) }) {
                             is ApiResult.Ok -> { methodId = r.data.id; adding = false; pin = ""; pinConfirm = ""; load() }
                             is ApiResult.Failed -> error = r.error.displayMessage
-                            is ApiResult.Offline -> error = null
+                            is ApiResult.Offline -> error = context.getString(R.string.error_offline)
                         }
                     } else {
                         val body = JsonObject().apply { addProperty("withdrawal_method_id", methodId); addProperty("amount_minor", minor) }
                         when (val r = apiCall { DriverBackend.api.withdraw(pin, CoreHttp.newIdempotencyKey(), body) }) {
                             is ApiResult.Ok -> onDone()
                             is ApiResult.Failed -> error = r.error.displayMessage
-                            is ApiResult.Offline -> error = null
+                            is ApiResult.Offline -> error = context.getString(R.string.error_offline)
                         }
                     }
                     busy = false
@@ -392,13 +740,18 @@ private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit)
 }
 
 @Composable
-private fun PinField(value: String, label: String, onChange: (String) -> Unit) {
-    DorrField(
-        value, { onChange(it.filter { c -> c.isDigit() }.take(4)) }, label = { Text(label) }, singleLine = true,
-        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-        modifier = Modifier.fillMaxWidth(),
+private fun PinField(value: String, label: String, error: Boolean = false, onChange: (String) -> Unit) {
+    DorrTextField(
+        value = value, onValueChange = { onChange(it.filter { c -> c.isDigit() }.take(4)) }, label = label, placeholder = "••••",
+        icon = Icons.Rounded.Lock, password = true, error = error,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
     )
 }
+
+// ---------------------------------------------------------------- formatting
+
+/** "125.50" from minor units (two decimals), without the currency. */
+private fun figure(minor: Long): String = String.format(Locale.getDefault(), "%.2f", minor / 100.0)
 
 /** "125.50 ر.س" from minor units (the wallet's currency; two decimals). */
 internal fun amount(minor: Long, w: WalletDto?): String =
@@ -407,4 +760,17 @@ internal fun amount(minor: Long, w: WalletDto?): String =
 internal fun whenText(iso: String?): String {
     val at = iso?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() } ?: return ""
     return at.atZoneSameInstant(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(Locale.getDefault()))
+}
+
+/** "Today, 14:05", "Yesterday, 09:10", else "12 Oct, 18:30" — in the phone's time zone. */
+private fun dayAndTime(context: Context, iso: String?): String {
+    val at = iso?.let { runCatching { OffsetDateTime.parse(it) }.getOrNull() }?.atZoneSameInstant(ZoneId.systemDefault()) ?: return ""
+    val time = at.format(DateTimeFormatter.ofPattern("HH:mm", Locale.US))
+    val today = LocalDate.now()
+    val day = when (at.toLocalDate()) {
+        today -> context.getString(R.string.wl_day_today)
+        today.minusDays(1) -> context.getString(R.string.wl_day_yesterday)
+        else -> at.format(DateTimeFormatter.ofPattern("d MMM", Locale.getDefault()))
+    }
+    return day + context.getString(R.string.list_sep) + time
 }
