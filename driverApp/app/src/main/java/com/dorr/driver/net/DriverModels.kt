@@ -303,29 +303,6 @@ data class TopupDto(
     @SerializedName("requires_otp") val requiresOtp: Boolean = false,
 )
 
-data class PaymentMethodDto(
-    val id: Int,
-    val name: String? = null,
-    val gateway: String? = null,
-    @SerializedName("logo_url") val logoUrl: String? = null,
-    @SerializedName("coming_soon") val comingSoon: Boolean = false,
-)
-
-data class TopupQuoteDto(
-    @SerializedName("paid_amount_minor") val paidAmountMinor: Long = 0,
-    @SerializedName("fee_minor") val feeMinor: Long = 0,
-    @SerializedName("bonus_minor") val bonusMinor: Long = 0,
-    @SerializedName("total_credited_minor") val totalCreditedMinor: Long = 0,
-)
-
-data class TopupDto(
-    val uuid: String,
-    val status: String = "pending",
-    @SerializedName("amount_minor") val amountMinor: Long = 0,
-    @SerializedName("redirect_url") val redirectUrl: String? = null,
-    @SerializedName("requires_otp") val requiresOtp: Boolean = false,
-)
-
 data class WalletRowDto(
     val uuid: String,
     val type: String = "",
