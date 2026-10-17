@@ -77,7 +77,7 @@
     <string name="ob_name">Full name</string>
     <string name="ob_email">Email (optional)</string>
     <string name="ob_national_id">ID / iqama number</string>
-    <string name="ob_dob">Date of birth (YYYY-MM-DD)</string>
+    <string name="ob_dob">Date of birth</string>
     <string name="ob_id_type">ID type</string>
     <string name="ob_save">Save</string>
     <string name="ob_make">Make</string>
@@ -92,7 +92,7 @@
     <string name="ob_upload">Upload</string>
     <string name="ob_reupload">Upload again</string>
     <string name="ob_number">Number</string>
-    <string name="ob_expiry">Expiry (YYYY-MM-DD)</string>
+    <string name="ob_expiry">Expiry date</string>
     <string name="ob_front">Front photo</string>
     <string name="ob_back">Back photo</string>
     <string name="ob_pick">Choose a photo</string>

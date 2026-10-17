@@ -13,6 +13,8 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- A document photo can be taken with the camera; phones without one still install the app. -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Navigation opens in Google Maps (outside the app — owner's decision, saves map costs). -->
     <queries>
@@ -52,6 +54,22 @@
         <receiver
             android:name=".duty.OfferActionReceiver"
             android:exported="false" />
+
+        <!-- The camera writes a document photo here (the app's cache) before it is uploaded. -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/driver_files" />
+        </provider>
+
+        <!-- The map on Home (key from dorr.mapsKey, see app/build.gradle.kts). -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="${mapsApiKey}" />
 
         <!-- Every push passes through here first: a ride request becomes a ringing, full-screen request. -->
         <meta-data

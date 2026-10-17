@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Photos the camera takes of a document before they are uploaded (the cache, never shared). -->
+<paths>
+    <cache-path name="camera" path="camera/" />
+</paths>

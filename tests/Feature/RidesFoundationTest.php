@@ -7,6 +7,8 @@ use App\Models\Country;
 use App\Models\Currency;
 use App\Models\Flag;
 use App\Models\ServiceCategory;
+use Illuminate\Http\Client\Factory as HttpFactory;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
@@ -29,6 +31,8 @@ use Modules\Rides\Models\RideZone;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Geo\CityResolver;
 use Modules\Rides\Services\Geo\GeoProvider;
+use Modules\Rides\Services\Geo\GoogleGeoProvider;
+use Modules\Rides\Services\Geo\GoogleKeyCheck;
 use Modules\Rides\Services\Policy\RidePolicies;
 use Modules\Rides\Services\Regulator\RegulatorCityNames;
 use Modules\Rides\Support\Geo;
@@ -385,6 +389,145 @@ class RidesFoundationTest extends TestCase
         $this->assertStringNotContainsString('secret', (string) json_encode(AuditLog::query()->first()->after));
 
         $this->putJson('/api/admin/v1/ride-settings', ['fallback_road_factor_bp' => 5000])->assertStatus(422);
+    }
+
+    public function test_when_google_refuses_the_free_map_answers_and_google_is_left_alone_for_a_while(): void
+    {
+        config(['rides.google.key' => 'spent-key', 'rides.osm.enabled' => true]);
+        Http::fake([
+            'routes.googleapis.com/*' => Http::response(['error' => ['status' => 'RESOURCE_EXHAUSTED', 'message' => 'Quota exceeded for quota metric']], 429),
+            'router.project-osrm.org/*' => Http::response(['code' => 'Ok', 'routes' => [[
+                'distance' => 5234.6, 'duration' => 611.2, 'geometry' => '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+                'legs' => [['distance' => 5234.6, 'duration' => 611.2]],
+            ]]]),
+        ]);
+        $geo = app(GeoProvider::class);
+
+        // Google says "quota": the free road route answers (a real route, not the straight-line guess).
+        $route = $geo->route(24.70, 46.70, 24.80, 46.75);
+        $this->assertFalse($route->estimated);
+        $this->assertSame(5235, $route->distanceM);
+        $this->assertSame(611, $route->durationS);
+        $this->assertSame('_p~iF~ps|U_ulLnnqC_mqNvxq`@', $route->polyline);
+        $this->assertSame('quota', GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES));
+
+        // …and the next ride doesn't ask Google at all.
+        $geo->route(24.71, 46.71, 24.81, 46.76);
+        Http::assertSentCount(3); // Google once, the free map twice
+        $this->assertCount(1, Http::recorded(fn ($request) => str_contains($request->url(), 'routes.googleapis.com')));
+
+        // A new key (or a passed check) takes Google off the pause at once.
+        GoogleGeoProvider::resume();
+        $geo->route(24.72, 46.72, 24.82, 46.77);
+        $this->assertCount(2, Http::recorded(fn ($request) => str_contains($request->url(), 'routes.googleapis.com')));
+    }
+
+    public function test_the_free_map_names_the_city_when_google_cannot_and_the_estimate_is_the_last_resort(): void
+    {
+        config(['rides.google.key' => 'spent-key', 'rides.osm.enabled' => true]);
+        Http::fake([
+            'maps.googleapis.com/maps/api/geocode/*' => Http::response(['status' => 'OVER_QUERY_LIMIT', 'error_message' => 'You have exceeded your daily request quota for this API.']),
+            'nominatim.openstreetmap.org/*' => Http::response(['address' => ['town' => 'جدة', 'state' => 'مكة المكرمة']]),
+            'routes.googleapis.com/*' => Http::response(['error' => ['status' => 'PERMISSION_DENIED', 'message' => 'Routes API has not been used in project 1 before or it is disabled.']], 403),
+            'router.project-osrm.org/*' => Http::response('Bad gateway', 502),
+        ]);
+        $geo = app(GeoProvider::class);
+
+        $this->assertSame('جدة', $geo->cityName(21.49, 39.19));
+        $this->assertSame('quota', GoogleGeoProvider::paused(GoogleGeoProvider::GEOCODING));
+
+        // Google refused and the free route server is down: the straight-line estimate, never nothing.
+        $route = $geo->route(24.70, 46.70, 24.80, 46.70);
+        $this->assertTrue($route->estimated);
+        $this->assertSame('api_disabled', GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES));
+    }
+
+    public function test_the_key_check_tells_what_is_wrong_per_api_and_clears_the_pause_when_all_is_well(): void
+    {
+        config(['rides.google.key' => 'some-key']);
+        $check = app(GoogleKeyCheck::class);
+
+        $cases = [
+            // [routes answer, geocoding answer, expected kinds]
+            'billing' => [Http::response(['error' => ['status' => 'PERMISSION_DENIED', 'message' => 'This API method requires billing to be enabled.']], 403), Http::response(['status' => 'OK', 'results' => []]), ['billing', 'ok']],
+            'key' => [Http::response(['routes' => [['distanceMeters' => 1500]]]), Http::response(['status' => 'REQUEST_DENIED', 'error_message' => 'The provided API key is invalid.']), ['ok', 'key']],
+            'api disabled' => [Http::response(['error' => ['status' => 'PERMISSION_DENIED', 'message' => 'Routes API has not been used in project 123 before or it is disabled.']], 403), Http::response(['status' => 'ZERO_RESULTS', 'results' => []]), ['api_disabled', 'ok']],
+            'restricted' => [Http::response(['error' => ['status' => 'PERMISSION_DENIED', 'message' => 'Requests from referer <empty> are blocked.']], 403), Http::response(['status' => 'REQUEST_DENIED', 'error_message' => 'This IP, site or mobile application is not authorized to use this API key.']), ['restricted', 'restricted']],
+            'quota' => [Http::response(['error' => ['status' => 'RESOURCE_EXHAUSTED', 'message' => 'Quota exceeded']], 429), Http::response(['status' => 'OVER_DAILY_LIMIT']), ['quota', 'quota']],
+        ];
+
+        foreach ($cases as $name => [$routes, $geocoding, $expected]) {
+            // Each case starts from a clean client: a second fake() would stay behind the first one.
+            Http::swap(new HttpFactory);
+            Http::fake(['routes.googleapis.com/*' => $routes, 'maps.googleapis.com/maps/api/geocode/*' => $geocoding]);
+            $result = $check->run();
+            $this->assertFalse($result['ok'], $name);
+            $this->assertSame($expected, array_column($result['checks'], 'kind'), $name);
+        }
+
+        // Both answer: ok, and Google is taken off its pause.
+        Cache::put('rides:google-paused:routes', 'quota', now()->addMinutes(30));
+        Http::swap(new HttpFactory);
+        Http::fake(['routes.googleapis.com/*' => Http::response(['routes' => [['distanceMeters' => 1500]]]), 'maps.googleapis.com/maps/api/geocode/*' => Http::response(['status' => 'OK', 'results' => []])]);
+        $result = $check->run();
+        $this->assertTrue($result['ok']);
+        $this->assertNull(GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES));
+        $this->assertSame('••••-key', $result['hint']);
+
+        // No key at all: said so, no call made.
+        config(['rides.google.key' => null]);
+        Http::swap(new HttpFactory);
+        Http::fake();
+        $none = $check->run();
+        $this->assertFalse($none['key_set']);
+        $this->assertSame(['key_missing', 'key_missing'], array_column($none['checks'], 'kind'));
+        Http::assertNothingSent();
+    }
+
+    public function test_the_admin_can_run_the_key_check_and_the_command_prints_the_verdict(): void
+    {
+        $admin = Admin::query()->create(['name' => 'Admin', 'email' => 'admin2@dorr.test', 'password' => 'secret123', 'status' => 'active']);
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        foreach (['ride-settings.view', 'ride-settings.update'] as $name) {
+            Permission::findOrCreate($name, 'admin_api');
+        }
+        $admin->givePermissionTo(['ride-settings.update']);
+        Sanctum::actingAs($admin, [], 'admin_api');
+        config(['rides.google.key' => 'some-key']);
+        Http::fake(['routes.googleapis.com/*' => Http::response(['routes' => [['distanceMeters' => 1500]]]), 'maps.googleapis.com/maps/api/geocode/*' => Http::response(['status' => 'REQUEST_DENIED', 'error_message' => 'The provided API key is invalid.'])]);
+
+        $this->postJson('/api/admin/v1/ride-settings/check-google')
+            ->assertOk()
+            ->assertJsonPath('data.ok', false)
+            ->assertJsonPath('data.checks.0.api', 'routes')
+            ->assertJsonPath('data.checks.0.ok', true)
+            ->assertJsonPath('data.checks.1.kind', 'key');
+
+        $this->artisan('rides:check-google')->expectsOutputToContain('geocoding')->assertFailed();
+    }
+
+    public function test_why_explains_where_a_rider_stops_and_names_the_fix(): void
+    {
+        $rider = User::query()->create(['phone' => '+966500000077', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+        $stranger = User::query()->create(['phone' => '+966500000078', 'status' => 'active', 'phone_verified_at' => now()]);
+
+        // A country with no switch on: the command names it and the fix.
+        $this->artisan('rides:why', ['--user' => $rider->id])
+            ->expectsOutputToContain('not_enabled')
+            ->expectsOutputToContain('rides:enable-country SA')
+            ->assertFailed();
+
+        // No country on the account and no place: nothing to look up by.
+        $this->artisan('rides:why', ['--user' => $stranger->id])->expectsOutputToContain('no_country')->assertFailed();
+
+        // A phone in Jeddah finds the Jeddah city (and so Saudi Arabia), still off.
+        $this->artisan('rides:why', ['--user' => $stranger->id, '--lat' => 21.49, '--lng' => 39.19])
+            ->expectsOutputToContain('Admin city found')
+            ->expectsOutputToContain('--city='.$this->jeddah->id)
+            ->assertFailed();
+
+        $this->rule('rides', true);
+        $this->artisan('rides:why', ['--user' => $rider->id])->expectsOutputToContain('Rides are ON here')->assertSuccessful();
     }
 
     /** Google Geocoding answers with this city name (or this error status) from now on. */

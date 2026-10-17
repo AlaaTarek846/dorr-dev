@@ -38,6 +38,14 @@ interface DriverApi {
     @POST("driver/v1/auth/logout")
     suspend fun logout(): Response<ApiEnvelope<Any>>
 
+    /** The countries open for sign-in (flag, dial code, phone length / first digits), the same list as the DORR app's. */
+    @GET("general/v1/countries/dropdown")
+    suspend fun countries(): Response<ApiEnvelope<List<CountryDto>>>
+
+    /** The caller's country by IP (the default one when it can't be told), in the same shape. */
+    @GET("general/v1/countries/detect")
+    suspend fun detectCountry(): Response<ApiEnvelope<CountryDto>>
+
     /** The platform's colours, the same ones the DORR app reads (public — also before signing in). */
     @GET("general/v1/mobile-appearance-defaults")
     suspend fun appearanceDefaults(): Response<ApiEnvelope<AppearanceDefaultsDto>>
@@ -361,6 +369,19 @@ data class OtpSent(
     @SerializedName("masked_phone") val maskedPhone: String? = null,
     @SerializedName("is_new_driver") val isNewDriver: Boolean = false,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int = 60,
+)
+
+data class FlagDto(val id: Int = 0, val code: String = "")
+
+data class CountryDto(
+    val id: Int,
+    val code: String,
+    val name: String = "",
+    @SerializedName("dial_code") val dialCode: String = "",
+    @SerializedName("phone_length") val phoneLength: Int? = null,
+    @SerializedName("phone_starts_with") val phoneStartsWith: String? = null,
+    @SerializedName("is_default") val isDefault: Boolean = false,
+    val flag: FlagDto? = null,
 )
 
 data class AppearanceDefaultsDto(
