@@ -7,17 +7,21 @@ use Modules\Rides\Models\RideSetting;
 use Modules\Rides\Support\Geo;
 
 /**
- * What the app uses for maps: Google first, and when Google can't answer (no key yet, the key ran
- * out, a refusal, no connection) the free estimate Jawad uses — straight-line distance with a road
- * factor, at an average speed (both set in the admin). A ride is never blocked on Google.
+ * What the app uses for maps, in this order, each one only when the one before can't answer (no key yet,
+ * the quota ran out, a refusal, no connection):
+ *  1. Google (Routes + Geocoding);
+ *  2. the free OpenStreetMap services (OSRM route, Nominatim city name) — a real road route, nothing billed;
+ *  3. the free estimate Jawad uses — straight-line distance with a road factor, at an average speed
+ *     (both set in the admin).
+ * A ride is never blocked on a map provider.
  *
- * City names are cached per ~1 km cell (`geocode_cache_days`), so each place costs Google once.
+ * City names are cached per ~1 km cell (`geocode_cache_days`), so each place is looked up once.
  */
 class ResilientGeoProvider implements GeoProvider
 {
     private const VERSION = 'rides:city-name-version';
 
-    public function __construct(private readonly GoogleGeoProvider $google) {}
+    public function __construct(private readonly GoogleGeoProvider $google, private readonly OsmGeoProvider $osm) {}
 
     /** Drops every cached city name at once (a new key): the next lookups ask Google again. */
     public static function forgetCityNames(): void
@@ -28,6 +32,7 @@ class ResilientGeoProvider implements GeoProvider
     public function route(float $originLat, float $originLng, float $destinationLat, float $destinationLng, array $stops = []): ?RouteResult
     {
         return $this->google->route($originLat, $originLng, $destinationLat, $destinationLng, $stops)
+            ?? $this->osm->route($originLat, $originLng, $destinationLat, $destinationLng, $stops)
             ?? $this->estimate($originLat, $originLng, $destinationLat, $destinationLng, $stops);
     }
 
@@ -39,8 +44,8 @@ class ResilientGeoProvider implements GeoProvider
             return $cached === '' ? null : $cached;
         }
 
-        $name = $this->google->cityName($lat, $lng);
-        // A miss is remembered briefly only, so a key added later starts working within the hour.
+        $name = $this->google->cityName($lat, $lng) ?? $this->osm->cityName($lat, $lng);
+        // A miss is remembered briefly only, so a key added later (or a recovered Google) starts working within the hour.
         Cache::put($key, $name ?? '', $name !== null ? now()->addDays(RideSetting::current()->geocode_cache_days) : now()->addHour());
 
         return $name;

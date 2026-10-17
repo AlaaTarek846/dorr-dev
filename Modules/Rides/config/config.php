@@ -14,7 +14,26 @@ return [
     'google' => [
         'key' => env('GOOGLE_MAPS_SERVER_KEY'),
         'routes_url' => env('GOOGLE_ROUTES_URL', 'https://routes.googleapis.com/directions/v2:computeRoutes'),
+        'geocode_url' => env('GOOGLE_GEOCODE_URL', 'https://maps.googleapis.com/maps/api/geocode/json'),
         'timeout' => 10,
+        // When Google refuses (the key, billing, a used-up quota) or can't be reached, it is left alone for
+        // this many minutes — the free providers below answer meanwhile — and then tried again.
+        'pause_refused_min' => 30,
+        'pause_unreachable_min' => 5,
+    ],
+
+    /*
+    | The free map used automatically while Google can't answer: OSRM for the route and Nominatim for the
+    | city name (both OpenStreetMap data). The public servers are for light use — point these at your own
+    | OSRM / Nominatim (or any service speaking the same API) when the traffic grows.
+    | RIDES_OSM_FALLBACK=false turns it off (the straight-line estimate is then the only fallback).
+    */
+    'osm' => [
+        'enabled' => (bool) env('RIDES_OSM_FALLBACK', true),
+        'routing_url' => rtrim((string) env('OSRM_URL', 'https://router.project-osrm.org'), '/'),
+        'geocode_url' => rtrim((string) env('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'), '/'),
+        'user_agent' => env('OSM_USER_AGENT', 'DORR-Rides/1.0'),
+        'timeout' => 6,
     ],
 
     /*

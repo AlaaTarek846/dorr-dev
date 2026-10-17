@@ -22,6 +22,27 @@
                         </div>
                         <small class="text-muted d-block mb-3">{{ t('rides.settings.key_never_shown') }}</small>
 
+                        <div v-if="can('ride-settings.update')" class="mb-3">
+                            <button type="button" class="btn btn-outline-primary btn-sm" :disabled="checking" @click="checkKey()">
+                                <span v-if="checking" class="spinner-border spinner-border-sm me-1"></span><i v-else class="ri-shield-check-line me-1"></i>{{ checking ? t('rides.settings.checking') : t('rides.settings.check') }}
+                            </button>
+                            <small class="text-muted ms-2">{{ t('rides.settings.check_hint') }}</small>
+                        </div>
+                        <div v-if="report" class="border rounded p-3 mb-3 fs-13">
+                            <div class="fw-semibold mb-2">{{ t('rides.settings.check_title') }}</div>
+                            <div v-for="row in report.checks" :key="row.api" class="d-flex gap-2 mb-2">
+                                <i :class="row.ok ? 'ri-checkbox-circle-fill text-success' : 'ri-close-circle-fill text-danger'" class="fs-16"></i>
+                                <div>
+                                    <div class="fw-semibold">{{ t('rides.settings.check_api_' + row.api) }}<span v-if="row.http" class="text-muted fw-normal" dir="ltr"> · HTTP {{ row.http }}<template v-if="row.status"> · {{ row.status }}</template></span></div>
+                                    <div>{{ row.hint }}</div>
+                                    <div v-if="!row.ok && row.message" class="text-muted" dir="ltr">{{ t('rides.settings.google_said') }} {{ row.message }}</div>
+                                </div>
+                            </div>
+                            <div v-if="report.ok" class="text-success">{{ t('rides.settings.check_ok') }}</div>
+                        </div>
+                        <div v-for="(reason, api) in pausedNow" :key="api" class="alert alert-warning py-2 fs-13">{{ t('rides.settings.google_paused', { reason }) }} <span class="text-muted" dir="ltr">({{ api }})</span></div>
+                        <div class="fs-13 mb-3" :class="state.osm_fallback ? 'text-success' : 'text-muted'"><i :class="state.osm_fallback ? 'ri-check-line' : 'ri-close-line'" class="me-1"></i>{{ state.osm_fallback ? t('rides.settings.osm_on') : t('rides.settings.osm_off') }}</div>
+
                         <h6 class="fw-semibold mt-4 mb-1"><i class="ri-route-line me-1 text-primary"></i>{{ t('rides.settings.fallback') }}</h6>
                         <p class="text-muted fs-13">{{ t('rides.settings.fallback_hint') }}</p>
                         <div class="row g-3">
@@ -76,7 +97,10 @@ const { t } = useI18n();
 const { can } = usePermission();
 const { showSuccess, showError } = useToast();
 
-const state = reactive({ google_maps_key_set: false, google_maps_key_hint: null, env_key_set: false });
+const state = reactive({ google_maps_key_set: false, google_maps_key_hint: null, env_key_set: false, osm_fallback: true, google_paused: { routes: null, geocoding: null } });
+const report = ref(null);
+const checking = ref(false);
+const pausedNow = computed(() => Object.fromEntries(Object.entries(report.value?.paused ?? state.google_paused ?? {}).filter(([, reason]) => reason)));
 const form = reactive({ google_maps_key: '', fallback_speed_kmh: 60, fallback_road_factor_bp: 13000, geocode_cache_days: 30 });
 const saving = ref(false);
 const showKey = ref(false);
@@ -87,6 +111,18 @@ function apply(data) {
     Object.assign(form, { google_maps_key: '', fallback_speed_kmh: data.fallback_speed_kmh, fallback_road_factor_bp: data.fallback_road_factor_bp, geocode_cache_days: data.geocode_cache_days });
 }
 
+async function checkKey() {
+    checking.value = true;
+    try {
+        const { data } = await adminAxios.post('/api/admin/v1/ride-settings/check-google');
+        report.value = data.data;
+    } catch (error) {
+        showError(extractApiErrorMessage(error));
+    } finally {
+        checking.value = false;
+    }
+}
+
 async function save(clear = false) {
     saving.value = true;
     const payload = { fallback_speed_kmh: form.fallback_speed_kmh, fallback_road_factor_bp: form.fallback_road_factor_bp, geocode_cache_days: form.geocode_cache_days };
@@ -95,6 +131,7 @@ async function save(clear = false) {
     try {
         const { data } = await adminAxios.put('/api/admin/v1/ride-settings', payload);
         apply(data.data);
+        report.value = null;
         showSuccess(t('rides.drivers.saved'));
     } catch (error) {
         showError(extractApiErrorMessage(error));

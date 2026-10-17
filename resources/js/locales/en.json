@@ -4528,8 +4528,15 @@
             "resolve": "Resolved",
             "resolution_note": "What was done",
             "resolved_ok": "Marked as resolved.",
-            "reporter": { "user": "Rider", "driver": "Captain" },
-            "status": { "open": "Open", "acknowledged": "Being handled", "resolved": "Resolved" }
+            "reporter": {
+                "user": "Rider",
+                "driver": "Captain"
+            },
+            "status": {
+                "open": "Open",
+                "acknowledged": "Being handled",
+                "resolved": "Resolved"
+            }
         },
         "wasl_logs": {
             "title": "Wasl",
@@ -4637,7 +4644,18 @@
             "how_title": "How it works",
             "how_1": "Google first for every price (one call for the whole trip).",
             "how_2": "If Google fails, the service doesn't stop: the free estimate is used.",
-            "how_3": "The mobile apps never see this key."
+            "how_3": "The mobile apps never see this key.",
+            "check": "Test the key",
+            "checking": "Testing…",
+            "check_title": "Result of the test",
+            "check_hint": "Makes one real call to each Google API in use (two billed calls).",
+            "check_ok": "Google answers — all good.",
+            "check_api_routes": "Routes (distance, time, route line)",
+            "check_api_geocoding": "Geocoding (city name)",
+            "google_paused": "Google is being left alone for a while after a refusal ({reason}); the free map answers meanwhile.",
+            "osm_on": "Free map (OpenStreetMap) answers automatically while Google can't: on.",
+            "osm_off": "Free map fallback is off (RIDES_OSM_FALLBACK=false): only the straight-line estimate answers when Google can't.",
+            "google_said": "Google said:"
         }
     },
     "security": {

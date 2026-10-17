@@ -77,7 +77,7 @@
     <string name="ob_name">الاسم الكامل</string>
     <string name="ob_email">البريد (اختياري)</string>
     <string name="ob_national_id">رقم الهوية / الإقامة</string>
-    <string name="ob_dob">تاريخ الميلاد (YYYY-MM-DD)</string>
+    <string name="ob_dob">تاريخ الميلاد</string>
     <string name="ob_id_type">نوع الهوية</string>
     <string name="ob_save">حفظ</string>
     <string name="ob_make">الماركة</string>
@@ -92,7 +92,7 @@
     <string name="ob_upload">رفع</string>
     <string name="ob_reupload">رفع مجدداً</string>
     <string name="ob_number">الرقم</string>
-    <string name="ob_expiry">تاريخ الانتهاء (YYYY-MM-DD)</string>
+    <string name="ob_expiry">تاريخ الانتهاء</string>
     <string name="ob_front">صورة الوجه</string>
     <string name="ob_back">صورة الظهر</string>
     <string name="ob_pick">اختر صورة</string>

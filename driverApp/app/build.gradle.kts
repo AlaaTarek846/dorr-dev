@@ -29,6 +29,9 @@ android {
         val apiScheme = (findProperty("dorr.apiScheme") as String?) ?: local.getProperty("dorr.apiScheme", "https")
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
+        // The Android Maps key for the map on Home (restricted to this app's package + signing SHA-1), like androidApp:
+        //   dorr.mapsKey=AIza... in local.properties, or -Pdorr.mapsKey=... — without it the map stays blank, the rest works.
+        manifestPlaceholders["mapsApiKey"] = (findProperty("dorr.mapsKey") as String?) ?: local.getProperty("dorr.mapsKey", "")
     }
 
     buildTypes {
@@ -64,6 +67,9 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.8.0")
     // The shift's location (fused provider), and pictures (avatars, documents).
     implementation("com.google.android.gms:play-services-location:21.3.0")
+    // The map on Home (Google Maps for Compose — the same versions as androidApp).
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.1.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     // Real-time (requests, rides, wallet, notifications): speaks the Pusher protocol, so it keeps working when
     // the server moves to our own Reverb / Soketi — the connection details come from `driver/v1/realtime-config`.
