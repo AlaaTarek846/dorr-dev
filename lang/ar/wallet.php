@@ -72,6 +72,7 @@ return [
         'topup_fee' => 'رسوم خدمة الشحن',
         'topup_bonus' => 'هدية الشحن',
         'topup_refund' => 'تم استرجاع الشحن',
+        'ride_case_refund' => 'استرداد عن الرحلة :number',
         'withdrawal' => 'تم صرف السحب',
         'reversal' => 'عكس عملية (:reason)',
         'manual_adjustment' => 'تسوية يدوية (:reason)',

@@ -73,6 +73,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.RedToggle
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideDriverDto
 import com.dorr.app.network.RideDto
@@ -137,14 +140,11 @@ internal fun TripDetailsRow(state: RidesState) {
     }
     AnimatedVisibility(noteOpen, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
         Column {
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(12.dp)) {
-                if (state.pickupNote.isEmpty()) Text(stringResource(R.string.rd_pickup_note_hint), color = settingsMut(), fontSize = 13.sp)
-                BasicTextField(
-                    state.pickupNote, { state.pickupNote = it.replace('\n', ' ').take(120) },
-                    textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp), cursorBrush = SolidColor(settingsAccent()),
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
+            DorrTextField(
+                value = state.pickupNote, onValueChange = { state.pickupNote = it.replace('\n', ' ').take(120) },
+                placeholder = stringResource(R.string.rd_pickup_note_hint), icon = Icons.Rounded.EditNote,
+                modifier = Modifier.fillMaxWidth(),
+            )
             Row(Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 4.dp)) {
                 Text(stringResource(R.string.rd_pickup_note_privacy), color = settingsMut(), fontSize = 11.sp, modifier = Modifier.weight(1f))
                 Text("${state.pickupNote.length}/120", color = settingsMut(), fontSize = 11.sp)
@@ -169,7 +169,7 @@ internal fun BookForOtherRow(state: RidesState) {
         }
         Spacer(Modifier.width(10.dp))
         Text(stringResource(R.string.rd_for_other_title), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp, modifier = Modifier.weight(1f))
-        androidx.compose.material3.Switch(state.forOther, { state.forOther = it })
+        RedToggle(state.forOther, settingsNight()) { state.forOther = !state.forOther }
     }
     AnimatedVisibility(state.forOther, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -200,15 +200,11 @@ internal fun BookForOtherRow(state: RidesState) {
 
 @Composable
 private fun BeneficiaryField(value: String, hint: String, type: KeyboardType, onChange: (String) -> Unit) {
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(12.dp)) {
-        if (value.isEmpty()) Text(hint, color = settingsMut(), fontSize = 13.sp)
-        BasicTextField(
-            value, onChange, singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = type),
-            textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp), cursorBrush = SolidColor(settingsAccent()),
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
+    DorrTextField(
+        value = value, onValueChange = onChange, placeholder = hint,
+        keyboardOptions = KeyboardOptions(keyboardType = type),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** R-13 on the ride: "For Mona" — the rider booked it for someone else. */

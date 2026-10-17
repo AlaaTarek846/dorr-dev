@@ -402,7 +402,12 @@ internal fun MyRidesPage(state: RidesState, onClose: () -> Unit) {
         Row(Modifier.fillMaxWidth().padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
             RoundButton(Icons.AutoMirrored.Rounded.ArrowBack, onClick = onClose)
             Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.rd_my_rides), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp)
+            Text(stringResource(R.string.rd_my_rides), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 20.sp, modifier = Modifier.weight(1f))
+            // R-133..R-140: my complaints and disputes.
+            Text(
+                stringResource(R.string.rd_cases_mine), color = settingsAccent(), fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                modifier = Modifier.clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)).clickable { state.caseRideUuid = null; state.caseStartNew = false; state.casesOpen = true }.padding(horizontal = 14.dp, vertical = 8.dp),
+            )
         }
         // The tabs, a pill that slides to the chosen one.
         Row(Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(CircleShape).background(settingsCard()).padding(4.dp)) {
@@ -427,7 +432,9 @@ internal fun MyRidesPage(state: RidesState, onClose: () -> Unit) {
                 }
                 else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     items(list, key = { it.uuid }) { item ->
-                        HistoryCard(item, today, tomorrow) {
+                        HistoryCard(item, today, tomorrow, onReport = if (tab == "past" && item.status in setOf("completed", "canceled", "no_show")) {
+                            { state.caseRideUuid = item.uuid; state.caseStartNew = true; state.casesOpen = true }
+                        } else null) {
                             scope.launch {
                                 runCatching { ApiClient.rides.ride(ridesAuth(), item.uuid).data }.getOrNull()?.let {
                                     state.ride = it
@@ -445,7 +452,7 @@ internal fun MyRidesPage(state: RidesState, onClose: () -> Unit) {
 }
 
 @Composable
-private fun HistoryCard(item: RideHistoryItemDto, today: String, tomorrow: String, onClick: () -> Unit) {
+private fun HistoryCard(item: RideHistoryItemDto, today: String, tomorrow: String, onReport: (() -> Unit)? = null, onClick: () -> Unit) {
     val (label, color) = statusLook(item.status)
     val time = parseTime(item.scheduledAt ?: item.requestedAt)
     Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(settingsCard()).clickable(onClick = onClick).padding(14.dp)) {
@@ -468,6 +475,12 @@ private fun HistoryCard(item: RideHistoryItemDto, today: String, tomorrow: Strin
                 Text(item.driverName.orEmpty(), color = settingsMut(), fontSize = 12.sp, modifier = Modifier.weight(1f))
                 item.totalMinor?.let { Text(money(it, RideCurrencyDto(symbol = item.currency)), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 13.sp) }
             }
+        }
+        onReport?.let {
+            Text(
+                stringResource(R.string.rd_cases_report), color = settingsAccent(), fontWeight = FontWeight.SemiBold, fontSize = 12.sp,
+                modifier = Modifier.padding(top = 6.dp).clip(CircleShape).clickable(onClick = it).padding(vertical = 4.dp),
+            )
         }
     }
 }

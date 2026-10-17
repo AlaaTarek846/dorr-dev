@@ -37,7 +37,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -67,7 +66,8 @@ import coil.compose.AsyncImage
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.CoreHttp
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.live.DriverLive
 import com.dorr.driver.net.DriverBackend
@@ -180,7 +180,7 @@ internal fun TopupSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit) {
                                 BigButton(stringResource(R.string.wl_open_payment), color = DorrBrand.navy) { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
                             }
                             if (payment?.requiresOtp == true) {
-                                OutlinedTextField(otp, { otp = it.filter { c -> c.isDigit() }.take(8) }, label = { Text(stringResource(R.string.wl_otp)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
+                                DorrField(otp, { otp = it.filter { c -> c.isDigit() }.take(8) }, label = { Text(stringResource(R.string.wl_otp)) }, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number), modifier = Modifier.fillMaxWidth())
                                 error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp) }
                                 BigButton(stringResource(R.string.wl_otp_confirm), color = DorrBrand.navy, enabled = otp.length >= 4, busy = busy) {
                                     busy = true
@@ -216,7 +216,7 @@ internal fun TopupSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit) {
                                         Text(m.name ?: m.gateway.orEmpty(), fontWeight = FontWeight.SemiBold)
                                     }
                                 }
-                                OutlinedTextField(
+                                DorrField(
                                     amountText, { amountText = it.filter { c -> c.isDigit() || c == '.' || c == ',' }.take(10) },
                                     label = { Text(stringResource(R.string.wl_amount, w.currencySymbol ?: "")) }, singleLine = true,
                                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
@@ -234,7 +234,7 @@ internal fun TopupSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit) {
                                         QuoteLine(stringResource(R.string.wl_q_total), q.totalCreditedMinor, w, bold = true)
                                     }
                                 }
-                                OutlinedTextField(
+                                DorrField(
                                     pin, { pin = it.filter { c -> c.isDigit() }.take(4) }, label = { Text(stringResource(R.string.wl_pin)) }, singleLine = true,
                                     visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword), modifier = Modifier.fillMaxWidth(),
                                 )

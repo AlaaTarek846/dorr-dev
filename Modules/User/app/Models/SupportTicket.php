@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Modules\Admin\Models\Admin;
 use Modules\User\Enums\SupportTicketStatus;
@@ -15,6 +16,7 @@ class SupportTicket extends Model
     protected $fillable = [
         'number',
         'user_id',
+        'ride_id',
         'admin_id',
         'title',
         'body',
@@ -75,6 +77,17 @@ class SupportTicket extends Model
     public function activities(): HasMany
     {
         return $this->hasMany(SupportTicketActivity::class);
+    }
+
+    /** The ride this ticket is about, as `{uuid, number}` (R-127); null when it isn't about one. */
+    public function rideRef(): ?array
+    {
+        if ($this->ride_id === null) {
+            return null;
+        }
+        $ride = DB::table('rides')->where('id', $this->ride_id)->first(['uuid', 'number']);
+
+        return $ride === null ? null : ['uuid' => $ride->uuid, 'number' => $ride->number];
     }
 
     public function imageUrl(): ?string

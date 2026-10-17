@@ -74,6 +74,7 @@ return [
         'topup_fee' => 'Top-up service fee',
         'topup_bonus' => 'Top-up bonus',
         'topup_refund' => 'Top-up refunded',
+        'ride_case_refund' => 'Refund on ride :number',
         'withdrawal' => 'Withdrawal paid out',
         'reversal' => 'Reversal (:reason)',
         'manual_adjustment' => 'Manual adjustment (:reason)',

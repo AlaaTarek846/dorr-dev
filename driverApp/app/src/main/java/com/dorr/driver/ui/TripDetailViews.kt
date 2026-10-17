@@ -46,7 +46,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.net.PickupPointDto
 import com.dorr.driver.net.ProgressDto

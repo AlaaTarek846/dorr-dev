@@ -43,41 +43,37 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.Chip
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.kit.surface
+import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.R
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.net.EarningsDto
 
 /** Today / this week / this month, the last 7 days as bars that grow in, the pending money, points. */
 @Composable
-fun EarningsScreen(onBack: () -> Unit) {
+fun EarningsScreen(onBack: (() -> Unit)?) {
     var data by remember { mutableStateOf<EarningsDto?>(null) }
     var tab by remember { mutableIntStateOf(0) }
     LaunchedEffect(Unit) { (apiCall { DriverBackend.api.earnings() } as? ApiResult.Ok)?.let { data = it.data } }
-    BackHandler(onBack = onBack)
+    if (onBack != null) BackHandler(onBack = onBack)
     val currency = data?.currency
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(bottom = 18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-                Text(stringResource(R.string.earn_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    ScreenScaffold(stringResource(R.string.earn_title), onBack) {
+        // The period and its net, big — the one number a captain opens this screen for.
+        val shown = when (tab) { 1 -> data?.week; 2 -> data?.month; else -> data?.today }
+        Column(Modifier.padding(horizontal = 16.dp).fillMaxWidth().surface(RoundedCornerShape(24.dp), elevation = 8.dp).padding(18.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 listOf(R.string.earn_today, R.string.earn_week, R.string.earn_month).forEachIndexed { i, label ->
-                    Text(
-                        stringResource(label), color = if (tab == i) DorrBrand.navy else Color.White, fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clip(RoundedCornerShape(50)).background(if (tab == i) Color.White else Color.White.copy(alpha = 0.12f))
-                            .clickable { tab = i }.padding(horizontal = 14.dp, vertical = 6.dp),
-                    )
+                    Chip(stringResource(label), selected = tab == i, onClick = { tab = i })
                 }
             }
-            val period = when (tab) { 1 -> data?.week; 2 -> data?.month; else -> data?.today }
-            Text(money(period?.netMinor ?: 0, currency), color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 34.sp, modifier = Modifier.padding(start = 16.dp, top = 14.dp))
-            Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(18.dp)) {
-                Text("${period?.trips ?: 0} ${stringResource(R.string.home_trips)}", color = Color.White.copy(alpha = 0.8f))
-                Text(stringResource(R.string.earn_hours, ((period?.onlineS ?: 0) / 3600).toInt(), (((period?.onlineS ?: 0) % 3600) / 60).toInt()), color = Color.White.copy(alpha = 0.8f))
-                period?.acceptanceBp?.let { Text("${stringResource(R.string.earn_acceptance)} ${it / 100}%", color = Color.White.copy(alpha = 0.8f)) }
+            Text(money(shown?.netMinor ?: 0, currency), color = DorrBrand.navy, fontWeight = FontWeight.ExtraBold, fontSize = 36.sp, modifier = Modifier.padding(top = 14.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(18.dp), modifier = Modifier.padding(top = 4.dp)) {
+                Text("${shown?.trips ?: 0} ${stringResource(R.string.home_trips)}", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 13.sp)
+                Text(stringResource(R.string.earn_hours, ((shown?.onlineS ?: 0) / 3600).toInt(), (((shown?.onlineS ?: 0) % 3600) / 60).toInt()), color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 13.sp)
+                shown?.acceptanceBp?.let { Text("${stringResource(R.string.earn_acceptance)} ${it / 100}%", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f), fontSize = 13.sp) }
             }
         }
         val d = data ?: return

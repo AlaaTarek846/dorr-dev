@@ -33,6 +33,25 @@ interface RidesApi {
     @POST("mobile/v1/rides/{uuid}/circle/widen")
     suspend fun widenCircle(@Header("Authorization") auth: String, @Header("Idempotency-Key") key: String, @Path("uuid") uuid: String): ApiEnvelope<RideDto>
 
+    /** Complaints and disputes (R-133..R-140): what can be opened, my cases, one case, and its conversation. */
+    @GET("mobile/v1/rides/cases/options")
+    suspend fun caseOptions(@Header("Authorization") auth: String): ApiEnvelope<RideCaseOptionsDto>
+
+    @GET("mobile/v1/rides/cases")
+    suspend fun cases(@Header("Authorization") auth: String): ApiEnvelope<List<RideCaseDto>>
+
+    @POST("mobile/v1/rides/cases")
+    suspend fun openCase(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<RideCaseDto>
+
+    @GET("mobile/v1/rides/cases/{uuid}")
+    suspend fun caseOf(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideCaseDto>
+
+    @POST("mobile/v1/rides/cases/{uuid}/messages")
+    suspend fun caseMessage(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideCaseDto>
+
+    @POST("mobile/v1/rides/cases/{uuid}/appeal")
+    suspend fun appealCase(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideCaseDto>
+
     /** R-5, R-174: Home, Work, favourite places and recent destinations. */
     @GET("mobile/v1/rides/places")
     suspend fun places(@Header("Authorization") auth: String): ApiEnvelope<RidePlacesDto>
@@ -197,6 +216,8 @@ data class RideFeaturesDto(
     @SerializedName("country_id") val countryId: Int? = null,
     @SerializedName("city_id") val cityId: Int? = null,
     val service: Boolean = false,
+    /** Why `service` is off: `no_country` (we can't tell where you are) or `not_enabled` (nobody switched rides on there). */
+    val reason: String? = null,
     val categories: Map<String, Boolean> = emptyMap(),
     val features: Map<String, Boolean> = emptyMap(),
 )
@@ -542,4 +563,68 @@ data class RideChatDto(
     val open: Boolean = false,
     @SerializedName("quick_replies") val quickReplies: List<RideQuickReplyDto> = emptyList(),
     val messages: List<RideMessageDto> = emptyList(),
+)
+
+// ---------------------------------------------------------------- cases: complaints and disputes (R-133..R-140)
+
+data class RideCaseOptionDto(val code: String, val label: String = "")
+
+data class RideCaseOptionsDto(
+    val available: Boolean = false,
+    val kinds: List<RideCaseOptionDto> = emptyList(),
+    @SerializedName("complaint_categories") val complaintCategories: List<RideCaseOptionDto> = emptyList(),
+    @SerializedName("dispute_reasons") val disputeReasons: List<RideCaseOptionDto> = emptyList(),
+)
+
+data class RideCaseRefDto(val uuid: String = "", val number: String? = null, val status: String? = null)
+
+data class RideCaseMessageDto(val id: Long = 0, val from: String = "", val body: String = "", val at: String? = null)
+
+data class RideCaseDecisionDto(
+    val outcome: String = "",
+    val reason: String? = null,
+    @SerializedName("refund_minor") val refundMinor: Long? = null,
+    @SerializedName("refund_applied") val refundApplied: Boolean? = null,
+)
+
+data class RideCaseMilestoneDto(
+    val event: String = "",
+    val at: String? = null,
+    @SerializedName("distance_to_pickup_m") val distanceToPickupM: Int? = null,
+)
+
+data class RideCaseLineDto(val code: String = "", @SerializedName("amount_minor") val amountMinor: Long = 0)
+
+data class RideCaseWaitingDto(@SerializedName("pickup_s") val pickupS: Long = 0, @SerializedName("free_s") val freeS: Long = 0)
+
+data class RideCaseRouteDto(@SerializedName("planned_m") val plannedM: Long? = null, @SerializedName("driven_m") val drivenM: Long? = null)
+
+data class RideCaseEvidenceDto(
+    val timeline: List<RideCaseMilestoneDto> = emptyList(),
+    val waiting: RideCaseWaitingDto? = null,
+    val route: RideCaseRouteDto? = null,
+    val lines: List<RideCaseLineDto> = emptyList(),
+)
+
+/** A case as the rider sees it: the list carries the headline only, the detail adds the rest. */
+data class RideCaseDto(
+    val uuid: String = "",
+    val number: String = "",
+    val kind: String = "",
+    @SerializedName("kind_label") val kindLabel: String = "",
+    @SerializedName("category_label") val categoryLabel: String = "",
+    val status: String = "submitted",
+    @SerializedName("status_label") val statusLabel: String = "",
+    val decided: Boolean = false,
+    val summary: String? = null,
+    val ride: RideCaseRefDto? = null,
+    @SerializedName("disputed_minor") val disputedMinor: Long? = null,
+    val currency: RideCurrencyDto? = null,
+    val evidence: RideCaseEvidenceDto? = null,
+    val messages: List<RideCaseMessageDto> = emptyList(),
+    val decision: RideCaseDecisionDto? = null,
+    @SerializedName("can_message") val canMessage: Boolean = false,
+    @SerializedName("can_appeal") val canAppeal: Boolean = false,
+    @SerializedName("appealed_at") val appealedAt: String? = null,
+    @SerializedName("created_at") val createdAt: String? = null,
 )

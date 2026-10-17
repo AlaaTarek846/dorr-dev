@@ -88,6 +88,9 @@ return [
         'circle.ask_after_s' => 90,                       // R-INN-07: no favourite took it this long → the rider is asked before it goes to everyone
         'places.recent_max' => 5,                         // R-5: recent destinations offered as shortcuts
         'places.favorites_max' => 12,                     // R-174: saved favourite places shown as shortcuts
+        'cases.max_age_h' => 0,                           // R-133, D-229: a case can be opened this long after the ride (0 = no limit)
+        'cases.appeal_allowed' => false,                  // R-140, D-237: the person may ask for a decision to be looked at again (off until the country allows it)
+        'cases.appeal_window_h' => 0,                     // …within this long of the decision (0 = no limit)
         'driving.window_h' => 24,                         // D-42: driving time is counted over the last this-many hours…
         'driving.warn_s' => 0,                            // …a rest reminder at this much (0 = no reminder)
         'driving.max_s' => 0,                             // D-43: the mandatory limit — no going online / new requests at this much (0 = no limit)
@@ -180,5 +183,18 @@ return [
         'safety.check_cooldown_s' => 900,                 // at most one "Are you OK?" of a kind per ride in this time
         'detour.enabled' => false,
         'detour.tolerance_bp' => 2000,
+    ],
+
+    /*
+    | Cases (complaints, disputes, unpaid-ride reports; docs/rides_tasks.md R-133..R-140, D-229..D-238).
+    | The lists are what the person picks from; `priority` is the routing for the team's queue (anything not
+    | listed is `normal`) — a starting point to be confirmed (NEEDS-DECISION).
+    */
+    'cases' => [
+        'complaint_categories' => ['driver', 'vehicle', 'price', 'payment', 'safety', 'privacy'],
+        'dispute_reasons' => ['waiting_fee', 'cancel_fee', 'no_show_fee', 'fare'],
+        'priority' => ['safety' => 'urgent', 'privacy' => 'high', 'payment' => 'high'],
+        'max_files' => 6,
+        'max_file_kb' => 5120,
     ],
 ];

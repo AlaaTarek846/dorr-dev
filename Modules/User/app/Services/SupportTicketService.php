@@ -30,15 +30,16 @@ class SupportTicketService
         private readonly SupportAutoReplyService $autoReplies,
     ) {}
 
-    public function open(User $user, string $title, string $body, ?UploadedFile $image): SupportTicket
+    public function open(User $user, string $title, string $body, ?UploadedFile $image, ?int $rideId = null): SupportTicket
     {
         $first = null;
 
-        $ticket = DB::transaction(function () use ($user, $title, $body, $image, &$first) {
+        $ticket = DB::transaction(function () use ($user, $title, $body, $image, $rideId, &$first) {
             $path = $image?->store('support-tickets/'.$user->getKey(), 'public');
 
             $ticket = SupportTicket::query()->create([
                 'user_id' => $user->getKey(),
+                'ride_id' => $rideId,
                 'title' => $title,
                 'body' => $body,
                 'image_path' => $path,

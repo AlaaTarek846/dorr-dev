@@ -13,6 +13,18 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import java.util.Locale
 import kotlin.coroutines.resume
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.composed
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.dp
 
 internal fun ridesAuth(): String = "Bearer ${AuthSession.token.orEmpty()}"
 
@@ -101,4 +113,27 @@ internal suspend fun searchPlaces(context: Context, query: String, near: LatLng?
 internal fun minutesText(seconds: Int?, minuteWord: String, hourWord: String): String {
     val total = ((seconds ?: 0) + 59) / 60
     return if (total < 60) "$total $minuteWord" else "${total / 60} $hourWord ${total % 60} $minuteWord"
+}
+
+/** A tap that answers with a small press-in, instead of a flat ripple. */
+internal fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier = composed {
+    val source = remember { MutableInteractionSource() }
+    val pressed by source.collectIsPressedAsState()
+    val scale by animateFloatAsState(if (pressed) 0.97f else 1f, spring(stiffness = Spring.StiffnessMedium), label = "press")
+    this
+        .graphicsLayer { scaleX = scale; scaleY = scale }
+        .clickable(interactionSource = source, indication = null, enabled = enabled, onClick = onClick)
+}
+
+/** Rises and fades in the first time it is shown, one after another by [index] — lists arrive instead of popping. */
+internal fun Modifier.staggerIn(index: Int = 0): Modifier = composed {
+    val progress = remember { androidx.compose.animation.core.Animatable(0f) }
+    androidx.compose.runtime.LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(index.coerceAtMost(8) * 45L)
+        progress.animateTo(1f, androidx.compose.animation.core.tween(380, easing = androidx.compose.animation.core.FastOutSlowInEasing))
+    }
+    this.graphicsLayer {
+        alpha = progress.value
+        translationY = (1f - progress.value) * 22.dp.toPx()
+    }
 }

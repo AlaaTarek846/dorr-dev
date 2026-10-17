@@ -34,6 +34,7 @@ import androidx.compose.material.icons.rounded.CreditCard
 import androidx.compose.material.icons.rounded.LocalTaxi
 import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Map
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
@@ -53,6 +54,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -61,6 +63,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideQuoteDto
 import com.dorr.app.network.apiFailure
@@ -86,38 +89,50 @@ private fun RidePoint.json(): JsonObject = JsonObject().apply {
     addProperty("address", address.take(255))
 }
 
-/** The first card: where am I picked up, and "Where to?". */
+/** The first card: where am I picked up, and "Where to?" — two pill fields, the same ones as everywhere in the app. */
 @Composable
 internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation: () -> Unit) {
     PanelCard {
-        if (!hasLocation) {
-            Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(AppColors.brandOrange.copy(alpha = 0.1f)).clickable(onClick = onAskLocation).padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(Icons.Rounded.LocationOn, null, tint = AppColors.brandOrange)
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.rd_location_needed), color = settingsInk(), fontSize = 13.sp, modifier = Modifier.weight(1f))
-                Text(stringResource(R.string.rd_allow), color = AppColors.brandOrange, fontWeight = FontWeight.Bold)
+        androidx.compose.animation.AnimatedVisibility(
+            visible = !hasLocation,
+            enter = androidx.compose.animation.expandVertically() + androidx.compose.animation.fadeIn(),
+            exit = androidx.compose.animation.shrinkVertically() + androidx.compose.animation.fadeOut(),
+        ) {
+            Column {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(AppColors.brandOrange.copy(alpha = 0.1f)).pressable(onClick = onAskLocation).padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.LocationOn, null, tint = AppColors.brandOrange)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.rd_location_needed), color = settingsInk(), fontSize = 13.sp, modifier = Modifier.weight(1f))
+                    Text(stringResource(R.string.rd_allow), color = AppColors.brandOrange, fontWeight = FontWeight.Bold)
+                }
+                Spacer(Modifier.height(10.dp))
             }
-            Spacer(Modifier.height(10.dp))
         }
-        PointRow(Icons.Rounded.LocationOn, AppColors.brandNavy, stringResource(R.string.rd_pickup), state.pickup?.address ?: stringResource(R.string.rd_moving_pin)) {
-            state.editing = "pickup"
-            state.step = RideStep.Search
-        }
+        // Pickup: where the pin is now; a tap opens the search.
+        DorrTextField(
+            value = state.pickup?.address.orEmpty(), onValueChange = {},
+            placeholder = stringResource(R.string.rd_moving_pin), icon = Icons.Rounded.MyLocation,
+            onClick = {
+                state.editing = "pickup"
+                state.step = RideStep.Search
+            },
+            minHeight = 48.dp, modifier = Modifier.fillMaxWidth(),
+        )
         Spacer(Modifier.height(10.dp))
-        Row(
-            Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(settingsBackground()).clickable {
+        // Where to?
+        DorrTextField(
+            value = "", onValueChange = {},
+            placeholder = stringResource(R.string.rd_where_to), icon = Icons.Rounded.Search,
+            onClick = {
                 state.editing = "destination"
                 state.step = RideStep.Search
-            }.padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Search, null, tint = settingsAccent())
-            Spacer(Modifier.width(10.dp))
-            Text(stringResource(R.string.rd_where_to), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        }
+            },
+            minHeight = 56.dp, textStyle = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+            modifier = Modifier.fillMaxWidth(),
+        )
         if (state.feature("saved_places")) SavedPlacesRow(state)
         if (state.feature("scheduled")) {
             Spacer(Modifier.height(10.dp))
@@ -126,7 +141,7 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
         if (state.feature("open_destination")) {
             Spacer(Modifier.height(10.dp))
             Row(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable {
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).pressable {
                     state.openDestination = true
                     state.destination = null
                     state.stops.clear()
@@ -144,18 +159,8 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
                 }
             }
         }
-        state.error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
-    }
-}
-
-@Composable
-private fun PointRow(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, label: String, value: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick).padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(10.dp))
-        Column(Modifier.weight(1f)) {
-            Text(label, color = settingsMut(), fontSize = 11.sp)
-            Text(value, color = settingsInk(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        androidx.compose.animation.AnimatedVisibility(visible = state.error != null) {
+            Text(state.error.orEmpty(), color = AppColors.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp))
         }
     }
 }
@@ -218,22 +223,14 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
             }
         }
         Spacer(Modifier.height(10.dp))
-        Row(
-            Modifier.padding(horizontal = 16.dp).fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(settingsCard()).padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(Icons.Rounded.Search, null, tint = settingsMut())
-            Spacer(Modifier.width(8.dp))
-            Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text(stringResource(R.string.rd_search_hint), color = settingsMut())
-                BasicTextField(
-                    value = query, onValueChange = { query = it }, singleLine = true,
-                    textStyle = TextStyle(color = settingsInk(), fontSize = 16.sp), cursorBrush = SolidColor(settingsAccent()),
-                    modifier = Modifier.fillMaxWidth().focusRequester(focus),
-                )
-            }
-            if (searching) androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, modifier = Modifier.size(18.dp))
-        }
+        // The same pill field as the rest of the app, with a spinner while the suggestions load.
+        DorrTextField(
+            value = query, onValueChange = { query = it },
+            placeholder = stringResource(R.string.rd_search_hint), icon = Icons.Rounded.Search,
+            trailing = if (searching) ({ androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = settingsAccent(), modifier = Modifier.size(18.dp)) }) else null,
+            focusRequester = focus, minHeight = 52.dp,
+            modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth(),
+        )
         LazyColumn(Modifier.weight(1f).padding(horizontal = 16.dp, vertical = 8.dp)) {
             if (state.savingPlace == null) item {
                 Row(
@@ -266,10 +263,11 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
 
 @Composable
 private fun FieldRow(dot: Color, label: String, value: String?, active: Boolean, onRemove: (() -> Unit)? = null, onClick: () -> Unit) {
+    val wash by androidx.compose.animation.animateColorAsState(if (active) settingsAccent().copy(alpha = 0.08f) else Color.Transparent, androidx.compose.animation.core.tween(200), label = "field-row")
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-            .background(if (active) settingsAccent().copy(alpha = 0.08f) else Color.Transparent)
-            .clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
+            .background(wash)
+            .pressable(onClick = onClick).padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
@@ -413,10 +411,12 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
         if (state.busy && state.quotes.isEmpty()) {
             Box(Modifier.fillMaxWidth().height(90.dp), contentAlignment = Alignment.Center) { androidx.compose.material3.CircularProgressIndicator(color = settingsAccent()) }
         }
-        state.quotes.forEach { quote ->
-            QuoteCard(quote, selected = quote.uuid == state.selected?.uuid, minute = minute, hour = hour) {
-                state.selected = quote
-                state.riderPrice = quote.bid?.suggestedMinor
+        state.quotes.forEachIndexed { index, quote ->
+            Box(Modifier.staggerIn(index)) {
+                QuoteCard(quote, selected = quote.uuid == state.selected?.uuid, minute = minute, hour = hour) {
+                    state.selected = quote
+                    state.riderPrice = quote.bid?.suggestedMinor
+                }
             }
         }
         state.selected?.bid?.let { bid ->
@@ -479,15 +479,18 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
 @Composable
 private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, hour: String, onClick: () -> Unit) {
     val accent = settingsAccent()
+    val edge by androidx.compose.animation.animateColorAsState(if (selected) accent else settingsInk().copy(alpha = 0.08f), androidx.compose.animation.core.tween(200), label = "quote-edge")
+    val wash by androidx.compose.animation.animateColorAsState(if (selected) accent.copy(alpha = 0.06f) else Color.Transparent, androidx.compose.animation.core.tween(200), label = "quote-wash")
+    val pop by androidx.compose.animation.core.animateFloatAsState(if (selected) 1.1f else 1f, androidx.compose.animation.core.spring(dampingRatio = androidx.compose.animation.core.Spring.DampingRatioMediumBouncy), label = "quote-pop")
     Row(
         Modifier.fillMaxWidth().padding(vertical = 4.dp).clip(RoundedCornerShape(16.dp))
-            .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) accent else settingsInk().copy(alpha = 0.08f)), RoundedCornerShape(16.dp))
-            .background(if (selected) accent.copy(alpha = 0.05f) else Color.Transparent)
-            .clickable(onClick = onClick).padding(12.dp),
+            .border(BorderStroke(if (selected) 2.dp else 1.dp, edge), RoundedCornerShape(16.dp))
+            .background(wash)
+            .pressable(onClick = onClick).padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
-            Icon(Icons.Rounded.LocalTaxi, null, tint = accent, modifier = Modifier.size(28.dp))
+        Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp)).background(accent.copy(alpha = if (selected) 0.16f else 0.1f)), contentAlignment = Alignment.Center) {
+            Icon(Icons.Rounded.LocalTaxi, null, tint = accent, modifier = Modifier.size(28.dp).graphicsLayer { scaleX = pop; scaleY = pop })
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
@@ -525,11 +528,13 @@ private fun QuoteCard(quote: RideQuoteDto, selected: Boolean, minute: String, ho
 @Composable
 private fun PayChip(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, modifier: Modifier, fee: String? = null, onClick: () -> Unit) {
     val accent = settingsAccent()
+    val edge by androidx.compose.animation.animateColorAsState(if (selected) accent else settingsInk().copy(alpha = 0.1f), androidx.compose.animation.core.tween(200), label = "pay-edge")
+    val wash by androidx.compose.animation.animateColorAsState(if (selected) accent.copy(alpha = 0.06f) else Color.Transparent, androidx.compose.animation.core.tween(200), label = "pay-wash")
     Column(
         modifier.clip(RoundedCornerShape(12.dp))
-            .border(BorderStroke(if (selected) 2.dp else 1.dp, if (selected) accent else settingsInk().copy(alpha = 0.1f)), RoundedCornerShape(12.dp))
-            .background(if (selected) accent.copy(alpha = 0.06f) else Color.Transparent)
-            .clickable(onClick = onClick).padding(vertical = 10.dp),
+            .border(BorderStroke(if (selected) 2.dp else 1.dp, edge), RoundedCornerShape(12.dp))
+            .background(wash)
+            .pressable(onClick = onClick).padding(vertical = 10.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

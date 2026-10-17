@@ -75,6 +75,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.RedToggle
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideDto
 import com.dorr.app.network.SafetyCenterDto
@@ -198,11 +201,11 @@ internal fun SafetyCenterPage(state: RidesState, onClose: () -> Unit) {
 
             // 🪢 Seatbelt (R-230) and 🛡️ Smart Ride Check (R-222 — always on).
             SafetyCard("🪢", stringResource(R.string.rd_safety_seatbelt), stringResource(R.string.rd_safety_seatbelt_hint), trailing = {
-                Switch(
-                    checked = d.preferences.seatbeltReminder,
-                    onCheckedChange = { on -> data = d.copy(preferences = d.preferences.copy(seatbeltReminder = on)); savePrefs(JsonObject().apply { addProperty("seatbelt_reminder", on) }) },
-                    colors = SwitchDefaults.colors(checkedTrackColor = settingsAccent()),
-                )
+                RedToggle(d.preferences.seatbeltReminder, settingsNight()) {
+                    val on = !d.preferences.seatbeltReminder
+                    data = d.copy(preferences = d.preferences.copy(seatbeltReminder = on))
+                    savePrefs(JsonObject().apply { addProperty("seatbelt_reminder", on) })
+                }
             })
             SafetyCard("🛡️", stringResource(R.string.rd_safety_ride_check), stringResource(R.string.rd_safety_ride_check_hint))
 
@@ -324,7 +327,7 @@ private fun ContactSheet(contact: TrustedContactDto?, onClose: () -> Unit, onSav
             ChoiceRow(listOf("all" to stringResource(R.string.rd_safety_every_ride), "night" to stringResource(R.string.rd_safety_night), "manual" to stringResource(R.string.rd_safety_manual)), mode) { mode = it }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(stringResource(R.string.rd_safety_notify_arrival), color = settingsInk(), modifier = Modifier.weight(1f))
-                Switch(checked = arrival, onCheckedChange = { arrival = it }, colors = SwitchDefaults.colors(checkedTrackColor = settingsAccent()))
+                RedToggle(arrival, settingsNight()) { arrival = !arrival }
             }
             error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
             AccentButton(stringResource(R.string.rd_safety_save), enabled = name.isNotBlank() && phone.length >= 8, busy = busy) { save() }
@@ -342,13 +345,11 @@ private fun ContactSheet(contact: TrustedContactDto?, onClose: () -> Unit, onSav
 
 @Composable
 private fun Field(label: String, value: String, keyboard: KeyboardType = KeyboardType.Text, onChange: (String) -> Unit) {
-    Column {
-        Text(label, color = settingsMut(), fontSize = 12.sp)
-        Spacer(Modifier.height(4.dp))
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(horizontal = 14.dp, vertical = 12.dp)) {
-            BasicTextField(value, onChange, singleLine = true, keyboardOptions = KeyboardOptions(keyboardType = keyboard), textStyle = TextStyle(color = settingsInk(), fontSize = 16.sp), cursorBrush = SolidColor(settingsAccent()), modifier = Modifier.fillMaxWidth())
-        }
-    }
+    DorrTextField(
+        value = value, onValueChange = onChange, label = label,
+        keyboardOptions = KeyboardOptions(keyboardType = keyboard),
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** 📤 Share: to my trusted contacts (by name), or the link through any app (R-111, R-220). */
@@ -439,10 +440,11 @@ internal fun ReportSheet(ride: RideDto, onClose: () -> Unit) {
                     Text(label, color = if (on) Color.White else settingsInk(), fontSize = 13.sp, modifier = Modifier.clip(CircleShape).background(if (on) SosRed else settingsBackground()).clickable { type = key }.padding(horizontal = 14.dp, vertical = 8.dp))
                 }
             }
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(settingsBackground()).padding(12.dp)) {
-                if (note.isEmpty()) Text(stringResource(R.string.rd_report_note), color = settingsMut(), fontSize = 13.sp)
-                BasicTextField(note, { note = it.take(500) }, textStyle = TextStyle(color = settingsInk(), fontSize = 14.sp), cursorBrush = SolidColor(settingsAccent()), modifier = Modifier.fillMaxWidth().height(70.dp))
-            }
+            DorrTextField(
+                value = note, onValueChange = { note = it.take(500) },
+                placeholder = stringResource(R.string.rd_report_note), singleLine = false, minLines = 3,
+                modifier = Modifier.fillMaxWidth(),
+            )
             error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
             AccentButton(stringResource(R.string.rd_report_send), enabled = type != null, busy = busy, color = SosRed) {
                 busy = true

@@ -35,6 +35,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.RedToggle
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.RideDto
 import com.dorr.app.network.apiFailure
@@ -68,7 +70,7 @@ internal fun CircleRow(state: RidesState) {
             Text(stringResource(R.string.rd_circle_title), color = settingsInk(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text(stringResource(if (has) R.string.rd_circle_hint else R.string.rd_circle_none), color = settingsMut(), fontSize = 12.sp)
         }
-        Switch(state.useCircle && has, { state.useCircle = it }, enabled = has)
+        RedToggle(state.useCircle && has, settingsNight()) { if (has) state.useCircle = !state.useCircle }
     }
     if (state.useCircle && has) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {

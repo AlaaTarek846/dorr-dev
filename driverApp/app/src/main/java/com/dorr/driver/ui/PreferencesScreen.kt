@@ -26,7 +26,6 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -48,7 +47,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.core.network.ApiResult
 import com.dorr.core.network.apiCall
-import com.dorr.core.ui.DorrBrand
+import com.dorr.driver.ui.kit.DorrToggle
+import com.dorr.driver.ui.kit.ScreenScaffold
+import com.dorr.driver.ui.theme.DorrBrand
+import com.dorr.driver.ui.kit.DorrField
 import com.dorr.driver.R
 import com.dorr.driver.net.DriverBackend
 import com.dorr.driver.net.PreferencesDto
@@ -95,13 +97,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
     }
     fun saveAuto(build: JsonObject.() -> Unit) = save(JsonObject().apply { add("auto_accept", JsonObject().apply(build)) })
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxWidth().background(DorrBrand.navy).statusBarsPadding().padding(bottom = 14.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(8.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White) }
-                Text(stringResource(R.string.pf_title), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-            }
-        }
+    ScreenScaffold(stringResource(R.string.pf_title), onBack) {
         val p = prefs ?: return
         val maxKm = (p.pickupRadiusMaxM ?: 50000) / 1000
         val auto = p.autoAccept
@@ -157,7 +153,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
                             Text(stringResource(R.string.pf_auto), fontWeight = FontWeight.Bold)
                             Text(stringResource(R.string.pf_auto_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                         }
-                        Switch(checked = auto.enabled, onCheckedChange = { on -> saveAuto { addProperty("enabled", on) } })
+                        DorrToggle(auto.enabled) { on -> saveAuto { addProperty("enabled", on) } }
                     }
                     if (auto.enabled) {
                         Spacer(Modifier.height(12.dp))
@@ -209,13 +205,13 @@ private fun PriceRules(p: PreferencesDto) {
     Card {
         Text(stringResource(R.string.pf_price), fontWeight = FontWeight.Bold)
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
+        DorrField(
             value = fare, onValueChange = { fare = it; message = null }, singleLine = true,
             label = { Text(stringResource(R.string.pf_min_fare, symbol)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(8.dp))
-        OutlinedTextField(
+        DorrField(
             value = perKm, onValueChange = { perKm = it; message = null }, singleLine = true,
             label = { Text(stringResource(R.string.pf_min_km, symbol)) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal), modifier = Modifier.fillMaxWidth(),

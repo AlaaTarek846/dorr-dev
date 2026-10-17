@@ -38,6 +38,10 @@ interface DriverApi {
     @POST("driver/v1/auth/logout")
     suspend fun logout(): Response<ApiEnvelope<Any>>
 
+    /** The platform's colours, the same ones the DORR app reads (public — also before signing in). */
+    @GET("general/v1/mobile-appearance-defaults")
+    suspend fun appearanceDefaults(): Response<ApiEnvelope<AppearanceDefaultsDto>>
+
     @POST("driver/v1/notifications/devices")
     suspend fun registerDevice(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
 
@@ -305,6 +309,32 @@ interface DriverApi {
     @GET("driver/v1/driving-hours")
     suspend fun drivingHours(): Response<ApiEnvelope<DrivingHoursDto>>
 
+    // ---------------------------------------------------------------- cases (D-229..D-238)
+    @GET("driver/v1/rides")
+    suspend fun rideHistory(@Query("page") page: Int = 1): Response<ApiEnvelope<DriverRideListDto>>
+
+    @GET("driver/v1/cases/options")
+    suspend fun caseOptions(): Response<ApiEnvelope<CaseOptionsDto>>
+
+    @GET("driver/v1/cases")
+    suspend fun cases(): Response<ApiEnvelope<List<CaseDto>>>
+
+    @POST("driver/v1/cases")
+    suspend fun openCase(@Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    @GET("driver/v1/cases/{uuid}")
+    suspend fun caseOf(@Path("uuid") uuid: String): Response<ApiEnvelope<CaseDto>>
+
+    @POST("driver/v1/cases/{uuid}/messages")
+    suspend fun caseMessage(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
+    @Multipart
+    @POST("driver/v1/cases/{uuid}/files")
+    suspend fun caseFile(@Path("uuid") uuid: String, @Part file: MultipartBody.Part): Response<ApiEnvelope<CaseDto>>
+
+    @POST("driver/v1/cases/{uuid}/appeal")
+    suspend fun appealCase(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<CaseDto>>
+
     // ---------------------------------------------------------------- driving preferences (D-32..D-37)
     @GET("driver/v1/preferences")
     suspend fun preferences(): Response<ApiEnvelope<PreferencesDto>>
@@ -331,6 +361,11 @@ data class OtpSent(
     @SerializedName("masked_phone") val maskedPhone: String? = null,
     @SerializedName("is_new_driver") val isNewDriver: Boolean = false,
     @SerializedName("resend_cooldown_seconds") val resendCooldownSeconds: Int = 60,
+)
+
+data class AppearanceDefaultsDto(
+    @SerializedName("light_tokens") val lightTokens: Map<String, String>? = null,
+    @SerializedName("dark_tokens") val darkTokens: Map<String, String>? = null,
 )
 
 data class SignedIn(
