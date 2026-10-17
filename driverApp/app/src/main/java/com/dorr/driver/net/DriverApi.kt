@@ -185,6 +185,22 @@ interface DriverApi {
     @POST("driver/v1/wallet/topups/{uuid}/confirm")
     suspend fun confirmTopup(@Header("X-Wallet-Pin") pin: String, @Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<TopupDto>>
 
+    // Top-up with a card or a gateway — paid on the gateway's page; the result arrives as a real-time event.
+    @GET("driver/v1/wallet/payment-methods")
+    suspend fun paymentMethods(): Response<ApiEnvelope<List<PaymentMethodDto>>>
+
+    @POST("driver/v1/wallet/topups/quote")
+    suspend fun topupQuote(@Body body: JsonObject): Response<ApiEnvelope<TopupQuoteDto>>
+
+    @POST("driver/v1/wallet/topups")
+    suspend fun topup(@Header("X-Wallet-Pin") pin: String, @Header("Idempotency-Key") key: String, @Body body: JsonObject): Response<ApiEnvelope<TopupDto>>
+
+    @GET("driver/v1/wallet/topups/{uuid}")
+    suspend fun topupStatus(@Path("uuid") uuid: String): Response<ApiEnvelope<TopupDto>>
+
+    @POST("driver/v1/wallet/topups/{uuid}/confirm")
+    suspend fun confirmTopup(@Header("X-Wallet-Pin") pin: String, @Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<TopupDto>>
+
     @GET("driver/v1/wallet/withdrawal-methods")
     suspend fun withdrawalMethods(): Response<ApiEnvelope<List<WithdrawalMethodDto>>>
 

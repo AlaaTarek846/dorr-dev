@@ -241,10 +241,10 @@
     <string name="trip_beneficiary_hint">Booked by another rider — chat reaches the one who booked.</string>
     <string name="air_title">Airport queue</string>
     <string name="air_home_hint">Your place in line, official pickup points and restricted areas</string>
-    <string name="air_home_at">You're at %1$s — tap to see the queue</string>
-    <string name="air_home_queued">You're #%1$d of %2$d in the airport queue</string>
-    <string name="air_none">There's no airport queue around you right now.</string>
-    <string name="air_at">You're at %1$s</string>
+    <string name="air_home_at">You\'re at %1$s — tap to see the queue</string>
+    <string name="air_home_queued">You\'re #%1$d of %2$d in the airport queue</string>
+    <string name="air_none">There\'s no airport queue around you right now.</string>
+    <string name="air_at">You\'re at %1$s</string>
     <string name="air_join">Join the queue</string>
     <string name="air_leave">Leave the queue</string>
     <string name="air_position">Your place in line</string>
@@ -253,7 +253,7 @@
     <string name="air_wait_unknown">The wait estimate appears once enough rides have been served.</string>
     <string name="air_minutes">%1$d min</string>
     <string name="air_entry_auto">You get in line automatically when you arrive and are online.</string>
-    <string name="air_entry_manual">Tap Join when you're ready to wait your turn.</string>
+    <string name="air_entry_manual">Tap Join when you\'re ready to wait your turn.</string>
     <string name="air_joined_auto">You joined automatically.</string>
     <string name="air_joined_manual">You joined by hand.</string>
     <string name="air_rules_title">How you leave the queue</string>
@@ -269,7 +269,7 @@
     <string name="air_reason_offline">Go online to join the queue.</string>
     <string name="air_reason_stale">Turn on GPS so we can see where you are.</string>
     <string name="air_reason_busy">Finish your current ride first.</string>
-    <string name="air_reason_not_eligible">You can't take rides right now.</string>
+    <string name="air_reason_not_eligible">You can\'t take rides right now.</string>
     <string name="trip_pickup_point">Meet at (approved point)</string>
     <string name="trip_dropoff_point">Drop off at (approved point)</string>
     <string name="trip_from_circle">Your rider chose you from their favorites</string>
