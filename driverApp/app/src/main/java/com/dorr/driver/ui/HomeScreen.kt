@@ -22,6 +22,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,10 +41,14 @@ import androidx.compose.material.icons.filled.GpsOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.rounded.AssignmentInd
 import androidx.compose.material.icons.rounded.Flight
+import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Star
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -83,21 +88,31 @@ import com.dorr.driver.ui.kit.Banner
 import com.dorr.driver.ui.kit.Chip
 import com.dorr.driver.ui.kit.DorrToggle
 import com.dorr.driver.ui.kit.ListRow
-import com.dorr.driver.ui.kit.PinkBackdrop
+import com.dorr.driver.ui.kit.RoundIconButton
 import com.dorr.driver.ui.kit.TileIcon
 import com.dorr.driver.ui.kit.bounceClick
 import com.dorr.driver.ui.kit.staggerIn
 import com.dorr.driver.ui.kit.surface
 import com.dorr.driver.ui.theme.Pal
+import com.google.android.gms.maps.CameraUpdateFactory
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.gson.JsonObject
+import com.google.maps.android.compose.GoogleMap
+import com.google.maps.android.compose.MapProperties
+import com.google.maps.android.compose.MapUiSettings
+import com.google.maps.android.compose.rememberCameraPositionState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * The captain's home: today's net at a glance, the big online switch (breathing while online),
- * and — when they can't work yet — exactly why, with the way to fix it (sign-up, Wasl).
+ * The captain's home: the map with their position, today's net on it, and a sheet over it with the big online switch
+ * (breathing while online) and — when they can't work yet — exactly why, with the way to fix it (sign-up, Wasl).
+ * Dragging the sheet up shows the rest of the day (breaks, driving time, the airport queue).
  * Everything else (preferences, scheduled rides, cases, safety…) lives in the Account tab.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     onOpenSignup: () -> Unit, onOpenRide: () -> Unit, onOpenEarnings: () -> Unit, onOpenAirport: () -> Unit, onOpenNotifications: () -> Unit,
@@ -212,53 +227,51 @@ fun HomeScreen(
     val onBreak = presence?.status == "paused" && (breakEnd == null || breakEnd.isAfter(java.time.Instant.now()))
     val problem = presence?.reason
 
-    Box(Modifier.fillMaxSize()) {
-        PinkBackdrop(Modifier.matchParentSize())
-        Column(Modifier.fillMaxSize()) {
-            // Header: who, the rating, the bell.
-            Row(
-                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 16.dp).padding(top = 14.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.home_greeting), color = Pal.mut, fontSize = 13.sp)
-                    Text(driver?.name ?: driver?.phone ?: "…", color = Pal.accent, fontSize = 22.sp, fontWeight = FontWeight.Black, maxLines = 1)
-                }
-                earnings?.profile?.rating?.let {
-                    Row(
-                        Modifier.clip(CircleShape).background(Pal.warning.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(Icons.Rounded.Star, null, tint = Pal.warning, modifier = Modifier.size(16.dp))
-                        Text(String.format("%.1f", it), color = Pal.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 3.dp))
-                    }
-                }
-                NotificationBell(onClick = onOpenNotifications)
-            }
+    val blocked = presence != null && !presence!!.canGoOnline && problem != null && problem != "driving_limit"
+    // The sheet shows the switch (and why not, when they can't work); the rest is a drag away.
+    val peek = if (blocked) 430.dp else 312.dp
+    val sheet = rememberBottomSheetScaffoldState()
+    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(Riyadh, 12f) }
+    // The map opens on the captain once the position is known (and again after the permission is given).
+    LaunchedEffect(permissionsOk) {
+        if (!permissionsOk) return@LaunchedEffect
+        lastPosition(context)?.let { (lat, lng) -> camera.move(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 15f)) }
+    }
 
+    BottomSheetScaffold(
+        scaffoldState = sheet,
+        sheetPeekHeight = peek,
+        sheetContainerColor = Pal.card,
+        sheetShadowElevation = 16.dp,
+        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetDragHandle = {
+            Box(Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 40.dp, height = 4.dp).clip(CircleShape).background(Pal.line))
+        },
+        containerColor = Pal.bg,
+        sheetContent = {
             Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 16.dp),
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp).padding(bottom = 18.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // Today at a glance — a tap opens the earnings.
-                Column(Modifier.fillMaxWidth().bounceClick(onClick = onOpenEarnings).surface(RoundedCornerShape(24.dp), elevation = 8.dp).padding(18.dp).staggerIn(0)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(stringResource(R.string.home_today_title), color = Pal.mut, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                        Text(stringResource(R.string.home_open_earnings), color = Pal.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                // Where they stand, in words as well as colour.
+                val statusColor by animateColorAsState(if (onBreak) Pal.warning else if (online) Pal.success else Pal.faint, tween(300), label = "status")
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Box(Modifier.size(10.dp).clip(CircleShape).background(statusColor))
+                        Text(
+                            stringResource(if (onBreak) R.string.br_title else if (online) R.string.home_status_online else R.string.home_status_offline),
+                            color = Pal.ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+                        )
                     }
-                    Spacer(Modifier.height(12.dp))
-                    Row {
-                        val today = earnings?.today
-                        Stat(stringResource(R.string.home_net), money(today?.netMinor ?: 0, earnings?.currency), Modifier.weight(1.5f), big = true)
-                        Stat(stringResource(R.string.home_trips), (today?.trips ?: 0).toString(), Modifier.weight(1f))
-                        Stat(stringResource(R.string.home_online_time), ((today?.onlineS ?: 0) / 3600).let { h -> "${h}h ${((today?.onlineS ?: 0) % 3600) / 60}m" }, Modifier.weight(1f))
-                    }
+                    Text(
+                        if (online) stringResource(R.string.home_waiting_requests) else stringResource(R.string.home_offline_hint),
+                        color = Pal.mut, textAlign = TextAlign.Center, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp),
+                    )
                 }
 
                 // Why not, when they can't work — with the way out.
-                if (presence != null && !presence!!.canGoOnline && problem != null && problem != "driving_limit") {
+                if (blocked) {
                     Column(Modifier.fillMaxWidth().surface().staggerIn(1)) {
                         ListRow(
                             Icons.Rounded.AssignmentInd, stringResource(R.string.home_cannot_work),
@@ -270,7 +283,6 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(Modifier.height(2.dp))
                 OnlineButton(online = online, enabled = online || presence?.canGoOnline == true, busy = busy) {
                     if (online) {
                         busy = true
@@ -288,10 +300,6 @@ fun HomeScreen(
                         if (wanted.all { granted(it) }) goOnline() else askPermissions.launch(wanted.toTypedArray())
                     }
                 }
-                Text(
-                    if (online) stringResource(R.string.home_waiting_requests) else stringResource(R.string.home_offline_hint),
-                    color = Pal.mut, textAlign = TextAlign.Center, fontSize = 14.sp,
-                )
                 Banner(error, Modifier.fillMaxWidth())
 
                 // D-44: GPS off — nothing can be offered.
@@ -308,6 +316,22 @@ fun HomeScreen(
                         BigButton(stringResource(R.string.gps_turn_on), color = Pal.danger) { context.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }
                     }
                 }
+
+                // Today at a glance — a tap opens the earnings.
+                Column(Modifier.fillMaxWidth().bounceClick(onClick = onOpenEarnings).surface(RoundedCornerShape(24.dp), elevation = 8.dp).padding(18.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(stringResource(R.string.home_today_title), color = Pal.mut, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                        Text(stringResource(R.string.home_open_earnings), color = Pal.accent, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Row {
+                        val today = earnings?.today
+                        Stat(stringResource(R.string.home_net), money(today?.netMinor ?: 0, earnings?.currency), Modifier.weight(1.5f), big = true)
+                        Stat(stringResource(R.string.home_trips), (today?.trips ?: 0).toString(), Modifier.weight(1f))
+                        Stat(stringResource(R.string.home_online_time), ((today?.onlineS ?: 0) / 3600).let { h -> "${h}h ${((today?.onlineS ?: 0) % 3600) / 60}m" }, Modifier.weight(1f))
+                    }
+                }
+
                 // D-42, D-43: the driving-time limit — how much is used, a reminder, and when they can work again.
                 driving?.takeIf { it.enabled }?.let { DrivingTimeCard(it) }
                 // D-41: a break — no requests until it ends, then online again by itself.
@@ -362,9 +386,80 @@ fun HomeScreen(
                     }
                 }
             }
+        },
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            // The map under everything: the captain's blue dot (the map follows the phone itself — no asking the server).
+            GoogleMap(
+                modifier = Modifier.fillMaxSize(),
+                cameraPositionState = camera,
+                properties = MapProperties(
+                    isMyLocationEnabled = permissionsOk,
+                    mapStyleOptions = if (Pal.night) remember { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_night) } else null,
+                ),
+                uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
+                contentPadding = PaddingValues(top = 120.dp, bottom = peek),
+            )
+            // Offline, the map steps back a little.
+            val dim by animateFloatAsState(if (online) 0f else 0.18f, tween(400), label = "map-dim")
+            if (dim > 0f) Box(Modifier.matchParentSize().background(Pal.bg.copy(alpha = dim)))
+
+            // Header: who, the rating, the bell — floating on the map; today's net under it, a tap opens the earnings.
+            Column(
+                Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp).padding(top = 10.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Row(
+                    Modifier.fillMaxWidth().surface(RoundedCornerShape(22.dp)).padding(horizontal = 14.dp, vertical = 10.dp).staggerIn(0),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(Modifier.size(40.dp).clip(CircleShape).background(Pal.well), contentAlignment = Alignment.Center) {
+                        Text(
+                            (driver?.name ?: "").trim().take(1).uppercase().ifBlank { "D" },
+                            color = Pal.accent, fontWeight = FontWeight.Black, fontSize = 17.sp,
+                        )
+                    }
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.home_greeting), color = Pal.mut, fontSize = 12.sp)
+                        Text(driver?.name ?: driver?.phone ?: "…", color = Pal.accent, fontSize = 17.sp, fontWeight = FontWeight.Black, maxLines = 1)
+                    }
+                    earnings?.profile?.rating?.let {
+                        Row(
+                            Modifier.clip(CircleShape).background(Pal.warning.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Icon(Icons.Rounded.Star, null, tint = Pal.warning, modifier = Modifier.size(16.dp))
+                            Text(String.format("%.1f", it), color = Pal.ink, fontWeight = FontWeight.Bold, fontSize = 13.sp, modifier = Modifier.padding(start = 3.dp))
+                        }
+                    }
+                    NotificationBell(onClick = onOpenNotifications)
+                }
+                Row(
+                    Modifier.staggerIn(1).clip(CircleShape).bounceClick(onClick = onOpenEarnings).background(Pal.accent).padding(horizontal = 18.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(stringResource(R.string.home_today_title), color = Color.White.copy(alpha = 0.8f), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(money(earnings?.today?.netMinor ?: 0, earnings?.currency), color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                }
+            }
+
+            // Back to where I am.
+            Box(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = peek + 14.dp)) {
+                RoundIconButton(Icons.Rounded.MyLocation, stringResource(R.string.home_recenter), onClick = {
+                    scope.launch {
+                        lastPosition(context)?.let { (lat, lng) -> camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 16f)) }
+                    }
+                })
+            }
         }
     }
 }
+
+/** Until the phone says where it is: the launch city (as in the DORR app). */
+private val Riyadh = LatLng(24.7136, 46.6753)
 
 @Composable
 private fun Stat(label: String, value: String, modifier: Modifier, big: Boolean = false) {

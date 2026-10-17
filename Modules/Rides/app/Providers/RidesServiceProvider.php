@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Event;
 use Modules\Driver\Contracts\DriverWorkGate;
 use Modules\Driver\Events\DriverLocationUpdated;
 use Modules\Driver\Models\Driver;
+use Modules\Rides\Console\CheckGoogle;
 use Modules\Rides\Console\DispatchTick;
 use Modules\Rides\Console\DrivingHoursSweep;
 use Modules\Rides\Console\EnableCountry;
@@ -15,6 +16,7 @@ use Modules\Rides\Console\ReleaseEarnings;
 use Modules\Rides\Console\WaslEligibility;
 use Modules\Rides\Console\WaslLocations;
 use Modules\Rides\Console\WaslTrips;
+use Modules\Rides\Console\WhyUnavailable;
 use Modules\Rides\Listeners\HandleDriverLocation;
 use Modules\Rides\Listeners\RelayDriverLocation;
 use Modules\Rides\Models\Ride;
@@ -48,6 +50,7 @@ class RidesServiceProvider extends ModuleServiceProvider
      * @var string[]
      */
     protected array $commands = [
+        CheckGoogle::class,
         DispatchTick::class,
         DrivingHoursSweep::class,
         EnableCountry::class,
@@ -55,6 +58,7 @@ class RidesServiceProvider extends ModuleServiceProvider
         WaslTrips::class,
         WaslLocations::class,
         WaslEligibility::class,
+        WhyUnavailable::class,
     ];
 
     public function register(): void

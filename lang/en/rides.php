@@ -289,4 +289,17 @@ return [
         'card' => 'Card',
         'cash' => 'Cash',
     ],
+
+    'google_check' => [
+        'ok' => 'Works.',
+        'key_missing' => 'No Google key is set (admin → Rides → Settings, or GOOGLE_MAPS_SERVER_KEY in .env). The free map is used.',
+        'key' => 'Google does not accept this key. Copy it again from Google Cloud → APIs & Services → Credentials.',
+        'api_disabled' => 'The key is fine, but this API is not switched on for its project. Enable it in Google Cloud → APIs & Services → Library.',
+        'billing' => 'Billing is not enabled (or was closed) for the key\'s project. Google needs a billing account even for the free monthly credit.',
+        'restricted' => 'The key is restricted to something this server is not (an Android app, a website, other IP addresses, or other APIs). For the server, restrict it by this server\'s IP and to Routes API + Geocoding API only.',
+        'quota' => 'The quota is used up (daily or per minute). The free map answers until Google does again.',
+        'other' => 'Google answered with something unexpected. See the message.',
+        'unreachable' => 'Google could not be reached from this server.',
+        'paused' => 'Google is being left alone for a while after a refusal; the free map answers meanwhile.',
+    ],
 ];

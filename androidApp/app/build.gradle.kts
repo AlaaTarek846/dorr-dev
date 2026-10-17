@@ -31,7 +31,6 @@ android {
 
         // The backend each developer's phone talks to (their own ngrok tunnel / LAN IP), from
         // local.properties (not committed) so merges never swap it:
-        //   dorr.apiHost=my-tunnel.ngrok-free.dev
         //   dorr.apiScheme=https        (http for a LAN IP)
         val local = Properties().apply {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }

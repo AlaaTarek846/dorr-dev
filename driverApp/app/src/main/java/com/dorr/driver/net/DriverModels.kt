@@ -36,6 +36,7 @@ data class MyDocumentDto(
     val number: String? = null,
     @SerializedName("expires_at") val expiresAt: String? = null,
     @SerializedName("front_url") val frontUrl: String? = null,
+    @SerializedName("back_url") val backUrl: String? = null,
 )
 
 data class RequiredDocDto(val type: DocTypeDto, val document: MyDocumentDto? = null)
@@ -84,7 +85,7 @@ data class OnboardingDto(
     @SerializedName("work_problem") val workProblem: String? = null,
 )
 
-data class NamedDto(val id: Int, val name: String? = null)
+data class NamedDto(val id: Int, val name: String? = null, val code: String? = null)
 
 data class ModelOptionDto(val id: Int, val name: String? = null, @SerializedName("body_type") val bodyType: String? = null, val seats: Int? = null)
 

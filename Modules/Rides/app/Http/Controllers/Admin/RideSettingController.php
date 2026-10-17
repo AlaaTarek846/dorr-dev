@@ -11,11 +11,14 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Modules\Rides\Models\RideSetting;
+use Modules\Rides\Services\Geo\GoogleGeoProvider;
+use Modules\Rides\Services\Geo\GoogleKeyCheck;
 use Modules\Rides\Services\Geo\ResilientGeoProvider;
 
 /**
  * Admin → Rides → Settings: the Google Maps server key (never shown back — only whether it is set
- * and its last 4 characters) and the free estimate used when Google can't answer.
+ * and its last 4 characters), a test of it, and the free estimate used when neither Google nor the
+ * free map can answer.
  */
 class RideSettingController extends Controller implements HasMiddleware
 {
@@ -26,7 +29,7 @@ class RideSettingController extends Controller implements HasMiddleware
     {
         return AdminPermissionMiddleware::fromActionMethodMap('ride-settings', [
             ['view', ['show']],
-            ['update', ['update']],
+            ['update', ['update', 'checkGoogle']],
         ]);
     }
 
@@ -53,15 +56,22 @@ class RideSettingController extends Controller implements HasMiddleware
         }
         $settings->fill($data)->save();
 
-        // A new key: forget the "no city name" misses so Google is asked again right away.
+        // A new key: forget the "no city name" misses and the pause after a refusal, so Google is asked again right away.
         if (array_key_exists('google_maps_key', $data)) {
             ResilientGeoProvider::forgetCityNames();
+            GoogleGeoProvider::resume();
         }
 
         $after = $this->present($settings->fresh());
         $audit->record('ride_settings.updated', $settings, $before, $after);
 
         return ApiResponse::success($after, __('api.updated'));
+    }
+
+    /** "Does my key work?" — one real call to each Google API in use, and what Google said (two billed calls). */
+    public function checkGoogle(GoogleKeyCheck $check): JsonResponse
+    {
+        return ApiResponse::success($check->run(), __('api.retrieved'));
     }
 
     /** @return array<string, mixed> */
@@ -73,6 +83,11 @@ class RideSettingController extends Controller implements HasMiddleware
             'google_maps_key_set' => $key !== '',
             'google_maps_key_hint' => $key !== '' ? '••••'.mb_substr($key, -4) : null,
             'env_key_set' => (string) config('rides.google.key') !== '',
+            'osm_fallback' => (bool) config('rides.osm.enabled', true),
+            'google_paused' => [
+                'routes' => GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES),
+                'geocoding' => GoogleGeoProvider::paused(GoogleGeoProvider::GEOCODING),
+            ],
             'fallback_speed_kmh' => $settings->fallback_speed_kmh,
             'fallback_road_factor_bp' => $settings->fallback_road_factor_bp,
             'geocode_cache_days' => $settings->geocode_cache_days,
