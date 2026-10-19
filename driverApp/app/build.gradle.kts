@@ -71,6 +71,10 @@ dependencies {
     implementation("com.google.android.gms:play-services-maps:19.0.0")
     implementation("com.google.maps.android:maps-compose:6.1.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
+    // The wallet (copied from the DORR app, O-35): opening it with the fingerprint / face, like the DORR app.
+    implementation("androidx.biometric:biometric:1.1.0")
+    // Bus tickets (O-24): the camera scanner for a ticket's QR, and the QR labels for the seats (zxing).
+    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
     // Real-time (requests, rides, wallet, notifications): speaks the Pusher protocol, so it keeps working when
     // the server moves to our own Reverb / Soketi — the connection details come from `driver/v1/realtime-config`.
     implementation("com.pusher:pusher-java-client:2.4.4")

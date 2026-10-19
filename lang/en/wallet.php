@@ -70,6 +70,12 @@ return [
 
     // Stored in wallet_transactions.notes / financial_entries.notes as a key + variables.
     'notes' => [
+        'bus_ticket' => 'Bus ticket: :route',
+        'bus_earning' => 'Bus trip earnings: :route',
+        'bus_commission' => 'Bus trip commission: :route',
+        'marine_booking' => 'Boat booking: :title',
+        'marine_earning' => 'Boat earnings: :title',
+        'marine_commission' => 'Boat commission: :title',
         'topup' => 'Wallet top-up',
         'topup_fee' => 'Top-up service fee',
         'topup_bonus' => 'Top-up bonus',

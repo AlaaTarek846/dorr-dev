@@ -19,6 +19,30 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
     ->prefix('driver/v1')->group(function () {
         // Real-time + push settings for the captain app (replaces asking the server every few seconds).
         Route::get('realtime-config', DriverRealtimeController::class);
+        // O-20, O-21, O-24: the captain's bus, his trips, who booked, boarding.
+        Route::get('bus/vehicle', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'vehicle']);
+        Route::get('bus/trips', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'index']);
+        Route::post('bus/trips', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'store']);
+        Route::get('bus/trips/{uuid}', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'show'])->whereUuid('uuid');
+        Route::put('bus/trips/{uuid}', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'update'])->whereUuid('uuid');
+        Route::post('bus/trips/{uuid}/cancel', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'cancel'])->whereUuid('uuid');
+        Route::post('bus/trips/{uuid}/move', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'move'])->whereUuid('uuid');
+        Route::post('bus/trips/{uuid}/board', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'board'])->whereUuid('uuid');
+        // O-25: the captain's boat — sea trips and yacht hires, bookings, boarding, more time.
+        Route::get('marine/boat', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'boat']);
+        Route::get('marine/listings', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'index']);
+        Route::post('marine/listings', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'store']);
+        Route::get('marine/listings/{uuid}', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'show'])->whereUuid('uuid');
+        Route::post('marine/listings/{uuid}/move', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'move'])->whereUuid('uuid');
+        Route::post('marine/board', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'board']);
+        Route::post('marine/bookings/{uuid}/finish', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'finish'])->whereUuid('uuid');
+        Route::post('marine/bookings/{uuid}/extension', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'extension'])->whereUuid('uuid');
+        // O-03: which map to draw — Google or Mapbox (the admin's choice).
+        Route::get('map-config', \Modules\Rides\Http\Controllers\MapConfigController::class);
+        // O-30: With Me — «I'm going there, take riders on my way».
+        Route::get('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'show']);
+        Route::post('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'open']);
+        Route::delete('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'close']);
 
         Route::get('offers', [DriverRideController::class, 'offers']);
         Route::post('offers/{uuid}/accept', [DriverRideController::class, 'accept'])->whereUuid('uuid');

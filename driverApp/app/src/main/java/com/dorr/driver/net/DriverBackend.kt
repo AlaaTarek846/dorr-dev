@@ -22,6 +22,14 @@ object DriverBackend {
     lateinit var api: DriverApi
         private set
 
+    /** O-20..O-24: the captain's buses. */
+    lateinit var bus: DriverBusApi
+        private set
+
+    /** O-25: the captain's boat. */
+    lateinit var marine: DriverMarineApi
+        private set
+
     private val _signedOut = MutableStateFlow(0)
 
     /** Ticks each time the server answers 401 to a signed-in call. */
@@ -41,11 +49,13 @@ object DriverBackend {
             },
             debug = BuildConfig.DEBUG,
         )
-        api = Retrofit.Builder()
+        val retrofit = Retrofit.Builder()
             .baseUrl("${BuildConfig.API_SCHEME}://${BuildConfig.API_HOST}/api/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create(coreGson()))
             .build()
-            .create(DriverApi::class.java)
+        api = retrofit.create(DriverApi::class.java)
+        bus = retrofit.create(DriverBusApi::class.java)
+        marine = retrofit.create(DriverMarineApi::class.java)
     }
 }

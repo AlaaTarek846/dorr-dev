@@ -63,7 +63,7 @@ class RideRequestService
      * @param  array{name: string, phone: string}|null  $beneficiary  booked for someone else (R-13), the rider having confirmed their consent
      * @param  list<int>|null  $circle  DORR Circle (R-INN-07): offered to these favourite captains first — empty = all of them; null = the usual search
      */
-    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null, ?array $circle = null): Ride
+    public function request(User $rider, string $quoteUuid, string $fingerprint, RidePaymentMethod $method, ?string $idempotencyKey = null, ?int $riderPrice = null, ?Carbon $scheduledAt = null, ?int $passengers = null, ?string $pickupNote = null, ?array $beneficiary = null, ?array $circle = null, bool $useWallet = false, string $shareWith = 'any'): Ride
     {
         if ($idempotencyKey !== null && ($existing = Ride::query()->where('user_id', $rider->id)->where('idempotency_key', $idempotencyKey)->first()) !== null) {
             if ($existing->quote()->value('uuid') !== $quoteUuid) {
@@ -127,7 +127,7 @@ class RideRequestService
         $card = $method === RidePaymentMethod::Card;
         $scheduled = $scheduledAt !== null;
         $lead = (int) ($quote->policy_snapshot['policy']['scheduled.lead_time_s'] ?? 1800);
-        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote, $beneficiary, $circleIds) {
+        $ride = DB::transaction(function () use ($rider, $quote, $method, $idempotencyKey, $card, $bid, $riderPrice, $scheduled, $scheduledAt, $lead, $passengers, $pickupNote, $beneficiary, $circleIds, $useWallet, $shareWith) {
             $debt = 0;
             $ride = Ride::query()->create([
                 'uuid' => (string) Str::uuid(),
@@ -162,6 +162,7 @@ class RideRequestService
                 'confirmed_snapshot' => [],
                 'agreed_price_minor' => $quote->total_minor,
                 'payment_method' => $method,
+                'share_with' => in_array($shareWith, ['any', 'male', 'female'], true) ? $shareWith : 'any',
                 'payment_status' => match ($method) {
                     RidePaymentMethod::Wallet => RidePaymentStatus::Held,
                     RidePaymentMethod::Card => RidePaymentStatus::AwaitingTopup,
@@ -238,6 +239,8 @@ class RideRequestService
                     'quote_version' => $quote->version,
                     // The airport / pickup-only zone the pickup is in (R-17, D-276): its queue serves this ride first.
                     'zone_id' => $quote->policy_snapshot['zone_id'] ?? null,
+                    // O-17: booked by the hour — the hours, the hour price and each minute past them.
+                    'hourly' => $quote->policy_snapshot['hourly'] ?? null,
                     'hold_minor' => $bid !== null ? $riderPrice : (int) $quote->hold_minor + $paymentFee,
                     'route_estimated' => $quote->route_estimated,
                     'estimate' => ['min_minor' => $quote->estimate_min_minor, 'max_minor' => $quote->estimate_max_minor],
@@ -274,6 +277,14 @@ class RideRequestService
 
             if ($method === RidePaymentMethod::Wallet) {
                 $this->payments->hold($ride, $bid !== null ? $riderPrice : (int) $quote->hold_minor + $paymentFee);
+            }
+            // O-37: cash with the wallet — whatever the wallet has, up to the price, is held now and paid
+            // at the end; the rest is cash. An empty wallet simply means all cash.
+            if ($useWallet && $method === RidePaymentMethod::Cash) {
+                $part = min($this->payments->available($this->payments->riderWallet($ride)), $bid !== null ? (int) $riderPrice : (int) $quote->hold_minor + $paymentFee);
+                if ($part > 0) {
+                    $this->payments->hold($ride, $part, 'wallet_part');
+                }
             }
 
             $this->machine->record($ride, 'created', 'user', $rider->id, ['lat' => $ride->origin_lat, 'lng' => $ride->origin_lng], array_filter([

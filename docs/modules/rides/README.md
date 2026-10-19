@@ -37,6 +37,11 @@ Each step answers only when the one before can't. A ride is never blocked on a m
 - **Is my Google key working?** `php artisan rides:check-google` (and Admin → Rides → Settings → *Test the key*, `POST admin/v1/ride-settings/check-google`, permission `ride-settings.update`) makes one real call to Routes and one to Geocoding and says, per API, what Google said and the usual fix (key / API not enabled / billing / restricted key / quota). Two billed calls, so only when asked. A pass takes Google off its pause.
 - The mobile maps themselves (the Google Maps SDK in the apps) use their own key (`MAPS_API_KEY` in the Android build) and are not what the server key pays for; the rider app searches places with the phone's own geocoder.
 
+## Which map the apps draw (O-03, `MapConfigController`)
+`GET mobile/v1/rides/map-config` and `GET driver/v1/map-config` return `{provider, mapbox_token, mapbox_style}`, as chosen in admin → Rides → Settings.
+- **Mapbox chosen:** the apps keep their map component but switch Google's layer off (`MapType.NONE`) and draw Mapbox raster tiles (`api.mapbox.com/styles/v1/{style}/tiles/256/{z}/{x}/{y}@2x`) under the same pins, routes and camera, with the Mapbox / OpenStreetMap attribution.
+- **Code:** `RidesMap` (rider app) and `DriverMap` (captain app).
+
 ## The regulator's city name (`RegulatorCityNames`)
 `officialName('wasl', lat, lng)`: Google's city name if it matches an official name in `ride_regulator_cities`, else our city for the point through its mapping, else `null` (the trip waits in the admin). The name sent is always the stored official one, never Google's spelling.
 
@@ -57,7 +62,7 @@ Each step answers only when the one before can't. A ride is never blocked on a m
 1. `QuoteEngine` prices every open category with one route call; a category with no prices set is never offered. Upfront → a fixed total; metered → a ±15% range; open destination → the rate card and a fixed hold.
 2. `RideRequestService` re-checks the quote (uuid + fingerprint + expiry) and the switches, takes the rider's lock (one active ride), freezes the policy, the tax and the breakdown in `confirmed_snapshot`, and holds the wallet amount. A cash ride also collects an old debt (`previous_balance`). A card ride is created `awaiting_payment` with a checkout of purpose `ride` (its id is `checkout_id` on the ride): the app opens its one payment screen (`wallet/checkouts/{id}`), paid from the balance or a gateway top-up. `RideCheckoutPurpose` implements the wallet's new `ReservesFunds`: paying only makes sure the money is in the wallet, then the purpose holds it and the search starts — nothing is debited or booked as revenue at that point, and coupons don't apply. Not paid within `payment.await_s` (15 min) → the ride expires and the checkout closes.
 3. `DispatchEngine`: one offer at a time to the nearest eligible online driver, the radius growing 5 km per round up to 50 km (Jawad); `rides:dispatch-tick` every 10 s expires offers, runs due rounds, and expires the ride after `search.max_search_s`. Accepting is atomic (the driver's lock row and the conditional status move commit together).
-4. `RideTripService`: `arrive` (within `arrival.radius_m`), `start` (the PIN when `pin.required`, 5 tries), stops, `end`. The final price is the agreed fare + paid waiting (upfront), or computed from the distance driven (metered): the phone's odometer when plausible, else the logged points, else the route / straight line × 1.3 (`distance_source`). Wallet → captured; cash → `cash_due`, then `collect-cash` (change can go to the rider's wallet).
+4. `RideTripService`: `arrive` (within `arrival.radius_m`), `start` (the PIN when `pin.required`, 5 tries), stops, `end`. The final price is the agreed fare + paid waiting (upfront), or computed from the distance driven (metered): the phone's odometer when plausible, else the logged points, else the route / straight line × 1.3 (`distance_source`) — the planned route only when the car is at the destination. **Ending away from the destination** (more than `arrival.destination_radius_m`, default 500 m) is refused with `rides_not_at_destination` unless the captain sends `early: true` (the rider getting off sooner); an early end prices an upfront ride again on the distance actually driven, never above the agreed fare — an offers ride keeps its agreed price — records `ended_early` + `away_from_destination_m` on the `completed` event, and tells the rider (`ride.ended_early`) instead of the usual "arrived" (O-39, O-40). Wallet → captured; cash → `cash_due`, then `collect-cash` (change can go to the rider's wallet).
 5. `RideSettlementService`: commission and tax go to the ledger. Cash ride → commission + tax are taken from the driver's wallet now. Wallet ride → the driver's net waits `settlement.pending_days`, then `rides:release-earnings` (hourly) posts it.
 6. `RideCancellationService`: rider cancel is free before acceptance and for `cancel.free_after_accept_s` after (up to `cancel.rider_daily_free` a day), else `price.cancel_fee_minor`, which goes to the driver who came. A driver may step back before arriving (the ride searches again without them); after arriving it's a no-show after `no_show.wait_s`.
 7. `RideRatingService`: each side rates once, within `rating.window_h`, in the shared `ratings` table (rateable = the ride); the averages live on the ride profiles. Not exposed through the generic rating endpoint.
@@ -227,6 +232,52 @@ R-91..95, D-131..137, wireflow 6أ / 6ب / 6ج. Switch `change_destination` (one
 3. **Captain** `driver/v1/rides/{uuid}/changes/{change}/accept|reject`. Accepted: the destination (or a new stop), the planned route and — for a fixed price — `agreed_price_minor` and the snapshot's breakdown change together; new price lines in phase `rev.N` (the confirmed ones stay), a `destination_change` / `stop_added` adjustment, `change_applied` event, the wallet holds the difference (else taken at the end). Bidding rides move by what the extra route costs at the city's rates. Metered rides keep paying by distance. Declined or no answer (`rides:dispatch-tick` expires it): nothing changes.
 Both apps show the request's state from the ride (`change_request`): the rider a draining ring while waiting, then "✅ The captain agreed!" with the new destination, distance, time and price; the captain a full card with a 30-second ring, old → new, extra distance and earnings, "Agree +X" / "Decline".
 
+## With Me — «أنا معك» (O-30..O-33; `Services/Pool/RidePoolService`, `ride_pools`, `ride_pool_splits`, `rides.pool_id / share_with / pool_discount_minor`)
+- **Route mode:** `POST driver/v1/pool {destination, radius_m}` — the captain is going there and will go `radius_m` off his road. The radius is clamped to `with_me.radius_min_m..radius_max_m`; when min = max it is fixed and `GET driver/v1/pool` returns `radius.editable = false`. `DELETE` stops taking new riders.
+- **Ride mode:** a rider's With Me ride, once accepted, opens a pool; others join only once it has **started**.
+- **Who gets the request:** dispatch offers a With Me request first to open pools with room whose corridor (current position → destination) holds both the pickup and the drop-off, in that order, and whose riders accept each other (`share_with`: any / male / female, checked both ways — O-33). Then it goes to the usual nearby captains.
+- **Several rides at once:** a joining ride takes a lock of its own (`pool:{driver}:{ride}`), not the captain's one-ride lock. The captain's presence goes back to online only when the car is empty.
+- **The money (O-32):** the captain takes `with_me.driver_share_bp` of the newcomer's price. The rest comes off every fare in the car (the newcomer's too), split `with_me.split` = `proportional` (by the distance shared with the newcomer) or `equal`, never taking a fare below `with_me.min_pay_bp` of its price (what can't be given stays with the captain).
+  - `pool_discount_minor` comes off the upfront fare at the end.
+  - Each split is kept in `ride_pool_splits`.
+  - Notifications: `ride.pool_joined` to the newcomer (you pay X instead of Y), `ride.pool_discount` to the others, `ride.pool_earning` to the captain.
+
+## Bus booking (O-20..O-24; `Services/Bus/BusService`, `bus_trips`, `bus_bookings`, `bus_booking_seats`)
+- **The captain** (a vehicle with body type `bus` / `minibus`, approved): `GET driver/v1/bus/vehicle` returns the bus and a QR label per seat (`DORR-BUS:{vehicle}:{seat}`).
+  - `POST bus/trips` publishes a trip: origin and destination, `depart_at`, optional `return_at`, and the price of a seat going, coming back and both (both = going + back when not set).
+  - `PUT` changes the prices and the note; the times and seats only while nobody booked.
+  - `POST bus/trips/{uuid}/cancel` refunds every ticket in full and tells its rider.
+  - `POST bus/trips/{uuid}/move` with `to`: `departed` → `returning` → `completed`. When completed, the tickets less the `bus` category's commission (`price.commission_*`) are credited to the captain.
+  - `POST bus/trips/{uuid}/board` boards a ticket by its QR or by `{leg, seat}`.
+  - `GET bus/trips/{uuid}` lists the passengers with name, phone, seats and boarded state, so the captain can call or text them.
+  - Every booking notifies him (`bus.booked`).
+- **The rider:** `GET mobile/v1/rides/bus/trips` searches by `from_lat/lng`, `to_lat/lng` (each optional, or both) and `date`, within `bus.search_radius_m`. It returns going legs and, for trips that come back, the return leg (destination → origin).
+  - `GET bus/trips/{uuid}` returns the seat map (`taken` per leg).
+  - `POST bus/trips/{uuid}/book` (Idempotency-Key) books `{trip_type: outbound|return|round, seats_outbound, seats_return}`, with the same number of seats each way for `round`. It is paid from the wallet, non-withdrawable money first.
+  - Each seat on each leg gets a ticket with a QR. A unique `(trip, leg, seat)` key means two riders can never hold the same seat (`rides_bus_seat_taken`).
+  - `POST bus/bookings/{uuid}/cancel` refunds in full (the exact wallet lines are reversed) up to `bus.free_cancel_before_s` before it leaves.
+- **Seats change live:** `bus.seats` on the public channel `bus-trips.{uuid}` (`BusSeatsChanged`) reloads every open seat map once.
+- **Not yet:** an admin page for bus trips, and an in-app chat for a bus trip (the apps call or text with the phone's own apps).
+
+## Boats & yachts (O-25; `Services/Marine/MarineService`, `marine_listings`, `marine_bookings`)
+- **The captain** (an approved vehicle with body type `boat` / `yacht`): `GET driver/v1/marine/boat` returns the boat and the amenity keys.
+  - `POST marine/listings` publishes one of two kinds:
+    - `trip`: a sea trip with `depart_at`, `duration_min`, `seat_price_minor` and/or `private_price_minor` (the whole boat).
+    - `rental`: hire by the hour, with `hour_price_minor` and `min_hours`.
+  - Both kinds take a marina, a route note, amenities, a capacity (at most the boat's seats) and a description.
+  - `POST marine/listings/{uuid}/move` with `to`: `paused` / `active` / `departed` / `completed` (every open booking is paid out less the `marine` category's commission) / `canceled` (every booking is refunded).
+  - `POST marine/board {qr}` boards a booking by its QR. `POST marine/bookings/{uuid}/finish` ends and pays one hire.
+  - `POST marine/bookings/{uuid}/extension {approve}` answers a request for more time. When approved, the extra hours are charged then, and only if the boat is free after the hire.
+- **The guest:** `GET mobile/v1/rides/marine/listings?kind=&lat=&lng=` lists what is within `marine.search_radius_m`. `GET marine/listings/{uuid}` adds the hire's taken times (`busy`).
+  - `POST marine/listings/{uuid}/book` (Idempotency-Key) takes `{mode: shared|private|rental, guests, starts_at?, hours?}`.
+    - `private` needs an empty trip, and once booked nobody else can book that trip.
+    - Two hires of one boat never overlap (`rides_marine_slot_taken`).
+    - It is paid from the wallet, non-withdrawable money first.
+  - `POST marine/bookings/{uuid}/cancel` refunds in full up to `marine.free_cancel_before_s` before the start.
+  - `POST marine/bookings/{uuid}/extend {hours}` asks the captain for more time.
+- **Notifications** (`marine.booked`, `marine.confirmed`, `marine.canceled`, `marine.booking_canceled`, `marine.extension_asked/approved/declined`) are the only live signal. Open pages reload once on them.
+- **Not yet:** an admin page and photos of the boat.
+
 ## Ride chat (`RideChatService`, `ride_messages`)
 Rider ↔ driver, text and ready-made messages (`lang/*/rides.php → quick`), open only while a driver is on the ride; when it ends nobody can write (`409 rides_chat_closed`) but the conversation stays for the admin. Live on `rides.{uuid}` as `ride.message`, plus a push to the other side; a `client_id` makes a re-send land once. API: `GET|POST mobile/v1/rides/{uuid}/messages` and `driver/v1/rides/{uuid}/messages` (`{open, quick_replies, messages}`).
 
@@ -260,7 +311,7 @@ Driver (`driver_api`, prefix `driver/v1`):
 | GET | `offers` | | Open request cards: `seconds_left`, `ttl_s`, pickup distance / ETA, `earning_minor`, rider rating, the trip |
 | POST | `offers/{uuid}/accept` · `decline` | `reason?` | Accept is atomic; a retry returns the same ride |
 | GET | `rides/current` · `rides` · `rides/{uuid}` | | Includes `navigation.google_maps_url` (navigation opens outside the app), `earning_minor`, `cash_to_collect_minor` |
-| POST | `rides/{uuid}/arrive` · `start` · `end` | `lat`, `lng` (+ `pin` · + `odometer_m`) | |
+| POST | `rides/{uuid}/arrive` · `start` · `end` | `lat`, `lng` (+ `pin` · + `odometer_m`, `early`) | `end` away from the destination → 422 `rides_not_at_destination` unless `early` |
 | POST | `rides/{uuid}/stops/{seq}` | `action` (`arrived`/`departed`) | |
 | POST | `rides/{uuid}/collect-cash` | `received_minor` | Above the total → the change goes to the rider's wallet |
 | POST | `rides/{uuid}/cancel` · `no-show` · `rate` | `reason_id` · — · `stars`, `tags?`, `comment?` | |

@@ -71,16 +71,10 @@
 
         <WalletModal :show="!!zoneForm" :title="zoneForm?.id ? t('rides.zones.edit_zone') : t('rides.zones.add_zone')" size="lg" @close="zoneForm = null">
             <template v-if="zoneForm">
-                <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.name_ar') }}</label>
-                        <input v-model="zoneForm.name.ar" class="form-control" dir="rtl">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.name_en') }}</label>
-                        <input v-model="zoneForm.name.en" class="form-control" dir="ltr">
-                    </div>
-                </div>
+                <RideLangFields v-slot="{ locale, dir }" :required="[zoneForm.name]" class="mb-2">
+                    <label class="form-label">{{ t('rides.lang.name') }} *</label>
+                    <input v-model="zoneForm.name[locale]" class="form-control" :dir="dir">
+                </RideLangFields>
                 <div class="row g-2 mb-2">
                     <div class="col-md-4">
                         <label class="form-label">{{ t('rides.zones.type_label') }}</label>
@@ -126,26 +120,12 @@
 
         <WalletModal :show="!!pointForm" :title="pointForm?.id ? t('rides.zones.edit_point') : t('rides.zones.add_point')" size="lg" @close="pointForm = null">
             <template v-if="pointForm">
-                <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.name_ar') }}</label>
-                        <input v-model="pointForm.name.ar" class="form-control" dir="rtl">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.document_types.name_en') }}</label>
-                        <input v-model="pointForm.name.en" class="form-control" dir="ltr">
-                    </div>
-                </div>
-                <div class="row g-2 mb-2">
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.zones.instructions_ar') }}</label>
-                        <input v-model="pointForm.instructions.ar" class="form-control" dir="rtl" maxlength="255">
-                    </div>
-                    <div class="col-md-6">
-                        <label class="form-label">{{ t('rides.zones.instructions_en') }}</label>
-                        <input v-model="pointForm.instructions.en" class="form-control" dir="ltr" maxlength="255">
-                    </div>
-                </div>
+                <RideLangFields v-slot="{ locale, dir }" :required="[pointForm.name]" class="mb-2">
+                    <label class="form-label">{{ t('rides.lang.name') }} *</label>
+                    <input v-model="pointForm.name[locale]" class="form-control mb-2" :dir="dir">
+                    <label class="form-label">{{ t('rides.lang.instructions') }}</label>
+                    <input v-model="pointForm.instructions[locale]" class="form-control" :dir="dir" maxlength="255">
+                </RideLangFields>
                 <div class="row g-2 mb-2">
                     <div class="col-md-4">
                         <label class="form-label">{{ t('rides.zones.kind_label') }}</label>
@@ -179,6 +159,7 @@
 </template>
 
 <script setup>
+import RideLangFields from '../RideLangFields.vue';
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';

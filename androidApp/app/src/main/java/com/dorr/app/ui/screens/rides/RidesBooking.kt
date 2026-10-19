@@ -36,6 +36,7 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
 import androidx.compose.material3.Icon
@@ -138,6 +139,7 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
             Spacer(Modifier.height(10.dp))
             WhenChips(state)
         }
+
         if (state.feature("open_destination")) {
             Spacer(Modifier.height(10.dp))
             Row(
@@ -366,6 +368,8 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 addProperty("quote_uuid", quote.uuid)
                 addProperty("fingerprint", quote.fingerprint)
                 addProperty("payment_method", state.payment)
+                if (state.payment == "cash" && state.useWallet && quote.walletAvailableMinor > 0) addProperty("use_wallet", true)
+                if (quote.category.slug == "with_me") addProperty("share_with", state.shareWith)
                 if (quote.bid != null) addProperty("rider_price_minor", state.riderPrice ?: quote.bid.suggestedMinor)
                 state.scheduledAt?.let { addProperty("scheduled_at", it.toOffsetDateTime().toString()) }
                 addProperty("passengers", state.passengers)
@@ -425,14 +429,10 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
 
         state.selected?.let { quote ->
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.rd_pay_with), color = settingsMut(), fontSize = 12.sp)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val fee = { m: String -> quote.paymentFee(m).takeIf { it > 0 }?.let { "+" + money(it, quote.currency) } }
-                if (state.feature("wallet")) PayChip(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.rd_pay_wallet), state.payment == "wallet", Modifier.weight(1f), fee("wallet")) { state.payment = "wallet" }
-                if (state.feature("card")) PayChip(Icons.Rounded.CreditCard, stringResource(R.string.rd_pay_card), state.payment == "card", Modifier.weight(1f), fee("card")) { state.payment = "card" }
-                if (state.feature("cash") && quote.category.cashAllowed != false) PayChip(Icons.Rounded.Payments, stringResource(R.string.rd_pay_cash), state.payment == "cash", Modifier.weight(1f), fee("cash")) { state.payment = "cash" }
-            }
+            // O-30..O-33: With Me — who may share the car with me, and what sharing means.
+            if (quote.category.slug == "with_me") ShareWithRow(state)
+            // O-37, O-38a, O-38b: one row — how I pay and the coupon — opening a sheet to change either, any time.
+            PaymentRow(state, quote)
             Spacer(Modifier.height(6.dp))
             // R-5, R-174: keep this destination as Home, Work or a favourite.
             if (state.feature("saved_places")) SaveDestinationRow(state)
@@ -442,8 +442,7 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
             if (state.feature("book_for_other")) BookForOtherRow(state)
             // R-INN-07: ask my favourite captains first.
             if (state.feature("favorite_circle")) CircleRow(state)
-            // Wireflow م11 / م12: the promo code, every line of the price, and the rules it comes with.
-            PromoCodeRow(state)
+            // Wireflow م11 / م12: every line of the price, and the rules it comes with (the code is in the payment sheet).
             PriceDetails(quote, state.payment)
             PolicySummary(quote, state.payment)
             // R-179: the terms in force for this booking, one tap away before confirming.

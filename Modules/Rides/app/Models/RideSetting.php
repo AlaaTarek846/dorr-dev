@@ -6,16 +6,19 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Cache;
 
 /**
- * The one rides settings row (admin → Rides → Settings): the Google Maps key (encrypted) and the
- * free estimate's numbers. The key from the admin wins over GOOGLE_MAPS_SERVER_KEY in .env.
+ * The one rides settings row (admin → Rides → Settings): the map provider — Google or Mapbox, one of
+ * them (O-01, O-02) — with its key (encrypted), and the straight-line estimate's numbers. The keys from
+ * the admin win over GOOGLE_MAPS_SERVER_KEY / MAPBOX_TOKEN in .env.
  */
 class RideSetting extends Model
 {
     private const CACHE = 'rides:settings';
 
-    protected $fillable = ['google_maps_key', 'fallback_speed_kmh', 'fallback_road_factor_bp', 'geocode_cache_days'];
+    public const PROVIDERS = ['google', 'mapbox'];
 
-    protected $hidden = ['google_maps_key'];
+    protected $fillable = ['google_maps_key', 'map_provider', 'mapbox_token', 'mapbox_style', 'fallback_speed_kmh', 'fallback_road_factor_bp', 'geocode_cache_days'];
+
+    protected $hidden = ['google_maps_key', 'mapbox_token'];
 
     protected static function booted(): void
     {
@@ -26,6 +29,7 @@ class RideSetting extends Model
     {
         return [
             'google_maps_key' => 'encrypted',
+            'mapbox_token' => 'encrypted',
             'fallback_speed_kmh' => 'integer',
             'fallback_road_factor_bp' => 'integer',
             'geocode_cache_days' => 'integer',
@@ -43,5 +47,16 @@ class RideSetting extends Model
     public function googleKey(): string
     {
         return (string) ($this->google_maps_key ?: config('rides.google.key'));
+    }
+
+    /** `google` or `mapbox` — the one the server and both apps use. */
+    public function mapProvider(): string
+    {
+        return in_array($this->map_provider, self::PROVIDERS, true) ? $this->map_provider : 'google';
+    }
+
+    public function mapboxToken(): string
+    {
+        return (string) ($this->mapbox_token ?: config('rides.mapbox.token'));
     }
 }

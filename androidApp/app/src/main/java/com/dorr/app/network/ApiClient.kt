@@ -167,6 +167,11 @@ object ApiClient {
     val referrals: ReferralApi by lazy { retrofit.create(ReferralApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
     val rides: RidesApi by lazy { retrofit.create(RidesApi::class.java) }
+    /** O-22, O-23: bus booking. */
+    val bus: BusApi by lazy { retrofit.create(BusApi::class.java) }
+
+    /** O-25: boats & yachts. */
+    val marine: MarineApi by lazy { retrofit.create(MarineApi::class.java) }
     val security: SecurityApi by lazy { retrofit.create(SecurityApi::class.java) }
 
 

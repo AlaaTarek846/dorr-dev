@@ -272,6 +272,20 @@ interface DriverApi {
     @POST("driver/v1/scheduled/{uuid}/start")
     suspend fun startScheduled(@Header("Idempotency-Key") key: String, @Path("uuid") uuid: String): Response<ApiEnvelope<TripDto>>
 
+    /** O-03: which map to draw — Google, or Mapbox with its public token and style. */
+    @GET("driver/v1/map-config")
+    suspend fun mapConfig(): Response<ApiEnvelope<MapConfigDto>>
+
+    // O-30: With Me — where I'm going, how far off my road, the riders in the car.
+    @GET("driver/v1/pool")
+    suspend fun pool(): Response<ApiEnvelope<PoolStateDto>>
+
+    @POST("driver/v1/pool")
+    suspend fun openPool(@Body body: JsonObject): Response<ApiEnvelope<PoolStateDto>>
+
+    @DELETE("driver/v1/pool")
+    suspend fun closePool(): Response<ApiEnvelope<PoolStateDto>>
+
     @GET("driver/v1/rides/{uuid}")
     suspend fun ride(@Path("uuid") uuid: String): Response<ApiEnvelope<TripDto>>
 

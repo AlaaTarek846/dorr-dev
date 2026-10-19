@@ -25,6 +25,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -150,7 +154,8 @@ fun DriverNavHost() {
                         )
                     }
                     composable("earnings") { EarningsScreen(onBack = null) }
-                    composable("wallet") { WalletScreen(onBack = null) }
+                    // O-35: the DORR app's wallet, the same in every detail (PIN, recovery, settings, top-up) — plus withdrawing.
+                    composable("wallet") { com.dorr.driver.wallet.WalletScreen(onExit = { goTab("home") }) }
                     composable("account") {
                         AccountScreen(
                             onOpenSignup = { nav.navigate("signup") },
@@ -161,7 +166,22 @@ fun DriverNavHost() {
                             onOpenSafety = { nav.navigate("safety") },
                             onOpenNotifications = { nav.navigate("notifications") },
                             onSignedOut = { nav.navigate("login") { popUpTo(0) { inclusive = true } } },
+                            onOpenBus = { nav.navigate("bus") },
+                            onOpenWithMe = { nav.navigate("withme") },
+                            onOpenMarine = { nav.navigate("marine") },
                         )
+                    }
+                    composable("withme") { WithMeScreen(onBack = { nav.popBackStack() }, onOpenRide = { nav.navigate("trip/$it") }) }
+                    composable("trip/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+                        TripScreen(onDone = { nav.popBackStack() }, rideUuid = entry.arguments?.getString("uuid"))
+                    }
+                    composable("marine") { MarineListingsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("marine/$it") }) }
+                    composable("marine/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+                        MarineListingScreen(entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() })
+                    }
+                    composable("bus") { BusTripsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("bus/$it") }) }
+                    composable("bus/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+                        BusTripDetailScreen(entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() })
                     }
                     composable("signup") { SignupScreen(onBack = { nav.popBackStack() }) }
                     composable("trip") { TripScreen(onDone = { nav.popBackStack("home", inclusive = false) }) }
@@ -173,6 +193,8 @@ fun DriverNavHost() {
                                 event.startsWith("wallet") || event.contains("earnings") -> goTab("wallet")
                                 event.contains("safety") || event.contains("contact") -> nav.navigate("safety")
                                 event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
+                        event.startsWith("bus.") -> nav.navigate("bus")
+                                event.startsWith("marine.") -> nav.navigate("marine")
                                 event.startsWith("ride.zone_") -> nav.navigate("airport")
                                 event.startsWith("ride.case_") -> nav.navigate("cases")
                                 event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")
@@ -199,6 +221,10 @@ fun DriverNavHost() {
             }
         }
 
-        if (DriverBackend.session.isSignedIn) OfferOverlay(onAccepted = { nav.navigate("trip") })
+        if (DriverBackend.session.isSignedIn) {
+            // O-36: the requests put aside wait behind this icon (with how many), above every screen.
+            OffersInboxButton(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 18.dp, bottom = 96.dp))
+            OfferOverlay(onAccepted = { nav.navigate("trip") })
+        }
     }
 }

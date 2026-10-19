@@ -69,6 +69,44 @@ class WalletService
     }
 
     /**
+     * A charge (payment, fine, commission, tip…) taken from the non-withdrawable money first — it has
+     * the priority (owner's rule, O-38f) — and the rest from withdrawable, which may go below zero as a
+     * debt like any withdrawable debit. With an idempotency key, each part gets `:spend_only` /
+     * `:withdrawable` appended, and a retry returns what the first call did without splitting again.
+     *
+     * @return WalletTransaction the last part posted
+     */
+    public function debitSpendOnlyFirst(Wallet $wallet, int $amountMinor, WalletTransactionType $type, array $meta = []): WalletTransaction
+    {
+        $this->assertPositiveAmount($amountMinor);
+
+        return DB::transaction(function () use ($wallet, $amountMinor, $type, $meta) {
+            $key = $meta['idempotency_key'] ?? null;
+            if ($key !== null) {
+                $done = WalletTransaction::query()->whereIn('idempotency_key', [$key, $key.':'.WalletBucket::SpendOnly->value, $key.':'.WalletBucket::Withdrawable->value])
+                    ->orderByDesc('id')->first();
+                if ($done !== null) {
+                    return $done;
+                }
+            }
+
+            $locked = $this->lock($wallet);
+            $fromSpendOnly = min(max(0, $locked->availableMinor(WalletBucket::SpendOnly)), $amountMinor);
+            $last = null;
+            foreach ([[WalletBucket::SpendOnly, $fromSpendOnly], [WalletBucket::Withdrawable, $amountMinor - $fromSpendOnly]] as [$bucket, $part]) {
+                if ($part <= 0) {
+                    continue;
+                }
+                $partMeta = $key === null ? $meta : ['idempotency_key' => $key.':'.$bucket->value] + $meta;
+                $last = $this->post($locked, WalletDirection::Debit, $bucket, $part, $type, $partMeta);
+                $locked->refresh();
+            }
+
+            return $last;
+        });
+    }
+
+    /**
      * The receiving side is always spend_only, always — not a parameter, on
      * purpose (docs/wallet-plan.md §10). `$fromBucket` is the sender's
      * choice of which of their own buckets to spend from.

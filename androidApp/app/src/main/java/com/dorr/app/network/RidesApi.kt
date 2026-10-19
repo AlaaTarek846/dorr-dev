@@ -64,6 +64,10 @@ interface RidesApi {
     @POST("mobile/v1/rides")
     suspend fun book(@Header("Authorization") auth: String, @Header("Idempotency-Key") key: String, @Body body: JsonObject): ApiEnvelope<RideDto>
 
+    /** O-03: which map to draw — Google, or Mapbox with its public token and style. */
+    @GET("mobile/v1/rides/map-config")
+    suspend fun mapConfig(@Header("Authorization") auth: String): ApiEnvelope<MapConfigDto>
+
     @GET("mobile/v1/rides/current")
     suspend fun current(@Header("Authorization") auth: String): ApiEnvelope<JsonElement?>
 
@@ -260,6 +264,8 @@ data class RideQuoteDto(
     @SerializedName("total_minor") val totalMinor: Long? = null,
     val estimate: RideRangeDto? = null,
     @SerializedName("hold_minor") val holdMinor: Long? = null,
+    /** O-37: what the wallet in this ride's country has free — offered with cash. */
+    @SerializedName("wallet_available_minor") val walletAvailableMinor: Long = 0,
     val route: RideRouteDto? = null,
     val lines: List<RideLineDto> = emptyList(),
     val bid: RideBidQuoteDto? = null,
@@ -383,6 +389,16 @@ data class RideShareDto(val url: String, val views: Int = 0)
 data class RideSosDto(@SerializedName("incident_uuid") val incidentUuid: String? = null, @SerializedName("emergency_number") val emergencyNumber: String? = null)
 
 data class RideSafetyDto(@SerializedName("emergency_number") val emergencyNumber: String? = null)
+
+data class MapConfigDto(
+    val provider: String? = "google",
+    @SerializedName("mapbox_token") val mapboxToken: String? = null,
+    @SerializedName("mapbox_style") val mapboxStyle: String? = null,
+)
+
+data class RidePoolDto(@SerializedName("discount_minor") val discountMinor: Long = 0, val riders: Int = 1, @SerializedName("share_with") val shareWith: String? = null)
+
+data class RatingCriterionDto(val key: String, val label: String? = null)
 
 data class RideCurrencyDto(val code: String? = null, val symbol: String? = null, @SerializedName("decimal_places") val decimals: Int = 2)
 
@@ -521,6 +537,14 @@ data class RideDto(
     @SerializedName("safety_check") val safetyCheck: SafetyCheckDto? = null,
     @SerializedName("favorite_driver") val favoriteDriver: Boolean? = null,
     val rated: Boolean? = null,
+    /** O-30..O-32: sharing the car (With Me) — what came off the fare, and how many ride now. */
+    val pool: RidePoolDto? = null,
+    /** O-10: the captain's messages not read yet (the badge on the chat tile). */
+    @SerializedName("unread_messages") val unreadMessages: Int = 0,
+    /** O-09: the captain's number, to call from outside the app while the ride is on. */
+    @SerializedName("call_phone") val callPhone: String? = null,
+    /** O-41: what the rider scores the captain on (speed, cleanliness…), each with its own stars. */
+    @SerializedName("rating_criteria") val ratingCriteria: List<RatingCriterionDto> = emptyList(),
     val tip: RideTipDto? = null,
 )
 

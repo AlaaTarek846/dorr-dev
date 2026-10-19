@@ -210,7 +210,8 @@ class RideCancellationService
 
     private function settleFee(Ride $ride, int $fee, string $noteKey, string $adjustment): void
     {
-        if ($ride->payment_method->holdsInWallet()) {
+        // A cash ride paid partly from the wallet (O-37) holds money too: the fee comes from it, the rest goes back.
+        if ($ride->payment_method->holdsInWallet() || $this->payments->held($ride) > 0) {
             $fee > 0 ? $this->payments->capture($ride, $fee, $noteKey) : $this->payments->releaseAll($ride, 'ride_canceled');
             $ride->forceFill(['payment_status' => $fee > 0 ? RidePaymentStatus::Captured : RidePaymentStatus::Released])->save();
         } else {

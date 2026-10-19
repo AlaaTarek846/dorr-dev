@@ -17,6 +17,8 @@ class RidesException extends RuntimeException implements ApiRenderable
         private readonly int $status = 422,
         private readonly array $replace = [],
         private readonly array $data = [],
+        // A fuller wording of the same error, when the caller knows more (the code the apps check stays the same).
+        private readonly ?string $messageKey = null,
     ) {
         parent::__construct($errorCode);
     }
@@ -28,7 +30,7 @@ class RidesException extends RuntimeException implements ApiRenderable
 
     public function apiMessage(): string
     {
-        return __('rides.errors.'.$this->errorCode, $this->replace);
+        return __('rides.errors.'.($this->messageKey ?? $this->errorCode), $this->replace);
     }
 
     public function apiErrorCode(): string

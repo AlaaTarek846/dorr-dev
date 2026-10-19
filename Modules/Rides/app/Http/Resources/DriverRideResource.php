@@ -3,6 +3,8 @@
 namespace Modules\Rides\Http\Resources;
 
 use App\Models\Rating;
+use Modules\Rides\Enums\RatingTarget;
+use Modules\Rides\Services\Lifecycle\RideRatingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Modules\Rides\Enums\RidePaymentStatus;
@@ -42,7 +44,8 @@ class DriverRideResource extends JsonResource
             'needs_pin' => $this->pin !== null,
             'from_circle' => in_array((int) $request->user()?->getKey(), array_map('intval', (array) $this->circle_driver_ids), true),
             'earning_minor' => $this->driver_net_minor ?? $this->snapshot('breakdown.driver_net'),
-            'cash_to_collect_minor' => $this->payment_status === RidePaymentStatus::CashDue ? $this->final_total_minor : null,
+            // The cash to take: the total less what the rider's wallet already paid (O-37).
+            'cash_to_collect_minor' => $this->payment_status === RidePaymentStatus::CashDue ? max(0, (int) $this->final_total_minor - (int) $this->snapshot('wallet_paid_minor', 0)) : null,
             'final_total_minor' => $this->final_total_minor,
             // D-182: the rider's tip, apart from the fare — all of it the captain's.
             'tip_minor' => $this->tip_minor,
@@ -58,9 +61,25 @@ class DriverRideResource extends JsonResource
                 'lng' => $next[1],
                 'google_maps_url' => 'https://www.google.com/maps/dir/?api=1&destination='.$next[0].','.$next[1].'&travelmode=driving',
             ],
+            // O-37: a cash ride paid partly from the wallet — that part (held, then paid), and the cash left.
+            'wallet_part_minor' => $this->payment_method === \Modules\Rides\Enums\RidePaymentMethod::Cash
+                ? ($this->status === RideStatus::Completed ? (int) $this->snapshot('wallet_paid_minor', 0) : app(\Modules\Rides\Services\Payment\RidePaymentService::class)->held($this->resource))
+                : 0,
+            // O-10: unread chat messages (the badge); O-09: the number to call from outside the app while the ride is on.
+            'unread_messages' => $this->driver_id !== null ? \Modules\Rides\Services\Chat\RideChatService::unread($this->resource, 'driver') : 0,
+            'call_phone' => $this->driver_id !== null ? \Modules\Rides\Services\Chat\RideChatService::callPhone($this->resource, 'driver') : null,
+            // O-30..O-33: a With Me ride sharing the car — what sharing took off, and with how many.
+            'pool' => $this->pool_id === null ? null : [
+                'discount_minor' => (int) $this->pool_discount_minor,
+                'riders' => \Modules\Rides\Models\Ride::query()->where('pool_id', $this->pool_id)
+                    ->whereIn('status', ['accepted', 'arrived', 'in_progress'])->count(),
+                'share_with' => $this->share_with,
+            ],
             'rated' => $this->status === RideStatus::Completed
                 ? Rating::query()->where('unique_key', Rating::uniqueKeyFor($request->user(), $this->resource))->exists()
                 : null,
+            // O-41: what the captain scores the rider on.
+            'rating_criteria' => $this->status === RideStatus::Completed ? RideRatingService::criteria($this->resource, RatingTarget::Rider) : [],
         ];
     }
 

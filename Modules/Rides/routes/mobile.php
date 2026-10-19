@@ -15,6 +15,23 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:120,1', 'remember-locale'])->group(function () {
         // What is switched on where the rider is: the whole service, each category, each feature (§5).
         Route::get('features', [RideFeaturesController::class, 'index']);
+        // O-22, O-23: bus booking — find a trip, its seats, book; my tickets.
+        Route::get('bus/trips', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'search']);
+        Route::get('bus/trips/{uuid}', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'show'])->whereUuid('uuid');
+        Route::post('bus/trips/{uuid}/book', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'book'])->whereUuid('uuid');
+        Route::get('bus/bookings', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'bookings']);
+        Route::get('bus/bookings/{uuid}', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'booking'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/cancel', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'cancel'])->whereUuid('uuid');
+        // O-25: boats & yachts — sea trips and yachts for hire, book, my bookings, more time.
+        Route::get('marine/listings', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'index']);
+        Route::get('marine/listings/{uuid}', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'show'])->whereUuid('uuid');
+        Route::post('marine/listings/{uuid}/book', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'book'])->whereUuid('uuid');
+        Route::get('marine/bookings', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'bookings']);
+        Route::get('marine/bookings/{uuid}', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'booking'])->whereUuid('uuid');
+        Route::post('marine/bookings/{uuid}/cancel', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'cancel'])->whereUuid('uuid');
+        Route::post('marine/bookings/{uuid}/extend', [\Modules\Rides\Http\Controllers\Marine\RiderMarineController::class, 'extend'])->whereUuid('uuid');
+        // O-03: which map to draw — Google or Mapbox (the admin's choice).
+        Route::get('map-config', \Modules\Rides\Http\Controllers\MapConfigController::class);
         // R-16..R-18: the approved pickup / drop-off points around a place.
         Route::get('pickup-points', [RideController::class, 'pickupPoints']);
         // R-5, R-174: Home, Work, favourite places and recent destinations.

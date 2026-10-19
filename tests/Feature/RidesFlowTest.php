@@ -475,6 +475,115 @@ class RidesFlowTest extends TestCase
             ->assertJsonPath('data.open', false)->assertJsonCount(2, 'data.messages');
     }
 
+    public function test_a_ride_ended_away_from_the_destination_is_refused_unless_ended_early_and_then_repriced(): void
+    {
+        $this->fund($this->rider, 10000);
+        $driver = $this->onlineDriver();
+        $quote = $this->quote()->json('data.0');
+        $total = (int) $quote['total_minor'];
+        $this->assertGreaterThan(1500, $total, 'the trip is worth more than the minimum fare');
+        $uuid = $this->book($quote, 'wallet')->assertCreated()->json('data.uuid');
+
+        $this->acceptAndArrive($driver, $uuid);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/start", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])->assertOk();
+
+        // O-39: "end ride" without having moved — the destination is kilometres away.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])
+            ->assertStatus(422)->assertJsonPath('error_code', 'rides_not_at_destination');
+        $this->assertSame('in_progress', Ride::query()->where('uuid', $uuid)->value('status')->value);
+
+        // O-40: confirmed as an early end, the fare is what was actually driven — not the whole agreed trip,
+        // and not the planned route either when the phone logged no points.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng'], 'early' => true])
+            ->assertOk()->assertJsonPath('data.status', 'completed');
+        $ride = Ride::query()->where('uuid', $uuid)->firstOrFail();
+        $this->assertSame(1500, $ride->final_total_minor, 'the minimum fare, not the '.$total.' agreed for the whole trip');
+        $this->assertSame(10000 - 1500, $this->wallet($this->rider)->spend_only_minor + $this->wallet($this->rider)->withdrawable_minor);
+        $this->assertTrue(\Modules\Rides\Models\RideEvent::query()->where('ride_id', $ride->id)->where('type', 'completed')->where('payload->ended_early', true)->exists(), 'kept for review');
+    }
+
+    public function test_not_enough_in_the_wallet_says_which_wallet_and_what_is_free_and_held(): void
+    {
+        $this->fund($this->rider, 1000);
+        $this->wallet($this->rider)->forceFill(['held_withdrawable_minor' => 300])->save();
+        $quote = $this->quote()->json('data.0');
+
+        // O-38e: the rider sees the ride's own wallet (one per country), its free balance and what is held.
+        $this->book($quote, 'wallet')->assertUnprocessable()
+            ->assertJsonPath('error_code', 'rides_insufficient_balance')
+            ->assertJsonPath('data.available_minor', 700)
+            ->assertJsonPath('data.held_minor', 300)
+            ->assertJsonPath('data.wallet_country', 'SA')
+            ->assertJsonPath('data.shortfall_minor', (int) $quote['total_minor'] - 700);
+    }
+
+    public function test_every_charge_takes_the_non_withdrawable_money_first(): void
+    {
+        $wallets = app(WalletService::class);
+        $wallet = $wallets->firstOrCreateWallet($this->rider, $this->saudi);
+        $wallets->credit($wallet, 300, WalletBucket::SpendOnly, WalletTransactionType::Topup, ['idempotency_key' => 'bonus']);
+        $wallets->credit($wallet, 1000, WalletBucket::Withdrawable, WalletTransactionType::Topup, ['idempotency_key' => 'cash-in']);
+
+        // O-38f: 500 = all 300 non-withdrawable + 200 withdrawable; a retry moves nothing more.
+        $wallets->debitSpendOnlyFirst($wallet, 500, WalletTransactionType::Penalty, ['idempotency_key' => 'fine-1']);
+        $wallets->debitSpendOnlyFirst($wallet, 500, WalletTransactionType::Penalty, ['idempotency_key' => 'fine-1']);
+        $this->assertSame([0, 800], [$this->wallet($this->rider)->spend_only_minor, $this->wallet($this->rider)->withdrawable_minor]);
+
+        // Past what is there, the rest is a withdrawable debt (spend-only never goes below zero).
+        $wallets->debitSpendOnlyFirst($wallet, 1000, WalletTransactionType::Penalty, ['idempotency_key' => 'fine-2']);
+        $this->assertSame([0, -200], [$this->wallet($this->rider)->spend_only_minor, $this->wallet($this->rider)->withdrawable_minor]);
+    }
+
+    public function test_with_me_a_second_rider_on_the_way_joins_the_car_and_the_fares_are_split(): void
+    {
+        // O-30..O-32: a With Me category, priced like Economy, the money split equally (the admin's option).
+        $withMe = RideCategory::query()->create(['slug' => 'with_me', 'pricing_strategy' => 'distance', 'status' => true, 'sort_order' => 2, 'capacity_max' => 1, 'flags' => ['cash_allowed' => true]]);
+        RideFeatureRule::query()->create(['feature' => 'category.with_me', 'country_id' => $this->saudi->id, 'enabled' => true]);
+        RideFeatures::forget();
+        app(RidePolicies::class)->save($this->saudi->id, null, null, $withMe->id, [
+            'price.base_minor' => 600, 'price.per_km_minor' => 180, 'price.per_min_minor' => 30, 'price.min_fare_minor' => 1500,
+            'with_me.split' => 'equal', 'with_me.driver_share_bp' => 2000,
+        ]);
+        $driver = $this->onlineDriver();
+
+        $pick = fn (User $who) => collect($this->quote($who)->json('data'))->firstWhere('category.slug', 'with_me');
+        $first = $this->book($pick($this->rider), 'cash')->assertCreated()->json('data.uuid');
+        $this->acceptAndArrive($driver, $first);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$first/start", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])->assertOk();
+        $fare = (int) Ride::query()->where('uuid', $first)->value('confirmed_snapshot')['breakdown']['fare'];
+
+        // Another rider, the same way: the request comes to the captain already carrying the first one.
+        $second = User::query()->create(['name' => 'Omar Ali', 'phone' => '+966500000077', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+        $uuid2 = $this->book($pick($second), 'cash')->assertCreated()->json('data.uuid');
+        $offer = RideOffer::query()->where('ride_id', Ride::query()->where('uuid', $uuid2)->value('id'))->where('driver_id', $driver->id)->firstOrFail();
+        $this->asDriver($driver)->postJson("/api/driver/v1/offers/{$offer->uuid}/accept")->assertOk();
+
+        // 20% of the newcomer's price is the captain's; the rest comes off both fares, equally.
+        $each = intdiv((int) round($fare * 0.8), 2);
+        $one = Ride::query()->where('uuid', $first)->firstOrFail();
+        $two = Ride::query()->where('uuid', $uuid2)->firstOrFail();
+        $this->assertSame($one->pool_id, $two->pool_id);
+        $this->assertSame($each, (int) $one->pool_discount_minor);
+        $this->assertSame($each, (int) $two->pool_discount_minor);
+
+        // At the end the first rider pays the fare less what sharing took off.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$first/end", ['lat' => self::DROPOFF['lat'], 'lng' => self::DROPOFF['lng']])->assertOk();
+        $this->assertSame($fare - $each, (int) Ride::query()->where('uuid', $first)->value('final_total_minor'));
+    }
+
+    public function test_an_early_end_never_costs_more_than_the_agreed_price(): void
+    {
+        $driver = $this->onlineDriver();
+        $quote = $this->quote()->json('data.0');
+        $uuid = $this->book($quote, 'cash')->assertCreated()->json('data.uuid');
+        $this->acceptAndArrive($driver, $uuid);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/start", ['lat' => self::PICKUP['lat'], 'lng' => self::PICKUP['lng']])->assertOk();
+
+        // A long detour reported by the phone, ending 1.5 km short of the destination.
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/end", ['lat' => 24.7380, 'lng' => 46.6900, 'odometer_m' => 40000, 'early' => true])->assertOk();
+        $this->assertSame((int) $quote['total_minor'], Ride::query()->where('uuid', $uuid)->value('final_total_minor'));
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private function quote(?User $as = null): TestResponse

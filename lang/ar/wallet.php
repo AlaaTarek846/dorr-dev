@@ -68,6 +68,12 @@ return [
     ],
 
     'notes' => [
+        'bus_ticket' => 'تذكرة باص: :route',
+        'bus_earning' => 'أرباح رحلة باص: :route',
+        'bus_commission' => 'عمولة رحلة باص: :route',
+        'marine_booking' => 'حجز مركب: :title',
+        'marine_earning' => 'أرباح مركب: :title',
+        'marine_commission' => 'عمولة مركب: :title',
         'topup' => 'شحن المحفظة',
         'topup_fee' => 'رسوم خدمة الشحن',
         'topup_bonus' => 'هدية الشحن',

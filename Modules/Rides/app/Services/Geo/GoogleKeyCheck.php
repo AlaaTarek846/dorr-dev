@@ -15,7 +15,7 @@ use Modules\Rides\Models\RideSetting;
 class GoogleKeyCheck
 {
     /**
-     * @return array{key_set: bool, source: ?string, hint: ?string, ok: bool, paused: array<string, ?string>, osm_enabled: bool, checks: list<array<string, mixed>>}
+     * @return array{key_set: bool, source: ?string, hint: ?string, ok: bool, paused: array<string, ?string>, provider: string, checks: list<array<string, mixed>>}
      */
     public function run(): array
     {
@@ -32,7 +32,7 @@ class GoogleKeyCheck
                 GoogleGeoProvider::ROUTES => GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES),
                 GoogleGeoProvider::GEOCODING => GoogleGeoProvider::paused(GoogleGeoProvider::GEOCODING),
             ],
-            'osm_enabled' => (bool) config('rides.osm.enabled', true),
+            'provider' => \Modules\Rides\Models\RideSetting::current()->mapProvider(),
             'checks' => [],
         ];
 

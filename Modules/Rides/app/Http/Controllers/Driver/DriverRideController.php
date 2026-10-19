@@ -142,9 +142,13 @@ class DriverRideController extends Controller
 
     public function end(Request $request, string $uuid, RideTripService $trips): JsonResponse
     {
-        $request->validate(['odometer_m' => ['nullable', 'integer', 'min:0', 'max:2000000']]);
+        // `early`: the captain confirmed ending before the destination (the rider getting off sooner).
+        $request->validate(['odometer_m' => ['nullable', 'integer', 'min:0', 'max:2000000'], 'early' => ['nullable', 'boolean']]);
         [$lat, $lng] = $this->point($request);
-        $ride = $trips->end($this->driver($request), $this->find($request, $uuid), $lat, $lng, $request->filled('odometer_m') ? $request->integer('odometer_m') : null, $request->header('Idempotency-Key'));
+        $ride = $trips->end(
+            $this->driver($request), $this->find($request, $uuid), $lat, $lng,
+            $request->filled('odometer_m') ? $request->integer('odometer_m') : null, $request->header('Idempotency-Key'), $request->boolean('early'),
+        );
 
         return ApiResponse::success($this->present($ride, $request), __('rides.messages.completed'));
     }
@@ -178,12 +182,18 @@ class DriverRideController extends Controller
     public function rate(Request $request, string $uuid, RideRatingService $service): JsonResponse
     {
         $data = $request->validate([
-            'stars' => ['required', 'numeric', 'between:1,5'],
+            // O-41: the overall stars, or a score per criterion (their average becomes the stars).
+            'stars' => ['required_without:scores', 'nullable', 'numeric', 'between:1,5'],
+            'scores' => ['nullable', 'array', 'max:10'],
+            'scores.*' => ['integer', 'between:1,5'],
             'tags' => ['nullable', 'array', 'max:10'],
             'tags.*' => ['integer'],
             'comment' => ['nullable', 'string', 'max:1000'],
         ]);
-        $service->byDriver($this->driver($request), $this->find($request, $uuid), (float) $data['stars'], array_map('intval', $data['tags'] ?? []), $data['comment'] ?? null);
+        $service->byDriver(
+            $this->driver($request), $this->find($request, $uuid), isset($data['stars']) ? (float) $data['stars'] : null,
+            array_map('intval', $data['tags'] ?? []), $data['comment'] ?? null, $data['scores'] ?? [],
+        );
 
         return ApiResponse::success(null, __('rides.messages.rated'), 201);
     }
@@ -244,6 +254,14 @@ class DriverRideController extends Controller
             'pickup_distance_m' => $offer->distance_m,
             'pickup_eta_s' => $offer->eta_s,
             'earning_minor' => $offer->driver_net_minor,
+            // O-28: how the earning is made — the fare, DORR's service fee (commission), the tax — before accepting.
+            'money' => ($b = $ride->snapshot('breakdown')) === null ? null : [
+                'fare_minor' => (int) ($b['fare'] ?? 0),
+                'service_fee_minor' => (int) ($b['commission'] ?? 0),
+                'tax_minor' => (int) ($b['tax'] ?? 0),
+                'tax_on_driver' => $ride->snapshot('tax.borne_by') !== 'rider',
+                'net_minor' => (int) ($b['driver_net'] ?? $offer->driver_net_minor),
+            ],
             'rider_rating' => $profile !== null && $profile->rating_count > 0 ? (float) $profile->rating_avg : null,
             'bid' => $ride->status === RideStatus::Bidding ? $this->bidCard($ride, $offer) : null,
             // D-INN-07: the rider chose their favourite captains and this captain is one of them.

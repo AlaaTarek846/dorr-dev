@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -66,22 +67,63 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 /**
- * "Name your price" on the booking sheet (§9.1): − stops at the floor (the suggested price less the
- * admin's percentage); + has no ceiling worth showing.
+ * "Name your price" on the booking sheet (§9.1): typed straight in, or − / + by the server's step
+ * (5 by default — never one unit per tap, O-43). − stops at the floor (the suggested price less the
+ * admin's percentage); + has no ceiling worth showing. A typed price under the floor shows in red.
  */
 @Composable
 internal fun BidPriceEditor(price: Long, floor: Long, suggested: Long, step: Long, currency: RideCurrencyDto?, onChange: (Long) -> Unit) {
     val accent = settingsAccent()
+    val places = currency?.decimals ?: 2
+    val unit = remember(places) { java.math.BigDecimal.TEN.pow(places) }
+    fun shown(minor: Long): String {
+        val major = java.math.BigDecimal.valueOf(minor).divide(unit)
+        return if (major.stripTrailingZeros().scale() <= 0) major.toBigInteger().toString() else String.format(java.util.Locale.US, "%.${places}f", major)
+    }
+    var text by remember { mutableStateOf(shown(price)) }
+    var editing by remember { mutableStateOf(false) }
+    LaunchedEffect(price) { if (!editing) text = shown(price) }
+    val focus = androidx.compose.ui.platform.LocalFocusManager.current
+    val below = price < floor
+
     Column(Modifier.fillMaxWidth().padding(top = 8.dp).clip(RoundedCornerShape(18.dp)).background(accent.copy(alpha = 0.06f)).padding(14.dp), horizontalAlignment = Alignment.CenterHorizontally) {
         Text(stringResource(R.string.rd_bid_your_price), color = settingsMut(), fontSize = 12.sp)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            StepButton(Icons.Rounded.Remove, enabled = price - step >= floor) { onChange((price - step).coerceAtLeast(floor)) }
-            Text(money(price, currency), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 30.sp, modifier = Modifier.padding(horizontal = 18.dp).animateContentSize())
-            StepButton(Icons.Rounded.Add, enabled = true) { onChange(price + step) }
+            StepButton(Icons.Rounded.Remove, enabled = price - step >= floor) { focus.clearFocus(); onChange((price - step).coerceAtLeast(floor)) }
+            Row(
+                Modifier.padding(horizontal = 12.dp).clip(RoundedCornerShape(14.dp))
+                    .border(if (editing) 2.dp else 1.dp, if (below) AppColors.danger else if (editing) accent else accent.copy(alpha = 0.25f), RoundedCornerShape(14.dp))
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                androidx.compose.foundation.text.BasicTextField(
+                    value = text,
+                    onValueChange = { raw ->
+                        val clean = raw.replace(',', '.').filter { it.isDigit() || it == '.' }.take(9)
+                        if (clean.count { it == '.' } > 1 || (places == 0 && clean.contains('.'))) return@BasicTextField
+                        text = clean
+                        clean.toBigDecimalOrNull()?.let { onChange(it.multiply(unit).toLong()) }
+                    },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = if (places > 0) androidx.compose.ui.text.input.KeyboardType.Decimal else androidx.compose.ui.text.input.KeyboardType.Number,
+                        imeAction = androidx.compose.ui.text.input.ImeAction.Done,
+                    ),
+                    keyboardActions = androidx.compose.foundation.text.KeyboardActions(onDone = { focus.clearFocus() }),
+                    textStyle = androidx.compose.ui.text.TextStyle(color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 28.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(accent),
+                    modifier = Modifier.width(110.dp).onFocusChanged { s ->
+                        editing = s.isFocused
+                        if (!s.isFocused) text = shown(price)
+                    },
+                )
+                currency?.symbol?.takeIf { it.isNotBlank() }?.let { Text(it, color = settingsMut(), fontWeight = FontWeight.SemiBold, fontSize = 14.sp) }
+            }
+            StepButton(Icons.Rounded.Add, enabled = true) { focus.clearFocus(); onChange((price + step).coerceAtLeast(floor)) }
         }
         Text(
             stringResource(R.string.rd_bid_hint, money(suggested, currency), money(floor, currency)),
-            color = if (price < suggested) AppColors.warning else settingsMut(), fontSize = 12.sp,
+            color = if (below) AppColors.danger else if (price < suggested) AppColors.warning else settingsMut(), fontSize = 12.sp,
         )
     }
 }

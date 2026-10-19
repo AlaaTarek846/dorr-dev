@@ -48,11 +48,15 @@ class RideQuoteResource extends JsonResource
             'total_minor' => $this->total_minor,
             'estimate' => $this->estimate_min_minor === null ? null : ['min_minor' => $this->estimate_min_minor, 'max_minor' => $this->estimate_max_minor],
             'hold_minor' => $this->hold_minor,
+            // O-37: what the rider's wallet in this ride's country has free — the booking offers it with cash.
+            'wallet_available_minor' => ($w = \Modules\Wallet\Models\Wallet::query()->where('owner_type', 'user')->where('owner_id', $this->user_id)->where('country_id', $this->country_id)->first()) === null
+                ? 0 : app(\Modules\Rides\Services\Payment\RidePaymentService::class)->available($w),
             // Bidding: the rider writes their price between the floor and above (the − button stops at the floor).
             'bid' => ($bid = $this->policy_snapshot['bid'] ?? null) === null ? null : [
                 'suggested_minor' => (int) $bid['suggested'],
                 'floor_minor' => (int) $bid['floor'],
-                'step_minor' => 100,
+                // − / + move by the policy's first step (5 by default) — the rider can also type the price (O-43).
+                'step_minor' => (int) (((array) ($this->policy_snapshot['policy']['bids.counter_steps_minor'] ?? []))[0] ?? 500),
             ],
             // Booking ahead (R-12, R-105): the limits shown under the date picker; not for bidding.
             'scheduling' => ($this->policy_snapshot['bid'] ?? null) !== null ? null : [

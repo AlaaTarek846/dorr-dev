@@ -122,6 +122,26 @@ data class RegulatorDto(
 
 data class PlaceDto(val lat: Double, val lng: Double, val address: String? = null)
 
+data class RatingCriterionDto(val key: String, val label: String? = null)
+
+data class OfferMoneyDto(
+    @SerializedName("fare_minor") val fareMinor: Long = 0,
+    @SerializedName("service_fee_minor") val serviceFeeMinor: Long = 0,
+    @SerializedName("tax_minor") val taxMinor: Long = 0,
+    @SerializedName("tax_on_driver") val taxOnDriver: Boolean = true,
+    @SerializedName("net_minor") val netMinor: Long = 0,
+)
+
+data class MapConfigDto(val provider: String? = "google", @SerializedName("mapbox_token") val mapboxToken: String? = null, @SerializedName("mapbox_style") val mapboxStyle: String? = null)
+
+data class TripPoolDto(@SerializedName("discount_minor") val discountMinor: Long = 0, val riders: Int = 1, @SerializedName("share_with") val shareWith: String? = null)
+
+data class PoolLimitsDto(@SerializedName("min_m") val minM: Int = 1000, @SerializedName("max_m") val maxM: Int = 5000, val editable: Boolean = true)
+
+data class PoolDto(val uuid: String, val mode: String = "route", val destination: PlaceDto, @SerializedName("radius_m") val radiusM: Int = 0, val seats: Int = 4, val rides: List<TripDto> = emptyList())
+
+data class PoolStateDto(val radius: PoolLimitsDto = PoolLimitsDto(), val pool: PoolDto? = null)
+
 data class CurrencyDto(val code: String? = null, val symbol: String? = null, @SerializedName("decimal_places") val decimals: Int = 2)
 
 data class CategoryRefDto(val slug: String? = null, val name: String? = null)
@@ -137,6 +157,8 @@ data class OfferDto(
     @SerializedName("pickup_distance_m") val pickupDistanceM: Int = 0,
     @SerializedName("pickup_eta_s") val pickupEtaS: Int = 0,
     @SerializedName("earning_minor") val earningMinor: Long? = null,
+    /** O-28: the fare, DORR's service fee and the tax behind the earning. */
+    val money: OfferMoneyDto? = null,
     @SerializedName("rider_rating") val riderRating: Double? = null,
     val category: CategoryRefDto? = null,
     @SerializedName("payment_method") val paymentMethod: String? = null,
@@ -186,7 +208,7 @@ data class BidCardDto(
     }
 }
 
-data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null)
+data class RouteDto(@SerializedName("distance_m") val distanceM: Int? = null, @SerializedName("duration_s") val durationS: Int? = null, val polyline: String? = null)
 
 data class RiderDto(val name: String? = null, val rating: Double? = null, @SerializedName("trips_count") val tripsCount: Int = 0)
 
@@ -444,6 +466,14 @@ data class TripDto(
     val uuid: String,
     val number: String? = null,
     val status: String,
+    /** O-34: the planned route, drawn on the trip map. */
+    val route: RouteDto? = null,
+    /** O-30..O-32: sharing the car — what came off this fare, and how many ride now. */
+    val pool: TripPoolDto? = null,
+    /** O-10: the rider's messages not read yet (the badge on the chat button). */
+    @SerializedName("unread_messages") val unreadMessages: Int = 0,
+    /** O-09: the rider's number, to call from outside the app while the ride is on. */
+    @SerializedName("call_phone") val callPhone: String? = null,
     val version: Int = 0,
     val category: CategoryRefDto? = null,
     @SerializedName("payment_method") val paymentMethod: String? = null,
@@ -475,6 +505,8 @@ data class TripDto(
     @SerializedName("change_request") val changeRequest: ChangeRequestDto? = null,
     @SerializedName("safety_check") val safetyCheck: SafetyCheckDto? = null,
     val rated: Boolean? = null,
+    /** O-41: what the captain scores the rider on (manners, punctuality…), each with its own stars. */
+    @SerializedName("rating_criteria") val ratingCriteria: List<RatingCriterionDto> = emptyList(),
 )
 
 data class ReasonDto(val id: Int, val label: String? = null)

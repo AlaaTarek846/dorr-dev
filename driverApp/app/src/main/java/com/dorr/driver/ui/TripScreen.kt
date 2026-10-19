@@ -33,6 +33,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Share
@@ -40,6 +41,8 @@ import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -98,8 +101,9 @@ private val BandShape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.d
  * arrived", the code, start, each stop, end — then the cash (with the change going to the rider's
  * wallet if they want) and the rider's rating.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun TripScreen(onDone: () -> Unit) {
+fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var trip by remember { mutableStateOf<TripDto?>(null) }
@@ -114,6 +118,11 @@ fun TripScreen(onDone: () -> Unit) {
     var sharing by remember { mutableStateOf(false) }
 
     suspend fun refresh() {
+        // O-30: with riders sharing the car, the screen is about one of them (opened from the With Me list).
+        if (rideUuid != null) {
+            (apiCall { DriverBackend.api.ride(rideUuid) } as? ApiResult.Ok)?.let { trip = it.data }
+            return
+        }
         val result = apiCall { DriverBackend.api.currentRide() }
         if (result is ApiResult.Ok && result.data.isJsonObject && result.data.asJsonObject.has("uuid")) {
             trip = Gson().fromJson(result.data, TripDto::class.java)
@@ -126,8 +135,15 @@ fun TripScreen(onDone: () -> Unit) {
     LaunchedEffect(Unit) {
         refresh()
         com.dorr.driver.live.DriverLive.events.collect { e ->
-            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name == "ride.changed") refresh()
+            // O-10: a message counts too — the chat button's badge follows it.
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name == "ride.changed" || e.name == "ride.message") refresh()
         }
+    }
+    // The ride's own channel for the whole ride (its status, the chat's messages), not only while the chat is open.
+    val watched = trip?.uuid
+    androidx.compose.runtime.DisposableEffect(watched) {
+        watched?.let { com.dorr.driver.live.DriverLive.watchRide(it) }
+        onDispose { watched?.let { com.dorr.driver.live.DriverLive.unwatchRide(it) } }
     }
     BackHandler { onDone() }
 
@@ -152,7 +168,34 @@ fun TripScreen(onDone: () -> Unit) {
         return
     }
 
-    Column(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+    // Ending: the server refuses it away from the destination (O-39); the captain then confirms the rider is
+    // getting off sooner, and the fare is worked out on the distance driven (O-40).
+    var earlyEnd by remember { mutableStateOf<String?>(null) }
+    fun endRide(early: Boolean) {
+        busy = true
+        error = null
+        scope.launch {
+            val here = lastPosition(context)
+            if (here == null) { error = context.getString(R.string.home_permissions); busy = false; return@launch }
+            val body = JsonObject().apply {
+                addProperty("lat", here.first)
+                addProperty("lng", here.second)
+                if (early) addProperty("early", true)
+            }
+            when (val result = apiCall { DriverBackend.api.end(CoreHttp.newIdempotencyKey(), t.uuid, body) }) {
+                is ApiResult.Ok -> trip = result.data
+                is ApiResult.Failed ->
+                    if (result.error.errorCode == "rides_not_at_destination") earlyEnd = result.error.displayMessage
+                    else error = result.error.displayMessage
+                is ApiResult.Offline -> error = context.getString(R.string.error_offline)
+            }
+            busy = false
+        }
+    }
+
+    // O-34: the map is the whole screen — the route drawn on it — and the ride's details sit in a sheet
+    // the captain pulls down to see the road, or up for everything. Driving here or in Google Maps: his choice.
+    val statusBand: @Composable () -> Unit = {
         // Status band.
         val (title, band) = when (t.status) {
             "accepted" -> stringResource(R.string.trip_to_pickup) to DorrBrand.navy
@@ -183,8 +226,10 @@ fun TripScreen(onDone: () -> Unit) {
             }
             if (t.status == "arrived") ArrivalClock(t)
         }
+    }
 
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    val details: @Composable () -> Unit = {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Card {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(48.dp).clip(CircleShape).background(DorrBrand.orange.copy(alpha = 0.15f)), contentAlignment = Alignment.Center) {
@@ -196,8 +241,26 @@ fun TripScreen(onDone: () -> Unit) {
                         Text(t.rider?.rating?.let { stringResource(R.string.trip_rider_rating, String.format("%.1f", it)) } ?: stringResource(R.string.offer_new_rider), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     }
                     if (t.status != "completed") {
-                        Box(Modifier.size(46.dp).clip(CircleShape).background(DorrBrand.navy).clickable { chatOpen = true }, contentAlignment = Alignment.Center) {
-                            Icon(Icons.Filled.Chat, stringResource(R.string.trip_chat), tint = Color.White)
+                        // O-09: call the rider from outside the app (their number, while the ride is on).
+                        t.callPhone?.let { phone ->
+                            Box(
+                                Modifier.size(46.dp).clip(CircleShape).background(DorrBrand.success)
+                                    .clickable { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } },
+                                contentAlignment = Alignment.Center,
+                            ) { Icon(Icons.Filled.Call, stringResource(R.string.trip_call), tint = Color.White) }
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        // O-10: the chat, with how many messages wait unread.
+                        Box(Modifier.size(50.dp), contentAlignment = Alignment.Center) {
+                            Box(Modifier.size(46.dp).clip(CircleShape).background(DorrBrand.navy).clickable { chatOpen = true }, contentAlignment = Alignment.Center) {
+                                Icon(Icons.Filled.Chat, stringResource(R.string.trip_chat), tint = Color.White)
+                            }
+                            if (t.unreadMessages > 0) {
+                                Box(
+                                    Modifier.align(Alignment.TopEnd).size(20.dp).clip(CircleShape).background(DorrBrand.danger),
+                                    contentAlignment = Alignment.Center,
+                                ) { Text(if (t.unreadMessages > 9) "9+" else t.unreadMessages.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                            }
                         }
                     }
                 }
@@ -240,10 +303,12 @@ fun TripScreen(onDone: () -> Unit) {
             }
             error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
+    }
 
-        // The one big action.
+    val actions: @Composable () -> Unit = {
+        // The one big action — first in the sheet, so it is there even pulled down.
         if (t.status != "completed") {
-            Column(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface).padding(18.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 when (t.status) {
                     "accepted" -> BigButton(stringResource(R.string.trip_arrived), color = DorrBrand.navy, busy = busy) {
                         act { b -> apiCall { DriverBackend.api.arrive(CoreHttp.newIdempotencyKey(), t.uuid, body(b)) } }
@@ -285,6 +350,34 @@ fun TripScreen(onDone: () -> Unit) {
         }
     }
 
+    val sheet = rememberBottomSheetScaffoldState()
+    val peek = if (t.status == "completed") 560.dp else if (t.status == "in_progress" && t.stops.any { it.status != "done" }) 250.dp else 190.dp
+    BottomSheetScaffold(
+        scaffoldState = sheet,
+        sheetPeekHeight = peek,
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetShadowElevation = 16.dp,
+        sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+        sheetDragHandle = {
+            Box(Modifier.padding(top = 10.dp, bottom = 6.dp).size(width = 40.dp, height = 4.dp).clip(CircleShape).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.15f)))
+        },
+        containerColor = MaterialTheme.colorScheme.background,
+        sheetContent = {
+            Column(
+                Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp).padding(bottom = 18.dp).navigationBarsPadding(),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                actions()
+                details()
+            }
+        },
+    ) {
+        Box(Modifier.fillMaxSize()) {
+            TripMap(t, Modifier.fillMaxSize(), bottomPadding = peek)
+            statusBand()
+        }
+    }
+
     if (pinOpen) PinDialog(onDismiss = { pinOpen = false }) { pin ->
         pinOpen = false
         act { b -> apiCall { DriverBackend.api.start(CoreHttp.newIdempotencyKey(), t.uuid, body(b).apply { addProperty("pin", pin) }) } }
@@ -292,10 +385,23 @@ fun TripScreen(onDone: () -> Unit) {
     if (endConfirm) AlertDialog(
         onDismissRequest = { endConfirm = false },
         title = { Text(stringResource(R.string.trip_end_confirm)) },
-        confirmButton = { TextButton(onClick = { endConfirm = false; act { b -> apiCall { DriverBackend.api.end(CoreHttp.newIdempotencyKey(), t.uuid, body(b)) } } }) { Text(stringResource(R.string.trip_end)) } },
+        confirmButton = { TextButton(onClick = { endConfirm = false; endRide(early = false) }) { Text(stringResource(R.string.trip_end)) } },
         dismissButton = { TextButton(onClick = { endConfirm = false }) { Text(stringResource(R.string.offer_decline)) } },
     )
-    if (chatOpen) TripChat(t, onClose = { chatOpen = false })
+    earlyEnd?.let { message ->
+        AlertDialog(
+            onDismissRequest = { earlyEnd = null },
+            title = { Text(stringResource(R.string.trip_end_early_title)) },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { earlyEnd = null; endRide(early = true) }) {
+                    Text(stringResource(R.string.trip_end_early_confirm), color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = { TextButton(onClick = { earlyEnd = null }) { Text(stringResource(R.string.trip_end_early_keep)) } },
+        )
+    }
+    if (chatOpen) TripChat(t, onClose = { chatOpen = false; scope.launch { refresh() } })
     if (sosOpen) SosSheet(t, onClose = { sosOpen = false }, onReport = { sosOpen = false; reportOpen = true })
     if (reportOpen) DriverReportSheet(t, onClose = { reportOpen = false })
     t.safetyCheck?.let { check -> DriverSafetyCheckDialog(t, check, onDone = { trip = t.copy(safetyCheck = null) }) }
@@ -405,6 +511,28 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
             Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), horizontalArrangement = Arrangement.Center) {
                 (1..5).forEach { i -> Icon(if (i <= stars) Icons.Filled.Star else Icons.Filled.StarBorder, null, tint = if (i <= stars) DorrBrand.warning else Color.Gray, modifier = Modifier.size(40.dp).clickable { stars = i }) }
             }
+            // O-41: a row of stars per criterion, starting at the overall stars.
+            val scores = remember(t.uuid) { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
+            if (stars > 0 && t.ratingCriteria.isNotEmpty()) {
+                Column(
+                    Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                ) {
+                    t.ratingCriteria.forEach { c ->
+                        val value = scores[c.key] ?: stars
+                        Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(c.label ?: c.key, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            (1..5).forEach { i ->
+                                Icon(
+                                    if (i <= value) Icons.Filled.Star else Icons.Filled.StarBorder, null,
+                                    tint = if (i <= value) DorrBrand.warning else Color.Gray,
+                                    modifier = Modifier.size(26.dp).clickable { scores[c.key] = i },
+                                )
+                            }
+                        }
+                    }
+                }
+            }
             if (stars > 0) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     tags.filter { if (stars >= 4) it.sentiment == "positive" else it.sentiment != "positive" }.forEach { tag ->
@@ -418,7 +546,13 @@ private fun Completed(t: TripDto, onNext: () -> Unit, onUpdate: (TripDto) -> Uni
                 BigButton(stringResource(R.string.trip_rate_send), color = DorrBrand.navy, busy = busy) {
                     busy = true
                     scope.launch {
-                        apiCall { DriverBackend.api.rate(t.uuid, JsonObject().apply { addProperty("stars", stars); add("tags", JsonArray().apply { chosen.forEach { add(it) } }) }) }
+                        apiCall {
+                            DriverBackend.api.rate(t.uuid, JsonObject().apply {
+                                addProperty("stars", stars)
+                                if (t.ratingCriteria.isNotEmpty()) add("scores", JsonObject().apply { t.ratingCriteria.forEach { c -> addProperty(c.key, scores[c.key] ?: stars) } })
+                                add("tags", JsonArray().apply { chosen.forEach { add(it) } })
+                            })
+                        }
                         rated = true
                         busy = false
                     }
@@ -478,7 +612,7 @@ private fun TripChat(t: TripDto, onClose: () -> Unit) {
             if (e.name == "ride.message" || e.name == "ride.changed") load()
         }
     }
-    androidx.compose.runtime.DisposableEffect(t.uuid) { onDispose { com.dorr.driver.live.DriverLive.unwatchRide(t.uuid) } }
+    // The trip screen keeps the ride's channel for the whole ride; the chat doesn't close it.
     fun send(body: String?, key: String?) {
         scope.launch {
             val payload = JsonObject().apply { body?.let { addProperty("body", it) }; key?.let { addProperty("quick", it) }; addProperty("client_id", UUID.randomUUID().toString()) }

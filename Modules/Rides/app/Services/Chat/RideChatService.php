@@ -12,6 +12,7 @@ use Modules\Driver\Models\Driver;
 use Modules\Rides\Events\RideMessageSent;
 use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Models\Ride;
+use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Models\RideMessage;
 use Throwable;
 
@@ -122,6 +123,28 @@ class RideChatService
     public static function quickReplies(Model $sender): array
     {
         return array_map(fn (string $key) => ['key' => $key, 'text' => __('rides.quick.'.$key)], self::QUICK[self::side($sender)]);
+    }
+
+    /** O-10: messages from the other side not read yet — the badge on the chat icon. */
+    public static function unread(Ride $ride, string $viewerSide): int
+    {
+        return RideMessage::query()->where('ride_id', $ride->id)->where('sender_type', '!=', $viewerSide)->whereNull('read_at')->count();
+    }
+
+    /**
+     * O-09: the other side's number for a call from outside the app — only while the ride is on
+     * (accepted → in progress), and only where the policy allows it (`calls.reveal_phone`).
+     */
+    public static function callPhone(Ride $ride, string $viewerSide): ?string
+    {
+        if (! in_array($ride->status, [RideStatus::Accepted, RideStatus::Arrived, RideStatus::InProgress], true) || ! (bool) $ride->policy('calls.reveal_phone', true)) {
+            return null;
+        }
+        if ($viewerSide === 'driver') {
+            return ($ride->beneficiary['phone'] ?? null) ?: $ride->rider()->value('phone');
+        }
+
+        return $ride->driver()->value('phone');
     }
 
     private static function side(Model $person): string

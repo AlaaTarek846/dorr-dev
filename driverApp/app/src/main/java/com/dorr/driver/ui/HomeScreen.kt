@@ -393,13 +393,15 @@ fun HomeScreen(
             GoogleMap(
                 modifier = Modifier.fillMaxSize(),
                 cameraPositionState = camera,
-                properties = MapProperties(
+                properties = DriverMap.properties(MapProperties(
                     isMyLocationEnabled = permissionsOk,
                     mapStyleOptions = if (Pal.night) remember { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_night) } else null,
-                ),
+                )),
                 uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
                 contentPadding = PaddingValues(top = 120.dp, bottom = peek),
-            )
+            ) { DriverMapboxTiles() }
+            LaunchedEffect(Unit) { DriverMap.load() }
+            DriverMapboxAttribution(Modifier.align(Alignment.BottomStart).padding(start = 6.dp, bottom = peek + 6.dp))
             // Offline, the map steps back a little.
             val dim by animateFloatAsState(if (online) 0f else 0.18f, tween(400), label = "map-dim")
             if (dim > 0f) Box(Modifier.matchParentSize().background(Pal.bg.copy(alpha = dim)))

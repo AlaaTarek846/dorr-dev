@@ -67,6 +67,9 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('wasl-logs', [WaslLogController::class, 'index']);
         Route::get('wasl-logs/{waslLog}', [WaslLogController::class, 'show'])->whereNumber('waslLog');
 
+        // O-07, O-08: the rides page's maps — the heat map of requests and the captains on the map.
+        Route::get('rides-map/heat', [\Modules\Rides\Http\Controllers\Admin\RideAdminController::class, 'heatMap']);
+        Route::get('rides-map/drivers', [\Modules\Rides\Http\Controllers\Admin\RideAdminController::class, 'driversMap']);
         Route::get('ride-lists/{list}', [RideListController::class, 'index'])->whereIn('list', ['cancel-reasons', 'rating-tags']);
         Route::post('ride-lists/{list}', [RideListController::class, 'store'])->whereIn('list', ['cancel-reasons', 'rating-tags']);
         Route::put('ride-lists/{list}/{id}', [RideListController::class, 'update'])->whereIn('list', ['cancel-reasons', 'rating-tags'])->whereNumber('id');
