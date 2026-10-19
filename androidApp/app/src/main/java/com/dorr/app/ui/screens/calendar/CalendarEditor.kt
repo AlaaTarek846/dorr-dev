@@ -42,11 +42,14 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerColors
 import androidx.compose.material3.TimePickerDefaults
+import androidx.compose.material3.TimePickerSelectionMode
+import androidx.compose.material3.TimePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
@@ -60,12 +63,16 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
@@ -74,6 +81,7 @@ import com.dorr.app.network.CalItemDto
 import com.dorr.app.network.apiFailure
 import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.ui.locale.LocaleAwareDialog
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import com.dorr.app.ui.screens.AccountDark
 import com.dorr.app.ui.screens.ConfirmDialog
 import com.dorr.app.ui.screens.moments.momentColor
@@ -86,6 +94,7 @@ import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.screens.wallet.Wa
 import com.dorr.app.ui.screens.wallet.WaButton
+import com.dorr.app.ui.screens.wallet.WaButtonStyle
 import com.google.gson.JsonArray
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
@@ -390,6 +399,7 @@ private fun SummaryLine(icon: ImageVector, text: String) {
 internal fun SelectRow(icon: ImageVector, value: String, open: Boolean, onOpen: (Boolean) -> Unit, menu: @Composable ColumnScope.() -> Unit) {
     val dark = settingsNight()
     val density = androidx.compose.ui.platform.LocalDensity.current
+    val locale = rememberAppLocaleFrame()
     var fieldWidth by remember { mutableStateOf(0.dp) }
     Box(Modifier.fillMaxWidth().onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }) {
         DorrTextField(
@@ -405,9 +415,11 @@ internal fun SelectRow(icon: ImageVector, value: String, open: Boolean, onOpen: 
             containerColor = if (dark) AccountDark.card else Color.White,
             shape = RoundedCornerShape(16.dp),
             shadowElevation = 10.dp,
-            modifier = Modifier.then(if (fieldWidth > 0.dp) Modifier.width(fieldWidth) else Modifier).heightIn(max = 280.dp),
-            content = menu,
-        )
+            modifier = Modifier.then(if (fieldWidth > 0.dp) Modifier.width(fieldWidth) else Modifier).heightIn(max = 340.dp),
+        ) {
+            val scope = this
+            locale.Provide { scope.menu() }
+        }
     }
 }
 
@@ -463,11 +475,16 @@ internal fun CalDatePickerDialog(initial: LocalDate, onDismiss: () -> Unit, onPi
                     }
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.End) {
-                TextButton(onDismiss) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) }
-                TextButton({ onPick(chosen) }) { Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold) }
-            }
+            PickerActions(onDismiss = onDismiss, onOk = { onPick(chosen) })
         }
+    }
+}
+
+@Composable
+private fun PickerActions(onDismiss: () -> Unit, onOk: () -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        WaButton(stringResource(R.string.cal_cancel), onDismiss, style = WaButtonStyle.Ghost, compact = true, modifier = Modifier.weight(1f))
+        WaButton(stringResource(R.string.cal_ok), onOk, compact = true, modifier = Modifier.weight(1f))
     }
 }
 
@@ -483,23 +500,76 @@ private fun MonthArrow(icon: ImageVector, onClick: () -> Unit) {
 @Composable
 internal fun CalTimePickerDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (LocalTime) -> Unit) {
     val state = rememberTimePickerState(initial.hour, initial.minute, is24Hour = android.text.format.DateFormat.is24HourFormat(LocalContext.current))
+    val locale = calLocale()
+    val colors = TimePickerDefaults.colors(
+        selectorColor = Wa.Red,
+        containerColor = Wa.Surface,
+        clockDialColor = Wa.Field,
+        clockDialSelectedContentColor = Color.White,
+        clockDialUnselectedContentColor = Wa.Ink,
+        periodSelectorSelectedContainerColor = Wa.Red.copy(alpha = 0.15f),
+        periodSelectorSelectedContentColor = Wa.Red,
+        periodSelectorUnselectedContainerColor = Wa.Field,
+        periodSelectorUnselectedContentColor = Wa.Ink,
+        timeSelectorSelectedContainerColor = Color.Transparent,
+        timeSelectorSelectedContentColor = Color.Transparent,
+        timeSelectorUnselectedContainerColor = Color.Transparent,
+        timeSelectorUnselectedContentColor = Color.Transparent,
+    )
     LocaleAwareDialog(onDismissRequest = onDismiss) {
-        Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Wa.Surface).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            TimePicker(
-                state,
-                colors = TimePickerDefaults.colors(
-                    selectorColor = Wa.Red,
-                    clockDialSelectedContentColor = Color.White,
-                    periodSelectorSelectedContainerColor = Wa.Red.copy(alpha = 0.15f),
-                    periodSelectorSelectedContentColor = Wa.Red,
-                    timeSelectorSelectedContainerColor = Wa.Red.copy(alpha = 0.15f),
-                    timeSelectorSelectedContentColor = Wa.Red,
-                ),
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onDismiss) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) }
-                TextButton({ onPick(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold) }
+        Column(
+            Modifier.fillMaxWidth().clip(RoundedCornerShape(28.dp)).background(Wa.Surface).padding(horizontal = 16.dp, vertical = 14.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TimeChip(
+                        String.format(locale, "%02d", state.hour),
+                        selected = state.selection == TimePickerSelectionMode.Hour,
+                    ) { state.selection = TimePickerSelectionMode.Hour }
+                    Text(":", color = Wa.Ink, fontSize = 26.sp, fontWeight = FontWeight.ExtraBold)
+                    TimeChip(
+                        String.format(locale, "%02d", state.minute),
+                        selected = state.selection == TimePickerSelectionMode.Minute,
+                    ) { state.selection = TimePickerSelectionMode.Minute }
+                }
+                Spacer(Modifier.height(16.dp))
+                AnalogClockOnly(state, colors)
             }
+            PickerActions(onDismiss = onDismiss, onOk = { onPick(LocalTime.of(state.hour, state.minute)) })
         }
+    }
+}
+
+/** Analog dial only — LTR so Arabic and English both get a round clock, not a clipped RTL mess. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AnalogClockOnly(state: TimePickerState, colors: TimePickerColors) {
+    val header = 132.dp
+    Layout(
+        modifier = Modifier.fillMaxWidth(),
+        content = { TimePicker(state, colors = colors, modifier = Modifier.fillMaxWidth()) },
+    ) { measurables, constraints ->
+        val headerPx = header.roundToPx()
+        val width = if (constraints.maxWidth == Constraints.Infinity) constraints.minWidth else constraints.maxWidth
+        val placeable = measurables.first().measure(
+            Constraints(minWidth = width, maxWidth = width, minHeight = 0, maxHeight = Constraints.Infinity),
+        )
+        val h = (placeable.height - headerPx).coerceAtLeast(0)
+        layout(placeable.width, h) { placeable.place(0, -headerPx) }
+    }
+}
+
+@Composable
+private fun TimeChip(value: String, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
+    Box(
+        Modifier.width(88.dp).height(56.dp).clip(shape)
+            .background(if (selected) Wa.Red.copy(alpha = 0.16f) else Wa.Field)
+            .border(1.dp, if (selected) Wa.Red.copy(alpha = 0.75f) else Wa.Mut.copy(alpha = 0.32f), shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(value, color = if (selected) Wa.Red else Wa.Ink, fontSize = 28.sp, fontWeight = FontWeight.ExtraBold)
     }
 }

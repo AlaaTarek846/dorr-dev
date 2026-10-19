@@ -34,15 +34,35 @@ class DiscoverOrganizerController extends Controller implements HasMiddleware
             'status' => ['nullable', Rule::in(DiscoverOrganizer::STATUSES)],
             'search' => ['nullable', 'string', 'max:100'],
             'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
+            'status_counts' => ['nullable', 'boolean'],
         ]);
         $page = DiscoverOrganizer::query()->withCount('events')
             ->when($filters['status'] ?? null, fn ($q, $s) => $q->where('status', $s))
-            ->when($filters['search'] ?? null, fn ($q, $s) => $q->where('name', 'like', '%'.$s.'%'))
+            ->when($filters['search'] ?? null, function ($q, $s) {
+                $q->where(function ($q) use ($s) {
+                    $q->where('name', 'like', '%'.$s.'%')
+                        ->orWhere('email', 'like', '%'.$s.'%')
+                        ->orWhere('phone', 'like', '%'.$s.'%');
+                });
+            })
             ->latest('id')->paginate((int) ($filters['per_page'] ?? 15));
 
-        return ApiResponse::success($page->getCollection()->map(fn (DiscoverOrganizer $o) => $this->present($o))->values(), __('api.retrieved'), 200, ApiPaginator::meta($page), [
-            'pending_count' => DiscoverOrganizer::query()->where('status', 'pending')->count(),
-        ]);
+        $extra = [];
+        if ($request->boolean('status_counts')) {
+            $counts = DiscoverOrganizer::query()
+                ->selectRaw('status, count(*) as aggregate')
+                ->groupBy('status')
+                ->pluck('aggregate', 'status');
+            $extra['status_counts'] = [
+                'total' => (int) $counts->sum(),
+                'pending' => (int) ($counts['pending'] ?? 0),
+                'verified' => (int) ($counts['verified'] ?? 0),
+                'rejected' => (int) ($counts['rejected'] ?? 0),
+                'suspended' => (int) ($counts['suspended'] ?? 0),
+            ];
+        }
+
+        return ApiResponse::success($page->getCollection()->map(fn (DiscoverOrganizer $o) => $this->present($o))->values(), __('api.retrieved'), 200, ApiPaginator::meta($page), $extra);
     }
 
     public function show(DiscoverOrganizer $discoverOrganizer)
@@ -76,7 +96,9 @@ class DiscoverOrganizerController extends Controller implements HasMiddleware
         return [
             'id' => $o->id, 'name' => $o->name, 'about' => $o->about, 'website' => $o->website, 'phone' => $o->phone, 'email' => $o->email,
             'status' => $o->status, 'review_note' => $o->review_note, 'verified_at' => $o->verified_at?->toIso8601String(),
-            'events_count' => (int) ($o->events_count ?? 0), 'created_at' => $o->created_at?->toIso8601String(),
+            'events_count' => (int) ($o->events_count ?? 0),
+            'created_at' => $o->created_at?->toIso8601String(),
+            'updated_at' => $o->updated_at?->toIso8601String(),
             'account' => $account ? ['type' => $o->owner_type, 'id' => $account->getKey(), 'name' => $account->name ?? null, 'phone' => $account->phone ?? null] : null,
         ];
     }

@@ -24,6 +24,16 @@ interface EventsApi {
     @GET("mobile/v1/discover/home")
     suspend fun home(@Header("Authorization") auth: String, @Query("timezone") timezone: String): ApiEnvelope<DiscHomeDto>
 
+    /** The next 15 of a home strip — the app scrolls the row; it does not open a new page. */
+    @GET("mobile/v1/discover/sections/{key}")
+    suspend fun section(
+        @Header("Authorization") auth: String,
+        @Path("key") key: String,
+        @Query("timezone") timezone: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<DiscEventDto>>
+
     @GET("mobile/v1/discover/events")
     suspend fun events(
         @Header("Authorization") auth: String,
@@ -39,6 +49,7 @@ interface EventsApi {
         @Query("q") q: String? = null,
         @Query("sort") sort: String? = null,
         @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
     ): ApiEnvelope<List<DiscEventDto>>
 
     /** What's on where I'm going, on my dates — the days cut in that city's own zone (AT-DISC-03). */
@@ -58,6 +69,13 @@ interface EventsApi {
     @POST("mobile/v1/discover/ask")
     suspend fun ask(@Header("Authorization") auth: String, @Body body: JsonObject, @Query("timezone") timezone: String): ApiEnvelope<DiscAskDto>
 
+    @GET("mobile/v1/discover/categories")
+    suspend fun categories(
+        @Header("Authorization") auth: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<DiscCategoryDto>>
+
     @GET("mobile/v1/discover/cities")
     suspend fun cities(
         @Header("Authorization") auth: String,
@@ -66,13 +84,14 @@ interface EventsApi {
         @Query("with_events") withEvents: Int? = null,
     ): ApiEnvelope<List<DiscCityDto>>
 
-    /** A country's regions with something on, a batch at a time (default: where I am). */
+    /** A country's regions, a batch at a time (default: where I am). `with_events=1` (home) keeps those with something on. */
     @GET("mobile/v1/discover/regions")
     suspend fun regions(
         @Header("Authorization") auth: String,
         @Query("country_id") countryId: Int? = null,
         @Query("page") page: Int = 1,
         @Query("per_page") perPage: Int = 10,
+        @Query("with_events") withEvents: Int? = null,
     ): ApiEnvelope<List<DiscRegionDto>>
 
     /** Where Discover is on — the place filter's first step. */
@@ -90,7 +109,13 @@ interface EventsApi {
     suspend fun uninterest(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
 
     @GET("mobile/v1/discover/interests")
-    suspend fun interests(@Header("Authorization") auth: String, @Query("timezone") timezone: String, @Query("past") past: Int = 0): ApiEnvelope<List<DiscEventDto>>
+    suspend fun interests(
+        @Header("Authorization") auth: String,
+        @Query("timezone") timezone: String,
+        @Query("past") past: Int = 0,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+    ): ApiEnvelope<List<DiscEventDto>>
 
     @PUT("mobile/v1/discover/preferences")
     suspend fun savePreferences(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<DiscPrefsDto>
@@ -111,7 +136,13 @@ interface EventsApi {
     suspend fun room(@Header("Authorization") auth: String, @Path("id") id: String, @Body body: JsonObject): ApiEnvelope<JsonObject>
 
     @GET("mobile/v1/discover/organizer")
-    suspend fun organizer(@Header("Authorization") auth: String, @Query("timezone") timezone: String): ApiEnvelope<DiscOrganizerHomeDto>
+    suspend fun organizer(
+        @Header("Authorization") auth: String,
+        @Query("timezone") timezone: String,
+        @Query("page") page: Int = 1,
+        @Query("per_page") perPage: Int = 15,
+        @Query("q") q: String? = null,
+    ): ApiEnvelope<DiscOrganizerHomeDto>
 
     /** `{name, about?, website?, phone?, email?}` */
     @POST("mobile/v1/discover/organizer")
@@ -169,6 +200,12 @@ data class DiscRegionsDto(val items: List<DiscRegionDto> = emptyList(), val meta
 
 data class DiscCountryDto(val id: Int = 0, val name: String? = null, val code: String? = null)
 
+data class DiscCurrencyDto(
+    val code: String? = null,
+    val symbol: String? = null,
+    @SerializedName("decimal_places") val decimalPlaces: Int = 2,
+)
+
 data class DiscCityDto(
     val id: Int = 0,
     val name: String? = null,
@@ -176,6 +213,7 @@ data class DiscCityDto(
     @SerializedName("country_id") val countryId: Int? = null,
     @SerializedName("region_id") val regionId: Int? = null,
     val timezone: String? = null,
+    val currency: DiscCurrencyDto? = null,
 )
 
 data class DiscOrganizerRefDto(val name: String? = null, val verified: Boolean = false)
@@ -208,6 +246,8 @@ data class DiscEventDto(
     @SerializedName("my_time") val myTime: String? = null,
     @SerializedName("is_free") val isFree: Boolean = false,
     @SerializedName("price_text") val priceText: String? = null,
+    @SerializedName("price_display") val priceDisplay: String? = null,
+    val currency: DiscCurrencyDto? = null,
     @SerializedName("family_friendly") val familyFriendly: Boolean = false,
     val status: String = "confirmed",
     val verified: Boolean = false,
@@ -231,7 +271,11 @@ data class DiscEventDto(
     @SerializedName("review_note") val reviewNote: String? = null,
 )
 
-data class DiscSectionDto(val key: String = "", val items: List<DiscEventDto> = emptyList())
+data class DiscSectionDto(
+    val key: String = "",
+    val items: List<DiscEventDto> = emptyList(),
+    @SerializedName("has_more") val hasMore: Boolean = false,
+)
 
 data class DiscPrefsDto(
     val categories: List<Int> = emptyList(),

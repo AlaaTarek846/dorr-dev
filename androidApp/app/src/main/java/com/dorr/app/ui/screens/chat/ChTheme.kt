@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.chat
 
 import android.content.Context
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -40,9 +41,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.dorr.app.chat.ChatStore
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.theme.LocalThemeState
+import com.dorr.app.ui.theme.appearanceColor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -83,9 +90,9 @@ import kotlin.math.absoluteValue
  */
 object Ch {
     /**
-     * Dark mode for the chat — set by ChatScreen from the app's theme (the user's choice, or the
-     * system's). It's snapshot state, so every screen reading a colour below redraws on its own
-     * when it flips; nothing else in the chat hard-codes light colours.
+     * Dark mode for the chat — kept in sync with the app's appearance ([BindChatAppearance], and
+     * ChatScreen if the chat has its own light/dark choice). Snapshot state so every screen
+     * reading a colour below redraws on its own when it flips.
      */
     var dark by androidx.compose.runtime.mutableStateOf(false)
 
@@ -188,6 +195,27 @@ data class ChPalette(
     val danger: Color,
     val success: Color,
 )
+
+/**
+ * Copy the appearance tokens into [Ch] so chat sheets (people picker, clock, …) match night mode
+ * even when ChatScreen is not on screen.
+ */
+@Composable
+fun BindChatAppearance() {
+    val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val chatDark = when (ChatStore.themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> appDark
+    }
+    val palette = chatPaletteFromSettings(chatDark)
+    val accent = if (chatDark) AccountDark.accent else appearanceColor("primary", AppColors.waRed, night = false)
+    SideEffect {
+        Ch.dark = chatDark
+        Ch.accent = accent
+        Ch.palette = palette
+    }
+}
 
 /** Read the chat's palette from the appearance settings (same tokens as the wallet / profile). */
 @Composable
