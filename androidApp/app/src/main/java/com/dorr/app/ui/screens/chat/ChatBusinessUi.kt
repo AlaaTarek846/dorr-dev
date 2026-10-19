@@ -64,6 +64,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
@@ -462,7 +463,24 @@ internal fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (
     val state = rememberTimePickerState(initial.hour, initial.minute, is24Hour = android.text.format.DateFormat.is24HourFormat(LocalContext.current))
     LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Ch.Surface).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            TimePicker(state)
+            TimePicker(
+                state,
+                colors = TimePickerDefaults.colors(
+                    selectorColor = Ch.Red,
+                    containerColor = Ch.Surface,
+                    clockDialColor = Ch.SurfaceMuted,
+                    clockDialSelectedContentColor = Color.White,
+                    clockDialUnselectedContentColor = Ch.Ink,
+                    periodSelectorSelectedContainerColor = Ch.Red.copy(alpha = 0.15f),
+                    periodSelectorSelectedContentColor = Ch.Red,
+                    periodSelectorUnselectedContainerColor = Ch.SurfaceMuted,
+                    periodSelectorUnselectedContentColor = Ch.Ink,
+                    timeSelectorSelectedContainerColor = Ch.Red.copy(alpha = 0.15f),
+                    timeSelectorSelectedContentColor = Ch.Red,
+                    timeSelectorUnselectedContainerColor = Ch.SurfaceMuted,
+                    timeSelectorUnselectedContentColor = Ch.Ink,
+                ),
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) }
                 TextButton({ onPick(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold) }

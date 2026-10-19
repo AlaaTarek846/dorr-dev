@@ -21,10 +21,24 @@ class OrganizerController extends Controller
         private readonly DiscoverService $discover,
     ) {}
 
-    /** GET organizer — my organizer profile (or null) and my events. */
+    /** GET organizer — my organizer profile (or null) and my events, 15 at a time. */
     public function show(Request $request)
     {
-        return ApiResponse::success($this->organizers->dashboard($request->user(), $this->zone($request)), __('api.retrieved'));
+        $data = $request->validate([
+            'page' => ['nullable', 'integer', 'min:1'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:50'],
+            'timezone' => ['nullable', 'timezone:all'],
+            'q' => ['nullable', 'string', 'max:100'],
+        ]);
+        $dash = $this->organizers->dashboard(
+            $request->user(),
+            $this->zone($request),
+            (int) ($data['page'] ?? 1),
+            (int) ($data['per_page'] ?? OrganizerService::EVENTS_PAGE),
+            isset($data['q']) ? trim((string) $data['q']) : null,
+        );
+
+        return ApiResponse::success($dash['data'], __('api.retrieved'), 200, $dash['pagination']);
     }
 
     public function apply(Request $request)
@@ -45,7 +59,7 @@ class OrganizerController extends Controller
     {
         $event = $this->organizers->submit($request->user(), $this->validated($request, true), $request->file('cover'));
 
-        return ApiResponse::created($this->discover->presentFull($event->load(['category.translations', 'city.translations', 'country', 'organizer', 'media']), $this->zone($request), null, $request->user()), __('api.created'));
+        return ApiResponse::created($this->discover->presentFull($event->load(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media']), $this->zone($request), null, $request->user()), __('api.created'));
     }
 
     /** POST organizer/events/{event} (multipart: the cover can change). */
@@ -53,7 +67,7 @@ class OrganizerController extends Controller
     {
         $event = $this->organizers->update($request->user(), $event, $this->validated($request, false), $request->file('cover'));
 
-        return ApiResponse::success($this->discover->presentFull($event->load(['category.translations', 'city.translations', 'country', 'organizer', 'media']), $this->zone($request), null, $request->user()), __('api.updated'));
+        return ApiResponse::success($this->discover->presentFull($event->load(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media']), $this->zone($request), null, $request->user()), __('api.updated'));
     }
 
     /** POST organizer/events/{event}/status {status, note?, starts_at?} (175). */
@@ -66,7 +80,7 @@ class OrganizerController extends Controller
         ]);
         $event = $this->organizers->changeStatus($request->user(), $event, $data['status'], $data['note'] ?? null, $data['starts_at'] ?? null);
 
-        return ApiResponse::success($this->discover->presentFull($event->load(['category.translations', 'city.translations', 'country', 'organizer', 'media']), $this->zone($request), null, $request->user()), __('api.updated'));
+        return ApiResponse::success($this->discover->presentFull($event->load(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media']), $this->zone($request), null, $request->user()), __('api.updated'));
     }
 
     /**

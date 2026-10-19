@@ -2,9 +2,11 @@
 
 namespace Modules\Discover\Services;
 
+use App\Support\Api\ApiPaginator;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -22,6 +24,8 @@ use Modules\Discover\Models\DiscoverOrganizer;
 class OrganizerService
 {
     public const FIELDS = ['title', 'description', 'language', 'category_id', 'venue', 'address', 'lat', 'lng', 'is_free', 'price_text', 'source_url', 'booking_url', 'family_friendly'];
+
+    public const EVENTS_PAGE = 15;
 
     public function __construct(
         private readonly DiscoverService $discover,
@@ -140,17 +144,27 @@ class OrganizerService
     }
 
     /**
-     * @return array<string, mixed>
+     * @return array{data: array<string, mixed>, pagination: array<string, mixed>}
      */
-    public function dashboard(Model $me, string $zone): array
+    public function dashboard(Model $me, string $zone, int $page = 1, int $perPage = self::EVENTS_PAGE, ?string $q = null): array
     {
+        $page = max(1, $page);
+        $perPage = max(1, min($perPage, 50));
         $organizer = $this->mine($me);
-        $events = $organizer === null ? collect() : $organizer->events()->with(['category.translations', 'city.translations', 'country', 'organizer', 'media'])->latest('id')->limit(100)->get();
+        $term = $q !== null && trim($q) !== '' ? '%'.trim($q).'%' : null;
+        $paginator = $organizer === null
+            ? new LengthAwarePaginator([], 0, $perPage, $page)
+            : $organizer->events()->with(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media'])
+                ->when($term !== null, fn ($query) => $query->where(fn ($w) => $w->where('title', 'like', $term)->orWhere('venue', 'like', $term)->orWhere('description', 'like', $term)))
+                ->latest('id')->paginate($perPage, ['*'], 'page', $page);
 
         return [
-            'organizer' => $this->presentOrganizer($organizer),
-            'can_submit' => (bool) $this->discover->settings()->submissions_enabled,
-            'events' => $events->map(fn (DiscoverEvent $e) => $this->discover->present($e, $zone) + ['review_status' => $e->review_status, 'review_note' => $e->review_note])->values()->all(),
+            'data' => [
+                'organizer' => $this->presentOrganizer($organizer),
+                'can_submit' => (bool) $this->discover->settings()->submissions_enabled,
+                'events' => $paginator->getCollection()->map(fn (DiscoverEvent $e) => $this->discover->present($e, $zone) + ['review_status' => $e->review_status, 'review_note' => $e->review_note])->values()->all(),
+            ],
+            'pagination' => ApiPaginator::meta($paginator),
         ];
     }
 

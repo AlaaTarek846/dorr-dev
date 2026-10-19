@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -45,6 +46,7 @@ import com.dorr.app.network.DiscCategoryDto
 import androidx.compose.material.icons.rounded.ConfirmationNumber
 import androidx.compose.material.icons.rounded.FamilyRestroom
 import androidx.compose.material.icons.rounded.LocalFireDepartment
+import androidx.compose.material.icons.rounded.Search
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -62,11 +64,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
 import com.dorr.app.network.ApiClient
+import com.dorr.app.network.AuthSession
 import com.dorr.app.network.DiscCityDto
+import com.dorr.app.ui.components.DorrTextField
 import com.dorr.app.network.DiscCountryDto
 import com.dorr.app.network.DiscRegionDto
 import com.dorr.app.network.DiscRegionsDto
@@ -105,12 +110,12 @@ internal object EvPlaces {
     suspend fun countries(): List<DiscCountryDto> =
         countries ?: runCatching { ApiClient.events.countries(evAuth()).data }.getOrNull().orEmpty().also { if (it.isNotEmpty()) countries = it }
 
-    /** All of a country's regions with something on (the sheet shows them at once). */
-    suspend fun regions(countryId: Int): List<DiscRegionDto> {
+    /** All of a country's dashboard regions (the filter); `withEvents` is the home strip. */
+    suspend fun regions(countryId: Int, withEvents: Boolean = false): List<DiscRegionDto> {
         val all = mutableListOf<DiscRegionDto>()
         var page = 1
         while (page <= 10) {
-            val r = runCatching { ApiClient.events.regions(evAuth(), countryId, page, 50) }.getOrNull() ?: break
+            val r = runCatching { ApiClient.events.regions(evAuth(), countryId, page, 50, withEvents = if (withEvents) 1 else 0) }.getOrNull() ?: break
             all += r.data.orEmpty()
             if (r.pagination?.hasMorePages != true) break
             page++
@@ -118,8 +123,8 @@ internal object EvPlaces {
         return all
     }
 
-    suspend fun cities(regionId: Int): List<DiscCityDto> =
-        runCatching { ApiClient.events.cities(evAuth(), regionId = regionId, withEvents = 1).data }.getOrNull().orEmpty()
+    suspend fun cities(regionId: Int, withEvents: Boolean = false): List<DiscCityDto> =
+        runCatching { ApiClient.events.cities(evAuth(), regionId = regionId, withEvents = if (withEvents) 1 else 0).data }.getOrNull().orEmpty()
 }
 
 /**
@@ -181,38 +186,63 @@ private fun RegionChip(region: DiscRegionDto, onClick: () -> Unit) {
     }
 }
 
-/** What the list is narrowed to, over the results — each part can be dropped with its ✕ (a place part takes what is under it). */
-@OptIn(ExperimentalLayoutApi::class)
+/** What the list is narrowed to, under the search — one row, each chip drops that part with ✕. */
 @Composable
-internal fun PlaceChips(place: EvPlace, kind: DiscCategoryDto?, whenPick: When, onPlace: (EvPlace) -> Unit, onKind: () -> Unit, onWhen: () -> Unit) {
-    if (!place.isSet && kind == null && whenPick == When.Any) return
-    FlowRow(Modifier.fillMaxWidth().animateContentSize(), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        place.countryName?.let { SetChip(Icons.Rounded.Public, it) { onPlace(EvPlace()) } }
-        place.regionName?.let { SetChip(Icons.Rounded.Map, it) { onPlace(place.copy(regionId = null, regionName = null, cityId = null, cityName = null)) } }
-        place.cityName?.let { SetChip(Icons.Rounded.LocationCity, it) { onPlace(place.copy(cityId = null, cityName = null)) } }
-        kind?.let { SetChip(Icons.Rounded.Category, listOfNotNull(it.emoji, it.name).joinToString(" "), onKind) }
-        if (whenPick != When.Any) SetChip(Icons.Rounded.Schedule, stringResource(when (whenPick) {
-            When.Today -> R.string.ev_when_today
-            When.Weekend -> R.string.ev_when_weekend
-            When.Week -> R.string.ev_when_week
-            else -> R.string.ev_when_month
-        }), onWhen)
+internal fun FilterChips(filter: EvFilter, kind: DiscCategoryDto?, onChange: (EvFilter) -> Unit) {
+    val place = filter.place
+    if (!place.isSet && kind == null && filter.whenPick == When.Any && !filter.free && !filter.family && !filter.popular) return
+    data class Chip(val icon: ImageVector, val text: String, val onRemove: () -> Unit)
+    val chips = buildList {
+        place.countryName?.let { add(Chip(Icons.Rounded.Public, it) { onChange(filter.copy(place = EvPlace())) }) }
+        if (place.cityId == null) {
+            place.regionName?.let { add(Chip(Icons.Rounded.Map, it) { onChange(filter.copy(place = place.copy(regionId = null, regionName = null, cityId = null, cityName = null))) }) }
+        }
+        place.cityName?.let { add(Chip(Icons.Rounded.LocationCity, it) { onChange(filter.copy(place = place.copy(cityId = null, cityName = null))) }) }
+        kind?.let { c -> add(Chip(Icons.Rounded.Category, listOfNotNull(c.emoji, c.name).joinToString(" ")) { onChange(filter.copy(categoryId = null)) }) }
+        if (filter.whenPick != When.Any) {
+            val label = stringResource(when (filter.whenPick) {
+                When.Today -> R.string.ev_when_today
+                When.Weekend -> R.string.ev_when_weekend
+                When.Week -> R.string.ev_when_week
+                else -> R.string.ev_when_month
+            })
+            add(Chip(Icons.Rounded.Schedule, label) { onChange(filter.copy(whenPick = When.Any)) })
+        }
+        if (filter.free) add(Chip(Icons.Rounded.ConfirmationNumber, stringResource(R.string.ev_free)) { onChange(filter.copy(free = false)) })
+        if (filter.family) add(Chip(Icons.Rounded.FamilyRestroom, stringResource(R.string.ev_family)) { onChange(filter.copy(family = false)) })
+        if (filter.popular) add(Chip(Icons.Rounded.LocalFireDepartment, stringResource(R.string.ev_popular)) { onChange(filter.copy(popular = false)) })
+    }
+    LazyRow(
+        Modifier.fillMaxWidth().padding(top = 10.dp).animateContentSize(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(chips.size) { i ->
+            val chip = chips[i]
+            FilterChip(chip.icon, chip.text, chip.onRemove)
+        }
     }
 }
 
 @Composable
-private fun SetChip(icon: ImageVector, text: String, onRemove: () -> Unit) {
+private fun FilterChip(icon: ImageVector, text: String, onRemove: () -> Unit) {
     Row(
-        Modifier.clip(CircleShape).background(Wa.Red.copy(alpha = 0.1f)).padding(start = 10.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+        Modifier
+            .height(34.dp)
+            .clip(CircleShape)
+            .background(Wa.Red.copy(alpha = 0.12f))
+            .border(1.dp, Wa.Red.copy(alpha = 0.28f), CircleShape)
+            .padding(start = 10.dp, end = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(15.dp))
-        Spacer(Modifier.width(5.dp))
-        Text(text, color = Wa.Red, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Icon(
-            Icons.Rounded.Close, stringResource(R.string.ev_place_clear), tint = Wa.Red,
-            modifier = Modifier.padding(start = 2.dp).size(22.dp).clip(CircleShape).clickable(onClick = onRemove).padding(3.dp),
-        )
+        Spacer(Modifier.width(6.dp))
+        Text(text, color = Wa.Red, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 148.dp))
+        Box(
+            Modifier.padding(start = 2.dp).size(24.dp).clip(CircleShape).clickable(onClick = onRemove),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(Icons.Rounded.Close, stringResource(R.string.ev_place_clear), tint = Wa.Red, modifier = Modifier.size(14.dp))
+        }
     }
 }
 
@@ -244,10 +274,14 @@ internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>,
     fun setPlace(next: EvPlace) { filter = filter.copy(place = next) }
 
     LaunchedEffect(Unit) {
-        val list = EvPlaces.countries()
+        val mine = AuthSession.user?.country?.code ?: myCountryCode
+        val list = EvPlaces.countries().withMineFirst(mine)
         countries = list
-        // Nothing chosen yet: start from the country I'm in.
-        if (place.countryId == null) list.firstOrNull { it.code == myCountryCode }?.let { setPlace(place.copy(countryId = it.id, countryName = it.name?.takeIf { n -> n.isNotBlank() } ?: it.code)) }
+        // Nothing chosen yet: the country I signed up with, else where I am.
+        if (place.countryId == null) {
+            val start = list.firstOrNull { it.code.equals(mine, ignoreCase = true) } ?: list.firstOrNull()
+            start?.let { setPlace(place.copy(countryId = it.id, countryName = it.name?.takeIf { n -> n.isNotBlank() } ?: it.code)) }
+        }
     }
     LaunchedEffect(place.countryId) {
         regions = null
@@ -293,7 +327,7 @@ internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>,
                     stringResource(R.string.ev_region), Icons.Rounded.Map, place.regionName ?: stringResource(R.string.ev_all_regions),
                     enabled = place.countryId != null,
                     options = listOf(stringResource(R.string.ev_all_regions) to { setPlace(place.copy(regionId = null, regionName = null, cityId = null, cityName = null)) }) +
-                        regions.orEmpty().map { r -> "${r.name.orEmpty()} · ${r.eventsCount}" to { setPlace(place.copy(regionId = r.id, regionName = r.name, cityId = null, cityName = null)) } },
+                        regions.orEmpty().map { r -> r.name.orEmpty() to { setPlace(place.copy(regionId = r.id, regionName = r.name, cityId = null, cityName = null)) } },
                     selected = place.regionName,
                 )
                 FilterSelect(
@@ -313,17 +347,28 @@ internal fun EvFilterSheet(current: EvFilter, categories: List<DiscCategoryDto>,
     }
 }
 
-/** A select with a label above; locked (dimmed, doesn't open) until `enabled`; its options are a dropdown with a ✓ on the chosen one. */
+/** A select with a label above; locked (dimmed, doesn't open) until `enabled`; searchable; a ✓ on the chosen one. */
 @Composable
 internal fun FilterSelect(label: String, icon: ImageVector, value: String, options: List<Pair<String, () -> Unit>>, selected: String?, enabled: Boolean = true) {
     var open by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
+    LaunchedEffect(open) { if (!open) query = "" }
+    val shown = options.filter { query.isBlank() || it.first.contains(query.trim(), ignoreCase = true) }
+    val searchHint = stringResource(R.string.ev_filter_search)
+    val none = stringResource(R.string.ev_place_none)
     Column(Modifier.fillMaxWidth().alpha(if (enabled) 1f else 0.5f)) {
         FieldLabel(label)
         com.dorr.app.ui.screens.calendar.SelectRow(icon, value, open && enabled, { if (enabled) open = it }) {
-            if (options.isEmpty()) {
-                androidx.compose.material3.DropdownMenuItem(text = { Text(stringResource(R.string.ev_place_none), color = Wa.Mut) }, onClick = { open = false }, enabled = false)
+            DorrTextField(
+                query, { query = it.take(60) },
+                placeholder = searchHint,
+                icon = Icons.Rounded.Search,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+            if (shown.isEmpty()) {
+                androidx.compose.material3.DropdownMenuItem(text = { Text(none, color = Wa.Mut) }, onClick = { open = false }, enabled = false)
             }
-            options.forEach { (text, pick) ->
+            shown.forEach { (text, pick) ->
                 val on = text == selected
                 androidx.compose.material3.DropdownMenuItem(
                     text = { Text(text, color = if (on) Wa.Red else Wa.Ink, fontWeight = if (on) FontWeight.Bold else FontWeight.Medium) },
@@ -333,6 +378,11 @@ internal fun FilterSelect(label: String, icon: ImageVector, value: String, optio
             }
         }
     }
+}
+
+private fun List<DiscCountryDto>.withMineFirst(code: String?): List<DiscCountryDto> {
+    val mine = code?.lowercase()
+    return sortedWith(compareByDescending<DiscCountryDto> { it.code?.lowercase() == mine }.thenBy { it.name.orEmpty() })
 }
 
 @Composable
@@ -398,7 +448,7 @@ internal fun RegionPickerSheet(myCountryCode: String?, followed: Set<Int>, onPic
     LaunchedEffect(Unit) {
         val list = EvPlaces.countries()
         countries = list
-        countryId = (list.firstOrNull { it.code == myCountryCode } ?: list.firstOrNull())?.id
+        countryId = (list.firstOrNull { it.code.equals(AuthSession.user?.country?.code ?: myCountryCode, ignoreCase = true) } ?: list.firstOrNull())?.id
     }
     LaunchedEffect(countryId) {
         regions = null

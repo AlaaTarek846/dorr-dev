@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-14  
+**Last updated:** 2026-10-19  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -63,6 +63,11 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Admin → Discover → Organizers catalog UI (2026-10-18):** the list follows flags/users (breadcrumb, All/Pending/Verified/Rejected/Suspended counts, search, skeleton/empty, created-at, pagination, details modal, review without `window.prompt`). API extra is `status_counts`, not `pending_count`.
+- **Android Discover my interests (2026-10-19):** kinds page 15 with Show more (`GET discover/categories?page=&per_page=15`); saving a kind no longer reloads home (that froze the screen).
+- **Android Discover organizer (2026-10-19):** My events has a search field (`GET discover/organizer?q=`).
+- **Android Discover home strips (2026-10-19):** first 15 per section with `has_more`; a chevron on the title scrolls the row (not a new page); `GET discover/sections/{key}` loads the next 15 at the end of the row. The “What you like” categories row does the same (15 then the next 15).
+- **Android Discover organizer (2026-10-18):** Account-style identity row; **My events** pages 15 with Show more (`GET discover/organizer?page=&per_page=`). Event sheets and date/time pickers follow the appearance tokens (no leftover light Material dialogs at night). Browse lists 15 and loads more on scroll (`GET discover/events?per_page=15`). **Saved** lists 15 with Show more (`GET discover/interests?page=&per_page=15`). List rows: save heart is always there and tappable; free/price chip under it uses the event country's currency; distance uses m/km. Filter: dashboard countries → regions of that country → cities of that region; signup country first; search on every select.
 - **Android Moments page (2026-10-14):** Center uses the same navy hero as the calendar; the occasion card has a bottom scrim so the title and subtitle stay readable. Settings: Animations and Country occasions are inner screens; country occasions has a dropdown plus the list for that country. New group card sheet opens fully (`skipPartiallyExpanded`) with the same labeled pills as add-occasion (occasion, title, recipient, invite).
 - **Android Moments settings (2026-10-14):** Animations and Country occasions are inner screens from the settings menu. Country occasions has a country dropdown plus the occasion list for that country (`moments/catalog?country_id=`).
 - **Android calendar top panel (2026-10-14):** Today / Week / Month open with a navy + brand-red header and a rounded bottom edge; the week strip is inside that panel. Lists and the month grid stay on the light page.
