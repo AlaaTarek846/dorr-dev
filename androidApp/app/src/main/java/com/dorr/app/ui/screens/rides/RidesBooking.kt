@@ -76,10 +76,9 @@ import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.wallet.CheckoutLauncher
 import com.dorr.app.ui.screens.wallet.CheckoutRequest
 import com.dorr.app.ui.theme.AppColors
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.maps.android.compose.CameraPositionState
+import com.dorr.app.map.DorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -112,28 +111,8 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
                 Spacer(Modifier.height(10.dp))
             }
         }
-        // Pickup: where the pin is now; a tap opens the search.
-        DorrTextField(
-            value = state.pickup?.address.orEmpty(), onValueChange = {},
-            placeholder = stringResource(R.string.rd_moving_pin), icon = Icons.Rounded.MyLocation,
-            onClick = {
-                state.editing = "pickup"
-                state.step = RideStep.Search
-            },
-            minHeight = 48.dp, modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(10.dp))
-        // Where to?
-        DorrTextField(
-            value = "", onValueChange = {},
-            placeholder = stringResource(R.string.rd_where_to), icon = Icons.Rounded.Search,
-            onClick = {
-                state.editing = "destination"
-                state.step = RideStep.Search
-            },
-            minHeight = 56.dp, textStyle = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // O-51: from → to as one card (the pickup's address on top, «Where to?» as the big target).
+        RouteCard(state)
         if (state.feature("saved_places")) SavedPlacesRow(state)
         if (state.feature("scheduled")) {
             Spacer(Modifier.height(10.dp))
@@ -169,7 +148,7 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
 
 /** Typing a place: pickup, destination and stops, with the phone geocoder's suggestions. */
 @Composable
-internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
+internal fun PlaceSearchPage(state: RidesState, camera: DorrCamera) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var query by remember(state.editing) { mutableStateOf("") }
@@ -239,7 +218,7 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
                         state.step = RideStep.PickOnMap
                         val start = when (state.editing) { "pickup" -> state.pickup; "destination" -> state.destination; else -> null }?.latLng ?: state.pickup?.latLng
-                        start?.let { scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(it, 16f)) } }
+                        start?.let { scope.launch { camera.animate(it, 16f) } }
                     }.padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -352,7 +331,7 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
 
 /** The prices: one card per category, how to pay, and the button. */
 @Composable
-internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
+internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
     val scope = rememberCoroutineScope()
     val minute = stringResource(R.string.rd_minutes)
     val hour = stringResource(R.string.rd_hours)

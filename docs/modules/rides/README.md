@@ -28,6 +28,15 @@ So the city still comes out when the key runs out or Google can't tell. No spati
 
 **`ride_regulator_cities`:** Wasl rejects a trip if the city name is off by one letter, so the name sent comes only from here — the exact official name chosen by the admin, locked once a trip was accepted with it — never a translation, never Google. Seeded with «الرياض» only (the name Jawad uses in production); the rest of the official list is needed from ELM / Wasl.
 
+## Map engines in the apps (O-53)
+- The admin's map provider (Rides → Settings) decides the **engine** the whole app draws with.
+  - `google`: the Google Maps SDK. It needs `dorr.mapsKey` in `local.properties`.
+  - `mapbox`: the Mapbox Maps SDK `com.mapbox.maps:android:11.8.0`, from Mapbox's public Maven with no download token. It uses the token from `map-config`.
+- The engine that isn't chosen is never started.
+- Screens use `DorrMap` / `DorrCamera` / `MapPin` / `MapLine` (`com.dorr.app.map`, `com.dorr.driver.map`) and never touch an engine.
+- **Loading:** `MapEngine.init()` runs in `Application.onCreate`. It reads the last choice and token from SharedPreferences, and sets `MapboxOptions.accessToken` up front. `MapEngine.refresh()` then asks `map-config` in the background and saves the answer for the next start.
+- **Mapbox token:** it must be a public `pk.` token **without URL restrictions**, because mobile SDKs send no Referer. A URL-restricted token only works for the admin's web maps.
+
 ## Maps (`GeoProvider` → `ResilientGeoProvider`)
 Each step answers only when the one before can't. A ride is never blocked on a map provider.
 1. **Google** (`GoogleGeoProvider`): Routes API (`computeRoutes`, field mask: distance, duration, polyline, legs) and Geocoding (city name). The key is set in the admin (`ride_settings.google_maps_key`, encrypted), else `GOOGLE_MAPS_SERVER_KEY`. When Google **refuses** — a wrong key, an API not switched on, billing, a used-up quota (`GoogleFailure` reads the HTTP status / `status` / message) — or can't be reached, that API (routes and geocoding separately) is **left alone** for `rides.google.pause_refused_min` (30) / `pause_unreachable_min` (5) minutes, so no ride waits for a refusal first; it is tried again when the time is up, when the key is changed, or when the key check passes.

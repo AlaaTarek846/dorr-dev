@@ -82,7 +82,7 @@ import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.theme.AppColors
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.maps.android.compose.CameraPositionState
+import com.dorr.app.map.DorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
@@ -93,7 +93,7 @@ private val FINAL = setOf("completed", "canceled", "no_show", "expired")
 
 /** The ride after booking: searching, the captain coming, on the way, and the end (receipt + rating). */
 @Composable
-internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onExit: () -> Unit) {
+internal fun RideActivePanel(state: RidesState, camera: DorrCamera, onExit: () -> Unit) {
     val ride = state.ride ?: return
     var chatOpen by remember { mutableStateOf(false) }
     var cancelOpen by remember { mutableStateOf(false) }
@@ -168,7 +168,7 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         // Read now: the badge goes.
         state.ride = state.ride?.copy(unreadMessages = 0)
     })
-    if (cancelOpen) CancelSheet(state, onClose = { cancelOpen = false })
+    if (cancelOpen) CancelRideSheet(state, onClose = { cancelOpen = false })
     if (sosOpen) SosSheet(ride, onClose = { sosOpen = false }, onReport = { sosOpen = false; reportOpen = true })
     if (shareOpen) ShareRideSheet(ride, onClose = { shareOpen = false })
     if (reportOpen) ReportSheet(ride, onClose = { reportOpen = false })
@@ -475,58 +475,6 @@ private fun Ended(ride: RideDto, onAgain: () -> Unit) {
 }
 
 /** Cancelling: the fee (if any) is shown before, with the reasons to pick from. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun CancelSheet(state: RidesState, onClose: () -> Unit) {
-    val ride = state.ride ?: return
-    val scope = rememberCoroutineScope()
-    var fee by remember { mutableStateOf<Long?>(null) }
-    var reasons by remember { mutableStateOf<List<RideReasonDto>>(emptyList()) }
-    var reason by remember { mutableStateOf<Int?>(null) }
-    var busy by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(Unit) {
-        fee = runCatching { ApiClient.rides.cancelPreview(ridesAuth(), ride.uuid).data?.feeMinor }.getOrNull() ?: 0
-        reasons = runCatching { ApiClient.rides.cancelReasons(ridesAuth()).data.orEmpty() }.getOrDefault(emptyList())
-    }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = 20.dp).padding(bottom = 28.dp)) {
-            Text(stringResource(R.string.rd_cancel), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
-            fee?.let {
-                Text(
-                    if (it > 0) stringResource(R.string.rd_cancel_fee, money(it, ride.currency)) else stringResource(R.string.rd_cancel_free),
-                    color = if (it > 0) AppColors.danger else AppColors.success, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(vertical = 6.dp),
-                )
-            }
-            if (reasons.isNotEmpty()) {
-                Text(stringResource(R.string.rd_cancel_reason), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp, bottom = 4.dp))
-                reasons.forEach { r ->
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { reason = r.id }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(18.dp).clip(CircleShape).border(2.dp, if (reason == r.id) settingsAccent() else settingsMut(), CircleShape).padding(4.dp)) {
-                            if (reason == r.id) Box(Modifier.size(10.dp).clip(CircleShape).background(settingsAccent()))
-                        }
-                        Spacer(Modifier.width(10.dp))
-                        Text(r.label.orEmpty(), color = settingsInk())
-                    }
-                }
-            }
-            error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
-            Spacer(Modifier.height(12.dp))
-            AccentButton(stringResource(R.string.rd_cancel_confirm), busy = busy, color = AppColors.danger) {
-                busy = true
-                scope.launch {
-                    val body = JsonObject().apply { reason?.let { addProperty("reason_id", it) } }
-                    runCatching { ApiClient.rides.cancel(ridesAuth(), UUID.randomUUID().toString(), ride.uuid, body).data }
-                        .onSuccess { state.ride = it; onClose() }
-                        .onFailure { error = it.apiFailure().message }
-                    busy = false
-                }
-            }
-            Text(stringResource(R.string.rd_keep), color = settingsInk(), fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().clickable(onClick = onClose).padding(12.dp))
-        }
-    }
-}
-
 /** The chat with the captain: ready-made messages and text, open while the captain is on the ride. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

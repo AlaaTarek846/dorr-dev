@@ -28,6 +28,8 @@ class DispatchTick extends Command
             $this->info("{$started} scheduled ride(s) started.");
         }
         $count = $dispatch->tick();
+        // O-47: «is the scheduler running?» — the diagnostics read this heartbeat.
+        \Illuminate\Support\Facades\Cache::put(\Modules\Rides\Services\Dispatch\DispatchDiagnostics::TICK_KEY, now()->toIso8601String(), 3600);
         $this->info("{$count} ride(s) dispatched.");
 
         return self::SUCCESS;

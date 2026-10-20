@@ -148,6 +148,8 @@ dependencies {
     // Passenger rides: the map (Google Maps for Compose) and the phone's location (fused provider).
     implementation("com.google.android.gms:play-services-maps:19.0.0")
     implementation("com.google.maps.android:maps-compose:6.1.0")
+    // O-53: the second map engine — the admin chooses Google or Mapbox for the whole app.
+    implementation("com.mapbox.maps:android:11.8.0")
     implementation("com.google.android.gms:play-services-location:21.3.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")

@@ -35,6 +35,10 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Admin → Discover → Organizers matches flags / users (2026-10-18):** breadcrumb, search with clear, All / Pending / Verified / Rejected / Suspended filter buttons with counts (`?status_counts=1`; All appears only after a status is chosen, like flags), skeleton and empty state, created/updated dates, pagination, a status select on the list like users, a details modal, and a review modal with a note field instead of `window.prompt`. No create or bulk-delete — the API is still index / show / review only.
 
 ### Added
+- **Two map engines in the apps (2026-10-20, O-53):**
+  - Google or Mapbox, chosen in the admin, now draws the whole rider and captain apps through one map layer (`DorrMap`).
+  - The choice is cached in SharedPreferences at app start.
+  - Mapbox is now a real engine (Mapbox Maps SDK 11.8.0) instead of tiles over a Google map. This fixes the blank white map when no Google key is set.
 - **In-app calls (2026-10-20, O-09):**
   - The rider and the captain can call each other inside the app over LiveKit (the chat's setup), and neither sees a phone number.
   - The callee is rung by push, and answer and hang-up are real time. The call screen has mute and speaker.

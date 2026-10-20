@@ -13,6 +13,7 @@ import com.dorr.app.network.AuthSession
 import com.dorr.app.network.CountryCache
 import com.dorr.app.network.DeviceId
 import com.dorr.app.network.OnboardingStore
+import kotlinx.coroutines.launch
 
 class DorrApp : Application(), ImageLoaderFactory {
     /**
@@ -36,6 +37,16 @@ class DorrApp : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         AuthSession.attach(this)
+        // O-53: the admin's map engine (Google or Mapbox), from the phone at once — then from the server in the
+        // background, saved for the next start, so a map never waits on the network to know how to draw.
+        com.dorr.app.map.MapEngine.init(this)
+        if (!AuthSession.token.isNullOrBlank()) {
+            kotlinx.coroutines.MainScope().launch {
+                com.dorr.app.map.MapEngine.refresh(this@DorrApp) {
+                    ApiClient.rides.mapConfig("Bearer ${AuthSession.token.orEmpty()}").data?.let { Triple(it.provider, it.mapboxToken, it.mapboxStyle) }
+                }
+            }
+        }
         // Data saver, lite mode and usage stats (spec 82, 87, 83) are read before anything loads.
         com.dorr.app.chat.ChatDataSaver.attach(this)
         com.dorr.app.chat.ChatLite.attach(this)
