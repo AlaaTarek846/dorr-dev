@@ -34,6 +34,18 @@ class DriverDatabaseSeeder extends Seeder
 
     /** make en => [ar, [[model en, ar, body type, seats, luxury], …]] */
     private const VEHICLES = [
+        // O-64: motorcycles, buses, boats and yachts — before these a captain could only register a car.
+        'Honda Motorcycles' => ['هوندا دراجات', [['CG 125', 'سي جي 125', 'motorcycle', 1, false], ['CB 150', 'سي بي 150', 'motorcycle', 1, false], ['PCX 160', 'بي سي إكس 160', 'motorcycle', 1, false]]],
+        'Yamaha Motorcycles' => ['ياماها دراجات', [['YBR 125', 'واي بي آر 125', 'motorcycle', 1, false], ['NMAX 155', 'إن ماكس 155', 'motorcycle', 1, false]]],
+        'Suzuki Motorcycles' => ['سوزوكي دراجات', [['GN 125', 'جي إن 125', 'motorcycle', 1, false], ['Burgman 200', 'بيرجمان 200', 'motorcycle', 1, false]]],
+        'Mercedes-Benz Buses' => ['مرسيدس باصات', [['Sprinter', 'سبرينتر', 'minibus', 16, false], ['Travego', 'ترافيجو', 'bus', 50, false]]],
+        'Hyundai Buses' => ['هيونداي باصات', [['County', 'كاونتي', 'bus', 26, false], ['Universe', 'يونيفرس', 'bus', 45, false]]],
+        'King Long' => ['كينج لونج', [['XMQ6127', 'إكس إم كيو 6127', 'bus', 50, false]]],
+        'Yamaha Boats' => ['ياماها مراكب', [['242 Limited', '242 ليميتد', 'boat', 10, false], ['F150 Speedboat', 'لنش F150', 'boat', 8, false]]],
+        'Bayliner' => ['بايلاينر', [['Element E18', 'إليمنت E18', 'boat', 8, false]]],
+        'Azimut' => ['أزيموت', [['Azimut 50', 'أزيموت 50', 'yacht', 12, true]]],
+        'Sunseeker' => ['سن سيكر', [['Manhattan 55', 'مانهاتن 55', 'yacht', 12, true]]],
+        'Gulf Craft' => ['جلف كرافت', [['Majesty 62', 'ماجستي 62', 'yacht', 15, true]]],
         'Toyota' => ['تويوتا', [['Camry', 'كامري', 'sedan', 4, false], ['Corolla', 'كورولا', 'sedan', 4, false], ['Yaris', 'يارس', 'sedan', 4, false], ['Land Cruiser', 'لاند كروزر', 'suv', 6, true], ['Hiace', 'هايس', 'minibus', 12, false]]],
         'Hyundai' => ['هيونداي', [['Accent', 'أكسنت', 'sedan', 4, false], ['Elantra', 'إلنترا', 'sedan', 4, false], ['Sonata', 'سوناتا', 'sedan', 4, false], ['H1', 'H1', 'van', 8, false]]],
         'Kia' => ['كيا', [['Pegas', 'بيجاس', 'sedan', 4, false], ['K5', 'K5', 'sedan', 4, false], ['Carnival', 'كرنفال', 'van', 7, false]]],

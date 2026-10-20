@@ -33,6 +33,7 @@ import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.MapUiSettings
 import com.google.maps.android.compose.Marker
 import com.google.maps.android.compose.MarkerState
+import com.google.maps.android.compose.Polygon
 import com.google.maps.android.compose.Polyline
 import com.google.maps.android.compose.rememberCameraPositionState
 import com.mapbox.common.MapboxOptions
@@ -44,7 +45,10 @@ import com.mapbox.maps.MapView
 import com.mapbox.maps.plugin.animation.MapAnimationOptions
 import com.mapbox.maps.plugin.animation.easeTo
 import com.mapbox.maps.plugin.annotation.annotations
+import com.mapbox.maps.plugin.annotation.generated.PointAnnotation
 import com.mapbox.maps.plugin.annotation.generated.PointAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.PolygonAnnotationOptions
+import com.mapbox.maps.plugin.annotation.generated.createPolygonAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.PolylineAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createPointAnnotationManager
 import com.mapbox.maps.plugin.annotation.generated.createPolylineAnnotationManager
@@ -156,13 +160,23 @@ fun rememberDorrCamera(start: LatLng, zoom: Float): DorrCamera = remember { Dorr
 
 enum class PinKind { Pickup, Dropoff, Stop, Car }
 
-data class MapPin(val at: LatLng, val kind: PinKind, val rotation: Float = 0f)
+/**
+ * A pin on the map. `id`: the same pin across updates (a car that moves) — it slides to its new place
+ * instead of being drawn again.
+ */
+data class MapPin(val at: LatLng, val kind: PinKind, val rotation: Float = 0f, val id: String? = null)
 
 data class MapLine(val points: List<LatLng>, val color: Color, val widthPx: Float)
 
+/** A round area on the ground (metres): the captain's hot areas (O-58). */
+data class MapZone(val center: LatLng, val radiusM: Double, val color: Color)
+
 /**
- * The map: pins, lines, «me», kept inside [padding] (the sheets over it). Google or Mapbox — the admin's
- * choice ([MapEngine]); the other engine isn't started at all.
+ * The map: pins, lines, zones, «me», kept inside [padding] (the sheets over it). Google or Mapbox — the
+ * admin's choice ([MapEngine]); the other engine isn't started at all.
+ *
+ * [showMe]: my place on the map — a car turning with my heading when [meAsCar] (the captain, O-60), the
+ * usual dot otherwise.
  */
 @Composable
 fun DorrMap(
@@ -170,21 +184,23 @@ fun DorrMap(
     modifier: Modifier = Modifier,
     pins: List<MapPin> = emptyList(),
     lines: List<MapLine> = emptyList(),
+    zones: List<MapZone> = emptyList(),
     showMe: Boolean = false,
+    meAsCar: Boolean = false,
     padding: PaddingValues = PaddingValues(),
     night: Boolean = false,
     googleNightStyle: Int? = null,
     onLoaded: () -> Unit = {},
 ) {
-    if (MapEngine.mapbox) MapboxEngineMap(camera, modifier, pins, lines, showMe, padding, night, onLoaded)
-    else GoogleEngineMap(camera, modifier, pins, lines, showMe, padding, night, googleNightStyle, onLoaded)
+    if (MapEngine.mapbox) MapboxEngineMap(camera, modifier, pins, lines, zones, showMe, meAsCar, padding, night, onLoaded)
+    else GoogleEngineMap(camera, modifier, pins, lines, zones, showMe, meAsCar, padding, night, googleNightStyle, onLoaded)
 }
 
 // ---------------------------------------------------------------- Google
 
 @Composable
 private fun GoogleEngineMap(
-    camera: DorrCamera, modifier: Modifier, pins: List<MapPin>, lines: List<MapLine>, showMe: Boolean,
+    camera: DorrCamera, modifier: Modifier, pins: List<MapPin>, lines: List<MapLine>, zones: List<MapZone>, showMe: Boolean, meAsCar: Boolean,
     padding: PaddingValues, night: Boolean, nightStyle: Int?, onLoaded: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -209,27 +225,67 @@ private fun GoogleEngineMap(
         if (cps.isMoving) camera.byGesture = cps.cameraMoveStartedReason == CameraMoveStartedReason.GESTURE
         else { camera.target = cps.position.target; camera.zoom = cps.position.zoom }
     }
+    // O-60: «me» as a car — my place from the phone itself (its location updates; nothing asks the server).
+    val me = if (showMe && meAsCar) rememberMyPlace() else null
     GoogleMap(
         modifier = modifier,
         cameraPositionState = cps,
         properties = MapProperties(
-            isMyLocationEnabled = showMe,
+            isMyLocationEnabled = showMe && !meAsCar,
             mapStyleOptions = if (night && nightStyle != null) remember(nightStyle) { MapStyleOptions.loadRawResourceStyle(context, nightStyle) } else null,
         ),
         uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
         contentPadding = padding,
         onMapLoaded = onLoaded,
     ) {
+        zones.forEach { z ->
+            Polygon(points = circle(z.center, z.radiusM), fillColor = z.color, strokeColor = Color.Transparent, strokeWidth = 0f)
+        }
         lines.forEach { Polyline(points = it.points, color = it.color, width = it.widthPx) }
-        pins.forEach { pin ->
-            val icon = remember(pin.kind) { BitmapDescriptorFactory.fromBitmap(MapIcons.of(context, pin.kind)) }
-            Marker(
-                state = remember(pin.at) { MarkerState(pin.at) }, icon = icon,
-                rotation = pin.rotation, flat = pin.kind == PinKind.Car,
-                anchor = if (pin.kind == PinKind.Car) androidx.compose.ui.geometry.Offset(0.5f, 0.5f) else androidx.compose.ui.geometry.Offset(0.5f, 1f),
-            )
+        pins.forEachIndexed { i, pin ->
+            androidx.compose.runtime.key(pin.id ?: "$i:${pin.kind}") {
+                val icon = remember(pin.kind) { BitmapDescriptorFactory.fromBitmap(MapIcons.of(context, pin.kind)) }
+                val state = remember { MarkerState(pin.at) }
+                // A moving car slides: the same marker, its position updated.
+                androidx.compose.runtime.SideEffect { if (state.position != pin.at) state.position = pin.at }
+                Marker(
+                    state = state, icon = icon, rotation = pin.rotation, flat = pin.kind == PinKind.Car,
+                    anchor = if (pin.kind == PinKind.Car) androidx.compose.ui.geometry.Offset(0.5f, 0.5f) else androidx.compose.ui.geometry.Offset(0.5f, 1f),
+                )
+            }
+        }
+        me?.let { (at, bearing) ->
+            val icon = remember { BitmapDescriptorFactory.fromBitmap(MapIcons.me(context)) }
+            val state = remember { MarkerState(at) }
+            androidx.compose.runtime.SideEffect { if (state.position != at) state.position = at }
+            Marker(state = state, icon = icon, rotation = bearing, flat = true, anchor = androidx.compose.ui.geometry.Offset(0.5f, 0.5f), zIndex = 10f)
         }
     }
+}
+
+/** My place and heading from the phone's own location updates, while the map shows it. */
+@Composable
+private fun rememberMyPlace(): Pair<LatLng, Float>? {
+    val context = LocalContext.current
+    var place by remember { mutableStateOf<Pair<LatLng, Float>?>(null) }
+    DisposableEffect(Unit) {
+        val client = com.google.android.gms.location.LocationServices.getFusedLocationProviderClient(context)
+        val callback = object : com.google.android.gms.location.LocationCallback() {
+            override fun onLocationResult(result: com.google.android.gms.location.LocationResult) {
+                val l = result.lastLocation ?: return
+                place = LatLng(l.latitude, l.longitude) to (if (l.hasBearing()) l.bearing else place?.second ?: 0f)
+            }
+        }
+        runCatching {
+            @Suppress("MissingPermission")
+            client.requestLocationUpdates(
+                com.google.android.gms.location.LocationRequest.Builder(com.google.android.gms.location.Priority.PRIORITY_HIGH_ACCURACY, 3000).build(),
+                callback, android.os.Looper.getMainLooper(),
+            )
+        }
+        onDispose { client.removeLocationUpdates(callback) }
+    }
+    return place
 }
 
 private fun kotlinx.coroutines.CoroutineScope.launchAttach(camera: DorrCamera, engine: CameraEngine) =
@@ -239,7 +295,7 @@ private fun kotlinx.coroutines.CoroutineScope.launchAttach(camera: DorrCamera, e
 
 @Composable
 private fun MapboxEngineMap(
-    camera: DorrCamera, modifier: Modifier, pins: List<MapPin>, lines: List<MapLine>, showMe: Boolean,
+    camera: DorrCamera, modifier: Modifier, pins: List<MapPin>, lines: List<MapLine>, zones: List<MapZone>, showMe: Boolean, meAsCar: Boolean,
     padding: PaddingValues, night: Boolean, onLoaded: () -> Unit,
 ) {
     val context = LocalContext.current
@@ -253,8 +309,12 @@ private fun MapboxEngineMap(
             .center(camera.target.point()).zoom(camera.zoom.toDouble()).padding(insets).build()))
     }
     val style = MapEngine.styleUri(night)
-    val pointManager = remember { mapView.annotations.createPointAnnotationManager() }
+    val zoneManager = remember { mapView.annotations.createPolygonAnnotationManager() }
     val lineManager = remember { mapView.annotations.createPolylineAnnotationManager() }
+    val pointManager = remember { mapView.annotations.createPointAnnotationManager() }
+    // Pins with an id (moving cars) are moved, not drawn again.
+    val byId = remember { HashMap<String, PointAnnotation>() }
+    val loose = remember { ArrayList<PointAnnotation>() }
 
     DisposableEffect(mapView) {
         mapView.compass.enabled = false
@@ -304,10 +364,24 @@ private fun MapboxEngineMap(
     // The sheets over the map: the centre stays in the visible part.
     LaunchedEffect(top, bottom) { mapView.mapboxMap.setCamera(CameraOptions.Builder().padding(insets).build()) }
     LaunchedEffect(style) { mapView.mapboxMap.loadStyle(style) }
-    LaunchedEffect(showMe) {
+    LaunchedEffect(showMe, meAsCar) {
         mapView.location.updateSettings {
             enabled = showMe
-            if (showMe) locationPuck = createDefault2DPuck(withBearing = false)
+            if (showMe) {
+                locationPuck = if (meAsCar) com.mapbox.maps.plugin.LocationPuck2D(bearingImage = com.mapbox.maps.ImageHolder.from(MapIcons.me(context)))
+                else createDefault2DPuck(withBearing = false)
+                puckBearingEnabled = meAsCar
+                if (meAsCar) puckBearing = com.mapbox.maps.plugin.PuckBearing.COURSE
+            }
+        }
+    }
+    LaunchedEffect(zones) {
+        zoneManager.deleteAll()
+        zones.forEach { z ->
+            zoneManager.create(
+                PolygonAnnotationOptions().withPoints(listOf(circle(z.center, z.radiusM).map { it.point() }))
+                    .withFillColor(z.color.copy(alpha = 1f).toArgb()).withFillOpacity(z.color.alpha.toDouble()),
+            )
         }
     }
     LaunchedEffect(lines) {
@@ -317,29 +391,57 @@ private fun MapboxEngineMap(
         }
     }
     LaunchedEffect(pins) {
-        pointManager.deleteAll()
+        // Fixed pins: drawn again; pins with an id: moved in place, the ones gone removed.
+        loose.forEach { pointManager.delete(it) }
+        loose.clear()
+        val keep = HashSet<String>()
         pins.forEach { pin ->
-            pointManager.create(
-                PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(MapIcons.of(context, pin.kind))
-                    .withIconRotate(pin.rotation.toDouble())
-                    .withIconAnchor(if (pin.kind == PinKind.Car) com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.CENTER else com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.BOTTOM),
-            )
+            val anchor = if (pin.kind == PinKind.Car) com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.CENTER else com.mapbox.maps.extension.style.layers.properties.generated.IconAnchor.BOTTOM
+            val id = pin.id
+            if (id == null) {
+                loose += pointManager.create(PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(MapIcons.of(context, pin.kind)).withIconRotate(pin.rotation.toDouble()).withIconAnchor(anchor))
+                return@forEach
+            }
+            keep += id
+            val existing = byId[id]
+            if (existing == null) {
+                byId[id] = pointManager.create(PointAnnotationOptions().withPoint(pin.at.point()).withIconImage(MapIcons.of(context, pin.kind)).withIconRotate(pin.rotation.toDouble()).withIconAnchor(anchor))
+            } else {
+                existing.point = pin.at.point()
+                existing.iconRotate = pin.rotation.toDouble()
+                pointManager.update(existing)
+            }
         }
+        byId.keys.filter { it !in keep }.forEach { gone -> byId.remove(gone)?.let { pointManager.delete(it) } }
     }
     AndroidView(factory = { mapView }, modifier = modifier)
 }
 
 private fun LatLng.point(): Point = Point.fromLngLat(longitude, latitude)
 
+/** A circle of [radiusM] metres around [center], as points (both engines draw it as a polygon). */
+private fun circle(center: LatLng, radiusM: Double, steps: Int = 36): List<LatLng> {
+    val lat = Math.toRadians(center.latitude)
+    val dLat = radiusM / 111_320.0
+    val dLng = radiusM / (111_320.0 * kotlin.math.cos(lat).coerceAtLeast(0.01))
+    return (0..steps).map { i ->
+        val a = 2 * Math.PI * i / steps
+        LatLng(center.latitude + dLat * kotlin.math.sin(a), center.longitude + dLng * kotlin.math.cos(a))
+    }
+}
+
 // ---------------------------------------------------------------- icons (the same on both engines)
 
 private object MapIcons {
-    private val cache = HashMap<PinKind, Bitmap>()
+    private val cache = HashMap<String, Bitmap>()
 
-    fun of(context: Context, kind: PinKind): Bitmap = cache.getOrPut(kind) { draw(context.resources.displayMetrics.density, kind) }
+    fun of(context: Context, kind: PinKind): Bitmap = cache.getOrPut(kind.name) { draw(context.resources.displayMetrics.density, kind) }
+
+    /** O-60: the captain's own car (brand blue), a little bigger than the others. */
+    fun me(context: Context): Bitmap = cache.getOrPut("me") { car(context.resources.displayMetrics.density, 0xFF0B3D91.toInt(), 1.15f) }
 
     private fun draw(d: Float, kind: PinKind): Bitmap = when (kind) {
-        PinKind.Car -> car(d)
+        PinKind.Car -> car(d, 0xFF1F2937.toInt(), 1f)
         PinKind.Pickup -> drop(d, 0xFF001B53.toInt())
         PinKind.Dropoff -> drop(d, 0xFFF57C00.toInt())
         PinKind.Stop -> drop(d, 0xFFF9A825.toInt())
@@ -365,20 +467,40 @@ private object MapIcons {
         return bmp
     }
 
-    /** The captain's car from above, pointing up (the map turns it with the heading). */
-    private fun car(d: Float): Bitmap {
-        val w = (26 * d).toInt()
-        val h = (44 * d).toInt()
+    /**
+     * A car seen from above, pointing up (the map turns it with the heading): a soft shadow, the body, a
+     * lighter roof, the windscreen and rear glass, mirrors and headlights — small and clean, like inDrive's.
+     */
+    private fun car(d: Float, body: Int, scale: Float): Bitmap {
+        val u = d * scale
+        val w = (30 * u).toInt()
+        val h = (52 * u).toInt()
         val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
         val c = Canvas(bmp)
-        val body = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF111928.toInt() }
-        c.drawRoundRect(2 * d, 2 * d, w - 2 * d, h - 2 * d, 9 * d, 9 * d, body)
-        val glass = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFF7FB3FF.toInt() }
-        c.drawRoundRect(5 * d, 8 * d, w - 5 * d, 16 * d, 3 * d, 3 * d, glass)
-        c.drawRoundRect(5 * d, h - 14 * d, w - 5 * d, h - 8 * d, 3 * d, 3 * d, glass)
-        val lights = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFE082.toInt() }
-        c.drawCircle(7 * d, 4 * d, 1.6f * d, lights)
-        c.drawCircle(w - 7 * d, 4 * d, 1.6f * d, lights)
+        val cx = w / 2f
+        // Shadow.
+        c.drawRoundRect(4 * u, 5 * u, w - 3 * u, h - 2 * u, 11 * u, 11 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0x33000000 })
+        // Mirrors.
+        val mirror = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = body }
+        c.drawRoundRect(1 * u, 16 * u, 6 * u, 21 * u, 2 * u, 2 * u, mirror)
+        c.drawRoundRect(w - 6 * u, 16 * u, w - 1 * u, 21 * u, 2 * u, 2 * u, mirror)
+        // Body.
+        val bodyPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = body }
+        c.drawRoundRect(4 * u, 2 * u, w - 4 * u, h - 4 * u, 10 * u, 10 * u, bodyPaint)
+        // Roof (a lighter shade).
+        val roof = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = android.graphics.Color.argb(255, (android.graphics.Color.red(body) + 40).coerceAtMost(255), (android.graphics.Color.green(body) + 40).coerceAtMost(255), (android.graphics.Color.blue(body) + 40).coerceAtMost(255)) }
+        c.drawRoundRect(7 * u, 19 * u, w - 7 * u, h - 17 * u, 5 * u, 5 * u, roof)
+        // Windscreen and rear glass.
+        val glass = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFA9D2FF.toInt() }
+        val front = Path().apply { moveTo(8 * u, 18 * u); lineTo(w - 8 * u, 18 * u); lineTo(w - 10 * u, 11 * u); lineTo(10 * u, 11 * u); close() }
+        c.drawPath(front, glass)
+        val rear = Path().apply { moveTo(9 * u, h - 16 * u); lineTo(w - 9 * u, h - 16 * u); lineTo(w - 10 * u, h - 10 * u); lineTo(10 * u, h - 10 * u); close() }
+        c.drawPath(rear, glass)
+        // Headlights and tail lights.
+        c.drawCircle(cx - 8 * u, 4.5f * u, 1.8f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFF3B0.toInt() })
+        c.drawCircle(cx + 8 * u, 4.5f * u, 1.8f * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFFFF3B0.toInt() })
+        c.drawRect(cx - 10 * u, h - 6.5f * u, cx - 6 * u, h - 5 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFEF4444.toInt() })
+        c.drawRect(cx + 6 * u, h - 6.5f * u, cx + 10 * u, h - 5 * u, Paint(Paint.ANTI_ALIAS_FLAG).apply { color = 0xFFEF4444.toInt() })
         return bmp
     }
 }

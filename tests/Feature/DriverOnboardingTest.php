@@ -78,6 +78,27 @@ class DriverOnboardingTest extends TestCase
         $this->assertNotNull($permit);
     }
 
+    public function test_a_captain_without_a_vehicle_skips_the_vehicle_and_its_documents_and_a_plate_type_defaults_to_private(): void
+    {
+        // O-64: «no vehicle» (riders' own cars, lessons): neither the vehicle nor its documents are asked for.
+        $this->type('driving_license', 'driver', ['has_number' => true, 'has_expiry' => true]);
+        $this->type('vehicle_registration', 'vehicle', ['has_expiry' => true]);
+        $state = $this->actingAs($this->driver, 'driver_api')->postJson('/api/driver/v1/onboarding/no-vehicle', ['on' => true])->assertOk()
+            ->assertJsonPath('data.no_vehicle', true)->assertJsonPath('data.steps.vehicle', true)->json('data');
+        $this->assertNotContains('vehicle', $state['missing']);
+        $this->assertSame(['driving_license'], array_column(array_column($state['required_documents'], 'type'), 'code'));
+
+        // With a vehicle after all: no plate type sent = private (1); the sequence number is required.
+        $make = VehicleMake::query()->create(['status' => true]);
+        $body = [
+            'make_id' => $make->id, 'model_id' => VehicleModel::query()->create(['make_id' => $make->id, 'body_type' => 'sedan', 'seats' => 4, 'status' => true])->id,
+            'color_id' => VehicleColor::query()->create(['hex' => '#000000', 'status' => true])->id, 'year' => 2023, 'body_type' => 'sedan', 'seats' => 4,
+            'plate_letters' => 'ابج', 'plate_number' => '4321',
+        ];
+        $this->postJson('/api/driver/v1/vehicles', $body)->assertUnprocessable()->assertJsonValidationErrors('sequence_number');
+        $this->postJson('/api/driver/v1/vehicles', $body + ['sequence_number' => '987654321'])->assertCreated()->assertJsonPath('data.vehicle.plate_type', 1);
+    }
+
     public function test_the_driver_phone_registers_for_ride_request_pushes(): void
     {
         $this->actingAs($this->driver, 'driver_api')->postJson('/api/driver/v1/notifications/devices', ['player_id' => 'player-1', 'platform' => 'android'])->assertOk();

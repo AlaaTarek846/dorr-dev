@@ -62,7 +62,7 @@ internal fun TripMap(t: TripDto, modifier: Modifier, bottomPadding: Dp) {
     val pickup = t.origin?.let { LatLng(it.lat, it.lng) }
     val drop = t.destination?.let { LatLng(it.lat, it.lng) }
     val stops = t.stops.map { LatLng(it.lat, it.lng) }
-    val route = remember(t.route?.polyline, pickup, drop) {
+    val route = remember(t.route?.polyline, pickup, drop, stops) {
         t.route?.polyline?.takeIf { it.isNotBlank() }?.let(::decodePolyline)?.takeIf { it.size >= 2 }
             ?: listOfNotNull(pickup, *stops.toTypedArray(), drop)
     }
@@ -84,6 +84,8 @@ internal fun TripMap(t: TripDto, modifier: Modifier, bottomPadding: Dp) {
             pins = listOfNotNull(pickup?.let { MapPin(it, PinKind.Pickup) }) + stops.map { MapPin(it, PinKind.Stop) } + listOfNotNull(drop?.let { MapPin(it, PinKind.Dropoff) }),
             lines = if (route.size >= 2) listOf(MapLine(route, Color.Black.copy(alpha = 0.18f), shadow), MapLine(route, DorrBrand.navy, line)) else emptyList(),
             showMe = located,
+            // O-60: the captain's own car on the trip's map too.
+            meAsCar = true,
             padding = PaddingValues(top = 150.dp, bottom = bottomPadding),
             night = Pal.night,
             googleNightStyle = R.raw.map_night,
@@ -94,7 +96,9 @@ internal fun TripMap(t: TripDto, modifier: Modifier, bottomPadding: Dp) {
             t.navigation?.let { nav ->
                 Box(Modifier.padding(top = 10.dp)) {
                     MapButton(Icons.Filled.Navigation, DorrBrand.orange, stringResource(R.string.trip_navigate)) {
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${nav.lat},${nav.lng}&mode=d")).setPackage("com.google.android.apps.maps")
+                        // O-56: with stops still ahead, the directions link carries them all (the turn-by-turn intent takes one point only).
+                        val intent = if (nav.waypoints.isNotEmpty()) Intent(Intent.ACTION_VIEW, Uri.parse(nav.googleMapsUrl)).setPackage("com.google.android.apps.maps")
+                        else Intent(Intent.ACTION_VIEW, Uri.parse("google.navigation:q=${nav.lat},${nav.lng}&mode=d")).setPackage("com.google.android.apps.maps")
                         runCatching { context.startActivity(intent) }.onFailure { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(nav.googleMapsUrl))) }
                     }
                 }

@@ -150,6 +150,55 @@ class RidesExtraServicesTest extends TestCase
         $this->assertSame(40000, $this->balance($this->rider));
     }
 
+    public function test_a_trainer_edits_and_removes_a_pack_and_a_bought_one_is_only_archived(): void
+    {
+        // O-62: edit freely while nobody bought it; with learners only the words change, and removing archives it.
+        $make = fn () => $this->actingAs($this->captain, 'driver_api')->postJson('/api/driver/v1/lessons/packs', [
+            'title' => 'Pack', 'transmission' => 'manual', 'lessons' => 2, 'minutes_per_lesson' => 60, 'price_minor' => 20000,
+            'area' => ['lat' => 24.71, 'lng' => 46.67, 'address' => 'Riyadh'],
+        ])->assertCreated()->json('data.uuid');
+        $cap = fn () => $this->actingAs($this->captain, 'driver_api');
+
+        $free = $make();
+        $cap()->putJson("/api/driver/v1/lessons/packs/$free", ['price_minor' => 30000, 'title' => 'Pack 2'])->assertOk()->assertJsonPath('data.price_minor', 30000);
+        $cap()->deleteJson("/api/driver/v1/lessons/packs/$free")->assertOk();
+        $this->assertNull(\Modules\Rides\Models\LessonPack::query()->where('uuid', $free)->first());
+
+        $bought = $make();
+        $this->fund(50000);
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/lessons/packs/$bought/enroll", [], ['Idempotency-Key' => 'e-1'])->assertCreated();
+        $cap()->putJson("/api/driver/v1/lessons/packs/$bought", ['price_minor' => 1])->assertStatus(409)->assertJsonPath('error_code', 'rides_lessons_pack_has_learners');
+        $cap()->putJson("/api/driver/v1/lessons/packs/$bought", ['title' => 'Renamed'])->assertOk()->assertJsonPath('data.title', 'Renamed');
+        $cap()->deleteJson("/api/driver/v1/lessons/packs/$bought")->assertOk()->assertJsonPath('data.status', 'archived');
+        $cap()->getJson('/api/driver/v1/lessons/packs')->assertOk()->assertJsonCount(0, 'data');
+    }
+
+    public function test_the_maps_surroundings_free_cars_for_the_rider_and_hot_areas_for_the_captain(): void
+    {
+        // O-59: a free online captain nearby shows as a car (an alias, never his id); O-58: requests make hot areas.
+        DriverPresence::query()->create(['driver_id' => $this->captain->id, 'status' => 'online', 'lat' => 24.7140, 'lng' => 46.6760, 'gps_enabled' => true, 'last_seen_at' => now()]);
+        $cars = $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/nearby-cars?lat=24.7136&lng=46.6753')->assertOk()->json('data');
+        $this->assertCount(1, $cars['cars']);
+        $this->assertNotSame((string) $this->captain->id, $cars['cars'][0]['car']);
+        $this->assertCount(9, $cars['cells']);
+
+        $this->actingAs($this->captain, 'driver_api')->getJson('/api/driver/v1/demand-heat?lat=24.7136&lng=46.6753')->assertOk()->assertJsonPath('data', []);
+    }
+
+    public function test_place_search_suggests_from_two_letters_with_the_admins_provider(): void
+    {
+        // O-57: Mapbox's geocoder with autocomplete; the answer is [{name, address, lat, lng}].
+        \Modules\Rides\Models\RideSetting::current()->forceFill(['map_provider' => 'mapbox', 'mapbox_token' => 'pk.test'])->save();
+        // setUp fakes every call with an empty answer — a fresh client with Mapbox's answer instead.
+        Http::swap(new \Illuminate\Http\Client\Factory);
+        Http::fake(['api.mapbox.com/*' => Http::response(['features' => [
+            ['text' => 'الدقي', 'place_name' => 'الدقي، الجيزة', 'center' => [31.21, 30.04]],
+        ]])]);
+        $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/places/suggest?q=الدق&lat=30.05&lng=31.2')->assertOk()
+            ->assertJsonPath('data.0.name', 'الدقي')->assertJsonPath('data.0.lat', 30.04);
+        $this->actingAs($this->rider, 'user_api')->getJson('/api/mobile/v1/rides/places/suggest?q=ا')->assertOk()->assertJsonPath('data', []);
+    }
+
     private function vehicle(string $body, int $seats): void
     {
         $make = VehicleMake::query()->create(['status' => true]);

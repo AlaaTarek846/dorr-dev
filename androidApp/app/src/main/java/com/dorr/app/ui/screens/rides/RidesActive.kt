@@ -511,47 +511,14 @@ private fun RideChatSheet(ride: RideDto, onClose: () -> Unit) {
         }
     }
 
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp).imePadding()) {
-            Text(stringResource(R.string.rd_chat_title, ride.driver?.name.orEmpty()), color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp)
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(Modifier.fillMaxWidth().heightIn(min = 160.dp, max = 380.dp), state = list, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                if (messages.isEmpty()) item { Text(stringResource(R.string.rd_chat_empty), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 20.dp)) }
-                items(messages, key = { it.id }) { m ->
-                    val mine = m.mine ?: (m.from == "user")
-                    Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-                        Text(
-                            m.body, color = if (mine) Color.White else settingsInk(), fontSize = 14.sp,
-                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (mine) settingsAccent() else settingsBackground()).padding(horizontal = 12.dp, vertical = 8.dp),
-                        )
-                    }
-                }
-            }
-            if (!open) {
-                Text(stringResource(R.string.rd_chat_closed), color = settingsMut(), fontSize = 13.sp, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(12.dp))
-                return@Column
-            }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                items(quick) { q ->
-                    Text(
-                        q.text, fontSize = 12.sp, color = settingsInk(),
-                        modifier = Modifier.clip(CircleShape).border(1.dp, settingsInk().copy(alpha = 0.12f), CircleShape).clickable { send(null, q.key) }.padding(horizontal = 12.dp, vertical = 7.dp),
-                    )
-                }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                DorrTextField(
-                    value = text, onValueChange = { text = it.take(1000) },
-                    placeholder = stringResource(R.string.rd_chat_hint), minHeight = 48.dp,
-                    modifier = Modifier.weight(1f),
-                )
-                Spacer(Modifier.width(8.dp))
-                Box(
-                    Modifier.size(46.dp).clip(CircleShape).background(if (text.isBlank()) settingsMut() else settingsAccent())
-                        .clickable(enabled = text.isNotBlank()) { send(text.trim(), null); text = "" },
-                    contentAlignment = Alignment.Center,
-                ) { Icon(Icons.AutoMirrored.Rounded.Send, null, tint = Color.White) }
-            }
-        }
-    }
+    // O-61: the conversation look of the chat between people.
+    val callCtx = androidx.compose.ui.platform.LocalContext.current
+    RideChatScreen(
+        title = ride.driver?.name.orEmpty(),
+        subtitle = stringResource(R.string.rd_chat_subtitle, ride.number.orEmpty()),
+        messages = messages, quick = quick, open = open,
+        onSend = { body, key -> send(body, key) },
+        onCall = if (ride.status in setOf("accepted", "arrived", "in_progress")) ({ startRideCall(callCtx, ride) }) else null,
+        onClose = onClose,
+    )
 }

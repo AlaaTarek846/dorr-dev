@@ -570,4 +570,6 @@
     <string name="cx_body_driver">Your captain is on the way.</string>
     <string name="cx_body_search">We\'re still finding you a captain.</string>
     <string name="cx_keep">No, keep my ride</string>
+    <string name="rd_popular_near">Popular places near you</string>
+    <string name="rd_chat_subtitle">Your captain · ride %1$s</string>
 </resources>

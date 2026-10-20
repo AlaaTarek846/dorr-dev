@@ -32,6 +32,9 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::get('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'packs']);
         Route::post('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'store']);
         Route::post('lessons/packs/{uuid}/status', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'status'])->whereUuid('uuid');
+        // O-62: edit and remove a pack.
+        Route::put('lessons/packs/{uuid}', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'update'])->whereUuid('uuid');
+        Route::delete('lessons/packs/{uuid}', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'destroy'])->whereUuid('uuid');
         Route::get('lessons/sessions', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'sessions']);
         Route::post('lessons/sessions/{uuid}/answer', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'answer'])->whereUuid('uuid');
         Route::post('lessons/sessions/{uuid}/done', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'done'])->whereUuid('uuid');
@@ -54,6 +57,10 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::get('map-config', \Modules\Rides\Http\Controllers\MapConfigController::class);
         // O-47: «why don't requests reach me?» — every dispatch condition, passed or not.
         Route::get('dispatch-check', [\Modules\Rides\Http\Controllers\DispatchCheckController::class, 'driver']);
+        // O-57: place search for the captain's own forms (marina, lessons area, bus stops).
+        Route::get('places/suggest', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'suggest'])->middleware('throttle:90,1');
+        // O-58: where requests come from (the last hour, ~1 km cells) — the captain's map shows the hot areas.
+        Route::get('demand-heat', [\Modules\Rides\Http\Controllers\NearbyMapController::class, 'heat']);
         // O-30: With Me — «I'm going there, take riders on my way».
         Route::get('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'show']);
         Route::post('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'open']);

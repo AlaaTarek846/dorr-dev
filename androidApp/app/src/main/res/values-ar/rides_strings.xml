@@ -570,4 +570,6 @@
     <string name="cx_body_driver">الكابتن في الطريق ليك.</string>
     <string name="cx_body_search">لسه بندورلك على كابتن.</string>
     <string name="cx_keep">لا، كمّل الرحلة</string>
+    <string name="rd_popular_near">أماكن مشهورة قريبة منك</string>
+    <string name="rd_chat_subtitle">الكابتن · رحلة %1$s</string>
 </resources>

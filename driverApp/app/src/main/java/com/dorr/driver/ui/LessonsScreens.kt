@@ -82,6 +82,9 @@ fun TrainerScreen(onBack: () -> Unit) {
     var sessions by remember { mutableStateOf<List<TrainerSessionDto>?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
     var formOpen by remember { mutableStateOf(false) }
+    // O-62: the pack being edited, and the one asked about removing.
+    var editing by remember { mutableStateOf<TrainerPackDto?>(null) }
+    var removing by remember { mutableStateOf<TrainerPackDto?>(null) }
     var tick by remember { mutableStateOf(0) }
 
     LaunchedEffect(tick) {
@@ -132,6 +135,11 @@ fun TrainerScreen(onBack: () -> Unit) {
                             com.dorr.driver.ui.kit.DorrToggle(p.status == "active") { on ->
                                 act { DriverBackend.lessons.status(p.uuid, JsonObject().apply { addProperty("status", if (on) "active" else "paused") }) }
                             }
+                        }
+                        // O-62: edit and remove.
+                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            Chip("✏️ " + stringResource(R.string.tr_edit), tint = Plum) { editing = p }
+                            Chip("🗑 " + stringResource(R.string.tr_delete), tint = Pal.danger) { removing = p }
                         }
                     }
                 }
@@ -184,20 +192,35 @@ fun TrainerScreen(onBack: () -> Unit) {
         }
     }
     if (formOpen) PackForm(onClose = { formOpen = false }, onDone = { formOpen = false; tab = "packs"; tick++ })
+    editing?.let { p -> PackForm(existing = p, onClose = { editing = null }, onDone = { editing = null; tick++ }) }
+    removing?.let { p ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { removing = null },
+            title = { Text(stringResource(R.string.tr_delete_title)) },
+            text = { Text(stringResource(if ((p.learners ?: 0) > 0) R.string.tr_delete_archive else R.string.tr_delete_body, p.title)) },
+            confirmButton = {
+                androidx.compose.material3.TextButton(onClick = { removing = null; act { DriverBackend.lessons.remove(p.uuid) } }) {
+                    Text(stringResource(R.string.tr_delete), color = Pal.danger, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = { androidx.compose.material3.TextButton(onClick = { removing = null }) { Text(stringResource(R.string.tr_keep)) } },
+        )
+    }
 }
 
 @Composable
-private fun PackForm(onClose: () -> Unit, onDone: () -> Unit) {
+private fun PackForm(existing: TrainerPackDto? = null, onClose: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var title by remember { mutableStateOf("") }
-    var description by remember { mutableStateOf("") }
-    var transmission by remember { mutableStateOf("automatic") }
-    var lessons by remember { mutableStateOf("10") }
-    var minutes by remember { mutableStateOf("60") }
-    var price by remember { mutableStateOf("") }
-    var ownCar by remember { mutableStateOf(true) }
-    var area by remember { mutableStateOf<PlaceDto?>(null) }
+    // O-62: editing fills the form with the pack as it is.
+    var title by remember { mutableStateOf(existing?.title.orEmpty()) }
+    var description by remember { mutableStateOf(existing?.description.orEmpty()) }
+    var transmission by remember { mutableStateOf(existing?.transmission ?: "automatic") }
+    var lessons by remember { mutableStateOf((existing?.lessons ?: 10).toString()) }
+    var minutes by remember { mutableStateOf((existing?.minutesPerLesson ?: 60).toString()) }
+    var price by remember { mutableStateOf(existing?.let { java.math.BigDecimal(it.priceMinor).movePointLeft(2).stripTrailingZeros().toPlainString() }.orEmpty()) }
+    var ownCar by remember { mutableStateOf(existing?.ownCar ?: true) }
+    var area by remember { mutableStateOf(existing?.area) }
     var picking by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -206,7 +229,8 @@ private fun PackForm(onClose: () -> Unit, onDone: () -> Unit) {
 
     BackHandler(onBack = onClose)
     Column(Modifier.fillMaxSize().background(Pal.bg)) {
-        ScreenHeader(stringResource(R.string.tr_new_pack), onBack = onClose, modifier = Modifier.statusBarsPadding())
+        ScreenHeader(stringResource(if (existing != null) R.string.tr_edit_pack else R.string.tr_new_pack), onBack = onClose, modifier = Modifier.statusBarsPadding())
+        if ((existing?.learners ?: 0) > 0) Text(stringResource(R.string.tr_edit_locked), color = Pal.warning, fontSize = 12.sp, modifier = Modifier.padding(horizontal = 16.dp))
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             DorrField(title, { title = it.take(120) }, label = { Text(stringResource(R.string.tr_pack_name)) }, singleLine = true)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -240,7 +264,7 @@ private fun PackForm(onClose: () -> Unit, onDone: () -> Unit) {
                         addProperty("own_car", ownCar)
                         add("area", JsonObject().apply { addProperty("lat", area!!.lat); addProperty("lng", area!!.lng); addProperty("address", area!!.address) })
                     }
-                    when (val r = apiCall { DriverBackend.lessons.publish(body) }) {
+                    when (val r = apiCall { if (existing != null) DriverBackend.lessons.update(existing.uuid, body) else DriverBackend.lessons.publish(body) }) {
                         is ApiResult.Ok -> onDone()
                         is ApiResult.Failed -> error = r.error.displayMessage
                         is ApiResult.Offline -> error = context.getString(R.string.error_offline)

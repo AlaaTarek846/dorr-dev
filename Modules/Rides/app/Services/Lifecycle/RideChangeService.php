@@ -239,7 +239,8 @@ class RideChangeService
         $changes = [
             'planned_distance_m' => $route['distance_m'] ?? $ride->planned_distance_m,
             'planned_duration_s' => $route['duration_s'] ?? $ride->planned_duration_s,
-            'planned_polyline' => $route['polyline'] ?? $ride->planned_polyline,
+            // O-56: the new trip's line — never the old one; without a drawn route the apps join the points.
+            'planned_polyline' => $route['polyline'] ?? null,
         ];
         if ($request->type === 'destination') {
             $changes += ['destination_lat' => $point['lat'], 'destination_lng' => $point['lng'], 'destination_address' => $point['address'] ?? null];

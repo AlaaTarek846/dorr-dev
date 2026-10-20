@@ -698,4 +698,23 @@
     <string name="lg_open_settings">افتح الإعدادات واسمح بالموقع</string>
     <string name="lg_turn_on">شغّل اللوكيشن</string>
     <string name="lg_leave">رجوع</string>
+    <string name="tr_edit">تعديل</string>
+    <string name="tr_delete">حذف</string>
+    <string name="tr_keep">خليها</string>
+    <string name="tr_delete_title">حذف الباقة؟</string>
+    <string name="tr_delete_body">«%1$s» هتتحذف خالص.</string>
+    <string name="tr_delete_archive">فيه متدربين اشتروا «%1$s»: هتختفي من البحث، وهما يكمّلوا دروسهم عادي.</string>
+    <string name="tr_edit_pack">تعديل الباقة</string>
+    <string name="tr_edit_locked">فيه متدربين في الباقة: يتعدّل الاسم والوصف والمنطقة بس.</string>
+    <string name="cs_attach_media">إرفاق صور أو فيديو (%1$d)</string>
+    <string name="trip_chat_subtitle">الراكب · رحلة %1$s</string>
+    <string name="trip_chat_empty">لسه مفيش رسايل. اكتب للراكب لو محتاج.</string>
+    <string name="ob_vehicle_kind">نوع المركبة</string>
+    <string name="vk_car">🚗 سيارة</string>
+    <string name="vk_motorcycle">🏍 دراجة نارية</string>
+    <string name="vk_bus">🚌 باص</string>
+    <string name="vk_boat">🚤 مركب</string>
+    <string name="vk_yacht">🛥 يخت</string>
+    <string name="vk_none">مش عندي مركبة</string>
+    <string name="ob_no_vehicle_hint">تقدر تشتغل «سائق تحت الطلب» (تسوق عربية العميل) أو مدرب قيادة من غير مركبة. رحلات التوصيل محتاجة مركبة — تقدر تضيفها بعدين.</string>
 </resources>
