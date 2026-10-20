@@ -168,8 +168,18 @@ internal class RidesState {
     /** O-25: boats & yachts, over the rides map. */
     var marineOpen by mutableStateOf(false)
 
+    /** O-26c: find a driver, over the rides map. */
+    var hireOpen by mutableStateOf(false)
+
+    /** O-26b: driving lessons, over the rides map. */
+    var lessonsOpen by mutableStateOf(false)
+
     /** O-18: the service picked on the first screen (instant ride → the map); false = the picker shows. */
     var servicePicked by mutableStateOf(false)
+
+    /** O-17: by the hour — how many hours, on which category (null = by the distance). */
+    var hourlyHours by mutableStateOf<Int?>(null)
+    var hourlySlug by mutableStateOf<String?>(null)
 
     /** Complaints and disputes (R-133..R-140): the page is open, and the ride a new one is about (null = pick). */
     var casesOpen by mutableStateOf(false)
@@ -204,6 +214,8 @@ internal class RidesState {
     }
 
     fun resetBooking() {
+        hourlyHours = null
+        hourlySlug = null
         destination = null
         stops.clear()
         openDestination = false
@@ -301,6 +313,8 @@ fun RidesHost(onExit: () -> Unit) {
         when {
             state.busOpen -> state.busOpen = false
             state.marineOpen -> state.marineOpen = false
+            state.hireOpen -> state.hireOpen = false
+            state.lessonsOpen -> state.lessonsOpen = false
             !state.servicePicked && state.ride == null -> onExit()
             state.scheduleOpen -> state.scheduleOpen = false
             state.safetyOpen -> state.safetyOpen = false
@@ -386,6 +400,8 @@ fun RidesHost(onExit: () -> Unit) {
                 add(RideService.Instant)
                 if (state.features?.categories?.get("bus") == true) add(RideService.Bus)
                 if (state.features?.categories?.get("marine") == true) add(RideService.Marine)
+                if (state.feature("find_driver")) add(RideService.FindDriver)
+                if (state.feature("driving_lessons")) add(RideService.Lessons)
             }
             ServicePicker(
                 ready = ready,
@@ -393,6 +409,8 @@ fun RidesHost(onExit: () -> Unit) {
                     when (svc) {
                         RideService.Bus -> state.busOpen = true
                         RideService.Marine -> state.marineOpen = true
+                        RideService.FindDriver -> state.hireOpen = true
+                        RideService.Lessons -> state.lessonsOpen = true
                         else -> state.servicePicked = true
                     }
                 },
@@ -412,6 +430,18 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { MarineHost(state, onClose = { state.marineOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.hireOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { HireHost(state, onClose = { state.hireOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.lessonsOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { LessonsHost(state, onClose = { state.lessonsOpen = false }) }
 
         androidx.compose.animation.AnimatedVisibility(
             visible = state.myRidesOpen,
@@ -436,6 +466,16 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { SafetyCenterPage(state, onClose = { state.safetyOpen = false }) }
+
+        // O-09: the in-app call with the captain, over everything.
+        val callContext = androidx.compose.ui.platform.LocalContext.current
+        RideCallOverlay(onAccept = {
+            val ride = RideCallSession.rideUuid
+            val call = RideCallSession.callUuid
+            if (ride != null && call != null) RideCallSession.accept(callContext) {
+                ApiClient.rides.acceptCall(ridesAuth(), ride, call).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) }
+            }
+        })
     }
 
     if (state.scheduleOpen) SchedulePickerSheet(state, onClose = { state.scheduleOpen = false })

@@ -30,6 +30,14 @@ object DriverBackend {
     lateinit var marine: DriverMarineApi
         private set
 
+    /** O-26c: find a driver — the captain's side. */
+    lateinit var hire: DriverHireApi
+        private set
+
+    /** O-26b: driving lessons — the trainer's side. */
+    lateinit var lessons: DriverLessonsApi
+        private set
+
     private val _signedOut = MutableStateFlow(0)
 
     /** Ticks each time the server answers 401 to a signed-in call. */
@@ -57,5 +65,7 @@ object DriverBackend {
         api = retrofit.create(DriverApi::class.java)
         bus = retrofit.create(DriverBusApi::class.java)
         marine = retrofit.create(DriverMarineApi::class.java)
+        hire = retrofit.create(DriverHireApi::class.java)
+        lessons = retrofit.create(DriverLessonsApi::class.java)
     }
 }

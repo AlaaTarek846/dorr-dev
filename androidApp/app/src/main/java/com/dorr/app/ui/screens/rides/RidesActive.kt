@@ -105,15 +105,18 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
     // nothing asks it on a timer. A reload on open and after a lost connection catches up on what was missed.
     LaunchedEffect(ride.uuid) {
         com.dorr.app.chat.ChatRealtime.watchRide(ride.uuid)
-        suspend fun reload() {
+        // `force`: a call's ring / answer / hang-up doesn't change the ride's version, but must show.
+        suspend fun reload(force: Boolean = false) {
             runCatching { ApiClient.rides.ride(ridesAuth(), ride.uuid).data }.getOrNull()?.let { fresh ->
-                if (fresh.version != state.ride?.version) state.ride = fresh
+                if (force || fresh.version != state.ride?.version || fresh.call?.uuid != state.ride?.call?.uuid || fresh.call?.status != state.ride?.call?.status) state.ride = fresh
             }
         }
         launch { com.dorr.app.chat.ChatRealtime.connected.collect { up -> if (up) reload() } }
         com.dorr.app.chat.ChatRealtime.events.collect { e ->
             when (e.name) {
-                "ride.changed" -> reload()
+                "ride.changed" -> reload(force = e.data.get("event")?.takeIf { it.isJsonPrimitive }?.asString?.startsWith("call_") == true)
+                // O-09: the captain is calling (the push, when the app is open) — show it now.
+                "ride.call" -> reload(force = true)
                 // O-10: a new message — the chat tile's count follows.
                 "ride.message" -> reload()
                 // The car moves on the map from the event itself, without a reload.
@@ -128,6 +131,17 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         }
     }
     androidx.compose.runtime.DisposableEffect(ride.uuid) { onDispose { com.dorr.app.chat.ChatRealtime.unwatchRide(ride.uuid) } }
+
+    // O-09: the captain's call rings here; a call that's gone from the ride is over on this phone too.
+    val callContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(ride.call?.uuid, ride.call?.status) {
+        val call = ride.call
+        when {
+            call != null && call.status == "ringing" && call.caller == "driver" ->
+                RideCallSession.incoming(callContext, ride.uuid, call.uuid, ride.driver?.name.orEmpty(), end = { r, c -> ApiClient.rides.endCall(ridesAuth(), r, c) })
+            call == null && RideCallSession.rideUuid == ride.uuid && RideCallSession.phase != RideCallPhase.Calling -> RideCallSession.endedElsewhere(null)
+        }
+    }
 
     PanelCard {
         when (ride.status) {
@@ -276,8 +290,13 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
 
     // O-32: a shared ride — how many in the car, and what sharing saved.
     ride.pool?.takeIf { it.riders > 1 || it.discountMinor > 0 }?.let { pool -> SharedRideBanner(pool, ride.currency) }
+    ride.hourly?.let { HourlyRideBanner(it, ride.currency) }
     ChangeTripLinks(state, ride)
     if (ride.status == "accepted" || ride.status == "arrived") PaymentSwitch(state, ride)
+
+    // O-09: a free call inside the app (LiveKit) while the captain is on the ride — the mic asked first.
+    val callCtx = androidx.compose.ui.platform.LocalContext.current
+    val micForCall = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok -> if (ok) startRideCall(callCtx, ride) }
 
     // The wireflow's row: 💬 Message · 📤 Share · 🚨 SOS.
     Spacer(Modifier.height(14.dp))
@@ -288,6 +307,10 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
         sharing = sharing,
         unread = ride.unreadMessages,
         callPhone = ride.callPhone,
+        onAppCall = if (ride.status in setOf("accepted", "arrived", "in_progress")) ({
+            if (androidx.core.content.ContextCompat.checkSelfPermission(callCtx, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) startRideCall(callCtx, ride)
+            else micForCall.launch(android.Manifest.permission.RECORD_AUDIO)
+        }) else null,
     )
     shareError?.let { Text(it, color = AppColors.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
     if (ride.status != "in_progress") {

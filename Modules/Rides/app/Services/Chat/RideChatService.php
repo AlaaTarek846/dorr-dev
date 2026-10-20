@@ -141,7 +141,13 @@ class RideChatService
             return null;
         }
         if ($viewerSide === 'driver') {
-            return ($ride->beneficiary['phone'] ?? null) ?: $ride->rider()->value('phone');
+            // R-13: booked for someone else — the captain sees only their first name, never a number
+            // (neither the booker's nor theirs); they talk through the ride chat.
+            if (! empty($ride->beneficiary['name'])) {
+                return null;
+            }
+
+            return $ride->rider()->value('phone');
         }
 
         return $ride->driver()->value('phone');

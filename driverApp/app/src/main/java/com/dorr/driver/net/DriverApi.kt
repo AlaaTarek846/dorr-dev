@@ -319,6 +319,16 @@ interface DriverApi {
     @GET("driver/v1/rides/rating-tags")
     suspend fun ratingTags(): Response<ApiEnvelope<List<TagDto>>>
 
+    /** O-09: an in-app voice call with the rider (LiveKit). */
+    @POST("driver/v1/rides/{uuid}/calls")
+    suspend fun startCall(@Path("uuid") uuid: String): Response<ApiEnvelope<TripCallStartDto>>
+
+    @POST("driver/v1/rides/{uuid}/calls/{call}/accept")
+    suspend fun acceptCall(@Path("uuid") uuid: String, @Path("call") call: String): Response<ApiEnvelope<TripCallStartDto>>
+
+    @POST("driver/v1/rides/{uuid}/calls/{call}/end")
+    suspend fun endCall(@Path("uuid") uuid: String, @Path("call") call: String): Response<ApiEnvelope<TripCallDto>>
+
     @GET("driver/v1/rides/{uuid}/messages")
     suspend fun messages(@Path("uuid") uuid: String): Response<ApiEnvelope<ChatDto>>
 

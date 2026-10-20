@@ -26,6 +26,22 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Admin → Discover → Organizers matches flags / users (2026-10-18):** breadcrumb, search with clear, All / Pending / Verified / Rejected / Suspended filter buttons with counts (`?status_counts=1`; All appears only after a status is chosen, like flags), skeleton and empty state, created/updated dates, pagination, a status select on the list like users, a details modal, and a review modal with a note field instead of `window.prompt`. No create or bulk-delete — the API is still index / show / review only.
 
 ### Added
+- **In-app calls (2026-10-20, O-09):**
+  - The rider and the captain can call each other inside the app over LiveKit (the chat's setup), and neither sees a phone number.
+  - The callee is rung by push, and answer and hang-up are real time. The call screen has mute and speaker.
+  - The captain app now includes LiveKit and the microphone permission.
+- **Driving lessons (2026-10-20, O-26b):**
+  - Captains publish lesson packs as trainers. Learners buy a pack from the wallet, book each lesson, and the trainer confirms.
+  - The trainer is paid per lesson given, and lessons not taken are refunded when a learner stops.
+  - New `driving_lessons` switch, `lessons.*` policies, three tables, and screens in both apps.
+- **Find a driver (2026-10-20, O-26c):**
+  - Riders hire a nearby captain to drive their own car, by the hour or the day, paid upfront from the wallet. The first captain to accept takes the job.
+  - The job goes arrived → started → completed; extra minutes are charged per minute, and the captain is paid less the commission.
+  - New `find_driver` switch, `hire.*` policies, table `driver_hires`, endpoints `mobile/v1/rides/hire*` and `driver/v1/hire/*`, and screens in both apps.
+- **By the hour (2026-10-20, O-17):**
+  - Motorcycles, or any category the admin opens by the hour, can be booked for a number of hours at the hour price set in the policies.
+  - The ride ends wherever the rider gets off, and minutes past the hours are charged per minute.
+  - Rider app: a «by distance / by the hour» switch on the quotes. Captain app: an hourly banner on the trip screen.
 - **Boats & yachts (2026-10-20, O-25):**
   - Captains with a boat or yacht publish sea trips (sold by seat or as the whole boat) or hire by the hour.
   - Hires never overlap, payment comes from the wallet with a boarding QR, and cancellation is free up to the policy window.

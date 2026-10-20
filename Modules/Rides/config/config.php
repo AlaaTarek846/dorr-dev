@@ -164,6 +164,20 @@ return [
         'bus.free_cancel_before_s' => 3600,               // O-23: a ticket is refunded in full up to this long before it leaves
         'marine.search_radius_m' => 60000,                // O-25: marinas this close to the guest are shown
         'marine.free_cancel_before_s' => 86400,           // O-25: a sea trip / hire is refunded in full up to this long before it starts
+        'hire.hour_price_minor' => 0,                     // O-26c find a driver: the price of an hour (0 = not by the hour)
+        'hire.day_price_minor' => 0,                      // O-26c: the price of a day (0 = not by the day)
+        'hire.min_hours' => 2,
+        'hire.max_hours' => 12,
+        'hire.max_days' => 7,
+        'hire.overtime_per_min_minor' => 0,               // O-26c: each minute past the time booked
+        'hire.radius_m' => 30000,                         // O-26c: online captains this close hear about a request
+        'hire.free_cancel_before_s' => 3600,              // O-26c: once accepted, free to cancel up to this long before the start
+        'hire.commission_bp' => 2000,                     // O-26c: DORR's part of each job (20%)
+        'lessons.search_radius_m' => 40000,               // O-26b: trainers who teach this close to the learner
+        'lessons.free_cancel_before_s' => 7200,           // O-26b: a confirmed lesson is free to cancel up to this long before it
+        'lessons.commission_bp' => 2000,                  // O-26b: DORR's part of each lesson given (20%)
+        'calls.in_app' => true,                           // O-09 (X-13: LiveKit): the rider and the captain may call each other inside the app
+        'calls.ring_s' => 45,                             // O-09: a ring nobody answers by then is missed
         'calls.reveal_phone' => true,                     // O-09 (owner): each side may call the other's number from outside the app while the ride is on
         'rating.window_h' => 72,                          // a ride can be rated for 3 days
         'rating.driver_criteria' => ['speed', 'cleanliness', 'driving', 'behavior', 'car'], // O-41: what the rider scores the captain on

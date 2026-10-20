@@ -169,12 +169,16 @@ fun DriverNavHost() {
                             onOpenBus = { nav.navigate("bus") },
                             onOpenWithMe = { nav.navigate("withme") },
                             onOpenMarine = { nav.navigate("marine") },
+                            onOpenHire = { nav.navigate("hire") },
+                            onOpenLessons = { nav.navigate("lessons") },
                         )
                     }
                     composable("withme") { WithMeScreen(onBack = { nav.popBackStack() }, onOpenRide = { nav.navigate("trip/$it") }) }
                     composable("trip/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
                         TripScreen(onDone = { nav.popBackStack() }, rideUuid = entry.arguments?.getString("uuid"))
                     }
+                    composable("hire") { HireJobsScreen(onBack = { nav.popBackStack() }) }
+                    composable("lessons") { TrainerScreen(onBack = { nav.popBackStack() }) }
                     composable("marine") { MarineListingsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("marine/$it") }) }
                     composable("marine/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
                         MarineListingScreen(entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() })
@@ -195,6 +199,8 @@ fun DriverNavHost() {
                                 event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
                         event.startsWith("bus.") -> nav.navigate("bus")
                                 event.startsWith("marine.") -> nav.navigate("marine")
+                                event.startsWith("hire.") -> nav.navigate("hire")
+                                event.startsWith("lesson.") -> nav.navigate("lessons")
                                 event.startsWith("ride.zone_") -> nav.navigate("airport")
                                 event.startsWith("ride.case_") -> nav.navigate("cases")
                                 event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")

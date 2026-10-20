@@ -42,6 +42,15 @@ class RideQuoteResource extends JsonResource
                 : ['code' => $currency->code, 'symbol' => $currency->symbol, 'decimal_places' => (int) ($currency->decimal_places ?? 2)],
             'pricing_mode' => $this->pricing_mode->value,
             'open_destination' => $this->destination_lat === null,
+            // O-17: this quote is by the hour ({hours, hour_price_minor, overtime_per_min_minor}), or null.
+            'hourly' => $this->policy_snapshot['hourly'] ?? null,
+            // O-17: the category can also be booked by the hour — the app shows «by distance / by the hour».
+            'hourly_offer' => ($p = (array) ($this->policy_snapshot['policy'] ?? [])) !== [] && ! empty($p['hourly.enabled']) && (int) ($p['hourly.hour_price_minor'] ?? 0) > 0 ? [
+                'hour_price_minor' => (int) $p['hourly.hour_price_minor'],
+                'min_hours' => max(1, (int) ($p['hourly.min_hours'] ?? 1)),
+                'max_hours' => max(1, (int) ($p['hourly.max_hours'] ?? 8)),
+                'overtime_per_min_minor' => (int) ($p['hourly.overtime_per_min_minor'] ?? 0),
+            ] : null,
             // R-16..R-18: the approved points this quote starts / ends at (the app shows them before confirming).
             'pickup_point' => PickupPoints::present($this->pickup_point),
             'dropoff_point' => PickupPoints::present($this->dropoff_point),

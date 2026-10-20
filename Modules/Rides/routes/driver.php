@@ -28,6 +28,19 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('bus/trips/{uuid}/cancel', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'cancel'])->whereUuid('uuid');
         Route::post('bus/trips/{uuid}/move', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'move'])->whereUuid('uuid');
         Route::post('bus/trips/{uuid}/board', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'board'])->whereUuid('uuid');
+        // O-26b: driving lessons — my packs, the lessons asked for, accept, done.
+        Route::get('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'packs']);
+        Route::post('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'store']);
+        Route::post('lessons/packs/{uuid}/status', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'status'])->whereUuid('uuid');
+        Route::get('lessons/sessions', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'sessions']);
+        Route::post('lessons/sessions/{uuid}/answer', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'answer'])->whereUuid('uuid');
+        Route::post('lessons/sessions/{uuid}/done', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'done'])->whereUuid('uuid');
+        // O-26c: find a driver — open requests near me, accept, my jobs, arrived → started → ended.
+        Route::get('hire/open', [\Modules\Rides\Http\Controllers\Hire\DriverHireController::class, 'open']);
+        Route::get('hire/mine', [\Modules\Rides\Http\Controllers\Hire\DriverHireController::class, 'mine']);
+        Route::post('hire/{uuid}/accept', [\Modules\Rides\Http\Controllers\Hire\DriverHireController::class, 'accept'])->whereUuid('uuid');
+        Route::post('hire/{uuid}/move', [\Modules\Rides\Http\Controllers\Hire\DriverHireController::class, 'move'])->whereUuid('uuid');
+        Route::post('hire/{uuid}/release', [\Modules\Rides\Http\Controllers\Hire\DriverHireController::class, 'release'])->whereUuid('uuid');
         // O-25: the captain's boat — sea trips and yacht hires, bookings, boarding, more time.
         Route::get('marine/boat', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'boat']);
         Route::get('marine/listings', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'index']);
@@ -108,6 +121,10 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
             Route::post('{uuid}/rate', [DriverRideController::class, 'rate'])->whereUuid('uuid');
             Route::get('{uuid}/messages', [DriverRideController::class, 'messages'])->whereUuid('uuid');
             Route::post('{uuid}/messages', [DriverRideController::class, 'sendMessage'])->whereUuid('uuid');
+            // O-09: in-app voice call with the rider (LiveKit) — start, answer, hang up.
+            Route::post('{uuid}/calls', [\Modules\Rides\Http\Controllers\RideCallController::class, 'start'])->whereUuid('uuid');
+            Route::post('{uuid}/calls/{call}/accept', [\Modules\Rides\Http\Controllers\RideCallController::class, 'accept'])->whereUuid('uuid')->whereUuid('call');
+            Route::post('{uuid}/calls/{call}/end', [\Modules\Rides\Http\Controllers\RideCallController::class, 'end'])->whereUuid('uuid')->whereUuid('call');
             // Safety (D-141, D-142, D-156): share my trip, SOS.
             Route::get('{uuid}/share', [RideSafetyController::class, 'shareLink'])->whereUuid('uuid');
             Route::post('{uuid}/share', [RideSafetyController::class, 'share'])->whereUuid('uuid');

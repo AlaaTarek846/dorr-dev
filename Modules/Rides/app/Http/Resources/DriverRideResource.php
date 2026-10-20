@@ -69,6 +69,14 @@ class DriverRideResource extends JsonResource
             'unread_messages' => $this->driver_id !== null ? \Modules\Rides\Services\Chat\RideChatService::unread($this->resource, 'driver') : 0,
             'call_phone' => $this->driver_id !== null ? \Modules\Rides\Services\Chat\RideChatService::callPhone($this->resource, 'driver') : null,
             // O-30..O-33: a With Me ride sharing the car — what sharing took off, and with how many.
+            // O-17: booked by the hour — the hours and what each minute past them costs (counted from the start).
+            'hourly' => ($h = $this->snapshot('hourly')) === null ? null : [
+                'hours' => (int) $h['hours'], 'hour_price_minor' => (int) $h['hour_price_minor'],
+                'overtime_per_min_minor' => (int) ($h['overtime_per_min_minor'] ?? 0),
+                'ends_at' => $this->started_at?->copy()->addHours((int) $h['hours'])->toIso8601String(),
+            ],
+            // O-09: the in-app call ringing or going on now (null when none) — the app shows it on any reload.
+            'call' => \Modules\Rides\Services\Chat\RideCallService::present($this->resource),
             'pool' => $this->pool_id === null ? null : [
                 'discount_minor' => (int) $this->pool_discount_minor,
                 'riders' => \Modules\Rides\Models\Ride::query()->where('pool_id', $this->pool_id)

@@ -101,6 +101,16 @@ interface RidesApi {
     @GET("mobile/v1/rides/rating-tags")
     suspend fun ratingTags(@Header("Authorization") auth: String): ApiEnvelope<List<RideTagDto>>
 
+    /** O-09: an in-app voice call with the captain (LiveKit). */
+    @POST("mobile/v1/rides/{uuid}/calls")
+    suspend fun startCall(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideCallStartDto>
+
+    @POST("mobile/v1/rides/{uuid}/calls/{call}/accept")
+    suspend fun acceptCall(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("call") call: String): ApiEnvelope<RideCallStartDto>
+
+    @POST("mobile/v1/rides/{uuid}/calls/{call}/end")
+    suspend fun endCall(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("call") call: String): ApiEnvelope<RideCallDto>
+
     @GET("mobile/v1/rides/{uuid}/messages")
     suspend fun messages(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideChatDto>
 
@@ -279,6 +289,31 @@ data class RideQuoteDto(
     val terms: List<RideTermDto> = emptyList(),
     /** Booking ahead is possible for this category (null for bidding), with the policy's limits. */
     val scheduling: RideSchedulingDto? = null,
+    /** O-17: this quote is by the hour, or null. */
+    val hourly: RideHourlyDto? = null,
+    /** O-17: the category can also be booked by the hour (its hour price and limits). */
+    @SerializedName("hourly_offer") val hourlyOffer: RideHourlyOfferDto? = null,
+)
+
+data class RideCallDto(val uuid: String, val status: String, val caller: String)
+
+data class RideCallJoinDto(val url: String, val room: String, val token: String)
+
+data class RideCallStartDto(val uuid: String, val status: String, val caller: String, val join: RideCallJoinDto)
+
+data class RideHourlyDto(
+    val hours: Int = 0,
+    @SerializedName("hour_price_minor") val hourPriceMinor: Long = 0,
+    @SerializedName("overtime_per_min_minor") val overtimePerMinMinor: Long = 0,
+    /** On a ride: when the hours bought run out (from the start). */
+    @SerializedName("ends_at") val endsAt: String? = null,
+)
+
+data class RideHourlyOfferDto(
+    @SerializedName("hour_price_minor") val hourPriceMinor: Long = 0,
+    @SerializedName("min_hours") val minHours: Int = 1,
+    @SerializedName("max_hours") val maxHours: Int = 8,
+    @SerializedName("overtime_per_min_minor") val overtimePerMinMinor: Long = 0,
 )
 
 data class RideCouponDto(
@@ -539,6 +574,10 @@ data class RideDto(
     val rated: Boolean? = null,
     /** O-30..O-32: sharing the car (With Me) — what came off the fare, and how many ride now. */
     val pool: RidePoolDto? = null,
+    /** O-17: booked by the hour. */
+    val hourly: RideHourlyDto? = null,
+    /** O-09: the in-app call ringing or going on now. */
+    val call: RideCallDto? = null,
     /** O-10: the captain's messages not read yet (the badge on the chat tile). */
     @SerializedName("unread_messages") val unreadMessages: Int = 0,
     /** O-09: the captain's number, to call from outside the app while the ride is on. */

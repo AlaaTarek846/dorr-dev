@@ -568,8 +568,6 @@ private fun txIcon(type: String): ImageVector = when (type) {
 
 // ---------------------------------------------------------------- withdrawing
 
-/** Withdraw: pick (or add) where to, the amount, then the wallet PIN — made first if there isn't one yet. */
-@OptIn(ExperimentalMaterial3Api::class)
 /** O-35: the withdrawal sheet, opened from the wallet copied from the DORR app (the captain's own action there). */
 @Composable
 internal fun DriverWithdraw(onClose: () -> Unit, onDone: () -> Unit) {
@@ -578,6 +576,8 @@ internal fun DriverWithdraw(onClose: () -> Unit, onDone: () -> Unit) {
     w?.let { WithdrawSheet(it, onClose = onClose, onDone = onDone) }
 }
 
+/** Withdraw: pick (or add) where to, the amount, then the wallet PIN — made first if there isn't one yet. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun WithdrawSheet(w: WalletDto, onClose: () -> Unit, onDone: () -> Unit) {
     val context = LocalContext.current

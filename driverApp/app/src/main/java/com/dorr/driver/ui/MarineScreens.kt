@@ -282,7 +282,7 @@ fun MarineListingScreen(uuid: String, onBack: () -> Unit) {
     LaunchedEffect(uuid) { reload() }
     LaunchedEffect(uuid) { com.dorr.driver.live.DriverLive.events.collect { e -> if (e.name.startsWith("marine.")) reload() } }
 
-    fun <T> run(call: suspend () -> retrofit2.Response<com.dorr.core.network.ApiEnvelope<T>>, ok: (T) -> Unit = {}) {
+    fun <T> call(call: suspend () -> retrofit2.Response<com.dorr.core.network.ApiEnvelope<T>>, ok: (T) -> Unit = {}) {
         busy = true
         error = null
         scope.launch {
@@ -294,9 +294,9 @@ fun MarineListingScreen(uuid: String, onBack: () -> Unit) {
             busy = false
         }
     }
-    fun move(to: String) = run({ DriverBackend.marine.move(uuid, JsonObject().apply { addProperty("to", to) }) })
+    fun move(to: String) = call({ DriverBackend.marine.move(uuid, JsonObject().apply { addProperty("to", to) }) })
     val scan = rememberLauncherForActivityResult(ScanContract()) { result ->
-        result.contents?.let { qr -> run({ DriverBackend.marine.board(JsonObject().apply { addProperty("qr", qr) }) }) { b -> message = context.getString(R.string.mr_boarded, b.guest?.name.orEmpty(), b.guests) } }
+        result.contents?.let { qr -> call({ DriverBackend.marine.board(JsonObject().apply { addProperty("qr", qr) }) }) { b -> message = context.getString(R.string.mr_boarded, b.guest?.name.orEmpty(), b.guests) } }
     }
 
     Column(Modifier.fillMaxSize().background(Pal.bg)) {
@@ -339,8 +339,8 @@ fun MarineListingScreen(uuid: String, onBack: () -> Unit) {
             t.bookings.forEach { b ->
                 GuestRow(
                     b, t,
-                    onFinish = { run({ DriverBackend.marine.finish(b.uuid) }) },
-                    onExtension = { yes -> run({ DriverBackend.marine.extension(b.uuid, JsonObject().apply { addProperty("approve", yes) }) }) },
+                    onFinish = { call({ DriverBackend.marine.finish(b.uuid) }) },
+                    onExtension = { yes -> call({ DriverBackend.marine.extension(b.uuid, JsonObject().apply { addProperty("approve", yes) }) }) },
                 )
             }
             Spacer(Modifier.navigationBarsPadding())

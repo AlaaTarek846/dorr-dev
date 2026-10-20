@@ -56,6 +56,8 @@ class RideController extends Controller
             'stops.*.address' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:32'],
             'coupon_code' => ['nullable', 'string', 'max:40'],
+            // O-17: by the hour (the categories the admin opened by the hour) — the destination is optional then.
+            'hours' => ['nullable', 'integer', 'min:1', 'max:24'],
         ]);
         if (! empty($data['stops']) && empty($data['destination'])) {
             throw new RidesException('stops_need_destination', 422);

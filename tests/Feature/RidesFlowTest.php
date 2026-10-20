@@ -201,6 +201,8 @@ class RidesFlowTest extends TestCase
 
     public function test_only_one_driver_gets_the_ride_and_a_busy_driver_gets_nothing_else(): void
     {
+        // One captain per round (O-36's several-at-once is tested on its own).
+        config(['rides.policy_defaults' => ['search.batch_size' => 1] + config('rides.policy_defaults')]);
         $first = $this->onlineDriver();
         $second = $this->onlineDriver(24.7200, 46.6800);
         $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
@@ -224,6 +226,22 @@ class RidesFlowTest extends TestCase
         $other = User::query()->create(['name' => 'Omar', 'phone' => '+966500000002', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
         $this->book($this->quote($other)->json('data.0'), 'cash')->assertCreated();
         $this->assertFalse(RideOffer::query()->where('driver_id', $second->id)->where('status', 'sent')->exists());
+    }
+
+    public function test_a_request_goes_to_several_captains_at_once_and_the_first_to_accept_takes_it(): void
+    {
+        // O-36 (owner): the request reaches `search.batch_size` captains together; the others' cards are withdrawn.
+        $first = $this->onlineDriver();
+        $second = $this->onlineDriver(24.7200, 46.6800);
+        $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
+
+        $offers = RideOffer::query()->where('status', 'sent')->get();
+        $this->assertEqualsCanonicalizing([$first->id, $second->id], $offers->pluck('driver_id')->all());
+
+        $mine = $offers->firstWhere('driver_id', $second->id);
+        $this->asDriver($second)->postJson("/api/driver/v1/offers/{$mine->uuid}/accept")->assertOk()->assertJsonPath('data.uuid', $uuid);
+        $this->assertSame($second->id, Ride::query()->where('uuid', $uuid)->value('driver_id'));
+        $this->assertFalse(RideOffer::query()->where('driver_id', $first->id)->where('status', 'sent')->exists(), 'the other card is withdrawn');
     }
 
     public function test_the_rider_has_one_active_ride_and_cancels_free_before_a_driver_accepts(): void
@@ -266,6 +284,8 @@ class RidesFlowTest extends TestCase
 
     public function test_a_driver_who_steps_back_frees_the_ride_for_another_and_never_gets_it_again(): void
     {
+        // One captain per round (O-36's several-at-once is tested on its own).
+        config(['rides.policy_defaults' => ['search.batch_size' => 1] + config('rides.policy_defaults')]);
         $first = $this->onlineDriver();
         $second = $this->onlineDriver(24.7300, 46.6900);
         $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
@@ -439,6 +459,29 @@ class RidesFlowTest extends TestCase
         $permit->update(['status' => false]);
         \Modules\Driver\Models\DriverDocument::query()->delete();
         $this->assertNull($gate->reasonNotToWork($resident->fresh()));
+    }
+
+    public function test_an_in_app_call_rings_the_other_side_is_answered_with_a_livekit_token_and_ends(): void
+    {
+        // O-09 (X-13: LiveKit): neither side sees the other's number — the call goes through DORR.
+        config(['chat.livekit.url' => 'wss://lk.test', 'chat.livekit.api_key' => 'key', 'chat.livekit.api_secret' => str_repeat('s', 32)]);
+        $driver = $this->onlineDriver();
+        $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/calls")->assertStatus(409)->assertJsonPath('error_code', 'rides_call_not_now');
+
+        $this->acceptAndArrive($driver, $uuid);
+        $call = $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/calls")->assertCreated()
+            ->assertJsonPath('data.status', 'ringing')->assertJsonPath('data.join.url', 'wss://lk.test')->json('data');
+        $this->assertNotEmpty($call['join']['token']);
+
+        // The rider sees it ringing on the ride, answers, and gets their own token for the same room.
+        $this->actingAs($this->rider, 'user_api')->getJson("/api/mobile/v1/rides/$uuid")->assertJsonPath('data.call.uuid', $call['uuid'])->assertJsonPath('data.call.caller', 'driver');
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/calls/{$call['uuid']}/accept")->assertOk()
+            ->assertJsonPath('data.status', 'active')->assertJsonPath('data.join.room', $call['join']['room']);
+        $this->asDriver($driver)->postJson("/api/driver/v1/rides/$uuid/calls/{$call['uuid']}/accept")->assertStatus(409);
+
+        $this->actingAs($this->rider, 'user_api')->postJson("/api/mobile/v1/rides/$uuid/calls/{$call['uuid']}/end")->assertOk()->assertJsonPath('data.status', 'ended');
+        $this->actingAs($this->rider, 'user_api')->getJson("/api/mobile/v1/rides/$uuid")->assertJsonPath('data.call', null);
     }
 
     public function test_the_ride_chat_is_open_only_while_a_driver_is_on_the_ride_and_is_kept_after(): void

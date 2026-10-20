@@ -122,7 +122,9 @@ class DispatchEngine
         // O-30, O-31: a With Me request goes first to the captains already carrying riders its way.
         $pooled = app(\Modules\Rides\Services\Pool\RidePoolService::class)->poolsFor($ride)
             ->reject(fn (array $pair) => RideOffer::query()->where('ride_id', $ride->id)->where('driver_id', $pair[0]->driver_id)->exists());
-        $batch = $pooled->merge($batch)->unique(fn (array $pair) => $pair[0]->driver_id)->values()->take(max(1, (int) ($policy['search.batch_size'] ?? 3)));
+        // An airport ride keeps the line's order (D-276): one captain at a time, the first in line first.
+        $size = $this->queue->orderFor($ride)->isNotEmpty() ? 1 : max(1, (int) ($policy['search.batch_size'] ?? 3));
+        $batch = $pooled->toBase()->merge($batch)->unique(fn (array $pair) => $pair[0]->driver_id)->values()->take($size);
 
         if ($batch->isEmpty()) {
             $ride->forceFill([

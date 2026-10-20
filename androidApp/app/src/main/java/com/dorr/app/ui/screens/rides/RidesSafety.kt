@@ -90,14 +90,35 @@ private val SosRed = Color(0xFFA32D2D)
 
 /** 📞 Call · 💬 Message (with the unread count) · 📤 Share · 🚨 SOS — equal tiles, SOS in red. */
 @Composable
-internal fun SafetyActions(onChat: () -> Unit, onShare: () -> Unit, onSos: () -> Unit, sharing: Boolean, unread: Int = 0, callPhone: String? = null) {
+internal fun SafetyActions(onChat: () -> Unit, onShare: () -> Unit, onSos: () -> Unit, sharing: Boolean, unread: Int = 0, callPhone: String? = null, onAppCall: (() -> Unit)? = null) {
     val context = LocalContext.current
+    var callMenu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        // O-09: the captain's number, called from outside the app (while the ride is on).
-        callPhone?.let { phone ->
-            ActionTile(Icons.Rounded.Call, stringResource(R.string.rd_call), AppColors.success, {
-                runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$phone"))) }
-            })
+        // O-09: call the captain — inside the app (free, no numbers shown) or the phone's own call.
+        if (callPhone != null || onAppCall != null) {
+            Box(Modifier.weight(1f)) {
+                Row {
+                    ActionTile(Icons.Rounded.Call, stringResource(R.string.rd_call), AppColors.success, {
+                        when {
+                            onAppCall != null && callPhone != null -> callMenu = true
+                            onAppCall != null -> onAppCall()
+                            else -> runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$callPhone"))) }
+                        }
+                    })
+                }
+                androidx.compose.material3.DropdownMenu(expanded = callMenu, onDismissRequest = { callMenu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rc_in_app)) },
+                        leadingIcon = { Icon(Icons.Rounded.Call, null, tint = AppColors.success) },
+                        onClick = { callMenu = false; onAppCall?.invoke() },
+                    )
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rc_phone)) },
+                        leadingIcon = { Icon(Icons.Rounded.Call, null, tint = settingsMut()) },
+                        onClick = { callMenu = false; runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$callPhone"))) } },
+                    )
+                }
+            }
         }
         ActionTile(Icons.Rounded.Chat, stringResource(R.string.rd_chat), settingsAccent(), onChat, badge = unread)
         ActionTile(Icons.Rounded.IosShare, stringResource(R.string.rd_share), settingsAccent(), onShare, busy = sharing)

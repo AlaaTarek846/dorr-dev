@@ -322,6 +322,8 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
             state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json().apply { state.dropoffPointId?.let { id -> addProperty("point_id", id) } }) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
             state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
+            // O-17: by the hour — only that category, priced hours × its hour price.
+            state.hourlyHours?.let { h -> addProperty("hours", h); state.hourlySlug?.let { addProperty("category", it) } }
         }
         val keep = state.selected?.category?.slug
         runCatching { ApiClient.rides.quotes(ridesAuth(), body).data.orEmpty() }
@@ -426,6 +428,8 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
         state.selected?.bid?.let { bid ->
             BidPriceEditor(state.riderPrice ?: bid.suggestedMinor, bid.floorMinor, bid.suggestedMinor, bid.stepMinor, state.selected?.currency) { state.riderPrice = it }
         }
+        // O-17: motorcycles (and any category the admin opens by the hour): by the distance or by the hour.
+        state.selected?.takeIf { it.hourlyOffer != null }?.let { HourlyRow(state, it) }
 
         state.selected?.let { quote ->
             Spacer(Modifier.height(8.dp))

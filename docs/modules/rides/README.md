@@ -259,6 +259,61 @@ Both apps show the request's state from the ride (`change_request`): the rider a
 - **Seats change live:** `bus.seats` on the public channel `bus-trips.{uuid}` (`BusSeatsChanged`) reloads every open seat map once.
 - **Not yet:** an admin page for bus trips, and an in-app chat for a bus trip (the apps call or text with the phone's own apps).
 
+## In-app calls (O-09; X-13 decided: LiveKit — `Services/Chat/RideCallService`, `ride_calls`)
+- The rider and the captain call each other inside the app, without either seeing a number.
+- The call uses the chat's LiveKit server, keys and token signer (`chat.livekit.*`, `Modules\Chat\Support\LiveKitToken`). Each call gets its own room, `ride-{ride}-{rand}`, and the identities are `user:{id}` and `driver:{id}`.
+- **Endpoints** (both sides): `POST mobile/v1/rides/{uuid}/calls` (or `driver/v1/rides/{uuid}/calls`) starts a call and returns `{…, join: {url, room, token}}`. `POST …/calls/{call}/accept` returns the callee's token. `POST …/calls/{call}/end` declines, cancels or hangs up.
+- **Rules:**
+  - A call is possible only while the ride is accepted, arrived or in progress, and only when `calls.in_app` is on. Missing LiveKit keys return `rides_call_not_configured`.
+  - If both sides call at once, the second caller joins the call already ringing.
+  - A ring older than `calls.ring_s` becomes `missed`.
+- **Signals:**
+  - The callee is rung by a high-priority push (`ride.call`, with a ttl of the ring time).
+  - Every change goes out as `ride.changed` / `driver.changed` with `call_ringing`, `call_accepted` or `call_ended`.
+  - `RideResource` and `DriverRideResource` carry `call` (the ringing or active call), so an app opened from the push rings right away.
+- **Apps:** `RideCall.kt` in both apps. The call counts as answered when the other person joins the LiveKit room, and as over when they leave. The ring stops on the phone's own clock. None of this polls.
+
+## Driving lessons (O-26b; `Services/Lessons/DrivingLessonService`, `lesson_packs`, `lesson_enrollments`, `lesson_sessions`, switch `driving_lessons`)
+- **Trainer** (an active captain):
+  - `GET/POST driver/v1/lessons/packs` takes `{title, transmission, lessons, minutes_per_lesson, price_minor, own_car, area}`. `POST packs/{uuid}/status {active|paused}`.
+  - `GET lessons/sessions` lists the lessons asked for and coming up.
+  - `POST sessions/{uuid}/answer {approve}`. Approval is refused when he already has a confirmed lesson within a lesson's length of that time.
+  - `POST sessions/{uuid}/done` works once the lesson has started. It pays that lesson's share (`LessonPack::lessonShare`; the last lesson takes the remainder) less `lessons.commission_bp`.
+- **Learner:**
+  - `GET mobile/v1/rides/lessons/packs?lat&lng&transmission` lists packs within `lessons.search_radius_m`.
+  - `POST packs/{uuid}/enroll` (Idempotency-Key) is paid from the wallet, non-withdrawable money first.
+  - `GET lessons/enrollments` and `GET lessons/enrollments/{uuid}`.
+  - `POST enrollments/{uuid}/sessions {starts_at, pickup}` books one lesson.
+  - `POST sessions/{uuid}/cancel` is free up to `lessons.free_cancel_before_s` before a confirmed lesson.
+  - `POST enrollments/{uuid}/quit` cancels the booked lessons and refunds the lessons not taken. With nothing taken, the payment is reversed; otherwise the rest is credited to the spend-only balance.
+- **Notifications:** `lesson.enrolled / requested / confirmed / declined / canceled / done`.
+
+## Find a driver (O-26c; `Services/Hire/DriverHireService`, `driver_hires`, switch `find_driver`)
+- The rider's own car, driven by a captain, by the hour or the day.
+- **Rider:**
+  - `GET mobile/v1/rides/hire/quote?lat&lng&unit=hour|day&quantity` returns the price and the limits.
+  - `POST hire` (Idempotency-Key) takes `{pickup, starts_at?, unit, quantity, transmission, car?, note?}`. It is paid upfront from the wallet, and only one request may be open at a time.
+  - `GET hire`, `GET hire/{uuid}`, and `POST hire/{uuid}/cancel`. Cancelling is free while the request is open; once accepted, it is free up to `hire.free_cancel_before_s` before the start.
+- **Captain:**
+  - `GET driver/v1/hire/open` lists open requests within `hire.radius_m` of his last presence. `GET hire/mine` lists his jobs.
+  - `POST hire/{uuid}/accept`: the first captain wins (row lock). A captain can't take two overlapping jobs.
+  - `POST hire/{uuid}/move {to: arrived|started|completed}`.
+  - `POST hire/{uuid}/release` steps back before the start. The request opens again and the other captains are told.
+- **Money:**
+  - Each started minute past the time booked is charged `hire.overtime_per_min_minor` at the end. When the wallet can't cover it, the amount goes to `extra_due_minor`.
+  - The captain is credited the total less `hire.commission_bp`, and the commission goes to the ledger.
+  - An open request still unaccepted 15 minutes after its start time expires and is refunded. This is checked when the lists load; there is no timer.
+- **Notifications:** `hire.new` (to nearby online active captains), `hire.accepted / arrived / started / completed / released / canceled / expired`.
+
+## By the hour (O-17; motorcycles, any category the admin opens)
+- **Policies** (per category, on the admin policies page): `hourly.enabled`, `hourly.hour_price_minor`, `hourly.min_hours`, `hourly.max_hours`, `hourly.overtime_per_min_minor`.
+- **Quote:** `POST mobile/v1/rides/quotes` with `hours` (and usually `category`) prices only the categories open by the hour. The price is upfront: hours × the hour price, through `FareCalculator` with a fixed fare, so the fee, coupon and tax lines still apply.
+  - Hours outside the policy's range return `rides_hourly_hours_range`.
+  - The destination is optional, and bidding categories are never offered by the hour.
+  - Every quote carries `hourly_offer`, so the app can show «by distance / by the hour». An hourly quote carries `hourly`.
+- **Ride:** `confirmed_snapshot.hourly` keeps `{hours, hour_price_minor, overtime_per_min_minor}`. `RideResource` and `DriverRideResource` expose `hourly` with `ends_at`, which is the start time plus the hours.
+- **End:** the destination check is skipped (it ends wherever the rider gets off). Each started minute past the hours adds `overtime_per_min_minor` to the fixed fare.
+
 ## Boats & yachts (O-25; `Services/Marine/MarineService`, `marine_listings`, `marine_bookings`)
 - **The captain** (an approved vehicle with body type `boat` / `yacht`): `GET driver/v1/marine/boat` returns the boat and the amenity keys.
   - `POST marine/listings` publishes one of two kinds:
@@ -344,6 +399,13 @@ The policy form shows money in the currency (stored in minor units), rates in pe
 - `audit_logs` + `App\Services\General\AuditLogger` (append-only; actor `admin` or `system`).
 
 ## Tests
+`RidesExtraServicesTest` (3) checks the money path of each new service.
+- A yacht hire: booked by the hour, an overlapping hire refused, more time asked and approved (charged then), boarded by QR, and the captain paid less the `marine` commission.
+- Find a driver: the quote, a request paid upfront, a second open request refused, the rider's phone hidden until a captain accepts, then arrived → started → completed and the captain paid less `hire.commission_bp`.
+- Driving lessons: a pack bought, a lesson booked and confirmed, «done» refused before its time and then paid per lesson, and the lessons not taken refunded on quit.
+
+`RidesFlowTest::test_a_request_goes_to_several_captains_at_once_and_the_first_to_accept_takes_it` checks O-36: one request goes to several captains, and the other cards are withdrawn once one accepts. The older order-by-turn tests (nearest first, step back, favourite first) set `search.batch_size` to 1. The airport queue always offers one captain at a time.
+
 `RidesFoundationTest` also covers the `reason` of the features answer (`not_enabled`, `no_country`, none when on) and `rides:enable-country` (the phase-1 switches on, `--off`, an unknown code).
 
 `RidesSavedPlacesTest` (2): Home, Work, favourites and recent destinations in one call (only completed rides, one per place, saved ones left out, policy limits, others' addresses never shown); nothing without the switch or any places.

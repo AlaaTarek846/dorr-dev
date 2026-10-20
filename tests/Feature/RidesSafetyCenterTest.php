@@ -136,6 +136,8 @@ class RidesSafetyCenterTest extends TestCase
 
     public function test_a_favourite_captain_is_asked_first_even_if_farther(): void
     {
+        // One captain per round (O-36's several-at-once is tested on its own).
+        config(['rides.policy_defaults' => ['search.batch_size' => 1] + config('rides.policy_defaults')]);
         $near = $this->driver(24.7140, 46.6755);
         $far = $this->driver(24.7300, 46.6900);
         $uuid = $this->bookAndAccept($far);

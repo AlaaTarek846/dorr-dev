@@ -34,6 +34,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Navigation
 import androidx.compose.material.icons.filled.Share
@@ -136,8 +137,23 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
         refresh()
         com.dorr.driver.live.DriverLive.events.collect { e ->
             // O-10: a message counts too — the chat button's badge follows it.
-            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name == "ride.changed" || e.name == "ride.message") refresh()
+            // O-09: "ride.call" is the rider ringing (the push, when the app is open).
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name == "ride.changed" || e.name == "ride.message" || e.name == "ride.call") refresh()
         }
+    }
+    // O-09: the rider's call rings here; a call gone from the ride is over on this phone too.
+    val callContext = LocalContext.current
+    LaunchedEffect(trip?.call?.uuid, trip?.call?.status) {
+        val current = trip ?: return@LaunchedEffect
+        val call = current.call
+        when {
+            call != null && call.status == "ringing" && call.caller == "user" ->
+                RideCallSession.incoming(callContext, current.uuid, call.uuid, current.rider?.name.orEmpty(), end = { r, c -> com.dorr.core.network.apiCall { DriverBackend.api.endCall(r, c) } })
+            call == null && RideCallSession.rideUuid == current.uuid && RideCallSession.phase != RideCallPhase.Calling -> RideCallSession.endedElsewhere(null)
+        }
+    }
+    val micForCall = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok ->
+        if (ok) trip?.let { startRideCall(callContext, it) }
     }
     // The ride's own channel for the whole ride (its status, the chat's messages), not only while the chat is open.
     val watched = trip?.uuid
@@ -241,6 +257,15 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                         Text(t.rider?.rating?.let { stringResource(R.string.trip_rider_rating, String.format("%.1f", it)) } ?: stringResource(R.string.offer_new_rider), fontSize = 13.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                     }
                     if (t.status != "completed") {
+                        // O-09: a free call inside the app (LiveKit) — no numbers shown either way.
+                        Box(
+                            Modifier.size(46.dp).clip(CircleShape).background(DorrBrand.navy).clickable {
+                                if (androidx.core.content.ContextCompat.checkSelfPermission(context, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) startRideCall(context, t)
+                                else micForCall.launch(android.Manifest.permission.RECORD_AUDIO)
+                            },
+                            contentAlignment = Alignment.Center,
+                        ) { Icon(Icons.Filled.Headset, stringResource(R.string.rc_in_app), tint = Color.White) }
+                        Spacer(Modifier.width(8.dp))
                         // O-09: call the rider from outside the app (their number, while the ride is on).
                         t.callPhone?.let { phone ->
                             Box(
@@ -297,6 +322,14 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
             }
 
             if (t.status == "in_progress") DriverSeatbeltBanner(t.uuid)
+            // O-17: a ride by the hour — it ends wherever the rider gets off; minutes past the hours are added.
+            t.hourly?.let { h ->
+                val until = h.endsAt?.let { busTime(it) }
+                com.dorr.driver.ui.kit.Banner(
+                    if (until != null) stringResource(R.string.hr_trip_until, h.hours, until) else stringResource(R.string.hr_trip_hours, h.hours),
+                    kind = com.dorr.driver.ui.kit.BannerKind.Success,
+                )
+            }
             if (t.status == "completed") {
                 Completed(t, onNext = { Duty.setOnTrip(false); onDone() }, onUpdate = { trip = it })
                 BlockRiderButton(t)
@@ -408,6 +441,12 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
     // The rider asks for a new destination / stop: answer within 30 s (wireflow 6ب).
     if (t.changeRequest?.status == "pending") ChangeRequestCard(t, onAnswered = { scope.launch { refresh() } })
     if (cancelOpen) CancelRide(t, onClose = { cancelOpen = false }, onReleased = { Duty.setOnTrip(false); onDone() })
+    // O-09: the in-app call with the rider, over the trip.
+    RideCallOverlay(onAccept = {
+        val ride = RideCallSession.rideUuid
+        val call = RideCallSession.callUuid
+        if (ride != null && call != null) RideCallSession.accept(context) { callJoin(com.dorr.core.network.apiCall { DriverBackend.api.acceptCall(ride, call) }) }
+    })
 }
 
 /** The free waiting at the pickup, counting down. */

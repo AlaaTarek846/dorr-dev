@@ -10,6 +10,8 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // LiveKit (O-09 in-app calls) depends on audioswitch, which is only published on JitPack.
+        maven { url = uri("https://jitpack.io") }
     }
 }
 

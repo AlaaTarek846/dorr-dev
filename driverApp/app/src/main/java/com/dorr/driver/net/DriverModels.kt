@@ -462,6 +462,19 @@ data class WaitingDto(
 /** D-129: the time and distance left to the next point (pickup / stop / destination). */
 data class ProgressDto(val to: String = "pickup", @SerializedName("distance_m") val distanceM: Int = 0, @SerializedName("eta_s") val etaS: Int = 0)
 
+data class TripCallDto(val uuid: String, val status: String, val caller: String)
+
+data class TripCallJoinDto(val url: String, val room: String, val token: String)
+
+data class TripCallStartDto(val uuid: String, val status: String, val caller: String, val join: TripCallJoinDto)
+
+data class TripHourlyDto(
+    val hours: Int = 0,
+    @SerializedName("hour_price_minor") val hourPriceMinor: Long = 0,
+    @SerializedName("overtime_per_min_minor") val overtimePerMinMinor: Long = 0,
+    @SerializedName("ends_at") val endsAt: String? = null,
+)
+
 data class TripDto(
     val uuid: String,
     val number: String? = null,
@@ -470,6 +483,10 @@ data class TripDto(
     val route: RouteDto? = null,
     /** O-30..O-32: sharing the car — what came off this fare, and how many ride now. */
     val pool: TripPoolDto? = null,
+    /** O-17: booked by the hour — the hours, the extra per minute after them, when they run out. */
+    val hourly: TripHourlyDto? = null,
+    /** O-09: the in-app call ringing or going on now. */
+    val call: TripCallDto? = null,
     /** O-10: the rider's messages not read yet (the badge on the chat button). */
     @SerializedName("unread_messages") val unreadMessages: Int = 0,
     /** O-09: the rider's number, to call from outside the app while the ride is on. */

@@ -106,7 +106,13 @@ class RidesDatabaseSeeder extends Seeder
         $policies = app(RidePolicies::class);
 
         // Country-wide numbers: Jawad's defaults (rides.policy_defaults) apply; nothing to override yet.
-        $policies->save($saudi->id, null, null, null, ['pricing_mode' => 'upfront']);
+        $policies->save($saudi->id, null, null, null, [
+            'pricing_mode' => 'upfront',
+            // O-26c find a driver — EXAMPLES (switched on with the `find_driver` switch); the admin sets the real ones.
+            'hire.hour_price_minor' => 4000,
+            'hire.day_price_minor' => 25000,
+            'hire.overtime_per_min_minor' => 80,
+        ]);
 
         // Economy's prices — EXAMPLES (the Wireflow shows ~35 SAR for 7.4 km); the admin sets the real ones.
         $policies->save($saudi->id, null, null, $economy->id, [
