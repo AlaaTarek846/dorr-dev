@@ -157,6 +157,7 @@ class MainActivity : FragmentActivity() {
                         onDispose {}
                     }
                     DorrTheme(darkTheme = night) {
+                        com.dorr.app.ui.screens.chat.BindChatAppearance()
                         Surface(
                             modifier = Modifier.fillMaxSize(),
                             // Behind the status bar: the same dark the screens use at night.

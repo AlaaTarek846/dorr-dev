@@ -25,7 +25,7 @@ use Modules\Discover\Services\ReviewNotifier;
  */
 class DiscoverEventController extends Controller implements HasMiddleware
 {
-    private const WITH = ['category.translations', 'city.translations', 'city.region.translations', 'country', 'organizer', 'media'];
+    private const WITH = ['category.translations', 'city.translations', 'city.region.translations', 'country.currency', 'organizer', 'media'];
 
     public function __construct(
         private readonly DiscoverService $discover,

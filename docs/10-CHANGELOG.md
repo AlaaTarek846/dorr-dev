@@ -8,6 +8,23 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Changed
+- **Android Discover — my interests (2026-10-19):** the kinds list pages 15 at a time (`GET discover/categories?page=&per_page=15`); **Show more** loads the next 15. Tapping a kind saves without reloading Discover home (that was freezing the page).
+- **Android Discover — organizer my events (2026-10-19):** a search field under “My events” filters the list (`GET discover/organizer?q=`, title / venue / description), still 15 at a time with Show more.
+- **Android Discover — home strips (2026-10-19):** each home row (`this_week` and the others) loads 15 events; a small chevron sits on the start side of the title when there is more. Tapping it scrolls the same row to the next pair; reaching the last card loads the next 15 (`GET discover/sections/{key}?page=&per_page=15`, `has_more` on home). The “What you like” category row uses the same chevron and 15-at-a-time scroll.
+- **Android Discover — home cards (2026-10-18):** this-week (and the other home rows) are smaller; the save heart sits at the bottom of the card and is tappable.
+- **Android calendar pickers (2026-10-18):** date and time dialogs use the app’s Cancel / Done buttons (ghost + primary), not text links. The time dialog’s hour and minute sit in bordered chips so they read as the time.
+- **Android Discover — travel (2026-10-18):** the “Where are you going?” intro is a note with line height (no hanging dash); the empty state no longer repeats the page title.
+- **Android Discover — event row (2026-10-18):** list cards keep a tappable save heart with the price chip under it. A numeric price uses the event country's catalog currency (`price_display`, e.g. `300 ج.م`). Distance is metres under 1 km, else km. Font sizes follow the date badge / title / meta / chip hierarchy.
+- **Android Discover — saved (2026-10-18):** saved events page 15 at a time (`GET discover/interests?page=&per_page=`); **Show more** loads the next 15. Unsaving from the heart removes that row only — the list does not reload.
+- **Android Discover — browse filter (2026-10-18):** country / region / city come from the dashboard catalogs: `countries`, `regions` of that country, and `discover_cities` of that region (the admin Cities page). The signup country is first; every select has search. `GET discover/countries` is the whole countries table (active); `GET discover/regions?with_events=0` is the whole regions catalog of that country.
+- **Android Discover — browse (2026-10-18):** the list pages 15 at a time and loads the next 15 as you scroll; the overlay blocks taps so the home stories “add” sheet no longer opens from the browse title.
+- **Android Discover — sheets and pickers follow appearance (2026-10-18):** people picker, date and time pickers use the same dark/light surfaces and accent as the rest of the app (chat colours bind at startup; add-event uses the calendar pickers).
+- **Android Discover — organizer card (2026-10-18):** the organizer identity row is the Account header (no card): circular mic, name, phone, status chip in the premium slot, circular edit on the trailing edge. The review note sits in `WaNote`.
+- **Android Discover — my events (2026-10-18):** the organizer list pages 15 at a time (`GET discover/organizer?page=&per_page=`); **Show more** loads the next 15. Event rows are a little tighter, same as the rest of Discover.
+- **Android Discover — event detail (2026-10-18):** when / where / price rows match the calendar sheet (icon wells and hairline dividers); the cover, trust line and action tiles follow the same sizes as Account. A description that is only the booking or official URL is hidden; those open as full-width system buttons (one button takes the whole row).
+- **Admin → Discover → Organizers matches flags / users (2026-10-18):** breadcrumb, search with clear, All / Pending / Verified / Rejected / Suspended filter buttons with counts (`?status_counts=1`; All appears only after a status is chosen, like flags), skeleton and empty state, created/updated dates, pagination, a status select on the list like users, a details modal, and a review modal with a note field instead of `window.prompt`. No create or bulk-delete — the API is still index / show / review only.
+
 ### Added
 - **Boats & yachts (2026-10-20, O-25):**
   - Captains with a boat or yacht publish sea trips (sold by seat or as the whole boat) or hire by the hour.
