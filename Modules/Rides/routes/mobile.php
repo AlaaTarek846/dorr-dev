@@ -50,6 +50,11 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::get('pickup-points', [RideController::class, 'pickupPoints']);
         // R-5, R-174: Home, Work, favourite places and recent destinations.
         Route::get('places', [PlacesController::class, 'index']);
+        // O-57: suggestions as you type (from two letters), and the popular places nearby before you do.
+        Route::get('places/suggest', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'suggest'])->middleware('throttle:90,1');
+        Route::get('places/popular', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'popular']);
+        // O-59: the free captains' cars around me now (then they move in real time on `rides-area.{cell}`).
+        Route::get('nearby-cars', [\Modules\Rides\Http\Controllers\NearbyMapController::class, 'cars']);
         // R-INN-07 DORR Circle: my favourite captains to choose from.
         Route::get('circle', [CircleController::class, 'index']);
 

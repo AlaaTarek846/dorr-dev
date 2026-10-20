@@ -513,17 +513,28 @@ fun RidesHost(onExit: () -> Unit) {
 @Composable
 private fun RidesMap(state: RidesState, camera: DorrCamera) {
     val ride = state.ride
-    val route = remember(ride?.route?.polyline, state.selected?.route?.polyline) {
-        decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline)
+    val stopsKey = ride?.stops?.map { it.lat to it.lng } ?: state.stops.map { it.lat to it.lng }
+    val route = remember(ride?.route?.polyline, state.selected?.route?.polyline, stopsKey, ride?.destination?.lat, state.destination?.lat) {
+        decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline).ifEmpty {
+            // O-56: no drawn route (e.g. right after a stop is added) — the points joined in order.
+            listOfNotNull(
+                ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng,
+                *stopsKey.map { LatLng(it.first, it.second) }.toTypedArray(),
+                ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng,
+            ).takeIf { it.size >= 2 && (ride != null || state.step == RideStep.Quotes) }.orEmpty()
+        }
     }
     val showPoints = ride != null || state.step == RideStep.Quotes
+    val nearby = rememberNearbyCars(state.me ?: state.pickup?.latLng, enabled = ride == null)
     val pins = buildList {
         if (showPoints) {
             (ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng)?.let { add(MapPin(it, PinKind.Pickup)) }
             (ride?.stops?.map { LatLng(it.lat, it.lng) } ?: state.stops.map { it.latLng }).forEach { add(MapPin(it, PinKind.Stop)) }
             (ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng)?.let { add(MapPin(it, PinKind.Dropoff)) }
         }
-        ride?.driver?.location?.let { loc -> add(MapPin(LatLng(loc.lat, loc.lng), PinKind.Car, (loc.heading ?: 0).toFloat())) }
+        ride?.driver?.location?.let { loc -> add(MapPin(LatLng(loc.lat, loc.lng), PinKind.Car, (loc.heading ?: 0).toFloat(), id = "my-captain")) }
+        // O-59: before a ride, the free captains' cars around, moving.
+        if (ride == null) nearby.forEach { (id, car) -> add(MapPin(car.at, PinKind.Car, car.heading, id = "car:$id")) }
     }
     val width = dpPx(5f)
     // O-53: the admin's engine (Google or Mapbox) draws it — the pins, the route and the car are the same on both.

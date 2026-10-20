@@ -52,6 +52,7 @@ return [
         'lessons_not_found' => 'مش لاقيين ده.',
         'lessons_not_editable' => 'ده مينفعش يتغير دلوقتي.',
         'lessons_trainer_busy' => 'عندك درس في نفس الوقت.',
+        'lessons_pack_has_learners' => 'فيه متدربين اشتروا الباقة دي: يتعدّل الاسم والوصف والمنطقة بس.',
         'lessons_pack_closed' => 'الباقة دي مش بتستقبل متدربين دلوقتي.',
         'lessons_none_left' => 'كل دروس الباقة محجوزة أو خلصت.',
         'lessons_too_late' => 'الدرس المؤكد مينفعش يتلغي قبله بأقل من :hours ساعة.',

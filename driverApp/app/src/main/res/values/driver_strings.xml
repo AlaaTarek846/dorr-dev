@@ -698,4 +698,23 @@
     <string name="lg_open_settings">Open settings and allow location</string>
     <string name="lg_turn_on">Turn on location</string>
     <string name="lg_leave">Go back</string>
+    <string name="tr_edit">Edit</string>
+    <string name="tr_delete">Delete</string>
+    <string name="tr_keep">Keep it</string>
+    <string name="tr_delete_title">Delete the pack?</string>
+    <string name="tr_delete_body">«%1$s» will be deleted.</string>
+    <string name="tr_delete_archive">Learners bought «%1$s»: it leaves the search, and they carry on with their lessons.</string>
+    <string name="tr_edit_pack">Edit pack</string>
+    <string name="tr_edit_locked">Learners are in this pack: only the name, description and area can change.</string>
+    <string name="cs_attach_media">Attach photos or video (%1$d)</string>
+    <string name="trip_chat_subtitle">Rider · ride %1$s</string>
+    <string name="trip_chat_empty">No messages yet. Write to the rider if you need to.</string>
+    <string name="ob_vehicle_kind">Vehicle type</string>
+    <string name="vk_car">🚗 Car</string>
+    <string name="vk_motorcycle">🏍 Motorcycle</string>
+    <string name="vk_bus">🚌 Bus</string>
+    <string name="vk_boat">🚤 Boat</string>
+    <string name="vk_yacht">🛥 Yacht</string>
+    <string name="vk_none">No vehicle</string>
+    <string name="ob_no_vehicle_hint">You can work as a «driver on demand» (driving the rider\'s own car) or as a driving trainer without a vehicle. Passenger rides need one — you can add it later.</string>
 </resources>

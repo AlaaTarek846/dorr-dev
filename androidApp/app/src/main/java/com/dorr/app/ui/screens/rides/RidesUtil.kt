@@ -28,8 +28,8 @@ import androidx.compose.ui.unit.dp
 
 internal fun ridesAuth(): String = "Bearer ${AuthSession.token.orEmpty()}"
 
-/** A place on the trip: a point and its readable name (the phone's free geocoder — no Google cost). */
-data class RidePoint(val lat: Double, val lng: Double, val address: String) {
+/** A place on the trip: a point and its readable name; `name` = its short title in a list (O-57). */
+data class RidePoint(val lat: Double, val lng: Double, val address: String, val name: String? = null) {
     val latLng: LatLng get() = LatLng(lat, lng)
 }
 
@@ -94,10 +94,19 @@ internal suspend fun addressOf(context: Context, at: LatLng): String? = withCont
     }.getOrNull()
 }
 
-/** Places matching what the rider typed, nearest to them first (the phone's geocoder, ~50 km around). */
+/**
+ * Places matching what the rider typed, nearest to them first (O-57): the server's search (the admin's map
+ * provider, with autocomplete — «الدق…» already suggests), from two letters; the phone's geocoder only when
+ * the server has nothing.
+ */
 @Suppress("DEPRECATION")
 internal suspend fun searchPlaces(context: Context, query: String, near: LatLng?): List<RidePoint> = withContext(Dispatchers.IO) {
-    if (query.trim().length < 3) return@withContext emptyList()
+    if (query.trim().length < 2) return@withContext emptyList()
+    val server = runCatching {
+        com.dorr.app.network.ApiClient.rides.placeSuggest(ridesAuth(), query.trim(), near?.latitude, near?.longitude).data.orEmpty()
+            .map { RidePoint(it.lat, it.lng, it.address.ifBlank { it.name }, it.name.ifBlank { null }) }
+    }.getOrDefault(emptyList())
+    if (server.isNotEmpty() || query.trim().length < 3) return@withContext server
     runCatching {
         val geocoder = Geocoder(context, Locale.getDefault())
         val found = if (near != null) {
@@ -136,4 +145,13 @@ internal fun Modifier.staggerIn(index: Int = 0): Modifier = composed {
         alpha = progress.value
         translationY = (1f - progress.value) * 22.dp.toPx()
     }
+}
+
+/** O-57: before anything is typed — the popular places within 50 km (empty when unknown). */
+internal suspend fun popularPlaces(near: LatLng?): List<RidePoint> = withContext(Dispatchers.IO) {
+    if (near == null) return@withContext emptyList()
+    runCatching {
+        com.dorr.app.network.ApiClient.rides.placePopular(ridesAuth(), near.latitude, near.longitude).data.orEmpty()
+            .map { RidePoint(it.lat, it.lng, it.address.ifBlank { it.name }, it.name.ifBlank { null }) }
+    }.getOrDefault(emptyList())
 }

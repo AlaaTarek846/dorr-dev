@@ -83,6 +83,8 @@ data class OnboardingDto(
     val missing: List<String> = emptyList(),
     @SerializedName("can_submit") val canSubmit: Boolean = false,
     @SerializedName("work_problem") val workProblem: String? = null,
+    /** O-64: the captain signed up without a vehicle (riders' own cars, lessons). */
+    @SerializedName("no_vehicle") val noVehicle: Boolean = false,
 )
 
 data class NamedDto(val id: Int, val name: String? = null, val code: String? = null)
@@ -253,7 +255,10 @@ data class PickupPointDto(
     val lng: Double = 0.0,
 )
 
-data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String)
+/** O-56: `waypoints` = the stops still ahead (Google Maps' link carries them before the destination). */
+data class NavigationDto(val lat: Double, val lng: Double, @SerializedName("google_maps_url") val googleMapsUrl: String, val waypoints: List<WaypointDto> = emptyList())
+
+data class WaypointDto(val lat: Double, val lng: Double)
 
 data class LineDto(val code: String, val label: String? = null, @SerializedName("amount_minor") val amountMinor: Long = 0)
 
@@ -462,6 +467,9 @@ data class WaitingDto(
 /** D-129: the time and distance left to the next point (pickup / stop / destination). */
 data class ProgressDto(val to: String = "pickup", @SerializedName("distance_m") val distanceM: Int = 0, @SerializedName("eta_s") val etaS: Int = 0)
 
+/** O-58: one hot area — the requests in the last hour there, and how hot (0..1). */
+data class HeatCellDto(val lat: Double, val lng: Double, val weight: Double = 0.0, val requests: Int = 0)
+
 data class DispatchCategoryDto(val slug: String, val name: String? = null, val ok: Boolean = false, val reason: String? = null)
 
 /** One dispatch condition (O-47); `detail` depends on the key (the categories list, the open requests…). */
@@ -540,7 +548,7 @@ data class ReasonDto(val id: Int, val label: String? = null)
 
 data class TagDto(val id: Int, val label: String? = null, val sentiment: String? = null)
 
-data class MessageDto(val id: Long, val from: String, val mine: Boolean? = null, val body: String = "")
+data class MessageDto(val id: Long, val from: String, val mine: Boolean? = null, val body: String = "", @SerializedName("created_at") val createdAt: String? = null)
 
 data class QuickDto(val key: String, val text: String)
 

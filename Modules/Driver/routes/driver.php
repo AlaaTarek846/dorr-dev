@@ -29,6 +29,8 @@ Route::middleware('locale')->prefix('driver/v1')->group(function () {
         Route::get('onboarding/options', [OnboardingController::class, 'options']);
         Route::put('profile', [OnboardingController::class, 'updateProfile']);
         Route::post('onboarding/submit', [OnboardingController::class, 'submit']);
+        // O-64: «I have no vehicle» (riders' own cars, lessons): the vehicle step and its documents are skipped.
+        Route::post('onboarding/no-vehicle', [OnboardingController::class, 'noVehicle']);
         Route::post('vehicles', [OnboardingController::class, 'storeVehicle']);
         Route::put('vehicles/{vehicle}', [OnboardingController::class, 'updateVehicle'])->whereNumber('vehicle');
     });

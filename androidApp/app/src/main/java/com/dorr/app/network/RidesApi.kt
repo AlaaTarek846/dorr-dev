@@ -56,6 +56,18 @@ interface RidesApi {
     @GET("mobile/v1/rides/places")
     suspend fun places(@Header("Authorization") auth: String): ApiEnvelope<RidePlacesDto>
 
+    /** O-57: places as the rider types (from two letters), nearest first — the admin's map provider. */
+    @GET("mobile/v1/rides/places/suggest")
+    suspend fun placeSuggest(@Header("Authorization") auth: String, @Query("q") q: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<List<PlaceHitDto>>
+
+    /** O-59: the free captains' cars around me now, and the area channels to follow for their moves. */
+    @GET("mobile/v1/rides/nearby-cars")
+    suspend fun nearbyCars(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double): ApiEnvelope<NearbyCarsDto>
+
+    /** O-57: before anything is typed — where people around here go most, and well-known places (≤ 50 km). */
+    @GET("mobile/v1/rides/places/popular")
+    suspend fun placePopular(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double): ApiEnvelope<List<PlaceHitDto>>
+
     /** `{origin{lat,lng,address,point_id?}, destination?{…}, stops?[…], category?}` → one quote per category. */
     @POST("mobile/v1/rides/quotes")
     suspend fun quotes(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<List<RideQuoteDto>>
@@ -424,6 +436,12 @@ data class RideShareDto(val url: String, val views: Int = 0)
 data class RideSosDto(@SerializedName("incident_uuid") val incidentUuid: String? = null, @SerializedName("emergency_number") val emergencyNumber: String? = null)
 
 data class RideSafetyDto(@SerializedName("emergency_number") val emergencyNumber: String? = null)
+
+data class NearbyCarDto(val car: String, val lat: Double, val lng: Double, val heading: Int? = null)
+
+data class NearbyCarsDto(val cells: List<String> = emptyList(), val cars: List<NearbyCarDto> = emptyList())
+
+data class PlaceHitDto(val name: String = "", val address: String = "", val lat: Double = 0.0, val lng: Double = 0.0)
 
 data class MapConfigDto(
     val provider: String? = "google",

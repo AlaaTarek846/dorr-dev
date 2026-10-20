@@ -79,6 +79,8 @@ class RidesServiceProvider extends ModuleServiceProvider
         Event::listen(DriverLocationUpdated::class, RelayDriverLocation::class);
         // The airport queue and the restricted-area alert follow the captain's latest point (D-277, D-280, D-283).
         Event::listen(DriverLocationUpdated::class, HandleDriverLocation::class);
+        // O-59: a free captain's car moves on the riders' maps around him.
+        Event::listen(DriverLocationUpdated::class, \Modules\Rides\Listeners\BroadcastAreaDriver::class);
 
         // A card ride is paid on the app's one payment screen, which then holds the amount (ReservesFunds).
         $this->app->make(CheckoutPurposes::class)->register(RideCheckoutPurpose::KEY, RideCheckoutPurpose::class);

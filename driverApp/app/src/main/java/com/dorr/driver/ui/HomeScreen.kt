@@ -101,6 +101,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.gson.JsonObject
 import com.dorr.driver.map.DorrMap
+import com.dorr.driver.map.MapZone
 import com.dorr.driver.map.rememberDorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -411,10 +412,24 @@ fun HomeScreen(
     ) {
         Box(Modifier.fillMaxSize()) {
             // The map under everything: the captain's blue dot (the map follows the phone itself — no asking the server).
+            // O-58: the hot areas (where requests came from in the last hour) — read on open, when going
+            // online and when the captain recentres; nothing asks on a timer.
+            var heat by remember { mutableStateOf<List<com.dorr.driver.net.HeatCellDto>>(emptyList()) }
+            LaunchedEffect(online, permissionsOk, locationOn) {
+                if (!permissionsOk || !locationOn) return@LaunchedEffect
+                val here = lastPosition(context) ?: return@LaunchedEffect
+                (apiCall { DriverBackend.api.demandHeat(here.first, here.second) } as? ApiResult.Ok)?.let { heat = it.data }
+            }
             // O-53: the admin's engine (Google or Mapbox) — the whole app draws with it.
             DorrMap(
                 camera = camera,
                 modifier = Modifier.fillMaxSize(),
+                zones = heat.map { c ->
+                    val hot = c.weight.toFloat().coerceIn(0.15f, 1f)
+                    MapZone(LatLng(c.lat, c.lng), 650.0, androidx.compose.ui.graphics.lerp(Color(0xFFFFB300), Color(0xFFE53935), hot).copy(alpha = 0.18f + 0.27f * hot))
+                },
+                // O-60: my place as a small car turning with my heading.
+                meAsCar = true,
                 showMe = permissionsOk && locationOn,
                 padding = PaddingValues(top = 120.dp, bottom = mapBottom),
                 night = Pal.night,

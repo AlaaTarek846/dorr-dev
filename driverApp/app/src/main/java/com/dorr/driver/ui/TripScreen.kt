@@ -658,28 +658,14 @@ private fun TripChat(t: TripDto, onClose: () -> Unit) {
             (apiCall { DriverBackend.api.send(t.uuid, payload) } as? ApiResult.Ok)?.let { messages = messages + it.data }
         }
     }
-    ModalBottomSheet(onDismissRequest = onClose, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
-        Column(Modifier.padding(horizontal = 16.dp).padding(bottom = 16.dp).imePadding().navigationBarsPadding()) {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(min = 140.dp, max = 360.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(messages, key = { it.id }) { m ->
-                    val mine = m.mine ?: (m.from == "driver")
-                    Box(Modifier.fillMaxWidth(), contentAlignment = if (mine) Alignment.CenterEnd else Alignment.CenterStart) {
-                        Text(m.body, color = if (mine) Color.White else MaterialTheme.colorScheme.onSurface,
-                            modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(if (mine) DorrBrand.navy else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.07f)).padding(horizontal = 12.dp, vertical = 8.dp))
-                    }
-                }
-            }
-            if (!open) { Text(stringResource(R.string.trip_chat_closed), modifier = Modifier.padding(12.dp)); return@Column }
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-                items(quick) { q -> Text(q.text, fontSize = 12.sp, modifier = Modifier.clip(CircleShape).border(1.dp, Color.Gray.copy(alpha = 0.3f), CircleShape).clickable { send(null, q.key) }.padding(horizontal = 12.dp, vertical = 7.dp)) }
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                DorrField(text, { text = it.take(1000) }, placeholder = { Text(stringResource(R.string.trip_chat_hint)) }, modifier = Modifier.weight(1f), singleLine = true)
-                Spacer(Modifier.width(8.dp))
-                Box(Modifier.size(48.dp).clip(CircleShape).background(DorrBrand.navy).clickable(enabled = text.isNotBlank()) { send(text.trim(), null); text = "" }, contentAlignment = Alignment.Center) {
-                    Icon(Icons.AutoMirrored.Filled.Send, null, tint = Color.White)
-                }
-            }
-        }
-    }
+    // O-61: the conversation look of the DORR app's chat.
+    val context = androidx.compose.ui.platform.LocalContext.current
+    TripChatScreen(
+        title = t.rider?.name.orEmpty(),
+        subtitle = stringResource(R.string.trip_chat_subtitle, t.number.orEmpty()),
+        messages = messages, quick = quick, open = open,
+        onSend = { body, key -> send(body, key) },
+        onCall = if (t.status in setOf("accepted", "arrived", "in_progress")) ({ startRideCall(context, t) }) else null,
+        onClose = onClose,
+    )
 }

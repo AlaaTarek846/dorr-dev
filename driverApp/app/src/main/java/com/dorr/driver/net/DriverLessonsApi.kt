@@ -18,6 +18,14 @@ interface DriverLessonsApi {
     @POST("driver/v1/lessons/packs")
     suspend fun publish(@Body body: JsonObject): Response<ApiEnvelope<TrainerPackDto>>
 
+    /** O-62: edit a pack (with learners in it: the name, the description and the area only). */
+    @retrofit2.http.PUT("driver/v1/lessons/packs/{uuid}")
+    suspend fun update(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<TrainerPackDto>>
+
+    /** O-62: remove a pack (archived when anyone ever bought it). */
+    @retrofit2.http.DELETE("driver/v1/lessons/packs/{uuid}")
+    suspend fun remove(@Path("uuid") uuid: String): Response<ApiEnvelope<com.google.gson.JsonElement>>
+
     /** `{status: active | paused}` */
     @POST("driver/v1/lessons/packs/{uuid}/status")
     suspend fun status(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<TrainerPackDto>>
@@ -45,6 +53,7 @@ data class TrainerPackDto(
     val area: PlaceDto,
     val currency: CurrencyDto? = null,
     val learners: Int? = null,
+    val description: String? = null,
 )
 
 data class TrainerLearnerDto(val name: String? = null, val phone: String? = null)
