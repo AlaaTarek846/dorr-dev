@@ -95,6 +95,10 @@ interface DriverApi {
     @POST("driver/v1/onboarding/submit")
     suspend fun submitOnboarding(): Response<ApiEnvelope<OnboardingDto>>
 
+    /** O-64: `{on}` — no vehicle (the vehicle step and its documents are skipped). */
+    @POST("driver/v1/onboarding/no-vehicle")
+    suspend fun noVehicle(@Body body: JsonObject): Response<ApiEnvelope<OnboardingDto>>
+
     @GET("driver/v1/regulator")
     suspend fun regulator(): Response<ApiEnvelope<RegulatorDto>>
 
@@ -318,6 +322,10 @@ interface DriverApi {
 
     @GET("driver/v1/rides/rating-tags")
     suspend fun ratingTags(): Response<ApiEnvelope<List<TagDto>>>
+
+    /** O-58: where requests come from — the last hour's requests around me, in ~1 km cells. */
+    @GET("driver/v1/demand-heat")
+    suspend fun demandHeat(@retrofit2.http.Query("lat") lat: Double, @retrofit2.http.Query("lng") lng: Double): Response<ApiEnvelope<List<HeatCellDto>>>
 
     /** O-47: «why don't requests reach me?» — every dispatch condition, passed or not. */
     @GET("driver/v1/dispatch-check")

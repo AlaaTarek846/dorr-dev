@@ -469,6 +469,7 @@ private fun DetailsStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
 
 // ---------------------------------------------------------------- 2. vehicle
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun VehicleStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved: (OnboardingDto) -> Unit, onNext: () -> Unit) {
     val context = LocalContext.current
@@ -480,15 +481,18 @@ private fun VehicleStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
     var year by rememberSaveable { mutableStateOf(v?.year) }
     var letters by rememberSaveable { mutableStateOf(v?.plateLetters.orEmpty()) }
     var numbers by rememberSaveable { mutableStateOf(v?.plateNumber.orEmpty()) }
-    var plateType by rememberSaveable { mutableStateOf(v?.plateType?.toString() ?: "1") }
     var sequence by rememberSaveable { mutableStateOf(v?.sequenceNumber.orEmpty()) }
+    // O-64: what kind of vehicle first (the makes follow it) — or none at all.
+    var kind by rememberSaveable { mutableStateOf(if (s.noVehicle && v == null) "none" else vehicleKind(v?.bodyType)) }
     var tried by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var server by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
 
-    val models = options.makes.firstOrNull { it.id == make }?.models.orEmpty()
+    val makes = options.makes.filter { m -> m.models.any { vehicleKind(it.bodyType) == kind } }
+    val models = options.makes.firstOrNull { it.id == make }?.models.orEmpty().filter { vehicleKind(it.bodyType) == kind }
     val chosenModel = models.firstOrNull { it.id == model }
+    val water = kind in setOf("boat", "yacht")
 
     // An approved vehicle can't be edited here (the server refuses it): show it, and move on.
     if (v != null && v.status == "approved") {
@@ -509,8 +513,24 @@ private fun VehicleStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
     val yearLocal = if (year == null) missing else null
     val lettersLocal = if (letters.isBlank()) missing else null
     val numbersLocal = if (numbers.isBlank()) missing else null
-    val typeLocal = if (plateType.toIntOrNull()?.let { it in 0..65535 } != true) missing else null
-    val valid = listOfNotNull(makeLocal, modelLocal, colorLocal, yearLocal, lettersLocal, numbersLocal, typeLocal).isEmpty()
+    // O-64: the sequence number is required (a boat or a yacht has none).
+    val sequenceLocal = if (!water && sequence.isBlank()) missing else null
+    val valid = listOfNotNull(makeLocal, modelLocal, colorLocal, yearLocal, lettersLocal, numbersLocal, sequenceLocal).isEmpty()
+
+    // O-64: no vehicle — the step is done without one.
+    fun noVehicle() {
+        if (busy) return
+        busy = true
+        error = null
+        scope.launch {
+            when (val r = apiCall { DriverBackend.api.noVehicle(JsonObject().apply { addProperty("on", true) }) }) {
+                is ApiResult.Ok -> onSaved(r.data)
+                is ApiResult.Failed -> error = r.error.displayMessage
+                is ApiResult.Offline -> error = context.getString(R.string.error_offline)
+            }
+            busy = false
+        }
+    }
 
     fun save() {
         tried = true
@@ -527,10 +547,10 @@ private fun VehicleStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
             addProperty("seats", chosenModel?.seats ?: v?.seats ?: 4)
             addProperty("plate_letters", letters.trim())
             addProperty("plate_number", numbers.trim())
-            addProperty("plate_type", plateType.toInt())
             if (sequence.isNotBlank()) addProperty("sequence_number", sequence.trim())
         }
         scope.launch {
+            if (s.noVehicle) apiCall { DriverBackend.api.noVehicle(JsonObject().apply { addProperty("on", false) }) }
             val r = if (v == null) apiCall { DriverBackend.api.addVehicle(body) } else apiCall { DriverBackend.api.updateVehicle(v.id, body) }
             when (r) {
                 is ApiResult.Ok -> onSaved(r.data)
@@ -545,15 +565,29 @@ private fun VehicleStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
         stringResource(R.string.ob_vehicle), stringResource(R.string.ob_vehicle_hint),
         footer = {
             Banner(error)
-            PrimaryButton(stringResource(R.string.ob_next), busy = busy, icon = Icons.AutoMirrored.Rounded.ArrowForward, onClick = { save() })
+            PrimaryButton(stringResource(R.string.ob_next), busy = busy, icon = Icons.AutoMirrored.Rounded.ArrowForward, onClick = { if (kind == "none") noVehicle() else save() })
         },
     ) {
         if (v?.status == "rejected") Banner(stringResource(R.string.ob_vehicle_rejected), kind = BannerKind.Warning)
 
+        // O-64: the kind of vehicle — a car, a motorcycle, a bus, a boat, a yacht — or none.
+        Column(Modifier.staggerIn(0)) {
+            Caption(stringResource(R.string.ob_vehicle_kind))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf("car" to R.string.vk_car, "motorcycle" to R.string.vk_motorcycle, "bus" to R.string.vk_bus, "boat" to R.string.vk_boat, "yacht" to R.string.vk_yacht, "none" to R.string.vk_none).forEach { (k, label) ->
+                    Chip(stringResource(label), selected = kind == k) { if (kind != k) { kind = k; make = null; model = null } }
+                }
+            }
+        }
+        if (kind == "none") {
+            Banner(stringResource(R.string.ob_no_vehicle_hint), kind = BannerKind.Info)
+            return@StepFrame
+        }
+
         Column(Modifier.staggerIn(1)) {
             SelectField(
                 label = stringResource(R.string.ob_make), icon = Icons.Rounded.DirectionsCar,
-                choices = options.makes.map { Choice(it.id.toString(), it.name ?: "#${it.id}") },
+                choices = makes.map { Choice(it.id.toString(), it.name ?: "#${it.id}") },
                 selectedId = make?.toString(), searchable = true,
                 onPick = { picked -> if (picked.id.toInt() != make) { make = picked.id.toInt(); model = null }; server = server - "make_id" },
                 error = problem(tried, makeLocal, server, "make_id") != null,
@@ -628,24 +662,15 @@ private fun VehicleStep(s: OnboardingDto, options: OnboardingOptionsDto, onSaved
             }
         }
 
-        Column(Modifier.staggerIn(6)) {
-            DorrTextField(
-                value = plateType, onValueChange = { plateType = it.filter(Char::isDigit).take(5); server = server - "plate_type" },
-                label = stringResource(R.string.ob_plate_type), icon = Icons.Rounded.Tag,
-                error = problem(tried, typeLocal, server, "plate_type") != null,
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-            )
-            FieldHint(problem(tried, typeLocal, server, "plate_type"))
-        }
-
-        Column(Modifier.staggerIn(7)) {
+        // O-64: the plate type isn't asked any more (a private car = 1 for Wasl); the sequence number is required.
+        if (!water) Column(Modifier.staggerIn(6)) {
             DorrTextField(
                 value = sequence, onValueChange = { sequence = it.filter(Char::isDigit).take(16); server = server - "sequence_number" },
-                label = stringResource(R.string.ob_sequence), placeholder = stringResource(R.string.ob_optional), icon = Icons.Rounded.Numbers,
-                error = server["sequence_number"] != null,
+                label = stringResource(R.string.ob_sequence), icon = Icons.Rounded.Numbers,
+                error = problem(tried, sequenceLocal, server, "sequence_number") != null,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
             )
-            FieldHint(server["sequence_number"]?.firstOrNull())
+            FieldHint(problem(tried, sequenceLocal, server, "sequence_number"))
         }
     }
 }
@@ -963,6 +988,15 @@ private fun genderLabel(context: Context, value: String): String = when (value) 
     "male" -> context.getString(R.string.ob_gender_male)
     "female" -> context.getString(R.string.ob_gender_female)
     else -> value
+}
+
+/** O-64: the vehicle kinds the sign-up offers, from a body type. */
+private fun vehicleKind(body: String?): String = when (body) {
+    "motorcycle" -> "motorcycle"
+    "bus", "minibus" -> "bus"
+    "boat" -> "boat"
+    "yacht" -> "yacht"
+    else -> "car"
 }
 
 private fun bodyLabel(context: Context, value: String): String = when (value) {

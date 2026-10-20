@@ -70,6 +70,7 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
+import okio.source
 import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
@@ -177,6 +178,9 @@ private fun NewCase(options: CaseOptionsDto?, onCreated: (String) -> Unit) {
     var summary by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    // O-63: attachments chosen with the report (photos, a dash cam's video).
+    var files by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val pickFiles = rememberLauncherForActivityResult(ActivityResultContracts.PickMultipleVisualMedia(6)) { uris -> files = (files + uris).distinct().take(6) }
     LaunchedEffect(Unit) { rides = (apiCall { DriverBackend.api.rideHistory() } as? ApiResult.Ok)?.data?.items.orEmpty() }
 
     Column(Modifier.verticalScroll(rememberScrollState()).padding(16.dp).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -226,6 +230,22 @@ private fun NewCase(options: CaseOptionsDto?, onCreated: (String) -> Unit) {
                 value = summary, onValueChange = { summary = it }, label = { Text(stringResource(R.string.cs_summary)) },
                 modifier = Modifier.fillMaxWidth(), minLines = 3,
             )
+            Spacer(Modifier.height(10.dp))
+            Row(
+                Modifier.clip(RoundedCornerShape(50)).background(DorrBrand.navy.copy(alpha = 0.07f))
+                    .clickable(enabled = !busy) { pickFiles.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(Icons.Filled.AttachFile, null, tint = DorrBrand.navy, modifier = Modifier.size(16.dp))
+                Text(stringResource(R.string.cs_attach_media, files.size), color = DorrBrand.navy, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            }
+            files.forEach { f ->
+                Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    val video = context.contentResolver.getType(f)?.startsWith("video/") == true
+                    Text((if (video) "🎬 " else "🖼 ") + (f.lastPathSegment ?: "file"), fontSize = 12.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text("✕", color = DorrBrand.danger, modifier = Modifier.clickable { files = files - f }.padding(6.dp))
+                }
+            }
             error?.let { Text(it, color = DorrBrand.danger, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
         }
         BigButton(
@@ -242,7 +262,14 @@ private fun NewCase(options: CaseOptionsDto?, onCreated: (String) -> Unit) {
                     addProperty("summary", summary.trim())
                 }
                 when (val r = apiCall { DriverBackend.api.openCase(body) }) {
-                    is ApiResult.Ok -> onCreated(r.data.uuid)
+                    is ApiResult.Ok -> {
+                        // O-63: the attachments go up with the new report (one by one; a failed one is said, the report stays).
+                        for (f in files) {
+                            val up = apiCall { DriverBackend.api.caseFile(r.data.uuid, filePart(context, f)) }
+                            if (up is ApiResult.Failed) error = up.error.displayMessage
+                        }
+                        onCreated(r.data.uuid)
+                    }
                     is ApiResult.Failed -> error = r.error.displayMessage
                     is ApiResult.Offline -> error = context.getString(R.string.error_offline)
                 }
@@ -363,7 +390,7 @@ private fun CaseDetail(uuid: String) {
                     // D-232: photos of what the captain has (a screenshot, a receipt…).
                     Row(
                         Modifier.clip(RoundedCornerShape(50)).background(DorrBrand.navy.copy(alpha = 0.07f))
-                            .clickable(enabled = !busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) }.padding(horizontal = 14.dp, vertical = 8.dp),
+                            .clickable(enabled = !busy) { pick.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) }.padding(horizontal = 14.dp, vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(Icons.Filled.AttachFile, null, tint = DorrBrand.navy, modifier = Modifier.size(16.dp))
@@ -425,9 +452,26 @@ private fun km(m: Long?): String = m?.let { String.format("%.1f", it / 1000.0) }
 /** The clock time of a server time, in the phone's zone; empty if missing. */
 private fun clockOf(iso: String?): String = instantOf(iso)?.let { timeOfDay(it) }.orEmpty()
 
+/** O-63: a photo or a video (a dash cam's clip), streamed from the phone straight to the request. */
 private fun filePart(context: Context, uri: Uri): MultipartBody.Part {
     val type = context.contentResolver.getType(uri) ?: "image/jpeg"
-    val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
-    val ext = if (type.contains("png")) "png" else if (type.contains("webp")) "webp" else "jpg"
-    return MultipartBody.Part.createFormData("file", "evidence.$ext", bytes.toRequestBody(type.toMediaType()))
+    val ext = when {
+        type.contains("png") -> "png"
+        type.contains("webp") -> "webp"
+        type.contains("pdf") -> "pdf"
+        type.contains("quicktime") -> "mov"
+        type.contains("3gpp") -> "3gp"
+        type.contains("webm") -> "webm"
+        type.startsWith("video/") -> "mp4"
+        else -> "jpg"
+    }
+    val size = runCatching { context.contentResolver.openAssetFileDescriptor(uri, "r")?.use { it.length } }.getOrNull() ?: -1L
+    val body = object : okhttp3.RequestBody() {
+        override fun contentType() = type.toMediaType()
+        override fun contentLength(): Long = size
+        override fun writeTo(sink: okio.BufferedSink) {
+            context.contentResolver.openInputStream(uri)?.use { input -> sink.writeAll(input.source()) }
+        }
+    }
+    return MultipartBody.Part.createFormData("file", "evidence.$ext", body)
 }
