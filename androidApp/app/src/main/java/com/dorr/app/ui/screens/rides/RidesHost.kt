@@ -74,20 +74,17 @@ import com.dorr.app.ui.screens.profile.settingsBackground
 import com.dorr.app.ui.screens.profile.settingsCard
 import com.dorr.app.ui.screens.profile.settingsInk
 import com.dorr.app.ui.theme.AppColors
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
-import com.google.android.gms.maps.model.LatLngBounds
 import com.google.gson.Gson
-import com.google.maps.android.compose.CameraPositionState
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.dorr.app.map.DorrCamera
+import com.dorr.app.map.DorrMap
+import com.dorr.app.map.MapColors
+import com.dorr.app.map.MapEngine
+import com.dorr.app.map.MapLine
+import com.dorr.app.map.MapPin
+import com.dorr.app.map.PinKind
+import com.dorr.app.map.dpPx
+import com.dorr.app.map.rememberDorrCamera
 import kotlinx.coroutines.launch
 
 /** Where the booking is: the map (pickup), the place search, picking a point on the map, the prices. */
@@ -97,6 +94,9 @@ internal enum class RideStep { Map, Search, PickOnMap, Quotes }
 internal class RidesState {
     var me by mutableStateOf<LatLng?>(null)
     var pickup by mutableStateOf<RidePoint?>(null)
+
+    /** O-51: the pickup's address is being worked out (the map moves / the place is looked up). */
+    var pickupLoading by mutableStateOf(false)
     var destination by mutableStateOf<RidePoint?>(null)
     val stops = mutableStateListOf<RidePoint>()
     var openDestination by mutableStateOf(false)
@@ -257,7 +257,7 @@ fun RidesHost(onExit: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val state = remember { RidesState() }
-    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(Riyadh, 15f) }
+    val camera = rememberDorrCamera(Riyadh, 15f)
     var hasLocation by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED)
     }
@@ -265,17 +265,20 @@ fun RidesHost(onExit: () -> Unit) {
     val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { granted ->
         hasLocation = granted.values.any { it }
     }
+    // O-48: allowed *and* switched on (the gate below asks for both); `located` = the real position is known.
+    var locationOk by remember { mutableStateOf(locationReady(context)) }
+    var located by remember { mutableStateOf(false) }
 
     // An active ride first: the app may have been closed in the middle of one.
     LaunchedEffect(Unit) {
-        RidesMap.load()
+        // O-53: the admin's map engine (already read from the phone at start) — any change, for next time too.
+        MapEngine.refresh(context) { ApiClient.rides.mapConfig(ridesAuth()).data?.let { Triple(it.provider, it.mapboxToken, it.mapboxStyle) } }
         runCatching { ApiClient.rides.current(ridesAuth()).data }.getOrNull()?.takeIf { it.isJsonObject }?.let {
             state.ride = Gson().fromJson(it, RideDto::class.java)
         }
         resumed = true
         // A check-in still waiting after a ride that ended (R-223).
         state.pendingCheck = runCatching { ApiClient.rides.safety(ridesAuth()).data?.pendingCheck }.getOrNull()
-        if (!hasLocation) askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
     }
 
     // A tapped ride notification: that ride — an ended one shows its receipt and the rating (O-41);
@@ -290,20 +293,32 @@ fun RidesHost(onExit: () -> Unit) {
     }
 
     // Where am I: the camera goes there, and the service switches for this city are read.
-    LaunchedEffect(hasLocation, state.featuresTick) {
-        val here = if (hasLocation) currentLocation(context) else null
+    // O-48, O-50: located again the moment location is allowed and on — and that real place (with its address)
+    // becomes the pickup, never the map's starting point.
+    LaunchedEffect(hasLocation, locationOk, state.featuresTick) {
+        val here = if (hasLocation && locationOk) currentLocation(context) else null
         state.me = here
-        if (here != null && state.ride == null) camera.move(CameraUpdateFactory.newLatLngZoom(here, 16f))
+        if (here != null && state.ride == null) {
+            camera.move(here, 16f)
+            if (state.step == RideStep.Map) {
+                state.pickup = RidePoint(here.latitude, here.longitude, addressOf(context, here) ?: String.format("%.5f, %.5f", here.latitude, here.longitude))
+            }
+            located = true
+        }
         state.features = runCatching { ApiClient.rides.features(ridesAuth(), here?.latitude, here?.longitude).data }.getOrNull()
         loadPlaces(state)
         loadCircle(state)
     }
 
     // The pin: when the map stops, the point under it becomes the pickup (or the point being picked).
+    // O-50: only once the real position is known (or the rider moved the map) — the starting view is no place.
     LaunchedEffect(camera.isMoving, state.step) {
-        if (!camera.isMoving && state.ride == null && (state.step == RideStep.Map || state.step == RideStep.PickOnMap)) {
-            val target = camera.position.target
+        val byHand = camera.byGesture
+        if (camera.isMoving && state.step == RideStep.Map && (located || byHand)) state.pickupLoading = true
+        if (!camera.isMoving && state.ride == null && (located || byHand) && (state.step == RideStep.Map || state.step == RideStep.PickOnMap)) {
+            val target = camera.target
             val name = addressOf(context, target) ?: String.format("%.5f, %.5f", target.latitude, target.longitude)
+            state.pickupLoading = false
             val point = RidePoint(target.latitude, target.longitude, name)
             if (state.step == RideStep.Map) state.pickup = point else state.set(point)
         }
@@ -335,7 +350,10 @@ fun RidesHost(onExit: () -> Unit) {
         RidesMap(state, camera)
 
         val pinVisible = state.ride == null && (state.step == RideStep.Map || state.step == RideStep.PickOnMap)
-        if (pinVisible) CenterPin(lifted = camera.isMoving, color = if (state.step == RideStep.Map) AppColors.brandNavy else AppColors.brandOrange)
+        if (pinVisible) PickupPin(
+            lifted = camera.isMoving, color = if (state.step == RideStep.Map) AppColors.brandNavy else AppColors.brandOrange,
+            label = stringResource(if (state.step == RideStep.Map) R.string.pk_pin_pickup else R.string.pk_pin_here),
+        )
 
         // Back, and "my location".
         Box(Modifier.fillMaxWidth().statusBarsPadding().padding(16.dp)) {
@@ -351,13 +369,12 @@ fun RidesHost(onExit: () -> Unit) {
                 if (state.me != null && state.ride == null) {
                     Spacer(Modifier.height(10.dp))
                     RoundButton(Icons.Rounded.MyLocation) {
-                        state.me?.let { scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(it, 16f)) } }
+                        state.me?.let { scope.launch { camera.animate(it, 16f) } }
                     }
                 }
             }
         }
 
-        MapboxAttribution(Modifier.align(Alignment.CenterStart).padding(start = 6.dp))
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             AnimatedContent(
                 targetState = when {
@@ -467,6 +484,11 @@ fun RidesHost(onExit: () -> Unit) {
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { SafetyCenterPage(state, onClose = { state.safetyOpen = false }) }
 
+        // O-48: nothing here works without the location — a window that stays until it's allowed and on.
+        if (!locationOk || !hasLocation) {
+            LocationGate(onReady = { hasLocation = true; locationOk = true }, onLeave = onExit)
+        }
+
         // O-09: the in-app call with the captain, over everything.
         val callContext = androidx.compose.ui.platform.LocalContext.current
         RideCallOverlay(onAccept = {
@@ -489,59 +511,35 @@ fun RidesHost(onExit: () -> Unit) {
 }
 
 @Composable
-private fun RidesMap(state: RidesState, camera: CameraPositionState) {
+private fun RidesMap(state: RidesState, camera: DorrCamera) {
     val ride = state.ride
     val route = remember(ride?.route?.polyline, state.selected?.route?.polyline) {
         decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline)
     }
-    GoogleMap(
-        modifier = Modifier.fillMaxSize(),
-        cameraPositionState = camera,
-        // O-03: the admin's map — Google, or Mapbox's tiles under the same pins and routes.
-        properties = RidesMap.properties(MapProperties(isMyLocationEnabled = false)),
-        uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
-        contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 260.dp),
-    ) {
-        MapboxTilesIfChosen()
-        val showPoints = ride != null || state.step == RideStep.Quotes
+    val showPoints = ride != null || state.step == RideStep.Quotes
+    val pins = buildList {
         if (showPoints) {
-            val from = ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng
-            val to = ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng
-            from?.let { Marker(state = remember(it) { MarkerState(it) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) }
-            to?.let { Marker(state = remember(it) { MarkerState(it) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)) }
-            (ride?.stops?.map { LatLng(it.lat, it.lng) } ?: state.stops.map { it.latLng }).forEach { stop ->
-                Marker(state = remember(stop) { MarkerState(stop) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW))
-            }
-            if (route.size > 1) Polyline(points = route, color = AppColors.brandNavy, width = 12f)
+            (ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng)?.let { add(MapPin(it, PinKind.Pickup)) }
+            (ride?.stops?.map { LatLng(it.lat, it.lng) } ?: state.stops.map { it.latLng }).forEach { add(MapPin(it, PinKind.Stop)) }
+            (ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng)?.let { add(MapPin(it, PinKind.Dropoff)) }
         }
-        ride?.driver?.location?.let { loc ->
-            val at = LatLng(loc.lat, loc.lng)
-            Marker(state = remember(at) { MarkerState(at) }, icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_GREEN), rotation = (loc.heading ?: 0).toFloat(), flat = true)
-        }
+        ride?.driver?.location?.let { loc -> add(MapPin(LatLng(loc.lat, loc.lng), PinKind.Car, (loc.heading ?: 0).toFloat())) }
     }
+    val width = dpPx(5f)
+    // O-53: the admin's engine (Google or Mapbox) draws it — the pins, the route and the car are the same on both.
+    DorrMap(
+        camera = camera,
+        modifier = Modifier.fillMaxSize(),
+        pins = pins,
+        lines = if (showPoints && route.size > 1) listOf(MapLine(route, MapColors.route, width)) else emptyList(),
+        padding = androidx.compose.foundation.layout.PaddingValues(bottom = 260.dp),
+    )
 
     // Keep the whole trip in view once it is planned or running.
+    val fitPadding = dpPx(48f).toInt()
     LaunchedEffect(route.size, ride?.status) {
         val points = route.ifEmpty { listOfNotNull(ride?.origin?.let { LatLng(it.lat, it.lng) }, ride?.destination?.let { LatLng(it.lat, it.lng) }) }
-        if (points.size > 1) {
-            val bounds = LatLngBounds.builder().apply { points.forEach { include(it) } }.build()
-            runCatching { camera.animate(CameraUpdateFactory.newLatLngBounds(bounds, 120)) }
-        }
-    }
-}
-
-/** The pin in the middle of the map: it lifts while the map moves, drops when it stops. */
-@Composable
-private fun CenterPin(lifted: Boolean, color: Color) {
-    val lift by animateFloatAsState(if (lifted) -18f else 0f, tween(180), label = "pin")
-    Box(Modifier.fillMaxSize().padding(bottom = 260.dp), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.offset(y = (-22).dp).graphicsLayer { translationY = lift }) {
-            Box(Modifier.size(30.dp).shadow(6.dp, CircleShape).clip(CircleShape).background(color), contentAlignment = Alignment.Center) {
-                Box(Modifier.size(10.dp).clip(CircleShape).background(Color.White))
-            }
-            Box(Modifier.width(3.dp).height(16.dp).background(color))
-        }
-        Box(Modifier.size(width = 10.dp, height = 4.dp).clip(CircleShape).background(Color.Black.copy(alpha = if (lifted) 0.15f else 0.3f)))
+        camera.fit(points, fitPadding)
     }
 }
 

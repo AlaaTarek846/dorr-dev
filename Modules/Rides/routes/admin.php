@@ -57,6 +57,8 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
 
         Route::get('rides', [RideAdminController::class, 'index']);
         Route::get('rides/{ride}', [RideAdminController::class, 'show'])->whereNumber('ride');
+        // O-47: why this request did or didn't reach each captain around it.
+        Route::get('rides/{ride}/dispatch-check', [\Modules\Rides\Http\Controllers\DispatchCheckController::class, 'ride'])->whereNumber('ride');
         Route::post('rides/{ride}/wasl-retry', [RideAdminController::class, 'waslRetry'])->whereNumber('ride')->middleware('throttle:30,1');
 
         // Safety: every SOS, open first (R-110, D-141).

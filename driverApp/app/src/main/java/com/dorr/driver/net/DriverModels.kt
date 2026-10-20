@@ -462,6 +462,16 @@ data class WaitingDto(
 /** D-129: the time and distance left to the next point (pickup / stop / destination). */
 data class ProgressDto(val to: String = "pickup", @SerializedName("distance_m") val distanceM: Int = 0, @SerializedName("eta_s") val etaS: Int = 0)
 
+data class DispatchCategoryDto(val slug: String, val name: String? = null, val ok: Boolean = false, val reason: String? = null)
+
+/** One dispatch condition (O-47); `detail` depends on the key (the categories list, the open requests…). */
+data class DispatchCheckItemDto(val key: String, val ok: Boolean, val detail: com.google.gson.JsonElement? = null) {
+    val categories: List<DispatchCategoryDto>
+        get() = if (key == "categories" && detail?.isJsonArray == true) com.google.gson.Gson().fromJson(detail, Array<DispatchCategoryDto>::class.java).toList() else emptyList()
+}
+
+data class DispatchCheckDto(val ready: Boolean = false, val checks: List<DispatchCheckItemDto> = emptyList())
+
 data class TripCallDto(val uuid: String, val status: String, val caller: String)
 
 data class TripCallJoinDto(val url: String, val room: String, val token: String)

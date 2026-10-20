@@ -461,6 +461,30 @@ class RidesFlowTest extends TestCase
         $this->assertNull($gate->reasonNotToWork($resident->fresh()));
     }
 
+    public function test_the_dispatch_check_says_why_a_request_did_not_reach_a_captain(): void
+    {
+        // O-47: a captain with the rider's own phone number is never sent that rider's request.
+        $same = $this->onlineDriver();
+        $same->forceFill(['phone' => $this->rider->phone])->save();
+        $other = $this->onlineDriver(24.7200, 46.6800);
+        $uuid = $this->book($this->quote()->json('data.0'), 'cash')->json('data.uuid');
+        $ride = Ride::query()->where('uuid', $uuid)->firstOrFail();
+
+        $admin = \Modules\Admin\Models\Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret123', 'status' => 'active']);
+        \Spatie\Permission\Models\Permission::findOrCreate('rides.view', 'admin_api');
+        $admin->givePermissionTo('rides.view');
+        \Laravel\Sanctum\Sanctum::actingAs($admin, [], 'admin_api');
+        $captains = collect($this->getJson("/api/admin/v1/rides/{$ride->id}/dispatch-check")->assertOk()->json('data.captains'))->keyBy('driver_id');
+        $this->assertSame('same_phone_as_rider', $captains[$same->id]['reason']);
+        $this->assertSame('offered_sent', $captains[$other->id]['reason']);
+
+        // The captain's own readiness list.
+        $checks = collect($this->asDriver($other)->getJson('/api/driver/v1/dispatch-check')->assertOk()->json('data.checks'))->keyBy('key');
+        $this->assertTrue($checks['online']['ok']);
+        $this->assertTrue($checks['account']['ok']);
+        $this->assertArrayHasKey('server_dispatch_tick', $checks->all());
+    }
+
     public function test_an_in_app_call_rings_the_other_side_is_answered_with_a_livekit_token_and_ends(): void
     {
         // O-09 (X-13: LiveKit): neither side sees the other's number — the call goes through DORR.
