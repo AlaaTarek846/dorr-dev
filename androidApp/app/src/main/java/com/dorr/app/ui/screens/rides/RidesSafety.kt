@@ -24,6 +24,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -87,18 +88,46 @@ import kotlinx.coroutines.launch
 
 private val SosRed = Color(0xFFA32D2D)
 
-/** 💬 Message · 📤 Share · 🚨 SOS — equal tiles, SOS in red. */
+/** 📞 Call · 💬 Message (with the unread count) · 📤 Share · 🚨 SOS — equal tiles, SOS in red. */
 @Composable
-internal fun SafetyActions(onChat: () -> Unit, onShare: () -> Unit, onSos: () -> Unit, sharing: Boolean) {
+internal fun SafetyActions(onChat: () -> Unit, onShare: () -> Unit, onSos: () -> Unit, sharing: Boolean, unread: Int = 0, callPhone: String? = null, onAppCall: (() -> Unit)? = null) {
+    val context = LocalContext.current
+    var callMenu by remember { mutableStateOf(false) }
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        ActionTile(Icons.Rounded.Chat, stringResource(R.string.rd_chat), settingsAccent(), onChat)
+        // O-09: call the captain — inside the app (free, no numbers shown) or the phone's own call.
+        if (callPhone != null || onAppCall != null) {
+            Box(Modifier.weight(1f)) {
+                Row {
+                    ActionTile(Icons.Rounded.Call, stringResource(R.string.rd_call), AppColors.success, {
+                        when {
+                            onAppCall != null && callPhone != null -> callMenu = true
+                            onAppCall != null -> onAppCall()
+                            else -> runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$callPhone"))) }
+                        }
+                    })
+                }
+                androidx.compose.material3.DropdownMenu(expanded = callMenu, onDismissRequest = { callMenu = false }) {
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rc_in_app)) },
+                        leadingIcon = { Icon(Icons.Rounded.Call, null, tint = AppColors.success) },
+                        onClick = { callMenu = false; onAppCall?.invoke() },
+                    )
+                    androidx.compose.material3.DropdownMenuItem(
+                        text = { Text(stringResource(R.string.rc_phone)) },
+                        leadingIcon = { Icon(Icons.Rounded.Call, null, tint = settingsMut()) },
+                        onClick = { callMenu = false; runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, android.net.Uri.parse("tel:$callPhone"))) } },
+                    )
+                }
+            }
+        }
+        ActionTile(Icons.Rounded.Chat, stringResource(R.string.rd_chat), settingsAccent(), onChat, badge = unread)
         ActionTile(Icons.Rounded.IosShare, stringResource(R.string.rd_share), settingsAccent(), onShare, busy = sharing)
         ActionTile(Icons.Rounded.Shield, stringResource(R.string.rd_sos), SosRed, onSos, danger = true)
     }
 }
 
 @Composable
-private fun RowScope.ActionTile(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit, busy: Boolean = false, danger: Boolean = false) {
+private fun RowScope.ActionTile(icon: ImageVector, label: String, tint: Color, onClick: () -> Unit, busy: Boolean = false, danger: Boolean = false, badge: Int = 0) {
     Column(
         Modifier.weight(1f).clip(RoundedCornerShape(14.dp))
             .border(BorderStroke(1.dp, if (danger) SosRed.copy(alpha = 0.25f) else settingsInk().copy(alpha = 0.1f)), RoundedCornerShape(14.dp))
@@ -107,7 +136,16 @@ private fun RowScope.ActionTile(icon: ImageVector, label: String, tint: Color, o
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         if (busy) androidx.compose.material3.CircularProgressIndicator(strokeWidth = 2.dp, color = tint, modifier = Modifier.size(22.dp))
-        else Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+        else Box {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(22.dp))
+            // O-10: messages waiting unread.
+            if (badge > 0) {
+                Box(
+                    Modifier.align(Alignment.TopEnd).offset(x = 10.dp, y = (-6).dp).size(18.dp).clip(CircleShape).background(AppColors.danger),
+                    contentAlignment = Alignment.Center,
+                ) { Text(if (badge > 9) "9+" else badge.toString(), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+            }
+        }
         Spacer(Modifier.height(4.dp))
         Text(label, color = if (danger) SosRed else settingsInk(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
     }

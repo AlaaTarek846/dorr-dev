@@ -401,7 +401,7 @@
     <string name="services_detail_description_fallback">Browse this service and request what you need. Booking will be available in the app soon.</string>
     <!-- Sample notifications (placeholder feed — replace with real backend data) -->
     <string name="notif_sample_title_status_changed">Your request status changed</string>
-    <string name="notif_sample_body_status_changed">Your service request moved to "In progress".</string>
+    <string name="notif_sample_body_status_changed">Your service request moved to \"In progress\".</string>
     <string name="notif_sample_title_quote_ready">A quote is ready for review</string>
     <string name="notif_sample_body_quote_ready">Review the items and approve to proceed.</string>
     <string name="notif_sample_title_invoice">New invoice issued</string>

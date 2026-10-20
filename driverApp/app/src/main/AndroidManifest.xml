@@ -13,6 +13,9 @@
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- O-09: in-app voice calls with the rider (LiveKit). -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <!-- A document photo can be taken with the camera; phones without one still install the app. -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 

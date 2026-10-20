@@ -18,6 +18,11 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.AssignmentInd
+import androidx.compose.material.icons.rounded.DirectionsBoat
+import androidx.compose.material.icons.rounded.PersonSearch
+import androidx.compose.material.icons.rounded.School
+import androidx.compose.material.icons.rounded.DirectionsBus
+import androidx.compose.material.icons.rounded.Groups
 import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Gavel
@@ -85,6 +90,11 @@ fun AccountScreen(
     onOpenSafety: () -> Unit,
     onOpenNotifications: () -> Unit,
     onSignedOut: () -> Unit,
+    onOpenBus: () -> Unit = {},
+    onOpenMarine: () -> Unit = {},
+    onOpenHire: () -> Unit = {},
+    onOpenLessons: () -> Unit = {},
+    onOpenWithMe: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -128,6 +138,21 @@ fun AccountScreen(
                     ListRow(Icons.Rounded.Tune, stringResource(R.string.pf_title), subtitle = stringResource(R.string.pf_home_hint), onClick = onOpenPreferences)
                     RowDivider()
                     ListRow(Icons.Rounded.Event, stringResource(R.string.sch_title), subtitle = stringResource(R.string.sch_home_hint), tint = Pal.orange, onClick = onOpenScheduled)
+                    RowDivider()
+                    // O-20, O-21: the captain's bus trips (a bus or minibus registered).
+                    // O-30: «أنا معك» — riders on my way.
+                    ListRow(Icons.Rounded.Groups, stringResource(R.string.wm_title), subtitle = stringResource(R.string.wm_home_hint), tint = Pal.success, onClick = onOpenWithMe)
+                    RowDivider()
+                    ListRow(Icons.Rounded.DirectionsBus, stringResource(R.string.bus_my_trips), subtitle = stringResource(R.string.bus_home_hint), onClick = onOpenBus)
+                    RowDivider()
+                    // O-26c: find a driver — drive a rider's own car, by the hour or the day.
+                    ListRow(Icons.Rounded.PersonSearch, stringResource(R.string.hj_title), subtitle = stringResource(R.string.hj_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF00897B), onClick = onOpenHire)
+                    RowDivider()
+                    // O-26b: driving lessons — I teach: lesson packs and the lessons asked for.
+                    ListRow(Icons.Rounded.School, stringResource(R.string.tr_title), subtitle = stringResource(R.string.tr_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF7B1FA2), onClick = onOpenLessons)
+                    RowDivider()
+                    // O-25: the captain's boat — sea trips and yacht hire (a boat or a yacht registered).
+                    ListRow(Icons.Rounded.DirectionsBoat, stringResource(R.string.mr_title), subtitle = stringResource(R.string.mr_home_hint), tint = androidx.compose.ui.graphics.Color(0xFF0288D1), onClick = onOpenMarine)
                     RowDivider()
                     ListRow(Icons.Rounded.Flight, stringResource(R.string.air_title), subtitle = stringResource(R.string.air_home_hint), onClick = onOpenAirport)
                     RowDivider()

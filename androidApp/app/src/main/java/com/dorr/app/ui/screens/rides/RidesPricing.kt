@@ -168,7 +168,6 @@ internal fun RideQuoteDto.paymentFee(method: String): Long = paymentFees?.get(me
 internal fun PromoCodeRow(state: RidesState) {
     val quote = state.selected ?: return
     if (!state.feature("coupons") || quote.bid != null || quote.openDestination) return
-    var open by remember { mutableStateOf(false) }
     var code by remember { mutableStateOf(state.couponCode.orEmpty()) }
     val applied = quote.coupon
 
@@ -208,25 +207,40 @@ internal fun PromoCodeRow(state: RidesState) {
             }
         } else {
             Column(Modifier.fillMaxWidth()) {
-                Expander(Icons.Rounded.LocalOffer, stringResource(R.string.rd_promo_title), null, open) { open = !open }
-                AnimatedVisibility(open, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                        DorrTextField(
-                            value = code, onValueChange = { code = it.uppercase().filter { c -> !c.isWhitespace() }.take(40); state.couponError = null },
-                            placeholder = stringResource(R.string.rd_promo_hint), icon = Icons.Rounded.LocalOffer,
-                            keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
-                            error = state.couponError != null,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Box(
-                            Modifier.clip(RoundedCornerShape(12.dp)).background(if (code.isNotBlank()) settingsAccent() else settingsAccent().copy(alpha = 0.35f))
-                                .clickable(enabled = code.isNotBlank() && !state.busy) {
-                                    state.couponCode = code
-                                    loadQuotes(state, reprice = true)
-                                }.padding(horizontal = 18.dp, vertical = 12.dp),
-                        ) { Text(stringResource(R.string.rd_promo_apply), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-                    }
+                // O-38a: one input — the ticket icon, the code, and "Apply" inside its own edge.
+                val accent = settingsAccent()
+                val bad = state.couponError != null
+                Row(
+                    Modifier.fillMaxWidth().padding(bottom = 4.dp).clip(RoundedCornerShape(999.dp))
+                        .background(settingsBackground())
+                        .border(BorderStroke(if (bad) 1.5.dp else 1.dp, if (bad) AppColors.danger else accent.copy(alpha = 0.3f)), RoundedCornerShape(999.dp))
+                        .padding(start = 14.dp, end = 5.dp, top = 5.dp, bottom = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.LocalOffer, null, tint = if (bad) AppColors.danger else accent, modifier = Modifier.size(20.dp))
+                    Spacer(Modifier.width(10.dp))
+                    BasicTextField(
+                        value = code,
+                        onValueChange = { code = it.uppercase().filter { c -> !c.isWhitespace() }.take(40); state.couponError = null },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Characters),
+                        textStyle = TextStyle(color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 15.sp, letterSpacing = 1.sp),
+                        cursorBrush = SolidColor(accent),
+                        modifier = Modifier.weight(1f),
+                        decorationBox = { inner ->
+                            Box(contentAlignment = Alignment.CenterStart) {
+                                if (code.isEmpty()) Text(stringResource(R.string.rd_promo_hint), color = settingsMut(), fontSize = 14.sp)
+                                inner()
+                            }
+                        },
+                    )
+                    Box(
+                        Modifier.clip(RoundedCornerShape(999.dp)).background(if (code.isNotBlank()) accent else accent.copy(alpha = 0.35f))
+                            .clickable(enabled = code.isNotBlank() && !state.busy) {
+                                state.couponCode = code
+                                loadQuotes(state, reprice = true)
+                            }.padding(horizontal = 18.dp, vertical = 10.dp),
+                    ) { Text(stringResource(R.string.rd_promo_apply), color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp) }
                 }
                 AnimatedVisibility(state.couponError != null) {
                     Text(state.couponError.orEmpty(), color = AppColors.danger, fontSize = 12.sp, modifier = Modifier.padding(start = 4.dp, bottom = 4.dp))

@@ -56,6 +56,8 @@ class RideController extends Controller
             'stops.*.address' => ['nullable', 'string', 'max:255'],
             'category' => ['nullable', 'string', 'max:32'],
             'coupon_code' => ['nullable', 'string', 'max:40'],
+            // O-17: by the hour (the categories the admin opened by the hour) — the destination is optional then.
+            'hours' => ['nullable', 'integer', 'min:1', 'max:24'],
         ]);
         if (! empty($data['stops']) && empty($data['destination'])) {
             throw new RidesException('stops_need_destination', 422);
@@ -93,6 +95,10 @@ class RideController extends Controller
             'quote_uuid' => ['required', 'uuid'],
             'fingerprint' => ['required', 'string', 'size:64'],
             'payment_method' => ['required', Rule::enum(RidePaymentMethod::class)],
+            // O-37: cash, with the wallet's balance taken first — the rest is paid in cash.
+            'use_wallet' => ['nullable', 'boolean'],
+            // O-33: With Me — who may share the car with me.
+            'share_with' => ['nullable', Rule::in(['any', 'male', 'female'])],
             'rider_price_minor' => ['nullable', 'integer', 'min:1'],
             // Booked ahead (R-12): an ISO time with its offset; the limits are the policy's.
             'scheduled_at' => ['nullable', 'date', 'after:now'],
@@ -120,6 +126,8 @@ class RideController extends Controller
             $data['pickup_note'] ?? null,
             isset($data['beneficiary']) ? ['name' => (string) $data['beneficiary']['name'], 'phone' => (string) $data['beneficiary']['phone']] : null,
             array_key_exists('circle', $data) && $data['circle'] !== null ? array_map('intval', $data['circle']['driver_ids'] ?? []) : null,
+            $request->boolean('use_wallet'),
+            $data['share_with'] ?? 'any',
         );
 
         return ApiResponse::success($this->present($ride, $request), __($ride->scheduled_at !== null ? 'rides.messages.scheduled' : 'rides.messages.requested'), 201);
@@ -191,13 +199,19 @@ class RideController extends Controller
     public function rate(Request $request, string $uuid, RideRatingService $service): JsonResponse
     {
         $data = $request->validate([
-            'stars' => ['required', 'numeric', 'between:1,5'],
+            // O-41: the overall stars, or a score per criterion (their average becomes the stars).
+            'stars' => ['required_without:scores', 'nullable', 'numeric', 'between:1,5'],
+            'scores' => ['nullable', 'array', 'max:10'],
+            'scores.*' => ['integer', 'between:1,5'],
             'tags' => ['nullable', 'array', 'max:10'],
             'tags.*' => ['integer'],
             'comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $service->byRider($this->rider($request), $this->find($request, $uuid), (float) $data['stars'], array_map('intval', $data['tags'] ?? []), $data['comment'] ?? null);
+        $service->byRider(
+            $this->rider($request), $this->find($request, $uuid), isset($data['stars']) ? (float) $data['stars'] : null,
+            array_map('intval', $data['tags'] ?? []), $data['comment'] ?? null, $data['scores'] ?? [],
+        );
 
         return ApiResponse::success(null, __('rides.messages.rated'), 201);
     }

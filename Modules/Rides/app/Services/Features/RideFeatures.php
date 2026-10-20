@@ -24,6 +24,8 @@ class RideFeatures
         'tips', 'pin', 'share', 'change_driver', 'driver_points', 'one_touch', 'change_destination', 'coupons',
         'pickup_points', 'airport_queue', 'restricted_zones', 'saved_places', 'favorite_circle',
         'auto_accept', 'cases',
+        // O-26c, O-26b: services of their own inside rides (no category).
+        'find_driver', 'driving_lessons',
     ];
 
     public static function categoryFeature(string $slug): string

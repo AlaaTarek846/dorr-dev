@@ -112,8 +112,10 @@ fun PreferencesScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.pf_categories_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 Spacer(Modifier.height(10.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    p.categories.forEach { c ->
-                        PrefPill((c.name ?: c.slug) + if (c.eligible) "" else " ✕", c.selected, enabled = c.eligible) {
+                    // O-27: only the categories this captain and car may take — the general ones and the special ones they
+                    // qualify for (For Her for women, VIP for a luxury car, Accessible for an equipped one…).
+                    p.categories.filter { it.eligible }.forEach { c ->
+                        PrefPill(c.name ?: c.slug, c.selected) {
                             val now = p.categories.filter { it.selected }.map { it.slug }
                             val next = if (c.selected) now - c.slug else now + c.slug
                             if (next.isEmpty()) error = context.getString(R.string.pf_keep_one)
@@ -121,9 +123,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
                         }
                     }
                 }
-                if (p.categories.any { !it.eligible }) {
-                    Text(stringResource(R.string.pf_not_eligible), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f), modifier = Modifier.padding(top = 8.dp))
-                }
+
             }
 
             // D-33: how far for a pickup.

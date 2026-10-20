@@ -35,10 +35,10 @@
 
         <WalletModal :show="!!form" :title="form ? t(`rides.lists.${form.list}`) : ''" size="md" @close="form = null">
             <template v-if="form">
-                <label class="form-label">{{ t('rides.document_types.name_ar') }}</label>
-                <input v-model="form.label.ar" class="form-control mb-2" dir="rtl">
-                <label class="form-label">{{ t('rides.document_types.name_en') }}</label>
-                <input v-model="form.label.en" class="form-control mb-3" dir="ltr">
+                <RideLangFields v-slot="{ locale, dir }" :required="[form.label]">
+                    <label class="form-label">{{ t('rides.lang.name') }} *</label>
+                    <input v-model="form.label[locale]" class="form-control mb-3" :dir="dir">
+                </RideLangFields>
                 <template v-if="form.list === 'cancel-reasons'">
                     <label class="form-label">{{ t('rides.lists.who') }}</label>
                     <select v-model="form.actor" class="form-select mb-3">
@@ -70,6 +70,7 @@
 </template>
 
 <script setup>
+import RideLangFields from '../RideLangFields.vue';
 import { onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';

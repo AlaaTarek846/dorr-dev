@@ -17,23 +17,21 @@ return [
         'geocode_url' => env('GOOGLE_GEOCODE_URL', 'https://maps.googleapis.com/maps/api/geocode/json'),
         'timeout' => 10,
         // When Google refuses (the key, billing, a used-up quota) or can't be reached, it is left alone for
-        // this many minutes — the free providers below answer meanwhile — and then tried again.
+        // this many minutes — the straight-line estimate answers meanwhile — and then tried again.
         'pause_refused_min' => 30,
         'pause_unreachable_min' => 5,
     ],
 
     /*
-    | The free map used automatically while Google can't answer: OSRM for the route and Nominatim for the
-    | city name (both OpenStreetMap data). The public servers are for light use — point these at your own
-    | OSRM / Nominatim (or any service speaking the same API) when the traffic grows.
-    | RIDES_OSM_FALLBACK=false turns it off (the straight-line estimate is then the only fallback).
+    | Mapbox — the other map provider the admin can pick instead of Google (O-02; the free OpenStreetMap
+    | fallback was removed, O-01). The token is the admin's (Rides → Settings) or MAPBOX_TOKEN: a public
+    | `pk.` token, since the apps draw the map with it too.
     */
-    'osm' => [
-        'enabled' => (bool) env('RIDES_OSM_FALLBACK', true),
-        'routing_url' => rtrim((string) env('OSRM_URL', 'https://router.project-osrm.org'), '/'),
-        'geocode_url' => rtrim((string) env('NOMINATIM_URL', 'https://nominatim.openstreetmap.org'), '/'),
-        'user_agent' => env('OSM_USER_AGENT', 'DORR-Rides/1.0'),
-        'timeout' => 6,
+    'mapbox' => [
+        'token' => env('MAPBOX_TOKEN'),
+        'directions_url' => env('MAPBOX_DIRECTIONS_URL', 'https://api.mapbox.com/directions/v5/mapbox/driving'),
+        'geocode_url' => env('MAPBOX_GEOCODE_URL', 'https://api.mapbox.com/geocoding/v5/mapbox.places'),
+        'timeout' => 8,
     ],
 
     /*
@@ -134,6 +132,8 @@ return [
         'search.max_radius_m' => 50000,                   // Jawad
         'search.round_interval_s' => 10,                  // Jawad
         'search.offer_ttl_s' => 15,
+        'search.batch_size' => 3,                         // O-36 (owner): a request goes to this many captains at once; the first to accept takes it
+        'search.max_open_offers_per_driver' => 3,         // O-36 (owner): a captain may hold this many requests at once and pick one
         'search.ask_rider_after_s' => 240,                // Jawad: 4 minutes
         'search.max_search_s' => 600,                     // Jawad: 10 minutes
         'payment.await_s' => 900,                         // a card ride not paid within 15 minutes expires
@@ -142,13 +142,46 @@ return [
         'driver.stale_after_s' => 900,                    // Jawad: 15 minutes
         'driver.min_balance_minor' => -5000,              // Jawad: driver_min_to_get_ride
         'arrival.radius_m' => 100,                        // Jawad
+        'arrival.destination_radius_m' => 500,            // O-39/O-40: "end ride" within this of the destination, else only as an early end (repriced)
 
         'cancel.rider_daily_free' => 3,                   // Jawad
         'cancel.driver_daily_free' => 3,                  // Jawad
         'cancel.free_after_accept_s' => 120,
         'no_show.wait_s' => 300,
         'pin.required' => false,
+        'with_me.radius_min_m' => 1000,                   // O-30: how far off his road a With Me captain may set (min…
+        'with_me.radius_max_m' => 5000,                   // …max; equal = the app doesn't show the control)
+        'with_me.driver_share_bp' => 2000,                // O-32: the captain's part of each joining rider's price (20%)
+        'with_me.split' => 'proportional',                // O-32 (owner: an admin option): proportional (by the distance shared) / equal
+        'hourly.enabled' => false,                        // O-17: this category can also be booked by the hour (owner: motorcycles)
+        'hourly.hour_price_minor' => 0,                   // O-17: the price of one hour (a fixed fare: hours × this)
+        'hourly.min_hours' => 1,
+        'hourly.max_hours' => 8,
+        'hourly.overtime_per_min_minor' => 0,             // O-17: each minute past the hours booked
+        'with_me.min_pay_bp' => 5000,                     // O-32: sharing never takes a fare under this part of its price
+        'bus.search_radius_m' => 15000,                   // O-22: a bus trip matches a place this close to its start / end
+        'bus.max_seats_per_booking' => 10,
+        'bus.free_cancel_before_s' => 3600,               // O-23: a ticket is refunded in full up to this long before it leaves
+        'marine.search_radius_m' => 60000,                // O-25: marinas this close to the guest are shown
+        'marine.free_cancel_before_s' => 86400,           // O-25: a sea trip / hire is refunded in full up to this long before it starts
+        'hire.hour_price_minor' => 0,                     // O-26c find a driver: the price of an hour (0 = not by the hour)
+        'hire.day_price_minor' => 0,                      // O-26c: the price of a day (0 = not by the day)
+        'hire.min_hours' => 2,
+        'hire.max_hours' => 12,
+        'hire.max_days' => 7,
+        'hire.overtime_per_min_minor' => 0,               // O-26c: each minute past the time booked
+        'hire.radius_m' => 30000,                         // O-26c: online captains this close hear about a request
+        'hire.free_cancel_before_s' => 3600,              // O-26c: once accepted, free to cancel up to this long before the start
+        'hire.commission_bp' => 2000,                     // O-26c: DORR's part of each job (20%)
+        'lessons.search_radius_m' => 40000,               // O-26b: trainers who teach this close to the learner
+        'lessons.free_cancel_before_s' => 7200,           // O-26b: a confirmed lesson is free to cancel up to this long before it
+        'lessons.commission_bp' => 2000,                  // O-26b: DORR's part of each lesson given (20%)
+        'calls.in_app' => true,                           // O-09 (X-13: LiveKit): the rider and the captain may call each other inside the app
+        'calls.ring_s' => 45,                             // O-09: a ring nobody answers by then is missed
+        'calls.reveal_phone' => true,                     // O-09 (owner): each side may call the other's number from outside the app while the ride is on
         'rating.window_h' => 72,                          // a ride can be rated for 3 days
+        'rating.driver_criteria' => ['speed', 'cleanliness', 'driving', 'behavior', 'car'], // O-41: what the rider scores the captain on
+        'rating.rider_criteria' => ['behavior', 'punctuality', 'cleanliness'],             // O-41: what the captain scores the rider on
 
         'scheduled.lead_time_s' => 1800,                  // the search (or the reserved captain) starts this long before
         'scheduled.free_cancel_before_s' => 3600,         // R-106: 60 minutes

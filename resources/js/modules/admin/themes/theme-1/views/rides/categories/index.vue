@@ -32,10 +32,14 @@
         <WalletModal :show="!!form" :title="form ? (form.names.ar || form.slug) : ''" @close="form = null">
             <template v-if="form">
                 <div class="row g-3">
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.document_types.name_ar') }}</label><input v-model="form.names.ar" class="form-control" dir="rtl"></div>
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.document_types.name_en') }}</label><input v-model="form.names.en" class="form-control" dir="ltr"></div>
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.categories.tagline_ar') }}</label><input v-model="form.taglines.ar" class="form-control" dir="rtl"></div>
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.categories.tagline_en') }}</label><input v-model="form.taglines.en" class="form-control" dir="ltr"></div>
+                    <div class="col-12">
+                        <RideLangFields v-slot="{ locale, dir }" :required="[form.names]">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label">{{ t('rides.lang.name') }} *</label><input v-model="form.names[locale]" class="form-control" :dir="dir"></div>
+                                <div class="col-md-6"><label class="form-label">{{ t('rides.lang.tagline') }}</label><input v-model="form.taglines[locale]" class="form-control" :dir="dir"></div>
+                            </div>
+                        </RideLangFields>
+                    </div>
                     <div class="col-md-3"><label class="form-label">{{ t('rides.categories.color') }}</label><input v-model="form.color" type="color" class="form-control form-control-color w-100"></div>
                     <div class="col-md-3"><label class="form-label">{{ t('rides.categories.capacity_min') }}</label><input v-model.number="form.capacity_min" type="number" min="1" class="form-control"></div>
                     <div class="col-md-3"><label class="form-label">{{ t('rides.categories.capacity_max') }}</label><input v-model.number="form.capacity_max" type="number" min="1" class="form-control"></div>
@@ -67,6 +71,7 @@
 </template>
 
 <script setup>
+import RideLangFields from '../RideLangFields.vue';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';

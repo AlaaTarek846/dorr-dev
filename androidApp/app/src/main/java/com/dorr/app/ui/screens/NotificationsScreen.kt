@@ -87,6 +87,8 @@ private data class NotificationItem(
     val body: String,
     val minutesAgo: Int,
     val unread: Boolean,
+    /** A ride notification opens that ride (its receipt and rating when it ended — O-41). */
+    val rideUuid: String? = null,
 )
 
 private fun typeStyle(type: NotificationType): Pair<ImageVector, Color> = when (type) {
@@ -113,7 +115,8 @@ private fun NotificationDto.toItem(): NotificationItem {
         else -> NotificationType.GENERAL
     }
     val minutes = runCatching { java.time.Duration.between(java.time.Instant.parse(createdAtIso), java.time.Instant.now()).toMinutes().toInt() }.getOrDefault(0)
-    return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null)
+    val ride = data?.get("ride_uuid")?.takeIf { it.isJsonPrimitive }?.asString?.takeIf { it.isNotBlank() }
+    return NotificationItem(id, type, title, message, minutes.coerceAtLeast(0), unread = readAt == null, rideUuid = ride)
 }
 
 @Composable
@@ -217,6 +220,7 @@ fun NotificationsScreen(onBack: () -> Unit) {
                             if (index >= 0) notifications[index] = item.copy(unread = false)
                             selected = item.copy(unread = false)
                             if (item.unread) scope.launch { runCatching { ApiClient.notifications.markRead("Bearer ${AuthSession.token.orEmpty()}", item.id) } }
+                            item.rideUuid?.let { uuid -> selected = null; com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Ride(uuid)) }
                         },
                     )
                 }

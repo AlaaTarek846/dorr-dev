@@ -31,11 +31,11 @@ class CheckGoogle extends Command
 
         foreach ($result['paused'] as $api => $reason) {
             if ($reason !== null) {
-                $this->warn("{$api}: Google is being left alone ({$reason}); ".($result['osm_enabled'] ? 'the free map answers meanwhile.' : 'the straight-line estimate answers meanwhile.'));
+                $this->warn("{$api}: Google is being left alone ({$reason}); the straight-line estimate answers meanwhile.");
             }
         }
 
-        $this->line($result['osm_enabled'] ? 'Free fallback (OSRM + Nominatim): on.' : 'Free fallback (OSRM + Nominatim): off (RIDES_OSM_FALLBACK=false).');
+        $this->line('Map provider in use (admin → Rides → Settings): '.$result['provider'].'.');
 
         return $result['ok'] ? self::SUCCESS : self::FAILURE;
     }

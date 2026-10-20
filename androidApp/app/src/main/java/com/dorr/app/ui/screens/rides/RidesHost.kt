@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -109,7 +110,12 @@ internal class RidesState {
     var editing by mutableStateOf("destination")
     var quotes by mutableStateOf<List<RideQuoteDto>>(emptyList())
     var selected by mutableStateOf<RideQuoteDto?>(null)
-    var payment by mutableStateOf("wallet")
+    // O-37: cash by default; the wallet's balance goes first when [useWallet] (the rest is cash).
+    var payment by mutableStateOf("cash")
+    var useWallet by mutableStateOf(true)
+
+    /** O-33: With Me — who may share the car: any / male / female. */
+    var shareWith by mutableStateOf("any")
 
     /** R-45: the promo code priced into the quotes, and why the last one was refused. */
     var couponCode by mutableStateOf<String?>(null)
@@ -117,6 +123,8 @@ internal class RidesState {
 
     /** D-60, D-61: how many ride, and a short note for the captain about the pickup. */
     var passengers by mutableIntStateOf(1)
+    /** O-15: the category picked by itself for more riders (the popup says so), then cleared. */
+    var categorySwitchedTo by mutableStateOf<String?>(null)
     var pickupNote by mutableStateOf("")
 
     /** R-13: booking for someone else — their name and number, and the rider's own consent tick (never pre-ticked). */
@@ -154,6 +162,25 @@ internal class RidesState {
     var scheduleOpen by mutableStateOf(false)
     var myRidesOpen by mutableStateOf(false)
 
+    /** O-22, O-23: the bus booking pages, over the rides map. */
+    var busOpen by mutableStateOf(false)
+
+    /** O-25: boats & yachts, over the rides map. */
+    var marineOpen by mutableStateOf(false)
+
+    /** O-26c: find a driver, over the rides map. */
+    var hireOpen by mutableStateOf(false)
+
+    /** O-26b: driving lessons, over the rides map. */
+    var lessonsOpen by mutableStateOf(false)
+
+    /** O-18: the service picked on the first screen (instant ride → the map); false = the picker shows. */
+    var servicePicked by mutableStateOf(false)
+
+    /** O-17: by the hour — how many hours, on which category (null = by the distance). */
+    var hourlyHours by mutableStateOf<Int?>(null)
+    var hourlySlug by mutableStateOf<String?>(null)
+
     /** Complaints and disputes (R-133..R-140): the page is open, and the ride a new one is about (null = pick). */
     var casesOpen by mutableStateOf(false)
     var caseRideUuid by mutableStateOf<String?>(null)
@@ -187,6 +214,8 @@ internal class RidesState {
     }
 
     fun resetBooking() {
+        hourlyHours = null
+        hourlySlug = null
         destination = null
         stops.clear()
         openDestination = false
@@ -239,6 +268,7 @@ fun RidesHost(onExit: () -> Unit) {
 
     // An active ride first: the app may have been closed in the middle of one.
     LaunchedEffect(Unit) {
+        RidesMap.load()
         runCatching { ApiClient.rides.current(ridesAuth()).data }.getOrNull()?.takeIf { it.isJsonObject }?.let {
             state.ride = Gson().fromJson(it, RideDto::class.java)
         }
@@ -246,6 +276,17 @@ fun RidesHost(onExit: () -> Unit) {
         // A check-in still waiting after a ride that ended (R-223).
         state.pendingCheck = runCatching { ApiClient.rides.safety(ridesAuth()).data?.pendingCheck }.getOrNull()
         if (!hasLocation) askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
+    }
+
+    // A tapped ride notification: that ride — an ended one shows its receipt and the rating (O-41);
+    // `rides/current` alone never returns a finished ride.
+    val linked = RidesLink.pending
+    LaunchedEffect(linked) {
+        val uuid = linked ?: return@LaunchedEffect
+        RidesLink.pending = null
+        runCatching { ApiClient.rides.ride(ridesAuth(), uuid).data }.getOrNull()?.let { ride ->
+            if (state.ride == null || state.ride?.uuid == uuid || ride.status == "completed") state.ride = ride
+        }
     }
 
     // Where am I: the camera goes there, and the service switches for this city are read.
@@ -270,6 +311,11 @@ fun RidesHost(onExit: () -> Unit) {
 
     BackHandler {
         when {
+            state.busOpen -> state.busOpen = false
+            state.marineOpen -> state.marineOpen = false
+            state.hireOpen -> state.hireOpen = false
+            state.lessonsOpen -> state.lessonsOpen = false
+            !state.servicePicked && state.ride == null -> onExit()
             state.scheduleOpen -> state.scheduleOpen = false
             state.safetyOpen -> state.safetyOpen = false
             state.changing != null -> state.changing = null
@@ -279,6 +325,8 @@ fun RidesHost(onExit: () -> Unit) {
             state.ride != null -> onExit()
             state.step == RideStep.Search || state.step == RideStep.PickOnMap -> state.step = if (state.quotes.isNotEmpty()) RideStep.Quotes else RideStep.Map
             state.step == RideStep.Quotes -> state.resetBooking()
+            // Back from the map goes back to the services (O-18).
+            state.ride == null && state.servicePicked -> state.servicePicked = false
             else -> onExit()
         }
     }
@@ -309,6 +357,7 @@ fun RidesHost(onExit: () -> Unit) {
             }
         }
 
+        MapboxAttribution(Modifier.align(Alignment.CenterStart).padding(start = 6.dp))
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
             AnimatedContent(
                 targetState = when {
@@ -341,6 +390,59 @@ fun RidesHost(onExit: () -> Unit) {
 
         if (state.step == RideStep.Search && state.ride == null) PlaceSearchPage(state, camera)
 
+        // O-18: the services first — unless a ride is already on (then straight to it).
+        androidx.compose.animation.AnimatedVisibility(
+            visible = resumed && state.ride == null && !state.servicePicked,
+            enter = fadeIn(tween(220)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { -it / 3 } + fadeOut(tween(200)),
+        ) {
+            val ready = buildSet {
+                add(RideService.Instant)
+                if (state.features?.categories?.get("bus") == true) add(RideService.Bus)
+                if (state.features?.categories?.get("marine") == true) add(RideService.Marine)
+                if (state.feature("find_driver")) add(RideService.FindDriver)
+                if (state.feature("driving_lessons")) add(RideService.Lessons)
+            }
+            ServicePicker(
+                ready = ready,
+                onPick = { svc ->
+                    when (svc) {
+                        RideService.Bus -> state.busOpen = true
+                        RideService.Marine -> state.marineOpen = true
+                        RideService.FindDriver -> state.hireOpen = true
+                        RideService.Lessons -> state.lessonsOpen = true
+                        else -> state.servicePicked = true
+                    }
+                },
+                onBack = onExit,
+                onMyRides = { state.myRidesOpen = true },
+            )
+        }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.busOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { BusHost(state, onClose = { state.busOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.marineOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { MarineHost(state, onClose = { state.marineOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.hireOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { HireHost(state, onClose = { state.hireOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.lessonsOpen,
+            enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
+            exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
+        ) { LessonsHost(state, onClose = { state.lessonsOpen = false }) }
+
         androidx.compose.animation.AnimatedVisibility(
             visible = state.myRidesOpen,
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
@@ -364,6 +466,16 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { SafetyCenterPage(state, onClose = { state.safetyOpen = false }) }
+
+        // O-09: the in-app call with the captain, over everything.
+        val callContext = androidx.compose.ui.platform.LocalContext.current
+        RideCallOverlay(onAccept = {
+            val ride = RideCallSession.rideUuid
+            val call = RideCallSession.callUuid
+            if (ride != null && call != null) RideCallSession.accept(callContext) {
+                ApiClient.rides.acceptCall(ridesAuth(), ride, call).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) }
+            }
+        })
     }
 
     if (state.scheduleOpen) SchedulePickerSheet(state, onClose = { state.scheduleOpen = false })
@@ -385,10 +497,12 @@ private fun RidesMap(state: RidesState, camera: CameraPositionState) {
     GoogleMap(
         modifier = Modifier.fillMaxSize(),
         cameraPositionState = camera,
-        properties = MapProperties(isMyLocationEnabled = false),
+        // O-03: the admin's map — Google, or Mapbox's tiles under the same pins and routes.
+        properties = RidesMap.properties(MapProperties(isMyLocationEnabled = false)),
         uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
         contentPadding = androidx.compose.foundation.layout.PaddingValues(bottom = 260.dp),
     ) {
+        MapboxTilesIfChosen()
         val showPoints = ride != null || state.step == RideStep.Quotes
         if (showPoints) {
             val from = ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng
@@ -450,6 +564,9 @@ internal fun PanelCard(content: @Composable () -> Unit) {
             .clip(shape).background(settingsCard())
             .then(if (settingsNight()) Modifier.border(1.dp, AccountDark.line, shape) else Modifier)
             .animateContentSize()
+            // The card runs under the phone's navigation bar; its content stays above it, like every other
+            // screen in the app (O-38d).
+            .navigationBarsPadding()
             .padding(horizontal = 18.dp).padding(top = 10.dp, bottom = 24.dp),
     ) {
         Box(Modifier.align(Alignment.CenterHorizontally).size(width = 38.dp, height = 4.dp).clip(CircleShape).background(settingsInk().copy(alpha = 0.15f)))
@@ -482,5 +599,14 @@ internal fun AccentButton(
             if (icon != null) Icon(icon, null, tint = Color.White, modifier = Modifier.size(20.dp))
             Text(text, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
         }
+    }
+}
+
+/** A ride to open when the rides screen shows — set by a tapped ride notification (O-41). */
+object RidesLink {
+    var pending by androidx.compose.runtime.mutableStateOf<String?>(null)
+
+    fun show(uuid: String) {
+        pending = uuid
     }
 }
