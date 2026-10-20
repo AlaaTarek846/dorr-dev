@@ -248,5 +248,6 @@ return [
         'priority' => ['safety' => 'urgent', 'privacy' => 'high', 'payment' => 'high'],
         'max_files' => 6,
         'max_file_kb' => 5120,
+        'max_video_kb' => 51200,                              // O-63: a dash cam clip (50 MB) — the PHP upload limits must allow it too
     ],
 ];

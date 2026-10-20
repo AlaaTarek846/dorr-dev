@@ -67,6 +67,43 @@ class DrivingLessonService
         ])->refresh();
     }
 
+    /**
+     * O-62: edit a pack. With learners in it only the words and the area change (the price and the lessons
+     * they bought stay as they were); without, everything.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Driver $driver, LessonPack $pack, array $data): LessonPack
+    {
+        $this->assertOwner($driver, $pack->driver_id);
+        $taken = $pack->enrollments()->where('status', 'active')->exists();
+        $locked = ['transmission', 'lessons', 'minutes_per_lesson', 'price_minor'];
+        if ($taken && collect($locked)->contains(fn (string $k) => array_key_exists($k, $data) && $data[$k] != $pack->{$k})) {
+            throw new RidesException('lessons_pack_has_learners', 409);
+        }
+        $fill = array_intersect_key($data, array_flip(['title', 'description', 'transmission', 'lessons', 'minutes_per_lesson', 'price_minor', 'own_car']));
+        if (isset($data['area'])) {
+            $fill += ['area_lat' => $data['area']['lat'], 'area_lng' => $data['area']['lng'], 'area_address' => $data['area']['address']];
+        }
+        $pack->forceFill($fill)->save();
+
+        return $pack->refresh();
+    }
+
+    /** O-62: remove a pack — gone if nobody ever bought it; else archived (off the search; learners carry on). */
+    public function remove(Driver $driver, LessonPack $pack): ?LessonPack
+    {
+        $this->assertOwner($driver, $pack->driver_id);
+        if (! $pack->enrollments()->exists()) {
+            $pack->delete();
+
+            return null;
+        }
+        $pack->forceFill(['status' => 'archived'])->save();
+
+        return $pack->refresh();
+    }
+
     public function setStatus(Driver $driver, LessonPack $pack, string $status): LessonPack
     {
         $this->assertOwner($driver, $pack->driver_id);
@@ -78,7 +115,7 @@ class DrivingLessonService
     /** @return Collection<int, LessonPack> */
     public function packsOf(Driver $driver): Collection
     {
-        return LessonPack::query()->where('driver_id', $driver->id)->withCount(['enrollments' => fn ($q) => $q->where('status', 'active')])->latest('id')->get();
+        return LessonPack::query()->where('driver_id', $driver->id)->where('status', '!=', 'archived')->withCount(['enrollments' => fn ($q) => $q->where('status', 'active')])->latest('id')->get();
     }
 
     /** @return Collection<int, LessonSession> the lessons asked for and coming up, soonest first */

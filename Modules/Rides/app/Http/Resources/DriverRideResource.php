@@ -59,7 +59,11 @@ class DriverRideResource extends JsonResource
             'navigation' => $next === null ? null : [
                 'lat' => $next[0],
                 'lng' => $next[1],
-                'google_maps_url' => 'https://www.google.com/maps/dir/?api=1&destination='.$next[0].','.$next[1].'&travelmode=driving',
+                // O-56: on the way to the destination, the stops still ahead go in as waypoints (Google Maps shows them all).
+                'waypoints' => $waypoints = $this->waypoints($next),
+                'google_maps_url' => 'https://www.google.com/maps/dir/?api=1&destination='.$this->navTarget($next)
+                    .($waypoints === [] ? '' : '&waypoints='.implode('%7C', array_map(fn (array $w) => $w['lat'].','.$w['lng'], $waypoints)))
+                    .'&travelmode=driving',
             ],
             // O-37: a cash ride paid partly from the wallet — that part (held, then paid), and the cash left.
             'wallet_part_minor' => $this->payment_method === \Modules\Rides\Enums\RidePaymentMethod::Cash
@@ -95,5 +99,28 @@ class DriverRideResource extends JsonResource
     private function nextPoint(): ?array
     {
         return RideProgress::nextPoint($this->resource);
+    }
+
+    /**
+     * O-56: during the trip, the stops not passed yet (in order) — the destination is the final point.
+     *
+     * @return list<array{lat: float, lng: float}>
+     */
+    private function waypoints(array $next): array
+    {
+        if (($next[2] ?? null) !== 'stop' || $this->destination_lat === null) {
+            return [];
+        }
+
+        return $this->stops->filter(fn ($s) => $s->departed_at === null)->sortBy('seq')
+            ->map(fn ($s) => ['lat' => (float) $s->lat, 'lng' => (float) $s->lng])->values()->all();
+    }
+
+    /** Where Google Maps drives to: the destination when stops come first, else the next point itself. */
+    private function navTarget(array $next): string
+    {
+        return ($next[2] ?? null) === 'stop' && $this->destination_lat !== null
+            ? $this->destination_lat.','.$this->destination_lng
+            : $next[0].','.$next[1];
     }
 }

@@ -42,6 +42,39 @@ class DriverLessonController extends Controller
         return ApiResponse::success(LessonPresenter::pack($this->lessons->publish($this->driver($request), $data)), __('rides.messages.lessons_published'), 201);
     }
 
+    /** O-62: edit a pack (with learners: the words and the area only). */
+    public function update(Request $request, string $uuid): JsonResponse
+    {
+        $data = $request->validate([
+            'title' => ['sometimes', 'string', 'max:120'],
+            'description' => ['sometimes', 'nullable', 'string', 'max:2000'],
+            'transmission' => ['sometimes', Rule::in(['automatic', 'manual'])],
+            'lessons' => ['sometimes', 'integer', 'min:1', 'max:60'],
+            'minutes_per_lesson' => ['sometimes', 'integer', 'min:15', 'max:480'],
+            'price_minor' => ['sometimes', 'integer', 'min:1', 'max:100000000'],
+            'own_car' => ['sometimes', 'boolean'],
+            'area' => ['sometimes', 'array'],
+            'area.lat' => ['required_with:area', 'numeric', 'between:-90,90'],
+            'area.lng' => ['required_with:area', 'numeric', 'between:-180,180'],
+            'area.address' => ['required_with:area', 'string', 'max:255'],
+        ]);
+
+        return ApiResponse::success(LessonPresenter::pack($this->lessons->update($this->driver($request), $this->pack($uuid), $data)), __('api.updated'));
+    }
+
+    /** O-62: remove a pack (archived if anyone ever bought it). */
+    public function destroy(Request $request, string $uuid): JsonResponse
+    {
+        $pack = $this->lessons->remove($this->driver($request), $this->pack($uuid));
+
+        return ApiResponse::success($pack === null ? null : LessonPresenter::pack($pack), __('api.deleted'));
+    }
+
+    private function pack(string $uuid): LessonPack
+    {
+        return LessonPack::query()->where('uuid', $uuid)->first() ?? throw new RidesException('lessons_not_found', 404);
+    }
+
     public function status(Request $request, string $uuid): JsonResponse
     {
         $data = $request->validate(['status' => ['required', Rule::in(['active', 'paused'])]]);

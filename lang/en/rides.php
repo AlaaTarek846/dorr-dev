@@ -52,6 +52,7 @@ return [
         'lessons_not_found' => 'We couldn\'t find this.',
         'lessons_not_editable' => 'This can\'t be changed now.',
         'lessons_trainer_busy' => 'You already have a lesson at that time.',
+        'lessons_pack_has_learners' => 'Learners already bought this pack: only the name, the description and the area can change.',
         'lessons_pack_closed' => 'This pack isn\'t taking learners now.',
         'lessons_none_left' => 'All the lessons in this pack are booked or done.',
         'lessons_too_late' => 'A confirmed lesson can\'t be cancelled less than :hours hour(s) before it.',
