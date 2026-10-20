@@ -319,6 +319,10 @@ interface DriverApi {
     @GET("driver/v1/rides/rating-tags")
     suspend fun ratingTags(): Response<ApiEnvelope<List<TagDto>>>
 
+    /** O-47: «why don't requests reach me?» — every dispatch condition, passed or not. */
+    @GET("driver/v1/dispatch-check")
+    suspend fun dispatchCheck(): Response<ApiEnvelope<DispatchCheckDto>>
+
     /** O-09: an in-app voice call with the rider (LiveKit). */
     @POST("driver/v1/rides/{uuid}/calls")
     suspend fun startCall(@Path("uuid") uuid: String): Response<ApiEnvelope<TripCallStartDto>>

@@ -52,6 +52,8 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('marine/bookings/{uuid}/extension', [\Modules\Rides\Http\Controllers\Marine\DriverMarineController::class, 'extension'])->whereUuid('uuid');
         // O-03: which map to draw — Google or Mapbox (the admin's choice).
         Route::get('map-config', \Modules\Rides\Http\Controllers\MapConfigController::class);
+        // O-47: «why don't requests reach me?» — every dispatch condition, passed or not.
+        Route::get('dispatch-check', [\Modules\Rides\Http\Controllers\DispatchCheckController::class, 'driver']);
         // O-30: With Me — «I'm going there, take riders on my way».
         Route::get('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'show']);
         Route::post('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'open']);
