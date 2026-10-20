@@ -206,15 +206,29 @@ fun ConversationPage(route: ChRoute.Conversation) {
     var searchResults by remember { mutableStateOf<List<MessageDto>?>(null) }
     // Only some kinds of message (spec 21) — with or without words.
     var searchKinds by remember { mutableStateOf(setOf<String>()) }
-    LaunchedEffect(searchQuery, searchKinds) {
+    // By meaning (DORR AI search, on the AI plan): «الكورة» also finds «الماتش».
+    var byMeaning by remember { mutableStateOf(false) }
+    var meaningTerms by remember { mutableStateOf(emptyList<String>()) }
+    LaunchedEffect(searchQuery, searchKinds, byMeaning) {
         val q = searchQuery.trim()
+        meaningTerms = emptyList()
         if (q.length < 2 && searchKinds.isEmpty()) {
             searchResults = null
+            return@LaunchedEffect
+        }
+        if (byMeaning && q.length >= 2) {
+            kotlinx.coroutines.delay(500)
+            val found = runCatching { ApiClient.aiTools.searchByMeaning(chatAuth(), route.id, q).data }.getOrNull()
+            meaningTerms = found?.terms.orEmpty()
+            searchResults = found?.messages.orEmpty()
             return@LaunchedEffect
         }
         kotlinx.coroutines.delay(300)
         searchResults = runCatching { ApiClient.chat.searchIn(chatAuth(), route.id, q.takeIf { it.length >= 2 }, searchKinds.toList().takeIf { it.isNotEmpty() }).data }.getOrNull().orEmpty()
     }
+    // Continue this chat's work in another chat, and my DORR AI memory (from the AI menu).
+    var capsuleOpen by remember { mutableStateOf(false) }
+    var memoryOpen by remember { mutableStateOf(false) }
     // Keep the newest message in view when I send / when I'm already at the bottom.
     LaunchedEffect(state.messages.size) {
         val last = state.messages.lastOrNull() ?: return@LaunchedEffect
@@ -320,7 +334,24 @@ fun ConversationPage(route: ChRoute.Conversation) {
             }
             BackHandler(searching) { searching = false; searchQuery = ""; searchKinds = emptySet() }
             androidx.compose.animation.AnimatedVisibility(searching) {
-                SearchKindChips(searchKinds) { k -> searchKinds = if (k in searchKinds) searchKinds - k else searchKinds + k }
+                Column {
+                    SearchKindChips(searchKinds) { k -> searchKinds = if (k in searchKinds) searchKinds - k else searchKinds + k }
+                    // Search by what the words mean (DORR AI), not only the words themselves.
+                    if (ChatAi.searchMeaning) {
+                        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 2.dp)) {
+                            Row(
+                                Modifier.clip(RoundedCornerShape(50)).background(if (byMeaning) Ch.Red else Ch.Red.copy(alpha = 0.10f))
+                                    .clickable { byMeaning = !byMeaning }.padding(horizontal = 12.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(Icons.Rounded.AutoAwesome, null, tint = if (byMeaning) Color.White else Ch.Red, modifier = Modifier.size(14.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text(stringResource(R.string.ch_ai_meaning_toggle), color = if (byMeaning) Color.White else Ch.Red, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                        if (byMeaning) MeaningTerms(meaningTerms)
+                    }
+                }
             }
             PinnedBanner(state) { jumpTo(it) }
             // A group's voice room with people in it (spec 91).
@@ -405,12 +436,16 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 if (ChatAi.important) stringResource(R.string.ct_important_here) to { aiPanel = "important"; Unit } else null,
                 if (ChatAi.dates) stringResource(R.string.ct_dates) to { aiPanel = "dates"; Unit } else null,
                 if (ChatAi.relatedFiles) stringResource(R.string.ct_files) to { aiPanel = "files"; Unit } else null,
+                if (ChatAi.capsule) stringResource(R.string.ch_ai_capsule_title) to { capsuleOpen = true; Unit } else null,
+                if (ChatAi.memory) stringResource(R.string.ch_ai_memory) to { memoryOpen = true; Unit } else null,
             ),
             subtitle = stringResource(R.string.ch_ai_privacy_note),
             onDismiss = { aiMenu = false },
         )
         state.askAbout?.let { ids -> AiAskSheet(state.id, ids, onDismiss = { state.askAbout = null }) { jumpTo(it) } }
         if (commitmentsOpen) AiCommitmentsSheet(state.id, onDismiss = { commitmentsOpen = false }) { jumpTo(it) }
+        if (capsuleOpen) ChatCapsuleSheet(state.id) { capsuleOpen = false }
+        if (memoryOpen) ChatMemoryDialog { memoryOpen = false }
         when (aiPanel) {
             "assistant" -> AiAssistantSheet(state.id, null, onDismiss = { aiPanel = null }, onJump = { jumpTo(it) }, onUse = { state.composerInsert = it })
             "important" -> AiImportantSheet(state.id, onDismiss = { aiPanel = null }) { _, m -> jumpTo(m) }
@@ -427,6 +462,7 @@ fun ConversationPage(route: ChRoute.Conversation) {
                 "simplify" -> AiSimplifySheet(m, onDismiss = closeTool)
                 "tasks" -> AiTasksFromSheet(m, onDismiss = closeTool)
                 "remind" -> ScheduleSheet(onDismiss = closeTool) { at -> state.remind(m, at); state.aiTool = null }
+                "edit_image" -> ChatAiImageSheet(state, source = m, onDismiss = closeTool)
             }
         }
         payFor?.let { m -> ChatPaySheet(m, onDismiss = { payFor = null }) { paid -> state.paymentUpdated(paid) } }

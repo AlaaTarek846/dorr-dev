@@ -424,6 +424,14 @@ fun MainScreen(
     // A public story being watched or written (from the home page's circles).
     com.dorr.app.ui.screens.chat.HomeStoriesLayer(homeStories)
 
+    // An AI tool refused for want of a DORR AI plan (chat, images, Discover…): "Subscribe" leaves
+    // the chat and opens the DORR AI subscription page.
+    com.dorr.app.ui.screens.aichat.AiPlanPromptDialog(night = night) {
+        walletOpen = false
+        chatOpen = false
+        aiChatOpen = true
+    }
+
     // The one payment screen, over whatever opened it.
     com.dorr.app.ui.screens.wallet.CheckoutOverlay()
 

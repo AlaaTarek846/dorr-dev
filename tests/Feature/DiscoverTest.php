@@ -82,6 +82,8 @@ class DiscoverTest extends TestCase
         }
 
         app(AiProviderRepository::class)->ensureDefaults();
+        // The chat's AI tools need a DORR AI plan (2026-10-15): the admin's free trial.
+        \Modules\AI\Models\AiPlan::query()->create(['name' => 'Trial', 'code' => 'trial-'.class_basename(static::class), 'is_trial' => true, 'is_active' => true, 'sort_order' => 1, 'usage_minutes' => 600, 'cooldown_minutes' => 5]);
         AiProvider::query()->where('key', 'openai')->firstOrFail()->update(['is_enabled' => true, 'is_default' => true, 'api_key' => 'sk-test', 'model' => 'gpt-4o-mini']);
         config(['services.onesignal.app_id' => 'app', 'services.onesignal.rest_api_key' => 'rest']);
         Http::fake([

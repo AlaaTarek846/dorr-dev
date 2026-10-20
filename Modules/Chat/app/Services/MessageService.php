@@ -907,6 +907,35 @@ class MessageService
     }
 
     /**
+     * Every image made or changed with DORR AI in my chats (spec 50, 51 — `meta.ai_generated`), by
+     * me or by others, newest first: only messages I can see, never view-once or deleted ones.
+     *
+     * @return list<MessageResource>
+     */
+    public function aiImages(Model $me, int $limit = 120): array
+    {
+        $results = collect();
+
+        foreach (ChatParticipant::query()->of($me)->get() as $participant) {
+            $found = $this->visibleTo($participant, ChatMessage::query()->where('conversation_id', $participant->conversation_id))
+                ->whereNull('deleted_for_everyone_at')
+                ->where('view_once', false)
+                ->where('type', MessageType::Image->value)
+                ->where('meta->ai_generated', true)
+                ->orderByDesc('id')->limit($limit)->get();
+
+            if ($found->isNotEmpty()) {
+                $conv = $participant->conversation()->with('participants')->first();
+                $found->load(['media', 'reactions']);
+                $ctx = MessageViewContext::build($me, $participant, $conv, $found);
+                $results = $results->merge($found->map(fn ($m) => new MessageResource($m, $ctx)));
+            }
+        }
+
+        return $results->sortByDesc(fn (MessageResource $r) => $r->resource->id)->take($limit)->values()->all();
+    }
+
+    /**
      * The chat's gallery tabs: media (photos + videos), documents, links, voice, locations.
      *
      * @return array{messages: Collection<int, ChatMessage>, context: MessageViewContext, has_more: bool}

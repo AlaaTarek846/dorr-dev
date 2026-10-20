@@ -145,6 +145,19 @@
 
 ---
 
+## ADR-013: Every AI Tool Needs a DORR AI Plan (Chat Included)
+
+| Field | Value |
+|-------|-------|
+| **Date** | 2026-10-15 |
+| **Status** | Accepted (Ali Khalifa, AI module owner) |
+| **Context** | The chat's AI tools (translate, voice to text, summary, smart replies, assistant, …, Discover's AI search, greetings, portal translations) ran free. The DORR Chat spec says the chat is free with no paid usage limit ("نموذج التمويل"); DORR AI has its own plans (363–366). |
+| **Problem** | AI calls cost money on every use, and images (spec 50, 51) had been held back for cost and abuse. |
+| **Options** | 1. Keep chat AI free. 2. Put every AI tool behind the DORR AI plan, the chat core staying free. |
+| **Decision** | 2. Every AI task for a person goes through `AiTaskRunner`, which applies `AiChatUsageGuard` exactly like the DORR AI chat: an active plan or the admin's free trial, within its usage window and cooldown, using that window up. Images also count against the plan's daily images (`AiMediaQuotaService`). Exempt: support's automatic FAQ answer (`free: true`) — the platform runs it, nobody asks for it. The chat core (messages, calls, files…) stays free. |
+| **Reason** | Owner's decision; one plan for all of DORR AI, wherever it is used. Plan limits and daily image quotas make spec 50/51 safe to offer. |
+| **Consequences** | Chat errors `chat_ai_plan_{reason}` (402), `chat_ai_image_not_in_plan` (402), `chat_ai_image_daily_limit` (429); `GET chat/ai` returns `plan {allowed, reason}` read-only (`AiChatUsageGuard::preview()` — opening the chat starts nothing). The app keeps the AI buttons and, on a refusal, offers the DORR AI subscription. This overrides the spec's "free chat" line for the AI tools only. |
+
 ## NEEDS-DECISION
 
 | Topic | Question |

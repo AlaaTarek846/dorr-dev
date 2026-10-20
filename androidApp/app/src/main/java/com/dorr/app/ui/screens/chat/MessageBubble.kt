@@ -684,6 +684,10 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
                 }
             }
             if (dto.body.isNullOrBlank()) Footer(m, mine, overlay = true, modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
+            // Made or changed by DORR AI (spec 50, 51) — everyone in the chat sees it.
+            if (dto.meta?.get("ai_generated")?.let { runCatching { it.asBoolean }.getOrNull() } == true) {
+                AiMadeLabel(Modifier.align(Alignment.TopStart).padding(8.dp))
+            }
         }
         if (!dto.body.isNullOrBlank()) {
             Box(Modifier.width(260.dp)) { TextBody(m, mine) }

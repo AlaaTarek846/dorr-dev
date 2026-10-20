@@ -819,4 +819,29 @@
     <!-- الشاشات العريضة (البند 89): جنب القايمة قبل ما تفتح محادثة. -->
     <string name="ch_pane_title">اختار محادثة</string>
     <string name="ch_pane_sub">هتفتح هنا، جنب محادثاتك.</string>
+    <!-- الصور بالذكاء الاصطناعي (البند 50 و51) -->
+    <string name="ch_ai_image_title">صورة بالذكاء الاصطناعي</string>
+    <string name="ch_ai_image_edit_title">عدّلها بالذكاء الاصطناعي</string>
+    <string name="ch_ai_image_sub">معاينة ليك انت بس، ابعتها لو عجبتك</string>
+    <string name="ch_ai_image_hint">اوصف الصورة، مثلاً: قطة لابسة بدلة فضاء</string>
+    <string name="ch_ai_image_edit_hint">عايزها تتغير إزاي؟ مثلاً: خليها أبيض وأسود</string>
+    <string name="ch_ai_image_caption">ضيف تعليق (اختياري)</string>
+    <string name="ch_ai_image_go">اعمل الصورة</string>
+    <string name="ch_ai_image_edit_go">عدّل</string>
+    <string name="ch_ai_image_again">جرّب تاني</string>
+    <string name="ch_ai_image_send">إرسال</string>
+    <string name="ch_ai_image_quota_note">كل صورة بتتحسب من الصور اليومية في باقة دُرر AI بتاعتك.</string>
+    <string name="ch_ai_made">بالذكاء الاصطناعي</string>
+    <!-- دُرر AI في الشات: البحث بالمعنى، والمتابعة في محادثة تانية، والذاكرة، وصور الذكاء الاصطناعي -->
+    <string name="ch_ai_meaning_toggle">بالمعنى</string>
+    <string name="ch_ai_meaning_terms">دوّرنا كمان على: %1$s</string>
+    <string name="ch_ai_capsule_title">كمّل في محادثة تانية</string>
+    <string name="ch_ai_capsule_sub">ملخص للمحادثة دي عشان تكمّل الشغل في مكان تاني</string>
+    <string name="ch_ai_capsule_note">عدّله زي ما تحب. مش هيتبعت غير للمحادثات اللي تختارها.</string>
+    <string name="ch_ai_capsule_send">ابعته في محادثة</string>
+    <string name="ch_ai_capsule_sent">الملخص اتبعت</string>
+    <string name="ch_ai_memory">ذاكرة دُرر AI</string>
+    <string name="ch_ai_images_title">صور الذكاء الاصطناعي</string>
+    <string name="ch_ai_images_sub">كل اللي اتعمل أو اتعدل بالذكاء الاصطناعي في محادثاتك</string>
+    <string name="ch_ai_images_empty">لسه مفيش صور بالذكاء الاصطناعي في محادثاتك.</string>
 </resources>

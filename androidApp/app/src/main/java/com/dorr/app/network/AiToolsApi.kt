@@ -67,7 +67,55 @@ interface AiToolsApi {
 
     @DELETE("mobile/v1/chat/tasks/{id}")
     suspend fun deleteTask(@Header("Authorization") auth: String, @Path("id") id: String): ApiEnvelope<JsonElement?>
+
+    // DORR AI's search by meaning, continue-in-another-chat and AI-images gallery, in the chat.
+
+    /** This chat by what the words mean: `{terms, messages, matches{message id → word}}`. */
+    @GET("mobile/v1/chat/conversations/{id}/ai/search")
+    suspend fun searchByMeaning(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Query("q") q: String): ApiEnvelope<MeaningSearchDto>
+
+    /** `{messages?[]}` — a summary of this chat to carry on elsewhere (nothing is sent). */
+    @POST("mobile/v1/chat/conversations/{id}/ai/capsule")
+    suspend fun capsule(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<ChatCapsuleDto>
+
+    /** Every image made or changed with AI in my chats. */
+    @GET("mobile/v1/chat/ai/images")
+    suspend fun aiImages(@Header("Authorization") auth: String): ApiEnvelope<List<MessageDto>>
+
+    // Images with DORR AI (spec 50, 51): a draft only I see, counted against my AI plan's daily
+    // images, then sent as an ordinary image message marked `meta.ai_generated`.
+
+    /** `{prompt}` — a new image from a description. */
+    @POST("mobile/v1/chat/conversations/{id}/ai/image")
+    suspend fun generateImage(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<AiImageDraftDto>
+
+    /** `{prompt}` — an image message, changed as described. */
+    @POST("mobile/v1/chat/messages/{id}/ai/edit-image")
+    suspend fun editImage(@Header("Authorization") auth: String, @Path("id") messageId: String, @Body body: JsonObject): ApiEnvelope<AiImageDraftDto>
+
+    /** `{draft, body?, uuid?}` */
+    @POST("mobile/v1/chat/conversations/{id}/ai/image/send")
+    suspend fun sendImage(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<MessageDto>
 }
+
+data class MeaningSearchDto(
+    val terms: List<String> = emptyList(),
+    val messages: List<MessageDto> = emptyList(),
+    /** Message id → the word that found it. */
+    val matches: Map<String, String> = emptyMap(),
+)
+
+data class ChatCapsuleDto(
+    val text: String = "",
+    val messages: Int = 0,
+)
+
+data class AiImageDraftDto(
+    val draft: String,
+    val url: String,
+    /** "generate" | "edit". */
+    val kind: String = "generate",
+)
 
 /**
  * DORR AI safety (spec 350–362) for one answer: its domain (religion · law · medicine ·

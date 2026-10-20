@@ -74,6 +74,16 @@
                                 </router-link>
                             </li>
                             <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-ar.index' }" class="side-menu__item">
+                                    {{ t('ai_ar.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
+                                <router-link :to="{ name: 'admin.ai-world.index' }" class="side-menu__item">
+                                    {{ t('ai_world.title') }}
+                                </router-link>
+                            </li>
+                            <li class="slide">
                                 <router-link :to="{ name: 'admin.ai-site-download.index' }" class="side-menu__item">
                                     {{ t('ai_site_download.title') }}
                                 </router-link>

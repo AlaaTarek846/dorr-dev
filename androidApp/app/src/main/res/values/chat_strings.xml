@@ -809,4 +809,29 @@
     <!-- Wide screens (spec 89): beside the list before a chat is opened. -->
     <string name="ch_pane_title">Pick a chat</string>
     <string name="ch_pane_sub">It opens here, next to your chats.</string>
+    <!-- Images with DORR AI (spec 50, 51) -->
+    <string name="ch_ai_image_title">AI image</string>
+    <string name="ch_ai_image_edit_title">Edit with AI</string>
+    <string name="ch_ai_image_sub">A preview only you see — send it if you like it</string>
+    <string name="ch_ai_image_hint">Describe the image, e.g. a cat in a spacesuit</string>
+    <string name="ch_ai_image_edit_hint">How should it change? e.g. make it black and white</string>
+    <string name="ch_ai_image_caption">Add a caption (optional)</string>
+    <string name="ch_ai_image_go">Create</string>
+    <string name="ch_ai_image_edit_go">Edit</string>
+    <string name="ch_ai_image_again">Try again</string>
+    <string name="ch_ai_image_send">Send</string>
+    <string name="ch_ai_image_quota_note">Each image counts against your DORR AI plan\'s daily images.</string>
+    <string name="ch_ai_made">Made with AI</string>
+    <!-- DORR AI in the chat: search by meaning, continue elsewhere, memory, AI images -->
+    <string name="ch_ai_meaning_toggle">By meaning</string>
+    <string name="ch_ai_meaning_terms">Also looked for: %1$s</string>
+    <string name="ch_ai_capsule_title">Continue in another chat</string>
+    <string name="ch_ai_capsule_sub">A summary of this chat to carry the work on</string>
+    <string name="ch_ai_capsule_note">Edit it as you like. It is sent only to the chats you pick.</string>
+    <string name="ch_ai_capsule_send">Send to a chat</string>
+    <string name="ch_ai_capsule_sent">Summary sent</string>
+    <string name="ch_ai_memory">DORR AI memory</string>
+    <string name="ch_ai_images_title">AI images</string>
+    <string name="ch_ai_images_sub">Everything made or edited with AI in your chats</string>
+    <string name="ch_ai_images_empty">No AI images in your chats yet.</string>
 </resources>

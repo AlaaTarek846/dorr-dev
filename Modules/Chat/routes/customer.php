@@ -322,6 +322,14 @@ Route::prefix('chat')->middleware(RememberTimezone::class)->group(function () {
         Route::post('ai/important', [ChatAiToolsController::class, 'important'])->middleware('throttle:10,1,chat-ai-important');
         Route::post('conversations/{conversation}/related-files', [ChatAiToolsController::class, 'relatedFiles'])->middleware('throttle:10,1,chat-ai-files');
         Route::post('ai/today', [ChatAiToolsController::class, 'today'])->middleware('throttle:6,1,chat-ai-today');
+        // DORR AI's search by meaning, continue-in-another-chat and AI-images gallery, in the chat.
+        Route::get('conversations/{conversation}/ai/search', [ChatAiController::class, 'searchByMeaning'])->middleware('throttle:20,1,chat-ai-meaning');
+        Route::post('conversations/{conversation}/ai/capsule', [ChatAiController::class, 'capsule'])->middleware('throttle:10,1,chat-ai-capsule');
+        Route::get('ai/images', [ChatAiController::class, 'aiImages']);
+        // Images with DORR AI (spec 50, 51): drafts counted against the AI plan's daily images.
+        Route::post('conversations/{conversation}/ai/image', [ChatAiController::class, 'generateImage'])->middleware('throttle:10,1,chat-ai-image');
+        Route::post('messages/{message}/ai/edit-image', [ChatAiController::class, 'editImage'])->middleware('throttle:10,1,chat-ai-image');
+        Route::post('conversations/{conversation}/ai/image/send', [ChatAiController::class, 'sendImage'])->middleware('throttle:30,1,chat-ai-image-send');
     });
     // Favourites folders (spec 24).
     Route::get('star-folders', [StarFolderController::class, 'index']);

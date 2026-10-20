@@ -450,12 +450,16 @@ private fun ListMenu() {
     if (themeSheet) ThemeSheet { themeSheet = false }
     if (statusSheet) StatusSheet { statusSheet = false }
     var todayOpen by remember { mutableStateOf(false) }
+    var aiImagesOpen by remember { mutableStateOf(false) }
+    var memoryOpen by remember { mutableStateOf(false) }
     var comfort by remember { mutableStateOf(false) }
     if (comfort) ChatComfortSheet { comfort = false }
     var importantOpen by remember { mutableStateOf(false) }
     val openAt: (String, String) -> Unit = { c, m -> host.focusRequest = c to m; host.push(ChRoute.Conversation(c)) }
     if (todayOpen) AiTodaySheet(onDismiss = { todayOpen = false }, onOpen = openAt)
     if (importantOpen) AiImportantSheet(null, onDismiss = { importantOpen = false }, onOpen = openAt)
+    if (aiImagesOpen) ChatAiImagesSheet(onDismiss = { aiImagesOpen = false }) { c, m -> aiImagesOpen = false; openAt(c, m) }
+    if (memoryOpen) ChatMemoryDialog { memoryOpen = false }
     Box {
         GlassIcon(Icons.Rounded.MoreVert) { open = true }
         DropdownMenu(expanded = open, onDismissRequest = { open = false }, shape = RoundedCornerShape(18.dp), containerColor = Ch.Surface) {
@@ -466,6 +470,9 @@ private fun ListMenu() {
             MenuItem(Icons.Rounded.History, stringResource(R.string.cp_catch_up)) { open = false; host.push(ChRoute.CatchUp) }
             if (ChatAi.today) MenuItem(Icons.Rounded.AutoAwesome, stringResource(R.string.ct_today)) { open = false; todayOpen = true }
             if (ChatAi.important) MenuItem(Icons.Rounded.PriorityHigh, stringResource(R.string.ct_important)) { open = false; importantOpen = true }
+            // Images made with AI in my chats, and my DORR AI memory.
+            if (ChatAi.aiImages) MenuItem(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_images_title)) { open = false; aiImagesOpen = true }
+            if (ChatAi.memory) MenuItem(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_memory)) { open = false; memoryOpen = true }
             MenuItem(Icons.Rounded.TaskAlt, stringResource(R.string.ct_tasks)) { open = false; host.push(ChRoute.Tasks) }
             MenuItem(Icons.Rounded.PushPin, stringResource(R.string.lf_my_commitments)) { open = false; host.push(ChRoute.Commitments) }
             MenuItem(Icons.Rounded.Tune, stringResource(R.string.at_title)) { open = false; host.push(ChRoute.CommRules) }
