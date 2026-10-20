@@ -51,6 +51,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,6 +92,7 @@ import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import androidx.compose.material.icons.rounded.Folder
 
 /*
  * Organising chats (docs/remaining_chat.md): threads (spec 122), group decisions (119–120),
@@ -451,6 +453,8 @@ fun BroadcastsPage() {
     val host = LocalChat.current
     var lists by remember { mutableStateOf<List<BroadcastDto>?>(null) }
     var creating by remember { mutableStateOf(false) }
+    // A list from one of my folders (labels) — backlog 129.
+    var fromFolder by remember { mutableStateOf(false) }
     suspend fun load() { lists = runCatching { ApiClient.organize.broadcasts(chatAuth()).data }.getOrNull().orEmpty() }
     LaunchedEffect(Unit) { load() }
 
@@ -470,6 +474,19 @@ fun BroadcastsPage() {
                         Text(stringResource(R.string.ch_broadcast_hint), color = Color.White.copy(alpha = 0.85f), fontSize = 12.5.sp)
                     }
                     Icon(Icons.Rounded.Add, null, tint = Color.White)
+                }
+            }
+            if (host.folders.isNotEmpty()) item {
+                Row(
+                    Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Ch.Surface).clickable { fromFolder = true }.padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Folder, null, tint = Ch.Red)
+                    Spacer(Modifier.width(10.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text(stringResource(R.string.bk_broadcast_from_folder), color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp)
+                        Text(stringResource(R.string.bk_broadcast_from_folder_sub), color = Ch.Mut, fontSize = 12.sp)
+                    }
                 }
             }
             val items = lists
@@ -496,6 +513,22 @@ fun BroadcastsPage() {
         }
     }
 
+    if (fromFolder) ChoiceSheet(
+        title = stringResource(R.string.bk_broadcast_from_folder),
+        subtitle = stringResource(R.string.bk_broadcast_from_folder_sub),
+        options = host.folders.map { f ->
+            listOfNotNull(f.emoji, f.name).joinToString(" ") to {
+                fromFolder = false
+                host.scope.launch {
+                    runCatching { ApiClient.backlog.broadcastFromFolder(chatAuth(), com.google.gson.JsonObject().apply { addProperty("folder_id", f.id) }).data }
+                        .onSuccess { b -> b?.let { host.push(ChRoute.Broadcast(it.id)) } }
+                        .onFailure { e -> e.apiFailure().message?.let { host.showToast(it) } }
+                }
+                Unit
+            }
+        },
+        onDismiss = { fromFolder = false },
+    )
     if (creating) PeoplePickerSheet(emptySet(), onDismiss = { creating = false }) { ids ->
         host.scope.launch {
             runCatching { ApiClient.organize.createBroadcast(chatAuth(), JsonObject().apply { add("members", Gson().toJsonTree(ids)) }).data }
@@ -626,7 +659,12 @@ internal fun PeoplePickerSheet(initial: Set<Int>, onDismiss: () -> Unit, onDone:
     val picked = remember { mutableStateListOf<Int>().apply { addAll(initial) } }
     LaunchedEffect(Unit) { contacts = runCatching { ApiClient.chat.contacts(chatAuth(), registered = 1).data }.getOrNull().orEmpty() }
 
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Ch.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
         Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 20.dp)) {
             Text(stringResource(R.string.ch_broadcast_pick), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(8.dp))

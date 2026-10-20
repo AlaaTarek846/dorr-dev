@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The captain app's shell: splash, bottom bar, account and settings (same design as the DORR app). -->
+<resources>
+    <string name="back">رجوع</string>
+    <string name="cancel">إلغاء</string>
+    <string name="app_tagline">بدعم من درر</string>
+
+    <string name="nav_home">الرئيسية</string>
+    <string name="nav_earnings">الأرباح</string>
+    <string name="nav_wallet">المحفظة</string>
+    <string name="nav_account">حسابي</string>
+
+    <string name="login_hero">اشتغل مع دُرر</string>
+    <string name="login_terms">بالمتابعة أنت توافق على شروط الاستخدام وسياسة الخصوصية.</string>
+    <string name="otp_wrong">الرمز غير صحيح. حاول مرة أخرى.</string>
+
+    <string name="acct_title">حسابي</string>
+    <string name="acct_driving">القيادة</string>
+    <string name="acct_app">التطبيق</string>
+    <string name="acct_account_status">حالة الحساب</string>
+    <string name="acct_signup">المستندات والمركبة</string>
+    <string name="acct_signup_hint">رخصتك ومركبتك ومراجعتها</string>
+    <string name="acct_appearance">المظهر</string>
+    <string name="acct_mode_system">مثل الهاتف</string>
+    <string name="acct_mode_light">فاتح</string>
+    <string name="acct_mode_dark">داكن</string>
+    <string name="acct_language">اللغة</string>
+    <string name="acct_lang_system">مثل الهاتف</string>
+    <string name="acct_lang_ar">العربية</string>
+    <string name="acct_lang_en">English</string>
+    <string name="acct_notifications_hint">الطلبات والمدفوعات وأخبار الحساب</string>
+    <string name="acct_logout_title">تسجيل الخروج؟</string>
+    <string name="acct_logout_message">ستصبح غير متصل ولن تصلك طلبات على هذا الهاتف.</string>
+    <string name="acct_version">الإصدار %1$s</string>
+    <string name="acct_rating">التقييم</string>
+    <string name="acct_trips_total">الرحلات</string>
+
+    <string name="home_today_title">اليوم</string>
+    <string name="home_open_earnings">التفاصيل</string>
+    <string name="home_offline_hint">ابدأ العمل لتستقبل الطلبات</string>
+
+    <!-- Sign-in: the country picker and the number check. -->
+    <string name="login_country">الدولة</string>
+    <string name="login_country_search">ابحث عن دولة</string>
+    <string name="login_clear">مسح</string>
+    <string name="login_error_start">الرقم يبدأ بـ %1$s</string>
+    <string name="login_error_length">الرقم %1$d أرقام</string>
+
+    <!-- Pickers: the calendar and the list sheets. -->
+    <string name="date_ok">اختيار</string>
+    <string name="date_pick">اختر التاريخ</string>
+    <string name="pick_choose">اختر</string>
+    <string name="pick_search">بحث</string>
+    <string name="pick_nothing">لا توجد نتائج</string>
+    <string name="list_sep">"، "</string>
+
+    <!-- Signing up, step by step. -->
+    <string name="ob_review">المراجعة</string>
+    <string name="ob_details_hint">كما هي في هويتك.</string>
+    <string name="ob_vehicle_hint">السيارة التي ستعمل بها مع DORR.</string>
+    <string name="ob_documents_hint">اضغط على المستند لتصويره أو اختياره من المعرض.</string>
+    <string name="ob_review_hint">راجع كل شيء ثم أرسله للمراجعة.</string>
+    <string name="ob_next">حفظ ومتابعة</string>
+    <string name="ob_continue">متابعة</string>
+    <string name="ob_done">تم</string>
+    <string name="ob_edit">تعديل</string>
+    <string name="ob_status">الحالة</string>
+    <string name="ob_optional">اختياري</string>
+    <string name="ob_name_hint">اسمك الكامل</string>
+    <string name="ob_national_id_hint">الرقم المكتوب في هويتك</string>
+    <string name="ob_gender">الجنس</string>
+    <string name="ob_gender_male">ذكر</string>
+    <string name="ob_gender_female">أنثى</string>
+    <string name="ob_nationality">الجنسية</string>
+    <string name="ob_city">المدينة</string>
+    <string name="ob_locked">حسابك مفعّل، لذلك بيانات الهوية مقفلة. تواصل مع الدعم لتغييرها.</string>
+    <string name="ob_err_required">مطلوب</string>
+    <string name="ob_err_email">اكتب بريداً صحيحاً</string>
+    <string name="ob_err_adult">يجب أن يكون عمرك فوق 18 سنة</string>
+    <string name="ob_make_first">اختر الشركة المصنعة أولاً</string>
+    <string name="ob_seats_count">%1$d مقاعد</string>
+    <string name="ob_plate">لوحة السيارة</string>
+    <string name="ob_vehicle_locked">سيارتك معتمدة. تواصل مع الدعم لتغييرها.</string>
+    <string name="ob_vehicle_rejected">رُفضت سيارتك. صحّح البيانات واحفظ لإرسالها من جديد.</string>
+    <string name="ob_docs_progress">أُرسل %1$d من %2$d</string>
+    <string name="ob_docs_need_vehicle">أضف سيارتك أولاً: مستنداتها مرتبطة بها.</string>
+    <string name="ob_docs_none">لا يوجد ما يُرفع الآن.</string>
+    <string name="ob_missing">ما زال ناقصاً: %1$s</string>
+    <string name="ob_waiting_hint">سنخبرك فور مراجعة حسابك.</string>
+    <string name="body_sedan">سيدان</string>
+    <string name="body_suv">دفع رباعي</string>
+    <string name="body_van">فان</string>
+    <string name="body_minibus">ميني باص</string>
+    <string name="body_bus">باص</string>
+    <string name="body_motorcycle">دراجة نارية</string>
+    <string name="body_boat">قارب</string>
+    <string name="body_yacht">يخت</string>
+
+    <!-- Documents. -->
+    <string name="doc_until">حتى %1$s</string>
+    <string name="doc_add">أضف المستند</string>
+    <string name="doc_number_hint">كما هو مكتوب في المستند</string>
+    <string name="doc_expiry">تاريخ الانتهاء</string>
+    <string name="doc_photo_hint">صورة واضحة: المستند كاملاً، بلا انعكاس، والكتابة مقروءة.</string>
+    <string name="doc_uploading">جارٍ الرفع… %1$d%%</string>
+    <string name="doc_complete_first">أكمل الناقص في الأعلى أولاً.</string>
+    <string name="doc_send">إرسال المستند</string>
+    <string name="doc_camera">الكاميرا</string>
+    <string name="doc_gallery">المعرض</string>
+
+    <!-- Home: the map. -->
+    <string name="home_status_online">أنت متصل</string>
+    <string name="home_status_offline">أنت غير متصل</string>
+    <string name="home_recenter">موقعي</string>
+
+    <!-- Wallet: the card and the withdrawal. -->
+    <string name="wl_hide">إخفاء الرصيد</string>
+    <string name="wl_number_label">رقم المحفظة</string>
+    <string name="wl_copied">تم النسخ</string>
+    <string name="wl_share_text">رقم محفظتي في DORR: %1$s</string>
+    <string name="wl_all">الكل</string>
+    <string name="wl_too_much">هذا أكثر مما يمكنك سحبه.</string>
+    <string name="wl_day_today">اليوم</string>
+    <string name="wl_day_yesterday">أمس</string>
+</resources>

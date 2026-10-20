@@ -140,6 +140,65 @@ class DiscoverTest extends TestCase
         $this->assertCount(2, $this->getJson('/api/mobile/v1/discover/events', $this->headers())->assertOk()->json('data'));
     }
 
+    public function test_the_admin_lists_organizers_with_status_counts(): void
+    {
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', [
+            'name' => 'Bob Live',
+            'email' => 'bob@live.test',
+            'phone' => '+966500000002',
+        ], $this->headers())->assertOk();
+
+        $this->as($this->alice);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Alice Shows'], $this->headers())->assertOk();
+        $alice = DiscoverOrganizer::query()->where('name', 'Alice Shows')->firstOrFail();
+
+        $this->asAdmin(['discover-organizers.view', 'discover-organizers.update']);
+        $this->patchJson("/api/admin/v1/discover-organizers/{$alice->id}/review", ['status' => 'verified'])->assertOk();
+
+        $this->getJson('/api/admin/v1/discover-organizers?status_counts=1')
+            ->assertOk()
+            ->assertJsonPath('status_counts.total', 2)
+            ->assertJsonPath('status_counts.pending', 1)
+            ->assertJsonPath('status_counts.verified', 1)
+            ->assertJsonPath('status_counts.rejected', 0)
+            ->assertJsonPath('status_counts.suspended', 0)
+            ->assertJsonStructure(['data' => [['id', 'name', 'status', 'created_at', 'updated_at', 'account']], 'pagination']);
+
+        $this->getJson('/api/admin/v1/discover-organizers?status=pending&search=bob@live.test')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.name', 'Bob Live');
+    }
+
+    public function test_the_organizer_hears_the_admins_answer_on_their_phone(): void
+    {
+        // Phones register under the account's morph class ("user"), like the real app does.
+        NotificationDevice::query()->where('player_id', 'bob-phone')->update(['owner_type' => $this->bob->getMorphClass()]);
+
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
+        $id = $this->postJson('/api/mobile/v1/discover/organizer/events', $this->eventData('Jazz night'), $this->headers())->assertCreated()->json('data.id');
+        $organizer = DiscoverOrganizer::query()->firstOrFail();
+
+        $this->asAdmin(['discover-events.update', 'discover-organizers.update']);
+        $this->patchJson("/api/admin/v1/discover-events/{$id}/review", ['review_status' => 'rejected', 'note' => 'Add the venue'])->assertOk();
+        $this->patchJson("/api/admin/v1/discover-organizers/{$organizer->id}/review", ['status' => 'verified'])->assertOk();
+        // Saving the same answer again tells nobody twice.
+        $this->patchJson("/api/admin/v1/discover-organizers/{$organizer->id}/review", ['status' => 'verified'])->assertOk();
+
+        $event = $this->pushes('discover.event.reviewed');
+        $this->assertCount(1, $event);
+        $this->assertSame(['bob-phone'], $event[0]['include_player_ids']);
+        $this->assertSame('rejected', $event[0]['data']['status']);
+        $this->assertSame($id, $event[0]['data']['event_id']);
+        $this->assertStringContainsString('Add the venue', $event[0]['contents']['en']);
+
+        $organizerPushes = $this->pushes('discover.organizer.reviewed');
+        $this->assertCount(1, $organizerPushes);
+        $this->assertSame('verified', $organizerPushes[0]['data']['status']);
+    }
+
     // ------------------------------------------------------------------ AT-DISC-01
 
     public function test_an_organizer_sends_a_cover_with_the_event_and_changes_it_from_the_app(): void
@@ -165,6 +224,46 @@ class DiscoverTest extends TestCase
         // Not an image: refused.
         $this->post("/api/mobile/v1/discover/organizer/events/{$id}", ['cover' => UploadedFile::fake()->create('cover.pdf', 10, 'application/pdf')], $this->headers() + ['Accept' => 'application/json'])
             ->assertStatus(422);
+    }
+
+    public function test_the_organizer_dashboard_pages_their_events_fifteen_at_a_time(): void
+    {
+        $this->as($this->bob);
+        $this->postJson('/api/mobile/v1/discover/organizer', ['name' => 'Bob Live'], $this->headers())->assertOk();
+        $organizer = DiscoverOrganizer::query()->firstOrFail();
+        $city = $this->city('Riyadh');
+        $categoryId = DiscoverCategory::query()->where('key', 'concerts')->value('id');
+        foreach (range(1, 16) as $i) {
+            $start = Carbon::parse('2026-11-05 20:00', $city->timezone)->addDays($i);
+            DiscoverEvent::query()->create([
+                'uuid' => (string) \Illuminate\Support\Str::uuid(),
+                'organizer_id' => $organizer->id,
+                'source' => 'organizer',
+                'title' => "Show {$i}",
+                'category_id' => $categoryId,
+                'country_id' => $city->country_id,
+                'city_id' => $city->id,
+                'starts_at' => $start->clone()->utc(),
+                'timezone' => $city->timezone,
+                'status' => 'confirmed',
+                'review_status' => 'pending',
+                'dedupe_key' => DiscoverEvent::dedupeKey("Show {$i}", $city->id, $start->toDateString()),
+            ]);
+        }
+
+        $first = $this->getJson('/api/mobile/v1/discover/organizer?per_page=15', $this->headers())->assertOk();
+        $this->assertCount(15, $first->json('data.events'));
+        $this->assertTrue($first->json('pagination.has_more_pages'));
+        $this->assertSame(16, $first->json('pagination.total'));
+        $this->assertSame(15, $first->json('pagination.per_page'));
+
+        $second = $this->getJson('/api/mobile/v1/discover/organizer?per_page=15&page=2', $this->headers())->assertOk();
+        $this->assertCount(1, $second->json('data.events'));
+        $this->assertFalse($second->json('pagination.has_more_pages'));
+
+        $found = $this->getJson('/api/mobile/v1/discover/organizer?q=Show%2016', $this->headers())->assertOk();
+        $this->assertSame(['Show 16'], array_column($found->json('data.events'), 'title'));
+        $this->assertFalse($found->json('pagination.has_more_pages'));
     }
 
     public function test_a_status_change_reaches_only_the_interested_who_asked_and_is_kept_in_the_history(): void
@@ -199,6 +298,27 @@ class DiscoverTest extends TestCase
     }
 
     // ------------------------------------------------------------------ AT-DISC-03
+
+    public function test_travel_search_also_works_by_country_or_governorate(): void
+    {
+        $dubai = $this->city('Dubai');
+        $this->adminEvent('Dubai night', 'Dubai', '2026-11-21 20:00');
+        $this->adminEvent('Riyadh night', 'Riyadh', '2026-11-21 20:00');
+
+        $this->as($this->alice);
+        // The whole country (the UAE): only its own events.
+        $this->getJson("/api/mobile/v1/discover/travel?country_id={$dubai->country_id}&from=2026-11-21&to=2026-11-22", ['X-Country' => 'EG'])
+            ->assertOk()->assertJsonPath('data.place.country_id', $dubai->country_id)->assertJsonCount(1, 'data.items');
+
+        // A governorate: its cities' events.
+        $region = \App\Models\Region::query()->create(['country_id' => $dubai->country_id, 'status' => true, 'sort_order' => 1]);
+        $dubai->update(['region_id' => $region->id]);
+        $this->getJson("/api/mobile/v1/discover/travel?region_id={$region->id}&from=2026-11-21&to=2026-11-22", ['X-Country' => 'EG'])
+            ->assertOk()->assertJsonPath('data.place.region_id', $region->id)->assertJsonCount(1, 'data.items');
+
+        // Nothing at all to go on: asked to say where.
+        $this->getJson('/api/mobile/v1/discover/travel?from=2026-11-21&to=2026-11-22', ['X-Country' => 'EG'])->assertStatus(422);
+    }
 
     public function test_travel_search_shows_the_destinations_events_on_its_own_days_wherever_i_am(): void
     {
@@ -241,17 +361,39 @@ class DiscoverTest extends TestCase
         $this->assertSame(['Expo'], array_column($sections['free']['items'], 'title'));
         $this->assertSame(['Dubai fair'], array_column($sections['followed']['items'], 'title'));
         $this->assertNotContains('Dubai fair', array_column($sections['this_week']['items'], 'title'));
+        $this->assertArrayHasKey('has_more', $sections['this_week']);
+        $this->assertFalse($sections['this_week']['has_more']);
 
         $this->postJson("/api/mobile/v1/discover/events/{$concert->uuid}/interest", [], $this->headers())->assertOk();
         $this->getJson('/api/mobile/v1/chat/calendar?from=2026-11-01&to=2026-11-07&timezone=Asia/Riyadh', $this->headers())->assertOk()
             ->assertJsonPath('data.items.0.type', 'discover')
             ->assertJsonPath('data.items.0.ref', $concert->uuid)
             ->assertJsonPath('data.items.0.date', '2026-11-03');
-        $this->assertSame(['Big concert'], array_column($this->getJson('/api/mobile/v1/discover/interests', $this->headers())->json('data'), 'title'));
+        $saved = $this->getJson('/api/mobile/v1/discover/interests?per_page=15', $this->headers())->assertOk();
+        $this->assertSame(['Big concert'], array_column($saved->json('data'), 'title'));
+        $this->assertSame(15, $saved->json('pagination.per_page'));
+        $this->assertFalse($saved->json('pagination.has_more_pages'));
 
         $this->deleteJson("/api/mobile/v1/discover/events/{$concert->uuid}/interest", [], $this->headers())->assertOk();
         $this->assertSame(0, $concert->refresh()->interested_count);
         $this->assertSame([], $this->getJson('/api/mobile/v1/chat/calendar?from=2026-11-01&to=2026-11-07', $this->headers())->json('data.items'));
+    }
+
+    public function test_home_this_week_pages_fifteen_at_a_time(): void
+    {
+        foreach (range(1, 16) as $i) {
+            $this->adminEvent("Week {$i}", 'Riyadh', sprintf('2026-11-03 %02d:00', 10 + ($i % 10)));
+        }
+        $this->as($this->alice);
+        $home = $this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertOk();
+        $week = collect($home->json('data.sections'))->firstWhere('key', 'this_week');
+        $this->assertNotNull($week);
+        $this->assertCount(15, $week['items']);
+        $this->assertTrue($week['has_more']);
+        $page2 = $this->getJson('/api/mobile/v1/discover/sections/this_week?page=2&per_page=15', $this->headers())->assertOk();
+        $this->assertCount(1, $page2->json('data'));
+        $this->assertFalse($page2->json('pagination.has_more_pages'));
+        $this->getJson('/api/mobile/v1/discover/sections/nope', $this->headers())->assertNotFound();
     }
 
     // ------------------------------------------------------------------ chat: card, poll, room
@@ -337,7 +479,7 @@ class DiscoverTest extends TestCase
 
     public function test_the_admin_switches_discover_off_per_country_and_manages_the_catalog(): void
     {
-        $this->asAdmin(['discover-settings.update', 'discover-settings.view', 'discover-categories.create', 'discover-cities.view']);
+        $this->asAdmin(['discover-settings.update', 'discover-settings.view', 'discover-categories.create', 'cities.view']);
         $this->putJson('/api/admin/v1/discover-settings', ['enabled_countries' => [$this->egypt->id]])->assertOk()->assertJsonPath('data.enabled_countries', [$this->egypt->id]);
         $this->postJson('/api/admin/v1/discover-categories', ['key' => 'gaming', 'emoji' => '🎮', 'translations' => [['locale' => 'en', 'name' => 'Gaming']]])
             ->assertCreated()->assertJsonPath('data.name', 'Gaming');
@@ -346,6 +488,192 @@ class DiscoverTest extends TestCase
         $this->as($this->alice);
         $this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertForbidden()->assertJsonPath('error_code', 'discover_off');
         $this->getJson('/api/mobile/v1/discover/home', ['X-Country' => 'EG'])->assertOk();
+    }
+
+    public function test_the_admin_drags_categories_and_cities_into_a_new_order(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.update', 'discover-categories.view', 'cities.update', 'cities.view']);
+
+        $a = $this->postJson('/api/admin/v1/discover-categories', ['key' => 'ord_a', 'translations' => [['locale' => 'en', 'name' => 'A']]])->assertCreated()->json('data');
+        $b = $this->postJson('/api/admin/v1/discover-categories', ['key' => 'ord_b', 'translations' => [['locale' => 'en', 'name' => 'B']]])->assertCreated()->json('data');
+        // No sort_order sent: a new one goes to the end.
+        $this->assertGreaterThan($a['sort_order'], $b['sort_order']);
+
+        $this->putJson('/api/admin/v1/discover-categories/reorder', ['ordered_ids' => [$b['id'], $a['id']]])->assertOk();
+        $order = collect($this->getJson('/api/admin/v1/discover-categories')->json('data'))->pluck('sort_order', 'id');
+        $this->assertSame(1, $order[$b['id']]);
+        $this->assertSame(2, $order[$a['id']]);
+
+        $cities = collect($this->getJson('/api/admin/v1/discover-cities')->json('data'))->take(2)->pluck('id')->all();
+        $this->putJson('/api/admin/v1/discover-cities/reorder', ['ordered_ids' => array_reverse($cities)])->assertOk();
+        $after = collect($this->getJson('/api/admin/v1/discover-cities')->json('data'))->pluck('sort_order', 'id');
+        $this->assertSame(1, $after[$cities[1]]);
+        $this->assertSame(2, $after[$cities[0]]);
+    }
+
+    public function test_app_categories_page_fifteen_at_a_time(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.view']);
+        foreach (range(1, 6) as $i) {
+            $this->postJson('/api/admin/v1/discover-categories', ['key' => "extra_{$i}", 'translations' => [['locale' => 'en', 'name' => "Extra {$i}"]]])->assertCreated();
+        }
+        $this->as($this->alice);
+        $page1 = $this->getJson('/api/mobile/v1/discover/categories?per_page=15', $this->headers())->assertOk();
+        $this->assertCount(15, $page1->json('data'));
+        $this->assertTrue($page1->json('pagination.has_more_pages'));
+        $page2 = $this->getJson('/api/mobile/v1/discover/categories?per_page=15&page=2', $this->headers())->assertOk();
+        $this->assertNotEmpty($page2->json('data'));
+        $this->assertFalse($page2->json('pagination.has_more_pages'));
+    }
+
+    public function test_the_admin_deletes_several_catalog_rows_at_once_and_the_ones_in_use_are_skipped(): void
+    {
+        $this->asAdmin(['discover-categories.create', 'discover-categories.view', 'discover-categories.multiple-delete', 'cities.view', 'cities.multiple-delete']);
+
+        $ids = [];
+        foreach (['bulk_a', 'bulk_b'] as $key) {
+            $ids[] = $this->postJson('/api/admin/v1/discover-categories', ['key' => $key, 'translations' => [['locale' => 'en', 'name' => $key]]])->assertCreated()->json('data.id');
+        }
+        $this->postJson('/api/admin/v1/discover-categories/delete-multiple', ['ids' => $ids])->assertOk()->assertJsonPath('data.deleted', 2)->assertJsonPath('data.skipped', 0);
+        $this->assertSame(0, \Modules\Discover\Models\DiscoverCategory::query()->whereIn('id', $ids)->count());
+
+        // A city with an event is skipped, never deleted.
+        $cityId = \Modules\Discover\Models\DiscoverEvent::query()->value('city_id');
+        if ($cityId) {
+            $this->postJson('/api/admin/v1/discover-cities/delete-multiple', ['ids' => [$cityId]])->assertOk()->assertJsonPath('data.skipped', 1);
+            $this->assertNotNull(\Modules\Discover\Models\DiscoverCity::query()->find($cityId));
+        }
+    }
+
+    public function test_a_city_can_name_its_governorate_but_only_one_of_its_own_country(): void
+    {
+        $this->asAdmin(['cities.create', 'cities.update', 'cities.view']);
+        $own = \App\Models\Region::query()->where('country_id', $this->egypt->id)->first() ?? \App\Models\Region::query()->create(['country_id' => $this->egypt->id, 'status' => true, 'sort_order' => 1]);
+        $other = \App\Models\Region::query()->where('country_id', '!=', $this->egypt->id)->first() ?? \App\Models\Region::query()->create(['country_id' => \App\Models\Country::query()->where('id', '!=', $this->egypt->id)->value('id'), 'status' => true, 'sort_order' => 1]);
+        $body = ['country_id' => $this->egypt->id, 'timezone' => 'Africa/Cairo', 'translations' => [['locale' => 'en', 'name' => 'Tanta']]];
+
+        $this->postJson('/api/admin/v1/discover-cities', $body + ['region_id' => $other->id])->assertStatus(422);
+        $id = $this->postJson('/api/admin/v1/discover-cities', $body + ['region_id' => $own->id])->assertCreated()->assertJsonPath('data.region_id', $own->id)->json('data.id');
+
+        // Moving the city to another country without a new governorate clears the old one.
+        $this->putJson("/api/admin/v1/discover-cities/{$id}", ['country_id' => $other->country_id])->assertOk()->assertJsonPath('data.region_id', null);
+    }
+
+    public function test_the_app_browses_by_region_in_batches_and_filters_by_country_region_and_city(): void
+    {
+        $riyadhRegion = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 1]);
+        $makkah = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 2]);
+        $empty = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 3]);
+        $this->city('Riyadh')->update(['region_id' => $riyadhRegion->id]);
+        $this->city('Jeddah')->update(['region_id' => $makkah->id]);
+        $this->adminEvent('Big concert', 'Riyadh', '2026-11-03 21:00');
+        $this->adminEvent('Expo', 'Riyadh', '2026-11-04 10:00', 'exhibitions');
+        $this->adminEvent('Sea fest', 'Jeddah', '2026-11-05 18:00');
+
+        $this->as($this->alice);
+        // Home: the regions with something on, where I am — the empty one is left out.
+        $home = $this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertOk()->json('data.regions');
+        $this->assertSame([$riyadhRegion->id, $makkah->id], array_column($home['items'], 'id'));
+        $this->assertSame([2, 1], array_column($home['items'], 'events_count'));
+        $this->assertNotContains($empty->id, array_column($home['items'], 'id'));
+
+        // In batches.
+        $first = $this->getJson('/api/mobile/v1/discover/regions?per_page=1', $this->headers())->assertOk();
+        $first->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $riyadhRegion->id);
+        $this->getJson('/api/mobile/v1/discover/regions?per_page=1&page=2', $this->headers())->assertOk()->assertJsonPath('data.0.id', $makkah->id);
+
+        // The filter's steps: countries → that country's catalog regions → the region's cities.
+        $countryIds = array_column($this->getJson('/api/mobile/v1/discover/countries', $this->headers())->assertOk()->json('data'), 'id');
+        $this->assertContains($this->saudi->id, $countryIds);
+        $this->assertContains($this->egypt->id, $countryIds);
+        $catalog = $this->getJson("/api/mobile/v1/discover/regions?country_id={$this->saudi->id}&with_events=0&per_page=50", $this->headers())->assertOk()->json('data');
+        $this->assertContains($empty->id, array_column($catalog, 'id'));
+        $this->assertSame(['Riyadh'], array_column($this->getJson("/api/mobile/v1/discover/cities?region_id={$riyadhRegion->id}&with_events=1", $this->headers())->assertOk()->json('data'), 'name'));
+
+        // Browsing: by region, by city, a page at a time.
+        $this->assertEqualsCanonicalizing(['Big concert', 'Expo'], array_column($this->getJson("/api/mobile/v1/discover/events?region_id={$riyadhRegion->id}", $this->headers())->assertOk()->json('data'), 'title'));
+        $this->assertSame(['Sea fest'], array_column($this->getJson("/api/mobile/v1/discover/events?region_id={$makkah->id}", $this->headers())->json('data'), 'title'));
+        $page = $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2", $this->headers())->assertOk();
+        $this->assertCount(2, $page->json('data'));
+        $this->assertCount(1, $this->getJson("/api/mobile/v1/discover/events?country_id={$this->saudi->id}&per_page=2&page=2", $this->headers())->json('data'));
+    }
+
+    public function test_following_a_region_follows_its_cities_events_on_my_home(): void
+    {
+        $dubaiRegion = \App\Models\Region::query()->create(['country_id' => $this->emirates->id, 'status' => true, 'sort_order' => 1]);
+        $dubaiRegion->translations()->create(['locale' => 'en', 'name' => 'Dubai Emirate']);
+        $this->city('Dubai')->update(['region_id' => $dubaiRegion->id]);
+        $this->adminEvent('Dubai fair', 'Dubai', '2026-11-05 18:00', 'exhibitions');
+
+        $this->as($this->alice);
+        $followed = fn () => collect($this->getJson('/api/mobile/v1/discover/home', $this->headers())->assertOk()->json('data.sections'))->keyBy('key');
+        $this->assertArrayNotHasKey('followed', $followed()->all());
+
+        $this->postJson('/api/mobile/v1/discover/follows', ['kind' => 'region', 'target_id' => 999999], $this->headers())->assertStatus(404);
+        $this->postJson('/api/mobile/v1/discover/follows', ['kind' => 'region', 'target_id' => $dubaiRegion->id], $this->headers())->assertOk()
+            ->assertJsonPath('data.0.kind', 'region')->assertJsonPath('data.0.name', 'Dubai Emirate');
+        $this->assertSame(['Dubai fair'], array_column($followed()['followed']['items'], 'title'));
+    }
+
+    public function test_the_admin_removes_an_events_cover(): void
+    {
+        Storage::fake('public');
+        $this->asAdmin(['discover-events.create', 'discover-events.update']);
+        $headers = ['Accept' => 'application/json'];
+        $id = $this->post('/api/admin/v1/discover-events', $this->eventData('Jazz night') + ['cover' => UploadedFile::fake()->image('c.jpg', 800, 600)], $headers)
+            ->assertCreated()->json('data.id');
+
+        $this->post("/api/admin/v1/discover-events/{$id}", ['remove_cover' => '0'], $headers)->assertOk()->assertJsonPath('data.cover', fn ($v) => $v !== null);
+        $this->post("/api/admin/v1/discover-events/{$id}", ['remove_cover' => '1'], $headers)->assertOk()->assertJsonPath('data.cover', null);
+    }
+
+    public function test_the_admin_places_an_event_by_country_region_and_city_that_depend_on_each_other(): void
+    {
+        $region = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 1]);
+        $other = \App\Models\Region::query()->create(['country_id' => $this->saudi->id, 'status' => true, 'sort_order' => 2]);
+        $riyadh = $this->city('Riyadh');
+        $riyadh->update(['region_id' => $region->id]);
+        $jeddah = $this->city('Jeddah');
+        $this->asAdmin(['discover-events.create', 'discover-events.view']);
+        $body = $this->eventData('Jazz night') + ['country_id' => $this->saudi->id];
+
+        // A city that is not in the chosen region, or not in the chosen country, is refused.
+        $this->postJson('/api/admin/v1/discover-events', $body + ['region_id' => $other->id])->assertStatus(422)->assertJsonValidationErrors('city_id');
+        $this->postJson('/api/admin/v1/discover-events', ['country_id' => $this->egypt->id] + $body)->assertStatus(422)->assertJsonValidationErrors('city_id');
+        $this->postJson('/api/admin/v1/discover-events', $body + ['region_id' => 0])->assertStatus(422);
+
+        $this->postJson('/api/admin/v1/discover-events', $body + ['region_id' => $region->id])->assertCreated()
+            ->assertJsonPath('data.country_id', $this->saudi->id)->assertJsonPath('data.region_id', $region->id);
+        // A city with no region sits under region 0.
+        $this->postJson('/api/admin/v1/discover-events', ['title' => 'Sea fest', 'city_id' => $jeddah->id, 'region_id' => 0] + $body)->assertCreated()->assertJsonPath('data.region_id', null);
+
+        // Filtering by region keeps only its cities' events; 0 is "no region".
+        $this->getJson('/api/admin/v1/discover-events?region_id='.$region->id)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Jazz night')
+            ->assertJsonPath('data.0.region_id', $region->id)->assertJsonPath('data.0.country_id', $this->saudi->id);
+        $this->getJson('/api/admin/v1/discover-events?region_id=0')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.title', 'Sea fest');
+        $this->getJson('/api/admin/v1/discover-events?country_id='.$this->saudi->id)->assertOk()->assertJsonCount(2, 'data');
+    }
+
+    public function test_a_paid_event_shows_the_country_currency_and_how_far_it_is(): void
+    {
+        $egp = Currency::query()->create(['code' => 'EGP', 'symbol' => 'ج.م', 'decimal_places' => 2]);
+        $this->egypt->update(['currency_id' => $egp->id]);
+        $event = $this->adminEvent('Pyramids night', 'Cairo', '2026-11-03 20:00', 'concerts', [
+            'is_free' => false,
+            'price_text' => '300',
+            'lat' => 29.9792,
+            'lng' => 31.1342,
+        ]);
+        $this->as($this->alice);
+        $this->getJson("/api/mobile/v1/discover/events/{$event->uuid}", $this->headers())
+            ->assertOk()
+            ->assertJsonPath('data.price_text', '300')
+            ->assertJsonPath('data.price_display', '300 ج.م')
+            ->assertJsonPath('data.currency.code', 'EGP')
+            ->assertJsonPath('data.currency.symbol', 'ج.م');
+        $list = $this->getJson('/api/mobile/v1/discover/events?country_id='.$this->egypt->id.'&lat=30.0444&lng=31.2357', $this->headers())->assertOk();
+        $this->assertSame('300 ج.م', $list->json('data.0.price_display'));
+        $this->assertNotNull($list->json('data.0.distance_km'));
     }
 
     // ------------------------------------------------------------------ helpers

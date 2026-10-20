@@ -156,20 +156,23 @@ fun HomeStoriesLayer(state: HomeStoriesState) {
 
     CompositionLocalProvider(LocalChat provides host) {
         val route = host.current
-        // Over the whole screen (outside the tab scaffold): black behind the system bars, content between them.
-        if (route is ChRoute.StoryComposer || host.storyViewer != null) Box(Modifier.fillMaxSize().background(Color.Black))
-        Box(Modifier.fillMaxSize().systemBarsPadding()) {
-            if (route is ChRoute.StoryComposer) Box(Modifier.fillMaxSize().background(Color.Black)) {
-                BackHandler { host.pop() }
-                StoryComposerPage(route.media)
+        val overlay = route is ChRoute.StoryComposer || host.storyViewer != null
+        if (overlay) {
+            Box(Modifier.fillMaxSize().background(Color.Black))
+            Box(Modifier.fillMaxSize().systemBarsPadding()) {
+                if (route is ChRoute.StoryComposer) Box(Modifier.fillMaxSize().background(Color.Black)) {
+                    BackHandler { host.pop() }
+                    StoryComposerPage(route.media)
+                }
+                StoryViewerOverlay()
             }
-            StoryViewerOverlay()
         }
         ChatToast(host)
         if (state.adding) StoryAddSheet(
             onDismiss = { state.adding = false },
             onText = { host.push(ChRoute.StoryComposer()) },
             onMedia = { media.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo)) },
+            onVoice = { host.push(ChRoute.StoryComposer(STORY_VOICE)) },
         )
     }
 }

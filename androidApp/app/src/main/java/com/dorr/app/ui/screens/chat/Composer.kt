@@ -14,6 +14,7 @@ import androidx.compose.material.icons.rounded.EmojiEmotions
 import androidx.compose.material.icons.rounded.LooksOne
 import androidx.compose.material.icons.rounded.NotificationsOff
 import androidx.compose.material.icons.rounded.Poll
+import androidx.compose.material.icons.rounded.SmartButton
 import androidx.compose.material.icons.rounded.PriorityHigh
 import androidx.compose.material.icons.rounded.ReceiptLong
 import androidx.compose.material.icons.rounded.RequestQuote
@@ -701,6 +702,7 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     var pollOpen by remember { mutableStateOf(false) }
     // A new image from a description with DORR AI (spec 50).
     var aiImageOpen by remember { mutableStateOf(false) }
+    var interactiveOpen by remember { mutableStateOf(false) }
     // Money: "request" to the other person in a direct chat, "split the bill" in a group.
     var moneyOpen by remember { mutableStateOf(false) }
     var sendMoneyOpen by remember { mutableStateOf(false) }
@@ -745,8 +747,21 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
             state.send(Outgoing(if (file.mime.startsWith("video/")) "video" else "image", files = listOf(file), extra = mapOf("view_once" to 1)))
         }
     }
+    // Without the contacts permission (refused, maybe for good): pick one number in the phone's own
+    // contacts app — Android hands over just that number, no permission needed, nothing to re-ask.
+    val phonePick = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        onDismiss()
+        val uri = result.data?.data ?: return@rememberLauncherForActivityResult
+        readPickedPhone(context, uri)?.let { (name, phone) ->
+            state.send(Outgoing("contact", extra = mapOf("contact_name" to name, "contact_phones" to listOf(phone))))
+        }
+    }
+    fun pickOnePhone() {
+        runCatching { phonePick.launch(android.content.Intent(android.content.Intent.ACTION_PICK, ContactsContract.CommonDataKinds.Phone.CONTENT_URI)) }
+            .onFailure { onDismiss() }
+    }
     val contactsPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) contact.launch(null) else onDismiss()
+        if (granted) contact.launch(null) else pickOnePhone()
     }
 
     val items = listOfNotNull(
@@ -759,12 +774,20 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
         AttachItem(Icons.Rounded.Place, R.string.ch_attach_location, listOf(Color(0xFF34D399), Color(0xFF059669))) { locationChoice = true },
         if (ChatAi.imageGenerate) AttachItem(Icons.Rounded.AutoAwesome, R.string.ch_ai_image_title, listOf(Color(0xFF818CF8), Color(0xFF4F46E5))) { aiImageOpen = true } else null,
         AttachItem(Icons.Rounded.Poll, R.string.ch_attach_poll, listOf(Color(0xFFFCD34D), Color(0xFFF59E0B))) { pollOpen = true },
+        // Reply buttons / a list of choices (WhatsApp list 123–125).
+        AttachItem(Icons.Rounded.SmartButton, R.string.ia_attach, listOf(Color(0xFF7DD3FC), Color(0xFF0284C7))) { interactiveOpen = true },
         AttachItem(Icons.Rounded.LooksOne, R.string.ch_attach_view_once, listOf(Color(0xFFF472B6), Color(0xFFDB2777))) {
             viewOnce.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageAndVideo))
         },
         AttachItem(Icons.Rounded.Person, R.string.ch_attach_contact, listOf(Color(0xFF22D3EE), Color(0xFF0891B2))) {
-            if (ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED) contact.launch(null)
-            else contactsPermission.launch(Manifest.permission.READ_CONTACTS)
+            val activity = context as? android.app.Activity
+            when {
+                // Allowed: the whole contact (all its numbers).
+                ContextCompat.checkSelfPermission(context, Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED -> contact.launch(null)
+                // Refused before: Android won't ask again — one number from the phone's picker instead.
+                ContactsAsk.asked(context) && activity != null && !androidx.core.app.ActivityCompat.shouldShowRequestPermissionRationale(activity, Manifest.permission.READ_CONTACTS) -> pickOnePhone()
+                else -> { ContactsAsk.mark(context); contactsPermission.launch(Manifest.permission.READ_CONTACTS) }
+            }
         },
         // Money requests / splits are between people — not in a channel.
         if (isChannel) null else AttachItem(
@@ -826,6 +849,9 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     }
     if (moneyOpen) {
         if (isGroup) {
+            // The members were only loaded for "@" suggestions: opened before that, the sheet had
+            // nobody to pick and its button never woke up.
+            LaunchedEffect(Unit) { state.loadMembers() }
             SplitBillSheet(state.members, onDismiss = { moneyOpen = false; onDismiss() }) { total, note, equal, shares ->
                 state.send(Outgoing("bill_split", body = note, extra = buildMap {
                     put("amount_minor", total)
@@ -858,6 +884,12 @@ private fun AttachSheet(state: ConversationState, onDismiss: () -> Unit, onPickT
     }
     if (aiImageOpen) {
         ChatAiImageSheet(state, source = null, onDismiss = { aiImageOpen = false; onDismiss() })
+        return
+    }
+    if (interactiveOpen) {
+        InteractiveComposerSheet(onDismiss = { interactiveOpen = false; onDismiss() }) { body, extra ->
+            state.send(Outgoing("interactive", body = body, extra = extra))
+        }
         return
     }
     if (pollOpen) {
@@ -938,6 +970,20 @@ private fun TransferPicker(onDismiss: () -> Unit, onPick: (WalletTransactionDto)
         }
     }
 }
+
+/** Whether the app already asked for the contacts permission (Android says nothing about "never ask again"). */
+private object ContactsAsk {
+    fun asked(context: Context) = context.getSharedPreferences("chat_prefs", Context.MODE_PRIVATE).getBoolean("contacts_asked", false)
+    fun mark(context: Context) = context.getSharedPreferences("chat_prefs", Context.MODE_PRIVATE).edit().putBoolean("contacts_asked", true).apply()
+}
+
+/** One number picked in the phone's contacts app (no permission: Android grants just that row). */
+private fun readPickedPhone(context: Context, uri: android.net.Uri): Pair<String, String>? = runCatching {
+    context.contentResolver.query(
+        uri, arrayOf(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME, ContactsContract.CommonDataKinds.Phone.NUMBER), null, null, null,
+    )?.use { c -> if (c.moveToFirst()) (c.getString(0).orEmpty() to c.getString(1).orEmpty()) else null }
+        ?.takeIf { it.second.isNotBlank() }?.let { (name, phone) -> name.ifBlank { phone } to phone }
+}.getOrNull()
 
 private fun readContact(context: Context, uri: android.net.Uri): Pair<String, List<String>>? = runCatching {
     val resolver = context.contentResolver

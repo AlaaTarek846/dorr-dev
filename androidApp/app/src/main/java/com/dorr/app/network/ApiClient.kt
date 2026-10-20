@@ -33,6 +33,14 @@ private const val BASE_URL = "${com.dorr.app.BuildConfig.API_SCHEME}://$BASE_HOS
 
 private const val LOCAL_MEDIA_HOST = "dorr.test"
 
+/** "Samsung SM-S918B" — ASCII only, as an HTTP header must be. */
+private val DEVICE_NAME: String = run {
+    val maker = android.os.Build.MANUFACTURER.orEmpty().replaceFirstChar { it.uppercase() }
+    val model = android.os.Build.MODEL.orEmpty()
+    val name = if (model.startsWith(maker, ignoreCase = true)) model else "$maker $model"
+    name.filter { it.code in 0x20..0x7E }.trim().take(120).ifEmpty { "Android" }
+}
+
 object ApiClient {
     /** Shared with the image loader so media requests get the same dev Host header. */
     val okHttpClient: OkHttpClient = OkHttpClient.Builder()
@@ -93,6 +101,10 @@ object ApiClient {
                 .header("Accept", "application/json")
                 .header("X-Locale", AppLocale.current)
                 .header("X-Device-Id", DeviceId.current)
+                // Shown in Settings → Security → Devices (and to support) to tell this phone from the others.
+                .header("X-Device-Name", DEVICE_NAME)
+                .header("X-Platform", "android")
+                .header("X-App-Version", com.dorr.app.BuildConfig.VERSION_NAME)
                 // The recipient-time scheduling of greeting cards (spec 164) needs my zone.
                 .header("X-Timezone", java.util.TimeZone.getDefault().id)
                 .build()
@@ -141,6 +153,7 @@ object ApiClient {
     val discover: DiscoverApi by lazy { retrofit.create(DiscoverApi::class.java) }
     val organize: OrganizeApi by lazy { retrofit.create(OrganizeApi::class.java) }
     val life: LifeApi by lazy { retrofit.create(LifeApi::class.java) }
+    val backlog: BacklogApi by lazy { retrofit.create(BacklogApi::class.java) }
     val voice: VoiceApi by lazy { retrofit.create(VoiceApi::class.java) }
     val aiTools: AiToolsApi by lazy { retrofit.create(AiToolsApi::class.java) }
     val calendar: CalendarApi by lazy { retrofit.create(CalendarApi::class.java) }
@@ -161,6 +174,19 @@ object ApiClient {
     val ratings: RatingApi by lazy { retrofit.create(RatingApi::class.java) }
     val referrals: ReferralApi by lazy { retrofit.create(ReferralApi::class.java) }
     val content: ContentApi by lazy { retrofit.create(ContentApi::class.java) }
+    val rides: RidesApi by lazy { retrofit.create(RidesApi::class.java) }
+    /** O-22, O-23: bus booking. */
+    val bus: BusApi by lazy { retrofit.create(BusApi::class.java) }
+
+    /** O-25: boats & yachts. */
+    val marine: MarineApi by lazy { retrofit.create(MarineApi::class.java) }
+
+    /** O-26c: find a driver. */
+    val hire: HireApi by lazy { retrofit.create(HireApi::class.java) }
+
+    /** O-26b: driving lessons. */
+    val lessons: LessonsApi by lazy { retrofit.create(LessonsApi::class.java) }
+    val security: SecurityApi by lazy { retrofit.create(SecurityApi::class.java) }
 
 
     /** The API's own origin — real-time auth (`/broadcasting/auth`) lives next to `/api`. */

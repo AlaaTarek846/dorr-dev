@@ -148,7 +148,6 @@ fun WalletPinSettings() {
 private fun WaSecurityMenu(night: Boolean, onBack: () -> Unit, onOpen: (PinSub) -> Unit) {
     val context = LocalContext.current
     val biometricAvailable = remember { WaBiometric.isAvailable(context) }
-    val biometricOn = remember { WaBiometric.isEnabled(context) }
 
     WaPage(title = stringResource(R.string.wa_security_title), onBack = onBack, dark = night) {
         // A short reassurance strip: why this page exists.
@@ -165,7 +164,7 @@ private fun WaSecurityMenu(night: Boolean, onBack: () -> Unit, onOpen: (PinSub) 
             horizontalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             WaIconWell(Icons.Rounded.Shield, Tone.Red, size = 52.dp, iconSize = 26.dp)
-            Text(stringResource(R.string.wa_security_intro), color = Wa.Ink, fontSize = 13.5.sp, lineHeight = 22.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.wa_security_intro), color = Wa.Ink, fontSize = 12.sp, lineHeight = 19.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(10.dp))
@@ -175,9 +174,8 @@ private fun WaSecurityMenu(night: Boolean, onBack: () -> Unit, onOpen: (PinSub) 
             Icons.Rounded.Fingerprint, R.string.wa_biometric_menu_title, R.string.wa_biometric_menu_sub, 3,
             when {
                 !biometricAvailable -> stringResource(R.string.wa_not_available)
-                // On shows no label (the word "on" was removed on purpose); only the cases that need explaining do.
-                biometricOn -> null
-                else -> stringResource(R.string.wa_off)
+                // Only "not available" is said (it explains why the row does nothing); on and off are the switch's to show.
+                else -> null
             },
         ) { onOpen(PinSub.Biometric) }
     }
@@ -205,12 +203,12 @@ private fun WaSecurityRow(icon: ImageVector, title: Int, subtitle: Int, index: I
     ) {
         WaIconWell(icon, Tone.Red, size = 48.dp, iconSize = 24.dp)
         Column(Modifier.weight(1f)) {
-            Text(stringResource(title), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
-            Text(stringResource(subtitle), fontSize = 12.5.sp, lineHeight = 19.sp, color = Wa.Mut, modifier = Modifier.padding(top = 3.dp))
+            Text(stringResource(title), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = Wa.Ink)
+            Text(stringResource(subtitle), fontSize = 11.sp, lineHeight = 16.sp, color = Wa.Mut, modifier = Modifier.padding(top = 2.dp))
         }
         if (state != null) {
             Text(
-                state, color = Wa.Red, fontSize = 11.5.sp, fontWeight = FontWeight.Bold,
+                state, color = Wa.Red, fontSize = 11.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(RoundedCornerShape(999.dp)).background(Wa.Red.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
@@ -377,29 +375,16 @@ private fun WaBiometricPage(night: Boolean, onBack: () -> Unit) {
                         WaIconWell(Icons.Rounded.Fingerprint, Tone.Red, size = 44.dp, iconSize = 22.dp)
                         Column(Modifier.weight(1f)) {
                             Text(stringResource(R.string.wa_biometric_toggle), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = Wa.Ink)
-                            if (!enabled) Text(
-                                stringResource(R.string.wa_off),
-                                fontSize = 12.sp, color = Wa.Mut, modifier = Modifier.padding(top = 2.dp),
-                            )
                         }
-                        Switch(
-                            checked = enabled,
-                            onCheckedChange = { checked ->
-                                if (checked) {
-                                    verifying = true
-                                } else {
-                                    WaBiometric.disable(context)
-                                    enabled = false
-                                }
-                            },
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color.White,
-                                checkedTrackColor = Wa.Red,
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Wa.Soft,
-                                uncheckedBorderColor = Color.Transparent,
-                            ),
-                        )
+                        // The same toggle as in Account → Settings → Notifications.
+                        com.dorr.app.ui.screens.profile.RedToggle(on = enabled, dark = night) {
+                            if (!enabled) {
+                                verifying = true
+                            } else {
+                                WaBiometric.disable(context)
+                                enabled = false
+                            }
+                        }
                     }
                 }
             } else {

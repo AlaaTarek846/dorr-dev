@@ -9,12 +9,17 @@ use Modules\Chat\Checkout\ChannelVerificationPurpose;
 use Modules\Chat\Checkout\PortalListingPurpose;
 use Modules\Chat\Console\ExpireUnansweredCalls;
 use Modules\Chat\Console\PurgeChatMessages;
+use Modules\Chat\Console\RealtimeCheck;
+use Modules\Chat\Console\SendAttentionDigests;
 use Modules\Chat\Console\SendCalendarReminders;
+use Modules\Chat\Console\SendCommitmentReminders;
 use Modules\Chat\Console\SendMessageReminders;
 use Modules\Chat\Console\SendMomentReminders;
 use Modules\Chat\Console\SendQuietDigests;
 use Modules\Chat\Console\SendScheduledMessages;
 use Modules\Chat\Console\SendTaskReminders;
+use Modules\Chat\Console\SweepVoiceRooms;
+use Modules\Chat\Console\SyncCallRecordings;
 use Modules\Chat\Services\ChatThemeService;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Wallet\Support\Payments\CheckoutPurposes;
@@ -32,15 +37,16 @@ class ChatServiceProvider extends ModuleServiceProvider
     protected array $commands = [
         ExpireUnansweredCalls::class,
         PurgeChatMessages::class,
+        RealtimeCheck::class,
         SendScheduledMessages::class,
         SendMessageReminders::class,
         SendQuietDigests::class,
         SendMomentReminders::class,
         SendTaskReminders::class,
-        \Modules\Chat\Console\SendCommitmentReminders::class,
-        \Modules\Chat\Console\SendAttentionDigests::class,
-        \Modules\Chat\Console\SweepVoiceRooms::class,
-        \Modules\Chat\Console\SyncCallRecordings::class,
+        SendCommitmentReminders::class,
+        SendAttentionDigests::class,
+        SweepVoiceRooms::class,
+        SyncCallRecordings::class,
         SendCalendarReminders::class,
     ];
 
@@ -88,10 +94,10 @@ class ChatServiceProvider extends ModuleServiceProvider
         $schedule->command(SendQuietDigests::class)->everyMinute()->withoutOverlapping();
         $schedule->command(SendMomentReminders::class)->everyTenMinutes()->withoutOverlapping();
         $schedule->command(SendTaskReminders::class)->everyMinute()->withoutOverlapping();
-        $schedule->command(\Modules\Chat\Console\SendCommitmentReminders::class)->everyMinute()->withoutOverlapping();
-        $schedule->command(\Modules\Chat\Console\SendAttentionDigests::class)->everyMinute()->withoutOverlapping();
-        $schedule->command(\Modules\Chat\Console\SweepVoiceRooms::class)->everyMinute()->withoutOverlapping();
-        $schedule->command(\Modules\Chat\Console\SyncCallRecordings::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(SendCommitmentReminders::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(SendAttentionDigests::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(SweepVoiceRooms::class)->everyMinute()->withoutOverlapping();
+        $schedule->command(SyncCallRecordings::class)->everyMinute()->withoutOverlapping();
         $schedule->command(SendCalendarReminders::class)->everyMinute()->withoutOverlapping();
     }
 }

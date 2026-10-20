@@ -139,6 +139,21 @@ fun DataPerformancePage() {
                 )
             }
 
+            // ------------------------------------------------ manage storage (backlog 46–48)
+            Row(
+                Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)
+                    .clickable { host.push(ChRoute.Storage()) }.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                IconBadge(Icons.Rounded.DeleteSweep)
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.bk_storage), color = Ch.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
+                    Text(stringResource(R.string.bk_storage_sub), color = Ch.Mut, fontSize = 12.5.sp)
+                }
+                Text("›", color = Ch.Soft, fontSize = 22.sp)
+            }
+
             // ------------------------------------------------ usage stats (83)
             Row(
                 Modifier.fillMaxWidth().padding(top = 14.dp).clip(RoundedCornerShape(22.dp)).background(Ch.Surface)
@@ -189,15 +204,18 @@ fun UsagePage() {
     fun data(kind: String, mobile: Boolean) = v(ChatUsage.dataKey(kind, true, mobile)) + v(ChatUsage.dataKey(kind, false, mobile))
 
     if (confirmReset) {
+        val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
         AlertDialog(
             onDismissRequest = { confirmReset = false },
             containerColor = Ch.Surface,
-            title = { Text(stringResource(R.string.us_reset_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.us_reset_sub), color = Ch.Mut) },
+            title = { locale.Provide { Text(stringResource(R.string.us_reset_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) } },
+            text = { locale.Provide { Text(stringResource(R.string.us_reset_sub), color = Ch.Mut) } },
             confirmButton = {
-                TextButton(onClick = { ChatUsage.reset(); stats = ChatUsage.snapshot(); confirmReset = false }) { Text(stringResource(R.string.us_reset), color = Ch.Red, fontWeight = FontWeight.Bold) }
+                locale.Provide {
+                    TextButton(onClick = { ChatUsage.reset(); stats = ChatUsage.snapshot(); confirmReset = false }) { Text(stringResource(R.string.us_reset), color = Ch.Red, fontWeight = FontWeight.Bold) }
+                }
             },
-            dismissButton = { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.us_cancel), color = Ch.Mut) } },
+            dismissButton = { locale.Provide { TextButton(onClick = { confirmReset = false }) { Text(stringResource(R.string.us_cancel), color = Ch.Mut) } } },
         )
     }
 
@@ -360,6 +378,6 @@ internal fun usageBytes(bytes: Long): String = when {
 }
 
 private fun sinceDate(millis: Long): String =
-    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.getDefault()).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
+    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(com.dorr.app.network.AppLocale.java()).format(Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()))
 
 private fun dirSize(dir: File): Long = dir.walkTopDown().filter { it.isFile }.sumOf { it.length() }

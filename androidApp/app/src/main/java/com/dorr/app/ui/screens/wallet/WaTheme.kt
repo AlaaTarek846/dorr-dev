@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -264,11 +265,16 @@ fun WaButton(
     loading: Boolean = false,
     iconAfter: Boolean = false,
     spread: Boolean = false,
+    compact: Boolean = false,
 ) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.97f)
     val active = enabled && !loading
-    val height = if (style == WaButtonStyle.Quiet) 44.dp else 54.dp
+    val height = when {
+        compact -> 40.dp
+        style == WaButtonStyle.Quiet -> 44.dp
+        else -> 54.dp
+    }
     val base = modifier
         .fillMaxWidth()
         .height(height)
@@ -306,8 +312,15 @@ fun WaButton(
             Text(
                 text,
                 color = contentColor,
-                fontSize = if (style == WaButtonStyle.Quiet) 14.sp else 16.sp,
+                fontFamily = CairoFontFamily,
+                fontSize = when {
+                    compact -> 13.sp
+                    style == WaButtonStyle.Quiet -> 14.sp
+                    else -> 16.sp
+                },
                 fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             if (icon != null && iconAfter) Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
         }
@@ -416,6 +429,8 @@ fun WaPage(
     ctaReserve: Dp = 110.dp,
     /** Solid bottom bar with a top shadow (summary + action). */
     ctaDock: Boolean = false,
+    /** When false the title row is omitted (the screen draws its own header). */
+    showHeader: Boolean = true,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val night = dark || walletNight()
@@ -433,33 +448,35 @@ fun WaPage(
             )
         }
         Column(Modifier.fillMaxSize()) {
-            Row(
-                Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    title,
-                    color = Wa.Red,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Black,
-                    fontFamily = CairoFontFamily,
-                    modifier = Modifier.weight(1f),
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                    actions()
-                    WaOutlineCircleButton(
-                        Icons.AutoMirrored.Rounded.ArrowBack,
-                        onBack,
-                        contentDescription = stringResource(R.string.common_back),
-                        iconModifier = Modifier.graphicsLayer { scaleX = -1f },
+            if (showHeader) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 14.dp, bottom = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        title,
+                        color = Wa.Red,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Black,
+                        fontFamily = CairoFontFamily,
+                        modifier = Modifier.weight(1f),
                     )
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        actions()
+                        WaOutlineCircleButton(
+                            Icons.AutoMirrored.Rounded.ArrowBack,
+                            onBack,
+                            contentDescription = stringResource(R.string.common_back),
+                            iconModifier = Modifier.graphicsLayer { scaleX = -1f },
+                        )
+                    }
                 }
             }
             val body = Modifier
                 .weight(1f)
                 .fillMaxWidth()
                 .let { if (scroll) it.verticalScroll(rememberScrollState()) else it }
-                .padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = if (cta != null) ctaReserve else if (!scroll) 0.dp else 28.dp)
+                .padding(start = 16.dp, end = 16.dp, top = if (showHeader) 6.dp else 0.dp, bottom = if (cta != null) ctaReserve else if (!scroll) 0.dp else 28.dp)
             Column(body, content = content)
         }
         if (cta != null) {

@@ -39,6 +39,9 @@ class StoryController extends Controller
             'style.align' => ['nullable', Rule::in(['start', 'center', 'end'])],
             'style.waveform' => ['nullable', 'array', 'max:200'],
             'style.waveform.*' => ['integer', 'min:0', 'max:100'],
+            // Stickers, GIFs, text and drawing on top (backlog 79–80) — JSON, cleaned by StoryLayers.
+            'style.layers' => ['nullable', 'string', 'max:120000'],
+            'style.aspect' => ['nullable', 'numeric', 'between:0.2,5'],
             // People I mention (user ids of my contacts) — they're told in our chat (backlog 84).
             'mentions' => ['nullable', 'array', 'max:10'],
             'mentions.*' => ['integer'],

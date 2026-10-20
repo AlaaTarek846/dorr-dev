@@ -30,6 +30,7 @@ use Modules\Chat\Support\ImagePreview;
 use Modules\Chat\Support\MessageViewContext;
 use Modules\Chat\Support\ParticipantDirectory;
 use Modules\Chat\Support\ParticipantType;
+use Modules\Chat\Support\SharedMedia;
 use Spatie\MediaLibrary\MediaCollections\Models\Media;
 
 /**
@@ -208,6 +209,9 @@ class MessageService
         if ($type === MessageType::Poll && $body === null) {
             throw new ChatException('poll_invalid', 422);
         }
+        if ($type === MessageType::Interactive && $body === null) {
+            throw new ChatException('interactive_invalid', 422);
+        }
 
         $viewOnce = ! empty($data['view_once']);
         if ($viewOnce && ! $type->canViewOnce()) {
@@ -259,11 +263,12 @@ class MessageService
             $order = count($files);
             foreach ($copyFrom as $source) {
                 foreach ($source->getMedia(ChatMessage::ATTACHMENTS) as $media) {
-                    $media->copy($message, ChatMessage::ATTACHMENTS)->forceFill(['order_column' => ++$order])->save();
+                    // The same file, not a copy (like WhatsApp): it stays while any message uses it.
+                    SharedMedia::attach($media, $message, ChatMessage::ATTACHMENTS, ++$order);
                 }
             }
             foreach (($copyFrom[0] ?? null)?->getMedia(ChatMessage::THUMBNAIL) ?? [] as $media) {
-                $media->copy($message, ChatMessage::THUMBNAIL);
+                SharedMedia::attach($media, $message, ChatMessage::THUMBNAIL);
             }
 
             // The video's poster frame (sent by the app, only meaningful for a video).
@@ -1161,6 +1166,7 @@ class MessageService
                 default => app(GiphyService::class)->find((string) ($data['giphy_id'] ?? ''), 'sticker'),
             },
             MessageType::Poll => MessageExtrasService::pollMeta((array) ($data['poll_options'] ?? []), (bool) ($data['poll_multiple'] ?? false)),
+            MessageType::Interactive => MessageExtrasService::interactiveMeta($data),
             MessageType::Contact => [
                 'name' => (string) $data['contact_name'],
                 'phones' => array_values((array) $data['contact_phones']),

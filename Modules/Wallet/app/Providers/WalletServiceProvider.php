@@ -8,6 +8,7 @@ use Modules\Wallet\Console\ExpireStalePayments;
 use Modules\Wallet\Console\ReconcileWallets;
 use Modules\Wallet\Observers\WalletSettingObserver;
 use Modules\Wallet\Support\Payments\CheckoutPurposes;
+use Modules\Wallet\Support\TransactionReferences;
 use Nwidart\Modules\Support\ModuleServiceProvider;
 
 class WalletServiceProvider extends ModuleServiceProvider
@@ -48,6 +49,8 @@ class WalletServiceProvider extends ModuleServiceProvider
 
         // What the payment screen sells — each module registers its own purposes in boot().
         $this->app->singleton(CheckoutPurposes::class);
+        // What a ledger row points at (a ride…) — each module registers its own resolver in boot().
+        $this->app->singleton(TransactionReferences::class);
     }
 
     public function boot(): void

@@ -17,6 +17,7 @@ use Modules\Discover\Models\DiscoverEvent;
 use Modules\Discover\Services\DiscoverService;
 use Modules\Discover\Services\EventStatusService;
 use Modules\Discover\Services\OrganizerService;
+use Modules\Discover\Services\ReviewNotifier;
 
 /**
  * Events (spec 169, 174–176, 180): the review queue (organizers' submissions), events the admin
@@ -24,7 +25,7 @@ use Modules\Discover\Services\OrganizerService;
  */
 class DiscoverEventController extends Controller implements HasMiddleware
 {
-    private const WITH = ['category.translations', 'city.translations', 'country', 'organizer', 'media'];
+    private const WITH = ['category.translations', 'city.translations', 'city.region.translations', 'country.currency', 'organizer', 'media'];
 
     public function __construct(
         private readonly DiscoverService $discover,
@@ -41,6 +42,7 @@ class DiscoverEventController extends Controller implements HasMiddleware
             ['create', ['store']],
             ['update', ['update', 'review', 'status']],
             ['delete', ['destroy']],
+            ['multiple-delete', ['deleteMultiple']],
         ]);
     }
 
@@ -50,6 +52,8 @@ class DiscoverEventController extends Controller implements HasMiddleware
             'review_status' => ['nullable', Rule::in(['pending', 'approved', 'rejected'])],
             'status' => ['nullable', Rule::in(DiscoverEvent::STATUSES)],
             'country_id' => ['nullable', 'integer'],
+            // 0 = the cities that sit in no region.
+            'region_id' => ['nullable', 'integer', 'min:0'],
             'city_id' => ['nullable', 'integer'],
             'category_id' => ['nullable', 'integer'],
             'organizer_id' => ['nullable', 'integer'],
@@ -61,6 +65,7 @@ class DiscoverEventController extends Controller implements HasMiddleware
             ->when($filters['review_status'] ?? null, fn ($q, $v) => $q->where('review_status', $v))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['country_id'] ?? null, fn ($q, $v) => $q->where('country_id', $v))
+            ->when(isset($filters['region_id']), fn ($q) => $q->whereHas('city', fn ($c) => (int) $filters['region_id'] === 0 ? $c->whereNull('region_id') : $c->where('region_id', $filters['region_id'])))
             ->when($filters['city_id'] ?? null, fn ($q, $v) => $q->where('city_id', $v))
             ->when($filters['category_id'] ?? null, fn ($q, $v) => $q->where('category_id', $v))
             ->when($filters['organizer_id'] ?? null, fn ($q, $v) => $q->where('organizer_id', $v))
@@ -109,6 +114,9 @@ class DiscoverEventController extends Controller implements HasMiddleware
             }
             $event->fill($fields + ['last_verified_at' => now()])->save();
             $event->setSingleMedia(DiscoverEvent::COVER, $request->file('cover'));
+            if ($request->boolean('remove_cover') && ! $request->hasFile('cover')) {
+                $event->clearMediaCollection(DiscoverEvent::COVER);
+            }
         });
 
         return ApiResponse::success($this->present($event->refresh()->load(self::WITH), true), __('api.updated'));
@@ -118,11 +126,13 @@ class DiscoverEventController extends Controller implements HasMiddleware
     public function review(Request $request, DiscoverEvent $event)
     {
         $data = $request->validate(['review_status' => ['required', Rule::in(['approved', 'rejected', 'pending'])], 'note' => ['nullable', 'string', 'max:500']]);
+        $from = (string) $event->review_status;
         $event->update([
             'review_status' => $data['review_status'],
             'review_note' => $data['note'] ?? null,
             'last_verified_at' => $data['review_status'] === 'approved' ? now() : $event->last_verified_at,
         ]);
+        app(ReviewNotifier::class)->event($event, $from);
 
         return ApiResponse::success($this->present($event->load(self::WITH), true), __('api.updated'));
     }
@@ -146,6 +156,20 @@ class DiscoverEventController extends Controller implements HasMiddleware
         return ApiResponse::success($this->present($event->refresh()->load(self::WITH), true), __('api.updated'));
     }
 
+    /** POST delete-multiple {ids[]} — deletes the ones that can go; says how many of each. */
+    public function deleteMultiple(Request $request)
+    {
+        $data = $request->validate(['ids' => ['required', 'array', 'min:1', 'max:200'], 'ids.*' => ['integer']]);
+        $deleted = 0;
+        $skipped = 0;
+        foreach (DiscoverEvent::query()->whereIn('id', $data['ids'])->get() as $row) {
+            $row->delete();
+            $deleted++;
+        }
+
+        return ApiResponse::success(['deleted' => $deleted, 'skipped' => $skipped], __('api.deleted'));
+    }
+
     public function destroy(DiscoverEvent $event)
     {
         $event->delete();
@@ -160,12 +184,15 @@ class DiscoverEventController extends Controller implements HasMiddleware
     {
         $required = $creating ? 'required' : 'sometimes';
 
-        return $request->validate([
+        $data = $request->validate([
             'title' => [$required, 'string', 'min:3', 'max:160'],
             'description' => ['nullable', 'string', 'max:5000'],
             'language' => ['nullable', 'string', 'max:10'],
             'category_id' => [$required, 'integer', 'exists:discover_categories,id'],
             'city_id' => [$required, 'integer', 'exists:discover_cities,id'],
+            // The city must be in the country (and the region) chosen above it.
+            'country_id' => ['nullable', 'integer', 'exists:countries,id'],
+            'region_id' => ['nullable', 'integer', 'min:0'],
             'venue' => ['nullable', 'string', 'max:160'],
             'address' => ['nullable', 'string', 'max:255'],
             'lat' => ['nullable', 'numeric', 'between:-90,90'],
@@ -178,7 +205,20 @@ class DiscoverEventController extends Controller implements HasMiddleware
             'booking_url' => ['nullable', 'url', 'max:500'],
             'family_friendly' => ['sometimes', 'boolean'],
             'cover' => ['nullable', 'image', 'max:5120'],
+            'remove_cover' => ['sometimes', 'boolean'],
         ]);
+
+        if (isset($data['city_id']) && (isset($data['country_id']) || isset($data['region_id']))) {
+            $city = \Modules\Discover\Models\DiscoverCity::query()->find($data['city_id']);
+            $wrongCountry = isset($data['country_id']) && (int) $city?->country_id !== (int) $data['country_id'];
+            $wrongRegion = isset($data['region_id']) && (int) ($city?->region_id ?? 0) !== (int) $data['region_id'];
+            if ($wrongCountry || $wrongRegion) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['city_id' => __('validation.exists', ['attribute' => 'city'])]);
+            }
+        }
+        unset($data['country_id'], $data['region_id']);
+
+        return $data;
     }
 
     /**
@@ -191,6 +231,9 @@ class DiscoverEventController extends Controller implements HasMiddleware
             'category_id' => $e->category_id,
             'city_id' => $e->city_id,
             'country_id' => $e->country_id,
+            'region_id' => $e->city?->region_id,
+            'region' => $e->city?->region?->translatedName(),
+            'country' => $e->country?->translatedName(),
             'review_status' => $e->review_status,
             'review_note' => $e->review_note,
             'organizer_id' => $e->organizer_id,

@@ -1,7 +1,7 @@
 # Project Checkpoint
 
 
-**Last updated:** 2026-10-11  
+**Last updated:** 2026-10-19  
 **Purpose:** Quick orientation for developers and AI assistants.
 
 ---
@@ -14,6 +14,15 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 ---
 
 ## Completed Work
+
+### Chat — WhatsApp backlog, second batch (2026-10-12)
+- Status stickers, GIFs, text and drawing as layers (`style.layers`, `StoryLayers`).
+- Call links: `/call/{token}`, `chat_call_links`.
+- Screen sharing in calls (Android).
+- Reply buttons and lists: message type `interactive`, `POST messages/{id}/choose`.
+- Communities: `chat_communities`, `chat_groups.community_id`, `CommunityService`.
+- Migrations `2026_10_20_100000` and `2026_10_20_100100`.
+- See `docs/modules/chat/API.md`.
 
 ### Backend
 - Laravel 12 monolith with 5 modules (Admin, User, AI, Provider, SMS)
@@ -54,6 +63,40 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 ## Current Work
 
+- **Admin → Discover → Organizers catalog UI (2026-10-18):** the list follows flags/users (breadcrumb, All/Pending/Verified/Rejected/Suspended counts, search, skeleton/empty, created-at, pagination, details modal, review without `window.prompt`). API extra is `status_counts`, not `pending_count`.
+- **Android Discover my interests (2026-10-19):** kinds page 15 with Show more (`GET discover/categories?page=&per_page=15`); saving a kind no longer reloads home (that froze the screen).
+- **Android Discover organizer (2026-10-19):** My events has a search field (`GET discover/organizer?q=`).
+- **Android Discover home strips (2026-10-19):** first 15 per section with `has_more`; a chevron on the title scrolls the row (not a new page); `GET discover/sections/{key}` loads the next 15 at the end of the row. The “What you like” categories row does the same (15 then the next 15).
+- **Android Discover organizer (2026-10-18):** Account-style identity row; **My events** pages 15 with Show more (`GET discover/organizer?page=&per_page=`). Event sheets and date/time pickers follow the appearance tokens (no leftover light Material dialogs at night). Browse lists 15 and loads more on scroll (`GET discover/events?per_page=15`). **Saved** lists 15 with Show more (`GET discover/interests?page=&per_page=15`). List rows: save heart is always there and tappable; free/price chip under it uses the event country's currency; distance uses m/km. Filter: dashboard countries → regions of that country → cities of that region; signup country first; search on every select.
+- **Android Moments page (2026-10-14):** Center uses the same navy hero as the calendar; the occasion card has a bottom scrim so the title and subtitle stay readable. Settings: Animations and Country occasions are inner screens; country occasions has a dropdown plus the list for that country. New group card sheet opens fully (`skipPartiallyExpanded`) with the same labeled pills as add-occasion (occasion, title, recipient, invite).
+- **Android Moments settings (2026-10-14):** Animations and Country occasions are inner screens from the settings menu. Country occasions has a country dropdown plus the occasion list for that country (`moments/catalog?country_id=`).
+- **Android calendar top panel (2026-10-14):** Today / Week / Month open with a navy + brand-red header and a rounded bottom edge; the week strip is inside that panel. Lists and the month grid stay on the light page.
+- **Rides phase 3, booking ahead — done (2026-10-14):** backend (`ScheduledRideService`, captain reservations, reminders, start at lead time, waiting from the booked time), both apps and the admin ride page. 10 new tests (`RidesScheduledTest`). Spec status files: `docs/modules/Bookings/*_status.docx` (green done / red left). Then safety (SOS + family link + admin page, `RidesSafetyTest` 4) and changing the destination / adding a stop mid-trip (`RidesChangeTest` 4) — done the same day; 86 rides/driver tests pass. Next: the remaining red items in `docs/modules/Bookings/*_status.docx`.
+
+- **Rides plan (2026-10-13), no code yet:**
+  - The ride-hailing plan is in `docs/rides-plan.md`. It merges the client files in `docs/modules/Bookings/`, the Jawad app (trip cycle, pricing, VAT on commission, Wasl), and LeeTaxi.
+  - Owner decisions taken:
+    - The driver is its own account type, not a `Provider`: a new `Modules/Driver`, the `driver_api` guard and `/api/driver/v1/*`. Providers get a separate third app later.
+    - A separate driver app (store name proposed: DORR Captain).
+    - Google Maps, with navigation handed off to the Google Maps app.
+    - Pricing set per admin setting: upfront or metered. Open-destination trips are always metered.
+    - inDrive-style bidding.
+    - Multi-stop trips.
+    - An admin switch for every feature.
+    - The captain's location logged on the phone every 30 s for Wasl.
+    - In Saudi Arabia no captain goes online without Wasl approval.
+  - Open items are listed in §20.2 of the plan.
+  - Table structure: `docs/rides-structure.md`. Also decided: Wasl city names must match letter for letter (`ride_regulator_cities`, set by the admin; only Riyadh known); the ride chat ends with the ride and stays readable by admins; collected tax goes to its own category ("ضريبة التوصيل").
+  - **Phase 0 done:** `Modules/Driver` (account, `driver_api`, OTP), `Modules/Rides` (categories, feature switches, policies, tax, zones, Wasl city names, Google Routes), `audit_logs`, and `driverApp/` (separate driver app + shared `:core`). See `docs/modules/driver/README.md` and `docs/modules/rides/README.md`.
+  - **Needs:** `GOOGLE_MAPS_SERVER_KEY`; the official Wasl city list; the real prices.
+  - **Phase 1 backend core done (2026-10-14):** an Economy ride end to end on the server — quotes, request, dispatch (`rides:dispatch-tick` every 10 s), accept, arrived, PIN, start, stops, end (upfront or metered), wallet / cash payment, settlement (`rides:release-earnings` hourly), cancellations, no-show, ratings, driver earnings. APIs `mobile/v1/rides/*` and `driver/v1/{offers,rides,earnings}`; channel `rides.{uuid}`. Tests: `RidesFlowTest`.
+  - **Card payment and Wasl done (2026-10-14):** card rides go through the shared payment screen (checkout purpose `ride`, `ReservesFunds`); Wasl registration, daily eligibility, trips and locations as in Jawad, with no nationality exception. Tests: `RidesWaslTest`.
+  - **Apps (2026-10-14):** the DORR app's ride screens and the driver app (shift service, requests outside the app, sign-up, ride, earnings) — compile-checked, not yet tried on a phone. Admin → Rides has drivers and document types.
+  - **Admin complete (2026-10-14):** rides (story + Wasl resend), switches, categories, prices & rules, Wasl logs, reasons & tags, settings.
+  - **Phase 2, bidding (2026-10-14):** server, both apps and the admin ride page (`RidesBiddingTest`). Turn on with the `bidding` switch + `category.offers` and the «العروض» category, and price it in Prices & rules.
+  - Next: try the whole ride (instant and bidding) on two phones (needs the Android Maps key and a priced, switched-on city).
+
+- **Admin Chat occasions (2026-10-12):** `/admin/chat/moments` list matches flags (filters, checkboxes, bulk delete, status toast). Create/edit form fields match catalog (input-group, PrimeVue Select, toggles, card picker).
 - **Admin sidebar Chat (2026-10-12):** Chat admin links (reports, themes, settings, …) show only when the header service is Chat (`module_name=chat`), same pattern as AI. They are no longer listed under General.
 - **Referral (2026-10-07):** polymorphic aliases (`user` / `provider`) on `referral_codes` + `referrals`; mobile my-code/track; admin catalog-style codes list (`/admin/referral-codes`) and referrals list (`/admin/referrals`, flags layout); Android share + Play referrer stub. No rewards yet. See CHANGELOG.
 - **Ratings (2026-10-08):** polymorphic `ratings` + mobile API (POST creates then updates the same row) + admin page + Android Play In-App Review; see CHANGELOG.
@@ -82,6 +125,24 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
   - **Needs:** the bucket keys in `.env` (`CHAT_RECORDINGS_*`). Until then the record button doesn't show. Admin → Chat settings shows whether storage is connected.
   - **89, tablets:** the chat is side by side from 700 dp, and rotating or resizing no longer restarts the screen (`configChanges`). Android test `ChatTwoPaneTest`. Neither was tried on a phone or tablet.
 - **Blue items, first batch (2026-10-11):** the header rule in the chat (no back arrow on the main chat screen; `ChBack` = back + the DORR logo on every inner screen; `ChSheet` = every bottom sheet closes with ×); DORR AI's quality gate on the chat's free answers (`ChatAiService::qualityGate()` with `AiVerificationEngine`, `verification` in `ask` / `assistant`); chat features by country and city (`chat_feature_rules`, `ChatFeatures`, `EnsureChatFeature`, `GET features`, `PUT location` keeping only the nearest Discover city; admin page `chat/feature-rules`). Migration `2026_10_18_100000`. Tests: `ChatFeatureRulesTest` (3), `ChatAiToolsTest` quality gate. Deferred by decision: E2EE, user categories in flags, and the AI-module items (Ali Khalifa's module).
+- **Push, real-time and crash reports (2026-10-12):**
+  - **Chat push fixed.** Phones register under the morph class `user` (the AI module's morph map), but the chat looked up the class name, so no chat push was sent. It now matches both.
+  - **Diagnostics.** `chat:realtime-check` checks a server's Pusher and OneSignal setup. `.env.example` no longer points `PUSHER_HOST` at 127.0.0.1.
+  - **Android.** The real-time config call is retried, and Crashlytics is wired in (waiting for `google-services.json`).
+  - **Discover.** Organizers get a push with the admin's review answer.
+  - **Chat names.** A person shows by my contact's name for them, then their own name, then their number.
+  - **Push helper.** `sendPushNotification` gained `type: 'All Users'`.
+  - **Tests:** `ChatPushDeliveryTest` (3) and a new `DiscoverTest` case.
+- **WhatsApp backlog, simple items (2026-10-12):**
+  - **Privacy:** a default timer for new chats (58), silencing unknown callers (60) and status exceptions (54).
+  - **Storage:** export a chat as txt / zip (25) and manage storage (47, 48: large, forwarded, per chat).
+  - **Channels:** stats and allowed reactions (107, 110).
+  - **Business:** a business card and message stats (111, 116); a broadcast list from a folder (129); a click-to-chat link and QR with a ready message, plus the web page `/c/{token}` (130). Labels (117, 118) are the folders.
+  - **Statuses:** voice statuses, mentions, and "add to my status" without the original poster (78, 84–86).
+  - **Video:** HD and the 64 MB cap on slow connections, done on Android (38, 40).
+  - **Server and Android:** migrations `2026_10_19_100000`–`100200`. Test: `ChatBacklogTest` (8). Android: `BacklogApi.kt`, `ChatBacklogUi.kt`, `StoryVoice.kt`.
+  - **Not done, not simple:** call links (72) and interactive messages (123–125).
+  - **Shared forwarded files:** a forward, a capsule or a reshared status points at the same file instead of copying it (`SharedMedia`, `SharedFileRemover`, `media.shared_root_id`, migration `2026_10_19_100300`). The file is removed when the last message using it goes. Test `ChatSharedMediaTest`.
 - **Calls, media and performance in the chat (2026-10-11, wave 5 in `docs/remaining_chat.md`):** standing voice rooms for every group and channel (spec 91 — `VoiceRoomService`, `LiveKitRooms` over LiveKit's RoomService API, `chat:voice-rooms-sweep` every minute, event `chat.voice.updated`); a call broadcast live to watch-only viewers (93 — `CallLiveService`, viewer tokens that can't publish and stay hidden, `live_card` messages, event `chat.call.live`); camera backgrounds in video calls, all on the phone (94 — ML Kit selfie segmentation in a LiveKit `VideoProcessor`, `CallEffects.kt`); a folder sent as one zip (10 — `folder_name` / `folder_count` → `meta.folder`, `FolderZip.kt`); a video made into a GIF (11 — a ≤6 s silent 480p clip with `gif = 1` → `meta.gif`, played muted on a loop); data saver (82 — photos on a tap with the server's ~40px `preview`, which `Support\ImagePreview` stores with each photo's `width` / `height`; lighter uploads and 360p calls), lite mode for modest phones (87 — automatic at ≤3 GB memory) and usage stats on the phone (83 — `ChatUsage`, an OkHttp network interceptor plus TrafficStats for calls). Migrations `2026_10_16_100000`–`100100`. Tests: `ChatVoiceRoomTest` (2), `ChatCallLiveTest` (1), `ChatFolderGifTest` (3), Android `FolderGifTest` (3). Call recording (92) was done after this (see above).
 - **Daily intelligence in the chat (2026-10-11, spec 146–156, plan in `docs/remaining_chat.md`):** commitments, handoffs and agreements from any message (`LifeService`, cards `commitment` · `handoff` · `agreement`, `chat_life_log`, `chat:commitment-reminders`); my communication rules — attention per source, privacy contexts, always-through people, call hours (`AttentionPolicy` in `ChatPushNotifier` and calls, `chat:attention-digest`); the life inbox (`LifeInboxService`, `GET life-inbox`); local private intelligence on Android (`LocalIntelligence` in the OneSignal extension). Tests: `ChatLifeTest` (5), `ChatAttentionTest` (3), Android `LocalIntelligenceTest`.
 - **Discover covers from the app (2026-10-11):** organizers add / change an event's cover from Android; cover URLs carry `?v=`.
@@ -200,6 +261,7 @@ Three dashboard SPAs (Admin, User, Provider). Documentation system established. 
 
 - **Interface translation management (2026-09-30, ADR-011):** Admin → Languages → Translations. New languages (e.g. `fr`) get backend / Vue / Android JSON groups via export → translate → import (draft) → publish. `ar`/`en` untouched and remain the bundled sources (`en` = base + fallback). Backend and Vue load published locales at runtime. Migration `2026_09_30_120000_create_translation_files_table`. Config `config/translations.php`.
 - **Dynamic Android translations (2026-10-01, ADR-011):** the Android app lists languages from `GET /api/general/v1/translations/languages?platform=android` and downloads `GET /api/general/v1/translations/{code}/android` when a non-bundled language is chosen (ar/en stay bundled; `en` = fallback). One language file on the device (`filesDir/translations/{code}.json`), served by `ui/locale/DynamicResources.kt`; direction saved with it for offline cold starts; newer `android_version` downloaded on launch / when the language dialog opens; a language no longer offered falls back to `en`. The XML ZIP export still exists. Not covered: strings built outside Compose (`chat/CallNotifications.kt`, `chat/LiveLocationService.kt`) stay English for downloaded languages.
+- **Android overlays follow the app language (2026-10-14):** `Dialog` / `ModalBottomSheet` windows re-provide the app locale (`rememberAppLocaleFrame`, `LocaleAwareDialog`, `ChSheet`). Dates/weekdays use `AppLocale.java()` instead of the phone default.
 - Provider dashboard SPA **documented** (module docs + API spec aligned with code, 2026-09-20)
 - Provider profile services dropdown + sidebar links from `services[]` / `category.module_name`
 - **Mobile phone auth (Android):** `/api/mobile/v1/*` guard `user_api`; combined login/register by phone only; fixed demo OTP `123456` via `App\Traits\SendsPhoneOtp` (writes `verification_codes`); phone validated against `countries.phone_starts_with` / `phone_length`; `EnsurePhoneVerified` middleware blocks routes until `phone_verified_at` set; Android `LoginScreen`/`OtpScreen` wired to real APIs (`MobileAuthApi`)

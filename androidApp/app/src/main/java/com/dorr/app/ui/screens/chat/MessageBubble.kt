@@ -122,6 +122,8 @@ class BubbleActions(
     val onMessageContact: (String) -> Unit,
     val onVote: (UiMessage, Int) -> Unit = { _, _ -> },
     val onShowVotes: (MessageDto) -> Unit = {},
+    /** A reply button / list choice was tapped (WhatsApp list 123–125). */
+    val onChoose: (UiMessage, Int) -> Unit = { _, _ -> },
     val onOpenViewOnce: (UiMessage) -> Unit = {},
     val onStopLive: (UiMessage) -> Unit = {},
     /** A Dorr group invite link (dorr://chat/join/…) was tapped. */
@@ -268,7 +270,8 @@ private fun Bubble(m: UiMessage, mine: Boolean, firstInRun: Boolean, isGroup: Bo
                 )
                 .padding(if (media || isCard) 3.dp else 0.dp),
         ) {
-            Column(Modifier.width(IntrinsicSize.Max)) {
+            // Cards with their own lists (moments, matches, polls…) can't be measured by their content width: compose forbids it for lazy lists.
+            Column(if (dto.type in CardsWithLists) Modifier else Modifier.width(IntrinsicSize.Max)) {
                 if (isGroup && !mine && firstInRun && dto.sender != null) {
                     Text(
                         dto.sender.name.orEmpty(), color = Ch.colorFor(dto.sender.key), fontSize = 13.sp, fontWeight = FontWeight.ExtraBold,
@@ -402,6 +405,7 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
             Footer(m, mine, overlay = false)
         }
         "poll" -> PollCard(m, mine, onVote = { actions.onVote(m, it) }, onShowVotes = { actions.onShowVotes(dto) }) { Footer(m, mine, overlay = false) }
+        "interactive" -> InteractiveCard(m, mine, onChoose = { actions.onChoose(m, it) }, onShowAnswers = { actions.onShowVotes(dto) }) { Footer(m, mine, overlay = false) }
         // A greeting card (DORR Moments): the occasion's look, words, voices, photos, a gift.
         "moment_card" -> com.dorr.app.ui.screens.moments.MomentCardBubble(
             dto, mine, onOpenSealed = { actions.onOpenSealed(m) }, onOpenPhoto = { actions.onOpenMedia(dto, it) },
@@ -425,6 +429,11 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
             StoryQuote(dto.meta, mine)
             TextBody(m, mine, actions)
         }
+        // A status that mentions the other one (backlog 84).
+        "story_mention" -> Column {
+            StoryQuote(dto.meta, mine)
+            StoryMentionLine(dto.meta, mine) { Footer(m, mine, overlay = false) }
+        }
         else -> Column {
             // The link's card above the text, like WhatsApp (arrives a moment after sending).
             dto.linkPreview?.let { LinkPreviewCard(it, mine) }
@@ -432,6 +441,9 @@ private fun BubbleContent(m: UiMessage, mine: Boolean, actions: BubbleActions) {
         }
     }
 }
+
+/** Message kinds whose card holds a lazy list: they keep their own width instead of the bubble's intrinsic one. */
+private val CardsWithLists = setOf("moment_card", "match_card", "live_card", "event_card", "interactive", "poll", "bill_split", "commitment", "handoff", "agreement")
 
 /** The story a reply answers: "Status" + a small copy of it (its gradient and text, or its photo). */
 @Composable
@@ -530,6 +542,7 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
         }
     }
     Box(Modifier.padding(start = 12.dp, end = 12.dp, top = 7.dp, bottom = 7.dp)) {
+        val chatHost = LocalChat.current
         androidx.compose.foundation.text.ClickableText(
             text = annotated,
             // My text size (spec 6).
@@ -537,9 +550,21 @@ private fun TextBody(m: UiMessage, mine: Boolean, actions: BubbleActions? = null
             modifier = Modifier.padding(end = 62.dp, bottom = 2.dp),
             onClick = { offset ->
                 annotated.getStringAnnotations("url", offset, offset).firstOrNull()?.let { a ->
+                    // A call link: its sheet, right here.
+                    val callToken = callLinkTokenOf(a.item.trimEnd('.', ',', ')'))
+                    if (callToken != null) {
+                        chatHost.callLinkToken = callToken
+                        return@let
+                    }
                     // A Dorr group invite opens the join sheet right here, not a browser.
-                    if (a.item.startsWith("dorr://chat/join/")) {
-                        actions?.onJoinGroup?.invoke(a.item.removePrefix("dorr://chat/join/").trimEnd('.', ',', ')'))
+                    val invite = a.item.trimEnd('.', ',', ')').takeIf { it.startsWith("dorr://chat/join/") || Regex("^https?://[^/]+/j/[A-Za-z0-9]{8,64}$").matches(it) }
+                    if (invite != null) {
+                        inviteTokenOf(invite)?.let { actions?.onJoinGroup?.invoke(it) }
+                        return@let
+                    }
+                    // A "click to chat" link (backlog 130): that person's chat, the message ready.
+                    if (a.item.startsWith("dorr://chat/")) {
+                        chatHost.openChatLink(a.item.trimEnd('.', ',', ')'))
                         return@let
                     }
                     val url = if (a.item.startsWith("http")) a.item else "https://${a.item}"
@@ -684,10 +709,6 @@ private fun MediaGrid(m: UiMessage, mine: Boolean, actions: BubbleActions) {
                 }
             }
             if (dto.body.isNullOrBlank()) Footer(m, mine, overlay = true, modifier = Modifier.align(Alignment.BottomEnd).padding(8.dp))
-            // Made or changed by DORR AI (spec 50, 51) — everyone in the chat sees it.
-            if (dto.meta?.get("ai_generated")?.let { runCatching { it.asBoolean }.getOrNull() } == true) {
-                AiMadeLabel(Modifier.align(Alignment.TopStart).padding(8.dp))
-            }
         }
         if (!dto.body.isNullOrBlank()) {
             Box(Modifier.width(260.dp)) { TextBody(m, mine) }
@@ -832,8 +853,8 @@ private fun DocumentCard(m: UiMessage, mine: Boolean) {
 @Composable
 private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val context = LocalContext.current
-    val lat = meta?.get("latitude")?.asDouble ?: 0.0
-    val lng = meta?.get("longitude")?.asDouble ?: 0.0
+    val lat = meta?.dbl("latitude") ?: 0.0
+    val lng = meta?.dbl("longitude") ?: 0.0
     val name = meta?.str("name")
     val pin = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { pin.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 300f)) }
@@ -867,7 +888,7 @@ private fun LocationCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
 @Composable
 private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions: BubbleActions) {
     val name = meta?.str("name").orEmpty()
-    val phones = meta?.getAsJsonArray("phones")?.mapNotNull { runCatching { it.asString }.getOrNull() }.orEmpty()
+    val phones = meta?.arr("phones")?.mapNotNull { runCatching { it.asString }.getOrNull() }.orEmpty()
     // The whole card opens: call · message or invite · save · copy.
     var sheet by remember { mutableStateOf(false) }
     if (sheet) ContactActionsSheet(name, phones) { sheet = false }
@@ -901,7 +922,7 @@ private fun ContactCard(meta: JsonObject?, m: UiMessage, mine: Boolean, actions:
 private fun TransferReceiptCard(meta: JsonObject?, m: UiMessage, mine: Boolean) {
     val amount = meta?.get("amount_minor")?.let { runCatching { it.asLong }.getOrNull() } ?: 0L
     val currency = meta?.str("currency_symbol") ?: meta?.str("currency")
-    val reversed = meta?.get("is_reversed")?.asBoolean == true
+    val reversed = meta?.bool("is_reversed") == true
     val check = remember { Animatable(0f) }
     androidx.compose.runtime.LaunchedEffect(Unit) { check.animateTo(1f, spring(dampingRatio = 0.35f, stiffness = 260f)) }
     // A money gift: the same receipt, drawn as a card for the occasion (it unwraps as it appears).

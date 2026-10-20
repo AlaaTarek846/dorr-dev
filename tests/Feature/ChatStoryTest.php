@@ -168,6 +168,42 @@ class ChatStoryTest extends TestCase
         ], $this->headers() + ['Accept' => 'application/json'])->assertStatus(422)->assertJsonPath('error_code', 'chat_story_video_too_long');
     }
 
+    public function test_stickers_text_and_drawing_ride_on_top_of_a_photo_status(): void
+    {
+        $layers = [
+            ['k' => 's', 'x' => 0.3, 'y' => 0.2, 's' => 1.5, 'r' => 15, 'url' => 'https://media.giphy.com/media/abc/giphy.webp', 'a' => 1.2],
+            ['k' => 't', 'x' => 0.5, 'y' => 0.8, 'text' => '  Hello  ', 'c' => '#ff0000', 'f' => 'script', 'bg' => 1],
+            ['k' => 'd', 'c' => '#00FF00', 'w' => 0.02, 'p' => [0.1, 0.1, 0.2, 0.25, 0.3]],
+            // Thrown away: a script address, an empty text, an unknown kind, a way-off position.
+            ['k' => 's', 'url' => 'javascript:alert(1)'],
+            ['k' => 't', 'text' => '   '],
+            ['k' => 'x'],
+        ];
+
+        $this->as($this->alice);
+        $this->post('/api/mobile/v1/chat/stories', [
+            'type' => 'image', 'file' => UploadedFile::fake()->image('s.jpg'),
+            'style' => ['aspect' => 0.75, 'layers' => json_encode($layers), 'background' => 'ignored'],
+        ], $this->headers() + ['Accept' => 'application/json'])->assertCreated();
+
+        $style = $this->feedOf($this->bob)['recent'][0]['stories'][0]['style'];
+        $this->assertSame(0.75, (float) $style['aspect']);
+        $this->assertArrayNotHasKey('background', $style);
+        $this->assertCount(3, $style['layers']);
+        [$sticker, $text, $drawing] = $style['layers'];
+        $this->assertSame('https://media.giphy.com/media/abc/giphy.webp', $sticker['url']);
+        $this->assertSame(['Hello', '#FF0000', 'script', 1], [$text['text'], $text['c'], $text['f'], $text['bg']]);
+        $this->assertCount(4, $drawing['p']); // the odd last number is dropped
+
+        // A text status keeps its colour and font, with the stickers on it.
+        $this->postJson('/api/mobile/v1/chat/stories', [
+            'type' => 'text', 'body' => 'Hi', 'style' => ['background' => 'ocean', 'layers' => json_encode([['k' => 't', 'text' => '🔥', 'x' => 2]])],
+        ], $this->headers())->assertCreated();
+        $text = ChatStory::query()->latest('id')->first()->style;
+        $this->assertSame('ocean', $text['background']);
+        $this->assertEquals(1, $text['layers'][0]['x']); // pulled back inside the frame
+    }
+
     public function test_stories_expire_and_are_purged(): void
     {
         $this->postStory($this->alice, 'Tomorrow gone')->assertCreated();

@@ -29,6 +29,16 @@ class ChatAiImageService
 
     private const MAX_PROMPT = 1000;
 
+    /** Looks the person can pick: each adds a precise art direction for the image model. */
+    public const STYLES = [
+        'realistic' => 'Style: photorealistic photograph, natural lighting, sharp detail.',
+        'illustration' => 'Style: clean modern digital illustration, vibrant colours.',
+        'anime' => 'Style: anime / manga illustration, expressive, cel-shaded.',
+        '3d' => 'Style: 3D render, soft studio lighting, smooth materials.',
+        'oil' => 'Style: oil painting on canvas, visible brush strokes.',
+        'minimal' => 'Style: minimal flat design, simple shapes, plenty of empty space.',
+    ];
+
     public function __construct(
         private readonly ConversationService $conversations,
         private readonly MessageService $messages,
@@ -37,14 +47,34 @@ class ChatAiImageService
     ) {}
 
     /**
+     * Today's AI images on my DORR AI plan — shown before I start (nothing is started by asking):
+     * `allowed`, `reason` (no_plan · trial_ended · not_in_plan · daily_limit_reached…), `limit`
+     * (null = unlimited), `used`, `remaining`, and the styles on offer.
+     *
+     * @return array<string, mixed>
+     */
+    public function quota(Model $me): array
+    {
+        $this->assertOn();
+
+        return $this->runner->imageAllowance($me) + ['styles' => array_keys(self::STYLES)];
+    }
+
+    /**
      * @return array{draft: string, url: string, kind: string}
      */
-    public function generate(Model $me, ChatConversation $conversation, string $prompt): array
+    public function generate(Model $me, ChatConversation $conversation, string $prompt, ?string $style = null): array
     {
         $this->conversations->participantOf($me, $conversation, true);
         $this->assertOn();
 
-        $result = $this->runner->generateImage($this->prompt($prompt), 'chat.image_generate', $me);
+        // The person's words first; the chosen look as an art direction after them.
+        $prompt = $this->prompt($prompt);
+        if ($style !== null && isset(self::STYLES[$style])) {
+            $prompt .= "\n\n".self::STYLES[$style];
+        }
+
+        $result = $this->runner->generateImage($prompt, 'chat.image_generate', $me);
 
         return $this->draft($me, $conversation, $result, 'generate');
     }

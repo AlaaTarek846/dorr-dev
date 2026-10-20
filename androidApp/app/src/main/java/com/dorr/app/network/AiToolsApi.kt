@@ -85,7 +85,11 @@ interface AiToolsApi {
     // Images with DORR AI (spec 50, 51): a draft only I see, counted against my AI plan's daily
     // images, then sent as an ordinary image message marked `meta.ai_generated`.
 
-    /** `{prompt}` — a new image from a description. */
+    /** Today's AI images on my plan, before I start (read-only). */
+    @GET("mobile/v1/chat/ai/image/quota")
+    suspend fun imageQuota(@Header("Authorization") auth: String): ApiEnvelope<AiImageQuotaDto>
+
+    /** `{prompt, style?}` — a new image from a description. */
     @POST("mobile/v1/chat/conversations/{id}/ai/image")
     suspend fun generateImage(@Header("Authorization") auth: String, @Path("id") conversationId: String, @Body body: JsonObject): ApiEnvelope<AiImageDraftDto>
 
@@ -108,6 +112,17 @@ data class MeaningSearchDto(
 data class ChatCapsuleDto(
     val text: String = "",
     val messages: Int = 0,
+)
+
+data class AiImageQuotaDto(
+    val allowed: Boolean = false,
+    /** no_plan · trial_ended · subscription_suspended · blocked · not_in_plan · daily_limit_reached */
+    val reason: String? = null,
+    /** null = unlimited. */
+    val limit: Int? = null,
+    val used: Int = 0,
+    val remaining: Int? = null,
+    val styles: List<String> = emptyList(),
 )
 
 data class AiImageDraftDto(

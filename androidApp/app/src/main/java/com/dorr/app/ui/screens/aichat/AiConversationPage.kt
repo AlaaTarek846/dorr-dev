@@ -124,8 +124,8 @@ import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
-import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.dorr.app.ui.locale.LocaleAwareDialog
 import java.util.UUID
 
 /**
@@ -1230,7 +1230,7 @@ private fun AiTypingBubble(surface: Color, mut: Color, elapsedMs: Long, isImageL
 private fun AiAttachSheet(night: Boolean, onPickImage: () -> Unit, onPickDocument: () -> Unit, onDismiss: () -> Unit) {
     val surface = if (night) Ai.surfaceDark else Ai.surfaceLight
     val ink = if (night) Ai.inkDark else Ai.inkLight
-    androidx.compose.ui.window.Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(20.dp)).background(surface).padding(18.dp)) {
             Row(
                 Modifier.fillMaxWidth().clickable(onClick = onPickImage).padding(vertical = 12.dp),
@@ -1273,7 +1273,7 @@ private fun AiImageViewer(attachment: AiAttachmentDto, onClose: () -> Unit) {
     var offset by remember(attachment.id) { mutableStateOf(androidx.compose.ui.geometry.Offset.Zero) }
     val fade = (1f - kotlin.math.abs(drag.value) / 900f).coerceIn(0.2f, 1f)
 
-    Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+    LocaleAwareDialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false)) {
         Box(
             Modifier
                 .fillMaxSize()

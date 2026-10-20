@@ -99,6 +99,8 @@ class ConversationResource extends JsonResource
                 // Channels: the @handle and whether anyone can find it in "Discover".
                 'handle' => $group->handle,
                 'is_public' => (bool) $group->is_public,
+                // Part of a community (WhatsApp list 93): its id and name, and whether this is its announcements group.
+                'community' => \Modules\Chat\Services\CommunityService::badge($group),
                 // Channels: the ✔ (verified by Dorr, or a paid verification running) and the category.
                 'is_verified' => $conversation->isChannel() && $group->isVerified(),
                 'category' => $conversation->isChannel() ? $group->category?->loadMissing(['translations', 'media'])->brief() : null,

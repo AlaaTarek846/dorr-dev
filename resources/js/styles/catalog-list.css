@@ -157,6 +157,48 @@
     color: #e6533c;
 }
 
+.catalog-filter-btn--pending {
+    background-color: #f5b849;
+    border-color: #f5b849;
+    color: #fff;
+}
+
+.catalog-filter-btn--pending-idle {
+    background-color: rgba(245, 184, 73, 0.12);
+    border-color: rgba(245, 184, 73, 0.35);
+    color: #c48a1a;
+}
+
+.catalog-status-select {
+    min-width: 7.5rem;
+    font-weight: 500;
+    border-width: 1px;
+}
+
+.catalog-status-select--pending {
+    background-color: rgba(245, 184, 73, 0.12);
+    border-color: rgba(245, 184, 73, 0.35);
+    color: #c48a1a;
+}
+
+.catalog-status-select--verified {
+    background-color: rgba(38, 191, 148, 0.12);
+    border-color: rgba(38, 191, 148, 0.35);
+    color: #26bf94;
+}
+
+.catalog-status-select--rejected {
+    background-color: rgba(230, 83, 60, 0.12);
+    border-color: rgba(230, 83, 60, 0.35);
+    color: #e6533c;
+}
+
+.catalog-status-select--suspended {
+    background-color: #f3f6f8;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
 .catalog-bool-badge {
     display: inline-flex;
     align-items: center;
@@ -409,4 +451,36 @@ html.app-dark .p-multiselect-filter-container .p-inputtext {
 
 .wallet-scroll-form .modal-footer {
     flex-shrink: 0;
+}
+
+
+/* PrimeVue Select / DatePicker sitting next to an input-group icon (admin forms). */
+.input-group > .p-select,
+.input-group > .p-multiselect,
+.input-group > .p-datepicker {
+    flex: 1 1 auto;
+    width: 1%;
+    min-width: 0;
+}
+
+.input-group > .p-select:not(:first-child),
+.input-group > .p-multiselect:not(:first-child),
+.input-group > .p-datepicker:not(:first-child) .p-datepicker-input {
+    border-start-start-radius: 0;
+    border-end-start-radius: 0;
+}
+
+.input-group > .p-select:not(:first-child),
+.input-group > .p-multiselect:not(:first-child) {
+    margin-inline-start: -1px;
+}
+
+/* A colour picker next to an input-group icon fills the row instead of wrapping under it. */
+.input-group > .form-control-color {
+    flex: 1 1 0;
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    height: auto;
+    min-height: 2.25rem;
 }

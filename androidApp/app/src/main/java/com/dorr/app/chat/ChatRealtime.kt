@@ -60,6 +60,10 @@ object ChatRealtime {
         "support.ticket.created", "support.message", "support.ticket.updated",
     )
 
+    /** A ride's private channel while its screen is open (`private-rides.{uuid}`): status, the car's place, its chat. */
+    val RIDE_EVENTS = listOf("ride.changed", "ride.message", "ride.driver_location")
+    private val watchedRides = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
+
     /** Public channels some screen wants (DORR Sports live scores), kept across reconnects. */
     private val publicChannels = java.util.concurrent.ConcurrentHashMap<String, List<String>>()
 
@@ -74,16 +78,34 @@ object ChatRealtime {
     private var userId: Int? = null
     private var heartbeat: Job? = null
 
+    /** Asking the server for the settings right now (so the foreground doesn't ask twice). */
+    @Volatile
+    private var starting = false
+
     /** Connect (idempotent) for the signed-in user. */
     fun start() {
         val token = AuthSession.token ?: return
         val id = AuthSession.user?.id ?: return
-        if (pusher != null && userId == id) return
+        if ((pusher != null || starting) && userId == id) return
         stop()
         userId = id
+        com.dorr.app.CrashReports.setUser(id)
+        starting = true
 
         scope.launch {
-            val config = runCatching { ApiClient.chat.realtimeConfig("Bearer $token").data }.getOrNull()
+            // A failed first try (no network yet at start-up) used to leave the whole session with
+            // no live chat and no push: try again a few times, waiting longer each time.
+            var config: com.dorr.app.network.RealtimeConfigDto? = null
+            var wait = 2_000L
+            for (attempt in 1..6) {
+                config = runCatching { ApiClient.chat.realtimeConfig("Bearer $token").data }
+                    .onFailure { Log.w(TAG, "Real-time config failed (try $attempt)", it) }.getOrNull()
+                if (config != null || userId != id) break
+                delay(wait)
+                wait = (wait * 2).coerceAtMost(30_000L)
+            }
+            if (userId != id) return@launch
+            starting = false
             // The same answer carries the push app id: start notifications and register this phone.
             ChatPush.ensure(config?.oneSignalAppId)
             if (config == null || !config.enabled || config.key.isNullOrBlank()) {
@@ -133,6 +155,7 @@ object ChatRealtime {
 
             client.subscribePrivate("private-Modules.User.Models.User.$id", listener, *EVENTS.toTypedArray())
             publicChannels.forEach { (name, events) -> subscribePublic(client, name, events) }
+            watchedRides.forEach { subscribeRide(client, it) }
         }
     }
 
@@ -142,6 +165,36 @@ object ChatRealtime {
      */
     fun watchPublic(channel: String, events: List<String>) {
         if (publicChannels.put(channel, events) == null) pusher?.let { subscribePublic(it, channel, events) }
+    }
+
+    /**
+     * Listen to one ride (`ride.changed`, `ride.message`, `ride.driver_location` arrive on [events]).
+     * Safe before the connection is up; the screens use this instead of asking the server on a timer.
+     */
+    fun watchRide(uuid: String) {
+        if (watchedRides.add(uuid)) pusher?.let { subscribeRide(it, uuid) }
+    }
+
+    fun unwatchRide(uuid: String) {
+        if (watchedRides.remove(uuid)) runCatching { pusher?.unsubscribe("private-rides.$uuid") }
+    }
+
+    private fun subscribeRide(client: Pusher, uuid: String) {
+        runCatching {
+            if (client.getPrivateChannel("private-rides.$uuid") != null) return
+            client.subscribePrivate("private-rides.$uuid", object : PrivateChannelEventListener {
+                override fun onEvent(event: PusherEvent) {
+                    val data = runCatching { JsonParser.parseString(event.data).asJsonObject }.getOrNull() ?: return
+                    _events.tryEmit(ChatEvent(event.eventName, data))
+                }
+
+                override fun onSubscriptionSucceeded(channelName: String?) = Unit
+
+                override fun onAuthenticationFailure(message: String?, e: Exception?) {
+                    Log.w(TAG, "Ride channel auth failed: $message", e)
+                }
+            }, *RIDE_EVENTS.toTypedArray())
+        }.onFailure { Log.w(TAG, "Ride channel $uuid failed", it) }
     }
 
     fun unwatchPublic(channel: String) {
@@ -167,7 +220,9 @@ object ChatRealtime {
         heartbeat = null
         runCatching { pusher?.disconnect() }
         pusher = null
+        watchedRides.clear()
         userId = null
+        starting = false
         _connected.value = false
     }
 
@@ -179,6 +234,8 @@ object ChatRealtime {
     /** App came to the foreground: say "online" now and every minute (the server forgets after 90s). */
     fun onForeground() {
         inForeground = true
+        // Never connected this session (the server didn't answer): try again now.
+        if (pusher == null) start()
         val token = AuthSession.token ?: return
         heartbeat?.cancel()
         heartbeat = scope.launch {

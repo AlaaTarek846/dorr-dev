@@ -87,6 +87,7 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.dorr.app.network.AppLocale
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -577,12 +578,12 @@ private fun parseInstant(iso: String?): Instant? =
     runCatching { Instant.parse(iso) }.getOrNull() ?: runCatching { OffsetDateTime.parse(iso).toInstant() }.getOrNull()
 
 private fun timeOf(iso: String?): String? = parseInstant(iso)?.atZone(ZoneId.systemDefault())
-    ?.let { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(it) }
+    ?.let { DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java()).format(it) }
 
 private fun conversationRows(messages: List<SupportMessageDto>): List<ConversationRow> {
     val out = mutableListOf<ConversationRow>()
     var lastDay: String? = null
-    val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+    val formatter = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(AppLocale.java())
     messages.forEach { message ->
         val day = parseInstant(message.createdAt)?.atZone(ZoneId.systemDefault())?.toLocalDate()?.let { formatter.format(it) }
         if (day != null && day != lastDay) {

@@ -37,6 +37,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showRidesSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.rides') }}</span>
+                        </li>
+
+                        <li v-for="item in ridesItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <li v-if="isAiVisible" class="slide__category">
                         <span class="category-name">{{ t('sidebar.ai') }}</span>
                     </li>
@@ -524,6 +537,13 @@
                                 <span class="side-menu__label">{{ t('referrals.title') }}</span>
                             </router-link>
                         </li>
+
+                        <li v-if="can('security-events.view')" class="slide">
+                            <router-link :to="{ name: 'admin.security-events.index' }" class="side-menu__item">
+                                <i class="ri-shield-keyhole-line side-menu__icon"></i>
+                                <span class="side-menu__label">{{ t('sidebar.security_events') }}</span>
+                            </router-link>
+                        </li>
                     </template>
 
                     <template v-if="isGeneralVisible">
@@ -577,6 +597,27 @@
                                 <router-link :to="{ name: 'admin.countries.index' }" class="side-menu__item">
                                     <i class="ri-earth-line side-menu__icon"></i>
                                     <span class="side-menu__label">{{ t('countries.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('regions.view')" class="slide">
+                                <router-link :to="{ name: 'admin.regions.index' }" class="side-menu__item">
+                                    <i class="ri-map-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('regions.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('cities.view')" class="slide">
+                                <router-link :to="{ name: 'admin.cities.index' }" class="side-menu__item">
+                                    <i class="ri-building-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('discover.cities.title') }}</span>
+                                </router-link>
+                            </li>
+
+                            <li v-if="can('service-availability.view')" class="slide">
+                                <router-link :to="{ name: 'admin.service-availability.index' }" class="side-menu__item">
+                                    <i class="ri-toggle-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('service_control.title') }}</span>
                                 </router-link>
                             </li>
 
@@ -727,7 +768,7 @@ const isAiVisible = computed(() => selectedModuleName.value === 'ai_assistant');
 const isSystemUsersVisible = computed(() => selectedModuleName.value === 'system_users');
 
 const showSystemUsersSection = computed(
-    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view')),
+    () => isSystemUsersVisible.value && (can('users.view') || can('ratings.view') || can('support-tickets.view') || can('support-settings.view') || can('support-quick-replies.view') || can('support-help-nodes.view') || can('referral-codes.view') || can('referrals.view') || can('security-events.view')),
 );
 
 /**
@@ -763,6 +804,9 @@ const showServicesSection = computed(() => can('service_categories.view') || tru
 const showCatalogSection = computed(
     () => can('flags.view')
         || can('countries.view')
+        || can('regions.view')
+        || can('cities.view')
+        || can('service-availability.view')
         || can('currencies.view')
         || can('languages.view'),
 );
@@ -799,6 +843,26 @@ const chatAdminItems = [
 
 const showChatAdminSection = computed(
     () => isChatVisible.value && chatAdminItems.some((item) => can(item.permission)),
+);
+
+/** Passenger rides (Modules/Driver + Modules/Rides), shown when the header service is the rides one. */
+const ridesItems = [
+    { route: 'admin.rides.rides', permission: 'rides.view', icon: 'ri-taxi-line', label: 'rides.rides.title' },
+    { route: 'admin.rides.drivers', permission: 'drivers.view', icon: 'ri-steering-2-line', label: 'rides.drivers.title' },
+    { route: 'admin.rides.document-types', permission: 'driver-document-types.view', icon: 'ri-file-list-3-line', label: 'rides.document_types.title' },
+    { route: 'admin.rides.switches', permission: 'ride-feature-rules.view', icon: 'ri-toggle-line', label: 'rides.switches.title' },
+    { route: 'admin.rides.categories', permission: 'ride-categories.view', icon: 'ri-apps-2-line', label: 'rides.categories.title' },
+    { route: 'admin.rides.policies', permission: 'ride-policies.view', icon: 'ri-price-tag-3-line', label: 'rides.policies.title' },
+    { route: 'admin.rides.zones', permission: 'ride-zones.view', icon: 'ri-map-pin-range-line', label: 'rides.zones.title' },
+    { route: 'admin.rides.safety', permission: 'ride-safety.view', icon: 'ri-alarm-warning-line', label: 'rides.safety.title' },
+    { route: 'admin.rides.cases', permission: 'ride-cases.view', icon: 'ri-customer-service-2-line', label: 'rides.cases.title' },
+    { route: 'admin.rides.wasl', permission: 'wasl-logs.view', icon: 'ri-government-line', label: 'rides.wasl_logs.title' },
+    { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
+    { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },
+];
+
+const showRidesSection = computed(
+    () => selectedModuleName.value === 'passenger_ride' && ridesItems.some((item) => can(item.permission)),
 );
 
 /** DORR Discover (Modules/Discover): events, organizers, categories & cities, settings. */

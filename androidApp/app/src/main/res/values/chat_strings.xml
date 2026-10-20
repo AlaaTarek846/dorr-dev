@@ -821,7 +821,44 @@
     <string name="ch_ai_image_again">Try again</string>
     <string name="ch_ai_image_send">Send</string>
     <string name="ch_ai_image_quota_note">Each image counts against your DORR AI plan\'s daily images.</string>
-    <string name="ch_ai_made">Made with AI</string>
+    <string name="ch_ai_image_ideas">Ideas</string>
+    <string name="ch_ai_image_style">Style</string>
+    <string name="ch_ai_style_realistic">Realistic</string>
+    <string name="ch_ai_style_illustration">Illustration</string>
+    <string name="ch_ai_style_anime">Anime</string>
+    <string name="ch_ai_style_3d">3D</string>
+    <string name="ch_ai_style_oil">Oil painting</string>
+    <string name="ch_ai_style_minimal">Minimal</string>
+    <string name="ch_ai_image_change">Change the words</string>
+    <string name="ch_ai_image_source">The image you\'re changing</string>
+    <string name="ch_ai_image_left">%1$d left today</string>
+    <string name="ch_ai_image_unlimited">Unlimited</string>
+    <string name="ch_ai_image_locked_chip">Locked</string>
+    <string name="ch_ai_image_no_plan">AI images need a DORR AI plan. Subscribe and start creating.</string>
+    <string name="ch_ai_image_trial_ended">Your free trial has ended. Pick a DORR AI plan to keep creating images.</string>
+    <string name="ch_ai_image_blocked">DORR AI is turned off for your account right now.</string>
+    <string name="ch_ai_image_not_in_plan">Your current plan doesn\'t include AI images. Upgrade to create them.</string>
+    <string name="ch_ai_image_limit_reached">You\'ve used today\'s %1$d images. Come back tomorrow or upgrade your plan.</string>
+    <string-array name="ch_ai_image_ideas">
+        <item>A sunset over the pyramids, cinematic</item>
+        <item>A cute cat in a space suit</item>
+        <item>A birthday card with balloons</item>
+        <item>A cozy coffee shop on a rainy day</item>
+        <item>A futuristic city at night</item>
+    </string-array>
+    <string-array name="ch_ai_image_edit_ideas">
+        <item>Make it black and white</item>
+        <item>Remove the background</item>
+        <item>Make it look like a cartoon</item>
+        <item>Add a warm sunset light</item>
+        <item>Make it look like an oil painting</item>
+    </string-array>
+    <string-array name="ch_ai_image_making">
+        <item>Drawing your image…</item>
+        <item>Mixing the colours…</item>
+        <item>Adding the details…</item>
+        <item>Almost there…</item>
+    </string-array>
     <!-- DORR AI in the chat: search by meaning, continue elsewhere, memory, AI images -->
     <string name="ch_ai_meaning_toggle">By meaning</string>
     <string name="ch_ai_meaning_terms">Also looked for: %1$s</string>
@@ -834,4 +871,91 @@
     <string name="ch_ai_images_title">AI images</string>
     <string name="ch_ai_images_sub">Everything made or edited with AI in your chats</string>
     <string name="ch_ai_images_empty">No AI images in your chats yet.</string>
+    <!-- Call links (WhatsApp list 72) -->
+    <string name="cl_create">Create call link</string>
+    <string name="cl_create_sub">Anyone with the link can join</string>
+    <string name="cl_pick_type">What kind of call?</string>
+    <string name="cl_voice">Voice call</string>
+    <string name="cl_video">Video call</string>
+    <string name="cl_title_voice">Voice call link</string>
+    <string name="cl_title_video">Video call link</string>
+    <string name="cl_from">From %1$s</string>
+    <string name="cl_join">Join call</string>
+    <string name="cl_cancel">Cancel link</string>
+    <string name="cl_cancelled">The link was cancelled</string>
+    <string name="cl_works_until">Works until %1$s</string>
+    <string name="cl_share_text">Join my call on DORR: %1$s</string>
+    <string name="cl_in_call">You are already in a call</string>
+    <!-- Screen sharing in a call (WhatsApp list 71) -->
+    <string name="ch_call_share_failed">Could not share your screen</string>
+    <string name="ch_call_sharing">You are sharing your screen</string>
+    <string name="ch_call_stop_sharing">Stop</string>
+    <!-- Reply buttons and lists (WhatsApp list 123–125) -->
+    <string name="ia_attach">Buttons</string>
+    <string name="ia_preview">Choices</string>
+    <string name="ia_new">Buttons or a list</string>
+    <string name="ia_new_sub">They answer with one tap</string>
+    <string name="ia_kind_buttons">Buttons (up to 3)</string>
+    <string name="ia_kind_list">List (up to 10)</string>
+    <string name="ia_body_hint">Your message</string>
+    <string name="ia_button_hint">List button, e.g. See the menu</string>
+    <string name="ia_buttons">Buttons</string>
+    <string name="ia_choices">Choices</string>
+    <string name="ia_option_hint">Choice %1$d</string>
+    <string name="ia_description_hint">A line under it (optional)</string>
+    <string name="ia_add_button">Add a button</string>
+    <string name="ia_add_choice">Add a choice</string>
+    <string name="ia_footer_hint">Footer (optional)</string>
+    <string name="ia_choose">Choose</string>
+    <string name="ia_no_answers">No answers yet</string>
+    <string name="ia_answers">%1$d answered · see who</string>
+    <!-- Communities (WhatsApp list 93–98) -->
+    <string name="cm_title">Communities</string>
+    <string name="cm_new">New community</string>
+    <string name="cm_new_sub">Bring related groups together, with announcements for everyone</string>
+    <string name="cm_empty">Bring your groups together under one community.</string>
+    <string name="cm_counts">%1$d groups · %2$d members</string>
+    <string name="cm_name_hint">Community name</string>
+    <string name="cm_description_hint">What is it for? (optional)</string>
+    <string name="cm_pick_groups">Groups you run to add now</string>
+    <string name="cm_no_free_groups">No groups to add: you need to be an admin of a group that is not in a community.</string>
+    <string name="cm_create">Create community</string>
+    <string name="cm_announcements">Announcements</string>
+    <string name="cm_announcements_sub">Only admins post here; everyone in the community reads it</string>
+    <string name="cm_your_groups">Your groups</string>
+    <string name="cm_other_groups">Other groups you can join</string>
+    <string name="cm_join">Join</string>
+    <string name="cm_ask_join">Ask to join</string>
+    <string name="cm_add_groups">Add existing groups</string>
+    <string name="cm_new_group">New group in the community</string>
+    <string name="cm_create_group">Create</string>
+    <string name="cm_members">Members</string>
+    <string name="cm_admins_of">%1$d of %2$d admins</string>
+    <string name="cm_rename">Change the name</string>
+    <string name="cm_remove_group">Remove from the community</string>
+    <string name="cm_remove_group_sub">The group stays as it is, just outside the community.</string>
+    <string name="cm_remove_member">Remove from the community</string>
+    <string name="cm_remove_member_sub">Removing takes them out of the community and all its groups.</string>
+    <string name="cm_make_admin">Make community admin</string>
+    <string name="cm_unmake_admin">Remove as admin</string>
+    <string name="cm_creator">Creator</string>
+    <string name="cm_admin">Admin</string>
+    <string name="cm_leave">Leave community</string>
+    <string name="cm_leave_sub">You will leave the community and all its groups.</string>
+    <string name="cm_delete">Delete community</string>
+    <string name="cm_delete_sub">Its groups go on as normal groups. The announcements group is deleted.</string>
+    <string name="cm_part_of">Part of the community: %1$s</string>
+    <string name="cm_announcements_of">Announcements of: %1$s</string>
+    <!-- A call minimised / outside the app -->
+    <string name="ch_call_minimize">Minimise</string>
+    <string name="ch_call_hang_up">Hang up</string>
+    <string name="ch_call_ongoing_channel">Ongoing call</string>
+    <string name="ch_call_ongoing_voice">Ongoing voice call</string>
+    <string name="ch_call_ongoing_video">Ongoing video call</string>
+    <string name="cpm_title">Show calls on top</string>
+    <string name="cpm_text">So an incoming call fills the screen even when you are in another app or the phone is locked, like Messenger.</string>
+    <string name="cpm_overlay">Allow showing over other apps</string>
+    <string name="cpm_full_screen">Allow full-screen calls</string>
+    <string name="cpm_done">Allowed</string>
+    <string name="cpm_later">Later</string>
 </resources>

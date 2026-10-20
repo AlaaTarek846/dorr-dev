@@ -22,6 +22,8 @@ import kotlinx.coroutines.launch
 /** Where a tapped notification wants to go. */
 sealed interface ChatDeepLink {
     data class Conversation(val id: String) : ChatDeepLink
+    /** A ride notification (arrived, started, ended…): the rides screen on that ride — ended: the receipt and the rating (O-41). */
+    data class Ride(val uuid: String) : ChatDeepLink
     data class Call(val id: String, val conversationId: String?) : ChatDeepLink
     /** DORR Moments: a reminder of one of my own dates (or a group card invite). */
     data object Moments : ChatDeepLink
@@ -35,6 +37,14 @@ sealed interface ChatDeepLink {
     data class Sports(val matchId: String?) : ChatDeepLink
     /** A reply or a status change on one of my support tickets. */
     data class Support(val ticketId: Int) : ChatDeepLink
+    /** A security alert (failed sign-ins, many codes asked for, a new device): Settings → Security. */
+    data object Security : ChatDeepLink
+    /** A "click to chat" link (dorr://chat/{token}?text=…) opened from outside the app. */
+    data class ChatLink(val payload: String) : ChatDeepLink
+    /** A group / channel invite (dorr://chat/join/{code}, from the /j/{code} web page). */
+    data class Join(val token: String) : ChatDeepLink
+    /** A call link (WhatsApp list 72): who made it, then "Join". */
+    data class CallLink(val token: String) : ChatDeepLink
 }
 
 /**
@@ -132,8 +142,12 @@ object ChatPush {
                     _deepLink.value = when {
                         data.optString("type") == "chat_call" && data.optString("call_id").isNotBlank() ->
                             ChatDeepLink.Call(data.optString("call_id"), conversation)
+                        // Someone joined my call link: hop in.
+                        data.optString("event") == "chat.call_link.joined" && data.optString("token").isNotBlank() -> ChatDeepLink.CallLink(data.optString("token"))
                         data.optString("type") == "support" && data.optInt("ticket_id", 0) > 0 -> ChatDeepLink.Support(data.optInt("ticket_id"))
+                        data.optString("type") == "security" -> ChatDeepLink.Security
                         conversation != null -> ChatDeepLink.Conversation(conversation)
+                        data.optString("type") == "ride" && data.optString("ride_uuid").isNotBlank() -> ChatDeepLink.Ride(data.optString("ride_uuid"))
                         data.optString("type") == "tasks" -> ChatDeepLink.Tasks
                         data.optString("type") == "calendar" -> ChatDeepLink.Calendar
                         data.optString("type") == "sports" -> ChatDeepLink.Sports(data.optString("match_id").takeIf { it.isNotBlank() && it != "null" })

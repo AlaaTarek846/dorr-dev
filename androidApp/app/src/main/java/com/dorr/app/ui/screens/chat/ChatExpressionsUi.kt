@@ -353,27 +353,30 @@ private fun StickersTab(library: StickerLibraryDto?, onPick: (ExpressionPick) ->
     }
 
     removing?.let { s ->
+        val locale = com.dorr.app.ui.locale.rememberAppLocaleFrame()
         AlertDialog(
             onDismissRequest = { removing = null },
             containerColor = Ch.Surface,
-            icon = { AsyncImage(ApiClient.mediaUrl(s.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.size(84.dp)) },
-            title = { Text(stringResource(R.string.ch_sticker_remove_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) },
-            text = { Text(stringResource(R.string.ch_sticker_remove_body), color = Ch.Mut) },
+            icon = { locale.Provide { AsyncImage(ApiClient.mediaUrl(s.url), null, imageLoader = chatImages(context), contentScale = ContentScale.Fit, modifier = Modifier.size(84.dp)) } },
+            title = { locale.Provide { Text(stringResource(R.string.ch_sticker_remove_title), color = Ch.Ink, fontWeight = FontWeight.ExtraBold) } },
+            text = { locale.Provide { Text(stringResource(R.string.ch_sticker_remove_body), color = Ch.Mut) } },
             confirmButton = {
-                TextButton(onClick = {
-                    removing = null
-                    // Gone from the grid at once; it comes back if the server says no.
-                    val before = library?.mine.orEmpty()
-                    onMineChange(before.filterNot { it.id == s.id })
-                    scope.launch {
-                        runCatching { ApiClient.chat.deleteMySticker(chatAuth(), s.id) }.onFailure { e ->
-                            onMineChange(before)
-                            e.apiFailure().message?.let { host.showToast(it) }
+                locale.Provide {
+                    TextButton(onClick = {
+                        removing = null
+                        // Gone from the grid at once; it comes back if the server says no.
+                        val before = library?.mine.orEmpty()
+                        onMineChange(before.filterNot { it.id == s.id })
+                        scope.launch {
+                            runCatching { ApiClient.chat.deleteMySticker(chatAuth(), s.id) }.onFailure { e ->
+                                onMineChange(before)
+                                e.apiFailure().message?.let { host.showToast(it) }
+                            }
                         }
-                    }
-                }) { Text(stringResource(R.string.ch_sticker_remove), color = Ch.Red, fontWeight = FontWeight.Bold) }
+                    }) { Text(stringResource(R.string.ch_sticker_remove), color = Ch.Red, fontWeight = FontWeight.Bold) }
+                }
             },
-            dismissButton = { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.ch_sticker_keep), color = Ch.Mut) } },
+            dismissButton = { locale.Provide { TextButton(onClick = { removing = null }) { Text(stringResource(R.string.ch_sticker_keep), color = Ch.Mut) } } },
         )
     }
 }

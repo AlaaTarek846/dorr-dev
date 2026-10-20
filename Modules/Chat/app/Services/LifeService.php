@@ -2,6 +2,7 @@
 
 namespace Modules\Chat\Services;
 
+use App\Support\LocaleResolver;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -553,7 +554,7 @@ class LifeService
         }
         $name = (string) ($actor->name ?? '');
         $headings = [];
-        foreach (\App\Support\LocaleResolver::supported() as $locale) {
+        foreach (LocaleResolver::supported() as $locale) {
             $headings[$locale] = __('chat.push.'.$what, ['name' => $name], $locale);
         }
         $this->push->toAccounts([[$to->participant_type, (int) $to->participant_id]], $headings, ['en' => Str::limit($title, 160)],
@@ -564,7 +565,7 @@ class LifeService
     private function langs(string $key): array
     {
         $out = [];
-        foreach (\App\Support\LocaleResolver::supported() as $locale) {
+        foreach (LocaleResolver::supported() as $locale) {
             $out[$locale] = __($key, [], $locale);
         }
 

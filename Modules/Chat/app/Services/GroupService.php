@@ -131,6 +131,10 @@ class GroupService
 
         DB::transaction(function () use ($me, $conversation, $group, $data) {
             $data = array_intersect_key($data, array_flip(['only_admins_send', 'only_admins_edit_info', 'only_admins_add_members', 'approve_joins', 'is_public', 'slow_mode_seconds', 'banned_words']));
+            if (CommunityService::isAnnouncement($conversation)) {
+                // A community's announcements: only its admins ever write (WhatsApp list 94).
+                unset($data['only_admins_send'], $data['only_admins_add_members']);
+            }
             if ($conversation->isChannel()) {
                 // A channel is always "admins post": nothing for members to slow down or filter.
                 unset($data['only_admins_send'], $data['only_admins_add_members'], $data['slow_mode_seconds'], $data['banned_words']);
@@ -235,6 +239,11 @@ class GroupService
         if ($role === ParticipantRole::Owner || $target->role === ParticipantRole::Owner) {
             throw ChatException::ownerOnly();
         }
+        // A community's admins are its announcements group's admins: 20 at most (WhatsApp list 97).
+        if ($role === ParticipantRole::Admin && $target->role !== $role && CommunityService::isAnnouncement($conversation)
+            && $conversation->activeParticipants()->whereIn('role', [ParticipantRole::Owner->value, ParticipantRole::Admin->value])->count() >= CommunityService::MAX_ADMINS) {
+            throw new ChatException('community_admins_full', 422, ['max' => CommunityService::MAX_ADMINS]);
+        }
 
         if ($target->role !== $role) {
             DB::transaction(function () use ($me, $conversation, $target, $role) {
@@ -255,6 +264,10 @@ class GroupService
     {
         $mine = $this->assertOwner($me, $conversation);
         $target = $this->activeMember($conversation, $participantId);
+        // A community's creator stays its creator (WhatsApp list 98).
+        if (CommunityService::isAnnouncement($conversation)) {
+            throw new ChatException('community_creator_stays', 422);
+        }
 
         if ($target->id === $mine->id) {
             return $mine;
@@ -278,6 +291,9 @@ class GroupService
     public function deleteForEveryone(Model $me, ChatConversation $conversation): void
     {
         $this->assertOwner($me, $conversation);
+        if (CommunityService::isAnnouncement($conversation)) {
+            throw new ChatException('community_delete_instead', 422);
+        }
         $everyone = $conversation->activeParticipants()->get();
 
         DB::transaction(function () use ($conversation) {
@@ -295,6 +311,9 @@ class GroupService
     public function leave(Model $me, ChatConversation $conversation): void
     {
         $participant = $this->assertGroupMember($me, $conversation);
+        if ($participant->role === ParticipantRole::Owner && CommunityService::isAnnouncement($conversation)) {
+            throw new ChatException('community_creator_stays', 422);
+        }
 
         DB::transaction(function () use ($me, $conversation, $participant) {
             $wasOwner = $participant->role === ParticipantRole::Owner;
@@ -329,7 +348,7 @@ class GroupService
      * `$expiresInHours` (one of INVITE_EXPIRY_HOURS) or forever when null. An expired link is
      * replaced automatically the next time an admin opens it.
      *
-     * @return array{token: string, link: string, expires_at: string|null}
+     * @return array{token: string, code: string, link: string, payload: string, expires_at: string|null}
      */
     public function inviteLink(Model $me, ChatConversation $conversation, bool $reset = false, ?int $expiresInHours = null): array
     {
@@ -343,9 +362,16 @@ class GroupService
             ]);
         }
 
+        $token = $group->invite_token;
+
         return [
-            'token' => $group->invite_token,
-            'link' => 'dorr://chat/join/'.$group->invite_token,
+            'token' => $token,
+            // Typed in "Join with a code".
+            'code' => $token,
+            // A web link that opens anywhere (WhatsApp, SMS…): its page opens the app on the
+            // phone; the app's own link stays in `payload`.
+            'link' => url('/j/'.$token),
+            'payload' => 'dorr://chat/join/'.$token,
             'expires_at' => $group->invite_expires_at?->toIso8601String(),
         ];
     }
@@ -379,7 +405,20 @@ class GroupService
      */
     public function join(Model $me, string $token): ChatParticipant|ChatGroupJoinRequest
     {
-        $group = $this->groupByInvite($token);
+        return $this->enter($me, $this->groupByInvite($token), 'member_joined_via_link');
+    }
+
+    /**
+     * From the community page (WhatsApp list 95): a community member hops into one of its
+     * groups — or asks to, when that group approves new members. No invite link needed.
+     */
+    public function enterFromCommunity(Model $me, ChatConversation $conversation): ChatParticipant|ChatGroupJoinRequest
+    {
+        return $this->enter($me, $conversation->group, 'member_joined_via_community');
+    }
+
+    private function enter(Model $me, ChatGroup $group, string $event): ChatParticipant|ChatGroupJoinRequest
+    {
         $conversation = $group->conversation;
 
         $existing = $conversation->activeParticipants()->of($me)->first();
@@ -411,9 +450,9 @@ class GroupService
             return app(ChannelService::class)->follow($me, $conversation);
         }
 
-        return DB::transaction(function () use ($me, $conversation) {
+        return DB::transaction(function () use ($me, $conversation, $event) {
             $row = $this->conversations->addParticipant($conversation, $me, ParticipantRole::Member, (int) $conversation->last_message_id ?: null);
-            $this->messages->system($conversation, $me, 'member_joined_via_link');
+            $this->messages->system($conversation, $me, $event);
             $this->changed($conversation);
 
             return $row;

@@ -72,6 +72,25 @@ class AiTaskRunner
         protected AiMediaQuotaService $mediaQuota,
     ) {}
 
+    /**
+     * Today's images on the person's plan, read-only (starts nothing): whether the plan allows AI at
+     * all, and the daily allowance — `limit` null means unlimited, 0 means the plan has no images.
+     *
+     * @return array{allowed: bool, reason: ?string, limit: ?int, used: int, remaining: ?int}
+     */
+    public function imageAllowance(Authenticatable $owner): array
+    {
+        $plan = $this->entitlement($owner);
+        $used = $this->mediaQuota->usedToday($owner, AiMediaGeneration::KIND_IMAGE);
+        if (! $plan['allowed']) {
+            return ['allowed' => false, 'reason' => $plan['reason'], 'limit' => null, 'used' => $used, 'remaining' => 0];
+        }
+
+        $check = $this->mediaQuota->check($owner, $this->usageGuard->currentPlan($owner), AiMediaGeneration::KIND_IMAGE);
+
+        return ['allowed' => $check['allowed'], 'reason' => $check['reason'], 'limit' => $check['limit'], 'used' => $check['used'], 'remaining' => $check['remaining']];
+    }
+
     /** Whether images can be made at all (an image model is registered on a usable provider). */
     public function canMakeImages(): bool
     {

@@ -6,6 +6,14 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Crash reports go to Firebase Crashlytics once the Firebase project's google-services.json is
+// in app/ (Firebase console → Project settings → Android app com.dorr.app). Without it the app
+// builds and runs as before, it just reports nothing.
+if (file("google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+}
+
 android {
     namespace = "com.dorr.app"
     compileSdk = 34
@@ -23,7 +31,6 @@ android {
 
         // The backend each developer's phone talks to (their own ngrok tunnel / LAN IP), from
         // local.properties (not committed) so merges never swap it:
-        //   dorr.apiHost=my-tunnel.ngrok-free.dev
         //   dorr.apiScheme=https        (http for a LAN IP)
         val local = Properties().apply {
             rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
@@ -40,6 +47,9 @@ android {
         ndk { abiFilters += abis.split(",").map { it.trim() }.filter { it.isNotEmpty() } }
         buildConfigField("String", "API_HOST", "\"$apiHost\"")
         buildConfigField("String", "API_SCHEME", "\"$apiScheme\"")
+        // The Android Maps key (restricted to this app's package), per developer / build like the host:
+        //   dorr.mapsKey=AIza... in local.properties, or -Pdorr.mapsKey=... — without it the map stays blank, the rest works.
+        manifestPlaceholders["mapsApiKey"] = (findProperty("dorr.mapsKey") as String?) ?: local.getProperty("dorr.mapsKey", "")
     }
 
     buildTypes {
@@ -117,6 +127,8 @@ dependencies {
     // ships (package livekit.org.webrtc) -- a second WebRTC artifact here added ~11 MB per CPU type.
     // Phone notifications (chat messages, calls, wallet…) — the server already sends through OneSignal.
     implementation("com.onesignal:OneSignal:5.1.6")
+    // Crash reports (CrashReports.kt): every crash with its stack and the account id, in Firebase.
+    implementation("com.google.firebase:firebase-crashlytics:19.2.1")
     // Chat videos are re-encoded on the phone before upload (720p H.264) — Google's own transcoder.
     implementation("androidx.media3:media3-transformer:1.4.1")
     // The chat outbox: messages sent offline go in the background once there's a connection.
@@ -132,6 +144,11 @@ dependencies {
     implementation("com.google.android.play:review-ktx:2.0.2")
     // Play Install Referrer (no-op until the app is published; same API as share/copy today)
     implementation("com.android.installreferrer:installreferrer:2.2")
+
+    // Passenger rides: the map (Google Maps for Compose) and the phone's location (fused provider).
+    implementation("com.google.android.gms:play-services-maps:19.0.0")
+    implementation("com.google.maps.android:maps-compose:6.1.0")
+    implementation("com.google.android.gms:play-services-location:21.3.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

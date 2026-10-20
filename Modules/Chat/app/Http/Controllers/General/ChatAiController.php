@@ -49,12 +49,21 @@ class ChatAiController extends Controller
         return ApiResponse::success($messages->aiImages($request->user()), __('api.retrieved'));
     }
 
-    /** POST conversations/{c}/ai/image — `{prompt}` (spec 50): a draft image only I see, to send or drop. */
+    /** GET ai/image/quota — today's AI images on my plan, before I start (read-only). */
+    public function imageQuota(Request $request, ChatAiImageService $images)
+    {
+        return ApiResponse::success($images->quota($request->user()), __('api.retrieved'));
+    }
+
+    /** POST conversations/{c}/ai/image — `{prompt, style?}` (spec 50): a draft image only I see, to send or drop. */
     public function generateImage(Request $request, ChatConversation $conversation, ChatAiImageService $images)
     {
-        $data = $request->validate(['prompt' => ['required', 'string', 'max:1000']]);
+        $data = $request->validate([
+            'prompt' => ['required', 'string', 'max:1000'],
+            'style' => ['nullable', Rule::in(array_keys(ChatAiImageService::STYLES))],
+        ]);
 
-        return ApiResponse::success($images->generate($request->user(), $conversation, $data['prompt']), __('api.created'));
+        return ApiResponse::success($images->generate($request->user(), $conversation, $data['prompt'], $data['style'] ?? null), __('api.created'));
     }
 
     /** POST messages/{m}/ai/edit-image — `{prompt}` (spec 51): an image in the chat, changed as described, as a draft. */

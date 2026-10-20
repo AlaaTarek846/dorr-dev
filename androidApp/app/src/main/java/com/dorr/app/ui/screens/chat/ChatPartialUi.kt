@@ -80,6 +80,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.CatchUpDto
 import com.dorr.app.network.ChatMoneyDto
@@ -160,6 +161,25 @@ object ChatPrefs {
                     kbps in 1..1500 -> 1024 to 70
                     else -> 1600 to 82
                 }
+            }
+        }
+    }
+
+    /**
+     * How a video goes now: `hd` when I chose high quality (backlog 47); `slow` with data saver,
+     * "saver", or a slow mobile line on auto — light and at most 64 MB (backlog 48); else `normal`.
+     */
+    fun videoMode(context: Context): String {
+        load(context)
+        if (com.dorr.app.chat.ChatDataSaver.active) return "slow"
+        return when (uploadQuality) {
+            "high" -> "hd"
+            "saver" -> "slow"
+            else -> {
+                val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+                val caps = cm?.getNetworkCapabilities(cm.activeNetwork)
+                val kbps = caps?.linkDownstreamBandwidthKbps ?: 0
+                if (caps != null && !caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED) && kbps in 1..1500) "slow" else "normal"
             }
         }
     }
@@ -447,16 +467,19 @@ fun MediaFilterRow(files: Boolean, date: String?, fileKind: String?, bigOnly: Bo
         }
     }
     if (picking) {
+        val locale = rememberAppLocaleFrame()
         val state = rememberDatePickerState()
         DatePickerDialog(
             onDismissRequest = { picking = false },
             confirmButton = {
-                TextButton({ state.selectedDateMillis?.let { onDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }; picking = false }) {
-                    Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold)
+                locale.Provide {
+                    TextButton({ state.selectedDateMillis?.let { onDate(Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate().toString()) }; picking = false }) {
+                        Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold)
+                    }
                 }
             },
-            dismissButton = { TextButton({ picking = false }) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } },
-        ) { DatePicker(state) }
+            dismissButton = { locale.Provide { TextButton({ picking = false }) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } } },
+        ) { locale.Provide { DatePicker(state) } }
     }
 }
 

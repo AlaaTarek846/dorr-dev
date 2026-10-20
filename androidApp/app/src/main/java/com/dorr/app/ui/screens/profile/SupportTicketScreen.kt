@@ -74,6 +74,7 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import com.dorr.app.network.AppLocale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -414,7 +415,7 @@ private fun ticketWhen(iso: String?): String? {
         ?: runCatching { java.time.OffsetDateTime.parse(iso).toInstant() }.getOrNull()
         ?: return null
     val zoned = instant.atZone(ZoneId.systemDefault())
-    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).format(zoned)
+    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(AppLocale.java()).format(zoned)
 }
 
 @Composable

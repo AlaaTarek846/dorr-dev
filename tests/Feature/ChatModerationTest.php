@@ -175,6 +175,24 @@ class ChatModerationTest extends TestCase
         $this->postJson('/api/mobile/v1/chat/invites/'.$fresh->json('data.token').'/join', [], $this->headers())->assertOk();
     }
 
+    public function test_an_invite_is_a_web_link_whose_page_opens_the_app(): void
+    {
+        $group = $this->group($this->alice, [$this->bob]);
+
+        $this->as($this->alice);
+        $invite = $this->getJson("/api/mobile/v1/chat/groups/{$group}/invite", $this->headers())->assertOk();
+        $token = $invite->json('data.token');
+        // Shared on WhatsApp / SMS it's a normal link; the app's own link is the payload; the code is typed.
+        $this->assertSame(url('/j/'.$token), $invite->json('data.link'));
+        $this->assertSame('dorr://chat/join/'.$token, $invite->json('data.payload'));
+        $this->assertSame($token, $invite->json('data.code'));
+
+        // The page opens the join sheet in the app; a wrong code says the link doesn't work.
+        $page = $this->get('/j/'.$token)->assertOk();
+        $this->assertStringContainsString('intent://chat/join/'.$token, $page->getContent());
+        $this->get('/j/NotARealCode123')->assertNotFound();
+    }
+
     public function test_invite_expiry_only_takes_the_offered_steps(): void
     {
         $group = $this->group($this->alice, [$this->bob]);

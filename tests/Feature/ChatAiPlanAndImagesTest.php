@@ -149,6 +149,27 @@ class ChatAiPlanAndImagesTest extends TestCase
         $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/ai/image/send", ['draft' => $draft['draft']], $this->headers())->assertNotFound();
     }
 
+    public function test_the_sheet_knows_todays_images_before_starting_and_a_style_reaches_the_model(): void
+    {
+        // No plan: locked, and asking started nothing.
+        $this->as($this->alice);
+        $this->getJson('/api/mobile/v1/chat/ai/image/quota', $this->headers())->assertOk()
+            ->assertJsonPath('data.allowed', false)->assertJsonPath('data.reason', 'no_plan');
+        $this->assertSame(0, \Modules\AI\Models\AiSubscription::query()->count());
+
+        $this->trialPlan(imagesPerDay: 2);
+        $this->getJson('/api/mobile/v1/chat/ai/image/quota', $this->headers())->assertOk()
+            ->assertJsonPath('data.allowed', true)->assertJsonPath('data.limit', 2)->assertJsonPath('data.remaining', 2)
+            ->assertJsonPath('data.styles', ['realistic', 'illustration', 'anime', '3d', 'oil', 'minimal']);
+
+        $chat = $this->direct($this->alice, $this->bob);
+        $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/ai/image", ['prompt' => 'a cat', 'style' => 'anime'], $this->headers())->assertOk();
+        Http::assertSent(fn (Request $r) => str_contains($r->url(), 'images/generations') && str_starts_with($r['prompt'], 'a cat') && str_contains($r['prompt'], 'anime'));
+        $this->getJson('/api/mobile/v1/chat/ai/image/quota', $this->headers())->assertJsonPath('data.used', 1)->assertJsonPath('data.remaining', 1);
+
+        $this->postJson("/api/mobile/v1/chat/conversations/{$chat}/ai/image", ['prompt' => 'a cat', 'style' => 'weird'], $this->headers())->assertUnprocessable();
+    }
+
     public function test_images_count_against_the_plans_daily_images(): void
     {
         $plan = $this->trialPlan(imagesPerDay: 1);

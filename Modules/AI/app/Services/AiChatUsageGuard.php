@@ -250,6 +250,29 @@ class AiChatUsageGuard
     }
 
     /**
+     * The plan the owner is on right now, read-only: their active subscription's plan, or — never
+     * used yet — the free trial plan evaluate() would start. Null when there is none.
+     */
+    public function currentPlan(Authenticatable $owner): ?AiPlan
+    {
+        $active = AiSubscription::query()
+            ->where('owner_type', $owner->getMorphClass())->where('owner_id', $owner->getAuthIdentifier())
+            ->where('status', AiSubscription::STATUS_ACTIVE)
+            ->where(fn ($query) => $query->whereNull('ends_at')->orWhere('ends_at', '>=', now()))
+            ->with('plan')->latest('id')->first();
+
+        if ($active !== null) {
+            return $active->plan;
+        }
+
+        $preview = $this->preview($owner);
+
+        return $preview['allowed'] && $preview['is_trial']
+            ? AiPlan::query()->where('is_trial', true)->where('is_active', true)->orderBy('sort_order')->first()
+            : null;
+    }
+
+    /**
      * Called once a message has actually been processed, so the reported
      * remaining time reflects the extra seconds this turn just consumed
      * without waiting for the *next* evaluate() call to notice.

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DORR Captain</string>
+
+    <string name="login_title">Welcome, captain</string>
+    <string name="login_subtitle">Sign in with your mobile number</string>
+    <string name="login_phone_label">Mobile number</string>
+    <string name="login_send_code">Send code</string>
+
+    <string name="otp_title">Enter the code</string>
+    <string name="otp_subtitle">We sent a code to %1$s</string>
+    <string name="otp_verify">Verify</string>
+    <string name="otp_resend">Resend code</string>
+    <string name="otp_resend_in">Resend in %1$d s</string>
+    <string name="otp_change_number">Change number</string>
+
+    <string name="home_greeting">Hello, captain</string>
+    <string name="home_logout">Sign out</string>
+    <string name="home_go_online">Go online</string>
+    <string name="home_rides_soon">Ride requests arrive here soon</string>
+
+    <string name="status_pending_documents">Send your documents</string>
+    <string name="status_pending_documents_hint">Add your licence and your vehicle so we can review your account.</string>
+    <string name="status_under_review">Your account is under review</string>
+    <string name="status_under_review_hint">We\'ll let you know as soon as it\'s approved.</string>
+    <string name="status_active">Your account is active</string>
+    <string name="status_active_hint">You can go online and receive rides.</string>
+    <string name="status_suspended">Your account is on hold</string>
+    <string name="status_restricted">Your account is restricted</string>
+    <string name="status_blocked">Your account is blocked</string>
+
+    <string name="error_offline">No internet connection. Try again.</string>
+    <string name="error_generic">Something went wrong. Try again.</string>
+    <string name="retry">Try again</string>
+</resources>

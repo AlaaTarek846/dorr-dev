@@ -1,6 +1,7 @@
 package com.dorr.app.ui.screens.chat
 
 import android.content.Context
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
@@ -40,9 +41,15 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import com.dorr.app.chat.ChatStore
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.theme.AppColors
+import com.dorr.app.ui.theme.LocalThemeState
+import com.dorr.app.ui.theme.appearanceColor
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
@@ -72,7 +79,7 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
-import java.util.Locale
+import com.dorr.app.network.AppLocale
 import kotlin.math.absoluteValue
 
 /**
@@ -83,9 +90,9 @@ import kotlin.math.absoluteValue
  */
 object Ch {
     /**
-     * Dark mode for the chat — set by ChatScreen from the app's theme (the user's choice, or the
-     * system's). It's snapshot state, so every screen reading a colour below redraws on its own
-     * when it flips; nothing else in the chat hard-codes light colours.
+     * Dark mode for the chat — kept in sync with the app's appearance ([BindChatAppearance], and
+     * ChatScreen if the chat has its own light/dark choice). Snapshot state so every screen
+     * reading a colour below redraws on its own when it flips.
      */
     var dark by androidx.compose.runtime.mutableStateOf(false)
 
@@ -188,6 +195,27 @@ data class ChPalette(
     val danger: Color,
     val success: Color,
 )
+
+/**
+ * Copy the appearance tokens into [Ch] so chat sheets (people picker, clock, …) match night mode
+ * even when ChatScreen is not on screen.
+ */
+@Composable
+fun BindChatAppearance() {
+    val appDark = LocalThemeState.current.isDark ?: isSystemInDarkTheme()
+    val chatDark = when (ChatStore.themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> appDark
+    }
+    val palette = chatPaletteFromSettings(chatDark)
+    val accent = if (chatDark) AccountDark.accent else appearanceColor("primary", AppColors.waRed, night = false)
+    SideEffect {
+        Ch.dark = chatDark
+        Ch.accent = accent
+        Ch.palette = palette
+    }
+}
 
 /** Read the chat's palette from the appearance settings (same tokens as the wallet / profile). */
 @Composable
@@ -488,7 +516,7 @@ internal fun parseInstant(iso: String?): Instant? = iso?.let { runCatching { jav
 
 /** "14:05" */
 internal fun clockTime(iso: String?): String = parseInstant(iso)?.let {
-    DateTimeFormatter.ofPattern("HH:mm", Locale.getDefault()).withZone(zone).format(it)
+    DateTimeFormatter.ofPattern("HH:mm", AppLocale.java()).withZone(zone).format(it)
 }.orEmpty()
 
 /** Chat list: today → time, yesterday → "Yesterday", this week → weekday, else the date. */
@@ -500,8 +528,8 @@ internal fun listTime(iso: String?): String {
     return when {
         day == today -> clockTime(iso)
         day == today.minusDays(1) -> androidx.compose.ui.res.stringResource(R.string.ch_yesterday)
-        ChronoUnit.DAYS.between(day, today) < 7 -> DateTimeFormatter.ofPattern("EEEE", Locale.getDefault()).format(day)
-        else -> DateTimeFormatter.ofPattern("d/M/yyyy", Locale.getDefault()).format(day)
+        ChronoUnit.DAYS.between(day, today) < 7 -> DateTimeFormatter.ofPattern("EEEE", AppLocale.java()).format(day)
+        else -> DateTimeFormatter.ofPattern("d/M/yyyy", AppLocale.java()).format(day)
     }
 }
 
@@ -514,7 +542,7 @@ internal fun dayLabel(day: LocalDate): String {
     return when (day) {
         today -> androidx.compose.ui.res.stringResource(R.string.ch_today)
         today.minusDays(1) -> androidx.compose.ui.res.stringResource(R.string.ch_yesterday)
-        else -> DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.getDefault()).format(day)
+        else -> DateTimeFormatter.ofPattern("d MMMM yyyy", AppLocale.java()).format(day)
     }
 }
 

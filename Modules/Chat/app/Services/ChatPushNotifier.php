@@ -87,7 +87,7 @@ class ChatPushNotifier
         // Three audiences at most: the name and the text · the name and "New message" · "Dorr",
         // "New message". A locked chat never shows anything.
         $levels = $this->privacyLevels($recipients);
-        $circles = \Modules\Chat\Models\ChatPrivacyCircle::query()->whereIn('id', $recipients->pluck('privacy_circle_id')->filter()->unique())->get()->keyBy('id');
+        $circles = ChatPrivacyCircle::query()->whereIn('id', $recipients->pluck('privacy_circle_id')->filter()->unique())->get()->keyBy('id');
         $level = function (ChatParticipant $p) use ($levels, $message, $circles, $attention) {
             $key = $p->participant_type.':'.$p->participant_id;
             // "Later": no notification at all, only the counter (it waits in the life inbox).
@@ -97,7 +97,7 @@ class ChatPushNotifier
             $chosen = $p->is_locked ? 'none' : ($levels[$key] ?? 'all');
             // My context shows less (work: names only · private: nothing).
             if (($ctx = $attention[$key]['disclosure'] ?? null) !== null) {
-                $chosen = \Modules\Chat\Models\ChatPrivacyCircle::stricter($chosen, $ctx);
+                $chosen = ChatPrivacyCircle::stricter($chosen, $ctx);
             }
 
             // A sensitive message never shows its content, whatever the recipient chose.
@@ -389,7 +389,7 @@ class ChatPushNotifier
                 $playerIds = NotificationDevice::query()
                     ->where(function ($q) use ($recipients) {
                         foreach ($recipients->groupBy('participant_type') as $type => $rows) {
-                            $q->orWhere(fn ($q) => $q->where('owner_type', ParticipantType::modelClassFor($type))->whereIn('owner_id', $rows->pluck('participant_id')));
+                            $q->orWhere(fn ($q) => $q->whereIn('owner_type', self::deviceOwnerTypes($type))->whereIn('owner_id', $rows->pluck('participant_id')));
                         }
                     })
                     ->pluck('player_id')->filter()->unique()->values()->all();
@@ -406,6 +406,20 @@ class ChatPushNotifier
                 Log::error('[ChatPushNotifier] '.$e->getMessage());
             }
         });
+    }
+
+    /**
+     * How a phone's owner is saved in `notification_devices`: its morph class — "user" since the
+     * AI module's morph map aliases the account models, the class name for phones registered
+     * before that. Looking up the class name alone found no phone, so no chat push went out.
+     *
+     * @return list<string>
+     */
+    private static function deviceOwnerTypes(string $alias): array
+    {
+        $class = ParticipantType::modelClassFor($alias);
+
+        return array_values(array_unique([$class, (new $class)->getMorphClass()]));
     }
 
     /**

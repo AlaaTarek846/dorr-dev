@@ -53,6 +53,37 @@ class MainActivity : FragmentActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         openSports(intent)
+        openChatLink(intent)
+        openCall(intent)
+    }
+
+    /** The ongoing call's notification was tapped: the call screen again, full size. */
+    private fun openCall(intent: android.content.Intent?) {
+        if (intent?.getBooleanExtra(com.dorr.app.chat.CallService.EXTRA_OPEN_CALL, false) == true) com.dorr.app.chat.CallController.minimized = false
+    }
+
+    /** Home / another app mid-call: the call goes on in a small window over everything (Messenger-style). */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        com.dorr.app.chat.CallPip.enter(this)
+    }
+
+    /** dorr://chat/{token}?text=… — a "click to chat" link (backlog 130). */
+    private fun openChatLink(intent: android.content.Intent?) {
+        val data = intent?.data ?: return
+        if (data.scheme != "dorr" || data.host != "chat") return
+        intent.data = null
+        // An invite (from the /j/ web page or a QR): the join sheet.
+        if (data.pathSegments.firstOrNull() == "join") {
+            data.pathSegments.getOrNull(1)?.let { com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.Join(it)) }
+            return
+        }
+        // A call link (the /call/ web page): who made it, then "Join".
+        if (data.pathSegments.firstOrNull() == "call") {
+            data.pathSegments.getOrNull(1)?.let { com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.CallLink(it)) }
+            return
+        }
+        com.dorr.app.chat.ChatPush.open(com.dorr.app.chat.ChatDeepLink.ChatLink(data.toString()))
     }
 
     private fun openSports(intent: android.content.Intent?) {
@@ -64,6 +95,9 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         openSports(intent)
+        openChatLink(intent)
+        openCall(intent)
+        addOnPictureInPictureModeChangedListener { com.dorr.app.chat.CallController.inPip = it.isInPictureInPictureMode }
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.light(
                 AndroidColor.WHITE,
@@ -123,6 +157,7 @@ class MainActivity : FragmentActivity() {
                         onDispose {}
                     }
                     DorrTheme(darkTheme = night) {
+                        com.dorr.app.ui.screens.chat.BindChatAppearance()
                         Surface(
                             modifier = Modifier.fillMaxSize(),
                             // Behind the status bar: the same dark the screens use at night.
@@ -146,6 +181,16 @@ class MainActivity : FragmentActivity() {
                                             networkMonitor.refresh()
                                         },
                                     )
+                                }
+
+                                // In the picture-in-picture window only the call is drawn; once it's over the window goes away.
+                                if (com.dorr.app.chat.CallController.inPip) com.dorr.app.ui.screens.chat.CallPipView()
+                                val callPhase = com.dorr.app.chat.CallController.phase
+                                LaunchedEffect(callPhase, com.dorr.app.chat.CallController.inPip) {
+                                    if (com.dorr.app.chat.CallController.inPip && (callPhase == null || callPhase == com.dorr.app.chat.CallPhase.Ended)) {
+                                        kotlinx.coroutines.delay(1200)
+                                        if (com.dorr.app.chat.CallController.inPip) moveTaskToBack(false)
+                                    }
                                 }
                             }
                         }

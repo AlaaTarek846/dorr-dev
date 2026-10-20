@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.automirrored.rounded.ExitToApp
+import androidx.compose.material.icons.rounded.Diversity3
 import androidx.compose.material.icons.rounded.Pin
 import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.Gavel
@@ -65,6 +66,9 @@ import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Timer
 import androidx.compose.material.icons.rounded.Videocam
 import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material.icons.rounded.AddReaction
+import androidx.compose.material.icons.rounded.Insights
+import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -184,8 +188,9 @@ fun ChatInfoPage(id: String) {
                         Spacer(Modifier.height(16.dp))
                         if (conversation != null && conversation.canSend && !conversation.isChannel && !conversation.isSelf) {
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                                // No call buttons where calls can't work (switched off in my or their country).
-                                if (conversation.canCall != false) {
+                                // No call buttons where calls can't work (switched off in my or their country,
+                                // or a request not accepted yet).
+                                if (conversation.canCall != false && conversation.status == "accepted") {
                                     QuickAction(Icons.Rounded.Call, stringResource(R.string.ch_call_voice), 0) { startCall(id, false, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
                                     QuickAction(Icons.Rounded.Videocam, stringResource(R.string.ch_call_video), 1) { startCall(id, true, conversation.title.orEmpty(), conversation.avatar, conversation.peer?.key); host.pop() }
                                 }
@@ -193,6 +198,17 @@ fun ChatInfoPage(id: String) {
                                     QuickAction(Icons.Rounded.PersonAdd, stringResource(R.string.ch_add_members), 2) { host.push(ChRoute.NewGroup(addTo = id)) }
                                 }
                             }
+                        }
+                    }
+                }
+            }
+
+            // ------------------------------------------------------------ its community (WhatsApp list 93)
+            conversation?.group?.community?.let { community ->
+                item(key = "community") {
+                    Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
+                        SettingRow(Icons.Rounded.Diversity3, stringResource(if (community.isAnnouncement) R.string.cm_announcements_of else R.string.cm_part_of, community.name)) {
+                            host.push(ChRoute.Community(community.id))
                         }
                     }
                 }
@@ -249,6 +265,11 @@ fun ChatInfoPage(id: String) {
                 }
             }
 
+            // ------------------------------------------------------------ a business's card (backlog 111)
+            conversation?.business?.takeIf { !it.about.isNullOrBlank() || !it.address.isNullOrBlank() || !it.email.isNullOrBlank() || !it.website.isNullOrBlank() }?.let { b ->
+                item { BusinessCardInfo(b) }
+            }
+
             // ------------------------------------------------------------ my settings
             if (conversation != null) item {
                 Card(Modifier.padding(horizontal = 14.dp, vertical = 8.dp)) {
@@ -287,6 +308,8 @@ fun ChatInfoPage(id: String) {
                         com.dorr.app.chat.ChatShield.toggleSafeHidden(context, id)
                     }
                     SettingRow(Icons.Rounded.Folder, stringResource(R.string.ch_add_to_folder)) { sheet = "folder" }
+                    // Export the chat (backlog 25).
+                    SettingRow(Icons.Rounded.IosShare, stringResource(R.string.bk_export)) { sheet = "export" }
                     // ✨ The AI's summary of this chat (one tap; the messages go to the AI provider for it).
                     if (ChatAi.summarize) SettingRow(Icons.Rounded.AutoAwesome, stringResource(R.string.ch_ai_summary)) { sheet = "summary" }
                     SettingRow(Icons.Rounded.Palette, stringResource(R.string.ch_chat_theme), value = conversation.theme?.applied?.name ?: stringResource(R.string.ch_theme_dorr)) { sheet = "theme" }
@@ -305,6 +328,13 @@ fun ChatInfoPage(id: String) {
                             GroupToggle(stringResource(R.string.ch_channel_public), g.isPublic) { scope.launch { runCatching { ApiClient.chat.groupSettings(chatAuth(), id, mapOf("is_public" to it)).data }.getOrNull()?.let { c = it } } }
                             SettingRow(Icons.Rounded.AlternateEmail, stringResource(R.string.ch_channel_handle), value = g.handle?.let { "@$it" }) { sheet = "handle" }
                             SettingRow(Icons.Rounded.Category, stringResource(R.string.ch_channel_category), value = g.category?.name ?: stringResource(R.string.ch_channel_category_none)) { sheet = "category" }
+                            // Backlog 107 and 110: the channel's numbers, and the reactions it allows.
+                            SettingRow(Icons.Rounded.Insights, stringResource(R.string.bk_channel_stats)) { host.push(ChRoute.ChannelStats(id)) }
+                            SettingRow(Icons.Rounded.AddReaction, stringResource(R.string.bk_channel_reactions), value = when {
+                                g.allowedReactions == null -> stringResource(R.string.bk_reactions_any)
+                                g.allowedReactions.isEmpty() -> stringResource(R.string.bk_reactions_none)
+                                else -> g.allowedReactions.joinToString("")
+                            }) { sheet = "reactions" }
                             // The owner buys the ✔ (like WhatsApp's Meta Verified).
                             if (conversation.myRole == "owner") {
                                 SettingRow(Icons.Rounded.Verified, stringResource(R.string.ch_channel_verify), value = stringResource(if (g.isVerified) R.string.ch_verified else R.string.ch_not_verified)) { sheet = "verify" }
@@ -403,6 +433,8 @@ fun ChatInfoPage(id: String) {
         }
     }
     when (sheet) {
+        "export" -> ExportChatSheet(id) { sheet = null }
+        "reactions" -> c?.let { current -> ChannelReactionsSheet(id, current.group?.allowedReactions, onDismiss = { sheet = null }) { fresh -> c = fresh } }
         "folder" -> c?.let { current -> FolderPickerSheet(current) { sheet = null } }
         "invite" -> c?.let { current -> InviteLinkSheet(current) { sheet = null } }
         "tone" -> ChoiceSheet(stringResource(R.string.ch_tone), listOf(

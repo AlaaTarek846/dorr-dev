@@ -100,8 +100,9 @@ class AiHistorySearchService
      */
     protected function find(Authenticatable $owner, string $term): array
     {
-        $like = '%'.str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $this->normalize($term)[0]).'%';
-        $matches = fn (string $column) => fn ($q) => $q->whereRaw($this->normalizedSql($column)." like ? escape '\\'", [$like]);
+        // "!" as the LIKE escape: a backslash inside '…' is itself an escape in MySQL (works in SQLite too).
+        $like = '%'.str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $this->normalize($term)[0]).'%';
+        $matches = fn (string $column) => fn ($q) => $q->whereRaw($this->normalizedSql($column)." like ? escape '!'", [$like]);
         $mine = fn ($q) => $q->where('owner_type', $owner->getMorphClass())->where('owner_id', $owner->getAuthIdentifier());
         $hits = [];
 

@@ -126,6 +126,21 @@ class MobileContentTest extends TestCase
             ->assertJsonPath('data.content', 'Service policy');
     }
 
+    public function test_legal_pages_endpoint_falls_back_to_the_general_page_when_asked(): void
+    {
+        $this->makeLegalPage(['type' => 'term', 'service_id' => null, 'status' => true], 'General terms');
+
+        // Without fallback a service with no page of its own gets nothing; with it, the page in force (R-179).
+        $this->getJson('/api/mobile/v1/legal-pages?type=term&service_id='.$this->service->id, ['X-Locale' => 'en'])
+            ->assertOk()->assertJsonPath('data', []);
+        $this->getJson('/api/mobile/v1/legal-pages?type=term&fallback=1&service_id='.$this->service->id, ['X-Locale' => 'en'])
+            ->assertOk()->assertJsonPath('data.content', 'General terms');
+
+        $this->makeLegalPage(['type' => 'term', 'service_id' => $this->service->id, 'status' => true], 'Service terms');
+        $this->getJson('/api/mobile/v1/legal-pages?type=term&fallback=1&service_id='.$this->service->id, ['X-Locale' => 'en'])
+            ->assertOk()->assertJsonPath('data.content', 'Service terms');
+    }
+
     public function test_legal_pages_endpoint_distinguishes_by_type(): void
     {
         $this->makeLegalPage(['type' => 'privacy', 'service_id' => null, 'status' => true], 'Privacy policy');

@@ -12,6 +12,8 @@ use Modules\Chat\Models\ChatCommitment;
 use Modules\Chat\Models\ChatConversation;
 use Modules\Chat\Models\ChatHandoff;
 use Modules\Chat\Models\ChatMessage;
+use Modules\Chat\Services\ConversationService;
+use Modules\Chat\Services\LifeInboxService;
 use Modules\Chat\Services\LifeService;
 use Modules\Chat\Services\MessageService;
 use Modules\Chat\Support\ParticipantType;
@@ -178,7 +180,7 @@ class LifeController extends Controller
     {
         $zone = $request->validate(['timezone' => ['nullable', 'timezone:all']])['timezone'] ?? ($request->user()->timezone ?? config('app.timezone', 'UTC'));
 
-        return ApiResponse::success(app(\Modules\Chat\Services\LifeInboxService::class)->inbox($request->user(), $zone), __('api.retrieved'));
+        return ApiResponse::success(app(LifeInboxService::class)->inbox($request->user(), $zone), __('api.retrieved'));
     }
 
     // ------------------------------------------------------------------ helpers
@@ -196,6 +198,6 @@ class LifeController extends Controller
 
     private function assertIn($me, ChatConversation $conversation): void
     {
-        app(\Modules\Chat\Services\ConversationService::class)->participantOf($me, $conversation);
+        app(ConversationService::class)->participantOf($me, $conversation);
     }
 }

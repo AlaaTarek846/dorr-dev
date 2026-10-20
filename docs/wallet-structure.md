@@ -560,4 +560,5 @@ withdrawal_requests ──> hold_id ──> wallet_holds
   - أول ما البوابة تأكد (`PaymentCompletionService` ← `CheckoutService::settleFromTopup`)، نفس الفلوس بتدفع الـ checkout حتى لو التطبيق مقفول.
   - لو ده فشل، الفلوس بتفضل في المحفظة والـ checkout بيبقى `failed` بالسبب.
 - **الانتهاء:** صفحة مادفعتش في 60 دقيقة بتبقى `expired`، ما عدا اللي اتسلّمت لبوابة، دي بتكمل لما البوابة تأكد.
+- **غرض بيحجز الفلوس بنفسه (`ReservesFunds`، 2026-10-14):** زي رحلة البطاقة (`ride`). الدفع هنا بيتأكد بس إن المبلغ موجود في المحفظة (من الرصيد أو بعد الشحن)، وبعدين بينادي `fulfil()` والغرض هو اللي بيحجز. **مفيش خصم ولا دخل `service_revenue`** وقتها، والكوبونات مبتتطبقش عليه (`coupon_not_here`).
 - **الأخطاء:** `checkout_insufficient_balance` (مع `shortfall_minor`)، و`checkout_not_pending`، و`checkout_expired`، و`checkout_gateway_pending`، و`checkout_unknown_purpose`.

@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -63,7 +64,9 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimePicker
+import androidx.compose.material3.TimePickerDefaults
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -86,8 +89,17 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.window.Dialog
+import com.dorr.app.ui.locale.LocaleAwareDialog
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
+import com.dorr.app.network.AppLocale
 import com.dorr.app.R
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.PinkIcon
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
+import com.dorr.app.ui.screens.profile.settingsSurface
+import com.dorr.app.ui.screens.wallet.Wa
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.BusinessDayDto
 import com.dorr.app.network.BusinessHoursDto
@@ -110,6 +122,10 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Place
+import androidx.compose.material.icons.rounded.Email
+import androidx.compose.material.icons.rounded.Language
 
 // =============================================================================== quick replies cache
 
@@ -184,6 +200,11 @@ fun BusinessPage() {
     var awayOn by remember { mutableStateOf(false) }
     var away by remember { mutableStateOf("") }
     var awayMode by remember { mutableStateOf("outside_hours") }
+    // The business card (backlog 111).
+    var about by remember { mutableStateOf("") }
+    var address by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
+    var website by remember { mutableStateOf("") }
     val days = remember { mutableStateListOf<BusinessDayDto>() }
     var saving by remember { mutableStateOf(false) }
     var editingReply by remember { mutableStateOf<QuickReplyDto?>(null) }
@@ -201,6 +222,10 @@ fun BusinessPage() {
                 awayOn = b.profile.awayEnabled
                 away = b.profile.awayMessage.orEmpty()
                 awayMode = b.profile.awayMode
+                about = b.profile.about.orEmpty()
+                address = b.profile.address.orEmpty()
+                email = b.profile.email.orEmpty()
+                website = b.profile.website.orEmpty()
                 days.clear()
                 days.addAll(b.profile.hours.ifEmpty { List(7) { BusinessDayDto(false, "09:00", "17:00") } })
                 QuickReplies.set(b.quickReplies)
@@ -220,6 +245,9 @@ fun BusinessPage() {
                     mapOf(
                         "welcome_enabled" to welcomeOn, "welcome_message" to welcome.trim(),
                         "away_enabled" to awayOn, "away_message" to away.trim(), "away_mode" to awayMode,
+                        "about" to about.trim().ifEmpty { null }, "address" to address.trim().ifEmpty { null },
+                        "email" to email.trim().ifEmpty { null },
+                        "website" to website.trim().ifEmpty { null }?.let { if (it.startsWith("http")) it else "https://$it" },
                         "hours" to days.toList(),
                         // The hours are in my own time zone.
                         "timezone" to ZoneId.systemDefault().id,
@@ -245,6 +273,23 @@ fun BusinessPage() {
         }
         LazyColumn(contentPadding = PaddingValues(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxSize().imePadding()) {
             item { Text(stringResource(R.string.ch_business_intro), color = Ch.Mut, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 6.dp)) }
+
+            // ------------------------------------------------------------ the business card (backlog 111)
+            item { SectionTitle(stringResource(R.string.bk_business_card)) }
+            item {
+                Card {
+                    Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        ChField(about, { about = it.take(500) }, stringResource(R.string.bk_business_about), icon = Icons.Rounded.Info)
+                        ChField(address, { address = it.take(300) }, stringResource(R.string.bk_business_address), icon = Icons.Rounded.Place)
+                        ChField(email, { email = it.take(150) }, stringResource(R.string.bk_business_email), icon = Icons.Rounded.Email)
+                        ChField(website, { website = it.take(255) }, stringResource(R.string.bk_business_website), icon = Icons.Rounded.Language)
+                    }
+                }
+            }
+
+            // ------------------------------------------------------------ message statistics (backlog 116)
+            item { SectionTitle(stringResource(R.string.bk_business_stats)) }
+            item { BusinessStatsCard() }
 
             // ------------------------------------------------------------ opening hours
             item { SectionTitle(stringResource(R.string.ch_business_hours)) }
@@ -354,7 +399,7 @@ private fun ModeChip(label: String, selected: Boolean, modifier: Modifier, onCli
 
 /** Sunday first, in the phone's language. */
 @Composable
-private fun dayName(index: Int): String = DayOfWeek.of(if (index == 0) 7 else index).getDisplayName(TextStyle.FULL, Locale.getDefault())
+private fun dayName(index: Int): String = DayOfWeek.of(if (index == 0) 7 else index).getDisplayName(TextStyle.FULL, AppLocale.java())
 
 /** New or change a quick reply: "/shortcut" and its text. */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -416,9 +461,26 @@ private fun QuickReplySheet(reply: QuickReplyDto?, onDismiss: () -> Unit) {
 @Composable
 internal fun TimePickDialog(initial: LocalTime, onDismiss: () -> Unit, onPick: (LocalTime) -> Unit) {
     val state = rememberTimePickerState(initial.hour, initial.minute, is24Hour = android.text.format.DateFormat.is24HourFormat(LocalContext.current))
-    Dialog(onDismissRequest = onDismiss) {
+    LocaleAwareDialog(onDismissRequest = onDismiss) {
         Column(Modifier.clip(RoundedCornerShape(28.dp)).background(Ch.Surface).padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            TimePicker(state)
+            TimePicker(
+                state,
+                colors = TimePickerDefaults.colors(
+                    selectorColor = Ch.Red,
+                    containerColor = Ch.Surface,
+                    clockDialColor = Ch.SurfaceMuted,
+                    clockDialSelectedContentColor = Color.White,
+                    clockDialUnselectedContentColor = Ch.Ink,
+                    periodSelectorSelectedContainerColor = Ch.Red.copy(alpha = 0.15f),
+                    periodSelectorSelectedContentColor = Ch.Red,
+                    periodSelectorUnselectedContainerColor = Ch.SurfaceMuted,
+                    periodSelectorUnselectedContentColor = Ch.Ink,
+                    timeSelectorSelectedContainerColor = Ch.Red.copy(alpha = 0.15f),
+                    timeSelectorSelectedContentColor = Ch.Red,
+                    timeSelectorUnselectedContainerColor = Ch.SurfaceMuted,
+                    timeSelectorUnselectedContentColor = Ch.Ink,
+                ),
+            )
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) }
                 TextButton({ onPick(LocalTime.of(state.hour, state.minute)) }) { Text(stringResource(R.string.ch_ok), color = Ch.Red, fontWeight = FontWeight.Bold) }
@@ -445,17 +507,22 @@ private fun DateTimePickDialogs(onDismiss: () -> Unit, onPick: (ZonedDateTime) -
     )
     val tooSoon = stringResource(R.string.ch_schedule_too_soon)
     val host = LocalChat.current
+    val locale = rememberAppLocaleFrame()
 
     if (date == null) {
         DatePickerDialog(
             onDismissRequest = onDismiss,
             confirmButton = {
-                TextButton({ dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } }) {
-                    Text(stringResource(R.string.ch_next), color = Ch.Red, fontWeight = FontWeight.Bold)
+                locale.Provide {
+                    TextButton({ dateState.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } }) {
+                        Text(stringResource(R.string.ch_next), color = Ch.Red, fontWeight = FontWeight.Bold)
+                    }
                 }
             },
-            dismissButton = { TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } },
-        ) { DatePicker(dateState) }
+            dismissButton = {
+                locale.Provide { TextButton(onDismiss) { Text(stringResource(R.string.ch_cancel), color = Ch.Mut) } }
+            },
+        ) { locale.Provide { DatePicker(dateState) } }
     } else {
         TimePickDialog(LocalTime.now(zone).plusHours(1).withMinute(0), onDismiss = onDismiss) { time ->
             val at = ZonedDateTime.of(date, time, zone)
@@ -487,34 +554,70 @@ fun ScheduleSheet(onDismiss: () -> Unit, onPick: (ZonedDateTime) -> Unit) {
         DateTimePickDialogs(onDismiss = onDismiss) { onPick(it); onDismiss() }
         return
     }
-    ChSheet(onDismissRequest = onDismiss, containerColor = Ch.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 26.dp)) {
-            Text(stringResource(R.string.ch_schedule_title), color = Ch.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
-            Text(stringResource(R.string.ch_schedule_sub), color = Ch.Mut, fontSize = 13.sp)
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Wa.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text(stringResource(R.string.ch_schedule_title), color = settingsInk(), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+            Text(
+                stringResource(R.string.ch_schedule_sub),
+                color = settingsMut(),
+                fontSize = 13.sp,
+                modifier = Modifier.padding(top = 4.dp, start = 2.dp),
+            )
             Spacer(Modifier.height(12.dp))
-            options.forEachIndexed { i, (label, at) ->
-                ScheduleRow(Icons.Rounded.Schedule, label, scheduleLabel(at), i) { onPick(at); onDismiss() }
+            Column(Modifier.fillMaxWidth().settingsSurface(RoundedCornerShape(18.dp), 8.dp).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                options.forEach { (label, at) ->
+                    ScheduleRow(Icons.Rounded.Schedule, label, scheduleLabel(at), divider = true) { onPick(at); onDismiss() }
+                }
+                ScheduleRow(Icons.Rounded.EventNote, stringResource(R.string.ch_schedule_pick), null, divider = false) { custom = true }
             }
-            ScheduleRow(Icons.Rounded.EventNote, stringResource(R.string.ch_schedule_pick), null, options.size) { custom = true }
         }
     }
 }
 
 @Composable
-private fun ScheduleRow(icon: ImageVector, title: String, value: String?, index: Int, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().chStagger(index).clip(RoundedCornerShape(16.dp)).clickable(onClick = onClick).padding(vertical = 12.dp, horizontal = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(Ch.Red.copy(alpha = 0.08f)), contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = Ch.Red, modifier = Modifier.size(19.dp))
+private fun ScheduleRow(icon: ImageVector, title: String, value: String?, divider: Boolean, onClick: () -> Unit) {
+    val dark = settingsNight()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PinkIcon(icon)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            title,
+            color = settingsInk(),
+            fontWeight = FontWeight.Bold,
+            fontSize = 13.5.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        value?.let {
+            Spacer(Modifier.width(8.dp))
+            Text(it, color = settingsMut(), fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        Spacer(Modifier.width(12.dp))
-        Text(title, color = Ch.Ink, fontWeight = FontWeight.Bold, fontSize = 14.5.sp, modifier = Modifier.weight(1f))
-        value?.let { Text(it, color = Ch.Mut, fontSize = 12.5.sp) }
     }
+    if (divider) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) AccountDark.line else Color(0xFFF6E4E8)))
 }
 
 /** "Tue 5 Oct, 21:00" in the phone's language and clock. */
 internal fun scheduleLabel(at: ZonedDateTime): String =
-    at.withZoneSameInstant(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(Locale.getDefault()))
+    at.withZoneSameInstant(ZoneId.systemDefault()).format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM, FormatStyle.SHORT).withLocale(AppLocale.java()))
 
 internal fun scheduleLabel(iso: String): String = runCatching { scheduleLabel(ZonedDateTime.parse(iso)) }.getOrDefault(iso)
 
@@ -727,16 +830,16 @@ fun InviteLinkSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
             }
             Spacer(Modifier.height(10.dp))
             val link = invite?.link
-            ScheduleRow(Icons.Rounded.ContentCopy, stringResource(R.string.ch_copy_link), null, 0) {
+            ScheduleRow(Icons.Rounded.ContentCopy, stringResource(R.string.ch_copy_link), null, divider = true) {
                 link ?: return@ScheduleRow
                 (context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager).setPrimaryClip(ClipData.newPlainText("invite", link))
                 host.showToast(copied)
             }
-            ScheduleRow(Icons.Rounded.Share, stringResource(R.string.ch_share_link), null, 1) {
+            ScheduleRow(Icons.Rounded.Share, stringResource(R.string.ch_share_link), null, divider = true) {
                 link ?: return@ScheduleRow
                 context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, link), null))
             }
-            ScheduleRow(Icons.Rounded.Refresh, stringResource(R.string.ch_invite_new), null, 2) { choosing = true }
+            ScheduleRow(Icons.Rounded.Refresh, stringResource(R.string.ch_invite_new), null, divider = false) { choosing = true }
         }
     }
 
@@ -756,7 +859,7 @@ fun InviteLinkSheet(conversation: ConversationDto, onDismiss: () -> Unit) {
 /** Under a business's name: "Open now" / "Closed · opens 09:00". */
 @Composable
 internal fun businessStatus(business: BusinessHoursDto): String {
-    if (business.openNow) return stringResource(R.string.ch_business_open_now)
+    if (business.openNow == true) return stringResource(R.string.ch_business_open_now)
     val next = nextOpening(business) ?: return stringResource(R.string.ch_business_closed_now)
     return stringResource(R.string.ch_business_opens_at, next)
 }
@@ -772,8 +875,8 @@ private fun nextOpening(business: BusinessHoursDto): String? {
         val opens = ZonedDateTime.of(day, runCatching { LocalTime.parse(hours.from) }.getOrDefault(LocalTime.MIDNIGHT), zone)
         if (opens.isAfter(now)) {
             val mine = opens.withZoneSameInstant(ZoneId.systemDefault())
-            val time = mine.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(Locale.getDefault()))
-            return if (offset <= 1) time else mine.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) + " " + time
+            val time = mine.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java()))
+            return if (offset <= 1) time else mine.dayOfWeek.getDisplayName(TextStyle.SHORT, AppLocale.java()) + " " + time
         }
     }
     return null

@@ -61,6 +61,11 @@ object AiPlanGate {
         Handler(Looper.getMainLooper()).post { prompt = message }
     }
 
+    /** Offers the plans from a screen that already knows it is locked (e.g. the AI image sheet). */
+    fun offer(message: String) {
+        prompt = message
+    }
+
     fun dismiss() {
         prompt = null
     }

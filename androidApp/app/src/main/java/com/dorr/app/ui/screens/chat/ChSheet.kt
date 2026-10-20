@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
+import com.dorr.app.ui.locale.rememberAppLocaleFrame
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.dorr.app.R
@@ -62,7 +63,7 @@ internal fun ChSheet(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    val closeLabel = stringResource(R.string.ch_close_sheet)
+    val locale = rememberAppLocaleFrame()
     ModalBottomSheet(
         onDismissRequest = onDismissRequest,
         modifier = modifier,
@@ -70,17 +71,24 @@ internal fun ChSheet(
         shape = shape,
         containerColor = containerColor,
         dragHandle = {
-            Box(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 2.dp)) {
-                Box(Modifier.align(Alignment.Center).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Ch.Soft.copy(alpha = 0.45f)))
-                Box(
-                    Modifier.align(Alignment.CenterEnd).size(32.dp).clip(CircleShape).background(Ch.SurfaceMuted)
-                        .clickable { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() } },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(Icons.Rounded.Close, closeLabel, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+            locale.Provide {
+                val closeLabel = stringResource(R.string.ch_close_sheet)
+                Box(Modifier.fillMaxWidth().padding(start = 14.dp, end = 14.dp, top = 10.dp, bottom = 2.dp)) {
+                    Box(Modifier.align(Alignment.Center).size(width = 36.dp, height = 4.dp).clip(CircleShape).background(Ch.Soft.copy(alpha = 0.45f)))
+                    Box(
+                        Modifier.align(Alignment.CenterEnd).size(32.dp).clip(CircleShape).background(Ch.SurfaceMuted)
+                            .clickable { scope.launch { sheetState.hide() }.invokeOnCompletion { onDismissRequest() } },
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.Close, closeLabel, tint = Ch.Mut, modifier = Modifier.size(18.dp))
+                    }
                 }
             }
         },
-        content = content,
+        // A sheet is a window of its own: re-apply the app language or stringResource falls back to English.
+        content = {
+            val sheet = this
+            locale.Provide { sheet.content() }
+        },
     )
 }

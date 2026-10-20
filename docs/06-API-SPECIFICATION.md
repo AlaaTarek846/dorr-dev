@@ -134,6 +134,15 @@ Validation: `PlatformSettingUpdateRequest` — app_name required; file rules per
 | POST | `/users/delete-multiple` | Bulk delete |
 | PATCH | `/users/{user}/status` | Status change |
 | POST | `/users/notify` | `users.send-notification`. Send a notification from the dashboard: `audience` (`user` / `users` / `all` = every active customer), `user_ids[]` (not for `all`), `title{locale}` and `message{locale}` (one text per language; an empty language reads as the first written), `push` (bool, default true). Stored in the in-app list as a raw multi-language notification (`event dashboard.message`, each customer reads their own language), live over Pusher, and — with `push` — as one OneSignal push carrying every language. Queued: one `SendDashboardNotificationJob` per round of 200 customers (a queue worker must be running — `php artisan queue:work`), so the answer is immediate. `GET /users/notify/audience` returns `{active}`, how many customers "everyone" reaches. Returns `{recipients, devices, push}` |
+| GET | `/users/{user}/sessions` | `users.manage-sessions`. `{ active: [...], recent: [...] }` — the devices signed in now (full IP, user agent) and the last 10 signed out (`revoked_reason`: logout, user, others, limit, admin, replaced) |
+| DELETE | `/users/{user}/sessions/{session}` | `users.manage-sessions`. Sign one device out (logged as `admin_signed_out`); returns the same as GET |
+| POST | `/users/{user}/sessions/logout-all` | `users.manage-sessions`. Sign the customer out of every device |
+| GET | `/service-availability` | `service-availability.view`. `country_id` (required), `region_id`, `search` (service name in any language), `per_page` (15 default, 25, 50), `page`. Paginated: the answer carries `pagination`. The services the country carries with their switches: `[{ id, name, has_provider, switches {service_enabled, customer_enabled, customer_mode (hidden/coming_soon/view_only), provider_enabled}, overridden (region only: which switches the region sets itself), effective {service_open, customer_state, customer_visible, customer_can_order, provider_can_use} }]` |
+| PUT | `/service-availability` | `service-availability.update`. `country_id`, `region_id`, `service_category_id` + any of the four switches. In a region a null puts that switch back to following the country; a country cannot leave one unset; `provider_enabled` is 422 for a service without providers. Returns the service as the list shows it |
+| POST | `/service-availability/reset` | `service-availability.update`. `country_id`, `region_id`, `service_category_id`: the region follows its country again for that service |
+| GET/POST/PUT/PATCH/DELETE | `/regions` (+ `/dropdown?country_id=`, `/{id}/status`, `/delete-multiple`) | `regions.*`. Governorates / states / provinces: catalog CRUD with `country_id`, `translations[]{locale,name}`, `status`; the list narrows with `?country_id=` |
+| GET | `/security-events` | `security-events.view`. Every customer's security log, paginated (`page`, `per_page` ≤ 100, `user_id`, `type`, `warnings=1`, `search` = phone, name, device or IP); each row has `user {id, name, phone}` |
+| GET | `/security-events/{id}` | `security-events.view`. One line with its device `session` |
 
 ### Authenticated — Catalog Resources (Standard Pattern)
 
@@ -354,6 +363,12 @@ the phone does not exist yet, then sends a fixed demo OTP
 | POST | `/ratings` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Save a rating (`stars` 1–5 in 0.25 steps, optional `comment` 5–300 chars or empty, optional `rateable_*`). 201 on first save, 200 when the same person updates the same thing. `{ id, stars, comment, type, prompt_store_review, ... }` |
 | GET | `/referrals/my-code` | `auth:user_api` + `ensure-phone-verified` | Mint or return the caller's active `DORRFC-` code; `{ code, is_active, applied }` |
 | POST | `/referrals/track` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Body `{ referral_code }` only. 201 first save, 200 identical retry; 422 invalid / inactive / self / already applied |
+| GET | `/security/devices` | `auth:user_api` + `ensure-phone-verified` | The devices signed in on this account, this one first: `[{ id, device_name, platform, platform_label, app_version, ip (partly hidden), country_code, current, signed_in_at, last_active_at }]` |
+| DELETE | `/security/devices/{id}` | `auth:user_api` + `ensure-phone-verified`, `throttle:20,1` | Sign one device out now (its token is deleted, its push ids dropped). 404 for another account's. `{ signed_out_current, devices }` |
+| POST | `/security/devices/logout-others` | `auth:user_api` + `ensure-phone-verified`, `throttle:10,1` | Every device but this one. `{ count, devices }` |
+| GET | `/security/events` | `auth:user_api` + `ensure-phone-verified` | The account's security log, newest first, paginated (`page`, `per_page` ≤ 50, optional `type`, `warnings=1`). `[{ id, type, label, description, warning, device_name, platform, platform_label, ip, country_code, meta, created_at }]` |
+
+Device headers (every request from the app): `X-Device-Id` (a random id kept for the install), `X-Device-Name`, `X-Platform` (`android`/`ios`/`web`), `X-App-Version`. Each sign-in (`/auth/verify`, the web `/api/user/v1/auth/login`, password reset) creates its own token and session; the account's other devices stay signed in (up to `auth_flow.max_sessions`, then the oldest is signed out). `/auth/logout` ends only this device.
 
 Payloads: `dial_code` (e.g. `+966`) + `phone` (local digits); verify also sends
 `code`. User matched/stored by full phone `+<dial><phone>`.

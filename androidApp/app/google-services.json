@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "470858988124",
+    "project_id": "dorr-25ffe",
+    "storage_bucket": "dorr-25ffe.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:470858988124:android:45ece3b321b4f1675ac499",
+        "android_client_info": {
+          "package_name": "com.dorr.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyABk-4pmqF_bQ2GH7pY0YiugxgVtu0devM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -14,6 +14,7 @@ use Database\Seeders\General\LegalPageSeeder;
 use Database\Seeders\General\MobileAppColorDefaultSeeder;
 use Database\Seeders\General\MobileAppFontSeeder;
 use Database\Seeders\General\PlatformSettingSeeder;
+use Database\Seeders\General\RegionSeeder;
 use Database\Seeders\General\ServiceCategoriesSeeder;
 use Database\Seeders\Provider\ProviderSeeder;
 use Database\Seeders\User\UserSeeder;
@@ -22,6 +23,8 @@ use Illuminate\Database\Seeder;
 use Modules\AI\Database\Seeders\AIDatabaseSeeder;
 use Modules\Chat\Database\Seeders\ChatDatabaseSeeder;
 use Modules\Discover\Database\Seeders\DiscoverSeeder;
+use Modules\Driver\Database\Seeders\DriverDatabaseSeeder;
+use Modules\Rides\Database\Seeders\RidesDatabaseSeeder;
 use Modules\Sports\Database\Seeders\SportsProviderSeeder;
 use Modules\Sports\Database\Seeders\SportsSeeder;
 use Modules\User\Database\Seeders\SupportDatabaseSeeder;
@@ -41,6 +44,7 @@ class DatabaseSeeder extends Seeder
             LanguageSeeder::class,
             CurrencySeeder::class,
             CountrySeeder::class,
+            RegionSeeder::class,
             WalletDatabaseSeeder::class,
             ChatDatabaseSeeder::class,
             DiscoverSeeder::class,
@@ -51,6 +55,9 @@ class DatabaseSeeder extends Seeder
             MobileAppFontSeeder::class,
             DashboardThemeSeeder::class,
             ServiceCategoriesSeeder::class,
+            // After the countries, the Discover cities and the service categories they point at.
+            DriverDatabaseSeeder::class,
+            RidesDatabaseSeeder::class,
             FaqSeeder::class,
             LegalPageSeeder::class,
             AdminSeeder::class,

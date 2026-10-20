@@ -7,29 +7,32 @@ Middleware: `auth:user_api`, `ensure-phone-verified:user_api`, `country`, `local
 
 | Method | Path | Body / query | Returns |
 |---|---|---|---|
-| GET | `home` | `timezone` | `{country, categories[], cities[] (my country), follows[], preferences, can_submit, ai, sections[{key, items[]}]}`. Section keys: `for_you`, `this_week`, `weekend`, `free`, `popular`, `followed`. Empty sections are left out |
-| GET | `events` | `city_id` or `country_id` (default: my country), `category_ids[]`, `from`, `to` (Y-m-d), `free`, `family`, `q`, `lat`, `lng`, `km`, `sort=soon\|popular`, `page`, `per_page`, `timezone` | `data: Event[]` + `pagination`. With one city the days are cut in that city's zone, otherwise in mine |
-| GET | `travel` | `city_id`, `from`, `to` (at most 31 days apart), plus the same filters | `{city, from, to, items: Event[], meta}`. Days are cut in the city's zone (AT-DISC-03). `422 discover_travel_range` |
+| GET | `home` | `timezone` | `{country, categories[], cities[] (my country), regions{items[{id, name, country_id, events_count}], meta} (my country's regions with something on, first batch), follows[], preferences, can_submit, ai, sections[{key, items[], has_more}]}`. Section keys: `for_you`, `this_week`, `weekend`, `free`, `popular`, `followed`. Each strip is the first 15; empty sections are left out |
+| GET | `sections/{key}` | `page`, `per_page` (15), `timezone` | `data: Event[]` + `pagination` — the next 15 of that home strip (`for_you` \| `this_week` \| `weekend` \| `free` \| `popular` \| `followed`). The app scrolls the same row; it does not open a new page. Unknown `key`: 404 |
+| GET | `events` | `city_id`, `region_id` (its cities' events) or `country_id` (default: my country), `category_ids[]`, `from`, `to` (Y-m-d), `free`, `family`, `q`, `lat`, `lng`, `km`, `sort=soon\|popular`, `page`, `per_page` (15), `timezone` | `data: Event[]` + `pagination`. With one city the days are cut in that city's zone, otherwise in mine |
+| GET | `travel` | one of `country_id`, `region_id`, `city_id`, plus `from`, `to` (at most 31 days apart) and the same filters | `{city, place{country_id, region_id, timezone}, from, to, items: Event[], meta}` (`city` only when a city was asked). Days are cut in the destination's zone: the city's, else the first city's of the region / country (AT-DISC-03). `422 discover_travel_range`; `422` when none of the three is given |
 | POST | `ask` | `{text}` | `{filters: {city_id?, city?, category_ids?, categories[], from?, to?, free?, family?, q?}, items: Event[], meta}`. Throttled to 20 per minute. `403 discover_ai_off`, `503 chat_ai_unavailable` |
-| GET | `categories` | — | `[{id, key, name, emoji, color}]` |
-| GET | `cities` | `country_id?` | `[{id, name, country, country_id, timezone, lat, lng}]` (all active cities when `country_id` is left out) |
+| GET | `categories` | `page`, `per_page` (15) | `data: [{id, key, name, emoji, color}]` + `pagination`. Home still sends the full catalog |
+| GET | `cities` | `country_id?`, `region_id?`, `with_events?` | `[{id, name, country, country_id, region_id, timezone, lat, lng, currency{code,symbol,decimal_places}?}]` — active Discover cities (`discover_cities`, the admin Cities catalog); `with_events=1` keeps those with an upcoming event |
+| GET | `regions` | `country_id?` (default: my country), `page`, `per_page` (10), `with_events` (default 1) | `data: [{id, name, country_id, events_count}]` + `pagination` — the country's dashboard regions in the admin's order; `with_events=1` keeps those with an upcoming public event |
+| GET | `countries` | — | `[{id, name, code}]` — active rows from the `countries` catalog (the place filter's first step) |
 | GET | `events/{uuid}` | `timezone` | The full Event. A pending or rejected event is visible only to its own organizer, and `404 discover_not_found` to everyone else |
 | POST | `events/{uuid}/interest` | `{notify?: bool}` (default true) | The Event with `interested` and `notify` |
 | DELETE | `events/{uuid}/interest` | — | `null` |
-| GET | `interests` | `past=0\|1` | `Event[]` (coming up, or already over) |
+| GET | `interests` | `past=0\|1`, `page`, `per_page` (15) | `data: Event[]` + `pagination` (coming up, or already over), 15 at a time |
 | GET / PUT | `preferences` | `{categories?: int[], alerts?: bool, alert_days?: 3\|7\|14\|30, family_only?: bool}` | `{categories, alerts, alert_days, family_only}` |
 | GET | `follows` | — | `[{id, kind: city\|country, target_id, name, country}]` |
 | POST | `follows` | `{kind, target_id}` | The list. At most 30: `422 discover_too_many_follows` |
 | DELETE | `follows/{id}` | — | The list |
 | POST | `events/{uuid}/share` | `{conversation_id (chat uuid), comment?, poll?: bool}` | `201 {message_id, poll_id?, conversation_id}`. It sends an `event_card` message and, with `poll`, a poll ("going · maybe · can't make it") |
 | POST | `events/{uuid}/room` | `{members: user ids[]}` | `201 {conversation, not_added}`. A new group with the event's card. `422 discover_event_over`, `422 discover_room_needs_members` |
-| GET | `organizer` | `timezone` | `{organizer: Organizer\|null, can_submit, events: Event[] + review_status, review_note}` |
+| GET | `organizer` | `timezone`, `page`, `per_page` (15), `q` | `{organizer: Organizer\|null, can_submit, events: Event[] + review_status, review_note}` + `pagination`. My events, 15 at a time; `q` matches title, venue or description |
 | POST | `organizer` | `{name, about?, website?, phone?, email?}` | Organizer (`status: pending`). A rejected organizer goes back to pending. A verified one who changes name is reviewed again |
 | POST | `organizer/events` | `{title, category_id, city_id, starts_at (the event's local time, e.g. "2026-11-05 20:00"), ends_at?, venue?, address?, lat?, lng?, is_free?, price_text?, booking_url?, source_url?, family_friendly?, description?, language?}` + `cover` (multipart, optional) | `201` Event (`review_status` is `approved` for a verified organizer when direct publishing is on, otherwise `pending`). `403 discover_not_organizer`, `discover_organizer_suspended`, `discover_submissions_off`. `409 discover_duplicate {event_id}` |
 | POST | `organizer/events/{uuid}` | The same fields (all optional) | Event. A new time on a public event is a status change that the interested hear about. An unverified organizer's edit goes back to review |
 | POST | `organizer/events/{uuid}/status` | `{status: confirmed\|postponed\|cancelled\|sold_out\|ended, note?, starts_at? (local)}` | Event |
 
-**Event** (lists): `id` (uuid), `title`, `category{id,key,name,emoji,color}`, `city{id,name,timezone}`, `country`, `venue`, `address`, `lat`, `lng`, `starts_at`/`ends_at` (ISO, UTC), `timezone`, `local_date`, `local_time`, `local_end`, `my_time` (`Y-m-d H:i` in my zone when it differs), `is_free`, `price_text`, `family_friendly`, `status`, `verified`, `organizer{name, verified}`, `cover`, `interested_count`, `interested`, `notify`, `distance_km?`.
+**Event** (lists): `id` (uuid), `title`, `category{id,key,name,emoji,color}`, `city{id,name,timezone}`, `country`, `venue`, `address`, `lat`, `lng`, `starts_at`/`ends_at` (ISO, UTC), `timezone`, `local_date`, `local_time`, `local_end`, `my_time` (`Y-m-d H:i` in my zone when it differs), `is_free`, `price_text`, `price_display` (a number uses the event country's catalog currency, e.g. `300 ج.م`; other text is kept), `currency{code,symbol,decimal_places}?`, `family_friendly`, `status`, `verified`, `organizer{name, verified}`, `cover`, `interested_count`, `interested`, `notify`, `distance_km?`.
 **Full** (show): the list fields plus `description`, `language`, `source` (`admin`\|`organizer`), `source_url`, `booking_url`, `last_verified_at`, `status_note`, `old_starts_at`, `history[{from, to, note, old_starts_at, at}]`, `mine`, `review_status`, `review_note` (the last two only when `mine`).
 
 **Push data:** `{type: "discover", event: "discover.event.changed", event_id, status}` for a status change, and `{type: "discover", event: "discover.alert", event_id?}` for "don't miss it".
@@ -41,13 +44,13 @@ Middleware: `auth:admin_api`. Permissions are listed per resource.
 |---|---|---|---|
 | GET / PUT | `discover-settings` | `discover-settings.view` / `.update` | `enabled`, `enabled_countries[]` (empty means everywhere), `submissions_enabled`, `auto_publish_verified`, `alerts_enabled`, `max_alerts_per_week` (0–21), `room_close_hours` (0–720), `ai_enabled` |
 | apiResource + PATCH `{id}/status` | `discover-categories` | `discover-categories.*` | `{key, emoji?, color?, status?, sort_order?, translations[{locale, name}]}`. You can't delete one that events use (`422 discover_in_use`) |
-| apiResource + PATCH `{id}/status` | `discover-cities` | `discover-cities.*` | `{country_id, timezone, lat?, lng?, status?, sort_order?, translations[]}`; `?country_id=` filter |
-| GET | `discover-organizers` | `discover-organizers.view` | `?status=&search=&per_page=`, with `pending_count`. Rows include the account (name, phone) |
+| apiResource + PATCH `{id}/status` | `discover-cities` | `cities.*` | `{country_id, timezone, lat?, lng?, status?, sort_order?, translations[]}`; `?country_id=` filter |
+| GET | `discover-organizers` | `discover-organizers.view` | `?status=&search=&per_page=&status_counts=1`. Search matches name, email or phone. Rows include the account (name, phone) and `updated_at`. `status_counts` is the whole table (`total`, `pending`, `verified`, `rejected`, `suspended`) |
 | GET | `discover-organizers/{id}` | `.view` | |
 | PATCH | `discover-organizers/{id}/review` | `discover-organizers.update` | `{status: verified\|rejected\|suspended\|pending, note?}` |
 | GET | `discover-events` | `discover-events.view` | `?review_status=&status=&country_id=&city_id=&category_id=&organizer_id=&when=upcoming\|past&search=&per_page=`. Pending events come first, and the response has `pending_count` |
 | GET | `discover-events/{uuid}` | `.view` | The full Event plus `starts_local` / `ends_local` (`Y-m-d\TH:i` in its zone) for the form |
-| POST | `discover-events` | `discover-events.create` | Multipart with the same fields as the organizer form, plus `cover`. Published at once as `source = admin` |
+| POST | `discover-events` | `discover-events.create` | Multipart with the same fields as the organizer form, plus `cover`. Published at once as `source = admin` | `country_id` and `region_id` (0 = a city in no region) are optional but, when sent, the city must be in them (422 on `city_id` otherwise); the list filters by `country_id`, `region_id`, `city_id` and returns `region`, `region_id`, `country`.
 | POST | `discover-events/{uuid}` | `.update` | Edit. A new time on a public event goes through the status history |
 | PATCH | `discover-events/{uuid}/review` | `.update` | `{review_status: approved\|rejected\|pending, note?}` |
 | PATCH | `discover-events/{uuid}/status` | `.update` | `{status, note?, starts_at?, ends_at?}` (the event's local time). The interested who asked are told |

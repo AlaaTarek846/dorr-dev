@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The captain app's shell: splash, bottom bar, account and settings (same design as the DORR app). -->
+<resources>
+    <string name="back">Back</string>
+    <string name="cancel">Cancel</string>
+    <string name="app_tagline">Powered by Dorr</string>
+
+    <string name="nav_home">Home</string>
+    <string name="nav_earnings">Earnings</string>
+    <string name="nav_wallet">Wallet</string>
+    <string name="nav_account">Account</string>
+
+    <string name="login_hero">Drive with DORR</string>
+    <string name="login_terms">By continuing you agree to the terms of use and the privacy policy.</string>
+    <string name="otp_wrong">That code isn\'t right. Try again.</string>
+
+    <string name="acct_title">Account</string>
+    <string name="acct_driving">Driving</string>
+    <string name="acct_app">The app</string>
+    <string name="acct_account_status">Account status</string>
+    <string name="acct_signup">Documents &amp; vehicle</string>
+    <string name="acct_signup_hint">Your licence, your vehicle and their review</string>
+    <string name="acct_appearance">Appearance</string>
+    <string name="acct_mode_system">Like the phone</string>
+    <string name="acct_mode_light">Light</string>
+    <string name="acct_mode_dark">Dark</string>
+    <string name="acct_language">Language</string>
+    <string name="acct_lang_system">Like the phone</string>
+    <string name="acct_lang_ar">العربية</string>
+    <string name="acct_lang_en">English</string>
+    <string name="acct_notifications_hint">Requests, payments and account news</string>
+    <string name="acct_logout_title">Sign out?</string>
+    <string name="acct_logout_message">You\'ll go offline and stop receiving requests on this phone.</string>
+    <string name="acct_version">Version %1$s</string>
+    <string name="acct_rating">Rating</string>
+    <string name="acct_trips_total">Trips</string>
+
+    <string name="home_today_title">Today</string>
+    <string name="home_open_earnings">Details</string>
+    <string name="home_offline_hint">Go online to start receiving requests</string>
+
+    <!-- Sign-in: the country picker and the number check. -->
+    <string name="login_country">Country</string>
+    <string name="login_country_search">Search for a country</string>
+    <string name="login_clear">Clear</string>
+    <string name="login_error_start">The number starts with %1$s</string>
+    <string name="login_error_length">The number is %1$d digits</string>
+
+    <!-- Pickers: the calendar and the list sheets. -->
+    <string name="date_ok">Choose</string>
+    <string name="date_pick">Choose a date</string>
+    <string name="pick_choose">Choose</string>
+    <string name="pick_search">Search</string>
+    <string name="pick_nothing">Nothing matches</string>
+    <string name="list_sep">", "</string>
+
+    <!-- Signing up, step by step. -->
+    <string name="ob_review">Review</string>
+    <string name="ob_details_hint">As they appear on your ID.</string>
+    <string name="ob_vehicle_hint">The car you will drive with DORR.</string>
+    <string name="ob_documents_hint">Tap a document to photograph it or pick it from the gallery.</string>
+    <string name="ob_review_hint">Check everything, then send it for review.</string>
+    <string name="ob_next">Save and continue</string>
+    <string name="ob_continue">Continue</string>
+    <string name="ob_done">Done</string>
+    <string name="ob_edit">Edit</string>
+    <string name="ob_status">Status</string>
+    <string name="ob_optional">Optional</string>
+    <string name="ob_name_hint">Your full name</string>
+    <string name="ob_national_id_hint">The number on your ID</string>
+    <string name="ob_gender">Gender</string>
+    <string name="ob_gender_male">Male</string>
+    <string name="ob_gender_female">Female</string>
+    <string name="ob_nationality">Nationality</string>
+    <string name="ob_city">City</string>
+    <string name="ob_locked">Your account is active, so your identity details are locked. Contact support to change them.</string>
+    <string name="ob_err_required">Required</string>
+    <string name="ob_err_email">Enter a valid email</string>
+    <string name="ob_err_adult">You must be over 18</string>
+    <string name="ob_make_first">Choose the make first</string>
+    <string name="ob_seats_count">%1$d seats</string>
+    <string name="ob_plate">Number plate</string>
+    <string name="ob_vehicle_locked">Your vehicle is approved. Contact support to change it.</string>
+    <string name="ob_vehicle_rejected">Your vehicle was rejected. Correct it and save to send it again.</string>
+    <string name="ob_docs_progress">%1$d of %2$d sent</string>
+    <string name="ob_docs_need_vehicle">Add your vehicle first: its documents belong to it.</string>
+    <string name="ob_docs_none">Nothing to upload for now.</string>
+    <string name="ob_missing">Still missing: %1$s</string>
+    <string name="ob_waiting_hint">We\'ll let you know as soon as your account is reviewed.</string>
+    <string name="body_sedan">Sedan</string>
+    <string name="body_suv">SUV</string>
+    <string name="body_van">Van</string>
+    <string name="body_minibus">Minibus</string>
+    <string name="body_bus">Bus</string>
+    <string name="body_motorcycle">Motorcycle</string>
+    <string name="body_boat">Boat</string>
+    <string name="body_yacht">Yacht</string>
+
+    <!-- Documents. -->
+    <string name="doc_until">until %1$s</string>
+    <string name="doc_add">Add the document</string>
+    <string name="doc_number_hint">As written on the document</string>
+    <string name="doc_expiry">Expiry date</string>
+    <string name="doc_photo_hint">A clear photo: the whole document, no glare, readable text.</string>
+    <string name="doc_uploading">Uploading… %1$d%%</string>
+    <string name="doc_complete_first">Add what is missing above first.</string>
+    <string name="doc_send">Send the document</string>
+    <string name="doc_camera">Camera</string>
+    <string name="doc_gallery">Gallery</string>
+
+    <!-- Home: the map. -->
+    <string name="home_status_online">You\'re online</string>
+    <string name="home_status_offline">You\'re offline</string>
+    <string name="home_recenter">My location</string>
+
+    <!-- Wallet: the card and the withdrawal. -->
+    <string name="wl_hide">Hide the balance</string>
+    <string name="wl_number_label">Wallet number</string>
+    <string name="wl_copied">Copied</string>
+    <string name="wl_share_text">My DORR wallet number: %1$s</string>
+    <string name="wl_all">All</string>
+    <string name="wl_too_much">That is more than you can withdraw.</string>
+    <string name="wl_day_today">Today</string>
+    <string name="wl_day_yesterday">Yesterday</string>
+</resources>

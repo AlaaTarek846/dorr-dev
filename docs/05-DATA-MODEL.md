@@ -303,6 +303,28 @@ See seeder files for initial data conventions.
 
 ---
 
+## Governorates / states and service control (`2026_10_14_100000_create_cities_and_service_availability`, renamed by `2026_10_14_110000_rename_cities_to_regions`)
+
+| Table | Purpose |
+|---|---|
+| `regions` + `region_translations` | A country's first-level divisions — governorates, states, provinces, regions (name per language, `status`, `sort_order`, soft deletes). A country with regions cannot be deleted. Seeded by `RegionSeeder` from `data/regions.json` (21 countries, 437 divisions); other countries have none until an admin adds them |
+| `service_availability` | The switches of one service in one place: `service_category_id`, `country_id`, `region_id` (null = the country itself), `service_enabled`, `customer_enabled`, `customer_mode` (hidden / coming_soon / view_only), `provider_enabled`. A null switch: on a region it follows the country, on a country it is on |
+
+`service_categories.audiences` no longer has `driver` (a driver is a provider).
+
+---
+
+## Account security (`2026_10_13_100000_create_account_security_tables`)
+
+| Table | Purpose |
+|---|---|
+| `account_sessions` | One per sign-in on a device: `owner` (morph), `token_id` (Sanctum token), `device_id`, `device_name`, `platform`, `app_version`, `ip`, `country_code`, `user_agent`, `revoked_at` + `revoked_reason` (logout, user, others, limit, admin, replaced). Signing out deletes the token and keeps the row |
+| `security_events` | The account's security log: `owner` (morph), `type` (`SecurityEvent::ALL`), `account_session_id` (null on delete), `ip`, `country_code`, `device_id`, `device_name`, `platform`, `meta` json, `created_at`. Pruned after `auth_flow.security_log_days` |
+
+`notification_devices.device_id` (new): which install a push id belongs to, so signing that device out also stops its pushes.
+
+---
+
 ## Chat (`Modules/Chat/database/migrations`)
 
 | Table | Purpose |

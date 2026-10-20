@@ -3,6 +3,7 @@
 namespace Modules\Discover\Services;
 
 use App\Models\Country;
+use App\Models\Region;
 use App\Support\Api\ApiPaginator;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
@@ -24,13 +25,14 @@ use Modules\Discover\Models\DiscoverSetting;
  */
 class DiscoverService
 {
-    public const PER_PAGE = 20;
+    public const PER_PAGE = 15;
 
     public const MAX_TRAVEL_DAYS = 31;
 
     public const MAX_FOLLOWS = 30;
 
-    private const SECTION_SIZE = 10;
+    /** Regions come in batches of this many (the home strip loads more as it scrolls). */
+    public const REGIONS_PAGE = 10;
 
     public function settings(): DiscoverSetting
     {
@@ -57,7 +59,7 @@ class DiscoverService
 
     public function base(): Builder
     {
-        return DiscoverEvent::query()->public()->with(['category.translations', 'city.translations', 'country', 'organizer', 'media']);
+        return DiscoverEvent::query()->public()->with(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media']);
     }
 
     public function assertPublic(DiscoverEvent $event): void
@@ -90,18 +92,39 @@ class DiscoverService
      * @param  array<string, mixed>  $f
      * @return array<string, mixed>
      */
-    public function travel(Model $me, int $cityId, string $from, string $to, array $f, string $zone): array
+    public function travel(Model $me, array $f, string $from, string $to, string $zone): array
     {
-        $city = DiscoverCity::query()->with(['translations', 'country'])->where('status', true)->find($cityId) ?? throw DiscoverException::notFound();
-        $this->assertOn($city->country);
-        $start = CarbonImmutable::parse($from, $city->timezone);
-        $end = CarbonImmutable::parse($to, $city->timezone);
+        $city = null;
+        $region = null;
+        if (! empty($f['city_id'])) {
+            $city = DiscoverCity::query()->with(['translations', 'country'])->where('status', true)->find((int) $f['city_id']) ?? throw DiscoverException::notFound();
+            $country = $city->country;
+            $place = ['city_id' => $city->id];
+            $placeZone = $city->timezone;
+        } elseif (! empty($f['region_id'])) {
+            $region = \App\Models\Region::query()->with('country')->find((int) $f['region_id']) ?? throw DiscoverException::notFound();
+            $country = $region->country;
+            $place = ['region_id' => $region->id];
+            $placeZone = DiscoverCity::query()->where('status', true)->where('region_id', $region->id)->orderBy('sort_order')->value('timezone');
+        } else {
+            $country = Country::query()->find((int) $f['country_id']) ?? throw DiscoverException::notFound();
+            $place = ['country_id' => $country->id];
+            $placeZone = DiscoverCity::query()->where('status', true)->where('country_id', $country->id)->orderBy('sort_order')->value('timezone');
+        }
+        $this->assertOn($country);
+        // The days are cut in the destination's own zone (a city's; else its first city's; else mine).
+        $placeZone ??= $zone;
+        $start = CarbonImmutable::parse($from, $placeZone);
+        $end = CarbonImmutable::parse($to, $placeZone);
         if ($end->lt($start) || $start->diffInDays($end) > self::MAX_TRAVEL_DAYS) {
             throw new DiscoverException('travel_range', 422, ['max' => self::MAX_TRAVEL_DAYS]);
         }
 
-        return ['city' => $this->presentCity($city), 'from' => $from, 'to' => $to]
-            + $this->search($me, ['city_id' => $city->id, 'from' => $from, 'to' => $to] + array_intersect_key($f, array_flip(['category_ids', 'free', 'family', 'q', 'sort', 'page'])), $zone);
+        return [
+            'city' => $city ? $this->presentCity($city) : null,
+            'place' => ['country_id' => $country?->id, 'region_id' => $region?->id, 'timezone' => $placeZone],
+            'from' => $from, 'to' => $to,
+        ] + $this->search($me, $place + ['from' => $from, 'to' => $to] + array_intersect_key($f, array_flip(['category_ids', 'free', 'family', 'q', 'sort', 'page'])) + ['day_zone' => $placeZone], $zone);
     }
 
     /**
@@ -111,6 +134,9 @@ class DiscoverService
     {
         if ($city !== null) {
             $q->where('city_id', $city->id);
+        } elseif (! empty($f['region_id'])) {
+            // A region: the events of its cities.
+            $q->whereIn('city_id', DiscoverCity::query()->where('region_id', (int) $f['region_id'])->select('id'));
         } elseif (! empty($f['country_id'])) {
             $q->where('country_id', (int) $f['country_id']);
         }
@@ -118,7 +144,7 @@ class DiscoverService
             $q->whereIn('category_id', array_map('intval', (array) $f['category_ids']));
         }
         // One city: its own days; several: mine.
-        $dayZone = $city?->timezone ?? $zone;
+        $dayZone = $city?->timezone ?? ($f['day_zone'] ?? $zone);
         $this->overlapping(
             $q,
             ! empty($f['from']) ? CarbonImmutable::parse($f['from'], $dayZone)->startOfDay() : null,
@@ -166,38 +192,14 @@ class DiscoverService
      */
     public function home(Model $me, ?Country $country, string $zone): array
     {
-        $prefs = $this->preferences($me);
-        $follows = DiscoverFollow::query()->ownedBy($me)->get();
-        $now = CarbonImmutable::now($zone);
-        $weekendStart = $now->isFriday() || $now->isSaturday() ? $now->startOfDay() : $now->next(CarbonImmutable::FRIDAY)->startOfDay();
-        $weekendEnd = $weekendStart->isSaturday() ? $weekendStart->endOfDay() : $weekendStart->addDay()->endOfDay();
-
-        $here = fn (Builder $q) => $country !== null ? $q->where('country_id', $country->id) : $q;
-        $section = function (string $key, callable $scope, bool $popular = false) use ($me, $zone, $prefs) {
-            $q = $this->base()->upcoming();
-            $scope($q);
-            if ($prefs->family_only) {
-                $q->where('family_friendly', true);
+        $sections = [];
+        foreach (['for_you', 'this_week', 'weekend', 'free', 'popular', 'followed'] as $key) {
+            $page = $this->sectionPage($me, $country, $zone, $key, 1, self::PER_PAGE);
+            if ($page['items'] === []) {
+                continue;
             }
-            $popular ? $q->orderByDesc('interested_count')->orderBy('starts_at') : $q->orderBy('starts_at');
-            $items = $this->presentMany($me, $q->limit(self::SECTION_SIZE)->get(), $zone);
-
-            return $items === [] ? null : ['key' => $key, 'items' => $items];
-        };
-
-        $cityIds = $follows->where('kind', 'city')->pluck('target_id')->all();
-        $countryIds = $follows->where('kind', 'country')->pluck('target_id')->all();
-
-        $sections = [
-            $prefs->categoryIds() !== [] ? $section('for_you', fn ($q) => $here($q)->whereIn('category_id', $prefs->categoryIds())) : null,
-            $section('this_week', fn ($q) => $this->overlapping($here($q), $now, $now->addDays(7))),
-            $section('weekend', fn ($q) => $this->overlapping($here($q), $weekendStart, $weekendEnd)),
-            $section('free', fn ($q) => $here($q)->where('is_free', true)),
-            $section('popular', fn ($q) => $here($q)->where('interested_count', '>', 0), true),
-            $cityIds !== [] || $countryIds !== [] ? $section('followed', fn ($q) => $q
-                ->where(fn ($w) => $w->whereIn('city_id', $cityIds ?: [0])->orWhereIn('country_id', $countryIds ?: [0]))
-                ->when($country !== null, fn ($w) => $w->where('country_id', '!=', $country->id))) : null,
-        ];
+            $sections[] = ['key' => $key, 'items' => $page['items'], 'has_more' => (bool) ($page['pagination']['has_more_pages'] ?? false)];
+        }
 
         $settings = $this->settings();
 
@@ -205,12 +207,105 @@ class DiscoverService
             'country' => $country?->code,
             'categories' => $this->categories(),
             'cities' => $this->cities($country?->id),
+            // The regions of the country I'm in that have something on — the first batch (more: GET regions).
+            'regions' => $this->regions($country?->id, 1, self::REGIONS_PAGE),
             'follows' => $this->follows($me),
-            'preferences' => $this->presentPreferences($prefs),
+            'preferences' => $this->presentPreferences($this->preferences($me)),
             'can_submit' => (bool) $settings->submissions_enabled,
             'ai' => (bool) $settings->ai_enabled,
-            'sections' => array_values(array_filter($sections)),
+            'sections' => $sections,
         ];
+    }
+
+    /**
+     * One home strip, 15 at a time — the app scrolls the row; it does not open a new page.
+     *
+     * @return array{items: list<array<string, mixed>>, pagination: array<string, mixed>}
+     */
+    public function sectionPage(Model $me, ?Country $country, string $zone, string $key, int $page = 1, int $perPage = self::PER_PAGE): array
+    {
+        $query = $this->sectionQuery($me, $country, $zone, $key);
+        if ($query === null) {
+            return [
+                'items' => [],
+                'pagination' => [
+                    'per_page' => min(max(1, $perPage), 50),
+                    'path' => '',
+                    'total' => 0,
+                    'current_page' => 1,
+                    'next_page_url' => null,
+                    'prev_page_url' => null,
+                    'last_page' => 1,
+                    'has_more_pages' => false,
+                    'from' => null,
+                    'to' => null,
+                ],
+            ];
+        }
+        $paginator = $query->paginate(min(max(1, $perPage), 50), ['*'], 'page', max(1, $page));
+
+        return [
+            'items' => $this->presentMany($me, $paginator->getCollection(), $zone),
+            'pagination' => ApiPaginator::meta($paginator),
+        ];
+    }
+
+    private function sectionQuery(Model $me, ?Country $country, string $zone, string $key): ?Builder
+    {
+        $prefs = $this->preferences($me);
+        $now = CarbonImmutable::now($zone);
+        $weekendStart = $now->isFriday() || $now->isSaturday() ? $now->startOfDay() : $now->next(CarbonImmutable::FRIDAY)->startOfDay();
+        $weekendEnd = $weekendStart->isSaturday() ? $weekendStart->endOfDay() : $weekendStart->addDay()->endOfDay();
+        $here = function (Builder $q) use ($country): Builder {
+            return $country !== null ? $q->where('country_id', $country->id) : $q;
+        };
+
+        $q = $this->base()->upcoming();
+        if ($prefs->family_only) {
+            $q->where('family_friendly', true);
+        }
+
+        $popular = false;
+        switch ($key) {
+            case 'for_you':
+                $ids = $prefs->categoryIds();
+                if ($ids === []) {
+                    return null;
+                }
+                $here($q)->whereIn('category_id', $ids);
+                break;
+            case 'this_week':
+                $this->overlapping($here($q), $now, $now->addDays(7));
+                break;
+            case 'weekend':
+                $this->overlapping($here($q), $weekendStart, $weekendEnd);
+                break;
+            case 'free':
+                $here($q)->where('is_free', true);
+                break;
+            case 'popular':
+                $here($q)->where('interested_count', '>', 0);
+                $popular = true;
+                break;
+            case 'followed':
+                $follows = DiscoverFollow::query()->ownedBy($me)->get();
+                $cityIds = $follows->where('kind', 'city')->pluck('target_id')->all();
+                $regionIds = $follows->where('kind', 'region')->pluck('target_id')->all();
+                $countryIds = $follows->where('kind', 'country')->pluck('target_id')->all();
+                $cityIds = array_values(array_unique([...$cityIds, ...($regionIds === [] ? [] : DiscoverCity::query()->whereIn('region_id', $regionIds)->pluck('id')->all())]));
+                if ($cityIds === [] && $countryIds === []) {
+                    return null;
+                }
+                $q->where(fn ($w) => $w->whereIn('city_id', $cityIds ?: [0])->orWhereIn('country_id', $countryIds ?: [0]))
+                    ->when($country !== null, fn ($w) => $w->where('country_id', '!=', $country->id));
+                break;
+            default:
+                throw DiscoverException::notFound();
+        }
+
+        $popular ? $q->orderByDesc('interested_count')->orderBy('starts_at') : $q->orderBy('starts_at');
+
+        return $q;
     }
 
     /**
@@ -218,7 +313,7 @@ class DiscoverService
      */
     public function show(Model $me, DiscoverEvent $event, string $zone): array
     {
-        $event->loadMissing(['category.translations', 'city.translations', 'country', 'organizer', 'media']);
+        $event->loadMissing(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media']);
         if ($event->review_status !== 'approved' && ! ($event->organizer?->isOwnedBy($me) ?? false)) {
             throw DiscoverException::notFound();
         }
@@ -256,22 +351,50 @@ class DiscoverService
     }
 
     /**
-     * What I said "interested" to — coming ones first; `past` for those already over.
+     * What I said "interested" to — coming ones first; `past` for those already over. 15 at a time.
      *
-     * @return list<array<string, mixed>>
+     * @return array{items: list<array<string, mixed>>, pagination: array<string, mixed>}
      */
-    public function interests(Model $me, string $zone, bool $past = false): array
+    public function interests(Model $me, string $zone, bool $past = false, int $page = 1, int $perPage = self::PER_PAGE): array
     {
         $now = now();
+        $ended = function ($q) use ($now) {
+            $q->where(function ($x) use ($now) {
+                $x->whereNotNull('discover_events.ends_at')->where('discover_events.ends_at', '<', $now);
+            })->orWhere(function ($y) use ($now) {
+                $y->whereNull('discover_events.ends_at')->where('discover_events.starts_at', '<', $now);
+            });
+        };
 
-        return DiscoverInterest::query()->ownedBy($me)
-            ->with(['event' => fn ($q) => $q->with(['category.translations', 'city.translations', 'country', 'organizer', 'media'])])
-            ->get()
-            ->filter(fn (DiscoverInterest $i) => $i->event !== null && $i->event->review_status === 'approved'
-                && (($i->event->ends_at ?? $i->event->starts_at)?->lt($now) ?? false) === $past)
-            ->sortBy(fn (DiscoverInterest $i) => ($past ? -1 : 1) * ($i->event->starts_at?->getTimestamp() ?? 0))
-            ->map(fn (DiscoverInterest $i) => $this->present($i->event, $zone, $i))
-            ->values()->all();
+        $query = DiscoverInterest::query()->ownedBy($me)
+            ->join('discover_events', 'discover_events.id', '=', 'discover_interests.event_id')
+            ->where('discover_events.review_status', 'approved')
+            ->when(
+                $past,
+                fn ($q) => $q->where($ended),
+                fn ($q) => $q->where(function ($w) use ($now) {
+                    $w->where(function ($x) use ($now) {
+                        $x->whereNotNull('discover_events.ends_at')->where('discover_events.ends_at', '>=', $now);
+                    })->orWhere(function ($y) use ($now) {
+                        $y->whereNull('discover_events.ends_at')->where(function ($z) use ($now) {
+                            $z->whereNull('discover_events.starts_at')->orWhere('discover_events.starts_at', '>=', $now);
+                        });
+                    });
+                }),
+            )
+            ->with(['event' => fn ($q) => $q->with(['category.translations', 'city.translations', 'country.currency', 'organizer', 'media'])])
+            ->select('discover_interests.*')
+            ->orderBy('discover_events.starts_at', $past ? 'desc' : 'asc');
+
+        $paginator = $query->paginate(min(max(1, $perPage), 50), ['discover_interests.*'], 'page', max(1, $page));
+
+        return [
+            'items' => $paginator->getCollection()
+                ->filter(fn (DiscoverInterest $i) => $i->event !== null)
+                ->map(fn (DiscoverInterest $i) => $this->present($i->event, $zone, $i))
+                ->values()->all(),
+            'pagination' => ApiPaginator::meta($paginator),
+        ];
     }
 
     // ------------------------------------------------------------------ follows (170) & preferences (171, 172)
@@ -284,16 +407,26 @@ class DiscoverService
         $rows = DiscoverFollow::query()->ownedBy($me)->orderBy('id')->get();
         $cities = DiscoverCity::query()->with(['translations', 'country'])->whereIn('id', $rows->where('kind', 'city')->pluck('target_id'))->get()->keyBy('id');
         $countries = Country::query()->with('translations')->whereIn('id', $rows->where('kind', 'country')->pluck('target_id'))->get()->keyBy('id');
+        $regions = Region::query()->with(['translations', 'country'])->whereIn('id', $rows->where('kind', 'region')->pluck('target_id'))->get()->keyBy('id');
 
-        return $rows->map(function (DiscoverFollow $f) use ($cities, $countries) {
+        return $rows->map(function (DiscoverFollow $f) use ($cities, $countries, $regions) {
             $city = $f->kind === 'city' ? $cities->get($f->target_id) : null;
-            $country = $f->kind === 'country' ? $countries->get($f->target_id) : $city?->country;
+            $region = $f->kind === 'region' ? $regions->get($f->target_id) : null;
+            $country = match ($f->kind) {
+                'country' => $countries->get($f->target_id),
+                'region' => $region?->country,
+                default => $city?->country,
+            };
 
             return [
                 'id' => $f->id,
                 'kind' => $f->kind,
                 'target_id' => (int) $f->target_id,
-                'name' => $f->kind === 'city' ? $city?->translatedName() : $country?->translatedName(),
+                'name' => match ($f->kind) {
+                    'city' => $city?->translatedName(),
+                    'region' => $region?->translatedName(),
+                    default => $country?->translatedName(),
+                },
                 'country' => $country?->code,
             ];
         })->values()->all();
@@ -304,9 +437,11 @@ class DiscoverService
      */
     public function follow(Model $me, string $kind, int $targetId): array
     {
-        $exists = $kind === 'city'
-            ? DiscoverCity::query()->where('status', true)->whereKey($targetId)->exists()
-            : Country::query()->whereKey($targetId)->exists();
+        $exists = match ($kind) {
+            'city' => DiscoverCity::query()->where('status', true)->whereKey($targetId)->exists(),
+            'region' => Region::query()->where('status', true)->whereKey($targetId)->exists(),
+            default => Country::query()->whereKey($targetId)->exists(),
+        };
         if (! $exists) {
             throw DiscoverException::notFound();
         }
@@ -375,8 +510,25 @@ class DiscoverService
      */
     public function categories(): array
     {
-        return DiscoverCategory::query()->with('translations')->where('status', true)->orderBy('sort_order')->orderBy('id')->get()
-            ->map(fn (DiscoverCategory $c) => $this->presentCategory($c))->values()->all();
+        return $this->categoryQuery()->get()->map(fn (DiscoverCategory $c) => $this->presentCategory($c))->values()->all();
+    }
+
+    /**
+     * @return array{items: list<array<string, mixed>>, pagination: array<string, mixed>}
+     */
+    public function categoriesPage(int $page = 1, int $perPage = self::PER_PAGE): array
+    {
+        $paginator = $this->categoryQuery()->paginate(min(max(1, $perPage), 50), ['*'], 'page', max(1, $page));
+
+        return [
+            'items' => $paginator->getCollection()->map(fn (DiscoverCategory $c) => $this->presentCategory($c))->values()->all(),
+            'pagination' => ApiPaginator::meta($paginator),
+        ];
+    }
+
+    private function categoryQuery(): Builder
+    {
+        return DiscoverCategory::query()->with('translations')->where('status', true)->orderBy('sort_order')->orderBy('id');
     }
 
     /**
@@ -390,10 +542,12 @@ class DiscoverService
     /**
      * @return list<array<string, mixed>>
      */
-    public function cities(?int $countryId = null): array
+    public function cities(?int $countryId = null, ?int $regionId = null, bool $withEvents = false): array
     {
-        return DiscoverCity::query()->with(['translations', 'country'])->where('status', true)
+        return DiscoverCity::query()->with(['translations', 'country.currency'])->where('status', true)
             ->when($countryId !== null, fn ($q) => $q->where('country_id', $countryId))
+            ->when($regionId !== null, fn ($q) => $q->where('region_id', $regionId))
+            ->when($withEvents, fn ($q) => $q->whereIn('id', $this->upcomingCityIds()))
             ->orderBy('sort_order')->orderBy('id')->get()
             ->map(fn (DiscoverCity $c) => $this->presentCity($c))->values()->all();
     }
@@ -403,7 +557,68 @@ class DiscoverService
      */
     public function presentCity(DiscoverCity $c): array
     {
-        return ['id' => $c->id, 'name' => $c->translatedName(), 'country' => $c->country?->code, 'country_id' => $c->country_id, 'timezone' => $c->timezone, 'lat' => $c->lat, 'lng' => $c->lng];
+        return [
+            'id' => $c->id,
+            'name' => $c->translatedName(),
+            'country' => $c->country?->code,
+            'country_id' => $c->country_id,
+            'region_id' => $c->region_id,
+            'timezone' => $c->timezone,
+            'lat' => $c->lat,
+            'lng' => $c->lng,
+            'currency' => $this->presentCurrency($c->country?->currency),
+        ];
+    }
+
+    /**
+     * A country's active regions (the dashboard catalog), in the admin's order, a page at a time —
+     * with how many upcoming public events each has. `withEvents` (the home strip) keeps only
+     * regions that have something on.
+     *
+     * @return array{items: list<array{id: int, name: ?string, country_id: int, events_count: int}>, meta: array<string, mixed>}
+     */
+    public function regions(?int $countryId, int $page = 1, int $perPage = self::REGIONS_PAGE, bool $withEvents = true): array
+    {
+        // Events per city, then cities → their region (no join: the scopes' columns stay unambiguous).
+        $perCity = DiscoverEvent::query()->public()->upcoming()
+            ->when($countryId !== null, fn ($q) => $q->where('country_id', $countryId))
+            ->groupBy('city_id')->selectRaw('city_id, count(*) as total')->pluck('total', 'city_id');
+        $counts = DiscoverCity::query()->whereIn('id', $perCity->keys()->all() ?: [0])->whereNotNull('region_id')->pluck('region_id', 'id')
+            ->groupBy(fn ($regionId) => $regionId, true)
+            ->map(fn ($cities) => $cities->keys()->sum(fn ($cityId) => (int) $perCity[$cityId]));
+
+        $paginator = Region::query()->with('translations')->where('status', true)
+            ->when($countryId !== null, fn ($q) => $q->where('country_id', $countryId))
+            ->when($withEvents, fn ($q) => $q->whereIn('id', $counts->keys()->all() ?: [0]))
+            ->orderBy('sort_order')->orderBy('id')
+            ->paginate(min(max(1, $perPage), 50), ['*'], 'page', max(1, $page));
+
+        return [
+            'items' => $paginator->getCollection()->map(fn (Region $r) => [
+                'id' => $r->id, 'name' => $r->translatedName(), 'country_id' => $r->country_id, 'events_count' => (int) ($counts[$r->id] ?? 0),
+            ])->values()->all(),
+            'meta' => ApiPaginator::meta($paginator),
+        ];
+    }
+
+    /**
+     * The countries catalog (`countries`) — the first step of the place filter.
+     *
+     * @return list<array{id: int, name: ?string, code: ?string}>
+     */
+    public function countries(): array
+    {
+        return Country::query()->with('translations')->where('status', true)
+            ->orderByDesc('is_default')->orderBy('id')
+            ->get()
+            ->map(fn (Country $c) => ['id' => $c->id, 'name' => $c->translatedName() ?: $c->code, 'code' => $c->code])
+            ->values()->all();
+    }
+
+    /** The cities with an upcoming public event (a subquery). */
+    private function upcomingCityIds(): Builder
+    {
+        return DiscoverEvent::query()->public()->upcoming()->select('city_id');
     }
 
     // ------------------------------------------------------------------ presenting
@@ -456,6 +671,8 @@ class DiscoverService
             'my_time' => $start !== null && $tz !== $zone ? $start->setTimezone($zone)->format('Y-m-d H:i') : null,
             'is_free' => (bool) $e->is_free,
             'price_text' => $e->price_text,
+            'price_display' => $this->presentPrice($e),
+            'currency' => $this->presentCurrency($e->country?->currency),
             'family_friendly' => (bool) $e->family_friendly,
             'status' => $e->status,
             // Never "verified" just because it's listed (AT-DISC-02).
@@ -503,6 +720,54 @@ class DiscoverService
             'review_status' => $mine ? $e->review_status : null,
             'review_note' => $mine ? $e->review_note : null,
         ];
+    }
+
+    /**
+     * Catalog currency of the event's country (`code`, `symbol`, decimals).
+     *
+     * @return array{code: string, symbol: ?string, decimal_places: int}|null
+     */
+    private function presentCurrency(?\App\Models\Currency $currency): ?array
+    {
+        if ($currency === null) {
+            return null;
+        }
+
+        return [
+            'code' => $currency->code,
+            'symbol' => $currency->symbol ?: $currency->code,
+            'decimal_places' => (int) $currency->decimal_places,
+        ];
+    }
+
+    /** Free stays a label in the app; a number gets the country's symbol ("300 ج.م"), other text is left as typed. */
+    private function presentPrice(DiscoverEvent $e): ?string
+    {
+        if ($e->is_free) {
+            return null;
+        }
+        $raw = trim((string) $e->price_text);
+        if ($raw === '') {
+            return null;
+        }
+        $currency = $this->presentCurrency($e->country?->currency);
+        $symbol = $currency['symbol'] ?? null;
+        $code = $currency['code'] ?? null;
+        $places = (int) ($currency['decimal_places'] ?? 2);
+        $compact = str_replace(["\u{00A0}", ' ', ','], '', $raw);
+        if (preg_match('/^\d+(?:\.\d+)?$/', $compact) === 1) {
+            $n = (float) $compact;
+            $formatted = abs($n - round($n)) < 0.00001
+                ? number_format($n, 0, '.', ',')
+                : number_format($n, $places, '.', ',');
+
+            return $symbol ? $formatted.' '.$symbol : $formatted;
+        }
+        if ($symbol !== null && (str_contains($raw, $symbol) || ($code !== null && str_contains(mb_strtoupper($raw), mb_strtoupper($code))))) {
+            return $raw;
+        }
+
+        return $symbol ? $raw.' '.$symbol : $raw;
     }
 
     private function distance(float $lat1, float $lng1, float $lat2, float $lng2): float

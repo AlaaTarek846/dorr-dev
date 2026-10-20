@@ -4,6 +4,7 @@ use Illuminate\Support\Facades\Route;
 use Modules\Chat\Http\Controllers\Admin\ChatCategoryController;
 use Modules\Chat\Http\Controllers\Admin\ChatDirectoryController;
 use Modules\Chat\Http\Controllers\Admin\ChatDorrStoryController;
+use Modules\Chat\Http\Controllers\Admin\ChatFeatureRuleController;
 use Modules\Chat\Http\Controllers\Admin\ChatMomentController;
 use Modules\Chat\Http\Controllers\Admin\ChatPackageController;
 use Modules\Chat\Http\Controllers\Admin\ChatReportController;
@@ -17,8 +18,8 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         Route::get('chat-settings', [ChatSettingController::class, 'show']);
         Route::put('chat-settings', [ChatSettingController::class, 'update']);
         // Features on or off by country or city.
-        Route::get('chat-feature-rules/options', [\Modules\Chat\Http\Controllers\Admin\ChatFeatureRuleController::class, 'options']);
-        Route::apiResource('chat-feature-rules', \Modules\Chat\Http\Controllers\Admin\ChatFeatureRuleController::class)->except(['show']);
+        Route::get('chat-feature-rules/options', [ChatFeatureRuleController::class, 'options']);
+        Route::apiResource('chat-feature-rules', ChatFeatureRuleController::class)->except(['show']);
 
         // POST for update: multipart (wallpaper upload).
         Route::get('chat-themes', [ChatThemeController::class, 'index']);
@@ -59,6 +60,7 @@ Route::middleware('locale')->prefix('admin/v1')->group(function () {
         // The occasions catalog (DORR Moments) and its date corrections (POST for update: multipart card picture).
         Route::get('chat-moments', [ChatMomentController::class, 'index']);
         Route::post('chat-moments', [ChatMomentController::class, 'store']);
+        Route::post('chat-moments/delete-multiple', [ChatMomentController::class, 'deleteMultiple']);
         Route::get('chat-moments/{chat_moment}', [ChatMomentController::class, 'show']);
         Route::post('chat-moments/{chat_moment}', [ChatMomentController::class, 'update']);
         Route::patch('chat-moments/{chat_moment}/status', [ChatMomentController::class, 'status']);

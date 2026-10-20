@@ -142,7 +142,7 @@ class ChatPrivacySetting extends Model
     }
 
     /** My privacy context now (spec 151): switched on, and not run out. */
-    public function activeContext(?\Carbon\CarbonInterface $at = null): ?string
+    public function activeContext(?CarbonInterface $at = null): ?string
     {
         if ($this->context === null || ($this->context_until !== null && $this->context_until->lte($at ?? now()))) {
             return null;
