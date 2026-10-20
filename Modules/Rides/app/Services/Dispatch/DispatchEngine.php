@@ -117,9 +117,16 @@ class DispatchEngine
             (int) ($policy['search.min_radius_m'] ?? 5000) + (int) ($policy['search.radius_step_m'] ?? 5000) * ($round - 1),
             (int) ($policy['search.max_radius_m'] ?? 50000),
         );
-        $candidate = $this->candidates($ride, $radius, $policy)->first();
+        // O-36 (owner): the request goes to several captains at once — the first to accept takes it.
+        $batch = $this->candidates($ride, $radius, $policy);
+        // O-30, O-31: a With Me request goes first to the captains already carrying riders its way.
+        $pooled = app(\Modules\Rides\Services\Pool\RidePoolService::class)->poolsFor($ride)
+            ->reject(fn (array $pair) => RideOffer::query()->where('ride_id', $ride->id)->where('driver_id', $pair[0]->driver_id)->exists());
+        // An airport ride keeps the line's order (D-276): one captain at a time, the first in line first.
+        $size = $this->queue->orderFor($ride)->isNotEmpty() ? 1 : max(1, (int) ($policy['search.batch_size'] ?? 3));
+        $batch = $pooled->toBase()->merge($batch)->unique(fn (array $pair) => $pair[0]->driver_id)->values()->take($size);
 
-        if ($candidate === null) {
+        if ($batch->isEmpty()) {
             $ride->forceFill([
                 'dispatch_round' => $round,
                 'search_radius_m' => $radius,
@@ -130,9 +137,18 @@ class DispatchEngine
             return;
         }
 
-        [$presence, $distance] = $candidate;
         $ttl = (int) ($policy['search.offer_ttl_s'] ?? 15);
+        foreach ($batch as [$presence, $distance]) {
+            if ($this->offerTo($ride, $presence, (float) $distance, $round, $radius, $ttl)) {
+                return; // auto-accepted: the ride is given
+            }
+        }
+        $this->notifier->changed($ride, 'search_progress');
+    }
 
+    /** One request card to one captain; true when Auto-Accept took the ride for them. */
+    private function offerTo(Ride $ride, DriverPresence $presence, float $distance, int $round, int $radius, int $ttl): bool
+    {
         try {
             $offer = DB::transaction(function () use ($ride, $presence, $distance, $round, $radius, $ttl) {
                 $offer = RideOffer::query()->create([
@@ -154,7 +170,7 @@ class DispatchEngine
             });
         } catch (QueryException) {
             // Same driver, same round (a tick racing another): the next tick carries on.
-            return;
+            return false;
         }
 
         $this->stats->bump($offer->driver_id, ['offers_received' => 1]);
@@ -165,13 +181,14 @@ class DispatchEngine
                 $accepted = $this->accept($driver, $offer->uuid);
                 $this->notifier->driver($driver, $accepted, 'auto_accepted');
 
-                return;
+                return true;
             } catch (RidesException) {
                 // Lost the race or can't be assigned: it rings like any request.
             }
         }
         $this->notifier->offer($offer->setRelation('driver', $driver), $ride);
-        $this->notifier->changed($ride, 'search_progress');
+
+        return false;
     }
 
 
@@ -279,8 +296,13 @@ class DispatchEngine
             throw new RidesException('no_active_vehicle', 422);
         }
 
+        // O-30: a With Me rider joining a car that already carries riders its way — a lock of its own,
+        // not the captain's one-ride lock.
+        $pools = app(\Modules\Rides\Services\Pool\RidePoolService::class);
+        $pool = $ride->category()->value('slug') === \Modules\Rides\Services\Pool\RidePoolService::CATEGORY ? $pools->openFor($driver) : null;
+        $joining = $pool !== null && $pool->activeRides()->exists();
         try {
-            RideActiveLock::query()->create(['lock_key' => RideActiveLock::forDriver($driver->id), 'ride_id' => $ride->id]);
+            RideActiveLock::query()->create(['lock_key' => $joining ? 'pool:'.$driver->id.':'.$ride->id : RideActiveLock::forDriver($driver->id), 'ride_id' => $ride->id]);
         } catch (QueryException) {
             throw new RidesException('driver_busy', 409);
         }
@@ -322,7 +344,17 @@ class DispatchEngine
         $offer?->update(['status' => OfferStatus::Accepted, 'responded_at' => now()]);
         RideOffer::query()->where('ride_id', $ride->id)->when($offer, fn ($q) => $q->where('id', '!=', $offer->id))->where('status', OfferStatus::Sent->value)
             ->update(['status' => OfferStatus::Withdrawn->value, 'responded_at' => now()]);
+        // O-36: the captain's other open requests go back to the search for someone else, at once.
+        $others = RideOffer::query()->where('driver_id', $driver->id)->where('ride_id', '!=', $ride->id)->where('status', OfferStatus::Sent->value)->pluck('ride_id');
+        if ($others->isNotEmpty()) {
+            RideOffer::query()->where('driver_id', $driver->id)->whereIn('ride_id', $others)->where('status', OfferStatus::Sent->value)
+                ->update(['status' => OfferStatus::Withdrawn->value, 'responded_at' => now()]);
+            Ride::query()->whereIn('id', $others)->where('status', RideStatus::Searching->value)->update(['next_dispatch_at' => now()]);
+        }
         BidBoard::closeRide($ride, $bid);
+
+        // With Me: the newcomer's money is split with the riders in the car; a first With Me ride opens a pool.
+        $joining ? $pools->join($ride, $driver) : $pools->startWith($ride, $driver);
 
         $this->presence->rideStarted($driver);
         // Whatever the ride, the captain is no longer waiting in an airport line (D-280).
@@ -419,7 +451,10 @@ class DispatchEngine
             ->pluck('driver_id');
         // A driver who stepped back from this ride never gets it again.
         $released = $ride->events()->where('type', 'driver_released')->pluck('actor_id');
-        $busyWithOffer = RideOffer::query()->where('status', OfferStatus::Sent->value)->where('expires_at', '>', now())->pluck('driver_id')
+        // O-36: a captain may hold a few requests at once and choose — full only at `search.max_open_offers_per_driver`.
+        $maxOpen = max(1, (int) ($policy['search.max_open_offers_per_driver'] ?? 3));
+        $busyWithOffer = RideOffer::query()->where('status', OfferStatus::Sent->value)->where('expires_at', '>', now())
+            ->selectRaw('driver_id, COUNT(*) as c')->groupBy('driver_id')->havingRaw('COUNT(*) >= ?', [$maxOpen])->pluck('driver_id')
             // One live bid per driver at a time (§9.3).
             ->merge(RideActiveLock::query()->where('lock_key', 'like', 'driver_bid:%')->pluck('lock_key')->map(fn (string $k) => (int) substr($k, 11)));
         $blocked = RideBlock::query()

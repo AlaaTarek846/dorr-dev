@@ -124,7 +124,7 @@ internal fun CoverField(cover: Uri?, onPick: () -> Unit, onRemove: () -> Unit) {
 @Composable
 internal fun ChangeCoverPill(busy: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
-        modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)).clickable(enabled = !busy, onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
+        modifier.clip(RoundedCornerShape(12.dp)).background(Color.Black.copy(alpha = 0.55f)).clickable(enabled = !busy, onClick = onClick).padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(Icons.Rounded.AddPhotoAlternate, null, tint = Color.White, modifier = Modifier.size(16.dp))

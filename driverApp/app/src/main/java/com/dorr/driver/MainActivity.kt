@@ -16,7 +16,8 @@ import com.dorr.driver.ui.theme.DriverPrefs
 import com.dorr.driver.ui.theme.DriverTheme
 import com.dorr.driver.ui.theme.withDriverLanguage
 
-class MainActivity : ComponentActivity() {
+// A FragmentActivity (still a ComponentActivity) so the wallet can ask for the fingerprint / face (O-35).
+class MainActivity : androidx.fragment.app.FragmentActivity() {
     /** Built on the language the captain chose in the app (Arabic / English), before anything is drawn. */
     override fun attachBaseContext(newBase: Context) {
         DriverPrefs.init(newBase)

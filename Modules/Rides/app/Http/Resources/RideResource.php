@@ -3,6 +3,8 @@
 namespace Modules\Rides\Http\Resources;
 
 use App\Models\Rating;
+use Modules\Rides\Enums\RatingTarget;
+use Modules\Rides\Services\Lifecycle\RideRatingService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Str;
@@ -87,9 +89,36 @@ class RideResource extends JsonResource
             'favorite_driver' => $withDriver ? SafetyCenterService::isFavorite($this->user_id, $this->driver_id) : null,
             // A new destination / stop asked during the ride, and its answer (R-91..95).
             'change_request' => ($change = RideChangeService::current($this->resource)) === null ? null : RideChangeService::present($change, 'rider'),
+            // O-37: a cash ride paid partly from the wallet — that part (held, then paid), and the cash left.
+            'wallet_part_minor' => $this->payment_method === \Modules\Rides\Enums\RidePaymentMethod::Cash
+                ? ($this->status === RideStatus::Completed ? (int) $this->snapshot('wallet_paid_minor', 0) : app(\Modules\Rides\Services\Payment\RidePaymentService::class)->held($this->resource))
+                : 0,
+            'cash_to_collect_minor' => $this->status === RideStatus::Completed && $this->payment_method === \Modules\Rides\Enums\RidePaymentMethod::Cash
+                ? max(0, (int) $this->final_total_minor - (int) $this->snapshot('wallet_paid_minor', 0))
+                : null,
+            // O-10: unread chat messages (the badge); O-09: the number to call from outside the app while the ride is on.
+            'unread_messages' => $this->driver_id !== null ? \Modules\Rides\Services\Chat\RideChatService::unread($this->resource, 'user') : 0,
+            'call_phone' => $this->driver_id !== null ? \Modules\Rides\Services\Chat\RideChatService::callPhone($this->resource, 'user') : null,
+            // O-30..O-33: a With Me ride sharing the car — what sharing took off, and with how many.
+            // O-17: booked by the hour — the hours and what each minute past them costs (counted from the start).
+            'hourly' => ($h = $this->snapshot('hourly')) === null ? null : [
+                'hours' => (int) $h['hours'], 'hour_price_minor' => (int) $h['hour_price_minor'],
+                'overtime_per_min_minor' => (int) ($h['overtime_per_min_minor'] ?? 0),
+                'ends_at' => $this->started_at?->copy()->addHours((int) $h['hours'])->toIso8601String(),
+            ],
+            // O-09: the in-app call ringing or going on now (null when none) — the app shows it on any reload.
+            'call' => \Modules\Rides\Services\Chat\RideCallService::present($this->resource),
+            'pool' => $this->pool_id === null ? null : [
+                'discount_minor' => (int) $this->pool_discount_minor,
+                'riders' => \Modules\Rides\Models\Ride::query()->where('pool_id', $this->pool_id)
+                    ->whereIn('status', ['accepted', 'arrived', 'in_progress'])->count(),
+                'share_with' => $this->share_with,
+            ],
             'rated' => $this->status === RideStatus::Completed
                 ? Rating::query()->where('unique_key', Rating::uniqueKeyFor($request->user(), $this->resource))->exists()
                 : null,
+            // O-41: what the rider scores the captain on, each with its stars on the rating sheet.
+            'rating_criteria' => $this->status === RideStatus::Completed ? RideRatingService::criteria($this->resource, RatingTarget::Driver) : [],
             // R-144: the tip offered after the ride (presets, highest, until when) — or the one given.
             'tip' => $this->status === RideStatus::Completed ? app(RideTipService::class)->offer($this->resource) : null,
         ];

@@ -122,7 +122,30 @@ internal fun TripDetailsRow(state: RidesState) {
             },
             label = "passengers",
         ) { n -> Text("$n", color = settingsInk(), fontWeight = FontWeight.ExtraBold, fontSize = 17.sp, modifier = Modifier.width(34.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center) }
-        StepButton(Icons.Rounded.Add, state.passengers < seats) { state.passengers++ }
+        // O-15: more riders than this category seats — the category that seats them (the Family one first)
+        // is chosen by itself, and a popup says why.
+        val roomier = state.quotes.filter { (it.category.capacity ?: 4) > state.passengers }
+            .sortedWith(compareBy({ it.category.slug != "family" }, { it.category.capacity ?: 4 }))
+            .firstOrNull()
+        StepButton(Icons.Rounded.Add, state.passengers < seats || roomier != null) {
+            if (state.passengers < seats) {
+                state.passengers++
+            } else if (roomier != null) {
+                state.selected = roomier
+                state.riderPrice = roomier.bid?.suggestedMinor
+                state.passengers++
+                state.categorySwitchedTo = roomier.category.name ?: roomier.category.slug
+            }
+        }
+    }
+    state.categorySwitchedTo?.let { name ->
+        androidx.compose.material3.AlertDialog(
+            onDismissRequest = { state.categorySwitchedTo = null },
+            icon = { Icon(Icons.Rounded.Group, null, tint = settingsAccent()) },
+            title = { Text(stringResource(R.string.rd_family_title), fontWeight = FontWeight.Bold) },
+            text = { Text(stringResource(R.string.rd_family_body, state.passengers, name)) },
+            confirmButton = { androidx.compose.material3.TextButton(onClick = { state.categorySwitchedTo = null }) { Text(stringResource(R.string.rd_done), color = settingsAccent(), fontWeight = FontWeight.Bold) } },
+        )
     }
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { noteOpen = !noteOpen }.padding(vertical = 6.dp),

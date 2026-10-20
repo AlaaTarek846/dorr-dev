@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RideHold;
+use Modules\Rides\Services\Notifications\RideNotifier;
 use Modules\Wallet\Enums\WalletBucket;
 use Modules\Wallet\Enums\WalletHoldStatus;
 use Modules\Wallet\Enums\WalletTransactionType;
@@ -46,7 +47,7 @@ class RidePaymentService
             $wallet = $this->riderWallet($ride)->fresh();
             $available = $this->available($wallet);
             if ($available < $amountMinor) {
-                throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amountMinor - $available]);
+                throw $this->insufficient($ride, $wallet, $amountMinor, $available);
             }
 
             $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $amountMinor);
@@ -72,8 +73,31 @@ class RidePaymentService
     }
 
     /**
+     * "Not enough" says which wallet was looked at (the ride's country — one wallet per country), what is
+     * free in it and what is held by earlier rides or requests, so a balance seen elsewhere explains itself (O-38e).
+     */
+    private function insufficient(Ride $ride, Wallet $wallet, int $needed, int $available): RidesException
+    {
+        $held = max(0, (int) $wallet->held_spend_only_minor) + max(0, (int) $wallet->held_withdrawable_minor);
+        $money = fn (int $minor) => app(RideNotifier::class)->money($minor, $ride);
+        $country = $ride->country()->first();
+
+        return new RidesException('insufficient_balance', 422, [
+            'country' => $country?->translatedName() ?? $country?->code ?? '',
+            'available' => $money($available),
+            'needed' => $money($needed),
+            'held' => $money($held),
+        ], [
+            'shortfall_minor' => $needed - $available,
+            'available_minor' => $available,
+            'held_minor' => $held,
+            'wallet_country' => $country?->code,
+        ], $held > 0 ? 'insufficient_balance_held' : 'insufficient_balance_detail');
+    }
+
+    /**
      * Charges the final amount from the holds (spend-only first); anything beyond them (waiting
-     * fees) is debited from the withdrawable balance, which may go below zero as a debt.
+     * fees) is debited spend-only first too, the rest from withdrawable, which may go below zero as a debt.
      */
     public function capture(Ride $ride, int $amountMinor, string $noteKey = 'ride_payment'): ?WalletTransaction
     {
@@ -99,7 +123,7 @@ class RidePaymentService
             }
 
             if ($remaining > 0) {
-                $last = $this->wallets->debit($this->riderWallet($ride), $remaining, WalletBucket::Withdrawable, WalletTransactionType::ServicePayment, $meta('extra'));
+                $last = $this->wallets->debitSpendOnlyFirst($this->riderWallet($ride), $remaining, WalletTransactionType::ServicePayment, $meta('extra'));
             }
 
             return $last;
@@ -120,7 +144,7 @@ class RidePaymentService
             return null;
         }
 
-        return $this->wallets->debit($this->riderWallet($ride), $amountMinor, WalletBucket::Withdrawable, WalletTransactionType::Penalty, [
+        return $this->wallets->debitSpendOnlyFirst($this->riderWallet($ride), $amountMinor, WalletTransactionType::Penalty, [
             'reference_type' => 'ride',
             'reference_id' => $ride->id,
             'notes' => ['key' => 'wallet.notes.'.$noteKey, 'variables' => ['number' => $ride->number]],
@@ -136,6 +160,12 @@ class RidePaymentService
             ->first();
 
         return $wallet === null ? 0 : max(0, -$wallet->withdrawable_minor);
+    }
+
+    /** What is still held for the ride (a wallet ride's price, or a cash ride's wallet part — O-37). */
+    public function held(Ride $ride): int
+    {
+        return (int) collect($this->activeHolds($ride))->sum(fn (RideHold $h) => (int) $h->walletHold->amount_minor);
     }
 
     /** @return iterable<RideHold> */

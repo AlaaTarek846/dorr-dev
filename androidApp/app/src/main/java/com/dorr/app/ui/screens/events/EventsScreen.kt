@@ -16,6 +16,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -38,6 +39,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -52,6 +54,8 @@ import androidx.compose.material.icons.rounded.Badge
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.Call
+import androidx.compose.material.icons.rounded.Phone
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material.icons.rounded.Email
 import androidx.compose.material.icons.rounded.Title
 import androidx.compose.material.icons.rounded.Place
@@ -70,19 +74,18 @@ import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Public
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Tune
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import com.dorr.app.ui.screens.profile.settingsSurface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -97,31 +100,51 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.dorr.app.R
+import coil.compose.AsyncImage
 import com.dorr.app.network.ApiClient
 import com.dorr.app.network.AuthSession
+import com.dorr.app.network.CountryCache
+import com.dorr.app.network.flagIso
+import com.dorr.app.network.formattedDial
+import com.dorr.app.network.resolveForPhone
 import com.dorr.app.network.DiscAskDto
+import com.dorr.app.network.DiscCategoryDto
 import com.dorr.app.network.DiscCityDto
 import com.dorr.app.network.DiscCountryDto
 import com.dorr.app.network.DiscRegionDto
 import com.dorr.app.network.DiscTravelDto
 import com.dorr.app.network.DiscEventDto
 import com.dorr.app.network.DiscHomeDto
+import com.dorr.app.network.DiscSectionDto
 import com.dorr.app.network.DiscOrganizerHomeDto
 import com.dorr.app.network.DiscPrefsDto
 import com.dorr.app.network.apiFailure
+import com.dorr.app.ui.screens.AccountDark
+import com.dorr.app.ui.screens.profile.PinkBackdrop
+import com.dorr.app.ui.screens.profile.SubHeader
+import com.dorr.app.ui.screens.profile.settingsAccent
+import com.dorr.app.ui.screens.profile.settingsCard
+import com.dorr.app.ui.screens.profile.settingsInk
+import com.dorr.app.ui.screens.profile.settingsMut
+import com.dorr.app.ui.screens.profile.settingsNight
 import com.dorr.app.ui.screens.wallet.WaPage
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.RowScope
@@ -144,16 +167,15 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import kotlinx.coroutines.launch
 import java.time.DayOfWeek
-import java.time.Instant
+import com.dorr.app.ui.screens.calendar.CalDatePickerDialog
+import com.dorr.app.ui.screens.calendar.CalTimePickerDialog
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.TemporalAdjusters
 import com.dorr.app.network.AppLocale
-import com.dorr.app.ui.locale.rememberAppLocaleFrame
 
 /*
  * DORR Discover (spec 169–182): public events from trusted sources — the admin and verified
@@ -233,7 +255,7 @@ fun EventsScreen(onExit: () -> Unit) {
     BackHandler(onBack = back)
     val sign = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1 else 1
 
-    Box(Modifier.fillMaxSize().background(Wa.Bg).systemBarsPadding().imePadding()) {
+    Box(Modifier.fillMaxSize().background(Wa.Bg).pointerInput(Unit) {}.systemBarsPadding().imePadding()) {
         AnimatedContent(
             targetState = stack.size to stack.last(),
             transitionSpec = {
@@ -281,7 +303,7 @@ private fun EvHome(onBack: () -> Unit, go: (EvPage) -> Unit) {
             home == null -> {
                 WaSkeleton(Modifier.fillMaxWidth().height(150.dp), RoundedCornerShape(26.dp))
                 Spacer(Modifier.height(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) { repeat(2) { WaSkeleton(Modifier.width(230.dp).height(220.dp), RoundedCornerShape(22.dp)) } }
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) { repeat(2) { WaSkeleton(Modifier.width(196.dp).height(176.dp), RoundedCornerShape(18.dp)) } }
             }
             else -> HomeContent(home, go)
         }
@@ -311,7 +333,7 @@ private fun ColumnScope.HomeHero(home: DiscHomeDto, go: (EvPage) -> Unit) {
 @Composable
 private fun HomeContent(home: DiscHomeDto, go: (EvPage) -> Unit) {
     // Quick ways in.
-    Row(Modifier.fillMaxWidth().padding(top = 14.dp).waRise(1), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp).waRise(1), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         QuickTile("✈️", stringResource(R.string.ev_travel), Modifier.weight(1f)) { go(EvPage.Travel) }
         QuickTile("🔎", stringResource(R.string.ev_browse), Modifier.weight(1f)) { go(EvPage.Browse()) }
         QuickTile("❤️", stringResource(R.string.ev_saved), Modifier.weight(1f)) { go(EvPage.Saved) }
@@ -321,17 +343,11 @@ private fun HomeContent(home: DiscHomeDto, go: (EvPage) -> Unit) {
     // The regions of my country with something on — more load as the strip scrolls.
     RegionsStrip(home.regions, rise = 2) { r -> go(EvPage.Browse(place = EvPlace(regionId = r.id, regionName = r.name))) }
     if (home.categories.isNotEmpty()) {
-        WaSectionTitle(stringResource(R.string.ev_categories), Modifier.waRise(3))
-        LazyRow(Modifier.waRise(3), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(home.categories, key = { it.id }) { c -> CategoryTile(c) { go(EvPage.Browse(categoryId = c.id)) } }
-        }
+        CategoriesStrip(home.categories, rise = 3) { c -> go(EvPage.Browse(categoryId = c.id)) }
     }
 
     home.sections.forEachIndexed { i, section ->
-        WaSectionTitle(sectionTitle(section.key), Modifier.waRise(4 + i))
-        LazyRow(Modifier.waRise(4 + i), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(section.items, key = { section.key + it.id }) { e -> EventCard(e) { go(EvPage.Event(e.id)) } }
-        }
+        HomeSection(section, rise = 4 + i, go = go)
     }
     if (home.sections.isEmpty()) {
         Spacer(Modifier.height(18.dp))
@@ -342,6 +358,147 @@ private fun HomeContent(home: DiscHomeDto, go: (EvPage) -> Unit) {
         }
     }
     Spacer(Modifier.height(24.dp))
+}
+
+@Composable
+private fun StripMoreArrow(onClick: () -> Unit) {
+    Box(Modifier.size(28.dp).clip(CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, stringResource(R.string.ev_section_more), tint = Wa.Mut, modifier = Modifier.size(18.dp))
+    }
+}
+
+@Composable
+private fun CategoriesStrip(all: List<DiscCategoryDto>, rise: Int, onOpen: (DiscCategoryDto) -> Unit) {
+    val items = remember { mutableStateListOf<DiscCategoryDto>() }
+    var shown by remember { mutableIntStateOf(0) }
+    var more by remember { mutableStateOf(false) }
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    fun load() {
+        val next = all.drop(shown).take(15)
+        if (next.isEmpty()) {
+            more = false
+            return
+        }
+        val known = items.map { it.id }.toSet()
+        items.addAll(next.filter { it.id !in known })
+        shown += next.size
+        more = shown < all.size
+    }
+
+    LaunchedEffect(all) {
+        items.clear()
+        shown = 0
+        load()
+    }
+
+    LaunchedEffect(more, items.size) {
+        if (!more) return@LaunchedEffect
+        snapshotFlow {
+            val info = list.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect {
+            if (more) load()
+        }
+    }
+
+    val showArrow = more || items.size > 4
+    WaSectionTitle(
+        stringResource(R.string.ev_categories),
+        Modifier.waRise(rise),
+        trailing = if (showArrow) {
+            {
+                StripMoreArrow {
+                    val visible = list.layoutInfo.visibleItemsInfo.count {
+                        it.offset >= 0 && it.offset + it.size <= list.layoutInfo.viewportEndOffset
+                    }.coerceAtLeast(1)
+                    val next = list.firstVisibleItemIndex + visible
+                    scope.launch {
+                        if (next >= items.size) load()
+                        list.animateScrollToItem(next.coerceAtMost((items.size - 1).coerceAtLeast(0)))
+                    }
+                }
+            }
+        } else {
+            null
+        },
+    )
+    LazyRow(Modifier.waRise(rise), state = list, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        items(items, key = { it.id }) { c -> CategoryTile(c) { onOpen(c) } }
+    }
+}
+
+@Composable
+private fun HomeSection(section: DiscSectionDto, rise: Int, go: (EvPage) -> Unit) {
+    val events = remember(section.key) { mutableStateListOf<DiscEventDto>().also { it.addAll(section.items) } }
+    var page by remember(section.key) { mutableIntStateOf(1) }
+    var more by remember(section.key) { mutableStateOf(section.hasMore) }
+    var loading by remember(section.key) { mutableStateOf(false) }
+    val list = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(section.key, section.items, section.hasMore) {
+        events.clear()
+        events.addAll(section.items)
+        page = 1
+        more = section.hasMore
+    }
+
+    suspend fun load() {
+        if (loading || !more) return
+        loading = true
+        val next = page + 1
+        runCatching {
+            ApiClient.events.section(evAuth(), section.key, evZone(), page = next, perPage = 15)
+        }.onSuccess { r ->
+            val known = events.map { it.id }.toSet()
+            events.addAll(r.data.orEmpty().filter { it.id !in known })
+            page = next
+            more = r.pagination?.hasMorePages == true
+        }.onFailure { more = false }
+        loading = false
+    }
+
+    LaunchedEffect(more, loading, events.size) {
+        if (!more || loading) return@LaunchedEffect
+        snapshotFlow {
+            val info = list.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 3
+        }.distinctUntilChanged().filter { it }.collect {
+            if (more && !loading) load()
+        }
+    }
+
+    val showArrow = more || events.size > 2
+    WaSectionTitle(
+        sectionTitle(section.key),
+        Modifier.waRise(rise),
+        trailing = if (showArrow) {
+            {
+                StripMoreArrow {
+                    val next = list.firstVisibleItemIndex + 2
+                    scope.launch {
+                        if (next >= events.size) load()
+                        list.animateScrollToItem(next.coerceAtMost((events.size - 1).coerceAtLeast(0)))
+                    }
+                }
+            }
+        } else {
+            null
+        },
+    )
+    BoxWithConstraints(Modifier.fillMaxWidth().waRise(rise)) {
+        val gap = 10.dp
+        val cardW = (maxWidth - gap) / 2
+        LazyRow(state = list, horizontalArrangement = Arrangement.spacedBy(gap)) {
+            items(events, key = { section.key + it.id }) { e ->
+                EventCard(e, Modifier.width(cardW)) { go(EvPage.Event(e.id)) }
+            }
+        }
+    }
 }
 
 @Composable
@@ -358,12 +515,12 @@ private fun sectionTitle(key: String): String = when (key) {
 @Composable
 private fun QuickTile(emoji: String, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
-        modifier.clip(RoundedCornerShape(20.dp)).background(Wa.Surface).clickable(onClick = onClick).padding(vertical = 12.dp),
+        modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Surface).clickable(onClick = onClick).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Text(emoji, fontSize = 22.sp)
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = Wa.Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+        Text(emoji, fontSize = 20.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(label, color = Wa.Ink, fontSize = 11.5.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
 
@@ -398,7 +555,7 @@ private fun EvBrowse(start: EvPage.Browse, onBack: () -> Unit, go: (EvPage) -> U
                 evAuth(), evZone(), cityId = place.cityId, categories = categoryId?.let { listOf(it) },
                 regionId = place.regionId.takeIf { place.cityId == null }, countryId = place.countryId.takeIf { place.cityId == null && place.regionId == null },
                 from = from, to = to, free = if (free) 1 else null, family = if (family) 1 else null, q = query.trim().ifEmpty { null },
-                sort = if (popular) "popular" else null, page = next,
+                sort = if (popular) "popular" else null, page = next, perPage = 15,
             )
         }.onSuccess { r ->
             if (next == 1) items.clear()
@@ -414,15 +571,20 @@ private fun EvBrowse(start: EvPage.Browse, onBack: () -> Unit, go: (EvPage) -> U
         load(1)
         list.scrollToItem(0)
     }
-    // Infinite scroll: near the end of what's loaded, the next page comes.
-    LaunchedEffect(list) {
-        snapshotFlow { (list.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0) >= list.layoutInfo.totalItemsCount - 3 }
-            .distinctUntilChanged().filter { it }
-            .collect { if (more && !loading) load(page + 1) }
+    // Infinite scroll: the next 15 load when the last rows are on screen (not a button).
+    LaunchedEffect(more, loading, items.size) {
+        if (!more || loading) return@LaunchedEffect
+        snapshotFlow {
+            val info = list.layoutInfo
+            val last = info.visibleItemsInfo.lastOrNull()?.index ?: 0
+            info.totalItemsCount > 0 && last >= info.totalItemsCount - 4
+        }.distinctUntilChanged().filter { it }.collect {
+            if (more && !loading) load(page + 1)
+        }
     }
 
     val title = place.cityName ?: place.regionName ?: stringResource(R.string.ev_browse)
-    EvFrame(title = title, onBack = onBack, scroll = false) {
+    EvFrame(title = title, onBack = onBack, scroll = false, settingsHeader = true) {
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = 28.dp)) {
             item("search") {
                 Row(Modifier.fillMaxWidth().waRise(0), verticalAlignment = Alignment.CenterVertically) {
@@ -436,8 +598,13 @@ private fun EvBrowse(start: EvPage.Browse, onBack: () -> Unit, go: (EvPage) -> U
                 }
             }
             item("place") {
-                Column(Modifier.padding(top = 10.dp)) {
-                    PlaceChips(place, home?.categories.orEmpty().firstOrNull { it.id == categoryId }, whenPick, onPlace = { place = it }, onKind = { categoryId = null }, onWhen = { whenPick = When.Any })
+                FilterChips(filter, home?.categories.orEmpty().firstOrNull { it.id == categoryId }) { f ->
+                    place = f.place
+                    categoryId = f.categoryId
+                    whenPick = f.whenPick
+                    free = f.free
+                    family = f.family
+                    popular = f.popular
                 }
             }
             item("gap") { Spacer(Modifier.height(14.dp)) }
@@ -482,13 +649,13 @@ private fun When.range(): Pair<String?, String?> {
 }
 
 @Composable
-internal fun EventList(items: List<DiscEventDto>, loading: Boolean, onOpen: (DiscEventDto) -> Unit, empty: String? = null) {
+internal fun EventList(items: List<DiscEventDto>, loading: Boolean, onOpen: (DiscEventDto) -> Unit, empty: String? = null, onInterest: ((DiscEventDto) -> Unit)? = null) {
     when {
         loading -> repeat(3) { WaSkeleton(Modifier.fillMaxWidth().height(86.dp).padding(bottom = 10.dp), RoundedCornerShape(20.dp)) }
         items.isEmpty() -> WaCard(Modifier.fillMaxWidth()) {
             WaEmpty(Icons.Rounded.CalendarMonth, Tone.Gray, stringResource(R.string.ev_none_title), empty ?: stringResource(R.string.ev_none_text))
         }
-        else -> items.forEachIndexed { i, e -> EventRow(e, Modifier.padding(bottom = 10.dp).waRise(i.coerceAtMost(6))) { onOpen(e) } }
+        else -> items.forEachIndexed { i, e -> EventRow(e, Modifier.padding(bottom = 10.dp).waRise(i.coerceAtMost(6)), onInterest = onInterest) { onOpen(e) } }
     }
 }
 
@@ -520,6 +687,7 @@ private fun EvTravel(onBack: () -> Unit, go: (EvPage) -> Unit) {
     EvFrame(
         title = stringResource(R.string.ev_travel_title),
         onBack = onBack,
+        settingsHeader = true,
         cta = {
             WaButton(stringResource(R.string.ev_travel_go), {
                 val c = country ?: return@WaButton
@@ -539,7 +707,7 @@ private fun EvTravel(onBack: () -> Unit, go: (EvPage) -> Unit) {
             }, icon = Icons.Rounded.Search, loading = busy, enabled = country != null)
         },
     ) {
-        Text(stringResource(R.string.ev_travel_sub), color = Wa.Mut, fontSize = 13.sp, modifier = Modifier.waRise(0))
+        WaNote(stringResource(R.string.ev_travel_sub), Modifier.waRise(0), icon = Icons.Rounded.Flight)
         Spacer(Modifier.height(14.dp))
         Column(Modifier.fillMaxWidth().waRise(1), verticalArrangement = Arrangement.spacedBy(FieldGap)) {
             FilterSelect(
@@ -577,26 +745,13 @@ private fun EvTravel(onBack: () -> Unit, go: (EvPage) -> Unit) {
         Spacer(Modifier.height(24.dp))
     }
 
-    val locale = rememberAppLocaleFrame()
     when (picking) {
         "from", "to" -> {
             val initial = if (picking == "from") from else to
-            val state = rememberDatePickerState(initialSelectedDateMillis = initial.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-            DatePickerDialog(
-                onDismissRequest = { picking = null },
-                confirmButton = {
-                    locale.Provide {
-                        TextButton({
-                            state.selectedDateMillis?.let {
-                                val d = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate()
-                                if (picking == "from") { from = d; if (to.isBefore(d)) to = d } else to = if (d.isBefore(from)) from else d
-                            }
-                            picking = null
-                        }) { Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold) }
-                    }
-                },
-                dismissButton = { locale.Provide { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } } },
-            ) { locale.Provide { DatePicker(state) } }
+            CalDatePickerDialog(initial, onDismiss = { picking = null }) { d ->
+                if (picking == "from") { from = d; if (to.isBefore(d)) to = d } else to = if (d.isBefore(from)) from else d
+                picking = null
+            }
         }
     }
 }
@@ -641,7 +796,7 @@ private fun EvAsk(onBack: () -> Unit, go: (EvPage) -> Unit) {
         }
     }
 
-    EvFrame(title = stringResource(R.string.ev_ask_title), onBack = onBack) {
+    EvFrame(title = stringResource(R.string.ev_ask_title), onBack = onBack, settingsHeader = true) {
         Row(Modifier.fillMaxWidth().waRise(0), verticalAlignment = Alignment.CenterVertically) {
             DorrTextField(text, { text = it.take(500) }, placeholder = stringResource(R.string.ev_ask_hint), icon = Icons.Rounded.AutoAwesome, modifier = Modifier.weight(1f))
             Spacer(Modifier.width(8.dp))
@@ -688,12 +843,33 @@ private fun EvAsk(onBack: () -> Unit, go: (EvPage) -> Unit) {
 @Composable
 private fun EvSaved(onBack: () -> Unit, go: (EvPage) -> Unit) {
     var past by remember { mutableStateOf(false) }
-    var items by remember { mutableStateOf<List<DiscEventDto>?>(null) }
-    LaunchedEffect(past, EventsStore.version) {
-        items = null
-        items = runCatching { ApiClient.events.interests(evAuth(), evZone(), if (past) 1 else 0).data }.getOrNull().orEmpty()
+    val items = remember { mutableStateListOf<DiscEventDto>() }
+    var page by remember { mutableIntStateOf(1) }
+    var more by remember { mutableStateOf(false) }
+    var loading by remember { mutableStateOf(true) }
+    var loadingMore by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    suspend fun load(next: Int) {
+        if (next == 1) {
+            loading = true
+            items.clear()
+        } else {
+            loadingMore = true
+        }
+        runCatching { ApiClient.events.interests(evAuth(), evZone(), if (past) 1 else 0, page = next, perPage = 15) }
+            .onSuccess { r ->
+                if (next == 1) items.clear()
+                val known = items.map { it.id }.toSet()
+                items.addAll(r.data.orEmpty().filter { it.id !in known })
+                page = next
+                more = r.pagination?.hasMorePages == true
+            }
+            .onFailure { if (next == 1) items.clear(); more = false }
+        loading = false
+        loadingMore = false
     }
-    EvFrame(title = stringResource(R.string.ev_saved), onBack = onBack) {
+    LaunchedEffect(past) { load(1) }
+    EvFrame(title = stringResource(R.string.ev_saved), onBack = onBack, settingsHeader = true) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Wa.Surface).padding(4.dp)) {
             listOf(false to R.string.ev_upcoming, true to R.string.ev_past).forEach { (p, label) ->
                 Text(
@@ -703,12 +879,80 @@ private fun EvSaved(onBack: () -> Unit, go: (EvPage) -> Unit) {
             }
         }
         Spacer(Modifier.height(14.dp))
-        EventList(items.orEmpty(), items == null, onOpen = { go(EvPage.Event(it.id)) }, empty = stringResource(R.string.ev_saved_empty))
+        EventList(
+            items,
+            loading && items.isEmpty(),
+            onOpen = { go(EvPage.Event(it.id)) },
+            empty = stringResource(R.string.ev_saved_empty),
+            onInterest = { e -> if (!e.interested) items.removeAll { it.id == e.id } },
+        )
+        if (more) {
+            WaButton(
+                stringResource(R.string.ev_more),
+                { if (!loadingMore) scope.launch { load(page + 1) } },
+                style = WaButtonStyle.Ghost,
+                loading = loadingMore,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(Modifier.height(24.dp))
     }
 }
 
 // =============================================================================== settings (170–172)
+
+@Composable
+private fun InterestsKinds(prefs: DiscPrefsDto, save: (DiscPrefsDto) -> Unit) {
+    val kinds = remember { mutableStateListOf<DiscCategoryDto>() }
+    var page by remember { mutableIntStateOf(1) }
+    var more by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    suspend fun load(next: Int) {
+        if (next > 1) loadingMore = true
+        runCatching { ApiClient.events.categories(evAuth(), page = next, perPage = 15) }.onSuccess { r ->
+            if (next == 1) kinds.clear()
+            val known = kinds.map { it.id }.toSet()
+            kinds.addAll(r.data.orEmpty().filter { it.id !in known })
+            page = next
+            more = r.pagination?.hasMorePages == true
+        }.onFailure { if (next > 1) more = false }
+        loadingMore = false
+    }
+    LaunchedEffect(Unit) { load(1) }
+    Text(stringResource(R.string.ev_my_interests_sub), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
+    val dark = com.dorr.app.ui.screens.profile.settingsNight()
+    com.dorr.app.ui.screens.calendar.SettingsToggleCard(Modifier.waRise(0)) {
+        kinds.forEachIndexed { index, c ->
+            val on = c.id in prefs.categories
+            Row(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
+                    .clickable { save(prefs.copy(categories = if (on) prefs.categories - c.id else prefs.categories + c.id)) }
+                    .padding(horizontal = 4.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(
+                    Modifier.size(34.dp).clip(RoundedCornerShape(10.dp))
+                        .background(if (dark) com.dorr.app.ui.screens.AccountDark.well else com.dorr.app.ui.screens.profile.settingsAccent().copy(alpha = 0.14f)),
+                    contentAlignment = Alignment.Center,
+                ) { Text(c.emoji ?: "🎟️", fontSize = 17.sp) }
+                Spacer(Modifier.width(10.dp))
+                Text(c.name.orEmpty(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = com.dorr.app.ui.screens.profile.settingsInk(), modifier = Modifier.weight(1f))
+                if (on) Icon(Icons.Rounded.CheckCircle, null, tint = com.dorr.app.ui.screens.profile.settingsAccent(), modifier = Modifier.size(20.dp))
+            }
+            if (index != kinds.lastIndex || more) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) com.dorr.app.ui.screens.AccountDark.line else Color(0xFFF6E4E8)))
+        }
+    }
+    if (more) {
+        WaButton(
+            stringResource(R.string.ev_more),
+            { if (!loadingMore) scope.launch { load(page + 1) } },
+            style = WaButtonStyle.Ghost,
+            loading = loadingMore,
+            modifier = Modifier.padding(top = 10.dp),
+        )
+    }
+}
 
 @OptIn(ExperimentalLayoutApi::class)
 private enum class EvSub { Menu, Interests, Alerts, Follows }
@@ -725,6 +969,7 @@ private fun EvSettings(onBack: () -> Unit) {
     val scope = rememberCoroutineScope()
     val save: (DiscPrefsDto) -> Unit = { p ->
         prefs = p
+        EventsStore.home = EventsStore.home?.copy(preferences = p)
         scope.launch {
             val body = JsonObject().apply {
                 add("categories", JsonArray().apply { p.categories.forEach { add(it) } })
@@ -732,9 +977,14 @@ private fun EvSettings(onBack: () -> Unit) {
                 addProperty("alert_days", p.alertDays)
                 addProperty("family_only", p.familyOnly)
             }
-            runCatching { ApiClient.events.savePreferences(evAuth(), body).data }.getOrNull()?.let { prefs = it }
-            EventsStore.refresh()
+            runCatching { ApiClient.events.savePreferences(evAuth(), body).data }.getOrNull()?.let {
+                prefs = it
+                EventsStore.home = EventsStore.home?.copy(preferences = it)
+            }
         }
+    }
+    DisposableEffect(Unit) {
+        onDispose { scope.launch { EventsStore.refresh() } }
     }
     BackHandler(enabled = sub != EvSub.Menu) { sub = EvSub.Menu }
     val title = when (sub) {
@@ -756,33 +1006,7 @@ private fun EvSettings(onBack: () -> Unit) {
                         com.dorr.app.ui.screens.calendar.CalSettingsRow(Icons.Rounded.LocationOn, R.string.ev_follows, R.string.ev_menu_follows_sub) { sub = EvSub.Follows }
                     }
 
-                    EvSub.Interests -> {
-                        Text(stringResource(R.string.ev_my_interests_sub), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(bottom = 10.dp))
-                        // One row per kind, like the animation setting: an icon well, the name, a ✓ on the ones chosen.
-                        val kinds = home?.categories.orEmpty()
-                        val dark = com.dorr.app.ui.screens.profile.settingsNight()
-                        com.dorr.app.ui.screens.calendar.SettingsToggleCard(Modifier.waRise(0)) {
-                            kinds.forEachIndexed { index, c ->
-                                val on = c.id in prefs.categories
-                                Row(
-                                    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp))
-                                        .clickable { save(prefs.copy(categories = if (on) prefs.categories - c.id else prefs.categories + c.id)) }
-                                        .padding(horizontal = 4.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        Modifier.size(34.dp).clip(RoundedCornerShape(10.dp))
-                                            .background(if (dark) com.dorr.app.ui.screens.AccountDark.well else com.dorr.app.ui.screens.profile.settingsAccent().copy(alpha = 0.14f)),
-                                        contentAlignment = Alignment.Center,
-                                    ) { Text(c.emoji ?: "🎟️", fontSize = 17.sp) }
-                                    Spacer(Modifier.width(10.dp))
-                                    Text(c.name.orEmpty(), fontSize = 13.5.sp, fontWeight = FontWeight.Bold, color = com.dorr.app.ui.screens.profile.settingsInk(), modifier = Modifier.weight(1f))
-                                    if (on) Icon(Icons.Rounded.CheckCircle, null, tint = com.dorr.app.ui.screens.profile.settingsAccent(), modifier = Modifier.size(20.dp))
-                                }
-                                if (index != kinds.lastIndex) Box(Modifier.fillMaxWidth().height(1.dp).background(if (dark) com.dorr.app.ui.screens.AccountDark.line else Color(0xFFF6E4E8)))
-                            }
-                        }
-                    }
+                    EvSub.Interests -> InterestsKinds(prefs, save)
 
                     EvSub.Alerts -> {
                         com.dorr.app.ui.screens.calendar.SettingsToggleCard(Modifier.waRise(0)) {
@@ -866,51 +1090,198 @@ internal fun ToggleLine(title: String, on: Boolean, sub: String?, onChange: (Boo
 @Composable
 private fun EvOrganizer(onBack: () -> Unit, go: (EvPage) -> Unit) {
     var data by remember { mutableStateOf<DiscOrganizerHomeDto?>(null) }
+    val events = remember { mutableStateListOf<DiscEventDto>() }
+    var page by remember { mutableIntStateOf(1) }
+    var more by remember { mutableStateOf(false) }
+    var loadingMore by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf(false) }
+    var query by remember { mutableStateOf("") }
     var reload by remember { mutableIntStateOf(0) }
-    LaunchedEffect(reload, EventsStore.version) { data = runCatching { ApiClient.events.organizer(evAuth(), evZone()).data }.getOrNull() ?: DiscOrganizerHomeDto() }
+    val scope = rememberCoroutineScope()
+    suspend fun loadEvents(next: Int) {
+        if (next > 1) loadingMore = true
+        runCatching { ApiClient.events.organizer(evAuth(), evZone(), page = next, perPage = 15, q = query.trim().ifEmpty { null }) }.onSuccess { r ->
+            data = r.data ?: DiscOrganizerHomeDto()
+            if (next == 1) events.clear()
+            val known = events.map { it.id }.toSet()
+            events.addAll((r.data?.events.orEmpty()).filter { it.id !in known })
+            page = next
+            more = r.pagination?.hasMorePages == true
+        }.onFailure {
+            if (next == 1 && data == null) data = DiscOrganizerHomeDto()
+            if (next > 1) more = false
+        }
+        loadingMore = false
+    }
+    LaunchedEffect(reload, EventsStore.version, query) { loadEvents(1) }
     val org = data?.organizer
     val canAdd = data?.canSubmit == true && org != null && org.status != "rejected" && org.status != "suspended"
 
-    EvFrame(
-        title = stringResource(R.string.ev_organizer),
-        onBack = onBack,
-        cta = if (canAdd && !editing) ({ WaButton(stringResource(R.string.ev_org_add_event), { go(EvPage.Submit) }, icon = Icons.Rounded.Add) }) else null,
-    ) {
-        when {
-            data == null -> WaSkeleton(Modifier.fillMaxWidth().height(160.dp), RoundedCornerShape(22.dp))
-            org == null || editing -> OrganizerForm(org) { editing = false; reload++ }
-            else -> {
-                val (tone, label) = when (org.status) {
-                    "verified" -> Tone.Green to stringResource(R.string.ev_org_verified)
-                    "rejected" -> Tone.Red to stringResource(R.string.ev_org_rejected)
-                    "suspended" -> Tone.Gray to stringResource(R.string.ev_org_suspended)
-                    else -> Tone.Amber to stringResource(R.string.ev_org_pending)
-                }
-                WaCard(Modifier.fillMaxWidth().waRise(0), padding = 16.dp) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("🎤", fontSize = 26.sp)
-                        Spacer(Modifier.width(10.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(org.name, color = Wa.Ink, fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-                            Text(label, color = tone.fg, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 3.dp).clip(CircleShape).background(tone.bg).padding(horizontal = 10.dp, vertical = 3.dp))
+    val showCta = canAdd && !editing
+    BackHandler(enabled = editing) { editing = false }
+    Box(Modifier.fillMaxSize()) {
+        PinkBackdrop(Modifier.fillMaxSize())
+        Column(Modifier.fillMaxSize()) {
+            SubHeader(stringResource(R.string.ev_organizer)) { if (editing) editing = false else onBack() }
+            Column(
+                Modifier
+                    .weight(1f)
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .imePadding()
+                    .padding(horizontal = 14.dp)
+                    .padding(top = 6.dp, bottom = if (showCta) 110.dp else 16.dp),
+            ) {
+                when {
+                    data == null -> WaSkeleton(Modifier.fillMaxWidth().height(72.dp), RoundedCornerShape(20.dp))
+                    org == null || editing -> OrganizerForm(org) { editing = false; reload++ }
+                    else -> {
+                        val dark = settingsNight()
+                        val accent = if (dark) AccountDark.accent else settingsAccent()
+                        val label = when (org.status) {
+                            "verified" -> stringResource(R.string.ev_org_verified)
+                            "rejected" -> stringResource(R.string.ev_org_rejected)
+                            "suspended" -> stringResource(R.string.ev_org_suspended)
+                            else -> stringResource(R.string.ev_org_pending)
                         }
-                        Text(stringResource(R.string.ev_org_edit), color = Wa.Red, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(CircleShape).clickable { editing = true }.padding(6.dp))
+                        val phone = org.phone?.takeIf { it.isNotBlank() }
+                        Row(
+                            Modifier.fillMaxWidth().waRise(0),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Box(
+                                Modifier
+                                    .size(56.dp)
+                                    .then(
+                                        if (dark) Modifier
+                                        else Modifier.shadow(6.dp, CircleShape, spotColor = settingsAccent().copy(alpha = 0.1f)),
+                                    )
+                                    .clip(CircleShape)
+                                    .background(settingsCard())
+                                    .then(if (dark) Modifier.border(1.dp, AccountDark.line, CircleShape) else Modifier),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text("🎤", fontSize = 26.sp)
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        org.name,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = settingsInk(),
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f, fill = false),
+                                    )
+                                    if (org.verified || org.status == "verified") {
+                                        Spacer(Modifier.width(6.dp))
+                                        Box(
+                                            Modifier.size(15.dp).clip(CircleShape).background(settingsAccent()),
+                                            contentAlignment = Alignment.Center,
+                                        ) {
+                                            Icon(Icons.Rounded.Check, contentDescription = label, tint = Color.White, modifier = Modifier.size(10.dp))
+                                        }
+                                    }
+                                }
+                                phone?.takeIf { it.isNotBlank() }?.let { number ->
+                                    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+                                        Text(
+                                            number,
+                                            fontSize = 12.sp,
+                                            color = settingsMut(),
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                                Text(
+                                    label,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = accent,
+                                    maxLines = 1,
+                                    modifier = Modifier
+                                        .padding(top = 4.dp)
+                                        .clip(RoundedCornerShape(50))
+                                        .background(if (dark) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                                        .padding(horizontal = 8.dp, vertical = 2.dp),
+                                )
+                            }
+                            Spacer(Modifier.width(8.dp))
+                            val editShape = RoundedCornerShape(12.dp)
+                            Box(
+                                Modifier
+                                    .size(36.dp)
+                                    .clip(editShape)
+                                    .background(if (dark) AccountDark.well else settingsAccent().copy(alpha = 0.14f))
+                                    .clickable { editing = true },
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Edit,
+                                    contentDescription = stringResource(R.string.ev_org_edit),
+                                    tint = accent,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            }
+                        }
+                        org.reviewNote?.takeIf { it.isNotBlank() }?.let {
+                            Text(it, color = settingsMut(), fontSize = 12.sp, lineHeight = 18.sp, modifier = Modifier.padding(top = 8.dp))
+                        }
+                        WaNote(
+                            stringResource(if (org.verified) R.string.ev_org_verified_note else R.string.ev_org_pending_note),
+                            Modifier.padding(top = 10.dp),
+                        )
+                        if (data?.canSubmit == false) WaNote(stringResource(R.string.ev_org_closed), Modifier.padding(top = 8.dp))
+                        WaSectionTitle(stringResource(R.string.ev_org_my_events), topPadding = 16.dp)
+                        DorrTextField(
+                            query,
+                            { query = it.take(100) },
+                            placeholder = stringResource(R.string.ev_org_search_hint),
+                            icon = Icons.Rounded.Search,
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp),
+                        )
+                        if (events.isEmpty()) {
+                            WaCard(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                                WaEmpty(
+                                    Icons.Rounded.Event,
+                                    Tone.Gray,
+                                    stringResource(R.string.ev_none_title),
+                                    stringResource(if (query.isBlank()) R.string.ev_org_no_events else R.string.ev_org_search_none),
+                                )
+                            }
+                        } else {
+                            events.forEachIndexed { i, e ->
+                                EventRow(e, Modifier.padding(bottom = 8.dp).waRise(i.coerceAtMost(6)), review = e.reviewStatus) { go(EvPage.Event(e.id)) }
+                            }
+                            if (more) {
+                                WaButton(
+                                    stringResource(R.string.ev_more),
+                                    { if (!loadingMore) scope.launch { loadEvents(page + 1) } },
+                                    style = WaButtonStyle.Ghost,
+                                    loading = loadingMore,
+                                    modifier = Modifier.padding(top = 4.dp),
+                                )
+                            }
+                        }
                     }
-                    org.reviewNote?.takeIf { it.isNotBlank() }?.let { Text(it, color = Wa.Mut, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp)) }
-                    Text(
-                        stringResource(if (org.verified) R.string.ev_org_verified_note else R.string.ev_org_pending_note),
-                        color = Wa.Mut, fontSize = 12.5.sp, modifier = Modifier.padding(top = 8.dp),
-                    )
                 }
-                if (data?.canSubmit == false) WaNote(stringResource(R.string.ev_org_closed), Modifier.padding(top = 12.dp))
-                WaSectionTitle(stringResource(R.string.ev_org_my_events))
-                val events = data?.events.orEmpty()
-                if (events.isEmpty()) Text(stringResource(R.string.ev_org_no_events), color = Wa.Soft, fontSize = 13.sp)
-                events.forEachIndexed { i, e -> EventRow(e, Modifier.padding(bottom = 10.dp).waRise(i.coerceAtMost(6)), review = e.reviewStatus) { go(EvPage.Event(e.id)) } }
+                Spacer(Modifier.height(24.dp))
             }
         }
-        Spacer(Modifier.height(24.dp))
+        if (showCta) {
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .background(Brush.verticalGradient(listOf(Color.Transparent, Wa.Bg.copy(alpha = 0.96f)), startY = 0f, endY = 90f))
+                    .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 16.dp),
+            ) {
+                WaButton(stringResource(R.string.ev_org_add_event), { go(EvPage.Submit) }, icon = Icons.Rounded.Add)
+            }
+        }
     }
 }
 
@@ -919,26 +1290,56 @@ private fun OrganizerForm(existing: com.dorr.app.network.DiscOrganizerDto?, onDo
     var name by remember { mutableStateOf(existing?.name.orEmpty()) }
     var about by remember { mutableStateOf(existing?.about.orEmpty()) }
     var website by remember { mutableStateOf(existing?.website.orEmpty()) }
-    var phone by remember { mutableStateOf(existing?.phone.orEmpty()) }
+    var localPhone by remember { mutableStateOf("") }
+    var dial by remember { mutableStateOf("+966") }
+    var flag by remember { mutableStateOf("sa") }
+    var phoneLength by remember { mutableIntStateOf(9) }
+    var phoneStartsWith by remember { mutableStateOf("5") }
     var email by remember { mutableStateOf(existing?.email.orEmpty()) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    LaunchedEffect(existing?.phone) {
+        CountryCache.load(context)
+        val country = CountryCache.resolveForPhone(context, existing?.phone)
+            ?: CountryCache.resolveForPhone(context, AuthSession.user?.phone)
+            ?: CountryCache.pickDefault(context)
+        if (country != null) {
+            dial = country.formattedDial().ifBlank { dial }
+            flag = country.flagIso().ifBlank { flag }
+            phoneLength = country.phoneLength ?: phoneLength
+            phoneStartsWith = country.phoneStartsWith.orEmpty()
+            val dialDigits = country.dialCode.filter(Char::isDigit)
+            val all = existing?.phone.orEmpty().filter(Char::isDigit)
+            localPhone = if (dialDigits.isNotEmpty() && all.startsWith(dialDigits)) all.removePrefix(dialDigits).take(phoneLength) else all.take(phoneLength)
+        }
+    }
 
     if (existing == null) {
         Text("🎤", fontSize = 40.sp, modifier = Modifier.waRise(0))
         Text(stringResource(R.string.ev_org_intro_title), color = Wa.Ink, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.waRise(0))
         Text(stringResource(R.string.ev_org_intro), color = Wa.Mut, fontSize = 13.5.sp, modifier = Modifier.padding(top = 4.dp, bottom = 14.dp).waRise(0))
     }
-    DorrTextField(name, { name = it.take(120) }, label = stringResource(R.string.ev_org_name), icon = Icons.Rounded.Badge, modifier = Modifier.fillMaxWidth())
+    DorrTextField(name, { name = it.take(120) }, label = stringResource(R.string.ev_org_name), placeholder = stringResource(R.string.ev_org_name_hint), icon = Icons.Rounded.Badge, modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(FieldGap))
-    DorrTextField(about, { about = it.take(1000) }, label = stringResource(R.string.ev_org_about), icon = Icons.Rounded.Info, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+    DorrTextField(about, { about = it.take(1000) }, label = stringResource(R.string.ev_org_about), placeholder = stringResource(R.string.ev_org_about_hint), icon = Icons.Rounded.Info, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(FieldGap))
-    DorrTextField(website, { website = it.take(255) }, label = stringResource(R.string.ev_org_website), icon = Icons.Rounded.Language, modifier = Modifier.fillMaxWidth())
+    DorrTextField(website, { website = it.take(255) }, label = stringResource(R.string.ev_org_website), placeholder = stringResource(R.string.ev_org_website_hint), icon = Icons.Rounded.Language, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
     Spacer(Modifier.height(FieldGap))
-    DorrTextField(phone, { phone = it.take(30) }, label = stringResource(R.string.ev_org_phone), icon = Icons.Rounded.Call, modifier = Modifier.fillMaxWidth())
+    OrgPhoneField(
+        flag = flag,
+        dial = dial,
+        phone = localPhone,
+        phoneLength = phoneLength,
+        phoneStartsWith = phoneStartsWith,
+        onPhone = { localPhone = it.filter(Char::isDigit).take(phoneLength) },
+    )
     Spacer(Modifier.height(FieldGap))
-    DorrTextField(email, { email = it.take(191) }, label = stringResource(R.string.ev_org_email), icon = Icons.Rounded.Email, modifier = Modifier.fillMaxWidth())
+    Text(stringResource(R.string.ev_org_email), color = Wa.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        DorrTextField(email, { email = it.take(191) }, placeholder = stringResource(R.string.ev_org_email_hint), icon = Icons.Rounded.Email, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email), modifier = Modifier.fillMaxWidth())
+    }
     error?.let { Text(it, color = Wa.Danger, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp)) }
     WaNote(stringResource(R.string.ev_org_review_note), Modifier.padding(top = 12.dp))
     WaButton(stringResource(if (existing == null) R.string.ev_org_apply else R.string.ev_save), {
@@ -947,12 +1348,58 @@ private fun OrganizerForm(existing: com.dorr.app.network.DiscOrganizerDto?, onDo
         scope.launch {
             val body = JsonObject().apply {
                 addProperty("name", name.trim())
-                listOf("about" to about, "website" to website, "phone" to phone, "email" to email).forEach { (k, v) -> if (v.isNotBlank()) addProperty(k, v.trim()) }
+                val fullPhone = if (localPhone.isBlank()) "" else "$dial$localPhone"
+                listOf("about" to about, "website" to website, "phone" to fullPhone, "email" to email).forEach { (k, v) -> if (v.isNotBlank()) addProperty(k, v.trim()) }
             }
             runCatching { ApiClient.events.applyOrganizer(evAuth(), body) }.onSuccess { onDone() }.onFailure { error = it.apiFailure().message }
             busy = false
         }
     }, enabled = name.trim().length >= 2, loading = busy, modifier = Modifier.fillMaxWidth().padding(top = 14.dp))
+}
+
+@Composable
+private fun OrgPhoneField(
+    flag: String,
+    dial: String,
+    phone: String,
+    phoneLength: Int,
+    phoneStartsWith: String,
+    onPhone: (String) -> Unit,
+) {
+    val placeholder = if (phoneStartsWith.isNotEmpty()) {
+        phoneStartsWith + "*".repeat((phoneLength - phoneStartsWith.length).coerceAtLeast(0))
+    } else {
+        "0".repeat(phoneLength.coerceAtLeast(1))
+    }
+    Text(stringResource(R.string.ev_org_phone), color = Wa.Ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        DorrTextField(
+            phone,
+            onPhone,
+            placeholder = placeholder,
+            icon = Icons.Rounded.Phone,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            textStyle = TextStyle(fontSize = 14.sp, fontWeight = FontWeight.Medium, letterSpacing = 0.5.sp),
+            leadingIcon = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.padding(end = 8.dp).width(1.dp).height(18.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFE5E7EB)))
+                    val iso = flag.trim().lowercase()
+                    if (iso.length == 2) {
+                        AsyncImage(
+                            model = "https://flagcdn.com/w40/$iso.png",
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(width = 20.dp, height = 15.dp).clip(RoundedCornerShape(2.dp)),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                    }
+                    Text(dial, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = settingsInk())
+                    Box(Modifier.padding(start = 8.dp).width(1.dp).height(18.dp).background(if (settingsNight()) AccountDark.line else Color(0xFFE5E7EB)))
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
 }
 
 /** A new event from an organizer: its own local time where it happens; reviewed unless the organizer is verified. */
@@ -988,6 +1435,7 @@ private fun EvSubmit(onBack: () -> Unit) {
     EvFrame(
         title = stringResource(R.string.ev_org_add_event),
         onBack = onBack,
+        settingsHeader = true,
         cta = {
             WaButton(stringResource(R.string.ev_submit), {
                 busy = true
@@ -1023,7 +1471,7 @@ private fun EvSubmit(onBack: () -> Unit) {
     ) {
         CoverField(cover, onPick = pickCover, onRemove = { cover = null })
         Spacer(Modifier.height(FieldGap))
-        DorrTextField(title, { title = it.take(160) }, label = stringResource(R.string.ev_f_title), icon = Icons.Rounded.Title, modifier = Modifier.fillMaxWidth())
+        DorrTextField(title, { title = it.take(160) }, label = stringResource(R.string.ev_f_title), placeholder = stringResource(R.string.ev_f_title_hint), icon = Icons.Rounded.Title, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(FieldGap))
         FieldLabel(stringResource(R.string.ev_f_category))
         var categoryOpen by remember { mutableStateOf(false) }
@@ -1053,9 +1501,9 @@ private fun EvSubmit(onBack: () -> Unit) {
         PickRow("🏁", stringResource(R.string.ev_f_end), endTime?.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java())) ?: stringResource(R.string.ev_f_end_none)) { picking = "end" }
         city?.timezone?.let { Text(stringResource(R.string.ev_f_local_hint, it.substringAfterLast('/').replace('_', ' ')), color = Wa.Mut, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
         Spacer(Modifier.height(FieldGap))
-        DorrTextField(venue, { venue = it.take(160) }, label = stringResource(R.string.ev_f_venue), icon = Icons.Rounded.Place, modifier = Modifier.fillMaxWidth())
+        DorrTextField(venue, { venue = it.take(160) }, label = stringResource(R.string.ev_f_venue), placeholder = stringResource(R.string.ev_f_venue_hint), icon = Icons.Rounded.Place, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(FieldGap))
-        DorrTextField(address, { address = it.take(255) }, label = stringResource(R.string.ev_f_address), icon = Icons.Rounded.Map, modifier = Modifier.fillMaxWidth())
+        DorrTextField(address, { address = it.take(255) }, label = stringResource(R.string.ev_f_address), placeholder = stringResource(R.string.ev_f_address_hint), icon = Icons.Rounded.Map, modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(FieldGap))
         WaCard(Modifier.fillMaxWidth(), padding = 8.dp) {
             // Side by side: two short switches share a row.
@@ -1066,37 +1514,35 @@ private fun EvSubmit(onBack: () -> Unit) {
         }
         if (!free) {
             Spacer(Modifier.height(FieldGap))
-            DorrTextField(price, { price = it.take(80) }, label = stringResource(R.string.ev_f_price), icon = Icons.Rounded.Payments, modifier = Modifier.fillMaxWidth())
+            val priceCurrency = city?.currency?.symbol?.takeIf { it.isNotBlank() } ?: city?.currency?.code.orEmpty()
+            DorrTextField(
+                price,
+                { price = it.take(80) },
+                label = stringResource(R.string.ev_f_price),
+                placeholder = stringResource(R.string.ev_f_price_hint),
+                icon = Icons.Rounded.Payments,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                trailing = if (priceCurrency.isBlank()) null else {
+                    { Text(priceCurrency, color = Wa.Mut, fontSize = 13.sp, fontWeight = FontWeight.Bold) }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         Spacer(Modifier.height(FieldGap))
-        DorrTextField(booking, { booking = it.take(500) }, label = stringResource(R.string.ev_f_booking), icon = Icons.Rounded.ConfirmationNumber, modifier = Modifier.fillMaxWidth())
+        DorrTextField(booking, { booking = it.take(500) }, label = stringResource(R.string.ev_f_booking), placeholder = stringResource(R.string.ev_f_booking_hint), icon = Icons.Rounded.ConfirmationNumber, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(FieldGap))
-        DorrTextField(source, { source = it.take(500) }, label = stringResource(R.string.ev_f_source), icon = Icons.Rounded.Link, modifier = Modifier.fillMaxWidth())
+        DorrTextField(source, { source = it.take(500) }, label = stringResource(R.string.ev_f_source), placeholder = stringResource(R.string.ev_f_source_hint), icon = Icons.Rounded.Link, keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
         Spacer(Modifier.height(FieldGap))
-        DorrTextField(description, { description = it.take(5000) }, label = stringResource(R.string.ev_f_description), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
+        DorrTextField(description, { description = it.take(5000) }, label = stringResource(R.string.ev_f_description), placeholder = stringResource(R.string.ev_f_description_hint), icon = Icons.Rounded.Notes, singleLine = false, minLines = 3, modifier = Modifier.fillMaxWidth())
         error?.let { Text(it, color = Wa.Danger, fontSize = 13.sp, modifier = Modifier.padding(top = 10.dp)) }
         Spacer(Modifier.height(24.dp))
     }
 
-    val locale = rememberAppLocaleFrame()
     when (picking) {
         "city" -> CityPickerSheet(onDismiss = { picking = null }) { city = it; picking = null }
-        "date" -> {
-            val state = rememberDatePickerState(initialSelectedDateMillis = date.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli())
-            DatePickerDialog(
-                onDismissRequest = { picking = null },
-                confirmButton = {
-                    locale.Provide {
-                        TextButton({ state.selectedDateMillis?.let { date = Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() }; picking = null }) {
-                            Text(stringResource(R.string.cal_ok), color = Wa.Red, fontWeight = FontWeight.Bold)
-                        }
-                    }
-                },
-                dismissButton = { locale.Provide { TextButton({ picking = null }) { Text(stringResource(R.string.cal_cancel), color = Wa.Mut) } } },
-            ) { locale.Provide { DatePicker(state) } }
-        }
-        "time" -> com.dorr.app.ui.screens.chat.TimePickDialog(time, onDismiss = { picking = null }) { time = it; picking = null }
-        "end" -> com.dorr.app.ui.screens.chat.TimePickDialog(endTime ?: time.plusHours(2), onDismiss = { picking = null }) { endTime = it; picking = null }
+        "date" -> CalDatePickerDialog(date, onDismiss = { picking = null }) { date = it; picking = null }
+        "time" -> CalTimePickerDialog(time, onDismiss = { picking = null }) { time = it; picking = null }
+        "end" -> CalTimePickerDialog(endTime ?: time.plusHours(2), onDismiss = { picking = null }) { endTime = it; picking = null }
     }
 }
 
@@ -1128,8 +1574,44 @@ internal fun EvFrame(
     cta: (@Composable ColumnScope.() -> Unit)? = null,
     scroll: Boolean = true,
     hero: (@Composable ColumnScope.() -> Unit)? = null,
+    settingsHeader: Boolean = false,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    if (settingsHeader) {
+        Box(modifier.fillMaxSize()) {
+            PinkBackdrop(Modifier.fillMaxSize())
+            Column(Modifier.fillMaxSize()) {
+                SubHeader(title, onBack)
+                if (scroll) {
+                    Column(
+                        Modifier
+                            .weight(1f)
+                            .fillMaxWidth()
+                            .verticalScroll(rememberScrollState())
+                            .imePadding()
+                            .padding(horizontal = 14.dp)
+                            .padding(top = 6.dp, bottom = if (cta != null) 110.dp else 16.dp),
+                        content = content,
+                    )
+                } else {
+                    Box(Modifier.weight(1f).fillMaxWidth().padding(horizontal = 14.dp).padding(top = 6.dp)) {
+                        Column(Modifier.fillMaxSize(), content = content)
+                    }
+                }
+            }
+            if (cta != null) {
+                Column(
+                    Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Wa.Bg.copy(alpha = 0.96f)), startY = 0f, endY = 90f))
+                        .padding(start = 16.dp, end = 16.dp, top = 26.dp, bottom = 16.dp),
+                    content = cta,
+                )
+            }
+        }
+        return
+    }
     WaPage(title = title, onBack = onBack, modifier = modifier, showHeader = false, cta = cta, scroll = scroll) {
         DarkHeroPanel {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

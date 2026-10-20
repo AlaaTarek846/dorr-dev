@@ -157,6 +157,48 @@
     color: #e6533c;
 }
 
+.catalog-filter-btn--pending {
+    background-color: #f5b849;
+    border-color: #f5b849;
+    color: #fff;
+}
+
+.catalog-filter-btn--pending-idle {
+    background-color: rgba(245, 184, 73, 0.12);
+    border-color: rgba(245, 184, 73, 0.35);
+    color: #c48a1a;
+}
+
+.catalog-status-select {
+    min-width: 7.5rem;
+    font-weight: 500;
+    border-width: 1px;
+}
+
+.catalog-status-select--pending {
+    background-color: rgba(245, 184, 73, 0.12);
+    border-color: rgba(245, 184, 73, 0.35);
+    color: #c48a1a;
+}
+
+.catalog-status-select--verified {
+    background-color: rgba(38, 191, 148, 0.12);
+    border-color: rgba(38, 191, 148, 0.35);
+    color: #26bf94;
+}
+
+.catalog-status-select--rejected {
+    background-color: rgba(230, 83, 60, 0.12);
+    border-color: rgba(230, 83, 60, 0.35);
+    color: #e6533c;
+}
+
+.catalog-status-select--suspended {
+    background-color: #f3f6f8;
+    border-color: #dee2e6;
+    color: #6c757d;
+}
+
 .catalog-bool-badge {
     display: inline-flex;
     align-items: center;

@@ -105,15 +105,20 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
     // nothing asks it on a timer. A reload on open and after a lost connection catches up on what was missed.
     LaunchedEffect(ride.uuid) {
         com.dorr.app.chat.ChatRealtime.watchRide(ride.uuid)
-        suspend fun reload() {
+        // `force`: a call's ring / answer / hang-up doesn't change the ride's version, but must show.
+        suspend fun reload(force: Boolean = false) {
             runCatching { ApiClient.rides.ride(ridesAuth(), ride.uuid).data }.getOrNull()?.let { fresh ->
-                if (fresh.version != state.ride?.version) state.ride = fresh
+                if (force || fresh.version != state.ride?.version || fresh.call?.uuid != state.ride?.call?.uuid || fresh.call?.status != state.ride?.call?.status) state.ride = fresh
             }
         }
         launch { com.dorr.app.chat.ChatRealtime.connected.collect { up -> if (up) reload() } }
         com.dorr.app.chat.ChatRealtime.events.collect { e ->
             when (e.name) {
-                "ride.changed" -> reload()
+                "ride.changed" -> reload(force = e.data.get("event")?.takeIf { it.isJsonPrimitive }?.asString?.startsWith("call_") == true)
+                // O-09: the captain is calling (the push, when the app is open) — show it now.
+                "ride.call" -> reload(force = true)
+                // O-10: a new message — the chat tile's count follows.
+                "ride.message" -> reload()
                 // The car moves on the map from the event itself, without a reload.
                 "ride.driver_location" -> state.ride?.let { current ->
                     val d = current.driver ?: return@let
@@ -126,6 +131,17 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         }
     }
     androidx.compose.runtime.DisposableEffect(ride.uuid) { onDispose { com.dorr.app.chat.ChatRealtime.unwatchRide(ride.uuid) } }
+
+    // O-09: the captain's call rings here; a call that's gone from the ride is over on this phone too.
+    val callContext = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(ride.call?.uuid, ride.call?.status) {
+        val call = ride.call
+        when {
+            call != null && call.status == "ringing" && call.caller == "driver" ->
+                RideCallSession.incoming(callContext, ride.uuid, call.uuid, ride.driver?.name.orEmpty(), end = { r, c -> ApiClient.rides.endCall(ridesAuth(), r, c) })
+            call == null && RideCallSession.rideUuid == ride.uuid && RideCallSession.phase != RideCallPhase.Calling -> RideCallSession.endedElsewhere(null)
+        }
+    }
 
     PanelCard {
         when (ride.status) {
@@ -147,7 +163,11 @@ internal fun RideActivePanel(state: RidesState, camera: CameraPositionState, onE
         }
     }
 
-    if (chatOpen) RideChatSheet(ride, onClose = { chatOpen = false })
+    if (chatOpen) RideChatSheet(ride, onClose = {
+        chatOpen = false
+        // Read now: the badge goes.
+        state.ride = state.ride?.copy(unreadMessages = 0)
+    })
     if (cancelOpen) CancelSheet(state, onClose = { cancelOpen = false })
     if (sosOpen) SosSheet(ride, onClose = { sosOpen = false }, onReport = { sosOpen = false; reportOpen = true })
     if (shareOpen) ShareRideSheet(ride, onClose = { shareOpen = false })
@@ -159,6 +179,13 @@ private fun AwaitingPayment(state: RidesState) {
     Text(stringResource(R.string.rd_awaiting_payment), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 17.sp)
     Spacer(Modifier.height(14.dp))
     AccentButton(stringResource(R.string.rd_pay_now)) { openRidePayment(state) }
+    // O-38c: not locked on the card — switch to cash / the wallet here and the search starts at once.
+    state.ride?.let { ride ->
+        if (ride.paymentChange.isNotEmpty()) {
+            Spacer(Modifier.height(12.dp))
+            PaymentSwitch(state, ride)
+        }
+    }
 }
 
 /** A calm radar while the nearest captains are asked one by one. */
@@ -261,8 +288,15 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
         }
     }
 
+    // O-32: a shared ride — how many in the car, and what sharing saved.
+    ride.pool?.takeIf { it.riders > 1 || it.discountMinor > 0 }?.let { pool -> SharedRideBanner(pool, ride.currency) }
+    ride.hourly?.let { HourlyRideBanner(it, ride.currency) }
     ChangeTripLinks(state, ride)
     if (ride.status == "accepted" || ride.status == "arrived") PaymentSwitch(state, ride)
+
+    // O-09: a free call inside the app (LiveKit) while the captain is on the ride — the mic asked first.
+    val callCtx = androidx.compose.ui.platform.LocalContext.current
+    val micForCall = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()) { ok -> if (ok) startRideCall(callCtx, ride) }
 
     // The wireflow's row: 💬 Message · 📤 Share · 🚨 SOS.
     Spacer(Modifier.height(14.dp))
@@ -271,6 +305,12 @@ private fun OnTheWay(state: RidesState, ride: RideDto, onChat: () -> Unit, onCan
         onShare = onShare,
         onSos = onSos,
         sharing = sharing,
+        unread = ride.unreadMessages,
+        callPhone = ride.callPhone,
+        onAppCall = if (ride.status in setOf("accepted", "arrived", "in_progress")) ({
+            if (androidx.core.content.ContextCompat.checkSelfPermission(callCtx, android.Manifest.permission.RECORD_AUDIO) == android.content.pm.PackageManager.PERMISSION_GRANTED) startRideCall(callCtx, ride)
+            else micForCall.launch(android.Manifest.permission.RECORD_AUDIO)
+        }) else null,
     )
     shareError?.let { Text(it, color = AppColors.danger, fontSize = 12.sp, modifier = Modifier.padding(top = 6.dp)) }
     if (ride.status != "in_progress") {
@@ -358,6 +398,27 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
             )
         }
     }
+    // O-41: a row of stars per criterion — they start at the overall stars and can each be moved.
+    val scores = remember(ride.uuid) { androidx.compose.runtime.mutableStateMapOf<String, Int>() }
+    if (stars > 0 && ride.ratingCriteria.isNotEmpty()) {
+        Column(
+            Modifier.fillMaxWidth().padding(bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(settingsBackground()).padding(horizontal = 12.dp, vertical = 6.dp),
+        ) {
+            ride.ratingCriteria.forEach { c ->
+                val value = scores[c.key] ?: stars
+                Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.label ?: c.key, color = settingsInk(), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                    (1..5).forEach { i ->
+                        Icon(
+                            if (i <= value) Icons.Rounded.Star else Icons.Rounded.StarBorder, null,
+                            tint = if (i <= value) AppColors.warning else settingsMut(),
+                            modifier = Modifier.size(26.dp).clip(CircleShape).clickable { scores[c.key] = i },
+                        )
+                    }
+                }
+            }
+        }
+    }
     if (stars > 0) {
         val visible = tags.filter { if (stars >= 4) it.sentiment == "positive" else it.sentiment != "positive" }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -384,6 +445,9 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
             scope.launch {
                 val body = JsonObject().apply {
                     addProperty("stars", stars)
+                    if (ride.ratingCriteria.isNotEmpty()) {
+                        add("scores", JsonObject().apply { ride.ratingCriteria.forEach { c -> addProperty(c.key, scores[c.key] ?: stars) } })
+                    }
                     add("tags", JsonArray().apply { chosen.value.forEach { add(it) } })
                     if (comment.isNotBlank()) addProperty("comment", comment.trim())
                 }

@@ -8,6 +8,7 @@ use Modules\Discover\Http\Controllers\OrganizerController;
 Route::middleware('locale')->prefix('mobile/v1/discover')->group(function () {
     Route::middleware(['auth:user_api', 'ensure-phone-verified:user_api', 'throttle:240,1', 'country', 'remember-locale'])->group(function () {
         Route::get('home', [DiscoverController::class, 'home']);
+        Route::get('sections/{key}', [DiscoverController::class, 'section'])->where('key', 'for_you|this_week|weekend|free|popular|followed');
         Route::get('events', [DiscoverController::class, 'index']);
         Route::get('travel', [DiscoverController::class, 'travel']);
         Route::post('ask', [DiscoverController::class, 'ask'])->middleware('throttle:20,1');

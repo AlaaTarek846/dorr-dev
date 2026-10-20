@@ -1,0 +1,177 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Country;
+use App\Models\Currency;
+use App\Models\Flag;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
+use Modules\Driver\Enums\DriverStatus;
+use Modules\Driver\Enums\VehicleStatus;
+use Modules\Driver\Models\Driver;
+use Modules\Driver\Models\DriverPresence;
+use Modules\Driver\Models\Vehicle;
+use Modules\Driver\Models\VehicleColor;
+use Modules\Driver\Models\VehicleMake;
+use Modules\Driver\Models\VehicleModel;
+use Modules\Rides\Models\RideCategory;
+use Modules\Rides\Models\RideFeatureRule;
+use Modules\Rides\Services\Features\RideFeatures;
+use Modules\Rides\Services\Policy\RidePolicies;
+use Modules\User\Models\User;
+use Modules\Wallet\Database\Seeders\FinancialCategorySeeder;
+use Modules\Wallet\Enums\WalletBucket;
+use Modules\Wallet\Enums\WalletTransactionType;
+use Modules\Wallet\Services\WalletService;
+use Tests\TestCase;
+
+/** Boats & yachts (O-25), find a driver (O-26c) and driving lessons (O-26b): the money paths end to end. */
+class RidesExtraServicesTest extends TestCase
+{
+    private Country $saudi;
+
+    private Driver $captain;
+
+    private User $rider;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        Http::fake();
+        config(['broadcasting.default' => 'null']);
+        $this->seed(FinancialCategorySeeder::class);
+
+        $this->saudi = Country::create([
+            'code' => 'SA', 'dial_code' => '+966', 'phone_length' => 9, 'is_default' => true, 'status' => true,
+            'flag_id' => Flag::create(['code' => 'sa'])->id,
+            'currency_id' => Currency::create(['code' => 'SAR', 'symbol' => 'ر.س', 'decimal_places' => 2])->id,
+        ]);
+        foreach (['rides', 'find_driver', 'driving_lessons'] as $feature) {
+            RideFeatureRule::query()->create(['feature' => $feature, 'country_id' => $this->saudi->id, 'enabled' => true]);
+        }
+        RideFeatures::forget();
+        RidePolicies::forget();
+
+        $this->captain = Driver::query()->create([
+            'uuid' => (string) Str::uuid(), 'name' => 'Captain Ali', 'phone' => '+966550000099', 'phone_verified_at' => now(),
+            'country_id' => $this->saudi->id, 'status' => DriverStatus::Active,
+        ]);
+        $this->rider = User::query()->create(['name' => 'Sara Ahmed', 'phone' => '+966500000001', 'country_id' => $this->saudi->id, 'status' => 'active', 'phone_verified_at' => now()]);
+    }
+
+    public function test_a_yacht_hire_is_booked_by_the_hour_never_overlaps_gets_more_time_and_pays_the_captain(): void
+    {
+        $marine = RideCategory::query()->create(['slug' => 'marine', 'pricing_strategy' => 'time', 'status' => true, 'sort_order' => 1, 'capacity_max' => 12, 'flags' => []]);
+        app(RidePolicies::class)->save($this->saudi->id, null, null, $marine->id, ['price.commission_type' => 'percent', 'price.commission_value' => 1000]);
+        $this->vehicle('yacht', 10);
+        $this->fund(100000);
+
+        $listing = $this->actingAs($this->captain, 'driver_api')->postJson('/api/driver/v1/marine/listings', [
+            'kind' => 'rental', 'title' => 'Sunset yacht', 'marina' => ['lat' => 21.5, 'lng' => 39.1, 'address' => 'Jeddah marina'],
+            'amenities' => ['life_jackets', 'music'], 'hour_price_minor' => 20000, 'min_hours' => 2,
+        ])->assertCreated()->assertJsonPath('data.capacity', 10)->json('data');
+
+        $as = $this->actingAs($this->rider, 'user_api');
+        $start = now()->addDays(2)->startOfHour();
+        $booking = $as->postJson("/api/mobile/v1/rides/marine/listings/{$listing['uuid']}/book", ['mode' => 'rental', 'guests' => 4, 'starts_at' => $start->toIso8601String(), 'hours' => 2], ['Idempotency-Key' => 'm-1'])
+            ->assertCreated()->assertJsonPath('data.amount_minor', 40000)->json('data');
+        $this->assertSame(60000, $this->balance($this->rider));
+
+        // The same boat an hour later overlaps: refused.
+        $as->postJson("/api/mobile/v1/rides/marine/listings/{$listing['uuid']}/book", ['mode' => 'rental', 'guests' => 2, 'starts_at' => $start->copy()->addHour()->toIso8601String(), 'hours' => 2], ['Idempotency-Key' => 'm-2'])
+            ->assertStatus(409)->assertJsonPath('error_code', 'rides_marine_slot_taken');
+
+        // R-42: one more hour, the captain agrees — charged then.
+        $as->postJson("/api/mobile/v1/rides/marine/bookings/{$booking['uuid']}/extend", ['hours' => 1])->assertOk()->assertJsonPath('data.extension.status', 'pending');
+        $this->actingAs($this->captain, 'driver_api')->postJson("/api/driver/v1/marine/bookings/{$booking['uuid']}/extension", ['approve' => true])
+            ->assertOk()->assertJsonPath('data.extension_minor', 20000);
+        $this->assertSame(40000, $this->balance($this->rider));
+
+        // Boarded by the QR, then finished: 60,000 less 10%.
+        $this->actingAs($this->captain, 'driver_api')->postJson('/api/driver/v1/marine/board', ['qr' => $booking['qr']])->assertOk()->assertJsonPath('data.status', 'boarded');
+        $this->actingAs($this->captain, 'driver_api')->postJson("/api/driver/v1/marine/bookings/{$booking['uuid']}/finish")->assertOk();
+        $this->assertSame(54000, $this->balance($this->captain));
+    }
+
+    public function test_find_a_driver_the_nearest_online_captain_accepts_drives_and_is_paid(): void
+    {
+        app(RidePolicies::class)->save($this->saudi->id, null, null, null, ['hire.hour_price_minor' => 4000, 'hire.day_price_minor' => 25000, 'hire.commission_bp' => 2000]);
+        DriverPresence::query()->create(['driver_id' => $this->captain->id, 'status' => 'online', 'lat' => 24.71, 'lng' => 46.67, 'gps_enabled' => true, 'last_seen_at' => now()]);
+        $this->fund(20000);
+
+        $as = $this->actingAs($this->rider, 'user_api');
+        $as->getJson('/api/mobile/v1/rides/hire/quote?lat=24.7136&lng=46.6753&unit=hour&quantity=3')->assertOk()->assertJsonPath('data.amount_minor', 12000);
+        $hire = $as->postJson('/api/mobile/v1/rides/hire', [
+            'pickup' => ['lat' => 24.7136, 'lng' => 46.6753, 'address' => 'Olaya'], 'unit' => 'hour', 'quantity' => 3, 'transmission' => 'manual', 'car' => 'Camry white',
+        ], ['Idempotency-Key' => 'h-1'])->assertCreated()->assertJsonPath('data.status', 'open')->json('data');
+        $this->assertSame(8000, $this->balance($this->rider));
+        $as->postJson('/api/mobile/v1/rides/hire', ['pickup' => ['lat' => 24.7, 'lng' => 46.6, 'address' => 'x'], 'unit' => 'hour', 'quantity' => 2], ['Idempotency-Key' => 'h-2'])
+            ->assertStatus(409)->assertJsonPath('error_code', 'rides_hire_already_open');
+
+        $cap = $this->actingAs($this->captain, 'driver_api');
+        $cap->getJson('/api/driver/v1/hire/open')->assertOk()->assertJsonPath('data.0.uuid', $hire['uuid'])->assertJsonPath('data.0.rider.phone', null);
+        $cap->postJson("/api/driver/v1/hire/{$hire['uuid']}/accept")->assertOk()->assertJsonPath('data.status', 'accepted')->assertJsonPath('data.rider.phone', '+966500000001');
+        foreach (['arrived', 'started', 'completed'] as $to) {
+            $cap->postJson("/api/driver/v1/hire/{$hire['uuid']}/move", ['to' => $to])->assertOk()->assertJsonPath('data.status', $to);
+        }
+        $this->assertSame(12000 - 2400, $this->balance($this->captain));
+    }
+
+    public function test_a_learner_buys_a_pack_books_a_lesson_the_trainer_is_paid_per_lesson_and_the_rest_is_refunded(): void
+    {
+        app(RidePolicies::class)->save($this->saudi->id, null, null, null, ['lessons.commission_bp' => 2000]);
+        $this->fund(50000);
+
+        $pack = $this->actingAs($this->captain, 'driver_api')->postJson('/api/driver/v1/lessons/packs', [
+            'title' => 'Beginner 4', 'transmission' => 'automatic', 'lessons' => 4, 'minutes_per_lesson' => 60, 'price_minor' => 40000,
+            'own_car' => true, 'area' => ['lat' => 24.71, 'lng' => 46.67, 'address' => 'Riyadh north'],
+        ])->assertCreated()->assertJsonPath('data.per_lesson_minor', 10000)->json('data');
+
+        $as = $this->actingAs($this->rider, 'user_api');
+        $as->getJson('/api/mobile/v1/rides/lessons/packs?lat=24.7136&lng=46.6753')->assertOk()->assertJsonPath('data.0.uuid', $pack['uuid']);
+        $enrollment = $as->postJson("/api/mobile/v1/rides/lessons/packs/{$pack['uuid']}/enroll", [], ['Idempotency-Key' => 'l-1'])->assertCreated()->json('data');
+        $this->assertSame(10000, $this->balance($this->rider));
+
+        $booked = $as->postJson("/api/mobile/v1/rides/lessons/enrollments/{$enrollment['uuid']}/sessions", [
+            'starts_at' => now()->addDay()->startOfHour()->toIso8601String(), 'pickup' => ['lat' => 24.7136, 'lng' => 46.6753, 'address' => 'Home'],
+        ])->assertCreated()->assertJsonPath('data.lessons_left', 3)->json('data');
+        $session = $booked['sessions'][0]['uuid'];
+
+        $cap = $this->actingAs($this->captain, 'driver_api');
+        $cap->postJson("/api/driver/v1/lessons/sessions/$session/answer", ['approve' => true])->assertOk()->assertJsonPath('data.status', 'confirmed');
+        $cap->postJson("/api/driver/v1/lessons/sessions/$session/done")->assertStatus(409);
+        $this->travel(2)->days();
+        $cap->postJson("/api/driver/v1/lessons/sessions/$session/done")->assertOk()->assertJsonPath('data.status', 'done');
+        $this->assertSame(10000 - 2000, $this->balance($this->captain));
+
+        // The learner stops: the three lessons not taken come back.
+        $as->postJson("/api/mobile/v1/rides/lessons/enrollments/{$enrollment['uuid']}/quit")->assertOk()->assertJsonPath('data.refunded_minor', 30000);
+        $this->assertSame(40000, $this->balance($this->rider));
+    }
+
+    private function vehicle(string $body, int $seats): void
+    {
+        $make = VehicleMake::query()->create(['status' => true]);
+        $model = VehicleModel::query()->create(['make_id' => $make->id, 'body_type' => $body, 'seats' => $seats, 'status' => true]);
+        Vehicle::query()->create([
+            'uuid' => (string) Str::uuid(), 'driver_id' => $this->captain->id, 'country_id' => $this->saudi->id, 'make_id' => $make->id, 'model_id' => $model->id,
+            'color_id' => VehicleColor::query()->create(['hex' => '#FFFFFF', 'status' => true])->id,
+            'year' => 2022, 'body_type' => $body, 'seats' => $seats, 'plate_letters' => 'ا ب ج', 'plate_number' => '7002', 'plate_type' => 1,
+            'status' => VehicleStatus::Approved, 'is_active' => true,
+        ]);
+    }
+
+    private function fund(int $minor): void
+    {
+        $wallets = app(WalletService::class);
+        $wallets->credit($wallets->firstOrCreateWallet($this->rider, $this->saudi), $minor, WalletBucket::Withdrawable, WalletTransactionType::Topup, ['idempotency_key' => 'fund:'.$this->rider->id]);
+    }
+
+    private function balance(User|Driver $owner): int
+    {
+        $w = app(WalletService::class)->firstOrCreateWallet($owner, $this->saudi)->fresh();
+
+        return $w->spend_only_minor + $w->withdrawable_minor;
+    }
+}

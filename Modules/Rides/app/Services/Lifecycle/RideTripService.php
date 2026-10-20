@@ -7,6 +7,7 @@ use Modules\Driver\Models\Driver;
 use Modules\Driver\Models\DriverLocationLog;
 use Modules\Rides\Enums\DistanceSource;
 use Modules\Rides\Enums\PricingMode;
+use Modules\Rides\Enums\PricingStrategy;
 use Modules\Rides\Enums\RidePaymentStatus;
 use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Enums\WaslTripStatus;
@@ -128,20 +129,31 @@ class RideTripService
     }
 
     /**
+     * Ends the ride where the car is. Away from the destination (more than `arrival.destination_radius_m`)
+     * it is refused unless the captain confirms ending early ($early — the rider getting off sooner);
+     * then an upfront fare is worked out again on the distance actually driven, never above the
+     * agreed one (Jawad's recalculation, O-40). An offers ride keeps the price both sides agreed.
+     *
      * @param  int|null  $odometerM  the phone's own distance counter for the trip (§10.1)
      */
-    public function end(Driver $driver, Ride $ride, float $lat, float $lng, ?int $odometerM, ?string $key = null): Ride
+    public function end(Driver $driver, Ride $ride, float $lat, float $lng, ?int $odometerM, ?string $key = null, bool $early = false): Ride
     {
         if (($done = $this->machine->replayed($ride, $key, 'completed')) !== null) {
             return $done;
         }
         $this->assertDriver($driver, $ride);
 
-        $ride = DB::transaction(function () use ($driver, $ride, $lat, $lng, $odometerM, $key) {
+        // By the hour (O-17) the rider bought time, not a trip to a place: it ends wherever they get off.
+        $away = $ride->snapshot('hourly') !== null ? 0 : $this->awayFromDestination($ride, $lat, $lng);
+        if ($away > 0 && ! $early) {
+            throw new RidesException('not_at_destination', 422, ['distance' => number_format($away / 1000, 1)], ['distance_m' => $away]);
+        }
+
+        $ride = DB::transaction(function () use ($driver, $ride, $lat, $lng, $odometerM, $key, $away) {
             $policy = (array) $ride->snapshot('policy', []);
             $price = FareCalculator::priceOf($policy);
             $track = $this->trackPoints($ride, $lat, $lng);
-            [$distance, $source] = $this->distance($ride, $track, $odometerM, $lat, $lng);
+            [$distance, $source] = $this->distance($ride, $track, $odometerM, $lat, $lng, $away === 0);
             $duration = $ride->started_at !== null ? (int) $ride->started_at->diffInSeconds(now()) : 0;
 
             $chargeableWait = max(0, $ride->pickup_waiting_s - (int) ($policy['waiting.free_s'] ?? 180));
@@ -149,10 +161,28 @@ class RideTripService
             $chargeableStops = (int) RideStop::query()->where('ride_id', $ride->id)->get()
                 ->sum(fn (RideStop $s) => max(0, $s->wait_s - (int) ($policy['stops.free_wait_s'] ?? 120)));
 
+            $fixed = $ride->pricing_mode === PricingMode::Upfront ? (int) $ride->snapshot('breakdown.fare') : null;
+            if ($fixed !== null && $away > 0 && ! $this->isOffersRide($ride)) {
+                // Ended before the destination: what was actually driven, never more than agreed.
+                $fixed = min($fixed, $this->calculator->compute($price, $distance, $duration, null)->fare);
+            }
+
+            // O-17: by the hour — each minute past the hours booked is added (whole minutes, started ones count).
+            $hourly = (array) $ride->snapshot('hourly', []);
+            $overtimeMin = 0;
+            if ($fixed !== null && $hourly !== []) {
+                $overtimeMin = (int) ceil(max(0, $duration - (int) $hourly['hours'] * 3600) / 60);
+                $fixed += $overtimeMin * (int) ($hourly['overtime_per_min_minor'] ?? 0);
+            }
+
+            // With Me (O-32): what sharing the car took off this fare.
+            if ($fixed !== null && (int) $ride->pool_discount_minor > 0) {
+                $fixed = max(0, $fixed - (int) $ride->pool_discount_minor);
+            }
+
             $breakdown = $this->calculator->compute(
                 $price, $distance, $duration, $ride->snapshot('tax'),
-                $chargeableWait, $chargeableStops, (int) $ride->previous_balance_minor,
-                $ride->pricing_mode === PricingMode::Upfront ? (int) $ride->snapshot('breakdown.fare') : null,
+                $chargeableWait, $chargeableStops, (int) $ride->previous_balance_minor, $fixed,
             );
             // The service fee, the coupon and the payment fee fixed at confirmation (R-45, R-47, R-48).
             if (($extras = (array) $ride->snapshot('extras', [])) !== []) {
@@ -170,6 +200,8 @@ class RideTripService
             }
 
             $wallet = $ride->payment_method->holdsInWallet();
+            // O-37: a cash ride paid partly from the wallet — that part is taken now, the rest is cash.
+            $walletPart = $wallet ? 0 : min($breakdown->total, $this->payments->held($ride));
             $ride = $this->machine->move($ride, RideStatus::Completed, 'completed', 'driver', $driver->id, [
                 'completed_at' => now(),
                 'final_total_minor' => $breakdown->total,
@@ -182,12 +214,15 @@ class RideTripService
                 'stops_waiting_s' => $stopsWaited,
                 'destination_lat' => $ride->open_destination ? $lat : $ride->destination_lat,
                 'destination_lng' => $ride->open_destination ? $lng : $ride->destination_lng,
-                'payment_status' => $wallet ? RidePaymentStatus::Captured : RidePaymentStatus::CashDue,
+                'payment_status' => $wallet || $walletPart >= $breakdown->total ? RidePaymentStatus::Captured : RidePaymentStatus::CashDue,
                 'wasl_status' => $this->eligibility->regulatorFor($driver) !== null ? WaslTripStatus::Pending : WaslTripStatus::NotRequired,
-            ], ['lat' => $lat, 'lng' => $lng], ['odometer_m' => $odometerM, 'distance_m' => $distance, 'source' => $source->value], $key);
+            ], ['lat' => $lat, 'lng' => $lng], ['odometer_m' => $odometerM, 'distance_m' => $distance, 'source' => $source->value] + ($away > 0 ? ['ended_early' => true, 'away_from_destination_m' => $away] : []), $key);
 
             if ($wallet) {
                 $this->payments->capture($ride, $breakdown->total);
+            } elseif ($walletPart > 0) {
+                $this->payments->capture($ride, $walletPart);
+                $ride->forceFill(['confirmed_snapshot' => ['wallet_paid_minor' => $walletPart] + (array) $ride->confirmed_snapshot])->save();
             }
 
             RideTrack::query()->create([
@@ -221,7 +256,13 @@ class RideTripService
         $this->points->forCompletedRide($ride, $promised);
 
         $this->notifier->changed($ride, 'completed');
-        $this->notifier->rider($ride, 'completed', ['amount' => $this->notifier->money((int) $ride->final_total_minor, $ride), 'name' => $driver->name ?? '']);
+        $amount = $this->notifier->money((int) $ride->final_total_minor, $ride);
+        if ($away > 0) {
+            // Ended before the destination: the rider is told where and what it came to, and can report it.
+            $this->notifier->rider($ride, 'ended_early', ['amount' => $amount, 'name' => $driver->name ?? '', 'distance' => number_format($away / 1000, 1)]);
+        } else {
+            $this->notifier->rider($ride, 'completed', ['amount' => $amount, 'name' => $driver->name ?? '']);
+        }
         // Safety: "arrived safely" to whoever got the ride's link (R-113), and the check-in if asked for (R-223).
         $this->contacts->arrived($ride);
         $this->checks->scheduleCheckIn($ride);
@@ -264,7 +305,7 @@ class RideTripService
      * @param  list<array{0: float, 1: float}>  $track
      * @return array{0: int, 1: DistanceSource}
      */
-    private function distance(Ride $ride, array $track, ?int $odometerM, float $lat, float $lng): array
+    private function distance(Ride $ride, array $track, ?int $odometerM, float $lat, float $lng, bool $atDestination = true): array
     {
         $tracked = $this->trackDistance($track);
         $logged = count($track) - 2;
@@ -285,7 +326,31 @@ class RideTripService
             return [$tracked, DistanceSource::ServerTrack];
         }
 
-        return [max((int) $ride->planned_distance_m, (int) round($straight * (int) $ride->policy('gps_gap.straight_factor_bp', 13000) / 10000)), DistanceSource::RouteEstimate];
+        // No points at all: the planned route only when the car really is at the destination —
+        // a car that never left the pickup must not be paid the whole route (O-40).
+        $estimate = (int) round($straight * (int) $ride->policy('gps_gap.straight_factor_bp', 13000) / 10000);
+
+        return [$atDestination ? max((int) $ride->planned_distance_m, $estimate) : $estimate, DistanceSource::RouteEstimate];
+    }
+
+    /**
+     * How far (metres) the car is from the destination beyond `arrival.destination_radius_m`; 0 when it
+     * is there, or when the ride has no fixed destination (open destination).
+     */
+    private function awayFromDestination(Ride $ride, float $lat, float $lng): int
+    {
+        if ($ride->open_destination || $ride->destination_lat === null || $ride->destination_lng === null) {
+            return 0;
+        }
+        $distance = (int) round(Geo::metres($lat, $lng, (float) $ride->destination_lat, (float) $ride->destination_lng));
+
+        return $distance > (int) $ride->policy('arrival.destination_radius_m', 500) ? $distance : 0;
+    }
+
+    /** An offers (bidding) ride: its price was agreed by both sides, so it is never worked out again. */
+    private function isOffersRide(Ride $ride): bool
+    {
+        return $ride->category?->pricing_strategy === PricingStrategy::Bid;
     }
 
     /** @return list<array{0: float, 1: float}> the trip's logged points, pickup first, the end point last */
