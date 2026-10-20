@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -41,6 +42,8 @@ import androidx.compose.material.icons.filled.GpsOff
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.rounded.AssignmentInd
 import androidx.compose.material.icons.rounded.Flight
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
+import androidx.compose.material.icons.rounded.Radar
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Schedule
 import androidx.compose.material.icons.rounded.Star
@@ -94,15 +97,11 @@ import com.dorr.driver.ui.kit.bounceClick
 import com.dorr.driver.ui.kit.staggerIn
 import com.dorr.driver.ui.kit.surface
 import com.dorr.driver.ui.theme.Pal
-import com.google.android.gms.maps.CameraUpdateFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.gson.JsonObject
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.dorr.driver.map.DorrMap
+import com.dorr.driver.map.rememberDorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -230,13 +229,31 @@ fun HomeScreen(
     val blocked = presence != null && !presence!!.canGoOnline && problem != null && problem != "driving_limit"
     // The sheet shows the switch (and why not, when they can't work); the rest is a drag away.
     val peek = if (blocked) 430.dp else 312.dp
-    val sheet = rememberBottomSheetScaffoldState()
-    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(Riyadh, 12f) }
+    // O-45: the sheet drags all the way down (the whole map shows); a small pill brings it back.
+    val sheet = rememberBottomSheetScaffoldState(
+        bottomSheetState = androidx.compose.material3.rememberStandardBottomSheetState(
+            initialValue = androidx.compose.material3.SheetValue.PartiallyExpanded, skipHiddenState = false,
+        ),
+    )
+    val sheetHidden = sheet.bottomSheetState.currentValue == androidx.compose.material3.SheetValue.Hidden
+    val mapBottom = if (sheetHidden) 0.dp else peek
+    var checkOpen by remember { mutableStateOf(false) }
+    val camera = rememberDorrCamera(Riyadh, 12f)
     // The map opens on the captain once the position is known (and again after the permission is given).
-    LaunchedEffect(permissionsOk) {
-        if (!permissionsOk) return@LaunchedEffect
-        lastPosition(context)?.let { (lat, lng) -> camera.move(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 15f)) }
+    // O-49: and again the moment the location is allowed and switched on — no closing and reopening the app.
+    LaunchedEffect(permissionsOk, locationOn) {
+        if (!permissionsOk || !locationOn) return@LaunchedEffect
+        lastPosition(context)?.let { (lat, lng) -> camera.move(LatLng(lat, lng), 15f) }
     }
+    // O-49: no working without the location — a window that stays until it's allowed and on.
+    if (!permissionsOk || !locationOn) {
+        LocationGate(onReady = {
+            permissionsOk = true
+            locationOn = true
+            if (presence?.status in setOf("online", "on_trip")) Duty.start(context)
+        })
+    }
+    if (checkOpen) DispatchCheckSheet(onClose = { checkOpen = false })
 
     BottomSheetScaffold(
         scaffoldState = sheet,
@@ -364,6 +381,10 @@ fun HomeScreen(
                         }
                     }
                 }
+                // O-47: «why don't requests reach me?» — every condition, checked now.
+                Column(Modifier.fillMaxWidth().surface()) {
+                    ListRow(Icons.Rounded.Radar, stringResource(R.string.dc_entry), subtitle = stringResource(R.string.dc_entry_hint), tint = Pal.accent, onClick = { checkOpen = true })
+                }
                 if (online) {
                     Card {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -390,18 +411,20 @@ fun HomeScreen(
     ) {
         Box(Modifier.fillMaxSize()) {
             // The map under everything: the captain's blue dot (the map follows the phone itself — no asking the server).
-            GoogleMap(
+            // O-53: the admin's engine (Google or Mapbox) — the whole app draws with it.
+            DorrMap(
+                camera = camera,
                 modifier = Modifier.fillMaxSize(),
-                cameraPositionState = camera,
-                properties = DriverMap.properties(MapProperties(
-                    isMyLocationEnabled = permissionsOk,
-                    mapStyleOptions = if (Pal.night) remember { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_night) } else null,
-                )),
-                uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
-                contentPadding = PaddingValues(top = 120.dp, bottom = peek),
-            ) { DriverMapboxTiles() }
-            LaunchedEffect(Unit) { DriverMap.load() }
-            DriverMapboxAttribution(Modifier.align(Alignment.BottomStart).padding(start = 6.dp, bottom = peek + 6.dp))
+                showMe = permissionsOk && locationOn,
+                padding = PaddingValues(top = 120.dp, bottom = mapBottom),
+                night = Pal.night,
+                googleNightStyle = R.raw.map_night,
+            )
+            LaunchedEffect(Unit) {
+                com.dorr.driver.map.MapEngine.refresh(context) {
+                (com.dorr.core.network.apiCall { DriverBackend.api.mapConfig() } as? ApiResult.Ok)?.data?.let { Triple(it.provider, it.mapboxToken, it.mapboxStyle) }
+            }
+            }
             // Offline, the map steps back a little.
             val dim by animateFloatAsState(if (online) 0f else 0.18f, tween(400), label = "map-dim")
             if (dim > 0f) Box(Modifier.matchParentSize().background(Pal.bg.copy(alpha = dim)))
@@ -448,11 +471,25 @@ fun HomeScreen(
                 }
             }
 
+            // O-45: the sheet is down — a pill (with my status) brings it back.
+            if (sheetHidden) {
+                Row(
+                    Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 18.dp)
+                        .clip(CircleShape).bounceClick { scope.launch { sheet.bottomSheetState.partialExpand() } }
+                        .background(Pal.card).padding(horizontal = 18.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Box(Modifier.size(10.dp).clip(CircleShape).background(if (online) Pal.success else Pal.faint))
+                    Text(stringResource(if (online) R.string.home_status_online else R.string.home_status_offline), color = Pal.ink, fontWeight = FontWeight.Bold)
+                    Icon(Icons.Rounded.KeyboardArrowUp, null, tint = Pal.ink)
+                }
+            }
             // Back to where I am.
-            Box(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = peek + 14.dp)) {
+            Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = if (sheetHidden) 80.dp else peek + 14.dp)) {
                 RoundIconButton(Icons.Rounded.MyLocation, stringResource(R.string.home_recenter), onClick = {
                     scope.launch {
-                        lastPosition(context)?.let { (lat, lng) -> camera.animate(CameraUpdateFactory.newLatLngZoom(LatLng(lat, lng), 16f)) }
+                        lastPosition(context)?.let { (lat, lng) -> camera.animate(LatLng(lat, lng), 16f) }
                     }
                 })
             }

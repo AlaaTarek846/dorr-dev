@@ -70,6 +70,8 @@ dependencies {
     // The map on Home (Google Maps for Compose — the same versions as androidApp).
     implementation("com.google.android.gms:play-services-maps:19.0.0")
     implementation("com.google.maps.android:maps-compose:6.1.0")
+    // O-53: the second map engine — the admin chooses Google or Mapbox for the whole app.
+    implementation("com.mapbox.maps:android:11.8.0")
     implementation("io.coil-kt:coil-compose:2.7.0")
     // The wallet (copied from the DORR app, O-35): opening it with the fingerprint / face, like the DORR app.
     implementation("androidx.biometric:biometric:1.1.0")

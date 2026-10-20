@@ -36,19 +36,16 @@ import com.dorr.driver.R
 import com.dorr.driver.net.TripDto
 import com.dorr.driver.ui.theme.DorrBrand
 import com.dorr.driver.ui.theme.Pal
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
-import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.LatLngBounds
 import com.google.android.gms.maps.model.MapStyleOptions
-import com.google.maps.android.compose.GoogleMap
-import com.google.maps.android.compose.MapProperties
-import com.google.maps.android.compose.MapUiSettings
-import com.google.maps.android.compose.Marker
-import com.google.maps.android.compose.MarkerState
-import com.google.maps.android.compose.Polyline
-import com.google.maps.android.compose.rememberCameraPositionState
+import com.dorr.driver.map.DorrMap
+import com.dorr.driver.map.MapLine
+import com.dorr.driver.map.MapPin
+import com.dorr.driver.map.PinKind
+import com.dorr.driver.map.dpPx
+import com.dorr.driver.map.rememberDorrCamera
 import kotlinx.coroutines.launch
 
 /**
@@ -69,40 +66,29 @@ internal fun TripMap(t: TripDto, modifier: Modifier, bottomPadding: Dp) {
         t.route?.polyline?.takeIf { it.isNotBlank() }?.let(::decodePolyline)?.takeIf { it.size >= 2 }
             ?: listOfNotNull(pickup, *stops.toTypedArray(), drop)
     }
-    val camera = rememberCameraPositionState { position = CameraPosition.fromLatLngZoom(pickup ?: LatLng(24.7136, 46.6753), 14f) }
+    val camera = rememberDorrCamera(pickup ?: LatLng(24.7136, 46.6753), 14f)
+    val fitPadding = dpPx(48f).toInt()
 
     fun fitRoute() {
-        val points = route + listOfNotNull(pickup, drop)
-        if (points.size < 2) return
-        val bounds = LatLngBounds.builder().apply { points.forEach { include(it) } }.build()
-        scope.launch { runCatching { camera.animate(CameraUpdateFactory.newLatLngBounds(bounds, 140)) } }
+        scope.launch { camera.fit(route + listOfNotNull(pickup, drop), fitPadding) }
     }
     LaunchedEffect(t.uuid, route.size) { fitRoute() }
 
     Box(modifier) {
-        GoogleMap(
+        // O-53: the admin's engine (Google or Mapbox) — the route, the pins and the blue dot on either.
+        val shadow = dpPx(7f)
+        val line = dpPx(4.5f)
+        DorrMap(
+            camera = camera,
             modifier = Modifier.fillMaxSize(),
-            cameraPositionState = camera,
-            properties = DriverMap.properties(MapProperties(
-                isMyLocationEnabled = located,
-                mapStyleOptions = if (Pal.night) remember { MapStyleOptions.loadRawResourceStyle(context, R.raw.map_night) } else null,
-            )),
-            uiSettings = MapUiSettings(zoomControlsEnabled = false, myLocationButtonEnabled = false, mapToolbarEnabled = false, compassEnabled = false),
-            contentPadding = PaddingValues(top = 150.dp, bottom = bottomPadding),
-            onMapLoaded = { fitRoute() },
-        ) {
-            DriverMapboxTiles()
-            if (route.size >= 2) {
-                Polyline(points = route, color = Color.Black.copy(alpha = 0.18f), width = 18f)
-                Polyline(points = route, color = DorrBrand.navy, width = 11f)
-            }
-            pickup?.let { Marker(state = MarkerState(it), title = stringResource(R.string.offer_pickup), icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_AZURE)) }
-            stops.forEach { Marker(state = MarkerState(it), icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_YELLOW)) }
-            drop?.let { Marker(state = MarkerState(it), title = stringResource(R.string.offer_dropoff), icon = BitmapDescriptorFactory.defaultMarker(BitmapDescriptorFactory.HUE_ORANGE)) }
-        }
-
-        DriverMapboxAttribution(Modifier.align(Alignment.BottomStart).padding(start = 6.dp, bottom = bottomPadding + 6.dp))
-        LaunchedEffect(Unit) { DriverMap.load() }
+            pins = listOfNotNull(pickup?.let { MapPin(it, PinKind.Pickup) }) + stops.map { MapPin(it, PinKind.Stop) } + listOfNotNull(drop?.let { MapPin(it, PinKind.Dropoff) }),
+            lines = if (route.size >= 2) listOf(MapLine(route, Color.Black.copy(alpha = 0.18f), shadow), MapLine(route, DorrBrand.navy, line)) else emptyList(),
+            showMe = located,
+            padding = PaddingValues(top = 150.dp, bottom = bottomPadding),
+            night = Pal.night,
+            googleNightStyle = R.raw.map_night,
+            onLoaded = { fitRoute() },
+        )
         Column(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(top = 150.dp, end = 14.dp)) {
             MapButton(Icons.Filled.MyLocation, DorrBrand.navy) { fitRoute() }
             t.navigation?.let { nav ->

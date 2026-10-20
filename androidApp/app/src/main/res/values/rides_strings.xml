@@ -553,4 +553,21 @@
     <string name="rc_hang_up">End</string>
     <string name="rc_speaker">Speaker</string>
     <string name="rc_need_mic">Allow the microphone to talk</string>
+    <string name="lg_title_permission">We need your location</string>
+    <string name="lg_body_permission">To bring you the nearest captain and set your pickup exactly, allow DORR to know where you are.</string>
+    <string name="lg_title_off">Turn on location</string>
+    <string name="lg_body_off">Location is off on your phone. Turn it on and we\'ll pick up where you are as your pickup.</string>
+    <string name="lg_allow">Allow location</string>
+    <string name="lg_open_settings">Open settings and allow location</string>
+    <string name="lg_turn_on">Turn on location</string>
+    <string name="lg_leave">Go back</string>
+    <string name="pk_title">Where to?</string>
+    <string name="pk_pickup">Pickup</string>
+    <string name="pk_finding">Finding you…</string>
+    <string name="pk_pin_pickup">Pickup here</string>
+    <string name="pk_pin_here">Here</string>
+    <string name="cx_title">Cancel this ride?</string>
+    <string name="cx_body_driver">Your captain is on the way.</string>
+    <string name="cx_body_search">We\'re still finding you a captain.</string>
+    <string name="cx_keep">No, keep my ride</string>
 </resources>

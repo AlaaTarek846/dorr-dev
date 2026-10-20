@@ -553,4 +553,21 @@
     <string name="rc_hang_up">إنهاء</string>
     <string name="rc_speaker">السماعة</string>
     <string name="rc_need_mic">اسمح بالمايك عشان تتكلم</string>
+    <string name="lg_title_permission">محتاجين نعرف مكانك</string>
+    <string name="lg_body_permission">عشان نجيبلك أقرب كابتن ونحدد نقطة الالتقاط بالظبط، اسمح لـ DORR يعرف مكانك.</string>
+    <string name="lg_title_off">شغّل اللوكيشن</string>
+    <string name="lg_body_off">اللوكيشن مقفول في الموبايل. شغّله عشان نلقط مكانك ونحطه نقطة الالتقاط على طول.</string>
+    <string name="lg_allow">اسمح بالموقع</string>
+    <string name="lg_open_settings">افتح الإعدادات واسمح بالموقع</string>
+    <string name="lg_turn_on">شغّل اللوكيشن</string>
+    <string name="lg_leave">رجوع</string>
+    <string name="pk_title">رايح فين؟</string>
+    <string name="pk_pickup">نقطة الالتقاط</string>
+    <string name="pk_finding">بنحدد مكانك…</string>
+    <string name="pk_pin_pickup">الالتقاط هنا</string>
+    <string name="pk_pin_here">هنا</string>
+    <string name="cx_title">متأكد إنك عايز تلغي؟</string>
+    <string name="cx_body_driver">الكابتن في الطريق ليك.</string>
+    <string name="cx_body_search">لسه بندورلك على كابتن.</string>
+    <string name="cx_keep">لا، كمّل الرحلة</string>
 </resources>

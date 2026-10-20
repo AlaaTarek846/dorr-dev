@@ -8,7 +8,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -155,7 +157,10 @@ fun DriverNavHost() {
                     }
                     composable("earnings") { EarningsScreen(onBack = null) }
                     // O-35: the DORR app's wallet, the same in every detail (PIN, recovery, settings, top-up) — plus withdrawing.
-                    composable("wallet") { com.dorr.driver.wallet.WalletScreen(onExit = { goTab("home") }) }
+                    composable("wallet") {
+                        // O-46: the wallet (copied from the DORR app, where its host keeps it under the status bar) starts below it here too.
+                        Box(Modifier.fillMaxSize().background(com.dorr.driver.wallet.Wa.Bg).statusBarsPadding()) { com.dorr.driver.wallet.WalletScreen(onExit = { goTab("home") }) }
+                    }
                     composable("account") {
                         AccountScreen(
                             onOpenSignup = { nav.navigate("signup") },
