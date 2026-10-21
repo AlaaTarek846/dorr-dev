@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offer_title">تقديم عرض</string>
+    <string name="offer_send_one">قدّم عرض</string>
+    <string name="offer_send">إرسال العرض</string>
+    <string name="offer_mine">عرضي</string>
+    <string name="offer_my_offers">عروضي</string>
+    <string name="offer_none">لسه ما بعتش أي عرض.</string>
+    <string name="offer_sent_badge">قدّمت عرض</string>
+    <string name="offer_price">سعرك</string>
+    <string name="offer_price_min">أقل حاجة %1$s</string>
+    <string name="offer_price_invalid">اكتب السعر رقم، زي 1500 أو 1500.50.</string>
+    <string name="offer_commission">عمولة دُرر: %1$s</string>
+    <string name="offer_net">صافي ربحك: %1$s</string>
+    <string name="offer_net_line">صافي ربحك %1$s</string>
+    <string name="offer_duration">مدة التسليم (أيام)</string>
+    <string name="offer_details">تفاصيل العرض</string>
+    <string name="offer_details_hint">هتعمله إزاي، هتسلّم إيه، وشغل شبهه عملته</string>
+    <string name="offer_details_count">%1$d / على الأقل %2$d</string>
+    <string name="offer_files">ملفات (اختياري)</string>
+    <string name="offer_add_file">إضافة ملف</string>
+    <string name="offer_quota_left">العروض المجانية الباقية الشهر دا: %1$d من %2$d</string>
+    <string name="offer_status_submitted">اتبعت</string>
+    <string name="offer_status_viewed">اتشاف</string>
+    <string name="offer_status_shortlisted">في القايمة المختصرة</string>
+    <string name="offer_status_accepted">اتقبل</string>
+    <string name="offer_status_rejected">ما اتختارش</string>
+    <string name="offer_status_withdrawn">اتسحب</string>
+    <string name="offer_edit">تعديل العرض</string>
+    <string name="offer_withdraw">سحب العرض</string>
+    <string name="offer_withdraw_confirm">العرض هيتسحب والعميل مش هيشوفه تاني. ومش هتقدر تبعت عرض تاني على المشروع دا.</string>
+    <string name="offer_save_changes">حفظ التعديل</string>
+    <string name="offer_edit_note">العميل بيتبلّغ لما تعدّل العرض، وبيتحفظ اللي كان مكتوب قبل كده.</string>
+    <string name="offer_edited_n">اتعدّل %1$d مرة، دوس تشوف اللي قبله</string>
+    <string name="offer_revision">قبل التعديل %1$d: %2$s · %3$d يوم</string>
+    <string name="offer_reject_reason">السبب: %1$s</string>
+    <string name="offer_none_filtered">مفيش عروض في الحالة دي.</string>
+    <string name="offer_ev_submitted">اتبعت</string>
+    <string name="offer_ev_viewed">العميل شافه</string>
+    <string name="offer_ev_shortlisted">اتحط في القايمة المختصرة</string>
+    <string name="offer_ev_rejected">ما اتختارش</string>
+    <string name="offer_ev_accepted">اتقبل</string>
+    <string name="offer_ev_edited">عدّلته</string>
+    <string name="offer_ev_withdrawn">سحبته</string>
+</resources>

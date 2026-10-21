@@ -50,6 +50,19 @@
                         </li>
                     </template>
 
+                    <template v-if="showFreelanceSection">
+                        <li class="slide__category">
+                            <span class="category-name">{{ t('sidebar.freelance') }}</span>
+                        </li>
+
+                        <li v-for="item in freelanceItems" v-show="can(item.permission)" :key="item.route" class="slide">
+                            <router-link :to="{ name: item.route }" class="side-menu__item">
+                                <i :class="`${item.icon} side-menu__icon`"></i>
+                                <span class="side-menu__label">{{ t(item.label) }}</span>
+                            </router-link>
+                        </li>
+                    </template>
+
                     <li v-if="isAiVisible" class="slide__category">
                         <span class="category-name">{{ t('sidebar.ai') }}</span>
                     </li>
@@ -429,44 +442,6 @@
                         </ul>
                     </li>
 
-                    <template v-if="smsSectionReady && showSmsSection">
-                        <li class="slide__category">
-                            <span class="category-name">{{ t('sidebar.sms') }}</span>
-                        </li>
-
-                        <li class="slide has-sub">
-                            <a
-                                href="javascript:void(0);"
-                                class="side-menu__item"
-                                @click.prevent="toggleSubMenu"
-                            >
-                                <i class="ri-message-2-line side-menu__icon"></i>
-                                <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
-                                <i class="fe fe-chevron-right side-menu__angle"></i>
-                            </a>
-                            <ul class="slide-menu child1">
-                                <li class="slide side-menu__label1">
-                                    <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
-                                </li>
-                                <li v-if="can('sms-providers.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.providers') }}
-                                    </router-link>
-                                </li>
-                                <li v-if="can('whatsapp.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.whatsapp') }}
-                                    </router-link>
-                                </li>
-                                <li v-if="can('otp-settings.view')" class="slide">
-                                    <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
-                                        {{ t('sidebar.sms_items.otp') }}
-                                    </router-link>
-                                </li>
-                            </ul>
-                        </li>
-                    </template>
-
                     <template v-if="showSystemUsersSection">
                         <li class="slide__category">
                             <span class="category-name">{{ t('sidebar.users') }}</span>
@@ -537,6 +512,44 @@
                     </template>
 
                     <template v-if="isGeneralVisible">
+                        <template v-if="smsSectionReady && showSmsSection">
+                            <li class="slide__category">
+                                <span class="category-name">{{ t('sidebar.sms') }}</span>
+                            </li>
+
+                            <li class="slide has-sub">
+                                <a
+                                    href="javascript:void(0);"
+                                    class="side-menu__item"
+                                    @click.prevent="toggleSubMenu"
+                                >
+                                    <i class="ri-message-2-line side-menu__icon"></i>
+                                    <span class="side-menu__label">{{ t('sidebar.sms') }}</span>
+                                    <i class="fe fe-chevron-right side-menu__angle"></i>
+                                </a>
+                                <ul class="slide-menu child1">
+                                    <li class="slide side-menu__label1">
+                                        <a href="javascript:void(0)">{{ t('sidebar.sms') }}</a>
+                                    </li>
+                                    <li v-if="can('sms-providers.view')" class="slide">
+                                        <router-link :to="{ name: 'admin.sms.providers.index' }" class="side-menu__item">
+                                            {{ t('sidebar.sms_items.providers') }}
+                                        </router-link>
+                                    </li>
+                                    <li v-if="can('whatsapp.view')" class="slide">
+                                        <router-link :to="{ name: 'admin.sms.whatsapp.index' }" class="side-menu__item">
+                                            {{ t('sidebar.sms_items.whatsapp') }}
+                                        </router-link>
+                                    </li>
+                                    <li v-if="can('otp-settings.view')" class="slide">
+                                        <router-link :to="{ name: 'admin.sms.otp.index' }" class="side-menu__item">
+                                            {{ t('sidebar.sms_items.otp') }}
+                                        </router-link>
+                                    </li>
+                                </ul>
+                            </li>
+                        </template>
+
                         <template v-if="showServicesSection">
                             <li class="slide__category">
                                 <span class="category-name">{{ t('sidebar.services') }}</span>
@@ -850,6 +863,22 @@ const ridesItems = [
     { route: 'admin.rides.lists', permission: 'ride-lists.view', icon: 'ri-list-check-2', label: 'rides.lists.title' },
     { route: 'admin.rides.settings', permission: 'ride-settings.view', icon: 'ri-settings-4-line', label: 'rides.settings.title' },
 ];
+
+/** Freelance (Modules/Freelance), shown when the header service is the freelance one. */
+const freelanceItems = [
+    { route: 'admin.freelance.overview', permission: 'freelance-settings.view', icon: 'ri-briefcase-4-line', label: 'freelance.overview.title' },
+    { route: 'admin.freelance.switches', permission: 'freelance-feature-rules.view', icon: 'ri-toggle-line', label: 'freelance.switches.title' },
+    { route: 'admin.freelance.projects', permission: 'freelance-projects.view', icon: 'ri-survey-line', label: 'freelance.projects.title' },
+    { route: 'admin.freelance.verifications', permission: 'freelance-verifications.view', icon: 'ri-shield-user-line', label: 'freelance.verifications.title' },
+    { route: 'admin.freelance.document-types', permission: 'freelance-document-types.view', icon: 'ri-id-card-line', label: 'freelance.document_types.title' },
+    { route: 'admin.freelance.skills', permission: 'freelance-catalogs.view', icon: 'ri-medal-line', label: 'freelance.skills.title' },
+    { route: 'admin.freelance.specialties', permission: 'freelance-catalogs.view', icon: 'ri-node-tree', label: 'freelance.specialties.title' },
+    { route: 'admin.freelance.policies', permission: 'freelance-policies.view', icon: 'ri-price-tag-3-line', label: 'freelance.policies.title' },
+];
+
+const showFreelanceSection = computed(
+    () => selectedModuleName.value === 'freelance' && freelanceItems.some((item) => can(item.permission)),
+);
 
 const showRidesSection = computed(
     () => selectedModuleName.value === 'passenger_ride' && ridesItems.some((item) => can(item.permission)),
