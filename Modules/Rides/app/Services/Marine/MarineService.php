@@ -120,10 +120,19 @@ class MarineService
         if (! in_array($booking->status, ['confirmed', 'boarded'], true)) {
             throw new RidesException('marine_not_editable', 409);
         }
-        DB::transaction(function () use ($booking) {
+        $earned = 0;
+        DB::transaction(function () use ($booking, &$earned) {
             $booking->forceFill(['status' => 'completed'])->save();
-            $this->payCaptain($booking);
+            $earned = $this->payCaptain($booking);
         });
+        $listing = $booking->listing;
+        $this->notifications->send($booking->user, 'marine.completed', 'marine_completed_title', 'marine_completed_body', ['title' => $listing->title], [
+            'type' => 'marine', 'booking_uuid' => $booking->uuid,
+        ]);
+        app(\Modules\Rides\Services\Notifications\ServiceNotices::class)->earning($listing->driver, 'marine', $earned, $listing->currency_id, $listing->title, ['listing_uuid' => $listing->uuid]);
+        // R-146: the guest's DORR points.
+        app(\Modules\Rides\Services\Loyalty\LoyaltyService::class)->earnForService($booking->user, (int) $listing->country_id,
+            max(0, $booking->amount_minor - (int) $booking->discount_minor) + (int) $booking->extension_minor, (int) $listing->currency_id, 'marine_booking', (int) $booking->id, $listing->title);
 
         return $booking->refresh();
     }
@@ -134,6 +143,10 @@ class MarineService
         $this->assertOwner($driver, $booking->listing);
         if ($booking->status === 'confirmed') {
             $booking->forceFill(['status' => 'boarded'])->save();
+            // The guest's booking turns «on board» at once (no push — they're at the gangway).
+            $this->notifications->send($booking->user, 'marine.boarded', 'marine_boarded_title', 'marine_boarded_body', ['title' => $booking->listing->title], [
+                'type' => 'marine', 'booking_uuid' => $booking->uuid,
+            ], false);
         } elseif ($booking->status !== 'boarded') {
             throw new RidesException('bus_ticket_not_found', 404);
         }
@@ -246,17 +259,34 @@ class MarineService
                 $mode = 'rental';
             }
 
-            $booking = MarineBooking::query()->create([
+            // O-67: held «unpaid» while the app's payment screen pays it (coupon, top-up).
+            return MarineBooking::query()->create([
                 'marine_listing_id' => $listing->id, 'user_id' => $guest->id, 'mode' => $mode, 'guests' => $guests,
                 'starts_at' => $from, 'ends_at' => $to, 'amount_minor' => $price, 'currency_id' => $listing->currency_id, 'idempotency_key' => $key,
+                'status' => 'unpaid', 'payment_expires_at' => now()->addMinutes(\Modules\Rides\Services\Bus\BusService::HOLD_MINUTES),
             ]);
-            $booking->forceFill(['wallet_transaction_ids' => $this->charge($guest, $listing, $price, 'marine:'.$booking->uuid.':pay')])->save();
-
-            return $booking;
         });
 
+        return $booking->refresh();
+    }
+
+    /** O-67: paid on the payment screen — the rest (after the coupon) is taken now and the booking confirmed. */
+    public function confirmPaid(MarineBooking $booking, int $payable, int $discount): MarineBooking
+    {
+        if ($booking->status === 'confirmed') {
+            return $booking;
+        }
+        if ($booking->status !== 'unpaid' || ($booking->payment_expires_at !== null && $booking->payment_expires_at->isPast())) {
+            throw new RidesException('booking_lapsed', 409);
+        }
+        $listing = $booking->listing;
+        $guest = $booking->user()->firstOrFail();
+        $booking->forceFill([
+            'status' => 'confirmed', 'payment_expires_at' => null, 'discount_minor' => $discount,
+            'wallet_transaction_ids' => $payable > 0 ? $this->charge($guest, $listing, $payable, 'marine:'.$booking->uuid.':pay') : [],
+        ])->save();
         $this->notifications->send($listing->driver, 'marine.booked', 'marine_booked_title', 'marine_booked_body', [
-            'name' => strtok((string) $guest->name, ' ') ?: '', 'title' => $listing->title, 'guests' => $guests,
+            'name' => strtok((string) $guest->name, ' ') ?: '', 'title' => $listing->title, 'guests' => $booking->guests,
         ], ['type' => 'marine', 'listing_uuid' => $listing->uuid, 'booking_uuid' => $booking->uuid]);
         $this->notifications->send($guest, 'marine.confirmed', 'marine_confirmed_title', 'marine_confirmed_body', [
             'title' => $listing->title, 'time' => $booking->starts_at->copy()->setTimezone(config('app.timezone'))->format('Y-m-d H:i'),
@@ -267,6 +297,12 @@ class MarineService
 
     public function cancel(User $guest, MarineBooking $booking): MarineBooking
     {
+        // O-67: not paid yet — let go, nothing to refund.
+        if ($booking->user_id === $guest->id && $booking->status === 'unpaid') {
+            $booking->forceFill(['status' => 'canceled', 'canceled_at' => now()])->save();
+
+            return $booking->refresh();
+        }
         if ($booking->user_id !== $guest->id || $booking->status !== 'confirmed') {
             throw new RidesException('marine_not_editable', 409);
         }
@@ -329,10 +365,12 @@ class MarineService
         $booking->forceFill(['status' => 'canceled', 'canceled_at' => now()])->save();
     }
 
-    private function payCaptain(MarineBooking $booking): void
+    /** @return int the captain's share credited */
+    private function payCaptain(MarineBooking $booking): int
     {
         $listing = $booking->listing;
-        $total = $booking->amount_minor + $booking->extension_minor;
+        // O-67: what the guest paid (after a coupon), plus any extra time.
+        $total = max(0, $booking->amount_minor - (int) $booking->discount_minor) + $booking->extension_minor;
         $policy = $this->policy($listing->country_id);
         $commission = ($policy->get('price.commission_type') ?? 'percent') === 'fixed'
             ? min($total, $policy->int('price.commission_value'))
@@ -346,12 +384,15 @@ class MarineService
             $this->ledger->record('trip_commissions', FinancialEntryType::Income, $commission, $listing->currency, $country, $booking,
                 ['key' => 'wallet.notes.marine_commission', 'variables' => ['title' => $listing->title]]);
         }
+
+        return $total - $commission;
     }
 
     /** Two hires of the same boat never overlap. */
     private function assertFree(MarineListing $listing, Carbon $from, Carbon $to, ?int $except = null): void
     {
-        $clash = $listing->bookings()->whereIn('status', ['confirmed', 'boarded'])->when($except, fn ($q) => $q->where('id', '!=', $except))
+        $clash = $listing->bookings()->where(fn ($q) => $q->whereIn('status', ['confirmed', 'boarded'])
+            ->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '>', now())))->when($except, fn ($q) => $q->where('id', '!=', $except))
             ->where('starts_at', '<', $to)->where('ends_at', '>', $from)->exists();
         if ($clash) {
             throw new RidesException('marine_slot_taken', 409);

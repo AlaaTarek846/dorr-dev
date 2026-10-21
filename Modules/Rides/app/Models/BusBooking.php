@@ -20,7 +20,7 @@ class BusBooking extends Model
 
     protected function casts(): array
     {
-        return ['seats' => 'array', 'wallet_transaction_ids' => 'array', 'amount_minor' => 'integer', 'canceled_at' => 'datetime'];
+        return ['seats' => 'array', 'wallet_transaction_ids' => 'array', 'amount_minor' => 'integer', 'canceled_at' => 'datetime', 'payment_expires_at' => 'datetime', 'discount_minor' => 'integer'];
     }
 
     public function trip(): BelongsTo

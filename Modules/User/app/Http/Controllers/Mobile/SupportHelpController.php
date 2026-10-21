@@ -21,7 +21,7 @@ class SupportHelpController extends Controller
 {
     public function index(): JsonResponse
     {
-        $byParent = SupportHelpNode::query()->active()->with('translations')
+        $byParent = SupportHelpNode::query()->active()->whereIn('audience', ['all', 'user'])->with('translations')
             ->orderBy('sort_order')->orderBy('id')->get()->groupBy('parent_id');
 
         return ApiResponse::success([

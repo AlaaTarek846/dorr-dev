@@ -49,6 +49,8 @@ class WalletServiceProvider extends ModuleServiceProvider
 
         // What the payment screen sells — each module registers its own purposes in boot().
         $this->app->singleton(CheckoutPurposes::class);
+        // D-216..D-224: modules add rules to their owners' withdrawals (the captain's KYC, a new account's hold…).
+        $this->app->singleton(\Modules\Wallet\Support\Payments\WithdrawalGuards::class);
         // What a ledger row points at (a ride…) — each module registers its own resolver in boot().
         $this->app->singleton(TransactionReferences::class);
     }

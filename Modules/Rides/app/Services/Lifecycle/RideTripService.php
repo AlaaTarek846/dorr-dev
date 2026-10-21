@@ -242,7 +242,7 @@ class RideTripService
         });
 
         $extraLines = RidePriceLine::query()->where('ride_id', $ride->id)->where('phase', 'final')->whereIn('code', PriceExtras::CODES)->pluck('amount_minor', 'code');
-        $fees = (int) ($extraLines['customer_fee'] ?? 0) + (int) ($extraLines['payment_method_fee'] ?? 0) + (int) ($extraLines['discount'] ?? 0);
+        $fees = (int) ($extraLines['customer_fee'] ?? 0) + (int) ($extraLines['payment_method_fee'] ?? 0) + (int) ($extraLines['discount'] ?? 0) + (int) ($extraLines['wait_save'] ?? 0);
         $this->stats->bump($driver->id, [
             'trips' => 1,
             // What the ride earned: not the old debt, nor DORR's fees; a coupon is DORR's, not a lower fare.
@@ -254,6 +254,10 @@ class RideTripService
         ]);
         $promised = (int) RideOffer::query()->where('ride_id', $ride->id)->where('driver_id', $driver->id)->where('status', 'accepted')->value('eta_s');
         $this->points->forCompletedRide($ride, $promised);
+        // D-239..D-253: the captain's rank follows their numbers.
+        app(\Modules\Rides\Services\Drivers\DriverRanks::class)->evaluate($driver);
+        // R-146: the rider's DORR points for what they paid.
+        app(\Modules\Rides\Services\Loyalty\LoyaltyService::class)->earnForRide($ride);
 
         $this->notifier->changed($ride, 'completed');
         $amount = $this->notifier->money((int) $ride->final_total_minor, $ride);

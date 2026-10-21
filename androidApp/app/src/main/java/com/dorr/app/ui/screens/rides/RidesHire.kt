@@ -118,6 +118,12 @@ private sealed interface HirePage {
 @Composable
 internal fun HireHost(state: RidesState, onClose: () -> Unit) {
     var page by remember { mutableStateOf<HirePage>(HirePage.Form) }
+    // Opened from a notification: that request (or my requests).
+    LaunchedEffect(ServiceLink.pending) {
+        if (ServiceLink.pending?.first != "hire") return@LaunchedEffect
+        val uuid = ServiceLink.take("hire")
+        page = uuid?.let { runCatching { ApiClient.hire.show(ridesAuth(), it).data }.getOrNull() }?.let { HirePage.One(it) } ?: HirePage.List
+    }
     var forward by remember { mutableStateOf(true) }
     fun go(to: HirePage, ahead: Boolean = true) { forward = ahead; page = to }
     // A request already going opens straight on it.
@@ -340,6 +346,10 @@ private fun HireStatus(initial: HireDto, onBack: () -> Unit) {
             Text(stringResource(R.string.hire_title), color = Color.White, fontWeight = FontWeight.Black, fontSize = 20.sp)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // O-67: paid first on the one payment screen — then the captains around hear of it.
+            if (hire.status == "unpaid") {
+                ServicePayCard(ServicePay.HIRE, hire.uuid, hire.paymentExpiresAt, autoOpen = true) { scope.launch { reload() } }
+            }
             when (hire.status) {
                 "open" -> Radar()
                 "started" -> {
@@ -379,7 +389,7 @@ private fun HireStatus(initial: HireDto, onBack: () -> Unit) {
                 Line(stringResource(R.string.hire_total), money(hire.amountMinor + hire.extraMinor, hire.currency))
             }
             error?.let { Text(it, color = AppColors.danger, fontSize = 13.sp) }
-            if (hire.status == "open" || hire.status == "accepted") {
+            if (hire.status == "open" || hire.status == "accepted" || hire.status == "unpaid") {
                 Text(
                     stringResource(R.string.hire_cancel), color = AppColors.danger, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(enabled = !busy) {
@@ -530,7 +540,8 @@ private fun statusText(status: String): Int = when (status) {
     "arrived" -> R.string.hire_st_arrived
     "started" -> R.string.hire_st_started
     "completed" -> R.string.hire_st_completed
-    "expired" -> R.string.hire_st_expired
+    "expired", "lapsed" -> R.string.hire_st_expired
+    "unpaid" -> R.string.svc_pay_waiting
     else -> R.string.hire_st_canceled
 }
 

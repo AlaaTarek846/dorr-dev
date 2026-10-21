@@ -69,6 +69,9 @@ data class LessonSessionDto(
 data class LessonEnrollmentDto(
     val uuid: String,
     val status: String,
+    /** O-67: «unpaid» — held for the payment screen until then. */
+    @SerializedName("payment_expires_at") val paymentExpiresAt: String? = null,
+    @SerializedName("discount_minor") val discountMinor: Long = 0,
     @SerializedName("lessons_total") val lessonsTotal: Int = 0,
     @SerializedName("lessons_done") val lessonsDone: Int = 0,
     @SerializedName("lessons_left") val lessonsLeft: Int = 0,

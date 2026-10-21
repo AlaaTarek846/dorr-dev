@@ -80,7 +80,8 @@ class DriverHireService
         if ($key !== null && ($done = DriverHire::query()->where('user_id', $rider->id)->where('idempotency_key', $key)->first()) !== null) {
             return $done;
         }
-        if (DriverHire::query()->where('user_id', $rider->id)->whereIn('status', ['open', ...DriverHire::LIVE])->exists()) {
+        if (DriverHire::query()->where('user_id', $rider->id)->where(fn ($q) => $q->whereIn('status', ['open', ...DriverHire::LIVE])
+            ->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '>', now())))->exists()) {
             throw new RidesException('hire_already_open', 409);
         }
         $q = $this->quote($rider, (float) $data['pickup']['lat'], (float) $data['pickup']['lng'], $data['unit'], (int) $data['quantity']);
@@ -98,12 +99,30 @@ class DriverHireService
                 'starts_at' => $startsAt->lt(now()) ? now() : $startsAt, 'unit' => $data['unit'], 'quantity' => (int) $data['quantity'],
                 'transmission' => $data['transmission'] ?? 'automatic', 'car' => $data['car'] ?? null, 'note' => $data['note'] ?? null,
                 'amount_minor' => $q['amount_minor'], 'idempotency_key' => $key,
+                // O-67: paid on the app's payment screen; the captains hear of it once it's paid.
+                'status' => 'unpaid', 'payment_expires_at' => now()->addMinutes(\Modules\Rides\Services\Bus\BusService::HOLD_MINUTES),
             ]);
-            $hire->forceFill(['wallet_transaction_ids' => $this->charge($rider, $hire, $q['amount_minor'], 'hire:'.$hire->uuid.':pay')])->save();
 
             return $hire;
         });
 
+        return $hire->refresh();
+    }
+
+    /** O-67: paid — the rest (after the coupon) is taken now, and the nearby captains hear of it. */
+    public function confirmPaid(DriverHire $hire, int $payable, int $discount): DriverHire
+    {
+        if ($hire->status !== 'unpaid') {
+            return $hire;
+        }
+        if ($hire->payment_expires_at !== null && $hire->payment_expires_at->isPast()) {
+            throw new RidesException('booking_lapsed', 409);
+        }
+        $hire->forceFill([
+            'status' => 'open', 'payment_expires_at' => null, 'discount_minor' => $discount,
+            'starts_at' => $hire->starts_at->isPast() ? now() : $hire->starts_at,
+            'wallet_transaction_ids' => $payable > 0 ? $this->charge($hire->user()->firstOrFail(), $hire, $payable, 'hire:'.$hire->uuid.':pay') : [],
+        ])->save();
         $this->tellCaptains($hire);
 
         return $hire->refresh();
@@ -111,6 +130,12 @@ class DriverHireService
 
     public function cancelByRider(User $rider, DriverHire $hire): DriverHire
     {
+        // O-67: not paid yet — let go, nothing to refund.
+        if ($hire->user_id === $rider->id && $hire->status === 'unpaid') {
+            $hire->forceFill(['status' => 'canceled', 'canceled_at' => now(), 'canceled_by' => 'rider'])->save();
+
+            return $hire->refresh();
+        }
         if ($hire->user_id !== $rider->id || ! in_array($hire->status, ['open', 'accepted'], true)) {
             throw new RidesException('hire_not_editable', 409);
         }
@@ -132,7 +157,7 @@ class DriverHireService
     {
         $this->expireStale();
 
-        return DriverHire::query()->where('user_id', $rider->id)->latest('id')->limit(50)->get();
+        return DriverHire::query()->where('user_id', $rider->id)->whereNot(fn ($q) => $q->where('status', 'lapsed')->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '<', now())))->latest('id')->limit(50)->get();
     }
 
     // ---------------------------------------------------------------- the captain
@@ -188,13 +213,20 @@ class DriverHireService
         if ($from === null || $hire->status !== $from) {
             throw new RidesException('hire_not_editable', 409);
         }
-        DB::transaction(function () use ($hire, $to) {
+        $earned = 0;
+        DB::transaction(function () use ($hire, $to, &$earned) {
             $hire->forceFill(['status' => $to, $to === 'completed' ? 'ended_at' : $to.'_at' => now()])->save();
             if ($to === 'completed') {
-                $this->settle($hire);
+                $earned = $this->settle($hire);
             }
         });
         $hire->refresh();
+        if ($to === 'completed') {
+            app(\Modules\Rides\Services\Notifications\ServiceNotices::class)->earning($driver, 'hire', $earned, $hire->currency_id, (string) $hire->pickup_address, ['hire_uuid' => $hire->uuid]);
+            // R-146: the rider's DORR points.
+            app(\Modules\Rides\Services\Loyalty\LoyaltyService::class)->earnForService($hire->user, (int) $hire->country_id,
+                max(0, $hire->amount_minor - (int) $hire->discount_minor) + (int) $hire->extra_minor, (int) $hire->currency_id, 'driver_hire', (int) $hire->id, __('rides.checkout.hire'));
+        }
         $this->notifications->send($hire->user, 'hire.'.$to, 'hire_'.$to.'_title', 'hire_'.$to.'_body', [
             'name' => $driver->name ?? '',
         ], ['type' => 'hire', 'hire_uuid' => $hire->uuid]);
@@ -281,8 +313,8 @@ class DriverHireService
         }
     }
 
-    /** Requests nobody took by their start time: expired and refunded. */
-    private function expireStale(): void
+    /** Requests nobody took by their start time: expired and refunded (the scheduler's sweep, and on reading). */
+    public function expireStale(): void
     {
         DriverHire::query()->where('status', 'open')->where('starts_at', '<', now()->subMinutes(15))->limit(50)->get()
             ->each(function (DriverHire $h) {
@@ -317,8 +349,12 @@ class DriverHireService
         $hire->forceFill(['status' => $status, 'canceled_at' => now(), 'canceled_by' => $by])->save();
     }
 
-    /** The end: minutes past the time booked, then the captain's pay less the commission. */
-    private function settle(DriverHire $hire): void
+    /**
+     * The end: minutes past the time booked, then the captain's pay less the commission.
+     *
+     * @return int the captain's share credited
+     */
+    private function settle(DriverHire $hire): int
     {
         $policy = $this->policy($hire->country_id);
         $over = $hire->started_at === null ? 0 : (int) ceil(max(0, $hire->started_at->diffInSeconds(now()) - $hire->bookedSeconds()) / 60);
@@ -335,7 +371,8 @@ class DriverHireService
         }
         $hire->forceFill(['extra_minor' => $extra, 'extra_due_minor' => $due])->save();
 
-        $total = $hire->amount_minor + $extra;
+        // O-67: what the rider paid (after a coupon), plus the extra minutes.
+        $total = max(0, $hire->amount_minor - (int) $hire->discount_minor) + $extra;
         $commission = (int) round($total * $policy->int('hire.commission_bp') / 10000);
         $country = $hire->country()->firstOrFail();
         $this->wallets->credit($this->wallets->firstOrCreateWallet($hire->driver()->firstOrFail(), $country), $total - $commission, WalletBucket::Withdrawable, WalletTransactionType::ServiceEarning, [
@@ -346,5 +383,7 @@ class DriverHireService
             $this->ledger->record('trip_commissions', FinancialEntryType::Income, $commission, $hire->currency, $country, $hire,
                 ['key' => 'wallet.notes.hire_commission', 'variables' => ['address' => $hire->pickup_address]]);
         }
+
+        return $total - $commission;
     }
 }

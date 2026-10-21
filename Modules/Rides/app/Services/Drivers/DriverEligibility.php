@@ -35,6 +35,17 @@ class DriverEligibility implements DriverWorkGate
         if ($driver->status !== DriverStatus::Active) {
             return 'account_'.$driver->status->value;
         }
+        // D-329, D-336, D-344: maintenance, the service off where they work, an emergency review.
+        $states = app(DriverServiceStatus::class);
+        if ($states->maintenance($driver)) {
+            return 'maintenance';
+        }
+        if ($states->serviceOff($driver)) {
+            return 'service_off_here';
+        }
+        if ($states->emergencyReview($driver) !== null) {
+            return 'emergency_review';
+        }
 
         $service = $this->service();
         $serviceRow = $service ? $driver->serviceEligibility()->where('service_category_id', $service->id)->first() : null;
@@ -51,7 +62,17 @@ class DriverEligibility implements DriverWorkGate
             return $documents;
         }
 
-        return $this->regulatorProblem($driver, $vehicle) ?? (app(DrivingHours::class)->blocked($driver) ? 'driving_limit' : null);
+        return $this->regulatorProblem($driver, $vehicle) ?? (app(DrivingHours::class)->blocked($driver) ? 'driving_limit' : null) ?? $this->termsProblem($driver);
+    }
+
+    /** D-318: where the country asks for it, newer terms than the captain accepted keep them offline until they accept. */
+    private function termsProblem(Driver $driver): ?string
+    {
+        if ($driver->country_id === null || ! app(\Modules\Rides\Services\Policy\RidePolicies::class)->for((int) $driver->country_id)->bool('drivers.require_terms')) {
+            return null;
+        }
+
+        return collect(app(DriverAccount::class)->legal($driver))->contains('needs_acceptance', true) ? 'terms_pending' : null;
     }
 
     public function activeRide(Driver $driver): ?array
@@ -86,6 +107,8 @@ class DriverEligibility implements DriverWorkGate
             ! empty($rules['luxury_only']) && ! $vehicle->model?->is_luxury => 'vehicle_not_luxury',
             collect((array) ($rules['required_features'] ?? []))->contains(fn (string $f) => ! $vehicle->hasFeature($f)) => 'vehicle_features',
             isset($rules['driver_gender']) && $driver->gender?->value !== $rules['driver_gender'] => 'driver_gender',
+            // D-254: VIP (or any category) may ask for a rank.
+            ! empty($rules['min_rank']) && ! app(DriverRanks::class)->reaches($driver, (string) $rules['min_rank']) => 'driver_rank',
             default => null,
         };
     }

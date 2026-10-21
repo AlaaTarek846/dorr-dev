@@ -1,5 +1,11 @@
 package com.dorr.driver.ui
 
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ChildCare
+import androidx.compose.material.icons.filled.Pets
+import androidx.compose.material.icons.filled.Accessible
+import androidx.compose.material.icons.filled.Luggage
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.RepeatMode
@@ -62,9 +68,25 @@ import com.dorr.driver.net.ProgressDto
  * the ride was booked for someone else (first name only — the app chat still reaches the rider who booked).
  */
 @Composable
-internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null, pickupPoint: PickupPointDto? = null, dropoffPoint: PickupPointDto? = null, fromCircle: Boolean = false) {
-    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank() && pickupPoint == null && dropoffPoint == null && !fromCircle) return
+internal fun RiderDetails(passengers: Int?, note: String?, beneficiary: String? = null, pickupPoint: PickupPointDto? = null, dropoffPoint: PickupPointDto? = null, fromCircle: Boolean = false, options: List<com.dorr.driver.net.AddonDto> = emptyList()) {
+    if ((passengers ?: 1) <= 1 && note.isNullOrBlank() && beneficiary.isNullOrBlank() && pickupPoint == null && dropoffPoint == null && !fromCircle && options.isEmpty()) return
     Column(Modifier.fillMaxWidth().padding(top = 10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        // D-59, D-390: what the rider added — before accepting, so nothing is a surprise at the door.
+        if (options.isNotEmpty()) {
+            Row(Modifier.fillMaxWidth().horizontalScroll(androidx.compose.foundation.rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                options.forEach { o ->
+                    val tint = when (o.key) { "priority" -> DorrBrand.orange; "service_animal" -> DorrBrand.success; else -> DorrBrand.navy }
+                    Row(
+                        Modifier.clip(CircleShape).background(tint.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(addonIcon(o.key), null, tint = tint, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text(o.label + (o.count?.takeIf { it > 1 }?.let { " ×$it" } ?: ""), fontWeight = FontWeight.SemiBold, fontSize = 12.5.sp, color = tint)
+                    }
+                }
+            }
+        }
         // D-INN-07 DORR Circle: the rider picked this captain from their favourites.
         if (fromCircle) {
             Row(
@@ -191,4 +213,13 @@ internal fun WaitClock(left: Int, warnBeforeS: Int) {
             color = Color.White, fontWeight = FontWeight.Bold,
         )
     }
+}
+
+internal fun addonIcon(key: String): androidx.compose.ui.graphics.vector.ImageVector = when (key) {
+    "wait_save" -> androidx.compose.material.icons.Icons.Filled.HourglassBottom
+    "priority" -> androidx.compose.material.icons.Icons.Filled.Speed
+    "child_seats" -> androidx.compose.material.icons.Icons.Filled.ChildCare
+    "pet" -> androidx.compose.material.icons.Icons.Filled.Pets
+    "service_animal" -> androidx.compose.material.icons.Icons.Filled.Accessible
+    else -> androidx.compose.material.icons.Icons.Filled.Luggage
 }

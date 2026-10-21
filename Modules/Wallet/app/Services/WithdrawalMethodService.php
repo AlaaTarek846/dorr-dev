@@ -29,6 +29,9 @@ class WithdrawalMethodService
      */
     public function create(Model $owner, array $attributes): WithdrawalMethod
     {
+        // The owner's module may refuse or add to it (D-218, D-219, D-223: a captain's account abroad / in another name).
+        $attributes = app(\Modules\Wallet\Support\Payments\WithdrawalGuards::class)->method($owner, $attributes);
+
         return DB::transaction(function () use ($owner, $attributes) {
             $first = ! $this->scope($owner)->exists();
 
@@ -58,6 +61,8 @@ class WithdrawalMethodService
      */
     public function update(Model $owner, int $id, array $attributes): WithdrawalMethod
     {
+        $attributes = app(\Modules\Wallet\Support\Payments\WithdrawalGuards::class)->method($owner, $attributes, $this->find($owner, $id));
+
         return DB::transaction(function () use ($owner, $id, $attributes) {
             $method = $this->find($owner, $id);
 

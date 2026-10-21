@@ -40,7 +40,10 @@ final class LessonPresenter
 
         return [
             'uuid' => $e->uuid,
-            'status' => $e->status,
+            'status' => $e->status === 'unpaid' && $e->payment_expires_at?->isPast() ? 'lapsed' : $e->status,
+            // O-67: held for the payment screen until then — the app opens it (purpose lesson_pack, {booking_uuid}).
+            'payment_expires_at' => $e->status === 'unpaid' ? $e->payment_expires_at?->toIso8601String() : null,
+            'discount_minor' => (int) $e->discount_minor,
             'lessons_total' => $e->lessons_total,
             'lessons_done' => $e->lessons_done,
             'lessons_left' => $e->lessonsLeft(),

@@ -116,6 +116,12 @@ private sealed interface LessonPage {
 @Composable
 internal fun LessonsHost(state: RidesState, onClose: () -> Unit) {
     var page by remember { mutableStateOf<LessonPage>(LessonPage.Browse) }
+    // Opened from a notification: that pack of mine (or my packs).
+    LaunchedEffect(ServiceLink.pending) {
+        if (ServiceLink.pending?.first != "lesson") return@LaunchedEffect
+        val uuid = ServiceLink.take("lesson")
+        page = uuid?.let { runCatching { ApiClient.lessons.enrollment(ridesAuth(), it).data }.getOrNull() }?.let { LessonPage.Enrollment(it) } ?: LessonPage.Mine
+    }
     var forward by remember { mutableStateOf(true) }
     fun go(to: LessonPage, ahead: Boolean = true) { forward = ahead; page = to }
     BackHandler {
@@ -135,7 +141,7 @@ internal fun LessonsHost(state: RidesState, onClose: () -> Unit) {
                 LessonPage.Browse -> LessonBrowse(state, onBack = onClose, onMine = { go(LessonPage.Mine) }, onPick = { go(LessonPage.Pack(it)) })
                 is LessonPage.Pack -> LessonPackPage(p.pack, onBack = { go(LessonPage.Browse, false) }, onEnrolled = { go(LessonPage.Enrollment(it, fresh = true)) })
                 LessonPage.Mine -> LessonMine(onBack = { go(LessonPage.Browse, false) }, onOpen = { go(LessonPage.Enrollment(it)) })
-                is LessonPage.Enrollment -> LessonEnrollmentPage(state, p.enrollment, onBack = { go(LessonPage.Mine, false) })
+                is LessonPage.Enrollment -> LessonEnrollmentPage(state, p.enrollment, p.fresh, onBack = { go(LessonPage.Mine, false) })
             }
         }
     }
@@ -327,7 +333,7 @@ private fun LessonMine(onBack: () -> Unit, onOpen: (LessonEnrollmentDto) -> Unit
 }
 
 @Composable
-private fun LessonEnrollmentPage(rides: RidesState, initial: LessonEnrollmentDto, onBack: () -> Unit) {
+private fun LessonEnrollmentPage(rides: RidesState, initial: LessonEnrollmentDto, fresh: Boolean, onBack: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var e by remember { mutableStateOf(initial) }
@@ -347,6 +353,10 @@ private fun LessonEnrollmentPage(rides: RidesState, initial: LessonEnrollmentDto
     Column(Modifier.fillMaxSize()) {
         LBar(e.pack.title, onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            // O-67: held for its payment — the one payment screen (coupon, top-up), then the lessons.
+            if (e.status == "unpaid") {
+                ServicePayCard(ServicePay.LESSONS, e.uuid, e.paymentExpiresAt, autoOpen = fresh) { scope.launch { reload() } }
+            }
             ProgressRing(e.lessonsDone, e.lessonsTotal, 130)
             Text(stringResource(R.string.ls_done_of, e.lessonsDone, e.lessonsTotal), color = settingsInk(), fontWeight = FontWeight.Black, fontSize = 18.sp)
             e.trainerPhone?.let { phone ->

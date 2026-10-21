@@ -63,6 +63,8 @@ class WithdrawalService
         if (! $method->status || $method->owner_type !== $alias || (int) $method->owner_id !== (int) $owner->getKey()) {
             throw WithdrawalException::methodUnavailable();
         }
+        // The owner's module may refuse (a captain not verified yet, a payout account changed a moment ago…).
+        app(\Modules\Wallet\Support\Payments\WithdrawalGuards::class)->withdrawal($owner, $method, $amountMinor);
 
         $settings = WalletSetting::query()->where('country_id', $country->id)->first()
             ?? throw WithdrawalException::settingsMissing();

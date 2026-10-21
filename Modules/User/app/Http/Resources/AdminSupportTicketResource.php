@@ -25,7 +25,11 @@ class AdminSupportTicketResource extends JsonResource
             'accepts_replies' => $this->status->acceptsReplies(),
             // The customer asked for a person: no more automatic replies on this ticket.
             'auto_reply_stopped' => $this->auto_reply_stopped_at !== null,
-            'user' => $this->whenLoaded('user', fn () => $this->user === null ? null : [
+            // D-285: a captain's ticket shows the captain where the rider would be.
+            'owner_type' => $this->driver_id !== null ? 'driver' : 'user',
+            'category' => $this->category,
+            'reference' => $this->reference,
+            'user' => $this->driver_id !== null ? ($this->driver === null ? null : ['id' => $this->driver->id, 'name' => $this->driver->name, 'phone' => $this->driver->phone, 'is_driver' => true]) : $this->whenLoaded('user', fn () => $this->user === null ? null : [
                 'id' => $this->user->id,
                 'name' => $this->user->name,
                 'phone' => $this->user->phone,

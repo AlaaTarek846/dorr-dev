@@ -64,7 +64,7 @@ class RiderMarineController extends Controller
 
     public function bookings(Request $request): JsonResponse
     {
-        $rows = MarineBooking::query()->where('user_id', $this->guest($request)->id)->latest('id')->limit(50)->get();
+        $rows = MarineBooking::query()->where('user_id', $this->guest($request)->id)->whereNot(fn ($q) => $q->where('status', 'lapsed')->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '<', now())))->latest('id')->limit(50)->get();
 
         return ApiResponse::success($rows->map(fn (MarineBooking $b) => MarinePresenter::booking($b))->values(), __('api.retrieved'));
     }

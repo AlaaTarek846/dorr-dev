@@ -426,6 +426,8 @@ data class CheckoutDto(
     /** A coupon on it: what's charged is [payableMinor]. */
     @SerializedName("discount_minor") val discountMinor: Long = 0,
     @SerializedName("payable_minor") val payableMinor: Long? = null,
+    /** False for a card ride: its promo code goes on the ride's quote, not here. */
+    @SerializedName("coupons_allowed") val couponsAllowed: Boolean = true,
     val coupon: CheckoutCouponDto? = null,
     @SerializedName("currency_code") val currencyCode: String? = null,
     /** pending / paid / failed / expired */

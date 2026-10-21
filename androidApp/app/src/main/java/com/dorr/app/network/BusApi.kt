@@ -25,12 +25,31 @@ interface BusApi {
     @GET("mobile/v1/rides/bus/trips/{uuid}")
     suspend fun trip(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<BusTripDto>
 
-    /** `{trip_type: outbound|return|round, seats_outbound: [..], seats_return: [..]}` — paid from the wallet. */
+    /** `{trip_type: outbound|return|round, seats_outbound: [..], seats_return: [..]}` — held «unpaid», paid on the payment screen (O-67). */
     @POST("mobile/v1/rides/bus/trips/{uuid}/book")
     suspend fun book(@Header("Authorization") auth: String, @Header("Idempotency-Key") key: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<BusBookingDto>
 
     @GET("mobile/v1/rides/bus/bookings")
     suspend fun bookings(@Header("Authorization") auth: String): ApiEnvelope<List<BusBookingDto>>
+
+    @GET("mobile/v1/rides/bus/bookings/{uuid}")
+    suspend fun booking(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<BusBookingDto>
+
+    /** O-68: the chat with the captain about my ticket, and in-app calls (no numbers exchanged). */
+    @GET("mobile/v1/rides/bus/bookings/{uuid}/messages")
+    suspend fun messages(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideChatDto>
+
+    @POST("mobile/v1/rides/bus/bookings/{uuid}/messages")
+    suspend fun send(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideMessageDto>
+
+    @POST("mobile/v1/rides/bus/bookings/{uuid}/calls")
+    suspend fun startCall(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideCallStartDto>
+
+    @POST("mobile/v1/rides/bus/bookings/{uuid}/calls/{call}/accept")
+    suspend fun acceptCall(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("call") call: String): ApiEnvelope<RideCallStartDto>
+
+    @POST("mobile/v1/rides/bus/bookings/{uuid}/calls/{call}/end")
+    suspend fun endCall(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Path("call") call: String): ApiEnvelope<RideCallDto>
 
     @POST("mobile/v1/rides/bus/bookings/{uuid}/cancel")
     suspend fun cancel(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<BusBookingDto>
@@ -87,9 +106,15 @@ data class BusTicketDto(val leg: String, val seat: Int, val qr: String? = null, 
 data class BusBookingDto(
     val uuid: String,
     val status: String,
+    /** O-67: «unpaid» — held for the payment screen until then. */
+    @SerializedName("payment_expires_at") val paymentExpiresAt: String? = null,
+    @SerializedName("discount_minor") val discountMinor: Long = 0,
     @SerializedName("trip_type") val tripType: String,
     @SerializedName("amount_minor") val amountMinor: Long = 0,
     val tickets: List<BusTicketDto> = emptyList(),
+    /** O-68: the captain's messages not read yet, and a call going on. */
+    val unread: Int = 0,
+    val call: RideCallDto? = null,
     @SerializedName("created_at") val createdAt: String? = null,
     val trip: BusTripDto? = null,
 )

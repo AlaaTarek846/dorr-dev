@@ -60,7 +60,9 @@ class MarineListing extends Model
     /** Seats still free on a sea trip (a private booking takes the whole boat). */
     public function seatsLeft(): int
     {
-        $live = $this->bookings()->whereIn('status', ['confirmed', 'boarded']);
+        // O-67: a booking held for its payment counts too, until the hold lapses.
+        $live = $this->bookings()->where(fn ($q) => $q->whereIn('status', ['confirmed', 'boarded'])
+            ->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '>', now())));
         if ((clone $live)->where('mode', 'private')->exists()) {
             return 0;
         }

@@ -23,7 +23,7 @@ class LessonEnrollment extends Model
     {
         return [
             'lessons_total' => 'integer', 'lessons_done' => 'integer', 'amount_minor' => 'integer', 'refunded_minor' => 'integer',
-            'wallet_transaction_ids' => 'array',
+            'wallet_transaction_ids' => 'array', 'payment_expires_at' => 'datetime', 'discount_minor' => 'integer',
         ];
     }
 
