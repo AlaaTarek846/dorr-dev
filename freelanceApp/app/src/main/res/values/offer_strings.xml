@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="offer_title">Send an offer</string>
+    <string name="offer_send_one">Send an offer</string>
+    <string name="offer_send">Send the offer</string>
+    <string name="offer_mine">My offer</string>
+    <string name="offer_my_offers">My offers</string>
+    <string name="offer_none">You have not sent any offer yet.</string>
+    <string name="offer_sent_badge">Offer sent</string>
+    <string name="offer_price">Your price</string>
+    <string name="offer_price_min">At least %1$s</string>
+    <string name="offer_price_invalid">Write the price as a number, like 1500 or 1500.50.</string>
+    <string name="offer_commission">DORR commission: %1$s</string>
+    <string name="offer_net">You get: %1$s</string>
+    <string name="offer_net_line">You get %1$s</string>
+    <string name="offer_duration">Days to deliver</string>
+    <string name="offer_details">Your offer</string>
+    <string name="offer_details_hint">How you will do it, what you deliver, and similar work you did</string>
+    <string name="offer_details_count">%1$d / at least %2$d</string>
+    <string name="offer_files">Files (optional)</string>
+    <string name="offer_add_file">Add a file</string>
+    <string name="offer_quota_left">Free offers left this month: %1$d of %2$d</string>
+    <string name="offer_status_submitted">Sent</string>
+    <string name="offer_status_viewed">Seen</string>
+    <string name="offer_status_shortlisted">Shortlisted</string>
+    <string name="offer_status_accepted">Accepted</string>
+    <string name="offer_status_rejected">Not chosen</string>
+    <string name="offer_status_withdrawn">Taken back</string>
+    <string name="offer_edit">Edit the offer</string>
+    <string name="offer_withdraw">Take the offer back</string>
+    <string name="offer_withdraw_confirm">The offer will be taken back and the client will no longer see it. You cannot send another offer on this project.</string>
+    <string name="offer_save_changes">Save the changes</string>
+    <string name="offer_edit_note">The client is told when you change the offer, and what it said before is kept.</string>
+    <string name="offer_edited_n">Edited %1$d time(s) — tap to see before</string>
+    <string name="offer_revision">Before change %1$d: %2$s · %3$d days</string>
+    <string name="offer_reject_reason">Reason: %1$s</string>
+    <string name="offer_none_filtered">No offers in this state.</string>
+    <string name="offer_ev_submitted">Sent</string>
+    <string name="offer_ev_viewed">Seen by the client</string>
+    <string name="offer_ev_shortlisted">Shortlisted</string>
+    <string name="offer_ev_rejected">Not chosen</string>
+    <string name="offer_ev_accepted">Accepted</string>
+    <string name="offer_ev_edited">You edited it</string>
+    <string name="offer_ev_withdrawn">You took it back</string>
+</resources>

@@ -5,7 +5,7 @@ import android.content.SharedPreferences
 import java.util.UUID
 
 /**
- * The signed-in token and the device id, one file per app (`name`) so the DORR app and the driver
+ * The signed-in token and the device id, one file per app (`name`) so the DORR app, the driver app and the freelancer
  * app never read each other's session even on the same phone.
  */
 class TokenStore(context: Context, name: String) {
