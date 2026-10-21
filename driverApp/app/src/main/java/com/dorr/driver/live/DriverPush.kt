@@ -60,6 +60,9 @@ object DriverPush {
         runCatching { if (initialised) OneSignal.logout() }
     }
 
+    /** The last push tapped: its event and data — DriverNavHost opens the screen it's about, then clears it. */
+    val tapped = kotlinx.coroutines.flow.MutableStateFlow<Pair<String, Map<String, String>>?>(null)
+
     private fun cachedAppId(): String? = context?.getSharedPreferences(PREFS, Context.MODE_PRIVATE)?.getString("app_id", null)
 
     private fun init(appId: String) {
@@ -77,6 +80,10 @@ object DriverPush {
             OneSignal.Notifications.addClickListener(object : INotificationClickListener {
                 override fun onClick(event: INotificationClickEvent) {
                     DriverLive.requestSync()
+                    // Where it's about: the app opens on it (DriverNavHost routes it).
+                    val data = event.notification.additionalData ?: return
+                    val values = data.keys().asSequence().associateWith { k -> data.optString(k) }
+                    tapped.value = data.optString("event") to values
                 }
             })
         }.onFailure { Log.w(TAG, "OneSignal init failed", it) }

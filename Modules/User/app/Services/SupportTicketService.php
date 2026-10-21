@@ -30,16 +30,20 @@ class SupportTicketService
         private readonly SupportAutoReplyService $autoReplies,
     ) {}
 
-    public function open(User $user, string $title, string $body, ?UploadedFile $image, ?int $rideId = null): SupportTicket
+    /**
+     * @param  \Illuminate\Database\Eloquent\Model  $user  a rider (User) or a captain (Driver, D-285)
+     */
+    public function open(\Illuminate\Database\Eloquent\Model $user, string $title, string $body, ?UploadedFile $image, ?int $rideId = null, ?string $category = null, ?string $reference = null): SupportTicket
     {
         $first = null;
 
-        $ticket = DB::transaction(function () use ($user, $title, $body, $image, $rideId, &$first) {
-            $path = $image?->store('support-tickets/'.$user->getKey(), 'public');
+        $ticket = DB::transaction(function () use ($user, $title, $body, $image, $rideId, $category, $reference, &$first) {
+            $path = $image?->store('support-tickets/'.($this->isDriver($user) ? 'd' : '').$user->getKey(), 'public');
 
-            $ticket = SupportTicket::query()->create([
-                'user_id' => $user->getKey(),
+            $ticket = SupportTicket::query()->create($this->ownerColumns($user) + [
                 'ride_id' => $rideId,
+                'category' => $category,
+                'reference' => $reference,
                 'title' => $title,
                 'body' => $body,
                 'image_path' => $path,
@@ -48,8 +52,7 @@ class SupportTicketService
             ]);
 
             // What the customer wrote is the first message of the conversation.
-            $first = $ticket->messages()->create([
-                'user_id' => $user->getKey(),
+            $first = $ticket->messages()->create($this->ownerColumns($user) + [
                 'sender' => SupportMessage::SENDER_USER,
                 'body' => $body,
                 'image_path' => $path,
@@ -67,12 +70,11 @@ class SupportTicketService
         return $ticket->refresh()->load('latestMessage');
     }
 
-    public function customerReply(User $user, SupportTicket $ticket, ?string $body, ?UploadedFile $image): SupportMessage
+    public function customerReply(\Illuminate\Database\Eloquent\Model $user, SupportTicket $ticket, ?string $body, ?UploadedFile $image): SupportMessage
     {
         $this->assertAcceptsReplies($ticket);
 
-        $message = $this->addMessage($ticket, [
-            'user_id' => $user->getKey(),
+        $message = $this->addMessage($ticket, $this->ownerColumns($user) + [
             'sender' => SupportMessage::SENDER_USER,
         ], $body, $image, 'support-messages/'.$ticket->getKey());
 
@@ -88,6 +90,7 @@ class SupportTicketService
 
         $message = $this->addMessage($ticket, [
             'user_id' => $ticket->user_id,
+            'driver_id' => $ticket->driver_id,
             'admin_id' => $admin->getKey(),
             'sender' => SupportMessage::SENDER_SUPPORT,
         ], $body, $image, 'support-messages/'.$ticket->getKey());
@@ -207,5 +210,16 @@ class SupportTicketService
     public function messageResponse(SupportMessage $message, string $text): JsonResponse
     {
         return ApiResponse::success(new SupportMessageResource($message->loadMissing('admin')), $text, 201);
+    }
+
+    /** @return array{user_id: ?int, driver_id: ?int} who a ticket / message belongs to */
+    private function ownerColumns(\Illuminate\Database\Eloquent\Model $owner): array
+    {
+        return $this->isDriver($owner) ? ['user_id' => null, 'driver_id' => $owner->getKey()] : ['user_id' => $owner->getKey(), 'driver_id' => null];
+    }
+
+    private function isDriver(\Illuminate\Database\Eloquent\Model $owner): bool
+    {
+        return $owner instanceof \Modules\Driver\Models\Driver;
     }
 }

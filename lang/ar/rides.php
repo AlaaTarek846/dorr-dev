@@ -13,6 +13,7 @@ return [
         'with_me_not_eligible' => 'عربيتك أو حسابك مش مؤهل لفئة «أنا معك».',
         'bus_no_bus' => 'سجّل باص (أو ميني باص) معتمد أولاً، ثم انشر رحلاتك.',
         'bus_seats_over_bus' => 'عدد المقاعد أكبر من مقاعد الباص (:max).',
+        'bus_trip_too_early' => 'لسه بدري — الرحلة ميعادها :time. تقدر تبدأها قبلها بشوية بس.',
         'bus_trip_not_editable' => 'لا يمكن تعديل هذه الرحلة الآن.',
         'bus_trip_has_bookings' => 'في حجوزات على الرحلة: يمكن تعديل الأسعار والملاحظة فقط.',
         'bus_ticket_not_found' => 'لم نجد هذه التذكرة على الرحلة.',
@@ -21,6 +22,45 @@ return [
         'bus_pick_seats' => 'اختر مقاعدك (ونفس العدد للذهاب والعودة).',
         'bus_seat_unknown' => 'المقعد :seat غير موجود في هذا الباص.',
         'bus_too_many_seats' => 'أقصى عدد مقاعد في الحجز الواحد :max.',
+        'account_pin_required' => 'اكتب رقم PIN المحفظة.',
+        'account_same_phone' => 'ده نفس رقمك الحالي.',
+        'account_phone_taken' => 'الرقم ده عليه حساب تاني.',
+        'account_no_change' => 'ابدأ تغيير الرقم الأول.',
+        'account_code_expired' => 'الكود خلص. اطلب كود جديد.',
+        'account_code_attempts' => 'محاولات كتير. اطلب كود جديد.',
+        'account_code_wrong' => 'الكود غلط.',
+        'account_close_blocked' => 'لسه فيه حاجات لازم تخلص قبل ما تقفل حسابك.',
+        'lost_item_not_allowed' => 'مينفعش تبلّغ عن مفقودات للرحلة دي.',
+        'lost_item_too_late' => 'البلاغ بيتعمل خلال :days أيام من الرحلة.',
+        'lost_item_already_open' => 'فيه بلاغ مفتوح للرحلة دي بالفعل.',
+        'lost_item_closed' => 'البلاغ ده اتقفل.',
+        'lost_item_not_found_yet' => 'لازم تقول إنك لقيته الأول.',
+        'lost_item_not_found' => 'البلاغ ده مش موجود.',
+        'payout_international_off' => 'السحب لحساب برّه بلدك مقفول. اطلب تفعيله من «المحفظة».',
+        'payout_third_party_not_allowed' => 'لازم الحساب يكون باسمك.',
+        'payout_third_party_ack' => 'الحساب باسم شخص تاني — أكّد إنك مسؤول عنه.',
+        'payout_frozen' => 'السحب متجمد على حسابك. كلّم الدعم.',
+        'payout_kyc_required' => 'لازم حسابك يتحقق الأول: :reason.',
+        'financial_safe_mode' => 'السحب متوقف مؤقتاً لحماية فلوس الكل. رصيدك في أمان.',
+        'payout_method_cooling' => 'حساب السحب ده اتضاف أو اتعدّل قريب — تقدر تسحب عليه بعد :hours ساعة.',
+        'payout_international_already' => 'طلبك موجود بالفعل.',
+        'performance_note_not_found' => 'الملاحظة دي مش موجودة.',
+        'performance_appeal_not_allowed' => 'مينفعش تعترض على دي دلوقتي.',
+        'performance_appeal_not_pending' => 'الاعتراض ده اترد عليه.',
+        'loyalty_reward_unavailable' => 'المكافأة دي مش متاحة.',
+        'loyalty_reward_out_of_stock' => 'المكافأة دي خلصت.',
+        'loyalty_reward_limit' => 'وصلت للحد المسموح من المكافأة دي.',
+        'loyalty_reward_tier' => 'المكافأة دي لمستوى :tier وأعلى.',
+        'loyalty_not_enough_points' => 'نقاطك مش كفاية — ناقصك :points نقطة.',
+        'loyalty_adjust_zero' => 'اكتب عدد نقاط.',
+        'loyalty_already_posted' => 'العملية دي اتسجلت قبل كده.',
+        'idempotency_key_required' => 'الطلب ناقصه مفتاح التكرار.',
+        'addons_wait_or_priority' => 'اختار «انتظر ووفّر» أو «أولوية الالتقاط»، مش الاتنين.',
+        'addons_child_seats_max' => 'عدد مقاعد الأطفال أكتر من المسموح.',
+        'addons_pet_not_here' => 'الحيوانات الأليفة مش متاحة في الفئة دي.',
+        'addons_luggage_too_much' => 'الشنط دي مش هتكفي العربيات المتاحة. قلّل العدد أو اختار فئة أكبر.',
+        'booking_lapsed' => 'انتهت مهلة الدفع للحجز ده. احجز من جديد.',
+        'booking_not_found' => 'الحجز ده مش موجود.',
         'bus_seat_taken' => 'حد حجز مقعداً من اختياراتك الآن. اختر مقعداً آخر.',
         'bus_too_late_to_cancel' => 'لا يمكن إلغاء التذكرة قبل الرحلة بأقل من :minutes دقيقة.',
         'bus_trip_not_found' => 'لم نجد هذه الرحلة.',
@@ -197,6 +237,10 @@ return [
     ],
     'checkout' => [
         'title' => 'رحلة :number',
+        'bus' => 'تذكرة باص — :seats مقعد',
+        'marine' => 'حجز :title',
+        'hire' => 'حجز سواق',
+        'lessons' => 'باقة دروس: :title',
     ],
 
     'quick' => [
@@ -319,6 +363,68 @@ return [
         'payment_method_fee' => 'رسوم وسيلة الدفع',
         'fx_fee' => 'رسوم البطاقة الدولية',
         'tip' => 'الإكرامية',
+        'wait_save' => 'خصم انتظر ووفّر',
+        'addon_priority' => 'أولوية الالتقاط',
+        'addon_child_seat' => 'مقعد طفل',
+        'addon_pet' => 'حيوان أليف',
+        'addon_luggage' => 'الشنط الكبيرة',
+    ],
+
+    'account' => [
+        'legal' => ['term' => 'الشروط والأحكام', 'privacy' => 'سياسة الخصوصية'],
+        'code_sent' => 'بعتنا كود للرقم الجديد.',
+        'phone_changed' => 'رقمك اتغير.',
+        'closed' => 'حسابك اتقفل. شكراً إنك كنت مع دُرر.',
+        'blockers' => [
+            'balance' => 'فيه فلوس في محفظتك — اسحبها الأول', 'debt' => 'عليك مديونية لدُرر — سدّدها الأول',
+            'withdrawal_pending' => 'فيه طلب سحب لسه بيتنفذ', 'trip_running' => 'إنت في رحلة دلوقتي',
+            'earnings_pending' => 'فيه أرباح لسه بتتحوّل لمحفظتك', 'case_open' => 'عندك قضية مفتوحة',
+        ],
+    ],
+
+    'support' => [
+        'categories' => [
+            'trip' => 'رحلة', 'payment' => 'الدفع', 'earnings' => 'الأرباح', 'withdrawal' => 'السحب', 'documents' => 'المستندات',
+            'account' => 'الحساب', 'app' => 'التطبيق', 'safety' => 'السلامة', 'lost_item' => 'مفقودات', 'unauthorized_transaction' => 'عملية مش بتاعتي', 'other' => 'حاجة تانية',
+        ],
+    ],
+    'lost' => ['reported' => 'بلّغنا الكابتن، وهيرد عليك هنا.'],
+
+    'payouts' => [
+        'international_sent' => 'طلبك اتبعت للإدارة.',
+        'freeze_code_sent' => 'لو الرقم ده عليه حساب، هيوصله كود.',
+        'frozen' => 'فلوسك اتجمدت وكل الأجهزة خرجت. كلّم الدعم عشان نرفع التجميد.',
+        'kyc' => ['not_activated' => 'حسابك لسه ما اتفعّلش', 'not_active' => 'حسابك مش نشط دلوقتي'],
+    ],
+
+    'ranks' => [
+        'changed' => 'الرتبة اتغيرت من :from لـ :to',
+        'appealed' => 'اعتراضك وصل وهيتراجع.',
+        'metrics' => [
+            'trips' => 'عدد الرحلات', 'rating' => 'التقييم', 'cleanliness' => 'النظافة', 'behavior' => 'السلوك وجودة الخدمة',
+            'commitment_bp' => 'الالتزام بالمواعيد', 'completion_bp' => 'إكمال الرحلات', 'cancel_bp' => 'الإلغاءات', 'warnings' => 'التحذيرات',
+        ],
+    ],
+
+    'loyalty' => [
+        'redeemed' => 'تم الاستبدال',
+        'notes' => [
+            'ride' => 'رحلة :number',
+            'service' => ':what',
+            'badge' => 'شارة: :name',
+            'challenge' => 'تحدّي: :title',
+            'redeem' => 'استبدال: :title',
+            'admin' => 'من الإدارة: :reason',
+        ],
+    ],
+
+    'addons' => [
+        'wait_save' => 'انتظر ووفّر',
+        'priority' => 'أولوية الالتقاط',
+        'child_seats' => 'مقعد طفل',
+        'pet' => 'حيوان أليف',
+        'service_animal' => 'حيوان مساعدة',
+        'luggage_n' => 'شنط: :small صغيرة و:large كبيرة',
     ],
 
     // قبل التأكيد (R-52، R-53): الإلغاء وعدم الحضور والاسترداد، من سياسة التسعيرة نفسها.
@@ -380,5 +486,8 @@ return [
         'other' => 'جوجل ردّت بحاجة مش متوقعة. شوف الرسالة.',
         'unreachable' => 'السيرفر ماقدرش يوصل لجوجل.',
         'paused' => 'جوجل متوقفة مؤقتًا بعد رفض؛ الخريطة المجانية بترد في الوقت ده.',
+    ],
+    'service_status' => [
+        'maintenance' => 'تطبيق الكابتن تحت الصيانة. تقدر تشتغل تاني أول ما تخلص.',
     ],
 ];

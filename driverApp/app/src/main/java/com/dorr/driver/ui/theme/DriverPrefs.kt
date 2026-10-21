@@ -36,6 +36,9 @@ object DriverPrefs {
     var language by mutableStateOf(LANG_SYSTEM)
         private set
 
+    /** D-307: the text size (1 = normal). */
+    var fontScale by mutableStateOf(1f)
+
     var platformLight by mutableStateOf<Map<String, String>>(emptyMap())
         private set
 
@@ -49,6 +52,7 @@ object DriverPrefs {
         prefs = p
         darkMode = p.getString(KEY_MODE, MODE_SYSTEM) ?: MODE_SYSTEM
         language = p.getString(KEY_LANG, LANG_SYSTEM) ?: LANG_SYSTEM
+        fontScale = p.getFloat("font_scale", 1f)
         platformLight = read(p.getString(KEY_LIGHT, null))
         platformDark = read(p.getString(KEY_DARK, null))
     }
@@ -71,6 +75,11 @@ object DriverPrefs {
     fun chooseLanguage(code: String) {
         language = code
         prefs?.edit()?.putString(KEY_LANG, code)?.apply()
+    }
+
+    fun chooseFontScale(scale: Float) {
+        fontScale = scale
+        prefs?.edit()?.putFloat("font_scale", scale)?.apply()
     }
 
     fun applyPlatform(light: Map<String, String>?, dark: Map<String, String>?) {

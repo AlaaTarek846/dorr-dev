@@ -167,6 +167,8 @@ fun SignupScreen(onBack: () -> Unit) {
         load()
         (apiCall { DriverBackend.api.onboardingOptions() } as? ApiResult.Ok)?.let { options = it.data }
     }
+    // O-66: reviewed from the admin (a document, the vehicle, the account) — the page follows at once.
+    LaunchedEffect(Unit) { com.dorr.driver.live.DriverLive.events.collect { e -> if (e.name.startsWith("driver.")) load() } }
     // Opens on the first step still to do (once; after that the driver moves).
     LaunchedEffect(state != null) {
         val s = state ?: return@LaunchedEffect

@@ -241,6 +241,8 @@ class RideRequestService
                     'zone_id' => $quote->policy_snapshot['zone_id'] ?? null,
                     // O-17: booked by the hour — the hours, the hour price and each minute past them.
                     'hourly' => $quote->policy_snapshot['hourly'] ?? null,
+                    // R-233..R-237, R-NEW-06: the add-ons — who may be asked, and what the captain sees.
+                    'options' => $quote->policy_snapshot['options'] ?? null,
                     'hold_minor' => $bid !== null ? $riderPrice : (int) $quote->hold_minor + $paymentFee,
                     'route_estimated' => $quote->route_estimated,
                     'estimate' => ['min_minor' => $quote->estimate_min_minor, 'max_minor' => $quote->estimate_max_minor],
@@ -251,7 +253,7 @@ class RideRequestService
                         'commission' => $sum('commission'),
                         'tax' => $sum('tax'),
                         'customer_fee' => $sum('customer_fee'),
-                        'discount' => -$sum('discount'),
+                        'discount' => -$sum('discount') - $sum('wait_save'),
                         'payment_method_fee' => $sum('payment_method_fee'),
                         'driver_net' => $sum('driver_net'),
                         'total' => $sum('total'),
@@ -300,11 +302,15 @@ class RideRequestService
             return $ride;
         });
 
+        // R-233: Wait & Save — the search starts after the wait the rider took for the lower price.
+        if (! $scheduled && $bid === null && ($delay = (int) ($ride->confirmed_snapshot['extras']['wait_save']['delay_s'] ?? 0)) > 0 && ! $card) {
+            $ride->forceFill(['next_dispatch_at' => now()->addSeconds($delay)])->save();
+        }
         $this->notifier->changed($ride, 'created');
         if ($scheduled && ! $card) {
             $this->notifier->rider($ride, 'scheduled', ['time' => ScheduledRideService::localTime($ride)]);
         }
-        if (! $card && ! $scheduled) {
+        if (! $card && ! $scheduled && $ride->next_dispatch_at?->lte(now())) {
             $this->dispatch->runRound($ride);
         }
 

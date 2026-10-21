@@ -39,6 +39,22 @@ interface DriverBusApi {
     /** `{qr}` or `{leg, seat}` */
     @POST("driver/v1/bus/trips/{uuid}/board")
     suspend fun board(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<BusBoardedDto>>
+
+    /** O-68: the chat with one passenger (their ticket) and in-app calls. */
+    @GET("driver/v1/bus/bookings/{uuid}/messages")
+    suspend fun messages(@Path("uuid") booking: String): Response<ApiEnvelope<ChatDto>>
+
+    @POST("driver/v1/bus/bookings/{uuid}/messages")
+    suspend fun send(@Path("uuid") booking: String, @Body body: JsonObject): Response<ApiEnvelope<MessageDto>>
+
+    @POST("driver/v1/bus/bookings/{uuid}/calls")
+    suspend fun startCall(@Path("uuid") booking: String): Response<ApiEnvelope<TripCallStartDto>>
+
+    @POST("driver/v1/bus/bookings/{uuid}/calls/{call}/accept")
+    suspend fun acceptCall(@Path("uuid") booking: String, @Path("call") call: String): Response<ApiEnvelope<TripCallStartDto>>
+
+    @POST("driver/v1/bus/bookings/{uuid}/calls/{call}/end")
+    suspend fun endCall(@Path("uuid") booking: String, @Path("call") call: String): Response<ApiEnvelope<TripCallDto>>
 }
 
 data class BusSeatLabelDto(val seat: Int, val qr: String)
@@ -58,6 +74,9 @@ data class BusPassengerDto(
     @SerializedName("trip_type") val tripType: String = "outbound",
     val seats: List<BusPassengerSeatDto> = emptyList(),
     @SerializedName("amount_minor") val amountMinor: Long = 0,
+    /** O-68: messages from them not read yet, and a call going on. */
+    val unread: Int = 0,
+    val call: TripCallDto? = null,
 )
 
 data class BusTripPricesDto(
@@ -73,6 +92,9 @@ data class DriverBusTripDto(
     val destination: PlaceDto,
     @SerializedName("depart_at") val departAt: String? = null,
     @SerializedName("return_at") val returnAt: String? = null,
+    /** O-68: from when «start» / «start the way back» open (a little before their time). */
+    @SerializedName("can_depart_at") val canDepartAt: String? = null,
+    @SerializedName("can_return_at") val canReturnAt: String? = null,
     val prices: BusTripPricesDto = BusTripPricesDto(),
     val currency: CurrencyDto? = null,
     @SerializedName("seats_total") val seatsTotal: Int = 0,

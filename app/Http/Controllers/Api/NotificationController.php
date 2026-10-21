@@ -49,6 +49,24 @@ class NotificationController extends Controller
         return ApiResponse::success(['count' => $request->user()->unreadNotifications()->count()], __('api.updated'));
     }
 
+    /** D-303: delete one of my notifications. */
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $notification = $request->user()->notifications()->where('id', $id)->first();
+        abort_if($notification === null, 404);
+        $notification->delete();
+
+        return ApiResponse::success(['count' => $request->user()->unreadNotifications()->count()], __('api.deleted'));
+    }
+
+    /** D-303: clear the ones already read. */
+    public function clearRead(Request $request): JsonResponse
+    {
+        $request->user()->readNotifications()->delete();
+
+        return ApiResponse::success(['count' => $request->user()->unreadNotifications()->count()], __('api.deleted'));
+    }
+
     public function markAllAsRead(Request $request): JsonResponse
     {
         $request->user()->unreadNotifications()->update(['read_at' => now()]);

@@ -292,6 +292,8 @@ class AdminPermissionSeeder extends Seeder
             'wasl-logs' => ['module_name' => 'passenger_ride', 'actions' => ['view']],
             'ride-safety' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
             'ride-lists' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'ride-loyalty' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
+            'driver-ranks' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-zones' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'create', 'update', 'delete']],
             'ride-cases' => ['module_name' => 'passenger_ride', 'actions' => ['view', 'update']],
             // DORR Sports (spec 183–200).

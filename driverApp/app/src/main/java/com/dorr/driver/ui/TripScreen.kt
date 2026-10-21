@@ -295,7 +295,7 @@ fun TripScreen(onDone: () -> Unit, rideUuid: String? = null) {
                 Spacer(Modifier.height(6.dp))
                 Text(stringResource(R.string.offer_dropoff), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f))
                 Text(t.destination?.address ?: stringResource(R.string.offer_open_destination), fontWeight = FontWeight.SemiBold)
-                RiderDetails(t.passengers, t.pickupNote.takeIf { t.status == "accepted" || t.status == "arrived" }, t.beneficiary?.name, t.pickupPoint, t.dropoffPoint, t.fromCircle)
+                RiderDetails(t.passengers, t.pickupNote.takeIf { t.status == "accepted" || t.status == "arrived" }, t.beneficiary?.name, t.pickupPoint, t.dropoffPoint, t.fromCircle, t.options)
                 Spacer(Modifier.height(8.dp))
                 Row {
                     Text(stringResource(R.string.trip_earned, money(t.earningMinor, t.currency)), color = DorrBrand.success, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))

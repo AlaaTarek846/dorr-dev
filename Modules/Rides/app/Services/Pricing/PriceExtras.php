@@ -15,8 +15,11 @@ namespace Modules\Rides\Services\Pricing;
  */
 final class PriceExtras
 {
-    /** The lines these add, in the order they show — before the old debt / commission / totals. */
-    public const CODES = ['customer_fee', 'discount', 'payment_method_fee'];
+    /**
+     * DORR's lines (its fees, and the discounts it pays for), in the order they show — before the old
+     * debt / commission / totals. The add-on fees (TripAddons::LINES) are the captain's, not here.
+     */
+    public const CODES = ['customer_fee', 'wait_save', 'discount', 'payment_method_fee'];
 
     private const TAIL = ['previous_balance', 'commission', 'driver_net', 'total'];
 
@@ -28,6 +31,24 @@ final class PriceExtras
         $earned = $b->fare + $b->waiting + $b->stopsWait;
         $lines = $b->lines;
 
+        // R-234..R-237, R-NEW-06: the add-ons the rider chose — the captain's, on their net too.
+        $addons = 0;
+        foreach ((array) ($extras['addons'] ?? []) as $fee) {
+            $minor = max(0, (int) ($fee['minor'] ?? 0));
+            if ($minor > 0) {
+                $lines = self::insert($lines, ['code' => (string) $fee['code'], 'amount_minor' => $minor, 'visible_to' => 'both', 'meta' => (array) ($fee['meta'] ?? [])]);
+                $addons += $minor;
+            }
+        }
+        // R-233: Wait & Save — a share of the fare off, DORR's like a coupon (the captain's net stays).
+        $waitSave = 0;
+        if (($ws = $extras['wait_save'] ?? null) !== null) {
+            $waitSave = intdiv($b->fare * (int) ($ws['bp'] ?? 0) + 5000, 10000);
+            if ($waitSave > 0) {
+                $lines = self::insert($lines, ['code' => 'wait_save', 'amount_minor' => -$waitSave, 'visible_to' => 'both', 'meta' => ['bp' => (int) $ws['bp']]]);
+            }
+        }
+
         $service = 0;
         if (($fee = $extras['customer_fee'] ?? null) !== null) {
             $service = max(0, (int) ($fee['minor'] ?? 0) + intdiv($earned * (int) ($fee['bp'] ?? 0) + 5000, 10000));
@@ -37,7 +58,7 @@ final class PriceExtras
         }
 
         // The rider-borne tax is part of what the coupon is taken from; the old debt never is.
-        $base = $b->total - $b->previousBalance + $service;
+        $base = $b->total - $b->previousBalance + $service + $addons - $waitSave;
         $discount = 0;
         if (($coupon = $extras['coupon'] ?? null) !== null && $base >= (int) ($coupon['min_amount_minor'] ?? 0)) {
             $discount = self::discountOn($coupon, $base);
@@ -54,10 +75,15 @@ final class PriceExtras
             }
         }
 
-        $total = $b->total + $service - $discount + $payment;
-        $lines = array_map(fn (array $l) => $l['code'] === 'total' ? ['amount_minor' => $total] + $l : $l, $lines);
+        $total = $b->total + $service + $addons - $waitSave - $discount + $payment;
+        $driverNet = $b->driverNet + $addons;
+        $lines = array_map(fn (array $l) => match ($l['code']) {
+            'total' => ['amount_minor' => $total] + $l,
+            'driver_net' => ['amount_minor' => $driverNet] + $l,
+            default => $l,
+        }, $lines);
 
-        return new FareBreakdown($b->fare, $b->waiting, $b->stopsWait, $b->commission, $b->tax, $b->previousBalance, $total, $b->driverNet, $lines, $service, $discount, $payment);
+        return new FareBreakdown($b->fare, $b->waiting, $b->stopsWait, $b->commission, $b->tax, $b->previousBalance, $total, $driverNet, $lines, $service, $discount + $waitSave, $payment);
     }
 
     /** A method's fee on an amount: fixed + rate (basis points), rounded half up. */

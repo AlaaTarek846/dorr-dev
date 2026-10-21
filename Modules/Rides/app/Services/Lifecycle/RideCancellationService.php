@@ -96,6 +96,10 @@ class RideCancellationService
         });
 
         $this->notifier->changed($ride, 'canceled');
+        // R-155: a cancellation after a captain accepted fails the «no cancellations» challenges.
+        if ($ride->accepted_at !== null) {
+            app(\Modules\Rides\Services\Loyalty\LoyaltyService::class)->riderCancelled($rider);
+        }
         if ($ride->driver_id !== null) {
             $this->notifier->driver($ride->driver, $ride, 'rider_canceled');
         } elseif ($ride->reserved_driver_id !== null && ($reserved = Driver::query()->find($ride->reserved_driver_id)) !== null) {

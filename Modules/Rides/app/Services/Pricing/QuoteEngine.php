@@ -66,6 +66,9 @@ class QuoteEngine
         if ($stops !== [] && ! $this->features->allows($country->id, $cityId, 'multi_stop')) {
             throw RidesException::featureDisabled('multi_stop');
         }
+        // R-233..R-237, R-NEW-06: the add-ons asked for, each switched on here.
+        $options = TripAddons::normalize($trip['options'] ?? null);
+        TripAddons::assertAllowed($this->features, $country->id, $cityId, $options);
 
         // R-16..R-18: in an airport / pickup-only zone the trip starts (and may end) at an approved point,
         // and the zone's own policy (waiting, no-show…) applies to the pickup.
@@ -117,7 +120,8 @@ class QuoteEngine
             throw new RidesException('no_category_here', 422);
         }
 
-        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone, $hours) {
+        $refusals = [];
+        $quotes = $categories->values()->map(function (RideCategory $category) use ($rider, $country, $cityId, $origin, $destination, $stops, $open, $route, $tax, $coupon, $pickupPoint, $dropoffPoint, $zone, $hours, $options, &$refusals) {
             $policy = $this->policies->for($country->id, $cityId, $zone?->id, $category->id);
             $hourly = null;
             if ($hours !== null) {
@@ -147,9 +151,18 @@ class QuoteEngine
                 return null;
             }
 
+            // The add-ons: a category that can't take them (the boot, too many child seats…) isn't offered.
+            $addons = TripAddons::forCategory($options, $policy->all());
+            if (is_string($addons)) {
+                $refusals[] = $addons;
+
+                return null;
+            }
             // DORR's service fee and the coupon (R-45, R-47) — not on an agreed (bidding) price.
             $customerFee = ['minor' => $policy->int('price.customer_fee_minor'), 'bp' => $policy->int('price.customer_fee_bp')];
-            $extras = $bidding ? [] : array_filter([
+            $extras = $bidding ? array_filter(['addons' => $addons['fees'] ?: null]) : array_filter([
+                'addons' => $addons['fees'] ?: null,
+                'wait_save' => $addons['wait_save'],
                 'customer_fee' => $customerFee['minor'] + $customerFee['bp'] > 0 ? $customerFee : null,
                 'coupon' => $coupon,
             ]);
@@ -169,7 +182,7 @@ class QuoteEngine
                 'per_min_minor' => (int) $price['per_min_minor'], 'min_fare_minor' => (int) $price['min_fare_minor'],
             ]]];
 
-            $fingerprintOf = [$category->id, $mode->value, $lines, $total, $min, $max, $hold, $origin, $destination, $stops, $hourly];
+            $fingerprintOf = [$category->id, $mode->value, $lines, $total, $min, $max, $hold, $origin, $destination, $stops, $hourly, $options];
 
             return RideQuote::query()->create([
                 'uuid' => (string) Str::uuid(),
@@ -203,6 +216,9 @@ class QuoteEngine
                 'policy_snapshot' => [
                     'policy' => $policy->all(), 'policy_ids' => $policy->policyIds, 'tax' => $tax, 'zone_id' => $zone?->id,
                     'hourly' => $hourly,
+                    // R-233..R-237: what the rider added (matching, the captain's card) and what's on offer here.
+                    'options' => $options === [] ? null : $options,
+                    'addons_offer' => TripAddons::offer($this->features, $country->id, $cityId, $policy->all()),
                     // The coupon only stays when it gave something here (a minimum it didn't reach = no coupon).
                     'extras' => ($breakdown?->discount ?? 0) > 0 ? $extras : array_diff_key($extras, ['coupon' => true]),
                     'coupon' => $coupon === null ? null : [
@@ -220,7 +236,8 @@ class QuoteEngine
         })->filter()->values();
 
         if ($quotes->isEmpty()) {
-            throw new RidesException('no_category_here', 422);
+            // Nothing here takes these add-ons: say which one (the luggage, the seats…).
+            throw new RidesException($refusals[0] ?? 'no_category_here', 422);
         }
 
         return $quotes;

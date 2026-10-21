@@ -152,7 +152,11 @@ fun HomeScreen(
     // The presence follows the server through real-time: any change for me (a paused / timed-out shift, a ride) reloads it.
     LaunchedEffect(Unit) {
         com.dorr.driver.live.DriverLive.events.collect { e ->
-            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.")) {
+            // O-66: activated (or anything about my account changed) from the admin — me and my presence again.
+            if (e.name == "driver.status" || e.name == "driver.vehicle" || e.name == "driver.document") {
+                (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
+            }
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.") || e.name.startsWith("driver.")) {
                 (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
                 // My place in the airport queue moves with the line.
                 (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }

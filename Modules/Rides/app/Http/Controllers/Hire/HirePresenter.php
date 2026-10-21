@@ -16,7 +16,10 @@ final class HirePresenter
 
         return [
             'uuid' => $hire->uuid,
-            'status' => $hire->status,
+            'status' => $hire->status === 'unpaid' && $hire->payment_expires_at?->isPast() ? 'lapsed' : $hire->status,
+            // O-67: held for the payment screen until then — the app opens it (purpose driver_hire, {booking_uuid}).
+            'payment_expires_at' => $hire->status === 'unpaid' ? $hire->payment_expires_at?->toIso8601String() : null,
+            'discount_minor' => (int) $hire->discount_minor,
             'pickup' => ['lat' => $hire->pickup_lat, 'lng' => $hire->pickup_lng, 'address' => $hire->pickup_address],
             'starts_at' => $hire->starts_at->toIso8601String(),
             // When the time booked runs out (from the start once started) — the apps count down on the device clock.

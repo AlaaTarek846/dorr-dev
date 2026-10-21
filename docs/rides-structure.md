@@ -1133,6 +1133,20 @@ ride_policies → countries / (city) / ride_zones / ride_categories ; ride_tax_r
 
 ---
 
+## 15.1 نقاط دُرر وإضافات الرحلة (R-146..R-155، R-233..R-237، R-NEW-06)
+
+| الجدول | فيه إيه |
+|---|---|
+| `loyalty_tiers` | المستويات: الاسم `{ar, en}`، والمزايا، والنقاط المطلوبة، والمضاعف (`multiplier_bp`)، واللون |
+| `loyalty_accounts` | رصيد كل راكب، وإجمالي المكتسب، والمستوى الحالي |
+| `loyalty_entries` | كل حركة نقاط (بتتضاف بس) بمفتاح تكرار فريد ومرجع (رحلة، خدمة، شارة، تحدي، استبدال، الإدارة) |
+| `loyalty_badges` / `loyalty_user_badges` | الشارات وقواعدها، واللي كسبه كل راكب |
+| `loyalty_challenges` / `loyalty_challenge_progress` | التحديات بتاريخها ودولتها، وتقدّم كل راكب (وفشل «من غير إلغاء») |
+| `loyalty_rewards` / `loyalty_redemptions` | المكافآت (رصيد محفظة أو كوبون) وكميتها وحدها، والاستبدالات ونتيجتها |
+| `driver_preferences.pet_friendly` / `child_seats` | تجهيزات عربية الكابتن للإضافات |
+
+الإضافات نفسها مش جدول: بتتحفظ في `ride_quotes.policy_snapshot.options` و`rides.confirmed_snapshot.options`، وأسعارها في `extras.addons` و`extras.wait_save` (بتتحسب تاني آخر الرحلة). سطور السعر: `addon_priority` و`addon_child_seat` و`addon_pet` و`addon_luggage` (للكابتن) و`wait_save` (خصم على دُرر). المفاتيح في `ride_policies`: `addons.*` و`loyalty.*`.
+
 ## 16. ترتيب الـ Migrations
 
 **المرحلة 0:**
