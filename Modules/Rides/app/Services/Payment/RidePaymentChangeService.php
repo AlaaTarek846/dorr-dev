@@ -10,6 +10,7 @@ use Modules\Rides\Enums\RideStatus;
 use Modules\Rides\Exceptions\RidesException;
 use Modules\Rides\Models\Ride;
 use Modules\Rides\Models\RidePriceLine;
+use Modules\Rides\Services\Dispatch\DispatchEngine;
 use Modules\Rides\Services\Features\RideFeatures;
 use Modules\Rides\Services\Lifecycle\RideStateMachine;
 use Modules\Rides\Services\Notifications\RideNotifier;
@@ -28,8 +29,11 @@ use Modules\User\Models\User;
  */
 class RidePaymentChangeService
 {
-    /** Before the trip starts — a ride on the road keeps the way it is paid. */
-    private const OPEN = [RideStatus::Searching, RideStatus::Bidding, RideStatus::Scheduled, RideStatus::Accepted, RideStatus::Arrived];
+    /**
+     * Before the trip starts — a ride on the road keeps the way it is paid. A card ride still on the
+     * payment screen may switch too (O-38c): it then leaves the payment screen and starts its search.
+     */
+    private const OPEN = [RideStatus::AwaitingPayment, RideStatus::Searching, RideStatus::Bidding, RideStatus::Scheduled, RideStatus::Accepted, RideStatus::Arrived];
 
     private const TARGETS = [RidePaymentMethod::Wallet, RidePaymentMethod::Cash];
 
@@ -76,7 +80,8 @@ class RidePaymentChangeService
             throw RidesException::featureDisabled($to->value);
         }
 
-        $ride = DB::transaction(function () use ($ride, $to, $key) {
+        $started = false;
+        $ride = DB::transaction(function () use ($ride, $to, $key, &$started) {
             $ride = Ride::query()->whereKey($ride->id)->lockForUpdate()->firstOrFail();
             if (! in_array($ride->status, self::OPEN, true)) {
                 throw new RidesException('payment_change_unavailable', 409);
@@ -133,7 +138,7 @@ class RidePaymentChangeService
             }
 
             // The money: a held ride lets go of its hold; a wallet ride holds the new amount (all or nothing).
-            if ($from->holdsInWallet()) {
+            if ($from->holdsInWallet() || $this->payments->held($ride) > 0) {
                 $this->payments->releaseAll($ride, 'ride_payment_changed');
             }
             $ride->forceFill([
@@ -147,6 +152,20 @@ class RidePaymentChangeService
             if ($to === RidePaymentMethod::Wallet) {
                 $this->payments->hold($ride, $hold, 'switch_'.$ride->version);
             }
+            // Off the payment screen: what paying would have done — the search (or the wait for the booked
+            // time) starts now. The card checkout left open can no longer be paid (fulfil() refuses it).
+            if ($ride->status === RideStatus::AwaitingPayment) {
+                $scheduled = $ride->booking_mode === BookingMode::Scheduled;
+                $ride = $this->machine->move($ride, match ($ride->booking_mode) {
+                    BookingMode::Bid => RideStatus::Bidding,
+                    BookingMode::Scheduled => RideStatus::Scheduled,
+                    default => RideStatus::Searching,
+                }, 'payment_switched', 'user', $ride->user_id, [
+                    'search_started_at' => $scheduled ? null : now(),
+                    'next_dispatch_at' => $scheduled ? $ride->scheduled_at->copy()->subSeconds((int) $ride->policy('scheduled.lead_time_s', 1800)) : now(),
+                ]);
+                $started = ! $scheduled;
+            }
 
             $this->machine->record($ride, 'payment_changed', 'user', $ride->user_id, [], ['from' => $from->value, 'to' => $to->value, 'fee_minor' => $newFee, 'debt_minor' => $debt], null, null, $key);
 
@@ -154,6 +173,9 @@ class RidePaymentChangeService
         });
 
         $this->notifier->changed($ride, 'payment_changed');
+        if ($started) {
+            app(DispatchEngine::class)->runRound($ride->refresh());
+        }
         if ($ride->driver_id !== null && $ride->driver !== null) {
             $this->notifier->driver($ride->driver, $ride, 'payment_changed', ['method' => __('rides.payment_methods.'.$to->value)]);
         }

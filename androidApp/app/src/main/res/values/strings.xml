@@ -401,7 +401,7 @@
     <string name="services_detail_description_fallback">Browse this service and request what you need. Booking will be available in the app soon.</string>
     <!-- Sample notifications (placeholder feed — replace with real backend data) -->
     <string name="notif_sample_title_status_changed">Your request status changed</string>
-    <string name="notif_sample_body_status_changed">Your service request moved to "In progress".</string>
+    <string name="notif_sample_body_status_changed">Your service request moved to \"In progress\".</string>
     <string name="notif_sample_title_quote_ready">A quote is ready for review</string>
     <string name="notif_sample_body_quote_ready">Review the items and approve to proceed.</string>
     <string name="notif_sample_title_invoice">New invoice issued</string>
@@ -507,13 +507,14 @@
     <string name="ev_family">Family</string>
     <string name="ev_popular">Popular</string>
     <string name="ev_more">Show more</string>
+    <string name="ev_section_more">More events</string>
     <string name="ev_none_title">No events</string>
     <string name="ev_none_text">Try other dates or another city.</string>
     <string name="ev_travel_title">Where are you going?</string>
-    <string name="ev_travel_sub">See what\'s on in a country or region on your dates — wherever you are now.</string>
+    <string name="ev_travel_sub">See what\'s on in the country or region you\'re visiting on your dates, from wherever you are.</string>
     <string name="ev_pick_country">Pick a country</string>
-    <string name="ev_travel_start_title">Where are you going?</string>
-    <string name="ev_travel_start_text">Pick a country (and a region if you like) and your dates.</string>
+    <string name="ev_travel_start_title">Pick a destination</string>
+    <string name="ev_travel_start_text">A country or region, and your dates.</string>
     <string name="ev_travel_city">City</string>
     <string name="ev_pick_city">Pick a city</string>
     <string name="ev_from">From</string>
@@ -557,14 +558,20 @@
     <string name="ev_org_pending_note">Your events are checked before they go live, and show as verified once you are.</string>
     <string name="ev_org_closed">Adding events is closed for now.</string>
     <string name="ev_org_my_events">My events</string>
+    <string name="ev_org_search_hint">Search my events…</string>
+    <string name="ev_org_search_none">Nothing matches that search.</string>
     <string name="ev_org_no_events">No events yet.</string>
     <string name="ev_org_intro_title">Share your events</string>
     <string name="ev_org_intro">Organize concerts, courses, exhibitions…? Ask to be an organizer and add your events to DORR Discover.</string>
     <string name="ev_org_name">Organizer name</string>
+    <string name="ev_org_name_hint">Example: Asil Music</string>
     <string name="ev_org_about">About</string>
+    <string name="ev_org_about_hint">A short note about you</string>
     <string name="ev_org_website">Website</string>
+    <string name="ev_org_website_hint">https://example.com</string>
     <string name="ev_org_phone">Phone</string>
     <string name="ev_org_email">Email</string>
+    <string name="ev_org_email_hint">name@example.com</string>
     <string name="ev_org_review_note">DORR checks every organizer. Nothing is shown as verified until then.</string>
     <string name="ev_org_apply">Ask to be an organizer</string>
     <string name="ev_save">Save</string>
@@ -572,6 +579,7 @@
     <string name="ev_submit_pending">Sent — it shows once it\'s reviewed</string>
     <string name="ev_submit_live">Published</string>
     <string name="ev_f_title">Event title</string>
+    <string name="ev_f_title_hint">Example: Asil live in Riyadh</string>
     <string name="ev_f_category">Kind</string>
     <string name="ev_f_city">City</string>
     <string name="ev_f_date">Date</string>
@@ -580,11 +588,17 @@
     <string name="ev_f_end_none">Not set</string>
     <string name="ev_f_local_hint">The time where it happens (%1$s).</string>
     <string name="ev_f_venue">Venue</string>
+    <string name="ev_f_venue_hint">Example: King Fahd Hall</string>
     <string name="ev_f_address">Address</string>
-    <string name="ev_f_price">Price (e.g. from 150 SAR)</string>
+    <string name="ev_f_address_hint">Street, district</string>
+    <string name="ev_f_price">Price</string>
+    <string name="ev_f_price_hint">300</string>
     <string name="ev_f_booking">Official booking link</string>
+    <string name="ev_f_booking_hint">https://tickets.example.com</string>
     <string name="ev_f_source">Official page</string>
+    <string name="ev_f_source_hint">https://example.com</string>
     <string name="ev_f_description">Description</string>
+    <string name="ev_f_description_hint">What happens, who it\'s for…</string>
     <string name="ev_st_confirmed">Confirmed</string>
     <string name="ev_st_postponed">Postponed</string>
     <string name="ev_st_cancelled">Cancelled</string>
@@ -597,6 +611,7 @@
     <string name="ev_verified">Verified</string>
     <string name="ev_interested_n">%1$d interested</string>
     <string name="ev_km">%1$s km</string>
+    <string name="ev_m">%1$d m</string>
     <string name="ev_my_time">%1$s your time</string>
     <string name="ev_banner_title">Discover what\'s on</string>
     <string name="ev_banner_sub">Concerts, exhibitions, family days and more</string>
@@ -1383,5 +1398,6 @@
     <string name="ev_alert_days">Alert me before</string>
     <string name="ev_pick_region">Follow a region</string>
     <string name="ev_filter_title">Filter</string>
+    <string name="ev_filter_search">Search…</string>
     <string name="ev_when">When</string>
 </resources>

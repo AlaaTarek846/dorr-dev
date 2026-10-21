@@ -55,6 +55,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -264,11 +265,16 @@ fun WaButton(
     loading: Boolean = false,
     iconAfter: Boolean = false,
     spread: Boolean = false,
+    compact: Boolean = false,
 ) {
     val source = remember { MutableInteractionSource() }
     val scale by rememberPressScale(source, 0.97f)
     val active = enabled && !loading
-    val height = if (style == WaButtonStyle.Quiet) 44.dp else 54.dp
+    val height = when {
+        compact -> 40.dp
+        style == WaButtonStyle.Quiet -> 44.dp
+        else -> 54.dp
+    }
     val base = modifier
         .fillMaxWidth()
         .height(height)
@@ -306,8 +312,15 @@ fun WaButton(
             Text(
                 text,
                 color = contentColor,
-                fontSize = if (style == WaButtonStyle.Quiet) 14.sp else 16.sp,
+                fontFamily = CairoFontFamily,
+                fontSize = when {
+                    compact -> 13.sp
+                    style == WaButtonStyle.Quiet -> 14.sp
+                    else -> 16.sp
+                },
                 fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
             )
             if (icon != null && iconAfter) Icon(icon, null, tint = contentColor, modifier = Modifier.size(18.dp))
         }

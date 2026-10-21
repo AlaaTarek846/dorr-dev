@@ -194,7 +194,7 @@ internal fun ChangeTripPage(state: RidesState, onClose: () -> Unit) {
     val hour = stringResource(R.string.rd_hours)
 
     LaunchedEffect(query) {
-        if (query.trim().length < 3) { results = emptyList(); return@LaunchedEffect }
+        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
         delay(350)
         searching = true
         results = searchPlaces(context, query, ride.destination?.let { com.google.android.gms.maps.model.LatLng(it.lat, it.lng) })

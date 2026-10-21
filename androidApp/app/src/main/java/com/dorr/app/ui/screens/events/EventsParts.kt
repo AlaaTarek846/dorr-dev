@@ -13,23 +13,35 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Send
+import androidx.compose.material.icons.rounded.CalendarMonth
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
+import androidx.compose.material.icons.rounded.Flag
 import androidx.compose.material.icons.rounded.Groups
+import androidx.compose.material.icons.rounded.Language
+import androidx.compose.material.icons.rounded.Notes
 import androidx.compose.material.icons.rounded.OpenInNew
+import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.Place
 import androidx.compose.material.icons.rounded.RadioButtonUnchecked
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Share
@@ -55,8 +67,10 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -91,6 +105,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
+import java.util.Locale
+import kotlin.math.max
+import kotlin.math.roundToInt
 import com.dorr.app.network.AppLocale
 import com.dorr.app.ui.screens.chat.ChSheet
 import com.dorr.app.ui.screens.chat.bool
@@ -138,84 +155,258 @@ internal fun myTimeText(e: DiscEventDto): String? = e.myTime?.let { t ->
 }
 
 @Composable
-private fun priceText(e: DiscEventDto): String = if (e.isFree) stringResource(R.string.ev_free) else e.priceText ?: stringResource(R.string.ev_paid)
+private fun priceText(e: DiscEventDto): String {
+    if (e.isFree) return stringResource(R.string.ev_free)
+    e.priceDisplay?.trim()?.takeIf { it.isNotEmpty() }?.let { return it }
+    val raw = e.priceText?.trim().orEmpty()
+    val symbol = e.currency?.symbol?.takeIf { it.isNotBlank() } ?: e.currency?.code
+    val compact = raw.replace(" ", "").replace(",", "")
+    if (compact.isNotEmpty() && compact.all { it.isDigit() || it == '.' } && !symbol.isNullOrBlank()) {
+        return "$compact $symbol"
+    }
+    return raw.ifBlank { stringResource(R.string.ev_paid) }
+}
+
+@Composable
+internal fun distanceText(km: Double): String = when {
+    km < 1.0 -> stringResource(R.string.ev_m, max(1, (km * 1000).roundToInt()))
+    km < 10.0 -> stringResource(R.string.ev_km, String.format(Locale.getDefault(), "%.1f", km))
+    else -> stringResource(R.string.ev_km, km.roundToInt().toString())
+}
+
+/** Hide a description that is only the booking or official URL — those become buttons. */
+private fun visibleDescription(e: DiscEventDto): String? {
+    val text = e.description?.trim().orEmpty()
+    if (text.isBlank()) return null
+    val links = listOfNotNull(e.bookingUrl, e.sourceUrl).map { it.trim().trimEnd('/') }
+    val compact = text.trimEnd('/')
+    if (links.any { it.equals(compact, ignoreCase = true) }) return null
+    val onlyUrl = (text.startsWith("http://") || text.startsWith("https://")) && ' ' !in text && '\n' !in text
+    if (onlyUrl && links.isNotEmpty()) return null
+    return e.description
+}
 
 // =============================================================================== cards
 
-/** A big card for the home rows: cover (or the kind's colours), date badge, title, place, price. */
+/** A home-row card: smaller cover, title and place, price and a tappable save heart at the bottom. */
 @Composable
-internal fun EventCard(e: DiscEventDto, onClick: () -> Unit) {
+internal fun EventCard(e: DiscEventDto, modifier: Modifier = Modifier.width(196.dp), onClick: () -> Unit) {
     val source = remember { MutableInteractionSource() }
     val press by rememberPressScale(source, 0.97f)
-    Column(Modifier.width(236.dp).scale(press).clip(RoundedCornerShape(22.dp)).background(Wa.Surface).clickable(interactionSource = source, indication = null, onClick = onClick)) {
-        Box(Modifier.fillMaxWidth().height(128.dp).background(categoryBrush(e.category))) {
+    Column(
+        modifier.scale(press).clip(RoundedCornerShape(18.dp)).background(Wa.Surface)
+            .clickable(interactionSource = source, indication = null, onClick = onClick),
+    ) {
+        Box(Modifier.fillMaxWidth().height(96.dp).background(categoryBrush(e.category))) {
             if (e.cover != null) {
                 AsyncImage(model = ApiClient.mediaUrl(e.cover), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             } else {
-                Text(e.category?.emoji ?: "🎟️", fontSize = 44.sp, modifier = Modifier.align(Alignment.Center))
+                Text(e.category?.emoji ?: "🎟️", fontSize = 32.sp, modifier = Modifier.align(Alignment.Center))
             }
-            DateBadge(e, Modifier.align(Alignment.TopStart).padding(10.dp))
+            DateBadge(e, Modifier.align(Alignment.TopStart).padding(8.dp), compact = true)
             statusLabel(e.status)?.let {
-                Text(it, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, modifier = Modifier.align(Alignment.TopEnd).padding(10.dp).clip(CircleShape).background(statusColor(e.status)).padding(horizontal = 8.dp, vertical = 3.dp))
-            }
-            if (e.interested) {
-                Icon(Icons.Rounded.Favorite, null, tint = Color.White, modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).size(20.dp))
+                Text(
+                    it, color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(8.dp).clip(CircleShape).background(statusColor(e.status)).padding(horizontal = 7.dp, vertical = 2.dp),
+                )
             }
         }
-        Column(Modifier.padding(12.dp)) {
+        Column(Modifier.padding(horizontal = 10.dp, vertical = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(e.title, color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (e.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.ev_verified), tint = Color(0xFF2563EB), modifier = Modifier.padding(start = 4.dp).size(16.dp))
+                Text(e.title, color = Wa.Ink, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (e.verified) Icon(Icons.Rounded.Verified, stringResource(R.string.ev_verified), tint = Color(0xFF2563EB), modifier = Modifier.padding(start = 4.dp).size(14.dp))
             }
-            Text(listOfNotNull(e.localTime, e.venue, e.city?.name).joinToString(" · "), color = Wa.Mut, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(top = 3.dp))
-            Row(Modifier.padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(priceText(e), color = if (e.isFree) Wa.Green else Wa.Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(CircleShape).background(Wa.Field).padding(horizontal = 9.dp, vertical = 4.dp))
-                if (e.interestedCount > 0) {
-                    Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.ev_interested_n, e.interestedCount), color = Wa.Soft, fontSize = 11.5.sp)
+            Text(
+                listOfNotNull(e.localTime, e.venue, e.city?.name).joinToString(" · "),
+                color = Wa.Mut, fontSize = 11.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 3.dp),
+            )
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    priceText(e), color = Wa.Green, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold,
+                    modifier = Modifier.clip(CircleShape).background(Wa.Green.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 3.dp),
+                )
+                e.distanceKm?.let {
+                    Spacer(Modifier.width(6.dp))
+                    Text(distanceText(it), color = Wa.Soft, fontSize = 11.sp, maxLines = 1)
                 }
+                Spacer(Modifier.weight(1f))
+                SaveHeart(e, compact = true)
             }
         }
     }
 }
 
 @Composable
-private fun DateBadge(e: DiscEventDto, modifier: Modifier = Modifier) {
+private fun DateBadge(e: DiscEventDto, modifier: Modifier = Modifier, compact: Boolean = false) {
     val d = localDate(e) ?: return
-    Column(modifier.clip(RoundedCornerShape(14.dp)).background(Color.White).padding(horizontal = 10.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(d.dayOfMonth.toString(), color = Color(0xFF111928), fontSize = 17.sp, fontWeight = FontWeight.ExtraBold)
-        Text(d.month.getDisplayName(TextStyle.SHORT, AppLocale.java()), color = categoryColor(e.category), fontSize = 10.5.sp, fontWeight = FontWeight.ExtraBold)
+    Column(
+        modifier.clip(RoundedCornerShape(if (compact) 11.dp else 14.dp)).background(Color.White)
+            .padding(horizontal = if (compact) 7.dp else 10.dp, vertical = if (compact) 3.dp else 5.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(d.dayOfMonth.toString(), color = Color(0xFF111928), fontSize = if (compact) 15.sp else 17.sp, fontWeight = FontWeight.ExtraBold)
+        Text(d.month.getDisplayName(TextStyle.SHORT, AppLocale.java()), color = categoryColor(e.category), fontSize = if (compact) 9.sp else 10.5.sp, fontWeight = FontWeight.ExtraBold)
     }
 }
 
-/** One event in a list: the date block in its kind's colour, title, time and place, status. */
 @Composable
-internal fun EventRow(e: DiscEventDto, modifier: Modifier = Modifier, review: String? = null, onClick: () -> Unit) {
-    val color = categoryColor(e.category)
-    val d = localDate(e)
-    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Wa.Surface).clickable(onClick = onClick).padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(62.dp).clip(RoundedCornerShape(16.dp)).background(categoryBrush(e.category)), contentAlignment = Alignment.Center) {
-            if (e.cover != null) AsyncImage(model = ApiClient.mediaUrl(e.cover), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-            Column(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)).padding(horizontal = 7.dp, vertical = 2.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(d?.dayOfMonth?.toString() ?: "—", color = Color(0xFF111928), fontSize = 16.sp, fontWeight = FontWeight.ExtraBold)
-                Text(d?.month?.getDisplayName(TextStyle.SHORT, AppLocale.java()).orEmpty(), color = color, fontSize = 10.sp, fontWeight = FontWeight.ExtraBold)
+private fun SaveHeart(e: DiscEventDto, compact: Boolean = false, onChanged: ((DiscEventDto) -> Unit)? = null) {
+    var ev by remember { mutableStateOf(e) }
+    LaunchedEffect(e) { ev = e }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val canSave = ev.status != "cancelled" && ev.status != "ended" && ev.reviewStatus.let { r -> r == null || r == "approved" }
+    val size = if (compact) 32.dp else 40.dp
+    Box(
+        Modifier.size(size).clip(CircleShape)
+            .background(if (ev.interested) Wa.Red.copy(alpha = 0.16f) else Wa.Field)
+            .clickable(enabled = canSave && !busy) {
+                busy = true
+                scope.launch {
+                    val cur = ev
+                    if (cur.interested) {
+                        runCatching { ApiClient.events.uninterest(evAuth(), cur.id) }
+                            .onSuccess {
+                                val next = cur.copy(interested = false, notify = false, interestedCount = (cur.interestedCount - 1).coerceAtLeast(0))
+                                ev = next
+                                onChanged?.invoke(next)
+                                EventsStore.changed()
+                            }
+                            .onFailure { Toast.makeText(context, it.apiFailure().message, Toast.LENGTH_LONG).show() }
+                    } else {
+                        runCatching { ApiClient.events.interest(evAuth(), cur.id, JsonObject().apply { addProperty("notify", true) }, evZone()).data }
+                            .onSuccess { r ->
+                                val next = cur.copy(interested = true, notify = r?.notify ?: true, interestedCount = r?.interestedCount ?: (cur.interestedCount + 1))
+                                ev = next
+                                onChanged?.invoke(next)
+                                EventsStore.changed()
+                            }
+                            .onFailure { Toast.makeText(context, it.apiFailure().message, Toast.LENGTH_LONG).show() }
+                    }
+                    busy = false
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            if (ev.interested) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+            stringResource(if (ev.interested) R.string.ev_interested_on else R.string.ev_interested),
+            tint = if (canSave) Wa.Red else Wa.Soft,
+            modifier = Modifier.size(if (compact) 16.dp else 20.dp),
+        )
+    }
+}
+
+/** One event in a list: the date block, title and place, then a save heart with the price under it. */
+@Composable
+internal fun EventRow(e: DiscEventDto, modifier: Modifier = Modifier, review: String? = null, onInterest: ((DiscEventDto) -> Unit)? = null, onClick: () -> Unit) {
+    var ev by remember { mutableStateOf(e) }
+    LaunchedEffect(e) { ev = e }
+    var busy by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val canSave = ev.status != "cancelled" && ev.status != "ended" && ev.reviewStatus.let { r -> r == null || r == "approved" }
+    val color = categoryColor(ev.category)
+    val d = localDate(ev)
+    val priceColor = Wa.Green
+    Row(modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(Wa.Surface).clickable(onClick = onClick).padding(horizontal = 8.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(categoryBrush(ev.category)), contentAlignment = Alignment.Center) {
+            if (ev.cover != null) AsyncImage(model = ApiClient.mediaUrl(ev.cover), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            Column(Modifier.clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.92f)).padding(horizontal = 8.dp, vertical = 3.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(d?.dayOfMonth?.toString() ?: "—", color = Color(0xFF111928), fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
+                Text(d?.month?.getDisplayName(TextStyle.SHORT, AppLocale.java()).orEmpty(), color = color, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(e.title, color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (e.verified) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF2563EB), modifier = Modifier.padding(start = 4.dp).size(15.dp))
+                Text(ev.title, color = Wa.Ink, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                if (ev.verified) Icon(Icons.Rounded.Verified, null, tint = Color(0xFF2563EB), modifier = Modifier.padding(start = 4.dp).size(15.dp))
             }
-            Text(listOfNotNull(e.localTime, e.venue, e.city?.name).joinToString(" · "), color = Wa.Mut, fontSize = 12.5.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(Modifier.padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                statusLabel(e.status)?.let { MiniTag(it, statusColor(e.status)) }
-                review?.takeIf { it != "approved" }?.let { MiniTag(stringResource(if (it == "rejected") R.string.ev_rv_rejected else R.string.ev_rv_pending), if (it == "rejected") Wa.Danger else Color(0xFFD97706)) }
-                MiniTag(priceText(e), if (e.isFree) Wa.Green else Wa.Mut)
-                e.distanceKm?.let { Text(stringResource(R.string.ev_km, it.toString()), color = Wa.Soft, fontSize = 11.sp) }
+            Row(Modifier.fillMaxWidth().padding(top = 3.dp), verticalAlignment = Alignment.CenterVertically) {
+                ev.localTime?.let {
+                    Text(it, color = Wa.Mut, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                }
+                val place = listOfNotNull(ev.venue, ev.city?.name).joinToString(" · ")
+                if (place.isNotEmpty()) {
+                    if (ev.localTime != null) Text(" · ", color = Wa.Mut, fontSize = 12.sp)
+                    Icon(Icons.Rounded.Place, null, tint = Wa.Mut, modifier = Modifier.size(12.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(place, color = Wa.Mut, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                }
+                ev.distanceKm?.let {
+                    Text(" · " + distanceText(it), color = Wa.Soft, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                }
+            }
+            val tags = buildList {
+                statusLabel(ev.status)?.let { add(it to statusColor(ev.status)) }
+                review?.takeIf { it != "approved" }?.let {
+                    add(stringResource(if (it == "rejected") R.string.ev_rv_rejected else R.string.ev_rv_pending) to if (it == "rejected") Wa.Danger else Color(0xFFD97706))
+                }
+            }
+            if (tags.isNotEmpty()) {
+                Row(Modifier.padding(top = 5.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    tags.forEach { (label, tint) -> MiniTag(label, tint) }
+                }
             }
         }
-        if (e.interested) Icon(Icons.Rounded.Favorite, null, tint = Wa.Red, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(8.dp))
+        Column(
+            Modifier.widthIn(min = 58.dp, max = 96.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Box(
+                Modifier.size(40.dp).clip(CircleShape)
+                    .background(if (ev.interested) Wa.Red.copy(alpha = 0.16f) else Wa.Field)
+                    .clickable(enabled = canSave && !busy) {
+                        busy = true
+                        scope.launch {
+                            val cur = ev
+                            if (cur.interested) {
+                                runCatching { ApiClient.events.uninterest(evAuth(), cur.id) }
+                                    .onSuccess {
+                                        val next = cur.copy(interested = false, notify = false, interestedCount = (cur.interestedCount - 1).coerceAtLeast(0))
+                                        ev = next
+                                        onInterest?.invoke(next)
+                                        EventsStore.changed()
+                                    }
+                                    .onFailure { Toast.makeText(context, it.apiFailure().message, Toast.LENGTH_LONG).show() }
+                            } else {
+                                runCatching { ApiClient.events.interest(evAuth(), cur.id, JsonObject().apply { addProperty("notify", true) }, evZone()).data }
+                                    .onSuccess { r ->
+                                        val next = cur.copy(interested = true, notify = r?.notify ?: true, interestedCount = r?.interestedCount ?: (cur.interestedCount + 1))
+                                        ev = next
+                                        onInterest?.invoke(next)
+                                        EventsStore.changed()
+                                    }
+                                    .onFailure { Toast.makeText(context, it.apiFailure().message, Toast.LENGTH_LONG).show() }
+                            }
+                            busy = false
+                        }
+                    },
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    if (ev.interested) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
+                    stringResource(if (ev.interested) R.string.ev_interested_on else R.string.ev_interested),
+                    tint = if (canSave) Wa.Red else Wa.Soft,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
+            Text(
+                priceText(ev),
+                color = priceColor,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.ExtraBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.clip(CircleShape).background(priceColor.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 4.dp),
+            )
+        }
     }
 }
 
@@ -227,11 +418,13 @@ private fun MiniTag(text: String, color: Color) {
 @Composable
 internal fun CategoryTile(c: DiscCategoryDto, onClick: () -> Unit) {
     Column(
-        Modifier.width(92.dp).height(88.dp).clip(RoundedCornerShape(20.dp)).background(categoryBrush(c)).clickable(onClick = onClick).padding(10.dp),
-        verticalArrangement = Arrangement.SpaceBetween,
+        Modifier.width(80.dp).height(78.dp).clip(RoundedCornerShape(16.dp)).background(categoryBrush(c)).clickable(onClick = onClick).padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
     ) {
-        Text(c.emoji ?: "🎟️", fontSize = 24.sp)
-        Text(c.name.orEmpty(), color = Color.White, fontSize = 12.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(c.emoji ?: "🎟️", fontSize = 22.sp)
+        Spacer(Modifier.height(4.dp))
+        Text(c.name.orEmpty(), color = Color.White, fontSize = 11.5.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
     }
 }
 
@@ -304,6 +497,7 @@ internal fun EventDetail(id: String, onBack: () -> Unit) {
     EvFrame(
         title = e?.title ?: stringResource(R.string.ev_title),
         onBack = onBack,
+        settingsHeader = true,
         cta = e?.takeIf { it.status != "cancelled" && it.status != "ended" && it.reviewStatus.let { r -> r == null || r == "approved" } }?.let { ev ->
             {
                 WaButton(
@@ -367,21 +561,34 @@ internal fun EventDetail(id: String, onBack: () -> Unit) {
 @Composable
 private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (String) -> Unit, onNotify: (Boolean) -> Unit, uploading: Boolean = false) {
     val context = LocalContext.current
-    // Hero.
-    Box(Modifier.fillMaxWidth().height(196.dp).waRise(0).clip(RoundedCornerShape(26.dp)).background(categoryBrush(ev.category))) {
+    Box(Modifier.fillMaxWidth().height(168.dp).waRise(0).clip(RoundedCornerShape(20.dp)).background(categoryBrush(ev.category))) {
         if (ev.cover != null) AsyncImage(model = ApiClient.mediaUrl(ev.cover), contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-        else Text(ev.category?.emoji ?: "🎟️", fontSize = 64.sp, modifier = Modifier.align(Alignment.Center))
-        Row(Modifier.align(Alignment.TopStart).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            ev.category?.name?.let { Text(listOfNotNull(ev.category.emoji, it).joinToString(" "), color = Color(0xFF111928), fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.clip(CircleShape).background(Color.White).padding(horizontal = 10.dp, vertical = 5.dp)) }
-            if (ev.familyFriendly) Text("👨‍👩‍👧", fontSize = 13.sp, modifier = Modifier.clip(CircleShape).background(Color.White).padding(horizontal = 8.dp, vertical = 4.dp))
+        else Text(ev.category?.emoji ?: "🎟️", fontSize = 48.sp, modifier = Modifier.align(Alignment.Center))
+        Row(Modifier.align(Alignment.TopStart).padding(10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            ev.category?.name?.let {
+                Text(
+                    listOfNotNull(ev.category.emoji, it).joinToString(" "),
+                    color = Wa.Ink,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clip(RoundedCornerShape(50)).background(Wa.Surface).padding(horizontal = 9.dp, vertical = 4.dp),
+                )
+            }
+            if (ev.familyFriendly) {
+                Text("👨‍👩‍👧", fontSize = 12.sp, modifier = Modifier.clip(RoundedCornerShape(50)).background(Wa.Surface).padding(horizontal = 7.dp, vertical = 4.dp))
+            }
         }
-        // My own event: a new cover from my gallery.
-        if (ev.mine) ChangeCoverPill(uploading, Modifier.align(Alignment.BottomEnd).padding(12.dp)) { onSheet("cover") }
+        if (ev.mine) ChangeCoverPill(uploading, Modifier.align(Alignment.BottomEnd).padding(10.dp)) { onSheet("cover") }
     }
 
-    // Trust: who it's from.
-    Row(Modifier.padding(top = 12.dp).waRise(1), verticalAlignment = Alignment.CenterVertically) {
-        Icon(if (ev.verified) Icons.Rounded.Verified else Icons.Rounded.RadioButtonUnchecked, null, tint = if (ev.verified) Color(0xFF2563EB) else Wa.Soft, modifier = Modifier.size(18.dp))
+    Row(Modifier.padding(top = 10.dp).waRise(1), verticalAlignment = Alignment.CenterVertically) {
+        if (ev.verified) {
+            Box(Modifier.size(15.dp).clip(CircleShape).background(Wa.Red), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(10.dp))
+            }
+        } else {
+            Icon(Icons.Rounded.RadioButtonUnchecked, null, tint = Wa.Soft, modifier = Modifier.size(16.dp))
+        }
         Spacer(Modifier.width(6.dp))
         Text(
             when {
@@ -389,18 +596,17 @@ private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (St
                 ev.verified -> stringResource(R.string.ev_from_verified, ev.organizer?.name.orEmpty())
                 else -> stringResource(R.string.ev_from_unverified, ev.organizer?.name.orEmpty())
             },
-            color = Wa.Mut, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+            color = Wa.Mut, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
         )
     }
 
-    // A change everyone interested should see.
     statusLabel(ev.status)?.let { label ->
-        Column(Modifier.fillMaxWidth().padding(top = 12.dp).clip(RoundedCornerShape(18.dp)).background(statusColor(ev.status).copy(alpha = 0.12f)).padding(14.dp)) {
-            Text(label, color = statusColor(ev.status), fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-            ev.statusNote?.takeIf { it.isNotBlank() }?.let { Text(it, color = Wa.Ink, fontSize = 13.5.sp) }
+        Column(Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(16.dp)).background(statusColor(ev.status).copy(alpha = 0.12f)).padding(horizontal = 12.dp, vertical = 10.dp)) {
+            Text(label, color = statusColor(ev.status), fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            ev.statusNote?.takeIf { it.isNotBlank() }?.let { Text(it, color = Wa.Ink, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp)) }
             ev.oldStartsAt?.let { old ->
                 runCatching { OffsetDateTime.parse(old).atZoneSameInstant(ZoneId.of(ev.timezone ?: "UTC")) }.getOrNull()?.let {
-                    Text(stringResource(R.string.ev_was_on, it.format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", AppLocale.java()))), color = Wa.Mut, fontSize = 12.5.sp)
+                    Text(stringResource(R.string.ev_was_on, it.format(DateTimeFormatter.ofPattern("EEE d MMM · HH:mm", AppLocale.java()))), color = Wa.Mut, fontSize = 12.sp)
                 }
             }
         }
@@ -408,77 +614,125 @@ private fun DetailBody(ev: DiscEventDto, onLink: (String?) -> Unit, onSheet: (St
     if (ev.mine && ev.reviewStatus != null && ev.reviewStatus != "approved") {
         WaNote(
             if (ev.reviewStatus == "rejected") stringResource(R.string.ev_rv_rejected_note, ev.reviewNote.orEmpty()) else stringResource(R.string.ev_rv_pending_note),
-            Modifier.padding(top = 12.dp),
+            Modifier.padding(top = 10.dp),
         )
     }
 
-    // When, where, how much.
-    WaCard(Modifier.fillMaxWidth().padding(top = 12.dp).waRise(2), padding = 14.dp) {
-        InfoLine("📅", whenText(ev) + (ev.city?.name?.let { "  ·  " + stringResource(R.string.ev_local_of, it) } ?: ""), myTimeText(ev))
-        ev.localEnd?.let { end -> runCatching { LocalDateTime.parse(end.replace(' ', 'T')) }.getOrNull()?.let { InfoLine("🏁", stringResource(R.string.ev_ends_at, it.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java())))) } }
-        val place = listOfNotNull(ev.venue, ev.address, ev.city?.name).joinToString(" · ")
+    val endText = ev.localEnd?.let { end ->
+        runCatching { LocalDateTime.parse(end.replace(' ', 'T')) }.getOrNull()?.let {
+            stringResource(R.string.ev_ends_at, it.format(DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).withLocale(AppLocale.java())))
+        }
+    }
+    val place = listOfNotNull(ev.venue, ev.address, ev.city?.name).joinToString(" · ")
+    val checked = ev.lastVerifiedAt?.let { at -> runCatching { OffsetDateTime.parse(at).toLocalDate() }.getOrNull()?.let { dayText(it) } }
+    WaCard(Modifier.fillMaxWidth().padding(top = 10.dp).waRise(2), padding = 6.dp) {
+        InfoLine(Icons.Rounded.CalendarMonth, whenText(ev) + (ev.city?.name?.let { "  ·  " + stringResource(R.string.ev_local_of, it) } ?: ""), myTimeText(ev))
+        endText?.let {
+            FactDivider()
+            InfoLine(Icons.Rounded.Flag, it)
+        }
         if (place.isNotBlank()) {
-            InfoLine("📍", place, stringResource(R.string.ev_open_map)) {
+            FactDivider()
+            InfoLine(Icons.Rounded.Place, place, stringResource(R.string.ev_open_map)) {
                 val q = Uri.encode(listOfNotNull(ev.venue, ev.address, ev.city?.name).joinToString(", "))
                 val uri = if (ev.lat != null && ev.lng != null) "geo:${ev.lat},${ev.lng}?q=${ev.lat},${ev.lng}($q)" else "geo:0,0?q=$q"
                 runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(uri))) }
             }
         }
-        InfoLine("💳", priceText(ev))
-        if (ev.interestedCount > 0) InfoLine("👥", stringResource(R.string.ev_interested_n, ev.interestedCount))
-        ev.lastVerifiedAt?.let { at ->
-            runCatching { OffsetDateTime.parse(at).toLocalDate() }.getOrNull()?.let { InfoLine("✅", stringResource(R.string.ev_checked_on, dayText(it))) }
+        FactDivider()
+        InfoLine(Icons.Rounded.Payments, priceText(ev))
+        if (ev.interestedCount > 0) {
+            FactDivider()
+            InfoLine(Icons.Rounded.Groups, stringResource(R.string.ev_interested_n, ev.interestedCount))
+        }
+        checked?.let {
+            FactDivider()
+            InfoLine(Icons.Rounded.Verified, stringResource(R.string.ev_checked_on, it))
+        }
+        visibleDescription(ev)?.let { desc ->
+            FactDivider()
+            InfoLine(Icons.Rounded.Notes, desc)
         }
     }
 
     if (ev.interested) {
-        WaCard(Modifier.fillMaxWidth().padding(top = 10.dp), padding = 6.dp) {
+        WaCard(Modifier.fillMaxWidth().padding(top = 8.dp), padding = 6.dp) {
             ToggleLine(stringResource(R.string.ev_notify), ev.notify, stringResource(R.string.ev_notify_sub), onNotify)
         }
     }
 
-    ev.description?.takeIf { it.isNotBlank() }?.let {
-        Text(it, color = Wa.Ink, fontSize = 14.5.sp, lineHeight = 22.sp, modifier = Modifier.padding(top = 14.dp).waRise(3))
+    if (ev.bookingUrl != null || ev.sourceUrl != null) {
+        Row(Modifier.fillMaxWidth().padding(top = 12.dp).waRise(3), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ev.sourceUrl?.let { url ->
+                WaButton(
+                    stringResource(R.string.ev_official_page),
+                    { onLink(url) },
+                    icon = Icons.Rounded.Language,
+                    style = WaButtonStyle.Ghost,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            ev.bookingUrl?.let { url ->
+                WaButton(
+                    stringResource(R.string.ev_book),
+                    { onLink(url) },
+                    icon = Icons.Rounded.OpenInNew,
+                    style = WaButtonStyle.Primary,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        Text(stringResource(R.string.ev_links_note), color = Wa.Soft, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp))
     }
 
-    // Do something with it.
-    Row(Modifier.fillMaxWidth().padding(top = 16.dp).waRise(4), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    Row(Modifier.fillMaxWidth().padding(top = 12.dp).waRise(4), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         if (ev.reviewStatus == null || ev.reviewStatus == "approved") {
             ActionTile(Icons.Rounded.Share, stringResource(R.string.ev_share), Modifier.weight(1f)) { onSheet("share") }
             if (ev.status != "cancelled" && ev.status != "ended") ActionTile(Icons.Rounded.Groups, stringResource(R.string.ev_go_together), Modifier.weight(1f)) { onSheet("room") }
         }
         if (ev.mine) ActionTile(Icons.Rounded.Update, stringResource(R.string.ev_change_status), Modifier.weight(1f)) { onSheet("status") }
     }
-    if (ev.bookingUrl != null || ev.sourceUrl != null) {
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ev.bookingUrl?.let { url -> WaButton(stringResource(R.string.ev_book), { onLink(url) }, icon = Icons.Rounded.OpenInNew, style = WaButtonStyle.Ghost, modifier = Modifier.weight(1f)) }
-            ev.sourceUrl?.let { url -> WaButton(stringResource(R.string.ev_official_page), { onLink(url) }, style = WaButtonStyle.Quiet, modifier = Modifier.weight(1f)) }
-        }
-        Text(stringResource(R.string.ev_links_note), color = Wa.Soft, fontSize = 11.5.sp, modifier = Modifier.padding(top = 6.dp))
-    }
 }
 
 @Composable
-private fun InfoLine(emoji: String, text: String, sub: String? = null, onClick: (() -> Unit)? = null) {
+private fun FactDivider() {
+    Box(Modifier.fillMaxWidth().padding(start = 46.dp).height(1.dp).background(Wa.Line))
+}
+
+@Composable
+private fun InfoLine(icon: ImageVector, text: String, sub: String? = null, onClick: (() -> Unit)? = null) {
     Row(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier).padding(vertical = 7.dp),
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(horizontal = 6.dp, vertical = 9.dp),
         verticalAlignment = Alignment.Top,
     ) {
-        Text(emoji, fontSize = 17.sp)
+        Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(Wa.Field), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(16.dp))
+        }
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(text, color = Wa.Ink, fontSize = 14.5.sp, fontWeight = FontWeight.SemiBold)
-            sub?.let { Text(it, color = if (onClick != null) Wa.Red else Wa.Mut, fontSize = 12.5.sp, fontWeight = if (onClick != null) FontWeight.Bold else FontWeight.Normal) }
+            Text(text, color = Wa.Ink, fontSize = 13.5.sp, fontWeight = FontWeight.SemiBold, lineHeight = 18.sp)
+            sub?.let {
+                Text(it, color = if (onClick != null) Wa.Red else Wa.Mut, fontSize = 12.sp, fontWeight = if (onClick != null) FontWeight.Bold else FontWeight.Normal)
+            }
         }
     }
 }
 
 @Composable
-private fun ActionTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Column(modifier.clip(RoundedCornerShape(18.dp)).background(Wa.Surface).clickable(onClick = onClick).padding(vertical = 12.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.height(4.dp))
-        Text(label, color = Wa.Ink, fontSize = 12.5.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+private fun ActionTile(icon: ImageVector, label: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier.clip(RoundedCornerShape(16.dp)).background(Wa.Surface).clickable(onClick = onClick).padding(vertical = 10.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(Wa.Red.copy(alpha = 0.12f)), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = Wa.Red, modifier = Modifier.size(18.dp))
+        }
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = Wa.Ink, fontSize = 12.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
@@ -546,8 +800,21 @@ private fun StatusSheet(ev: DiscEventDto, onDismiss: () -> Unit, onSaved: (DiscE
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    ChSheet(onDismissRequest = onDismiss, containerColor = Wa.Surface, shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp)) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 24.dp)) {
+    ChSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Wa.Surface,
+        shape = RoundedCornerShape(topStart = 30.dp, topEnd = 30.dp),
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .imePadding()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 24.dp),
+        ) {
             Text(stringResource(R.string.ev_change_status), color = Wa.Ink, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold)
             Spacer(Modifier.height(10.dp))
             listOf("confirmed" to R.string.ev_st_confirmed, "postponed" to R.string.ev_st_postponed, "sold_out" to R.string.ev_st_sold_out, "cancelled" to R.string.ev_st_cancelled)

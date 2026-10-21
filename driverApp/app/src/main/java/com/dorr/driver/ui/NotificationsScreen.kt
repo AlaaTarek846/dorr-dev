@@ -1,5 +1,7 @@
 package com.dorr.driver.ui
 
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -105,6 +107,10 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (NotificationDto) -> Unit) {
     ScreenScaffold(
         stringResource(R.string.nt_title), onBack,
         actions = {
+            // D-303: clear every read notification.
+            if (items.orEmpty().any { it.readAt != null }) RoundIconButton(Icons.Filled.DeleteSweep, stringResource(R.string.nt_clear_read), onClick = {
+                scope.launch { if (apiCall { DriverBackend.api.clearReadNotifications() } is ApiResult.Ok) items = items?.filter { it.readAt == null } }
+            })
             AnimatedVisibility(visible = unread > 0, enter = fadeIn(), exit = fadeOut()) {
                 RoundIconButton(Icons.Filled.DoneAll, stringResource(R.string.nt_read_all), onClick = {
                     scope.launch {
@@ -129,12 +135,21 @@ fun NotificationsScreen(onBack: () -> Unit, onOpen: (NotificationDto) -> Unit) {
             else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 item { Spacer(Modifier.height(6.dp)) }
                 items(list, key = { it.id }) { n ->
-                    NotificationRow(n) {
-                        if (n.readAt == null) scope.launch {
-                            (apiCall { DriverBackend.api.markRead(n.id) } as? ApiResult.Ok)?.let { DriverLive.setUnread(it.data.count) }
-                            items = items?.map { if (it.id == n.id) it.copy(readAt = "now") else it }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) {
+                            NotificationRow(n) {
+                                if (n.readAt == null) scope.launch {
+                                    (apiCall { DriverBackend.api.markRead(n.id) } as? ApiResult.Ok)?.let { DriverLive.setUnread(it.data.count) }
+                                    items = items?.map { if (it.id == n.id) it.copy(readAt = "now") else it }
+                                }
+                                onOpen(n)
+                            }
                         }
-                        onOpen(n)
+                        // D-303: delete one.
+                        Icon(Icons.Filled.Close, stringResource(R.string.nt_delete), tint = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.45f),
+                            modifier = Modifier.padding(start = 6.dp).size(20.dp).clickable {
+                                scope.launch { if (apiCall { DriverBackend.api.deleteNotification(n.id) } is ApiResult.Ok) items = items?.filter { it.id != n.id } }
+                            })
                     }
                 }
                 item { Spacer(Modifier.height(16.dp)) }

@@ -59,6 +59,8 @@ class RideCheckoutPurpose implements CheckoutPurpose, ReservesFunds
 
         $this->payments->hold($ride, (int) $checkout->amount_minor);
         $scheduled = $ride->booking_mode === BookingMode::Scheduled;
+        // R-233: Wait & Save — the search starts after the wait the rider took for the lower price.
+        $wait = $scheduled ? 0 : (int) $ride->snapshot('extras.wait_save.delay_s', 0);
         $ride = $this->machine->move($ride, match ($ride->booking_mode) {
             BookingMode::Bid => RideStatus::Bidding,
             // Booked ahead: paid now, it waits for its time (ScheduledRideService).
@@ -68,7 +70,7 @@ class RideCheckoutPurpose implements CheckoutPurpose, ReservesFunds
             'payment_status' => RidePaymentStatus::Held,
             // The search clock starts with the payment, not with the booking.
             'search_started_at' => $scheduled ? null : now(),
-            'next_dispatch_at' => $scheduled ? $ride->scheduled_at->copy()->subSeconds((int) $ride->policy('scheduled.lead_time_s', 1800)) : now(),
+            'next_dispatch_at' => $scheduled ? $ride->scheduled_at->copy()->subSeconds((int) $ride->policy('scheduled.lead_time_s', 1800)) : now()->addSeconds($wait),
         ], [], ['checkout_uuid' => $checkout->uuid, 'amount_minor' => (int) $checkout->amount_minor]);
 
         $this->notifier->changed($ride, 'paid');
@@ -77,7 +79,9 @@ class RideCheckoutPurpose implements CheckoutPurpose, ReservesFunds
 
             return;
         }
-        DB::afterCommit(fn () => app(DispatchEngine::class)->runRound($ride));
+        if ($wait === 0) {
+            DB::afterCommit(fn () => app(DispatchEngine::class)->runRound($ride));
+        }
     }
 
     private function ride(Model $owner, string $uuid): Ride

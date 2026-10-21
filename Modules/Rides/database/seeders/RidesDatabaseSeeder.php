@@ -25,7 +25,8 @@ class RidesDatabaseSeeder extends Seeder
     /** slug => [strategy, capacity max, colour, ar, en, ar tagline, en tagline] */
     private const CATEGORIES = [
         'economy' => ['distance', 4, '#1E88E5', 'الاقتصادية', 'Economy', 'رحلتك اليومية بسعر مناسب', 'Everyday rides at a fair price'],
-        'with_me' => ['distance', 1, '#00897B', 'أنا معك', 'With Me', 'على طريق الكابتن — راكب واحد', 'Along the captain\'s way — one rider'],
+        // O-30..O-33 (owner): riders going the same way share the car — and the fare.
+        'with_me' => ['distance', 1, '#00897B', 'أنا معك', 'With Me', 'على طريق الكابتن — شارك الرحلة وادفع أقل', 'Along the captain\'s way — share the ride, pay less'],
         'ladies' => ['distance', 4, '#D81B60', 'لكِ سيدتي', 'For Her', 'راكبة مع كابتن ست', 'Women riders with women captains'],
         'vip' => ['distance', 4, '#212121', 'VIP', 'VIP', 'مركبات فخمة وكباتن مميزين', 'Luxury cars, top captains'],
         'offers' => ['bid', 4, '#F4511E', 'العروض', 'Offers', 'حدد سعرك والكباتن يعرضوا', 'Name your price, captains offer'],
@@ -33,7 +34,8 @@ class RidesDatabaseSeeder extends Seeder
         'family' => ['trip_flat', 7, '#43A047', 'العائلية', 'Family', 'لحد 7 ركاب', 'Up to 7 riders'],
         'intercity' => ['distance', 4, '#6D4C41', 'بين المدن', 'Intercity', 'من مدينة لمدينة', 'City to city'],
         'bus' => ['seat', 50, '#3949AB', 'الرحلات المجدولة', 'Scheduled buses', 'مقعدك محجوز وتذكرة QR', 'Your seat, a QR ticket'],
-        'motorcycle' => ['time', 1, '#FB8C00', 'الدراجات النارية', 'Motorcycle', 'بالساعة', 'By the hour'],
+        // O-17 (owner): a motorcycle is an instant ride from A to B, priced by distance like Economy.
+        'motorcycle' => ['distance', 1, '#FB8C00', 'الدراجات النارية', 'Motorcycle', 'أسرع في الزحمة — راكب واحد', 'Faster through traffic — one rider'],
         'marine' => ['time', 12, '#00ACC1', 'المراكب واليخوت', 'Boats & yachts', 'رحلة بحرية', 'Out on the water'],
     ];
 
@@ -104,7 +106,13 @@ class RidesDatabaseSeeder extends Seeder
         $policies = app(RidePolicies::class);
 
         // Country-wide numbers: Jawad's defaults (rides.policy_defaults) apply; nothing to override yet.
-        $policies->save($saudi->id, null, null, null, ['pricing_mode' => 'upfront']);
+        $policies->save($saudi->id, null, null, null, [
+            'pricing_mode' => 'upfront',
+            // O-26c find a driver — EXAMPLES (switched on with the `find_driver` switch); the admin sets the real ones.
+            'hire.hour_price_minor' => 4000,
+            'hire.day_price_minor' => 25000,
+            'hire.overtime_per_min_minor' => 80,
+        ]);
 
         // Economy's prices — EXAMPLES (the Wireflow shows ~35 SAR for 7.4 km); the admin sets the real ones.
         $policies->save($saudi->id, null, null, $economy->id, [
@@ -116,6 +124,21 @@ class RidesDatabaseSeeder extends Seeder
             'price.commission_value' => 2000,
             'price.cancel_fee_minor' => 1000,
         ]);
+
+        // O-17: motorcycles by the distance (economy-like prices) or by the hour — EXAMPLES, the admin sets the real ones.
+        if (($moto = RideCategory::query()->where('slug', 'motorcycle')->value('id')) !== null) {
+            $policies->save($saudi->id, null, null, (int) $moto, [
+                'price.base_minor' => 400,
+                'price.per_km_minor' => 120,
+                'price.per_min_minor' => 20,
+                'price.min_fare_minor' => 1000,
+                'hourly.enabled' => true,
+                'hourly.hour_price_minor' => 3000,
+                'hourly.min_hours' => 1,
+                'hourly.max_hours' => 8,
+                'hourly.overtime_per_min_minor' => 60,
+            ]);
+        }
 
         // VAT 15% on the app's commission, carried by the driver — exactly Jawad's rule.
         $vat = RideTaxRule::query()->firstOrCreate(['country_id' => $saudi->id, 'code' => 'vat'], [

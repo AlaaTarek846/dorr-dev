@@ -30,7 +30,7 @@ class SupportNotifier
     /** A customer opened a new ticket: the support team hears about it. */
     public function ticketOpened(SupportTicket $ticket): void
     {
-        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
 
         $this->toAdmins(SupportRealtimeEvent::TICKET_CREATED, $admins, ['ticket' => $this->forAdmin($ticket)]);
@@ -48,7 +48,7 @@ class SupportNotifier
     /** The customer wrote in a ticket: the agent who has it (or, unassigned, every agent) is told. */
     public function customerReplied(SupportTicket $ticket, SupportMessage $message): void
     {
-        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
         $audience = $ticket->admin !== null ? collect([$ticket->admin]) : $admins;
 
@@ -68,12 +68,12 @@ class SupportNotifier
     /** An agent answered: the customer gets a push and the live message. */
     public function agentReplied(SupportTicket $ticket, SupportMessage $message): void
     {
-        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
 
         $this->toCustomer($ticket, SupportRealtimeEvent::MESSAGE, ['ticket' => $this->forCustomer($ticket), 'message' => $this->message($message)]);
         $this->toAdmins(SupportRealtimeEvent::MESSAGE, $this->supportAdmins(), ['ticket' => $this->forAdmin($ticket), 'message' => $this->message($message)]);
         $this->center->send(
-            $ticket->user,
+            $ticket->owner,
             'support.ticket.reply',
             'support_ticket_reply_title',
             'support_ticket_reply_body',
@@ -88,7 +88,7 @@ class SupportNotifier
      */
     public function statusChanged(SupportTicket $ticket, string $by): void
     {
-        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
 
         $this->toCustomer($ticket, SupportRealtimeEvent::TICKET_UPDATED, ['ticket' => $this->forCustomer($ticket)]);
@@ -99,7 +99,7 @@ class SupportNotifier
 
         if ($by === 'support') {
             $this->center->send(
-                $ticket->user,
+                $ticket->owner,
                 'support.ticket.status',
                 'support_ticket_status_title',
                 'support_ticket_status_'.$status.'_body',
@@ -127,14 +127,14 @@ class SupportNotifier
      */
     public function autoReplied(SupportTicket $ticket, SupportMessage $message, bool $push = false): void
     {
-        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
 
         $this->toCustomer($ticket, SupportRealtimeEvent::MESSAGE, ['ticket' => $this->forCustomer($ticket), 'message' => $this->message($message)]);
         $this->toAdmins(SupportRealtimeEvent::MESSAGE, $this->supportAdmins(), ['ticket' => $this->forAdmin($ticket), 'message' => $this->message($message)]);
 
         if ($push) {
             $this->center->send(
-                $ticket->user,
+                $ticket->owner,
                 'support.ticket.auto_reply',
                 'support_ticket_auto_title',
                 'support_ticket_auto_body',
@@ -147,7 +147,7 @@ class SupportNotifier
     /** The customer read the automatic answer and still wants a person: the support team is told. */
     public function customerWantsAgent(SupportTicket $ticket): void
     {
-        $ticket->loadMissing(['user', 'admin', 'latestMessage']);
+        $ticket->loadMissing(['user', 'driver', 'admin', 'latestMessage']);
         $admins = $this->supportAdmins();
 
         $this->toCustomer($ticket, SupportRealtimeEvent::TICKET_UPDATED, ['ticket' => $this->forCustomer($ticket)]);
@@ -206,7 +206,7 @@ class SupportNotifier
      */
     private function toCustomer(SupportTicket $ticket, string $event, array $payload): void
     {
-        $this->dispatch(['Modules.User.Models.User.'.$ticket->user_id], $event, $payload);
+        $this->dispatch([$ticket->ownerChannel()], $event, $payload);
     }
 
     /**
@@ -246,6 +246,6 @@ class SupportNotifier
 
     private function customerName(SupportTicket $ticket): string
     {
-        return (string) ($ticket->user?->name ?: $ticket->user?->phone ?: '#'.$ticket->user_id);
+        return (string) ($ticket->owner?->name ?: $ticket->owner?->phone ?: '#'.($ticket->user_id ?? $ticket->driver_id));
     }
 }

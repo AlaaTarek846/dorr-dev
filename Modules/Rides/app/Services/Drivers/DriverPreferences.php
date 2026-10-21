@@ -52,6 +52,13 @@ class DriverPreferences
             ])->values()->all(),
             'pickup_radius_m' => $pref?->pickup_radius_m,
             'pickup_radius_max_m' => $policy?->int('search.max_radius_m'),
+            // R-235, R-236, D-390: what the car has / takes — shown only where the add-on is switched on.
+            'equipment' => [
+                'pet_friendly' => (bool) ($pref?->pet_friendly ?? false),
+                'child_seats' => (int) ($pref?->child_seats ?? 0),
+                'pets_offered' => $countryId !== null && $this->features->allows($countryId, null, 'pet'),
+                'child_seats_offered' => $countryId !== null && $this->features->allows($countryId, null, 'child_seat'),
+            ],
             'auto_accept' => [
                 'available' => $available,
                 'enabled' => $available && ! empty($auto['enabled']),
@@ -103,6 +110,13 @@ class DriverPreferences
                 throw new RidesException('preferences_radius_too_far', 422, ['km' => intdiv($policy->int('search.max_radius_m'), 1000)]);
             }
             $pref->pickup_radius_m = $radius === null ? null : (int) $radius;
+        }
+
+        if (array_key_exists('pet_friendly', $input)) {
+            $pref->pet_friendly = (bool) $input['pet_friendly'];
+        }
+        if (array_key_exists('child_seats', $input)) {
+            $pref->child_seats = max(0, min(3, (int) $input['child_seats']));
         }
 
         if (array_key_exists('auto_accept', $input)) {

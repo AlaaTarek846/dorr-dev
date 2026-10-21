@@ -9,12 +9,90 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 ## [Unreleased]
 
 ### Changed
+
 - **Freelance — the projects list follows the freelancer's specialties (FL-206, 2026-10-21):** `GET /api/freelance/v1/projects` takes `scope` = `mine` | `all`. Without it, a freelancer who has chosen specialties sees the projects of those specialties (and the sub-specialties under them — a sub-specialty chosen alone does not pull in its parent's other work); one with none yet sees everything. A specialty picked in the filter wins, and saved projects ignore the scope. The answer carries `pagination.scope` and `has_specialties`. In the app the chips are «My specialties» / «All specialties» (only when the freelancer has specialties, starting on «My specialties»), and an empty «My specialties» list offers «See all specialties». Test added in `FreelancerBrowseProjectsTest`. Built; not tried on the phone.
 - **Freelance app — the notifications screen now looks and works like the DORR app's:** a card per notice (coloured icon by event — verification, wallet, wallet PIN, other; bold title and a tinted card when unread; relative time), 15 per request with infinite scroll (a spinner under the rows, "show more" to retry a failed page), "mark all read" that updates at once, a details sheet (with an "open verification" link for verification notices), and an empty state. Still event-driven: a reload on reconnect and once per live notice, no timer. New strings `notif_strings.xml`. No server change (the list already paginates). Built; not tried on the phone.
 - **Freelance app — the Account tab now follows the DORR app's account page:** the title with a round settings button, the account row (round photo with a shadow, the name with the verified tick, the phone, a status pill), the wallet card (balance + a "top up" pill), three tiles (profile completeness, works, skills — real numbers; the DORR app's are placeholders), and rows sliding in one after another (verification, settings, sign out). The settings page holds language, about and delete account, with its own title and back circle. New strings `account_strings.xml`. Built; not tried on the phone.
 - **Freelance app — the wallet statement matches the DORR app's:** the four filter chips (all, received, sent, services only) with the DORR app's labels and icons; `transactions` takes `bucket` (already supported by the server). Rows and the details sheet already matched; withdrawing has no DORR-app page and uses the same kit pieces. Built; not tried on the phone.
 - **Freelance app — the wallet settings now match the DORR app's, page for page (FL-1207 step 7b, 2026-10-20):** new `WalletSecurity.kt`: a menu with the reassurance strip and three pages — the PIN (current → new → confirm on the pad, "forgot your PIN?" opening the recovery, a "saved" seal), the recovery method (proved with the PIN, then the setup pages — `WalletSetup` gained `existingPin` / `onChanged` — ending after the method) and fingerprint / face (big icon, hint, a toggle card; turning it on asks for the PIN on the pad). A recovered PIN locks the wallet so the new one is asked for. Built; not tried on the phone.
 - **Freelance app:** the wallet page no longer shows the app header (photo, name, wallet, bell) — it keeps the bottom bar and its own page header (`AppShell(showHeader = false)` for the wallet route).
+
+- **Android Discover — my interests (2026-10-19):** the kinds list pages 15 at a time (`GET discover/categories?page=&per_page=15`); **Show more** loads the next 15. Tapping a kind saves without reloading Discover home (that was freezing the page).
+- **Android Discover — organizer my events (2026-10-19):** a search field under “My events” filters the list (`GET discover/organizer?q=`, title / venue / description), still 15 at a time with Show more.
+- **Android Discover — home strips (2026-10-19):** each home row (`this_week` and the others) loads 15 events; a small chevron sits on the start side of the title when there is more. Tapping it scrolls the same row to the next pair; reaching the last card loads the next 15 (`GET discover/sections/{key}?page=&per_page=15`, `has_more` on home). The “What you like” category row uses the same chevron and 15-at-a-time scroll.
+- **Android Discover — home cards (2026-10-18):** this-week (and the other home rows) are smaller; the save heart sits at the bottom of the card and is tappable.
+- **Android calendar pickers (2026-10-18):** date and time dialogs use the app’s Cancel / Done buttons (ghost + primary), not text links. The time dialog’s hour and minute sit in bordered chips so they read as the time.
+- **Android Discover — travel (2026-10-18):** the “Where are you going?” intro is a note with line height (no hanging dash); the empty state no longer repeats the page title.
+- **Android Discover — event row (2026-10-18):** list cards keep a tappable save heart with the price chip under it. A numeric price uses the event country's catalog currency (`price_display`, e.g. `300 ج.م`). Distance is metres under 1 km, else km. Font sizes follow the date badge / title / meta / chip hierarchy.
+- **Android Discover — saved (2026-10-18):** saved events page 15 at a time (`GET discover/interests?page=&per_page=`); **Show more** loads the next 15. Unsaving from the heart removes that row only — the list does not reload.
+- **Android Discover — browse filter (2026-10-18):** country / region / city come from the dashboard catalogs: `countries`, `regions` of that country, and `discover_cities` of that region (the admin Cities page). The signup country is first; every select has search. `GET discover/countries` is the whole countries table (active); `GET discover/regions?with_events=0` is the whole regions catalog of that country.
+- **Android Discover — browse (2026-10-18):** the list pages 15 at a time and loads the next 15 as you scroll; the overlay blocks taps so the home stories “add” sheet no longer opens from the browse title.
+- **Android Discover — sheets and pickers follow appearance (2026-10-18):** people picker, date and time pickers use the same dark/light surfaces and accent as the rest of the app (chat colours bind at startup; add-event uses the calendar pickers).
+- **Android Discover — organizer card (2026-10-18):** the organizer identity row is the Account header (no card): circular mic, name, phone, status chip in the premium slot, circular edit on the trailing edge. The review note sits in `WaNote`.
+- **Android Discover — my events (2026-10-18):** the organizer list pages 15 at a time (`GET discover/organizer?page=&per_page=`); **Show more** loads the next 15. Event rows are a little tighter, same as the rest of Discover.
+- **Android Discover — event detail (2026-10-18):** when / where / price rows match the calendar sheet (icon wells and hairline dividers); the cover, trust line and action tiles follow the same sizes as Account. A description that is only the booking or official URL is hidden; those open as full-width system buttons (one button takes the whole row).
+- **Admin → Discover → Organizers matches flags / users (2026-10-18):** breadcrumb, search with clear, All / Pending / Verified / Rejected / Suspended filter buttons with counts (`?status_counts=1`; All appears only after a status is chosen, like flags), skeleton and empty state, created/updated dates, pagination, a status select on the list like users, a details modal, and a review modal with a note field instead of `window.prompt`. No create or bulk-delete — the API is still index / show / review only.
+
+### Added
+- **Owner's third test round (2026-10-20, O-56..O-63):**
+  - After a stop is added, the route is redrawn (or the points are joined), and the captain's navigation link carries the remaining stops as waypoints.
+  - Place search suggests from two letters through the admin's provider, and shows popular places within 50 km before typing.
+  - The captain's map shows hot areas (the last hour's requests), and his own position as a small car.
+  - The rider's map shows free captains' cars moving in real time over public area channels, using daily aliases.
+  - The ride chat now looks like the people chat in both apps.
+  - Lesson packs can be edited and deleted (archived once bought).
+  - Case attachments accept dash-cam videos up to 50 MB.
+- **Two map engines in the apps (2026-10-20, O-53):**
+  - Google or Mapbox, chosen in the admin, now draws the whole rider and captain apps through one map layer (`DorrMap`).
+  - The choice is cached in SharedPreferences at app start.
+  - Mapbox is now a real engine (Mapbox Maps SDK 11.8.0) instead of tiles over a Google map. This fixes the blank white map when no Google key is set.
+- **In-app calls (2026-10-20, O-09):**
+  - The rider and the captain can call each other inside the app over LiveKit (the chat's setup), and neither sees a phone number.
+  - The callee is rung by push, and answer and hang-up are real time. The call screen has mute and speaker.
+  - The captain app now includes LiveKit and the microphone permission.
+- **Driving lessons (2026-10-20, O-26b):**
+  - Captains publish lesson packs as trainers. Learners buy a pack from the wallet, book each lesson, and the trainer confirms.
+  - The trainer is paid per lesson given, and lessons not taken are refunded when a learner stops.
+  - New `driving_lessons` switch, `lessons.*` policies, three tables, and screens in both apps.
+- **Find a driver (2026-10-20, O-26c):**
+  - Riders hire a nearby captain to drive their own car, by the hour or the day, paid upfront from the wallet. The first captain to accept takes the job.
+  - The job goes arrived → started → completed; extra minutes are charged per minute, and the captain is paid less the commission.
+  - New `find_driver` switch, `hire.*` policies, table `driver_hires`, endpoints `mobile/v1/rides/hire*` and `driver/v1/hire/*`, and screens in both apps.
+- **By the hour (2026-10-20, O-17):**
+  - Motorcycles, or any category the admin opens by the hour, can be booked for a number of hours at the hour price set in the policies.
+  - The ride ends wherever the rider gets off, and minutes past the hours are charged per minute.
+  - Rider app: a «by distance / by the hour» switch on the quotes. Captain app: an hourly banner on the trip screen.
+- **Boats & yachts (2026-10-20, O-25):**
+  - Captains with a boat or yacht publish sea trips (sold by seat or as the whole boat) or hire by the hour.
+  - Hires never overlap, payment comes from the wallet with a boarding QR, and cancellation is free up to the policy window.
+  - On a hire the guest can ask for more time, and the captain accepts or declines.
+  - New rider and captain screens. Tables `marine_listings` and `marine_bookings`. Endpoints `mobile/v1/rides/marine/*` and `driver/v1/marine/*`.
+- **Admin → Rides (2026-10-19, O-06..O-08):**
+  - **The rides list in LeeTaxi's layout:** faces, plate, coloured category, from/to, a status badge with an icon, a category filter, and a per-ride map with the route.
+  - **«Captains on the map» (Jawad's):** cars coloured by state and turned to their heading, with a card on hover.
+  - **The heat map (LeeTaxi's):** all rides, or the ones waiting now.
+  - **Code:** Mapbox GL with the token from Rides settings; `GET admin/v1/rides-map/heat` and `rides-map/drivers`.
+- **Rides — «أنا معك» / With Me (2026-10-19, O-30..O-33):**
+  - **Riders share a car going the same way.** Either the captain sets where he's going and how far off his road he'll go (within the admin's limits; fixed when they are equal), or a rider's With Me ride takes others once it starts.
+  - **The split:** each joining rider's price goes partly to the captain (`with_me.driver_share_bp`); the rest comes off every fare, equally or by the distance shared (an admin option), never below a floor. Each rider and the captain are told what changed.
+  - **Who may share:** each rider chooses anyone, men only or women only.
+  - **Captain app:** a With Me screen with the destination, a corridor slider, and the riders in the car, each opening its own ride.
+  - **Rider app:** the choice of who may share, and a shared-ride banner with what was saved.
+- **Rides — bus booking (2026-10-19, `docs/rides_tasks.md` O-20..O-24):**
+  - **The captain:** publishes trips on his bus (from, to, when it leaves and comes back, a price going, coming back and both), gets a QR label for each seat, and sees who booked with their phone to call or text. He boards riders by scanning their ticket or from the list, departs, comes back and ends the trip; he is then paid less the bus commission.
+  - **The rider:** finds trips by where they leave from, where they go, or both, and books seats on a drawn bus map (going, coming back, or both). Payment comes from the wallet, and each seat gets a QR ticket. A ticket can be cancelled for a full refund until an hour before departure.
+  - **Live seats:** a seat booked elsewhere updates the map at once (public channel `bus-trips.{uuid}`).
+  - **Code:** new tables `bus_trips`, `bus_bookings` and `bus_booking_seats`; `driver/v1/bus/*` and `mobile/v1/rides/bus/*`.
+
+### Fixed
+- **Rides — ending a ride, offers, and wallet charges after the owner's phone test (2026-10-19, `docs/rides_tasks.md` O-39, O-40, O-42, O-43, part of O-38e / O-38f):**
+  - **Ending away from the destination:** "End ride" farther than `arrival.destination_radius_m` (default 500 m, new policy under Arrival) from the destination is refused with `rides_not_at_destination` and the distance left. The captain app then asks "the rider is getting off here?" and resends with `early: true`.
+  - **Early-end pricing:** an early end prices an upfront ride again on the distance and time actually driven, never above the agreed fare; an offers ride keeps its agreed price. The `completed` event records `ended_early` and `away_from_destination_m`, and the rider gets `ride.ended_early` instead of "arrived".
+  - **No GPS points:** a ride whose phone logged no points no longer takes the whole planned route as its distance unless the car is at the destination.
+  - **Offers:** the captain's request sheet scrolls and rises above the keyboard, so "send my offer" is always reachable.
+  - **Typed prices:** both apps let the price be typed, and − / + move by the policy's first step (`bids.counter_steps_minor`, 5) instead of 1. The rider's `step_minor` was hard-coded.
+  - **Non-withdrawable money first:** new `WalletService::debitSpendOnlyFirst` takes non-withdrawable money first, the rest from withdrawable (which may go into debt), and a retry doesn't split again. Rides charges now use it: extra charges after the ride, cancellation fees, tips (whose balance check now counts both), the captain's change to the rider, and the captain's cash commission and tax.
+  - **"Not enough in the wallet":** the message now names the wallet looked at (the ride's country), what is free in it and what is held, with `available_minor`, `held_minor` and `wallet_country`.
 
 ### Added
 - **Freelance — comparing and choosing an offer (FL-305 + FL-309, 2026-10-21):** the client's offers list (`GET mobile/v1/freelance/projects/{uuid}/offers`) now takes `sort=newest|cheapest|fastest|completeness` and `status=shortlisted|…`, and every offer carries what helps to choose: the freelancer's profile completeness, years of experience, how many works they show clients, their specialties and skills and which of the project's skills they have (`matching_skills` / `project_skills_count`), `rating` / `completed_projects` (null until FL-701 / FL-703 — the app says «new on DORR»), what the client may do (`can.shortlist|reject|choose`) and `client_cost` (the price, the client fee of the policy when the `client_fee` switch is on, the total). New: `GET …/offers/compare?ids=a,b[,c]` (2–3 offers in the order picked, plus `best.price|duration|completeness|skills`; another count → `freelance_offer_compare_count` 422), `GET …/offers/{offer}` and `GET …/offers/{offer}/freelancer` (the profile a client may read: bio, experience, certificates, portfolio, languages — never a phone or an email). **Choosing** (`POST …/offers/{offer}/choose`) is now one transaction with the project locked: the offer is accepted (`accepted_at`), every other live offer is turned down (event payload `auto: another_chosen`; the freelancer reads «the client chose another offer»), the offers close (`offers_close_reason = chosen`) and the project moves to the new status **`awarded`** (`awarded_at`, event `project.awarded`; `published → awarded → cancelled` until FL-401 adds the agreement). A second choice → `freelance_offer_already_chosen`. The chosen freelancer and the others are told after the commit. A freelancer still finds a project they offered on after it was awarded. Migration `2026_10_29_170000_add_awarded_columns_to_freelance`. `FreelanceOfferChoiceTest` (4). User app: the project page links to the offers; the offers page (sort chips, shortlisted filter, tick 2–3 to compare), the compare page (best in green), one offer (files opened through a signed-in download, shortlist, turn down with an optional reason, choose after a sheet with price · fee · total) and the freelancer's profile. Freelancer app: «the client chose an offer». Admin: the `awarded` status. Built (`assembleDebug` ×2, `npm run build`); not tried on the phone.

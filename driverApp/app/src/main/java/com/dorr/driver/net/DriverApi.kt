@@ -1,5 +1,6 @@
 package com.dorr.driver.net
 
+import retrofit2.http.PATCH
 import com.dorr.core.network.ApiEnvelope
 import com.google.gson.JsonElement
 import com.google.gson.JsonObject
@@ -94,6 +95,10 @@ interface DriverApi {
 
     @POST("driver/v1/onboarding/submit")
     suspend fun submitOnboarding(): Response<ApiEnvelope<OnboardingDto>>
+
+    /** O-64: `{on}` — no vehicle (the vehicle step and its documents are skipped). */
+    @POST("driver/v1/onboarding/no-vehicle")
+    suspend fun noVehicle(@Body body: JsonObject): Response<ApiEnvelope<OnboardingDto>>
 
     @GET("driver/v1/regulator")
     suspend fun regulator(): Response<ApiEnvelope<RegulatorDto>>
@@ -272,6 +277,20 @@ interface DriverApi {
     @POST("driver/v1/scheduled/{uuid}/start")
     suspend fun startScheduled(@Header("Idempotency-Key") key: String, @Path("uuid") uuid: String): Response<ApiEnvelope<TripDto>>
 
+    /** O-03: which map to draw — Google, or Mapbox with its public token and style. */
+    @GET("driver/v1/map-config")
+    suspend fun mapConfig(): Response<ApiEnvelope<MapConfigDto>>
+
+    // O-30: With Me — where I'm going, how far off my road, the riders in the car.
+    @GET("driver/v1/pool")
+    suspend fun pool(): Response<ApiEnvelope<PoolStateDto>>
+
+    @POST("driver/v1/pool")
+    suspend fun openPool(@Body body: JsonObject): Response<ApiEnvelope<PoolStateDto>>
+
+    @DELETE("driver/v1/pool")
+    suspend fun closePool(): Response<ApiEnvelope<PoolStateDto>>
+
     @GET("driver/v1/rides/{uuid}")
     suspend fun ride(@Path("uuid") uuid: String): Response<ApiEnvelope<TripDto>>
 
@@ -305,11 +324,133 @@ interface DriverApi {
     @GET("driver/v1/rides/rating-tags")
     suspend fun ratingTags(): Response<ApiEnvelope<List<TagDto>>>
 
+    /** O-58: where requests come from — the last hour's requests around me, in ~1 km cells. */
+    @GET("driver/v1/demand-heat")
+    suspend fun demandHeat(@retrofit2.http.Query("lat") lat: Double, @retrofit2.http.Query("lng") lng: Double): Response<ApiEnvelope<List<HeatCellDto>>>
+
+    /** O-47: «why don't requests reach me?» — every dispatch condition, passed or not. */
+    @GET("driver/v1/dispatch-check")
+    suspend fun dispatchCheck(): Response<ApiEnvelope<DispatchCheckDto>>
+
+    /** O-09: an in-app voice call with the rider (LiveKit). */
+    @POST("driver/v1/rides/{uuid}/calls")
+    suspend fun startCall(@Path("uuid") uuid: String): Response<ApiEnvelope<TripCallStartDto>>
+
+    @POST("driver/v1/rides/{uuid}/calls/{call}/accept")
+    suspend fun acceptCall(@Path("uuid") uuid: String, @Path("call") call: String): Response<ApiEnvelope<TripCallStartDto>>
+
+    @POST("driver/v1/rides/{uuid}/calls/{call}/end")
+    suspend fun endCall(@Path("uuid") uuid: String, @Path("call") call: String): Response<ApiEnvelope<TripCallDto>>
+
     @GET("driver/v1/rides/{uuid}/messages")
     suspend fun messages(@Path("uuid") uuid: String): Response<ApiEnvelope<ChatDto>>
 
     @POST("driver/v1/rides/{uuid}/messages")
     suspend fun send(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<MessageDto>>
+
+    /** D-304, D-313, D-314, D-316..D-318: settings and the account. */
+    @GET("driver/v1/account/alerts")
+    suspend fun alerts(): Response<ApiEnvelope<AlertsDto>>
+
+    @PUT("driver/v1/account/alerts")
+    suspend fun saveAlerts(@Body body: JsonObject): Response<ApiEnvelope<AlertsDto>>
+
+    @GET("driver/v1/account/devices")
+    suspend fun devices(): Response<ApiEnvelope<List<DeviceDto>>>
+
+    @DELETE("driver/v1/account/devices/{id}")
+    suspend fun forgetDevice(@Path("id") id: Long): Response<ApiEnvelope<List<DeviceDto>>>
+
+    @POST("driver/v1/account/phone")
+    suspend fun startPhoneChange(@Header("X-Wallet-Pin") pin: String?, @Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
+
+    @POST("driver/v1/account/phone/confirm")
+    suspend fun confirmPhoneChange(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
+
+    @GET("driver/v1/account/close")
+    suspend fun closeCheck(): Response<ApiEnvelope<CloseCheckDto>>
+
+    @POST("driver/v1/account/close")
+    suspend fun closeAccount(@Body body: JsonObject): Response<ApiEnvelope<JsonElement>>
+
+    @GET("driver/v1/account/legal")
+    suspend fun legal(): Response<ApiEnvelope<List<LegalDocDto>>>
+
+    @POST("driver/v1/account/legal/accept")
+    suspend fun acceptLegal(@Body body: JsonObject): Response<ApiEnvelope<List<LegalDocDto>>>
+
+    /** D-303: delete a notification, or every read one. */
+    @DELETE("driver/v1/notifications/{id}")
+    suspend fun deleteNotification(@Path("id") id: String): Response<ApiEnvelope<JsonElement>>
+
+    @DELETE("driver/v1/notifications/read")
+    suspend fun clearReadNotifications(): Response<ApiEnvelope<JsonElement>>
+
+    /** D-285..D-293: the help centre, my tickets and their conversations. */
+    @GET("driver/v1/support/help")
+    suspend fun supportHelp(@Query("q") q: String?): Response<ApiEnvelope<SupportHelpDto>>
+
+    @GET("driver/v1/support/tickets")
+    suspend fun supportTickets(): Response<ApiEnvelope<List<SupportTicketDto>>>
+
+    @GET("driver/v1/support/tickets/{id}")
+    suspend fun supportTicket(@Path("id") id: Long): Response<ApiEnvelope<SupportTicketDto>>
+
+    @Multipart
+    @POST("driver/v1/support/tickets")
+    suspend fun openSupportTicket(@PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>, @Part image: MultipartBody.Part?): Response<ApiEnvelope<SupportTicketDto>>
+
+    @PATCH("driver/v1/support/tickets/{id}/status")
+    suspend fun setSupportStatus(@Path("id") id: Long, @Body body: JsonObject): Response<ApiEnvelope<SupportTicketDto>>
+
+    @GET("driver/v1/support/tickets/{id}/messages")
+    suspend fun supportMessages(@Path("id") id: Long): Response<ApiEnvelope<List<SupportMessageDto>>>
+
+    @Multipart
+    @POST("driver/v1/support/tickets/{id}/messages")
+    suspend fun sendSupportMessage(@Path("id") id: Long, @PartMap fields: Map<String, @JvmSuppressWildcards RequestBody>, @Part image: MultipartBody.Part?): Response<ApiEnvelope<JsonElement>>
+
+    /** D-294..D-297: riders' lost items in my car. */
+    @GET("driver/v1/lost-items")
+    suspend fun lostItems(): Response<ApiEnvelope<List<LostItemDto>>>
+
+    @POST("driver/v1/lost-items/{uuid}/answer")
+    suspend fun answerLostItem(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<LostItemDto>>
+
+    @POST("driver/v1/lost-items/{uuid}/messages")
+    suspend fun lostItemMessage(@Path("uuid") uuid: String, @Body body: JsonObject): Response<ApiEnvelope<LostItemDto>>
+
+    @Multipart
+    @POST("driver/v1/lost-items/{uuid}/returned")
+    suspend fun lostItemReturned(@Path("uuid") uuid: String, @Part photo: MultipartBody.Part?): Response<ApiEnvelope<LostItemDto>>
+
+    /** D-216..D-224: my payout safeguards; D-227, D-228: monthly statements. */
+    @GET("driver/v1/payouts/status")
+    suspend fun payoutStatus(): Response<ApiEnvelope<PayoutStatusDto>>
+
+    @POST("driver/v1/payouts/international")
+    suspend fun requestInternationalPayouts(@Body body: JsonObject): Response<ApiEnvelope<PayoutStatusDto>>
+
+    @GET("driver/v1/invoices")
+    suspend fun invoices(): Response<ApiEnvelope<List<InvoiceDto>>>
+
+    @GET("driver/v1/invoices/{month}")
+    suspend fun invoice(@Path("month") month: String): Response<ApiEnvelope<InvoiceDto>>
+
+    /** D-299: no sign-in — a code to the number, then the freeze. */
+    @POST("driver/v1/emergency/freeze/request")
+    suspend fun emergencyFreezeRequest(@Body body: JsonObject): Response<ApiEnvelope<JsonObject>>
+
+    @POST("driver/v1/emergency/freeze/confirm")
+    suspend fun emergencyFreezeConfirm(@Body body: JsonObject): Response<ApiEnvelope<JsonObject>>
+
+    /** D-5, D-6, D-239..D-259: my rank, my numbers, my record. */
+    @GET("driver/v1/rank")
+    suspend fun rank(): Response<ApiEnvelope<RankInfoDto>>
+
+    /** `{text}` — one appeal on a note / warning / rank change. */
+    @POST("driver/v1/rank/notes/{id}/appeal")
+    suspend fun appealNote(@Path("id") id: Long, @Body body: JsonObject): Response<ApiEnvelope<PerformanceNoteDto>>
 
     @GET("driver/v1/earnings")
     suspend fun earnings(): Response<ApiEnvelope<EarningsDto>>

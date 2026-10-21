@@ -40,7 +40,7 @@ class RideAdminController extends Controller implements HasMiddleware
     public static function middleware(): array
     {
         return AdminPermissionMiddleware::fromActionMethodMap('rides', [
-            ['view', ['index', 'show']],
+            ['view', ['index', 'show', 'heatMap', 'driversMap']],
             ['update', ['waslRetry']],
         ]);
     }
@@ -52,12 +52,13 @@ class RideAdminController extends Controller implements HasMiddleware
             'status' => ['nullable', Rule::enum(RideStatus::class)],
             'wasl_status' => ['nullable', Rule::enum(WaslTripStatus::class)],
             'payment_method' => ['nullable', 'in:wallet,card,cash'],
+            'category_id' => ['nullable', 'integer'],
             'from' => ['nullable', 'date'],
             'to' => ['nullable', 'date'],
             'per_page' => ['nullable', 'integer', 'between:5,100'],
         ]);
         $page = Ride::query()
-            ->with(['rider:id,name,phone', 'driver:id,name,phone', 'category.translations', 'currency'])
+            ->with(['rider', 'driver', 'category.translations', 'currency'])
             ->when($filters['search'] ?? null, function ($q, string $s) {
                 $like = '%'.$s.'%';
                 $q->where(fn ($q) => $q->where('number', 'like', $like)
@@ -67,6 +68,7 @@ class RideAdminController extends Controller implements HasMiddleware
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['wasl_status'] ?? null, fn ($q, $v) => $q->where('wasl_status', $v))
             ->when($filters['payment_method'] ?? null, fn ($q, $v) => $q->where('payment_method', $v))
+            ->when($filters['category_id'] ?? null, fn ($q, $v) => $q->where('category_id', $v))
             ->when($filters['from'] ?? null, fn ($q, $v) => $q->where('requested_at', '>=', $v))
             ->when($filters['to'] ?? null, fn ($q, $v) => $q->where('requested_at', '<=', $v.' 23:59:59'))
             ->latest('id')
@@ -78,8 +80,14 @@ class RideAdminController extends Controller implements HasMiddleware
             'number' => $r->number,
             'status' => $r->status->value,
             'category' => $r->category?->translated('name'),
-            'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'phone' => $r->rider->phone] : null,
-            'driver' => $r->driver ? ['id' => $r->driver->id, 'name' => $r->driver->name, 'phone' => $r->driver->phone] : null,
+            // O-06 (LeeTaxi's list): the category's colour, the faces, the plate, and the points for the map.
+            'category_color' => $r->category?->color,
+            'rider' => $r->rider ? ['id' => $r->rider->id, 'name' => $r->rider->name, 'phone' => $r->rider->phone, 'avatar' => rescue(fn () => $r->rider->getSingleMediaUrl('avatar'), null, false) ?: null] : null,
+            'driver' => $r->driver ? ['id' => $r->driver->id, 'name' => $r->driver->name, 'phone' => $r->driver->phone, 'avatar' => rescue(fn () => $r->driver->getFirstMediaUrl('avatar'), null, false) ?: null] : null,
+            'plate' => trim(($r->vehicle_snapshot['plate_letters'] ?? '').' '.($r->vehicle_snapshot['plate_number'] ?? '')) ?: null,
+            'origin' => ['lat' => (float) $r->origin_lat, 'lng' => (float) $r->origin_lng],
+            'destination' => $r->destination_lat === null ? null : ['lat' => (float) $r->destination_lat, 'lng' => (float) $r->destination_lng],
+            'polyline' => $r->planned_polyline,
             'origin_address' => $r->origin_address,
             'destination_address' => $r->destination_address,
             'payment_method' => $r->payment_method->value,
@@ -91,6 +99,56 @@ class RideAdminController extends Controller implements HasMiddleware
             'requested_at' => $r->requested_at?->toIso8601String(),
             'scheduled_at' => $r->scheduled_at?->toIso8601String(),
         ])->values(), __('api.retrieved'));
+    }
+
+    /**
+     * O-08 (LeeTaxi's heat map): where rides are asked for — every ride of the last `days`, and the ones
+     * waiting for a captain now — with the admin map's Mapbox token.
+     */
+    public function heatMap(Request $request): JsonResponse
+    {
+        $days = (int) ($request->validate(['days' => ['nullable', 'integer', 'between:1,365']])['days'] ?? 30);
+        $points = fn ($q) => $q->limit(5000)->get(['origin_lat', 'origin_lng'])->map(fn (Ride $r) => [(float) $r->origin_lat, (float) $r->origin_lng])->values();
+
+        return ApiResponse::success([
+            'map' => $this->mapSettings(),
+            'all' => $points(Ride::query()->where('requested_at', '>=', now()->subDays(max(1, $days)))),
+            'pending' => $points(Ride::query()->whereIn('status', [RideStatus::Searching->value, RideStatus::Bidding->value, RideStatus::AwaitingPayment->value])),
+        ], __('api.retrieved'));
+    }
+
+    /** O-07 (Jawad's drivers map): every captain online or on a ride, where they are, with what the popup shows. */
+    public function driversMap(): JsonResponse
+    {
+        $presences = \Modules\Driver\Models\DriverPresence::query()
+            ->whereIn('status', [\Modules\Driver\Enums\PresenceStatus::Online->value, \Modules\Driver\Enums\PresenceStatus::OnTrip->value, \Modules\Driver\Enums\PresenceStatus::Paused->value])
+            ->whereNotNull('lat')->with('driver')->limit(2000)->get();
+        $ratings = \Modules\Rides\Models\DriverRideProfile::query()->whereIn('driver_id', $presences->pluck('driver_id'))->get()->keyBy('driver_id');
+
+        return ApiResponse::success([
+            'map' => $this->mapSettings(),
+            'drivers' => $presences->map(fn ($p) => [
+                'id' => $p->driver_id,
+                'name' => $p->driver?->name,
+                'phone' => $p->driver?->phone,
+                'avatar' => rescue(fn () => $p->driver?->getFirstMediaUrl('avatar'), null, false) ?: null,
+                'status' => $p->status->value,
+                'lat' => (float) $p->lat,
+                'lng' => (float) $p->lng,
+                'heading' => $p->heading ?? null,
+                'rating' => ($r = $ratings[$p->driver_id] ?? null) !== null && $r->rating_count > 0 ? round((float) $r->rating_avg, 1) : null,
+                'trips' => (int) ($ratings[$p->driver_id]->trips_count ?? 0),
+                'last_seen_at' => $p->last_seen_at?->toIso8601String(),
+            ])->values(),
+        ], __('api.retrieved'));
+    }
+
+    /** @return array<string, mixed> the admin's maps draw with Mapbox GL (like LeeTaxi) — its public token and style */
+    private function mapSettings(): array
+    {
+        $settings = \Modules\Rides\Models\RideSetting::current();
+
+        return ['mapbox_token' => $settings->mapboxToken() ?: null, 'mapbox_style' => $settings->mapbox_style ?: 'mapbox/streets-v12'];
     }
 
     public function show(int $ride): JsonResponse

@@ -391,30 +391,23 @@ class RidesFoundationTest extends TestCase
         $this->putJson('/api/admin/v1/ride-settings', ['fallback_road_factor_bp' => 5000])->assertStatus(422);
     }
 
-    public function test_when_google_refuses_the_free_map_answers_and_google_is_left_alone_for_a_while(): void
+    public function test_when_google_refuses_the_estimate_answers_and_google_is_left_alone_for_a_while(): void
     {
-        config(['rides.google.key' => 'spent-key', 'rides.osm.enabled' => true]);
+        config(['rides.google.key' => 'spent-key']);
         Http::fake([
             'routes.googleapis.com/*' => Http::response(['error' => ['status' => 'RESOURCE_EXHAUSTED', 'message' => 'Quota exceeded for quota metric']], 429),
-            'router.project-osrm.org/*' => Http::response(['code' => 'Ok', 'routes' => [[
-                'distance' => 5234.6, 'duration' => 611.2, 'geometry' => '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
-                'legs' => [['distance' => 5234.6, 'duration' => 611.2]],
-            ]]]),
+            '*' => Http::response('unexpected', 500),
         ]);
         $geo = app(GeoProvider::class);
 
-        // Google says "quota": the free road route answers (a real route, not the straight-line guess).
+        // O-01: no free map any more — Google says "quota": the straight-line estimate answers.
         $route = $geo->route(24.70, 46.70, 24.80, 46.75);
-        $this->assertFalse($route->estimated);
-        $this->assertSame(5235, $route->distanceM);
-        $this->assertSame(611, $route->durationS);
-        $this->assertSame('_p~iF~ps|U_ulLnnqC_mqNvxq`@', $route->polyline);
+        $this->assertTrue($route->estimated);
         $this->assertSame('quota', GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES));
 
-        // …and the next ride doesn't ask Google at all.
+        // …and the next ride doesn't ask Google at all, nor anyone else.
         $geo->route(24.71, 46.71, 24.81, 46.76);
-        Http::assertSentCount(3); // Google once, the free map twice
-        $this->assertCount(1, Http::recorded(fn ($request) => str_contains($request->url(), 'routes.googleapis.com')));
+        Http::assertSentCount(1);
 
         // A new key (or a passed check) takes Google off the pause at once.
         GoogleGeoProvider::resume();
@@ -422,24 +415,27 @@ class RidesFoundationTest extends TestCase
         $this->assertCount(2, Http::recorded(fn ($request) => str_contains($request->url(), 'routes.googleapis.com')));
     }
 
-    public function test_the_free_map_names_the_city_when_google_cannot_and_the_estimate_is_the_last_resort(): void
+    public function test_with_mapbox_chosen_in_the_admin_routes_and_city_names_come_from_mapbox(): void
     {
-        config(['rides.google.key' => 'spent-key', 'rides.osm.enabled' => true]);
+        \Modules\Rides\Models\RideSetting::current()->fill(['map_provider' => 'mapbox', 'mapbox_token' => 'pk.test'])->save();
         Http::fake([
-            'maps.googleapis.com/maps/api/geocode/*' => Http::response(['status' => 'OVER_QUERY_LIMIT', 'error_message' => 'You have exceeded your daily request quota for this API.']),
-            'nominatim.openstreetmap.org/*' => Http::response(['address' => ['town' => 'جدة', 'state' => 'مكة المكرمة']]),
-            'routes.googleapis.com/*' => Http::response(['error' => ['status' => 'PERMISSION_DENIED', 'message' => 'Routes API has not been used in project 1 before or it is disabled.']], 403),
-            'router.project-osrm.org/*' => Http::response('Bad gateway', 502),
+            'api.mapbox.com/directions/*' => Http::response(['code' => 'Ok', 'routes' => [[
+                'distance' => 5234.6, 'duration' => 611.2, 'geometry' => '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+                'legs' => [['distance' => 5234.6, 'duration' => 611.2]],
+            ]]]),
+            'api.mapbox.com/geocoding/*' => Http::response(['features' => [['text' => 'جدة']]]),
+            '*' => Http::response('unexpected', 500),
         ]);
         $geo = app(GeoProvider::class);
 
+        // O-02: Mapbox only — Google isn't asked.
+        $route = $geo->route(24.70, 46.70, 24.80, 46.75);
+        $this->assertFalse($route->estimated);
+        $this->assertSame(5235, $route->distanceM);
+        $this->assertSame('_p~iF~ps|U_ulLnnqC_mqNvxq`@', $route->polyline);
         $this->assertSame('جدة', $geo->cityName(21.49, 39.19));
-        $this->assertSame('quota', GoogleGeoProvider::paused(GoogleGeoProvider::GEOCODING));
-
-        // Google refused and the free route server is down: the straight-line estimate, never nothing.
-        $route = $geo->route(24.70, 46.70, 24.80, 46.70);
-        $this->assertTrue($route->estimated);
-        $this->assertSame('api_disabled', GoogleGeoProvider::paused(GoogleGeoProvider::ROUTES));
+        $this->assertCount(0, Http::recorded(fn ($request) => str_contains($request->url(), 'googleapis.com')));
+        $this->assertTrue(Http::recorded(fn ($request) => str_contains($request->url(), 'access_token=pk.test'))->isNotEmpty());
     }
 
     public function test_the_key_check_tells_what_is_wrong_per_api_and_clears_the_pause_when_all_is_well(): void

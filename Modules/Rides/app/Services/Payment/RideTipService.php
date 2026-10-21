@@ -90,7 +90,8 @@ class RideTipService
             }
 
             $riderWallet = $this->payments->riderWallet($ride)->fresh();
-            $available = max(0, $riderWallet->availableMinor(WalletBucket::Withdrawable));
+            // Paid spend-only first, then withdrawable (O-38f) — so both count.
+            $available = $this->payments->available($riderWallet);
             if ($available < $amountMinor) {
                 throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amountMinor - $available]);
             }
@@ -106,7 +107,7 @@ class RideTipService
                 'operation_id' => $operation,
                 'counterparty_wallet_id' => $counterparty,
             ];
-            $this->wallets->debit($riderWallet, $amountMinor, WalletBucket::Withdrawable, WalletTransactionType::Tip, $meta('rider', $driverWallet->id));
+            $this->wallets->debitSpendOnlyFirst($riderWallet, $amountMinor, WalletTransactionType::Tip, $meta('rider', $driverWallet->id));
             $credit = $this->wallets->credit($driverWallet, $amountMinor, WalletBucket::Withdrawable, WalletTransactionType::Tip, $meta('driver', $riderWallet->id));
 
             RideSettlementItem::query()->create([

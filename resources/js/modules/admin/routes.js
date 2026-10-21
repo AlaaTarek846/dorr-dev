@@ -669,6 +669,18 @@ export default [
                 meta: { middleware: [auth], permission: 'wasl-logs.view' },
             },
             {
+                path: 'rides/ranks',
+                name: 'admin.rides.ranks',
+                component: page('rides/ranks/index'),
+                meta: { middleware: [auth], permission: 'driver-ranks.view' },
+            },
+            {
+                path: 'rides/loyalty',
+                name: 'admin.rides.loyalty',
+                component: page('rides/loyalty/index'),
+                meta: { middleware: [auth], permission: 'ride-loyalty.view' },
+            },
+            {
                 path: 'rides/lists',
                 name: 'admin.rides.lists',
                 component: page('rides/lists/index'),

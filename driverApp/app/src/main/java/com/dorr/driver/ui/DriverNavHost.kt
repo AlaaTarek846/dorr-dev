@@ -8,7 +8,9 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
@@ -25,6 +27,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.padding
+import androidx.compose.ui.unit.dp
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -77,6 +83,38 @@ fun DriverNavHost() {
     }
 
     val route = nav.currentBackStackEntryAsState().value?.destination?.route
+
+    /** A tapped notification (the list or a push) opens what it's about — the trip / listing itself when it names one. */
+    fun openFor(event: String, data: (String) -> String?) {
+        fun id(key: String) = data(key)?.takeIf { it.isNotBlank() && it != "null" }
+        when {
+            event.startsWith("wallet") || event.contains("earning") -> nav.navigate("wallet") { popUpTo("home") { saveState = true }; launchSingleTop = true; restoreState = true }
+            event.contains("safety") || event.contains("contact") -> nav.navigate("safety")
+            event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
+            event.startsWith("bus.") -> id("trip_uuid")?.let { nav.navigate("bus/$it") } ?: nav.navigate("bus")
+            event.startsWith("marine.") -> id("listing_uuid")?.let { nav.navigate("marine/$it") } ?: nav.navigate("marine")
+            event.startsWith("hire.") -> nav.navigate("hire")
+            event.startsWith("lesson.") -> nav.navigate("lessons")
+            event == "driver.rank" || event == "driver.note" || event == "driver.appeal" -> nav.navigate("rank")
+            event.startsWith("support.") -> nav.navigate("support")
+            event.startsWith("lost.") -> nav.navigate("lost")
+            event.startsWith("driver.") -> nav.navigate("signup")
+            event.startsWith("ride.zone_") -> nav.navigate("airport")
+            event.startsWith("ride.case_") -> nav.navigate("cases")
+            event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")
+        }
+    }
+    val tapped by com.dorr.driver.live.DriverPush.tapped.collectAsState()
+    // D-214, D-298: «not me» on a wallet transaction opens a support ticket about it.
+    val supportPrefill by SupportPrefill.open.collectAsState()
+    LaunchedEffect(supportPrefill) { if (supportPrefill != null && route != "support") nav.navigate("support") }
+    LaunchedEffect(tapped, route) {
+        val (event, data) = tapped ?: return@LaunchedEffect
+        // After the splash has decided where to start.
+        if (route == null || route == "splash" || route == "login" || !DriverBackend.session.isSignedIn) return@LaunchedEffect
+        com.dorr.driver.live.DriverPush.tapped.value = null
+        runCatching { openFor(event) { data[it] } }
+    }
 
     fun goTab(to: String) {
         nav.navigate(to) {
@@ -150,7 +188,11 @@ fun DriverNavHost() {
                         )
                     }
                     composable("earnings") { EarningsScreen(onBack = null) }
-                    composable("wallet") { WalletScreen(onBack = null) }
+                    // O-35: the DORR app's wallet, the same in every detail (PIN, recovery, settings, top-up) — plus withdrawing.
+                    composable("wallet") {
+                        // O-46: the wallet (copied from the DORR app, where its host keeps it under the status bar) starts below it here too.
+                        Box(Modifier.fillMaxSize().background(com.dorr.driver.wallet.Wa.Bg).statusBarsPadding()) { com.dorr.driver.wallet.WalletScreen(onExit = { goTab("home") }) }
+                    }
                     composable("account") {
                         AccountScreen(
                             onOpenSignup = { nav.navigate("signup") },
@@ -161,22 +203,40 @@ fun DriverNavHost() {
                             onOpenSafety = { nav.navigate("safety") },
                             onOpenNotifications = { nav.navigate("notifications") },
                             onSignedOut = { nav.navigate("login") { popUpTo(0) { inclusive = true } } },
+                            onOpenBus = { nav.navigate("bus") },
+                            onOpenWithMe = { nav.navigate("withme") },
+                            onOpenMarine = { nav.navigate("marine") },
+                            onOpenHire = { nav.navigate("hire") },
+                            onOpenLessons = { nav.navigate("lessons") },
+                            onOpenRank = { nav.navigate("rank") },
+                            onOpenSupport = { nav.navigate("support") },
+                            onOpenSettings = { nav.navigate("settings") },
                         )
+                    }
+                    composable("rank") { RankScreen(onBack = { nav.popBackStack() }) }
+                    composable("settings") { SettingsScreen(onBack = { nav.popBackStack() }, onClosed = { DriverBackend.session.clear(); nav.navigate("login") { popUpTo(0) { inclusive = true } } }) }
+                    composable("support") { SupportScreen(onBack = { nav.popBackStack() }, onLostItems = { nav.navigate("lost") }) }
+                    composable("lost") { LostItemsScreen(onBack = { nav.popBackStack() }) }
+                    composable("withme") { WithMeScreen(onBack = { nav.popBackStack() }, onOpenRide = { nav.navigate("trip/$it") }) }
+                    composable("trip/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+                        TripScreen(onDone = { nav.popBackStack() }, rideUuid = entry.arguments?.getString("uuid"))
+                    }
+                    composable("hire") { HireJobsScreen(onBack = { nav.popBackStack() }) }
+                    composable("lessons") { TrainerScreen(onBack = { nav.popBackStack() }) }
+                    composable("marine") { MarineListingsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("marine/$it") }) }
+                    composable("marine/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+                        MarineListingScreen(entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() })
+                    }
+                    composable("bus") { BusTripsScreen(onBack = { nav.popBackStack() }, onOpen = { nav.navigate("bus/$it") }) }
+                    composable("bus/{uuid}", arguments = listOf(navArgument("uuid") { type = NavType.StringType })) { entry ->
+                        BusTripDetailScreen(entry.arguments?.getString("uuid").orEmpty(), onBack = { nav.popBackStack() })
                     }
                     composable("signup") { SignupScreen(onBack = { nav.popBackStack() }) }
                     composable("trip") { TripScreen(onDone = { nav.popBackStack("home", inclusive = false) }) }
                     composable("notifications") {
                         NotificationsScreen(onBack = { nav.popBackStack() }, onOpen = { n ->
                             // A tap goes where the notification is about.
-                            val event = n.event.orEmpty()
-                            when {
-                                event.startsWith("wallet") || event.contains("earnings") -> goTab("wallet")
-                                event.contains("safety") || event.contains("contact") -> nav.navigate("safety")
-                                event.startsWith("ride.scheduled") -> nav.navigate("scheduled")
-                                event.startsWith("ride.zone_") -> nav.navigate("airport")
-                                event.startsWith("ride.case_") -> nav.navigate("cases")
-                                event.startsWith("ride.") && Duty.onTrip.value -> nav.navigate("trip")
-                            }
+                            openFor(n.event.orEmpty()) { k -> n.data?.get(k)?.takeIf { it.isJsonPrimitive }?.asString }
                         })
                     }
                     composable("safety") { SafetyCenterScreen(onBack = { nav.popBackStack() }) }
@@ -199,6 +259,10 @@ fun DriverNavHost() {
             }
         }
 
-        if (DriverBackend.session.isSignedIn) OfferOverlay(onAccepted = { nav.navigate("trip") })
+        if (DriverBackend.session.isSignedIn) {
+            // O-36: the requests put aside wait behind this icon (with how many), above every screen.
+            OffersInboxButton(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 18.dp, bottom = 96.dp))
+            OfferOverlay(onAccepted = { nav.navigate("trip") })
+        }
     }
 }

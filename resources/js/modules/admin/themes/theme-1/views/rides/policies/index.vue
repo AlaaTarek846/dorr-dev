@@ -113,7 +113,7 @@ const inherited = ref({});
 const loading = ref(false);
 const saving = ref(false);
 const defaults = computed(() => options.defaults);
-const choices = { pricing_mode: ['upfront', 'metered'], 'price.commission_type': ['percent', 'fixed'], 'gps_gap.strategy': ['route', 'straight'], 'queue.entry': ['auto', 'manual'] };
+const choices = { pricing_mode: ['upfront', 'metered'], 'price.commission_type': ['percent', 'fixed'], 'gps_gap.strategy': ['route', 'straight'], 'queue.entry': ['auto', 'manual'], 'with_me.split': ['proportional', 'equal'] };
 
 const cities = computed(() => options.cities.filter((c) => c.country_id === scope.country_id));
 const zonesOfCountry = computed(() => options.zones.filter((z) => z.country_id === scope.country_id));

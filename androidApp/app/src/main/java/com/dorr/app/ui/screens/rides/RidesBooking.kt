@@ -36,8 +36,10 @@ import androidx.compose.material.icons.rounded.LocationOn
 import androidx.compose.material.icons.rounded.Map
 import androidx.compose.material.icons.rounded.MyLocation
 import androidx.compose.material.icons.rounded.Payments
+import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,10 +77,9 @@ import com.dorr.app.ui.screens.profile.settingsMut
 import com.dorr.app.ui.screens.wallet.CheckoutLauncher
 import com.dorr.app.ui.screens.wallet.CheckoutRequest
 import com.dorr.app.ui.theme.AppColors
-import com.google.android.gms.maps.CameraUpdateFactory
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
-import com.google.maps.android.compose.CameraPositionState
+import com.dorr.app.map.DorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -111,33 +112,14 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
                 Spacer(Modifier.height(10.dp))
             }
         }
-        // Pickup: where the pin is now; a tap opens the search.
-        DorrTextField(
-            value = state.pickup?.address.orEmpty(), onValueChange = {},
-            placeholder = stringResource(R.string.rd_moving_pin), icon = Icons.Rounded.MyLocation,
-            onClick = {
-                state.editing = "pickup"
-                state.step = RideStep.Search
-            },
-            minHeight = 48.dp, modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(10.dp))
-        // Where to?
-        DorrTextField(
-            value = "", onValueChange = {},
-            placeholder = stringResource(R.string.rd_where_to), icon = Icons.Rounded.Search,
-            onClick = {
-                state.editing = "destination"
-                state.step = RideStep.Search
-            },
-            minHeight = 56.dp, textStyle = androidx.compose.material3.MaterialTheme.typography.titleMedium,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        // O-51: from → to as one card (the pickup's address on top, «Where to?» as the big target).
+        RouteCard(state)
         if (state.feature("saved_places")) SavedPlacesRow(state)
         if (state.feature("scheduled")) {
             Spacer(Modifier.height(10.dp))
             WhenChips(state)
         }
+
         if (state.feature("open_destination")) {
             Spacer(Modifier.height(10.dp))
             Row(
@@ -167,7 +149,7 @@ internal fun WhereToPanel(state: RidesState, hasLocation: Boolean, onAskLocation
 
 /** Typing a place: pickup, destination and stops, with the phone geocoder's suggestions. */
 @Composable
-internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
+internal fun PlaceSearchPage(state: RidesState, camera: DorrCamera) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var query by remember(state.editing) { mutableStateOf("") }
@@ -176,9 +158,12 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
     val focus = remember { FocusRequester() }
     val maxStops = 3
 
+    // O-57: the popular places around (before typing), then suggestions from the second letter.
+    var popular by remember { mutableStateOf<List<RidePoint>>(emptyList()) }
+    LaunchedEffect(Unit) { popular = popularPlaces(state.me ?: state.pickup?.latLng) }
     LaunchedEffect(query) {
-        if (query.trim().length < 3) { results = emptyList(); return@LaunchedEffect }
-        delay(350)
+        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
+        delay(250)
         searching = true
         results = searchPlaces(context, query, state.me ?: state.pickup?.latLng)
         searching = false
@@ -237,7 +222,7 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable {
                         state.step = RideStep.PickOnMap
                         val start = when (state.editing) { "pickup" -> state.pickup; "destination" -> state.destination; else -> null }?.latLng ?: state.pickup?.latLng
-                        start?.let { scope.launch { camera.animate(CameraUpdateFactory.newLatLngZoom(it, 16f)) } }
+                        start?.let { scope.launch { camera.animate(it, 16f) } }
                     }.padding(vertical = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -246,15 +231,22 @@ internal fun PlaceSearchPage(state: RidesState, camera: CameraPositionState) {
                     Text(stringResource(R.string.rd_pick_on_map), color = settingsAccent(), fontWeight = FontWeight.SemiBold)
                 }
             }
-            if (query.trim().length in 1..2) item { Text(stringResource(R.string.rd_search_min), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp)) }
-            if (query.trim().length >= 3 && !searching && results.isEmpty()) item { Text(stringResource(R.string.rd_no_results), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp)) }
-            items(results) { place ->
-                Row(Modifier.fillMaxWidth().clickable { picked(place) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(34.dp).clip(CircleShape).background(settingsCard()), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.LocationOn, null, tint = settingsMut(), modifier = Modifier.size(18.dp))
+            if (query.trim().length >= 2 && !searching && results.isEmpty()) item { Text(stringResource(R.string.rd_no_results), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp)) }
+            // O-57: nothing typed yet — the popular places around.
+            val shown = if (query.trim().length < 2) popular else results
+            if (query.trim().length < 2 && popular.isNotEmpty()) item {
+                Text(stringResource(R.string.rd_popular_near), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+            }
+            items(shown) { place ->
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { picked(place) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                        Icon(if (query.trim().length < 2) Icons.Rounded.Star else Icons.Rounded.LocationOn, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text(place.address, color = settingsInk(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Column(Modifier.weight(1f)) {
+                        Text(place.name ?: place.address, color = settingsInk(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (place.name != null && place.name != place.address) Text(place.address, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
@@ -320,11 +312,16 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
             state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json().apply { state.dropoffPointId?.let { id -> addProperty("point_id", id) } }) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
             state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
+            // R-233..R-237, R-NEW-06: the add-ons chosen.
+            if (!state.addons.isEmpty) add("options", state.addons.json())
+            // O-17: by the hour — only that category, priced hours × its hour price.
+            state.hourlyHours?.let { h -> addProperty("hours", h); state.hourlySlug?.let { addProperty("category", it) } }
         }
         val keep = state.selected?.category?.slug
         runCatching { ApiClient.rides.quotes(ridesAuth(), body).data.orEmpty() }
             .onSuccess { list ->
                 state.quotes = list
+                state.addonsApplied = state.addons
                 // The same category stays chosen after a promo code re-prices the list.
                 state.selected = list.firstOrNull { it.category.slug == keep } ?: list.firstOrNull()
                 state.riderPrice = state.selected?.bid?.suggestedMinor
@@ -340,6 +337,14 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
                     loadQuotes(state, reprice = true)
                     return@launch
                 }
+                // An add-on nothing here can take (the bags, the seats…): say why on the row, go back to the last good choice.
+                if (failure.errorCode?.startsWith("rides_addons_") == true && !state.addons.isEmpty) {
+                    state.addonsError = failure.message
+                    state.addons = state.addonsApplied
+                    state.busy = false
+                    loadQuotes(state, reprice = true)
+                    return@launch
+                }
                 state.error = failure.message
             }
         state.busy = false
@@ -348,7 +353,7 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
 
 /** The prices: one card per category, how to pay, and the button. */
 @Composable
-internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
+internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
     val scope = rememberCoroutineScope()
     val minute = stringResource(R.string.rd_minutes)
     val hour = stringResource(R.string.rd_hours)
@@ -366,6 +371,8 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
                 addProperty("quote_uuid", quote.uuid)
                 addProperty("fingerprint", quote.fingerprint)
                 addProperty("payment_method", state.payment)
+                if (state.payment == "cash" && state.useWallet && quote.walletAvailableMinor > 0) addProperty("use_wallet", true)
+                if (quote.category.slug == "with_me") addProperty("share_with", state.shareWith)
                 if (quote.bid != null) addProperty("rider_price_minor", state.riderPrice ?: quote.bid.suggestedMinor)
                 state.scheduledAt?.let { addProperty("scheduled_at", it.toOffsetDateTime().toString()) }
                 addProperty("passengers", state.passengers)
@@ -422,17 +429,17 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
         state.selected?.bid?.let { bid ->
             BidPriceEditor(state.riderPrice ?: bid.suggestedMinor, bid.floorMinor, bid.suggestedMinor, bid.stepMinor, state.selected?.currency) { state.riderPrice = it }
         }
+        // O-17: motorcycles (and any category the admin opens by the hour): by the distance or by the hour.
+        state.selected?.takeIf { it.hourlyOffer != null }?.let { HourlyRow(state, it) }
 
         state.selected?.let { quote ->
             Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.rd_pay_with), color = settingsMut(), fontSize = 12.sp)
-            Spacer(Modifier.height(6.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                val fee = { m: String -> quote.paymentFee(m).takeIf { it > 0 }?.let { "+" + money(it, quote.currency) } }
-                if (state.feature("wallet")) PayChip(Icons.Rounded.AccountBalanceWallet, stringResource(R.string.rd_pay_wallet), state.payment == "wallet", Modifier.weight(1f), fee("wallet")) { state.payment = "wallet" }
-                if (state.feature("card")) PayChip(Icons.Rounded.CreditCard, stringResource(R.string.rd_pay_card), state.payment == "card", Modifier.weight(1f), fee("card")) { state.payment = "card" }
-                if (state.feature("cash") && quote.category.cashAllowed != false) PayChip(Icons.Rounded.Payments, stringResource(R.string.rd_pay_cash), state.payment == "cash", Modifier.weight(1f), fee("cash")) { state.payment = "cash" }
-            }
+            // O-30..O-33: With Me — who may share the car with me, and what sharing means.
+            if (quote.category.slug == "with_me") ShareWithRow(state)
+            // O-37, O-38a, O-38b: one row — how I pay and the coupon — opening a sheet to change either, any time.
+            PaymentRow(state, quote)
+            // R-233..R-237, R-NEW-06: Wait & Save / priority, child seats, a pet, a service animal, bags.
+            AddonsRow(state, quote)
             Spacer(Modifier.height(6.dp))
             // R-5, R-174: keep this destination as Home, Work or a favourite.
             if (state.feature("saved_places")) SaveDestinationRow(state)
@@ -442,8 +449,7 @@ internal fun QuotesPanel(state: RidesState, camera: CameraPositionState) {
             if (state.feature("book_for_other")) BookForOtherRow(state)
             // R-INN-07: ask my favourite captains first.
             if (state.feature("favorite_circle")) CircleRow(state)
-            // Wireflow م11 / م12: the promo code, every line of the price, and the rules it comes with.
-            PromoCodeRow(state)
+            // Wireflow م11 / م12: every line of the price, and the rules it comes with (the code is in the payment sheet).
             PriceDetails(quote, state.payment)
             PolicySummary(quote, state.payment)
             // R-179: the terms in force for this booking, one tap away before confirming.

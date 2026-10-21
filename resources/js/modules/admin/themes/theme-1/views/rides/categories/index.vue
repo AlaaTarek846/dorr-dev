@@ -32,10 +32,14 @@
         <WalletModal :show="!!form" :title="form ? (form.names.ar || form.slug) : ''" @close="form = null">
             <template v-if="form">
                 <div class="row g-3">
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.document_types.name_ar') }}</label><input v-model="form.names.ar" class="form-control" dir="rtl"></div>
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.document_types.name_en') }}</label><input v-model="form.names.en" class="form-control" dir="ltr"></div>
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.categories.tagline_ar') }}</label><input v-model="form.taglines.ar" class="form-control" dir="rtl"></div>
-                    <div class="col-md-6"><label class="form-label">{{ t('rides.categories.tagline_en') }}</label><input v-model="form.taglines.en" class="form-control" dir="ltr"></div>
+                    <div class="col-12">
+                        <RideLangFields v-slot="{ locale, dir }" :required="[form.names]">
+                            <div class="row g-3">
+                                <div class="col-md-6"><label class="form-label">{{ t('rides.lang.name') }} *</label><input v-model="form.names[locale]" class="form-control" :dir="dir"></div>
+                                <div class="col-md-6"><label class="form-label">{{ t('rides.lang.tagline') }}</label><input v-model="form.taglines[locale]" class="form-control" :dir="dir"></div>
+                            </div>
+                        </RideLangFields>
+                    </div>
                     <div class="col-md-3"><label class="form-label">{{ t('rides.categories.color') }}</label><input v-model="form.color" type="color" class="form-control form-control-color w-100"></div>
                     <div class="col-md-3"><label class="form-label">{{ t('rides.categories.capacity_min') }}</label><input v-model.number="form.capacity_min" type="number" min="1" class="form-control"></div>
                     <div class="col-md-3"><label class="form-label">{{ t('rides.categories.capacity_max') }}</label><input v-model.number="form.capacity_max" type="number" min="1" class="form-control"></div>
@@ -55,6 +59,12 @@
                             <option :value="null">—</option><option value="male">{{ t('rides.gender.male') }}</option><option value="female">{{ t('rides.gender.female') }}</option>
                         </select>
                     </div>
+                    <div class="col-md-4">
+                        <label class="form-label">{{ t('rides.categories.min_rank') }}</label>
+                        <select v-model="form.eligibility.min_rank" class="form-select">
+                            <option :value="null">—</option><option v-for="r in ranks" :key="r.slug" :value="r.slug">{{ r.name?.[locale] || r.name?.ar || r.slug }}</option>
+                        </select>
+                    </div>
                     <div class="col-12 form-check form-switch ms-2"><input id="lux" v-model="form.eligibility.luxury_only" class="form-check-input" type="checkbox"><label class="form-check-label" for="lux">{{ t('rides.categories.luxury_only') }}</label></div>
                 </div>
             </template>
@@ -67,6 +77,7 @@
 </template>
 
 <script setup>
+import RideLangFields from '../RideLangFields.vue';
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import adminAxios from '../../../../../../../api/adminAxios';
@@ -83,6 +94,8 @@ const rows = ref([]);
 const flags = ref([]);
 const form = ref(null);
 const saving = ref(false);
+// D-254: the captain ranks a category can ask for.
+const ranks = ref([]);
 
 const onFlags = (c) => Object.entries(c.flags ?? {}).filter(([, v]) => v).map(([k]) => k);
 
@@ -91,7 +104,7 @@ function open(c) {
     form.value = {
         id: c.id, slug: c.slug, names: { ar: c.names?.ar ?? '', en: c.names?.en ?? '' }, taglines: { ar: c.taglines?.ar ?? '', en: c.taglines?.en ?? '' },
         color: c.color || '#001B53', capacity_min: c.capacity_min, capacity_max: c.capacity_max, status: c.status, sort_order: c.sort_order,
-        flags: { ...c.flags }, eligibility: { min_year: e.min_year ?? null, min_seats: e.min_seats ?? null, driver_gender: e.driver_gender ?? null, luxury_only: !!e.luxury_only },
+        flags: { ...c.flags }, eligibility: { min_year: e.min_year ?? null, min_seats: e.min_seats ?? null, driver_gender: e.driver_gender ?? null, luxury_only: !!e.luxury_only, min_rank: e.min_rank ?? null },
     };
 }
 
@@ -123,7 +136,10 @@ async function load() {
     }
 }
 
-onMounted(load);
+onMounted(() => {
+    load();
+    adminAxios.get('/api/admin/v1/driver-ranks').then(({ data }) => { ranks.value = data.data ?? []; }).catch(() => {});
+});
 </script>
 
 <style scoped>

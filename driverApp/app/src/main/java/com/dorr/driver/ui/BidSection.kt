@@ -118,14 +118,15 @@ internal fun BidSection(offer: OfferDto, onAccepted: () -> Unit, onDecline: () -
                 )
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-            Stepper(Icons.Filled.Remove, enabled = price - 100 > rider) { price = (price - 100).coerceAtLeast(rider + 100) }
-            Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(money(price, offer.currency), fontWeight = FontWeight.ExtraBold, fontSize = 22.sp)
-                Text(stringResource(R.string.bid_net, money(bid.netAt(price), offer.currency)), color = DorrBrand.success, fontSize = 12.sp)
-                Text(stringResource(R.string.bid_max, money(bid.capMinor, offer.currency)), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
-            }
-            Stepper(Icons.Filled.Add, enabled = price + 100 <= bid.capMinor) { price = (price + 100).coerceAtMost(bid.capMinor) }
+        // Typed straight in, or − / + by the first step (5) — never one unit per tap (O-43).
+        val step = bid.stepsMinor.firstOrNull() ?: 500L
+        PriceInput(price, offer.currency, stepMinor = step, minMinor = rider + 1, maxMinor = bid.capMinor) { price = it }
+        Column(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(stringResource(R.string.bid_net, money(bid.netAt(price), offer.currency)), color = DorrBrand.success, fontSize = 12.sp)
+            Text(
+                stringResource(R.string.bid_max, money(bid.capMinor, offer.currency)), fontSize = 11.sp,
+                color = if (price > bid.capMinor || price <= rider) DorrBrand.danger else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f),
+            )
         }
         bid.attemptsLeft?.let { Text(stringResource(R.string.bid_attempts, it), fontSize = 11.sp, modifier = Modifier.padding(top = 4.dp)) }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp)) }
@@ -140,12 +141,4 @@ internal fun BidSection(offer: OfferDto, onAccepted: () -> Unit, onDecline: () -
             }
         }
     }
-}
-
-@Composable
-private fun Stepper(icon: androidx.compose.ui.graphics.vector.ImageVector, enabled: Boolean, onClick: () -> Unit) {
-    Box(
-        Modifier.size(46.dp).clip(CircleShape).background(if (enabled) DorrBrand.navy else Color.Gray.copy(alpha = 0.3f)).clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) { Icon(icon, null, tint = Color.White) }
 }

@@ -38,8 +38,10 @@ class DriverRecords
             'seats' => [$required, 'integer', 'between:1,60'],
             'plate_letters' => [$required, 'string', 'max:8'],
             'plate_number' => [$required, 'string', 'max:8'],
-            'plate_type' => [$required, 'integer', 'between:0,65535'],
-            'sequence_number' => ['nullable', 'string', 'max:16', Rule::unique('vehicles', 'sequence_number')->where('country_id', $driver->country_id)->ignore($vehicle?->id)],
+            // O-64: the plate type isn't asked (Wasl's «private» = 1 unless the admin sets another).
+            'plate_type' => ['nullable', 'integer', 'between:0,65535'],
+            // O-64: the sequence number is required — a boat or a yacht has none.
+            'sequence_number' => [$vehicle === null ? 'required_unless:body_type,boat,yacht' : 'sometimes', 'nullable', 'string', 'max:16', Rule::unique('vehicles', 'sequence_number')->where('country_id', $driver->country_id)->ignore($vehicle?->id)],
             'features' => ['nullable', 'array'],
             'features.*' => [Rule::in(self::VEHICLE_FEATURES)],
         ];
@@ -67,6 +69,10 @@ class DriverRecords
         }
 
         $vehicle ??= new Vehicle(['uuid' => (string) Str::uuid(), 'driver_id' => $driver->id, 'country_id' => $driver->country_id, 'status' => VehicleStatus::Pending]);
+        // O-64: a new vehicle without a plate type is a private one (1).
+        if (! $vehicle->exists && ! isset($fields['plate_type'])) {
+            $fields['plate_type'] = 1;
+        }
         $plateTaken = Vehicle::query()->where('country_id', $vehicle->country_id)
             ->where('plate_letters', $fields['plate_letters'] ?? $vehicle->plate_letters)
             ->where('plate_number', $fields['plate_number'] ?? $vehicle->plate_number)

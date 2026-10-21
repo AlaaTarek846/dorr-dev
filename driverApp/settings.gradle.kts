@@ -10,6 +10,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        // LiveKit (O-09 in-app calls) depends on audioswitch, which is only published on JitPack.
+        maven { url = uri("https://jitpack.io") }
+        // O-53: the Mapbox Maps SDK (the second map engine) — public, no download token needed.
+        maven { url = uri("https://api.mapbox.com/downloads/v2/releases/maven") }
     }
 }
 

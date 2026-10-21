@@ -132,7 +132,17 @@ internal fun TransactionDetailSheet(uuid: String, w: WalletDto?, onClose: () -> 
             Spacer(Modifier.height(14.dp))
             val d = detail
             when {
-                d != null -> DetailBody(d, w)
+                d != null -> {
+                    DetailBody(d, w)
+                    Spacer(Modifier.height(16.dp))
+                    Text(
+                        stringResource(R.string.sp_not_me), color = DorrBrand.danger, fontWeight = FontWeight.Bold, fontSize = 13.sp,
+                        modifier = Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(12.dp)).clickable {
+                            SupportPrefill.open.value = Triple("unauthorized_transaction", uuid, "")
+                            onClose()
+                        }.padding(12.dp),
+                    )
+                }
                 failed -> Text(stringResource(R.string.wl_det_failed), color = DorrBrand.danger)
                 else -> Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(28.dp), strokeWidth = 2.dp, color = DorrBrand.orange) }
             }

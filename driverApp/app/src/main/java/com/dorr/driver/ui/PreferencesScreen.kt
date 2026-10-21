@@ -112,8 +112,10 @@ fun PreferencesScreen(onBack: () -> Unit) {
                 Text(stringResource(R.string.pf_categories_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
                 Spacer(Modifier.height(10.dp))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    p.categories.forEach { c ->
-                        PrefPill((c.name ?: c.slug) + if (c.eligible) "" else " ✕", c.selected, enabled = c.eligible) {
+                    // O-27: only the categories this captain and car may take — the general ones and the special ones they
+                    // qualify for (For Her for women, VIP for a luxury car, Accessible for an equipped one…).
+                    p.categories.filter { it.eligible }.forEach { c ->
+                        PrefPill(c.name ?: c.slug, c.selected) {
                             val now = p.categories.filter { it.selected }.map { it.slug }
                             val next = if (c.selected) now - c.slug else now + c.slug
                             if (next.isEmpty()) error = context.getString(R.string.pf_keep_one)
@@ -121,9 +123,7 @@ fun PreferencesScreen(onBack: () -> Unit) {
                         }
                     }
                 }
-                if (p.categories.any { !it.eligible }) {
-                    Text(stringResource(R.string.pf_not_eligible), fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.55f), modifier = Modifier.padding(top = 8.dp))
-                }
+
             }
 
             // D-33: how far for a pickup.
@@ -140,6 +140,32 @@ fun PreferencesScreen(onBack: () -> Unit) {
                     options.forEach { km ->
                         PrefPill(stringResource(R.string.pf_km, km), current != null && current / 1000 == km) {
                             save(JsonObject().apply { addProperty("pickup_radius_m", km * 1000) })
+                        }
+                    }
+                }
+            }
+
+            // R-235, R-236, D-390: what my car has / takes — requests with a pet or child seats come only when it fits.
+            val eq = p.equipment
+            if (eq.petsOffered || eq.childSeatsOffered) {
+                Card {
+                    Text(stringResource(R.string.pf_equipment), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.pf_equipment_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    if (eq.petsOffered) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.pf_pets), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            DorrToggle(eq.petFriendly) { on -> save(JsonObject().apply { addProperty("pet_friendly", on) }) }
+                        }
+                    }
+                    if (eq.childSeatsOffered) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(stringResource(R.string.pf_child_seats), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            (0..3).forEach { n ->
+                                PrefPill(if (n == 0) stringResource(R.string.pf_none) else "$n", eq.childSeats == n) { save(JsonObject().apply { addProperty("child_seats", n) }) }
+                            }
                         }
                     }
                 }

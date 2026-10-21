@@ -152,7 +152,8 @@ object DriverLive {
      */
     suspend fun sync(context: Context) {
         if (!DriverBackend.session.isSignedIn) return
-        if (!Duty.onTrip.value) syncOffers(context)
+        // O-70: on a trip too — the server only offers a busy captain a With Me rider joining his car.
+        syncOffers(context)
         syncRide()
     }
 
@@ -160,22 +161,25 @@ object DriverLive {
     suspend fun syncOffers(context: Context) {
         val result = apiCall { DriverBackend.api.offers() }
         if (result !is ApiResult.Ok) return
-        val offer = result.data.firstOrNull { it.uuid !in Duty.dismissed }
-        if (offer == null) {
+        val open = result.data.filter { it.uuid !in Duty.dismissed }
+        if (open.isEmpty()) {
             val hadBid = Duty.offer.value?.bid?.myBid?.status == "pending"
             if (Duty.offer.value != null) NotificationManagerCompat.from(context).cancel(DriverDutyService.ID_OFFER)
-            Duty.showOffer(null)
+            Duty.setOffers(emptyList())
             // My offer was taken by the rider: the ride is mine.
             if (hadBid) syncRide()
             return
         }
-        if (Duty.seen.add(offer.uuid)) {
-            if (Duty.seen.size > 50) Duty.seen.remove(Duty.seen.first())
-            // On screen the card is the UI; closed or in the background it rings.
-            if (!inForeground) DriverDutyService.ring(context, offer)
+        // O-36: several requests may be open at once; each new one rings once.
+        open.forEach { offer ->
+            if (Duty.seen.add(offer.uuid)) {
+                if (Duty.seen.size > 50) Duty.seen.remove(Duty.seen.first())
+                // On screen the card is the UI; closed or in the background it rings.
+                if (!inForeground) DriverDutyService.ring(context, offer)
+            }
         }
         // Fresh each time: a bidding request's price, my offer's state and its timer move.
-        Duty.showOffer(offer)
+        Duty.setOffers(open)
     }
 
     suspend fun syncRide() {

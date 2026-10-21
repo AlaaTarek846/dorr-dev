@@ -70,6 +70,19 @@ return [
 
     // Stored in wallet_transactions.notes / financial_entries.notes as a key + variables.
     'notes' => [
+        'bus_ticket' => 'Bus ticket: :route',
+        'bus_earning' => 'Bus trip earnings: :route',
+        'bus_commission' => 'Bus trip commission: :route',
+        'marine_booking' => 'Boat booking: :title',
+        'marine_earning' => 'Boat earnings: :title',
+        'marine_commission' => 'Boat commission: :title',
+        'hire_payment' => 'A driver for your car: :address',
+        'hire_earning' => 'Driver job earnings: :address',
+        'hire_commission' => 'Driver job commission: :address',
+        'lessons_payment' => 'Driving lessons: :title',
+        'lessons_refund' => 'Lessons not taken: :title',
+        'lessons_earning' => 'Driving lesson earnings: :title',
+        'lessons_commission' => 'Driving lesson commission: :title',
         'topup' => 'Wallet top-up',
         'topup_fee' => 'Top-up service fee',
         'topup_bonus' => 'Top-up bonus',

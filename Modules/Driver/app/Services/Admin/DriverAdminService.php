@@ -113,6 +113,8 @@ class DriverAdminService
             $driver->tokens()->delete();
         }
         $this->audit->record('driver.status_changed', $driver, $before, ['status' => $status->value, 'status_reason' => $driver->status_reason], $admin);
+        // O-66: the captain's app hears it at once (real time + push) and reloads — no waiting for a restart.
+        $this->tellDriver($driver, 'driver.status', $status === DriverStatus::Active ? 'driver_activated' : 'driver_status_changed', ['reason' => (string) $driver->status_reason]);
 
         return $driver->refresh();
     }
@@ -140,6 +142,14 @@ class DriverAdminService
             ])->save();
         });
         $this->audit->record('driver.vehicle_status', $vehicle, $before, ['status' => $status->value, 'is_active' => $vehicle->is_active], $admin);
+        // O-66: the captain's app follows at once — approved (ready to work) or turned down.
+        if ($before['status'] !== $status->value && ($owner = Driver::query()->find($vehicle->driver_id)) !== null) {
+            match ($status) {
+                VehicleStatus::Approved => $this->tellDriver($owner, 'driver.vehicle', 'driver_vehicle_ready', []),
+                VehicleStatus::Rejected, VehicleStatus::Inactive => $this->tellDriver($owner, 'driver.vehicle', 'driver_vehicle_stopped', []),
+                default => null,
+            };
+        }
 
         return $vehicle->refresh();
     }
@@ -155,6 +165,9 @@ class DriverAdminService
             $vehicle->forceFill(['is_active' => true])->save();
         });
         $this->audit->record('driver.vehicle_activated', $vehicle, null, ['vehicle_id' => $vehicle->id], $admin);
+        if (($owner = Driver::query()->find($vehicle->driver_id)) !== null) {
+            $this->tellDriver($owner, 'driver.vehicle', 'driver_vehicle_ready', []);
+        }
 
         return $vehicle->refresh();
     }
@@ -189,9 +202,18 @@ class DriverAdminService
                 'reviewed_at' => now(),
             ])->save();
             $this->audit->record($approve ? 'driver.document_approved' : 'driver.document_rejected', $document, null, ['document_type_id' => $document->document_type_id, 'reason' => $reason], $admin);
+            if (($owner = Driver::query()->find($document->driver_id)) !== null) {
+                $this->tellDriver($owner, 'driver.document', $approve ? 'driver_document_approved' : 'driver_document_rejected', ['reason' => (string) $reason]);
+            }
 
             return $document->refresh();
         });
+    }
+
+    /** O-66: a change to the captain's account, said to his app at once (real time + push), after the save. */
+    private function tellDriver(Driver $driver, string $event, string $key, array $vars): void
+    {
+        app(\App\Services\Notifications\NotificationCenter::class)->send($driver, $event, $key.'_title', $key.'_body', $vars, ['type' => 'driver_account', 'status' => $driver->status->value]);
     }
 
     /** "+9665…" from the country's dial code and the local number (a leading 0 dropped). */

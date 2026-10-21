@@ -140,6 +140,16 @@ class OnboardingController extends Controller
         return ApiResponse::success($this->present($driver), __('api.created'), 201);
     }
 
+    /** O-64: the captain has no vehicle (or has one after all). */
+    public function noVehicle(Request $request): JsonResponse
+    {
+        $data = $request->validate(['on' => ['required', 'boolean']]);
+        $driver = $this->driver($request);
+        $driver->forceFill(['no_vehicle' => (bool) $data['on']])->save();
+
+        return ApiResponse::success($this->present($driver->refresh()), __('api.updated'));
+    }
+
     /** Everything is in: the account goes to review. */
     public function submit(Request $request): JsonResponse
     {
@@ -163,7 +173,11 @@ class OnboardingController extends Controller
         $documents = DriverDocument::query()->where('driver_id', $driver->id)
             ->whereNotIn('status', [DocumentStatus::Replaced->value])->latest('id')->get();
 
-        $required = $this->requirements->for($driver, config('rides.service_module_name', 'passenger_ride'))->map(function (DriverDocumentType $type) use ($documents, $vehicle) {
+        // O-64: without a vehicle, its documents aren't asked for.
+        $withoutVehicle = $vehicle === null && (bool) $driver->no_vehicle;
+        $required = $this->requirements->for($driver, config('rides.service_module_name', 'passenger_ride'))
+            ->reject(fn (DriverDocumentType $type) => $withoutVehicle && $type->applies_to->value === 'vehicle')
+            ->map(function (DriverDocumentType $type) use ($documents, $vehicle) {
             $mine = $documents->first(fn (DriverDocument $d) => $d->document_type_id === $type->id
                 && ($type->applies_to->value !== 'vehicle' || $d->vehicle_id === $vehicle?->id));
 
@@ -187,7 +201,7 @@ class OnboardingController extends Controller
         ]));
         $missing = [
             ...$profileMissing,
-            ...($vehicle === null ? ['vehicle'] : []),
+            ...($vehicle === null && ! $driver->no_vehicle ? ['vehicle'] : []),
             ...$required->filter(fn (array $r) => $r['document'] === null || $r['document']['status'] === DocumentStatus::Rejected->value)
                 ->map(fn (array $r) => 'document:'.$r['type']['code'])->all(),
         ];
@@ -201,7 +215,7 @@ class OnboardingController extends Controller
             ],
             'steps' => [
                 'profile' => $profileMissing === [],
-                'vehicle' => $vehicle !== null,
+                'vehicle' => $vehicle !== null || (bool) $driver->no_vehicle,
                 'documents' => $required->every(fn (array $r) => $r['document'] !== null && $r['document']['status'] !== DocumentStatus::Rejected->value),
             ],
             'vehicle' => $vehicle === null ? null : [
@@ -211,6 +225,7 @@ class OnboardingController extends Controller
                 'plate_number' => $vehicle->plate_number, 'plate_type' => $vehicle->plate_type, 'sequence_number' => $vehicle->sequence_number,
                 'features' => $vehicle->features ?? [], 'status' => $vehicle->status->value, 'is_active' => (bool) $vehicle->is_active,
             ],
+            'no_vehicle' => (bool) $driver->no_vehicle,
             'required_documents' => $required,
             'missing' => $missing,
             'can_submit' => $missing === [] && $driver->status === DriverStatus::PendingDocuments,
