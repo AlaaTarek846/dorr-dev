@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Payments
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Speed
+import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -157,9 +158,12 @@ internal fun PlaceSearchPage(state: RidesState, camera: DorrCamera) {
     val focus = remember { FocusRequester() }
     val maxStops = 3
 
+    // O-57: the popular places around (before typing), then suggestions from the second letter.
+    var popular by remember { mutableStateOf<List<RidePoint>>(emptyList()) }
+    LaunchedEffect(Unit) { popular = popularPlaces(state.me ?: state.pickup?.latLng) }
     LaunchedEffect(query) {
-        if (query.trim().length < 3) { results = emptyList(); return@LaunchedEffect }
-        delay(350)
+        if (query.trim().length < 2) { results = emptyList(); return@LaunchedEffect }
+        delay(250)
         searching = true
         results = searchPlaces(context, query, state.me ?: state.pickup?.latLng)
         searching = false
@@ -227,15 +231,22 @@ internal fun PlaceSearchPage(state: RidesState, camera: DorrCamera) {
                     Text(stringResource(R.string.rd_pick_on_map), color = settingsAccent(), fontWeight = FontWeight.SemiBold)
                 }
             }
-            if (query.trim().length in 1..2) item { Text(stringResource(R.string.rd_search_min), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp)) }
-            if (query.trim().length >= 3 && !searching && results.isEmpty()) item { Text(stringResource(R.string.rd_no_results), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp)) }
-            items(results) { place ->
-                Row(Modifier.fillMaxWidth().clickable { picked(place) }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(34.dp).clip(CircleShape).background(settingsCard()), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.LocationOn, null, tint = settingsMut(), modifier = Modifier.size(18.dp))
+            if (query.trim().length >= 2 && !searching && results.isEmpty()) item { Text(stringResource(R.string.rd_no_results), color = settingsMut(), fontSize = 13.sp, modifier = Modifier.padding(vertical = 8.dp)) }
+            // O-57: nothing typed yet — the popular places around.
+            val shown = if (query.trim().length < 2) popular else results
+            if (query.trim().length < 2 && popular.isNotEmpty()) item {
+                Text(stringResource(R.string.rd_popular_near), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 14.sp, modifier = Modifier.padding(top = 10.dp, bottom = 4.dp))
+            }
+            items(shown) { place ->
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { picked(place) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(38.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.1f)), contentAlignment = Alignment.Center) {
+                        Icon(if (query.trim().length < 2) Icons.Rounded.Star else Icons.Rounded.LocationOn, null, tint = settingsAccent(), modifier = Modifier.size(18.dp))
                     }
                     Spacer(Modifier.width(10.dp))
-                    Text(place.address, color = settingsInk(), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                    Column(Modifier.weight(1f)) {
+                        Text(place.name ?: place.address, color = settingsInk(), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (place.name != null && place.name != place.address) Text(place.address, color = settingsMut(), fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
@@ -301,6 +312,8 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
             state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json().apply { state.dropoffPointId?.let { id -> addProperty("point_id", id) } }) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
             state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
+            // R-233..R-237, R-NEW-06: the add-ons chosen.
+            if (!state.addons.isEmpty) add("options", state.addons.json())
             // O-17: by the hour — only that category, priced hours × its hour price.
             state.hourlyHours?.let { h -> addProperty("hours", h); state.hourlySlug?.let { addProperty("category", it) } }
         }
@@ -308,6 +321,7 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
         runCatching { ApiClient.rides.quotes(ridesAuth(), body).data.orEmpty() }
             .onSuccess { list ->
                 state.quotes = list
+                state.addonsApplied = state.addons
                 // The same category stays chosen after a promo code re-prices the list.
                 state.selected = list.firstOrNull { it.category.slug == keep } ?: list.firstOrNull()
                 state.riderPrice = state.selected?.bid?.suggestedMinor
@@ -319,6 +333,14 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
                     // A refused code never costs the prices: say why under the field and price without it.
                     state.couponError = failure.message
                     state.couponCode = null
+                    state.busy = false
+                    loadQuotes(state, reprice = true)
+                    return@launch
+                }
+                // An add-on nothing here can take (the bags, the seats…): say why on the row, go back to the last good choice.
+                if (failure.errorCode?.startsWith("rides_addons_") == true && !state.addons.isEmpty) {
+                    state.addonsError = failure.message
+                    state.addons = state.addonsApplied
                     state.busy = false
                     loadQuotes(state, reprice = true)
                     return@launch
@@ -416,6 +438,8 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
             if (quote.category.slug == "with_me") ShareWithRow(state)
             // O-37, O-38a, O-38b: one row — how I pay and the coupon — opening a sheet to change either, any time.
             PaymentRow(state, quote)
+            // R-233..R-237, R-NEW-06: Wait & Save / priority, child seats, a pet, a service animal, bags.
+            AddonsRow(state, quote)
             Spacer(Modifier.height(6.dp))
             // R-5, R-174: keep this destination as Home, Work or a favourite.
             if (state.feature("saved_places")) SaveDestinationRow(state)

@@ -68,7 +68,10 @@ class PartyCaseController extends Controller
 
     public function file(Request $request, string $uuid): JsonResponse
     {
-        $request->validate(['file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:'.(int) config('rides.cases.max_file_kb', 5120)]]);
+        // O-63: a dash cam's video too (mp4 / mov / 3gp / webm), with its own, bigger limit.
+        $video = str_starts_with((string) $request->file('file')?->getMimeType(), 'video/');
+        $request->validate(['file' => ['required', 'file', 'mimes:jpg,jpeg,png,webp,pdf,mp4,mov,3gp,webm',
+            'max:'.(int) ($video ? config('rides.cases.max_video_kb', 51200) : config('rides.cases.max_file_kb', 5120))]]);
         $party = $this->party($request);
         $case = $this->own($party, $uuid);
         $this->cases->attach($case, $party, $request->file('file'));

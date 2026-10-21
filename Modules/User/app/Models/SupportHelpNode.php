@@ -20,7 +20,7 @@ class SupportHelpNode extends Model
     /** The deepest level a topic can sit at (the main menu is level 1). */
     public const MAX_DEPTH = 6;
 
-    protected $fillable = ['parent_id', 'sort_order', 'status'];
+    protected $fillable = ['parent_id', 'sort_order', 'status', 'audience'];
 
     protected function casts(): array
     {

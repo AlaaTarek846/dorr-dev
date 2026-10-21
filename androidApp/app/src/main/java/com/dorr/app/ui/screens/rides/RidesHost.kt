@@ -165,6 +165,14 @@ internal class RidesState {
     /** O-22, O-23: the bus booking pages, over the rides map. */
     var busOpen by mutableStateOf(false)
 
+    /** R-146..R-155: DORR points, over the rides map. */
+    var loyaltyOpen by mutableStateOf(false)
+
+    /** R-233..R-237, R-NEW-06: what's added to the trip (priced into the quotes), and why the last change was refused. */
+    var addons by mutableStateOf(TripOptions())
+    var addonsApplied = TripOptions()
+    var addonsError by mutableStateOf<String?>(null)
+
     /** O-25: boats & yachts, over the rides map. */
     var marineOpen by mutableStateOf(false)
 
@@ -227,6 +235,9 @@ internal class RidesState {
         fromHistory = false
         couponCode = null
         couponError = null
+        addons = TripOptions()
+        addonsApplied = TripOptions()
+        addonsError = null
         passengers = 1
         pickupNote = ""
         forOther = false
@@ -283,6 +294,17 @@ fun RidesHost(onExit: () -> Unit) {
 
     // A tapped ride notification: that ride — an ended one shows its receipt and the rating (O-41);
     // `rides/current` alone never returns a finished ride.
+    // A booked service's notification: open that service (it opens the booking itself).
+    val serviceLinked = ServiceLink.pending
+    LaunchedEffect(serviceLinked) {
+        when (serviceLinked?.first) {
+            "loyalty" -> { state.loyaltyOpen = true; ServiceLink.pending = null }
+            "bus" -> state.busOpen = true
+            "marine" -> state.marineOpen = true
+            "hire" -> state.hireOpen = true
+            "lesson" -> state.lessonsOpen = true
+        }
+    }
     val linked = RidesLink.pending
     LaunchedEffect(linked) {
         val uuid = linked ?: return@LaunchedEffect
@@ -326,6 +348,7 @@ fun RidesHost(onExit: () -> Unit) {
 
     BackHandler {
         when {
+            state.loyaltyOpen -> state.loyaltyOpen = false
             state.busOpen -> state.busOpen = false
             state.marineOpen -> state.marineOpen = false
             state.hireOpen -> state.hireOpen = false
@@ -432,6 +455,7 @@ fun RidesHost(onExit: () -> Unit) {
                     }
                 },
                 onBack = onExit,
+                onLoyalty = if (state.feature("loyalty")) ({ state.loyaltyOpen = true }) else null,
                 onMyRides = { state.myRidesOpen = true },
             )
         }
@@ -447,6 +471,12 @@ fun RidesHost(onExit: () -> Unit) {
             enter = androidx.compose.animation.slideInHorizontally(tween(300)) { it } + fadeIn(tween(200)),
             exit = androidx.compose.animation.slideOutHorizontally(tween(260)) { it } + fadeOut(tween(160)),
         ) { MarineHost(state, onClose = { state.marineOpen = false }) }
+
+        androidx.compose.animation.AnimatedVisibility(
+            visible = state.loyaltyOpen,
+            enter = androidx.compose.animation.slideInVertically(tween(320)) { it / 3 } + fadeIn(tween(220)),
+            exit = androidx.compose.animation.slideOutVertically(tween(260)) { it / 3 } + fadeOut(tween(160)),
+        ) { LoyaltyScreen(onClose = { state.loyaltyOpen = false }) }
 
         androidx.compose.animation.AnimatedVisibility(
             visible = state.hireOpen,
@@ -494,8 +524,9 @@ fun RidesHost(onExit: () -> Unit) {
         RideCallOverlay(onAccept = {
             val ride = RideCallSession.rideUuid
             val call = RideCallSession.callUuid
+            val other = RideCallSession.acceptApi
             if (ride != null && call != null) RideCallSession.accept(callContext) {
-                ApiClient.rides.acceptCall(ridesAuth(), ride, call).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) }
+                other?.invoke(ride, call) ?: ApiClient.rides.acceptCall(ridesAuth(), ride, call).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) }
             }
         })
     }
@@ -513,17 +544,28 @@ fun RidesHost(onExit: () -> Unit) {
 @Composable
 private fun RidesMap(state: RidesState, camera: DorrCamera) {
     val ride = state.ride
-    val route = remember(ride?.route?.polyline, state.selected?.route?.polyline) {
-        decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline)
+    val stopsKey = ride?.stops?.map { it.lat to it.lng } ?: state.stops.map { it.lat to it.lng }
+    val route = remember(ride?.route?.polyline, state.selected?.route?.polyline, stopsKey, ride?.destination?.lat, state.destination?.lat) {
+        decodePolyline(ride?.route?.polyline ?: state.selected?.route?.polyline).ifEmpty {
+            // O-56: no drawn route (e.g. right after a stop is added) — the points joined in order.
+            listOfNotNull(
+                ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng,
+                *stopsKey.map { LatLng(it.first, it.second) }.toTypedArray(),
+                ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng,
+            ).takeIf { it.size >= 2 && (ride != null || state.step == RideStep.Quotes) }.orEmpty()
+        }
     }
     val showPoints = ride != null || state.step == RideStep.Quotes
+    val nearby = rememberNearbyCars(state.me ?: state.pickup?.latLng, enabled = ride == null)
     val pins = buildList {
         if (showPoints) {
             (ride?.origin?.let { LatLng(it.lat, it.lng) } ?: state.pickup?.latLng)?.let { add(MapPin(it, PinKind.Pickup)) }
             (ride?.stops?.map { LatLng(it.lat, it.lng) } ?: state.stops.map { it.latLng }).forEach { add(MapPin(it, PinKind.Stop)) }
             (ride?.destination?.let { LatLng(it.lat, it.lng) } ?: state.destination?.latLng)?.let { add(MapPin(it, PinKind.Dropoff)) }
         }
-        ride?.driver?.location?.let { loc -> add(MapPin(LatLng(loc.lat, loc.lng), PinKind.Car, (loc.heading ?: 0).toFloat())) }
+        ride?.driver?.location?.let { loc -> add(MapPin(LatLng(loc.lat, loc.lng), PinKind.Car, (loc.heading ?: 0).toFloat(), id = "my-captain")) }
+        // O-59: before a ride, the free captains' cars around, moving.
+        if (ride == null) nearby.forEach { (id, car) -> add(MapPin(car.at, PinKind.Car, car.heading, id = "car:$id")) }
     }
     val width = dpPx(5f)
     // O-53: the admin's engine (Google or Mapbox) draws it — the pins, the route and the car are the same on both.

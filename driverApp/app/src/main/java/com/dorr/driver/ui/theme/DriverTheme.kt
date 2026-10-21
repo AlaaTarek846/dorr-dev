@@ -167,8 +167,12 @@ fun DriverTheme(content: @Composable () -> Unit) {
         }
     }
     val type = remember { typography(CairoFamily) }
-    MaterialTheme(colorScheme = scheme(), typography = type) {
-        Surface(modifier = Modifier.fillMaxSize(), color = Pal.bg, contentColor = Pal.ink, content = content)
+    // D-307: the text size the captain chose, on top of the phone's own.
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(density.density, density.fontScale * DriverPrefs.fontScale)) {
+        MaterialTheme(colorScheme = scheme(), typography = type) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Pal.bg, contentColor = Pal.ink, content = content)
+        }
     }
 }
 

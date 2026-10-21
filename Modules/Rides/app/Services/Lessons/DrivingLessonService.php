@@ -67,6 +67,43 @@ class DrivingLessonService
         ])->refresh();
     }
 
+    /**
+     * O-62: edit a pack. With learners in it only the words and the area change (the price and the lessons
+     * they bought stay as they were); without, everything.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public function update(Driver $driver, LessonPack $pack, array $data): LessonPack
+    {
+        $this->assertOwner($driver, $pack->driver_id);
+        $taken = $pack->enrollments()->where('status', 'active')->exists();
+        $locked = ['transmission', 'lessons', 'minutes_per_lesson', 'price_minor'];
+        if ($taken && collect($locked)->contains(fn (string $k) => array_key_exists($k, $data) && $data[$k] != $pack->{$k})) {
+            throw new RidesException('lessons_pack_has_learners', 409);
+        }
+        $fill = array_intersect_key($data, array_flip(['title', 'description', 'transmission', 'lessons', 'minutes_per_lesson', 'price_minor', 'own_car']));
+        if (isset($data['area'])) {
+            $fill += ['area_lat' => $data['area']['lat'], 'area_lng' => $data['area']['lng'], 'area_address' => $data['area']['address']];
+        }
+        $pack->forceFill($fill)->save();
+
+        return $pack->refresh();
+    }
+
+    /** O-62: remove a pack — gone if nobody ever bought it; else archived (off the search; learners carry on). */
+    public function remove(Driver $driver, LessonPack $pack): ?LessonPack
+    {
+        $this->assertOwner($driver, $pack->driver_id);
+        if (! $pack->enrollments()->exists()) {
+            $pack->delete();
+
+            return null;
+        }
+        $pack->forceFill(['status' => 'archived'])->save();
+
+        return $pack->refresh();
+    }
+
     public function setStatus(Driver $driver, LessonPack $pack, string $status): LessonPack
     {
         $this->assertOwner($driver, $pack->driver_id);
@@ -78,7 +115,7 @@ class DrivingLessonService
     /** @return Collection<int, LessonPack> */
     public function packsOf(Driver $driver): Collection
     {
-        return LessonPack::query()->where('driver_id', $driver->id)->withCount(['enrollments' => fn ($q) => $q->where('status', 'active')])->latest('id')->get();
+        return LessonPack::query()->where('driver_id', $driver->id)->where('status', '!=', 'archived')->withCount(['enrollments' => fn ($q) => $q->where('status', 'active')])->latest('id')->get();
     }
 
     /** @return Collection<int, LessonSession> the lessons asked for and coming up, soonest first */
@@ -123,7 +160,10 @@ class DrivingLessonService
             $session->forceFill(['status' => 'done', 'done_at' => now()])->save();
             $number = $enrollment->lessons_done + 1;
             $enrollment->forceFill(['lessons_done' => $number, 'status' => $number >= $enrollment->lessons_total ? 'completed' : 'active'])->save();
-            $this->payTrainer($enrollment, $enrollment->pack->lessonShare($number), $session);
+            $earned = $this->payTrainer($enrollment, $enrollment->pack->lessonShare($number), $session);
+            DB::afterCommit(fn () => app(\Modules\Rides\Services\Notifications\ServiceNotices::class)->earning(
+                $enrollment->driver, 'lesson', $earned, $enrollment->pack->currency_id, $enrollment->pack->title, ['enrollment_uuid' => $enrollment->uuid],
+            ));
         });
         $this->notifications->send($enrollment->user, 'lesson.done', 'lesson_done_title', 'lesson_done_body', [
             'number' => $session->number, 'left' => max(0, $enrollment->lessons_total - $enrollment->refresh()->lessons_done),
@@ -156,18 +196,37 @@ class DrivingLessonService
         if ($pack->status !== 'active') {
             throw new RidesException('lessons_pack_closed', 409);
         }
-        $enrollment = DB::transaction(function () use ($learner, $pack, $key) {
-            $enrollment = LessonEnrollment::query()->create([
-                'lesson_pack_id' => $pack->id, 'user_id' => $learner->id, 'driver_id' => $pack->driver_id,
-                'lessons_total' => $pack->lessons, 'amount_minor' => $pack->price_minor, 'currency_id' => $pack->currency_id, 'idempotency_key' => $key,
-            ]);
-            $enrollment->forceFill(['wallet_transaction_ids' => $this->charge($learner, $pack, $enrollment)])->save();
+        // O-67: held «unpaid» while the app's payment screen pays it (coupon, top-up).
+        $enrollment = LessonEnrollment::query()->create([
+            'lesson_pack_id' => $pack->id, 'user_id' => $learner->id, 'driver_id' => $pack->driver_id,
+            'lessons_total' => $pack->lessons, 'amount_minor' => $pack->price_minor, 'currency_id' => $pack->currency_id, 'idempotency_key' => $key,
+            'status' => 'unpaid', 'payment_expires_at' => now()->addMinutes(\Modules\Rides\Services\Bus\BusService::HOLD_MINUTES),
+        ]);
 
+        return $enrollment->refresh();
+    }
+
+    /** O-67: paid — the rest (after the coupon) is taken now; the pack is the learner's and the trainer hears of it. */
+    public function confirmPaid(LessonEnrollment $enrollment, int $payable, int $discount): LessonEnrollment
+    {
+        if ($enrollment->status !== 'unpaid') {
             return $enrollment;
-        });
+        }
+        if ($enrollment->payment_expires_at !== null && $enrollment->payment_expires_at->isPast()) {
+            throw new RidesException('booking_lapsed', 409);
+        }
+        $pack = $enrollment->pack;
+        $learner = $enrollment->user()->firstOrFail();
+        $enrollment->forceFill([
+            'status' => 'active', 'payment_expires_at' => null, 'discount_minor' => $discount,
+            'wallet_transaction_ids' => $payable > 0 ? $this->charge($learner, $pack, $enrollment, $payable) : [],
+        ])->save();
         $this->notifications->send($pack->driver, 'lesson.enrolled', 'lesson_enrolled_title', 'lesson_enrolled_body', [
             'name' => strtok((string) $learner->name, ' ') ?: '', 'title' => $pack->title,
         ], ['type' => 'lesson', 'pack_uuid' => $pack->uuid]);
+        $this->notifications->send($learner, 'lesson.purchased', 'lesson_purchased_title', 'lesson_purchased_body', [
+            'title' => $pack->title, 'lessons' => $enrollment->lessons_total,
+        ], ['type' => 'lesson', 'enrollment_uuid' => $enrollment->uuid]);
 
         return $enrollment->refresh();
     }
@@ -246,8 +305,12 @@ class DrivingLessonService
             }
             $enrollment->forceFill(['status' => 'canceled', 'refunded_minor' => $refund])->save();
         });
+        $enrollment->refresh();
+        $this->notifications->send($enrollment->driver, 'lesson.quit', 'lesson_quit_title', 'lesson_quit_body', [
+            'name' => strtok((string) $learner->name, ' ') ?: '', 'title' => $enrollment->pack->title,
+        ], ['type' => 'lesson', 'enrollment_uuid' => $enrollment->uuid]);
 
-        return $enrollment->refresh();
+        return $enrollment;
     }
 
     // ---------------------------------------------------------------- rules and money
@@ -281,15 +344,15 @@ class DrivingLessonService
     }
 
     /** @return list<int> */
-    private function charge(User $learner, LessonPack $pack, LessonEnrollment $enrollment): array
+    private function charge(User $learner, LessonPack $pack, LessonEnrollment $enrollment, int $amount): array
     {
         $key = 'lessons:'.$enrollment->uuid.':pay';
         $wallet = $this->wallets->firstOrCreateWallet($learner, $pack->country()->firstOrFail())->fresh();
         $free = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
-        if ($free < $pack->price_minor) {
-            throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $pack->price_minor - $free]);
+        if ($free < $amount) {
+            throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amount - $free]);
         }
-        $this->wallets->debitSpendOnlyFirst($wallet, $pack->price_minor, WalletTransactionType::ServicePayment, [
+        $this->wallets->debitSpendOnlyFirst($wallet, $amount, WalletTransactionType::ServicePayment, [
             'reference_type' => 'lesson_enrollment', 'reference_id' => $enrollment->id, 'idempotency_key' => $key,
             'notes' => ['key' => 'wallet.notes.lessons_payment', 'variables' => ['title' => $pack->title]],
         ]);
@@ -297,7 +360,8 @@ class DrivingLessonService
         return WalletTransaction::query()->whereIn('idempotency_key', [$key, $key.':spend_only', $key.':withdrawable'])->pluck('id')->all();
     }
 
-    private function payTrainer(LessonEnrollment $enrollment, int $share, LessonSession $session): void
+    /** @return int the trainer's share credited */
+    private function payTrainer(LessonEnrollment $enrollment, int $share, LessonSession $session): int
     {
         $pack = $enrollment->pack;
         $policy = $this->policies->for($pack->country_id, null);
@@ -311,6 +375,8 @@ class DrivingLessonService
             $this->ledger->record('trip_commissions', FinancialEntryType::Income, $commission, $pack->currency, $country, $session,
                 ['key' => 'wallet.notes.lessons_commission', 'variables' => ['title' => $pack->title]]);
         }
+
+        return $share - $commission;
     }
 
     private function local(Carbon $at): string

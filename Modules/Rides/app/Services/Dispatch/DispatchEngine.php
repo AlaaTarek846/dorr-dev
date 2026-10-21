@@ -77,7 +77,9 @@ class DispatchEngine
         // Bidding: offers whose timer ran out are declined by themselves; the next one in line shows.
         BidBoard::expireDue();
 
-        $due = Ride::query()->whereIn('status', [RideStatus::Searching->value, RideStatus::Bidding->value])->where('next_dispatch_at', '<=', now())->pluck('id');
+        // R-234: priority pickups go round first.
+        $due = Ride::query()->whereIn('status', [RideStatus::Searching->value, RideStatus::Bidding->value])->where('next_dispatch_at', '<=', now())
+            ->get(['id', 'confirmed_snapshot'])->sortByDesc(fn (Ride $r) => ! empty($r->snapshot('options.priority')))->pluck('id');
         foreach ($due as $id) {
             $this->runRound(Ride::query()->findOrFail($id));
         }
@@ -113,8 +115,10 @@ class DispatchEngine
         $this->circle->askIfDue($ride, $searchingFor, (int) ($policy['circle.ask_after_s'] ?? 90));
 
         $round = $ride->dispatch_round + 1;
+        // R-234: priority pickup — the search starts a ring wider.
+        $priority = ! empty($ride->snapshot('options.priority'));
         $radius = min(
-            (int) ($policy['search.min_radius_m'] ?? 5000) + (int) ($policy['search.radius_step_m'] ?? 5000) * ($round - 1),
+            (int) ($policy['search.min_radius_m'] ?? 5000) + (int) ($policy['search.radius_step_m'] ?? 5000) * ($round - 1 + ($priority ? 1 : 0)),
             (int) ($policy['search.max_radius_m'] ?? 50000),
         );
         // O-36 (owner): the request goes to several captains at once — the first to accept takes it.
@@ -485,6 +489,15 @@ class DispatchEngine
             ->get();
         // How far each captain said they will go for a pickup (D-33); none = as far as the search reaches.
         $reach = DriverPreference::query()->whereIn('driver_id', $presences->pluck('driver_id'))->whereNotNull('pickup_radius_m')->pluck('pickup_radius_m', 'driver_id');
+        // R-235, R-236, D-390: child seats / a pet — only captains who have / take them.
+        $options = (array) ($ride->snapshot('options') ?? []);
+        if (! empty($options['pet']) || ! empty($options['child_seats'])) {
+            $equipped = DriverPreference::query()->whereIn('driver_id', $presences->pluck('driver_id'))
+                ->when(! empty($options['pet']), fn ($q) => $q->where('pet_friendly', true))
+                ->when(! empty($options['child_seats']), fn ($q) => $q->where('child_seats', '>=', (int) $options['child_seats']))
+                ->pluck('driver_id')->all();
+            $presences = $presences->filter(fn (DriverPresence $p) => in_array($p->driver_id, $equipped, true))->values();
+        }
 
         return $presences
             ->map(fn (DriverPresence $p) => [$p, Geo::metres($ride->origin_lat, $ride->origin_lng, (float) $p->lat, (float) $p->lng)])

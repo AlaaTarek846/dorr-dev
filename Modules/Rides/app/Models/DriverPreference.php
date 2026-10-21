@@ -17,6 +17,6 @@ class DriverPreference extends Model
 
     protected function casts(): array
     {
-        return ['categories' => 'array', 'destination' => 'array', 'auto_accept' => 'array', 'sounds' => 'array', 'voice_readout' => 'boolean', 'hide_earnings' => 'boolean', 'pickup_radius_m' => 'integer', 'daily_goal_minor' => 'integer'];
+        return ['categories' => 'array', 'destination' => 'array', 'auto_accept' => 'array', 'sounds' => 'array', 'voice_readout' => 'boolean', 'hide_earnings' => 'boolean', 'pickup_radius_m' => 'integer', 'daily_goal_minor' => 'integer', 'pet_friendly' => 'boolean', 'child_seats' => 'integer'];
     }
 }

@@ -147,6 +147,8 @@ class SupportHelpNodeController extends Controller implements HasMiddleware
             'translations.*.answer' => ['nullable', 'string', 'max:4000'],
             'sort_order' => ['sometimes', 'integer', 'min:0', 'max:100000'],
             'status' => ['sometimes', 'boolean'],
+            // D-286: for the riders, the captains, or both.
+            'audience' => ['sometimes', 'in:all,user,driver'],
         ]);
 
         // A topic goes under a new parent only if that parent is not the topic itself or one of its own
@@ -267,6 +269,7 @@ class SupportHelpNodeController extends Controller implements HasMiddleware
             'answer' => $node->translated('answer'),
             'sort_order' => $node->sort_order,
             'status' => $node->status,
+            'audience' => $node->audience ?? 'all',
             'children_count' => (int) ($node->children_count ?? 0),
             'solved_count' => $solved,
             'agent_count' => $agent,

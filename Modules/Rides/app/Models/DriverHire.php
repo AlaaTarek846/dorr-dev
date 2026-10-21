@@ -27,7 +27,7 @@ class DriverHire extends Model
         return [
             'pickup_lat' => 'float', 'pickup_lng' => 'float', 'starts_at' => 'datetime', 'quantity' => 'integer',
             'amount_minor' => 'integer', 'extra_minor' => 'integer', 'extra_due_minor' => 'integer', 'wallet_transaction_ids' => 'array',
-            'accepted_at' => 'datetime', 'arrived_at' => 'datetime', 'started_at' => 'datetime', 'ended_at' => 'datetime', 'canceled_at' => 'datetime',
+            'accepted_at' => 'datetime', 'arrived_at' => 'datetime', 'started_at' => 'datetime', 'ended_at' => 'datetime', 'canceled_at' => 'datetime', 'payment_expires_at' => 'datetime', 'discount_minor' => 'integer',
         ];
     }
 

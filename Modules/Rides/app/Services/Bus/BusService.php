@@ -142,18 +142,56 @@ class BusService
         if (! in_array($trip->status, $allowed, true)) {
             throw new RidesException('bus_trip_not_editable', 409);
         }
-        DB::transaction(function () use ($trip, $to) {
+        // O-68: it leaves at its time — not a day early (a little before, by the policy).
+        $opensAt = $this->startsAt($trip, $to);
+        if ($opensAt !== null && now()->lessThan($opensAt)) {
+            throw new RidesException('bus_trip_too_early', 409, ['time' => $this->timeText($to === 'returning' ? $trip->return_at : $trip->depart_at)]);
+        }
+        // The passengers of that leg, before the tickets are closed.
+        $riders = $trip->bookings()->where('status', 'confirmed')
+            ->when($to === 'departed', fn ($q) => $q->whereIn('trip_type', ['outbound', 'round']))
+            ->when($to === 'returning', fn ($q) => $q->whereIn('trip_type', ['return', 'round']))
+            ->with('user')->get();
+        $earned = 0;
+        DB::transaction(function () use ($trip, $to, &$earned) {
             $trip->forceFill(['status' => $to] + match ($to) {
                 'departed' => ['departed_at' => now()],
                 'completed' => ['completed_at' => now()],
                 default => [],
             })->save();
             if ($to === 'completed') {
-                $this->payDriver($trip);
+                $earned = $this->payDriver($trip);
             }
         });
+        $trip->refresh();
 
-        return $trip->refresh();
+        // R-146: DORR points for each ticket of a trip that's over.
+        if ($to === 'completed') {
+            foreach ($riders as $b) {
+                app(\Modules\Rides\Services\Loyalty\LoyaltyService::class)->earnForService($b->user, (int) $trip->country_id,
+                    max(0, $b->amount_minor - (int) $b->discount_minor), (int) $trip->currency_id, 'bus_booking', (int) $b->id, $this->routeText($trip));
+            }
+        }
+        // Everyone on it hears the trip move: it left, it's coming back, it's over.
+        foreach ($riders as $b) {
+            $this->notifications->send($b->user, 'bus.'.$to, 'bus_'.$to.'_title', 'bus_'.$to.'_body', [
+                'route' => $this->routeText($trip), 'name' => strtok((string) $trip->driver?->name, ' ') ?: '',
+            ], ['type' => 'bus', 'booking_uuid' => $b->uuid, 'trip_uuid' => $trip->uuid]);
+        }
+        if ($to === 'completed') {
+            app(\Modules\Rides\Services\Notifications\ServiceNotices::class)->earning($trip->driver, 'bus', $earned, $trip->currency_id, $this->routeText($trip), ['trip_uuid' => $trip->uuid]);
+        }
+
+        return $trip;
+    }
+
+    /** O-68: from when the captain may start this leg (null: any time). */
+    public function startsAt(BusTrip $trip, string $to): ?CarbonInterface
+    {
+        $at = match ($to) { 'departed' => $trip->depart_at, 'returning' => $trip->return_at, default => null };
+        $early = $this->policy($trip->country_id)->int('bus.depart_early_s') ?: 1800;
+
+        return $at?->copy()->subSeconds($early);
     }
 
     /** Boarding: the ticket's QR (or the seat on the list) — once. */
@@ -168,6 +206,10 @@ class BusService
         }
         if ($row->boarded_at === null) {
             $row->forceFill(['boarded_at' => now()])->save();
+            // The passenger's ticket turns «on board» at once (no push — they're at the door).
+            $this->notifications->send($row->booking->user, 'bus.boarded', 'bus_boarded_title', 'bus_boarded_body', ['seat' => $row->seat_no], [
+                'type' => 'bus', 'booking_uuid' => $row->booking->uuid, 'trip_uuid' => $trip->uuid,
+            ], false);
         }
 
         return $row;
@@ -193,6 +235,7 @@ class BusService
      */
     public function search(?array $from, ?array $to, ?CarbonInterface $day, int $countryId): array
     {
+        $this->releaseLapsed();
         $radius = $this->policy($countryId)->int('bus.search_radius_m') ?: 15000;
         $trips = BusTrip::query()->where('country_id', $countryId)->where('status', 'scheduled')
             ->where(fn ($q) => $q->where('depart_at', '>', now())->orWhere('return_at', '>', now()))
@@ -222,8 +265,12 @@ class BusService
         return $found;
     }
 
+    /** O-67: how long seats are held for the payment screen. */
+    public const HOLD_MINUTES = 15;
+
     /**
-     * Books seats (O-23): going, coming back, or both — one ticket, paid from the wallet now.
+     * Books seats (O-23): going, coming back, or both — one ticket. O-67: the seats are held «unpaid» for
+     * HOLD_MINUTES and the app's one payment screen pays it (coupon, top-up) — confirmPaid() confirms it.
      *
      * @param  list<int>  $outbound
      * @param  list<int>  $return
@@ -236,6 +283,7 @@ class BusService
         if ($trip->status !== 'scheduled') {
             throw new RidesException('bus_trip_closed', 409);
         }
+        $this->releaseLapsed($trip);
         $price = $trip->seatPrice($tripType) ?? throw new RidesException('bus_no_return', 422);
         $outbound = $tripType === 'return' ? [] : array_values(array_unique(array_map('intval', $outbound)));
         $return = $tripType === 'outbound' ? [] : array_values(array_unique(array_map('intval', $return)));
@@ -270,6 +318,8 @@ class BusService
                     'amount_minor' => $amount,
                     'currency_id' => $trip->currency_id,
                     'idempotency_key' => $key,
+                    'status' => 'unpaid',
+                    'payment_expires_at' => now()->addMinutes(self::HOLD_MINUTES),
                 ]);
                 // The unique (trip, leg, seat) key makes a seat somebody just took fail the whole booking.
                 foreach (['outbound' => $outbound, 'return' => $return] as $leg => $list) {
@@ -280,7 +330,6 @@ class BusService
                         ]);
                     }
                 }
-                $booking->forceFill(['wallet_transaction_ids' => $this->charge($rider, $trip, $booking)])->save();
 
                 return $booking;
             });
@@ -288,16 +337,53 @@ class BusService
             throw new RidesException('bus_seat_taken', 409);
         }
 
+        // The seats show as taken at once (held for the payment).
         event(new BusSeatsChanged($trip->uuid));
+
+        return $booking->refresh();
+    }
+
+    /**
+     * O-67: the payment screen paid it — `$payable` (after the coupon) is taken from the wallet now, the
+     * ticket is confirmed, the captain hears of it and the rider gets the confirmation.
+     */
+    public function confirmPaid(BusBooking $booking, int $payable, int $discount): BusBooking
+    {
+        if ($booking->status === 'confirmed') {
+            return $booking;
+        }
+        if ($booking->status !== 'unpaid' || ($booking->payment_expires_at !== null && $booking->payment_expires_at->isPast())) {
+            throw new RidesException('booking_lapsed', 409);
+        }
+        $trip = $booking->trip;
+        $rider = $booking->user()->firstOrFail();
+        $booking->forceFill([
+            'status' => 'confirmed', 'payment_expires_at' => null, 'discount_minor' => $discount,
+            'wallet_transaction_ids' => $payable > 0 ? $this->charge($rider, $trip, $booking, $payable) : [],
+        ])->save();
+        $count = max(count((array) ($booking->seats['outbound'] ?? [])), count((array) ($booking->seats['return'] ?? [])));
         // O-24: the captain hears of every booking; the rider gets the confirmation.
         $this->notifications->send($trip->driver, 'bus.booked', 'bus_booked_title', 'bus_booked_body', [
             'name' => strtok((string) $rider->name, ' ') ?: '', 'seats' => $count, 'route' => $this->routeText($trip),
         ], ['type' => 'bus', 'trip_uuid' => $trip->uuid, 'booking_uuid' => $booking->uuid]);
         $this->notifications->send($rider, 'bus.booking_confirmed', 'bus_booking_confirmed_title', 'bus_booking_confirmed_body', [
-            'route' => $this->routeText($trip), 'time' => $this->timeText($tripType === 'return' ? $trip->return_at : $trip->depart_at),
+            'route' => $this->routeText($trip), 'time' => $this->timeText($booking->trip_type === 'return' ? $trip->return_at : $trip->depart_at),
         ], ['type' => 'bus', 'booking_uuid' => $booking->uuid]);
 
         return $booking->refresh();
+    }
+
+    /** O-67: seats held for a payment that never came are free again. */
+    public function releaseLapsed(?BusTrip $trip = null): void
+    {
+        BusBooking::query()->where('status', 'unpaid')->where('payment_expires_at', '<', now())
+            ->when($trip, fn ($q) => $q->where('bus_trip_id', $trip->id))->limit(100)->get()
+            ->each(function (BusBooking $b) {
+                $b->seatRows()->delete();
+                $b->forceFill(['status' => 'lapsed'])->save();
+                event(new BusSeatsChanged((string) $b->trip()->value('uuid')));
+                app(\Modules\Rides\Services\Notifications\ServiceNotices::class)->lapsed($b->user, 'bus', $b->uuid, __('rides.checkout.bus', ['seats' => max(count((array) ($b->seats['outbound'] ?? [])), count((array) ($b->seats['return'] ?? [])))]));
+            });
     }
 
     /** The rider cancels: refunded in full up to `bus.free_cancel_before_s` before leaving; after that it can't be. */
@@ -305,6 +391,14 @@ class BusService
     {
         if ($booking->user_id !== $rider->id) {
             throw new RidesException('bus_ticket_not_found', 404);
+        }
+        // O-67: not paid yet — the held seats are simply let go.
+        if ($booking->status === 'unpaid') {
+            $booking->seatRows()->delete();
+            $booking->forceFill(['status' => 'canceled', 'canceled_at' => now(), 'cancel_reason' => 'unpaid'])->save();
+            event(new BusSeatsChanged($booking->trip->uuid));
+
+            return $booking->refresh();
         }
         if ($booking->status !== 'confirmed') {
             return $booking;
@@ -327,15 +421,15 @@ class BusService
     // ---------------------------------------------------------------- money
 
     /** @return list<int> the wallet transactions taken (non-withdrawable first — O-38f) */
-    private function charge(User $rider, BusTrip $trip, BusBooking $booking): array
+    private function charge(User $rider, BusTrip $trip, BusBooking $booking, int $amount): array
     {
         $wallet = $this->wallets->firstOrCreateWallet($rider, $trip->country()->firstOrFail())->fresh();
         $free = max(0, $wallet->availableMinor(WalletBucket::SpendOnly)) + max(0, $wallet->availableMinor(WalletBucket::Withdrawable));
-        if ($free < $booking->amount_minor) {
-            throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $booking->amount_minor - $free]);
+        if ($free < $amount) {
+            throw new RidesException('insufficient_balance', 422, [], ['shortfall_minor' => $amount - $free]);
         }
         $key = 'bus:'.$booking->uuid.':pay';
-        $this->wallets->debitSpendOnlyFirst($wallet, $booking->amount_minor, WalletTransactionType::ServicePayment, [
+        $this->wallets->debitSpendOnlyFirst($wallet, $amount, WalletTransactionType::ServicePayment, [
             'reference_type' => 'bus_booking', 'reference_id' => $booking->id, 'idempotency_key' => $key,
             'notes' => ['key' => 'wallet.notes.bus_ticket', 'variables' => ['route' => $this->routeText($trip)]],
         ]);
@@ -356,13 +450,15 @@ class BusService
     }
 
     /** The trip is over: the tickets, less DORR's commission (the `bus` category's), go to the captain. */
-    private function payDriver(BusTrip $trip): void
+    /** @return int the captain's share credited */
+    private function payDriver(BusTrip $trip): int
     {
         $bookings = $trip->bookings()->where('status', 'confirmed')->get();
-        $total = (int) $bookings->sum('amount_minor');
+        // O-67: what the riders paid (after their coupons) is what's shared.
+        $total = (int) $bookings->sum(fn (BusBooking $b) => max(0, $b->amount_minor - (int) $b->discount_minor));
         $bookings->each->update(['status' => 'completed']);
         if ($total <= 0) {
-            return;
+            return 0;
         }
         $policy = $this->policy($trip->country_id);
         $commission = ($policy->get('price.commission_type') ?? 'percent') === 'fixed'
@@ -378,11 +474,13 @@ class BusService
             $this->ledger->record('trip_commissions', FinancialEntryType::Income, $commission, $trip->currency, $country, $trip,
                 ['key' => 'wallet.notes.bus_commission', 'variables' => ['route' => $this->routeText($trip)]]);
         }
+
+        return $total - $commission;
     }
 
     // ---------------------------------------------------------------- helpers
 
-    private function policy(int $countryId): \Modules\Rides\Services\Policy\RidePolicyData
+    public function policy(int $countryId): \Modules\Rides\Services\Policy\RidePolicyData
     {
         $category = RideCategory::query()->where('slug', 'bus')->value('id');
 

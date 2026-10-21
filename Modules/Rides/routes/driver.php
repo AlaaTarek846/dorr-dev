@@ -28,10 +28,19 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('bus/trips/{uuid}/cancel', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'cancel'])->whereUuid('uuid');
         Route::post('bus/trips/{uuid}/move', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'move'])->whereUuid('uuid');
         Route::post('bus/trips/{uuid}/board', [\Modules\Rides\Http\Controllers\Bus\DriverBusController::class, 'board'])->whereUuid('uuid');
+        // O-68: the ticket's chat and in-app calls (passenger ↔ captain).
+        Route::get('bus/bookings/{uuid}/messages', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'messages'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/messages', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'send'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/calls', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'startCall'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/calls/{call}/accept', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'acceptCall'])->whereUuid('uuid')->whereUuid('call');
+        Route::post('bus/bookings/{uuid}/calls/{call}/end', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'endCall'])->whereUuid('uuid')->whereUuid('call');
         // O-26b: driving lessons — my packs, the lessons asked for, accept, done.
         Route::get('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'packs']);
         Route::post('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'store']);
         Route::post('lessons/packs/{uuid}/status', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'status'])->whereUuid('uuid');
+        // O-62: edit and remove a pack.
+        Route::put('lessons/packs/{uuid}', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'update'])->whereUuid('uuid');
+        Route::delete('lessons/packs/{uuid}', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'destroy'])->whereUuid('uuid');
         Route::get('lessons/sessions', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'sessions']);
         Route::post('lessons/sessions/{uuid}/answer', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'answer'])->whereUuid('uuid');
         Route::post('lessons/sessions/{uuid}/done', [\Modules\Rides\Http\Controllers\Lessons\DriverLessonController::class, 'done'])->whereUuid('uuid');
@@ -54,6 +63,10 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::get('map-config', \Modules\Rides\Http\Controllers\MapConfigController::class);
         // O-47: «why don't requests reach me?» — every dispatch condition, passed or not.
         Route::get('dispatch-check', [\Modules\Rides\Http\Controllers\DispatchCheckController::class, 'driver']);
+        // O-57: place search for the captain's own forms (marina, lessons area, bus stops).
+        Route::get('places/suggest', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'suggest'])->middleware('throttle:90,1');
+        // O-58: where requests come from (the last hour, ~1 km cells) — the captain's map shows the hot areas.
+        Route::get('demand-heat', [\Modules\Rides\Http\Controllers\NearbyMapController::class, 'heat']);
         // O-30: With Me — «I'm going there, take riders on my way».
         Route::get('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'show']);
         Route::post('pool', [\Modules\Rides\Http\Controllers\Driver\DriverPoolController::class, 'open']);
@@ -78,6 +91,41 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
         Route::post('cases/{uuid}/messages', [PartyCaseController::class, 'message'])->whereUuid('uuid');
         Route::post('cases/{uuid}/files', [PartyCaseController::class, 'file'])->whereUuid('uuid');
         Route::post('cases/{uuid}/appeal', [PartyCaseController::class, 'appeal'])->whereUuid('uuid');
+        // D-304, D-313, D-314, D-316..D-318: alerts, trusted devices, a new number, the terms, closing.
+        Route::get('account/alerts', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'alerts']);
+        Route::put('account/alerts', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'saveAlerts']);
+        Route::get('account/devices', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'devices']);
+        Route::delete('account/devices/{id}', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'forgetDevice'])->whereNumber('id');
+        Route::post('account/phone', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'phone'])->middleware('throttle:5,1,driver-phone-change');
+        Route::post('account/phone/confirm', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'confirmPhone'])->middleware('throttle:10,1,driver-phone-confirm');
+        Route::get('account/close', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'closeCheck']);
+        Route::post('account/close', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'close']);
+        Route::get('account/legal', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'legal']);
+        Route::post('account/legal/accept', [\Modules\Rides\Http\Controllers\Driver\DriverAccountController::class, 'accept']);
+        // D-285..D-293: support — the help centre, my tickets and their conversations.
+        Route::get('support/help', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'help']);
+        Route::get('support/tickets', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'index']);
+        Route::post('support/tickets', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'store'])->middleware('throttle:10,1');
+        Route::get('support/tickets/{ticket}', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'show'])->whereNumber('ticket');
+        Route::patch('support/tickets/{ticket}/status', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'status'])->whereNumber('ticket');
+        Route::get('support/tickets/{ticket}/messages', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'messages'])->whereNumber('ticket');
+        Route::post('support/tickets/{ticket}/messages', [\Modules\Rides\Http\Controllers\Driver\DriverSupportController::class, 'send'])->whereNumber('ticket')->middleware('throttle:30,1');
+        // D-294..D-297: riders' lost items in my car.
+        Route::get('lost-items', [\Modules\Rides\Http\Controllers\LostItemController::class, 'index']);
+        Route::get('lost-items/{lost}', [\Modules\Rides\Http\Controllers\LostItemController::class, 'show'])->whereUuid('lost');
+        Route::post('lost-items/{lost}/answer', [\Modules\Rides\Http\Controllers\LostItemController::class, 'answer'])->whereUuid('lost');
+        Route::post('lost-items/{lost}/messages', [\Modules\Rides\Http\Controllers\LostItemController::class, 'message'])->whereUuid('lost');
+        Route::post('lost-items/{lost}/returned', [\Modules\Rides\Http\Controllers\LostItemController::class, 'returned'])->whereUuid('lost');
+        // D-216..D-224: my payout safeguards; D-227, D-228: monthly statements and their notes.
+        // D-329..D-344: maintenance, safe mode, switched-off service / categories, emergency review, the last withdrawal.
+        Route::get('service-status', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'serviceStatus']);
+        Route::get('payouts/status', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'status']);
+        Route::post('payouts/international', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'international']);
+        Route::get('invoices', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'invoices']);
+        Route::get('invoices/{month}', [\Modules\Rides\Http\Controllers\Driver\DriverPayoutController::class, 'invoice'])->where('month', '\d{4}-\d{2}');
+        // D-5, D-6, D-239..D-259: my rank, my numbers and my record (and appealing a note / warning).
+        Route::get('rank', [\Modules\Rides\Http\Controllers\Driver\DriverRankController::class, 'show']);
+        Route::post('rank/notes/{note}/appeal', [\Modules\Rides\Http\Controllers\Driver\DriverRankController::class, 'appeal'])->whereNumber('note');
         Route::get('preferences', [DriverPreferencesController::class, 'show']);
         Route::put('preferences', [DriverPreferencesController::class, 'update']);
 
@@ -141,3 +189,9 @@ Route::middleware(['locale', 'auth:driver_api', 'ensure-phone-verified:driver_ap
             Route::post('{uuid}/changes/{change}/reject', [RideChangeController::class, 'reject'])->whereUuid(['uuid', 'change']);
         });
     });
+
+// D-299: the phone is lost — freeze the captain's money with a code to their number (no sign-in).
+Route::middleware(['locale', 'throttle:5,1,emergency-freeze'])->prefix('driver/v1')->group(function () {
+    Route::post('emergency/freeze/request', [\Modules\Rides\Http\Controllers\Driver\EmergencyFreezeController::class, 'request']);
+    Route::post('emergency/freeze/confirm', [\Modules\Rides\Http\Controllers\Driver\EmergencyFreezeController::class, 'confirm']);
+});

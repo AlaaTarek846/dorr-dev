@@ -101,6 +101,7 @@ import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
 import com.google.gson.JsonObject
 import com.dorr.driver.map.DorrMap
+import com.dorr.driver.map.MapZone
 import com.dorr.driver.map.rememberDorrCamera
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -151,7 +152,11 @@ fun HomeScreen(
     // The presence follows the server through real-time: any change for me (a paused / timed-out shift, a ride) reloads it.
     LaunchedEffect(Unit) {
         com.dorr.driver.live.DriverLive.events.collect { e ->
-            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.")) {
+            // O-66: activated (or anything about my account changed) from the admin — me and my presence again.
+            if (e.name == "driver.status" || e.name == "driver.vehicle" || e.name == "driver.document") {
+                (apiCall { DriverBackend.api.me() } as? ApiResult.Ok)?.let { driver = it.data }
+            }
+            if (e.name == com.dorr.driver.live.DriverLive.DRIVER_CHANGED || e.name.startsWith("ride.") || e.name.startsWith("driver.")) {
                 (apiCall { DriverBackend.api.presence() } as? ApiResult.Ok)?.let { presence = it.data }
                 // My place in the airport queue moves with the line.
                 (apiCall { DriverBackend.api.airportQueue() } as? ApiResult.Ok)?.let { airport = it.data }
@@ -411,10 +416,24 @@ fun HomeScreen(
     ) {
         Box(Modifier.fillMaxSize()) {
             // The map under everything: the captain's blue dot (the map follows the phone itself — no asking the server).
+            // O-58: the hot areas (where requests came from in the last hour) — read on open, when going
+            // online and when the captain recentres; nothing asks on a timer.
+            var heat by remember { mutableStateOf<List<com.dorr.driver.net.HeatCellDto>>(emptyList()) }
+            LaunchedEffect(online, permissionsOk, locationOn) {
+                if (!permissionsOk || !locationOn) return@LaunchedEffect
+                val here = lastPosition(context) ?: return@LaunchedEffect
+                (apiCall { DriverBackend.api.demandHeat(here.first, here.second) } as? ApiResult.Ok)?.let { heat = it.data }
+            }
             // O-53: the admin's engine (Google or Mapbox) — the whole app draws with it.
             DorrMap(
                 camera = camera,
                 modifier = Modifier.fillMaxSize(),
+                zones = heat.map { c ->
+                    val hot = c.weight.toFloat().coerceIn(0.15f, 1f)
+                    MapZone(LatLng(c.lat, c.lng), 650.0, androidx.compose.ui.graphics.lerp(Color(0xFFFFB300), Color(0xFFE53935), hot).copy(alpha = 0.18f + 0.27f * hot))
+                },
+                // O-60: my place as a small car turning with my heading.
+                meAsCar = true,
                 showMe = permissionsOk && locationOn,
                 padding = PaddingValues(top = 120.dp, bottom = mapBottom),
                 night = Pal.night,

@@ -148,6 +148,13 @@ fun MainScreen(
                     com.dorr.app.chat.ChatPush.consumeDeepLink()
                 }
                 com.dorr.app.chat.ChatDeepLink.Tasks -> { walletOpen = false; chatOpen = true }
+                is com.dorr.app.chat.ChatDeepLink.Service -> {
+                    walletOpen = false
+                    chatOpen = false
+                    com.dorr.app.ui.screens.rides.ServiceLink.pending = link.kind to link.uuid
+                    ridesOpen = true
+                    com.dorr.app.chat.ChatPush.consumeDeepLink()
+                }
                 is com.dorr.app.chat.ChatDeepLink.Ride -> {
                     walletOpen = false
                     chatOpen = false

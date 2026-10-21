@@ -25,6 +25,9 @@ final class BusPresenter
             'destination' => ['lat' => $trip->destination_lat, 'lng' => $trip->destination_lng, 'address' => $trip->destination_address],
             'depart_at' => $trip->depart_at?->toIso8601String(),
             'return_at' => $trip->return_at?->toIso8601String(),
+            // O-68: from when the captain may start each leg — the app enables «start» by its own clock.
+            'can_depart_at' => app(\Modules\Rides\Services\Bus\BusService::class)->startsAt($trip, 'departed')?->toIso8601String(),
+            'can_return_at' => app(\Modules\Rides\Services\Bus\BusService::class)->startsAt($trip, 'returning')?->toIso8601String(),
             'prices' => [
                 'outbound_minor' => $trip->seatPrice('outbound'),
                 'return_minor' => $trip->seatPrice('return'),
@@ -55,7 +58,13 @@ final class BusPresenter
 
         return [
             'uuid' => $booking->uuid,
-            'status' => $booking->status,
+            'status' => $booking->status === 'unpaid' && $booking->payment_expires_at?->isPast() ? 'lapsed' : $booking->status,
+            // O-67: held for the payment screen until then — the app opens it (purpose bus_booking, {booking_uuid}).
+            'payment_expires_at' => $booking->status === 'unpaid' ? $booking->payment_expires_at?->toIso8601String() : null,
+            'discount_minor' => (int) $booking->discount_minor,
+            // O-68: the passenger's chat badge and a call going on with the captain.
+            'unread' => $forRider ? \Modules\Rides\Services\Bus\BusTalkService::unread($booking, 'user') : 0,
+            'call' => $forRider ? app(\Modules\Rides\Services\Bus\BusTalkService::class)->currentCall($booking) : null,
             'trip_type' => $booking->trip_type,
             'seats' => $booking->seats,
             'amount_minor' => $booking->amount_minor,
@@ -87,6 +96,9 @@ final class BusPresenter
                 'trip_type' => $b->trip_type,
                 'seats' => $b->seatRows->map(fn ($s) => ['leg' => $s->leg, 'seat' => $s->seat_no, 'boarded' => $s->boarded_at !== null])->values(),
                 'amount_minor' => $b->amount_minor,
+                // O-68: the chat badge and a call going on, per passenger.
+                'unread' => \Modules\Rides\Services\Bus\BusTalkService::unread($b, 'driver'),
+                'call' => app(\Modules\Rides\Services\Bus\BusTalkService::class)->currentCall($b),
             ])->values()->all();
     }
 }

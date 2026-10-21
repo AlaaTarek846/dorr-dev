@@ -145,6 +145,32 @@ fun PreferencesScreen(onBack: () -> Unit) {
                 }
             }
 
+            // R-235, R-236, D-390: what my car has / takes — requests with a pet or child seats come only when it fits.
+            val eq = p.equipment
+            if (eq.petsOffered || eq.childSeatsOffered) {
+                Card {
+                    Text(stringResource(R.string.pf_equipment), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.pf_equipment_hint), fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+                    if (eq.petsOffered) {
+                        Spacer(Modifier.height(10.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(stringResource(R.string.pf_pets), fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
+                            DorrToggle(eq.petFriendly) { on -> save(JsonObject().apply { addProperty("pet_friendly", on) }) }
+                        }
+                    }
+                    if (eq.childSeatsOffered) {
+                        Spacer(Modifier.height(10.dp))
+                        Text(stringResource(R.string.pf_child_seats), fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        Spacer(Modifier.height(6.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            (0..3).forEach { n ->
+                                PrefPill(if (n == 0) stringResource(R.string.pf_none) else "$n", eq.childSeats == n) { save(JsonObject().apply { addProperty("child_seats", n) }) }
+                            }
+                        }
+                    }
+                }
+            }
+
             // D-34..D-37: Auto-Accept — only where the country has it on.
             if (auto.available) {
                 Card {

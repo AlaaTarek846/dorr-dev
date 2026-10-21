@@ -28,6 +28,9 @@ import androidx.compose.material.icons.rounded.Flight
 import androidx.compose.material.icons.rounded.Gavel
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Shield
+import androidx.compose.material.icons.rounded.MilitaryTech
+import androidx.compose.material.icons.rounded.SupportAgent
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -95,6 +98,9 @@ fun AccountScreen(
     onOpenHire: () -> Unit = {},
     onOpenLessons: () -> Unit = {},
     onOpenWithMe: () -> Unit = {},
+    onOpenRank: () -> Unit = {},
+    onOpenSupport: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -134,6 +140,15 @@ fun AccountScreen(
                 SectionLabel(stringResource(R.string.acct_driving))
                 Column(Modifier.fillMaxWidth().surface().staggerIn(2)) {
                     ListRow(Icons.Rounded.AssignmentInd, stringResource(R.string.acct_signup), subtitle = stringResource(R.string.acct_signup_hint), onClick = onOpenSignup)
+                    RowDivider()
+                    // D-304..D-318: settings and the account.
+                    ListRow(Icons.Rounded.Settings, stringResource(R.string.st_title), subtitle = stringResource(R.string.st_home_hint), onClick = onOpenSettings)
+                    RowDivider()
+                    // D-285..D-297: support, the help centre and lost items.
+                    ListRow(Icons.Rounded.SupportAgent, stringResource(R.string.sp_title), subtitle = stringResource(R.string.sp_home_hint), tint = Pal.accent, onClick = onOpenSupport)
+                    RowDivider()
+                    // D-239..D-259: my rank and performance.
+                    ListRow(Icons.Rounded.MilitaryTech, stringResource(R.string.rk_title), subtitle = stringResource(R.string.rk_home_hint), tint = Pal.warning, onClick = onOpenRank)
                     RowDivider()
                     ListRow(Icons.Rounded.Tune, stringResource(R.string.pf_title), subtitle = stringResource(R.string.pf_home_hint), onClick = onOpenPreferences)
                     RowDivider()

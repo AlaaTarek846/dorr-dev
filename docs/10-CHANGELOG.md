@@ -35,6 +35,14 @@ Format based on [Keep a Changelog](https://keepachangelog.com/).
 - **Admin → Discover → Organizers matches flags / users (2026-10-18):** breadcrumb, search with clear, All / Pending / Verified / Rejected / Suspended filter buttons with counts (`?status_counts=1`; All appears only after a status is chosen, like flags), skeleton and empty state, created/updated dates, pagination, a status select on the list like users, a details modal, and a review modal with a note field instead of `window.prompt`. No create or bulk-delete — the API is still index / show / review only.
 
 ### Added
+- **Owner's third test round (2026-10-20, O-56..O-63):**
+  - After a stop is added, the route is redrawn (or the points are joined), and the captain's navigation link carries the remaining stops as waypoints.
+  - Place search suggests from two letters through the admin's provider, and shows popular places within 50 km before typing.
+  - The captain's map shows hot areas (the last hour's requests), and his own position as a small car.
+  - The rider's map shows free captains' cars moving in real time over public area channels, using daily aliases.
+  - The ride chat now looks like the people chat in both apps.
+  - Lesson packs can be edited and deleted (archived once bought).
+  - Case attachments accept dash-cam videos up to 50 MB.
 - **Two map engines in the apps (2026-10-20, O-53):**
   - Google or Mapbox, chosen in the admin, now draws the whole rider and captain apps through one map layer (`DorrMap`).
   - The choice is cached in SharedPreferences at app start.

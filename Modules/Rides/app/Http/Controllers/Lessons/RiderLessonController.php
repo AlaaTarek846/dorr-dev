@@ -41,7 +41,7 @@ class RiderLessonController extends Controller
 
     public function mine(Request $request): JsonResponse
     {
-        $rows = LessonEnrollment::query()->where('user_id', $this->learner($request)->id)->latest('id')->limit(30)->get();
+        $rows = LessonEnrollment::query()->where('user_id', $this->learner($request)->id)->whereNot(fn ($q) => $q->where('status', 'lapsed')->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '<', now())))->latest('id')->limit(30)->get();
 
         return ApiResponse::success($rows->map(fn (LessonEnrollment $e) => LessonPresenter::enrollment($e))->values(), __('api.retrieved'));
     }

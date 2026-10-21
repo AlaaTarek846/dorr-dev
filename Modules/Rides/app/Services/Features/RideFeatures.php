@@ -24,6 +24,10 @@ class RideFeatures
         'tips', 'pin', 'share', 'change_driver', 'driver_points', 'one_touch', 'change_destination', 'coupons',
         'pickup_points', 'airport_queue', 'restricted_zones', 'saved_places', 'favorite_circle',
         'auto_accept', 'cases',
+        // R-233..R-237, R-NEW-06: what the rider can add to a trip.
+        'wait_save', 'priority_pickup', 'child_seat', 'pet', 'service_animal', 'luggage',
+        // R-146..R-155: DORR points — earning, tiers, badges, challenges, rewards.
+        'loyalty',
         // O-26c, O-26b: services of their own inside rides (no category).
         'find_driver', 'driving_lessons',
     ];

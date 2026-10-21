@@ -62,6 +62,8 @@ class RideCategoryController extends Controller implements HasMiddleware
             'eligibility.body_types.*' => ['string', 'max:16'],
             'eligibility.luxury_only' => ['nullable', 'boolean'],
             'eligibility.driver_gender' => ['nullable', 'in:male,female'],
+            // D-254: the lowest captain rank this category takes (VIP…).
+            'eligibility.min_rank' => ['nullable', 'string', 'exists:driver_ranks,slug'],
             'eligibility.required_features' => ['nullable', 'array'],
             'eligibility.required_features.*' => ['string', 'max:32'],
         ]);

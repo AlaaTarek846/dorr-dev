@@ -49,7 +49,11 @@ class RiderBusController extends Controller
     /** One trip with its seat map for both legs (taken seats). */
     public function show(string $uuid): JsonResponse
     {
-        return ApiResponse::success(BusPresenter::trip($this->trip($uuid), null, true), __('api.retrieved'));
+        $trip = $this->trip($uuid);
+        // O-67: seats held for a payment that never came show as free again.
+        $this->bus->releaseLapsed($trip);
+
+        return ApiResponse::success(BusPresenter::trip($trip, null, true), __('api.retrieved'));
     }
 
     public function book(Request $request, string $uuid): JsonResponse
@@ -71,7 +75,7 @@ class RiderBusController extends Controller
 
     public function bookings(Request $request): JsonResponse
     {
-        $rows = BusBooking::query()->where('user_id', $this->rider($request)->id)->latest('id')->limit(50)->get();
+        $rows = BusBooking::query()->where('user_id', $this->rider($request)->id)->whereNot(fn ($q) => $q->where('status', 'lapsed')->orWhere(fn ($u) => $u->where('status', 'unpaid')->where('payment_expires_at', '<', now())))->latest('id')->limit(50)->get();
 
         return ApiResponse::success($rows->map(fn (BusBooking $b) => BusPresenter::booking($b))->values(), __('api.retrieved'));
     }

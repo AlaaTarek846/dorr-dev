@@ -113,6 +113,10 @@ internal object RideCallSession {
     private var ringtone: Ringtone? = null
     private var endApi: (suspend (String, String) -> Unit)? = null
 
+    /** O-68: how to answer a call that isn't a ride's (a bus ticket's) — null: the ride's own. */
+    var acceptApi: (suspend (String, String) -> RideCallJoin)? = null
+        private set
+
     /** I call: the server makes the room and rings them; I wait in the room until they arrive. */
     fun call(context: Context, ride: String, peer: String, start: suspend () -> RideCallJoin, end: suspend (String, String) -> Unit) {
         if (phase != null) return
@@ -127,9 +131,10 @@ internal object RideCallSession {
     }
 
     /** They call me: ring until I answer, decline, or the ring runs out. */
-    fun incoming(context: Context, ride: String, call: String, peer: String, end: suspend (String, String) -> Unit) {
+    fun incoming(context: Context, ride: String, call: String, peer: String, end: suspend (String, String) -> Unit, accept: (suspend (String, String) -> RideCallJoin)? = null) {
         if (phase != null || callUuid == call) return
         reset(ride, peer, end)
+        acceptApi = accept
         callUuid = call
         phase = RideCallPhase.Incoming
         ringtone = runCatching { RingtoneManager.getRingtone(context, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))?.also { it.play() } }.getOrNull()
@@ -179,6 +184,7 @@ internal object RideCallSession {
         activeSince = null
         error = null
         endApi = end
+        acceptApi = null
     }
 
     private fun ringFor(during: RideCallPhase) {

@@ -152,7 +152,8 @@ object DriverLive {
      */
     suspend fun sync(context: Context) {
         if (!DriverBackend.session.isSignedIn) return
-        if (!Duty.onTrip.value) syncOffers(context)
+        // O-70: on a trip too — the server only offers a busy captain a With Me rider joining his car.
+        syncOffers(context)
         syncRide()
     }
 

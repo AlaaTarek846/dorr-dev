@@ -136,6 +136,7 @@ class SupportAutoReplyService
         $message = DB::transaction(function () use ($ticket, $kind, $body) {
             $message = $ticket->messages()->create([
                 'user_id' => $ticket->user_id,
+                'driver_id' => $ticket->driver_id,
                 'sender' => SupportMessage::SENDER_SYSTEM,
                 'body' => $body,
                 'is_auto' => true,
@@ -174,7 +175,7 @@ class SupportAutoReplyService
     /** The customer's own language (the one their app uses), else the site's. */
     private function locale(SupportTicket $ticket): string
     {
-        $locale = (string) ($ticket->user?->locale ?: config('app.locale', 'ar'));
+        $locale = (string) ($ticket->owner?->locale ?: config('app.locale', 'ar'));
 
         return in_array($locale, ['ar', 'en'], true) ? $locale : 'en';
     }

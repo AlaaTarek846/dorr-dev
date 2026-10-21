@@ -22,6 +22,24 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::get('bus/bookings', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'bookings']);
         Route::get('bus/bookings/{uuid}', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'booking'])->whereUuid('uuid');
         Route::post('bus/bookings/{uuid}/cancel', [\Modules\Rides\Http\Controllers\Bus\RiderBusController::class, 'cancel'])->whereUuid('uuid');
+        // O-68: the ticket's chat and in-app calls (passenger ↔ captain).
+        Route::get('bus/bookings/{uuid}/messages', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'messages'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/messages', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'send'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/calls', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'startCall'])->whereUuid('uuid');
+        Route::post('bus/bookings/{uuid}/calls/{call}/accept', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'acceptCall'])->whereUuid('uuid')->whereUuid('call');
+        Route::post('bus/bookings/{uuid}/calls/{call}/end', [\Modules\Rides\Http\Controllers\Bus\BusTalkController::class, 'endCall'])->whereUuid('uuid')->whereUuid('call');
+        // D-294..D-297, R-NEW-11: something I left in the car.
+        Route::post('{uuid}/lost-item', [\Modules\Rides\Http\Controllers\LostItemController::class, 'report'])->whereUuid('uuid');
+        Route::get('lost-items', [\Modules\Rides\Http\Controllers\LostItemController::class, 'index']);
+        Route::get('lost-items/{lost}', [\Modules\Rides\Http\Controllers\LostItemController::class, 'show'])->whereUuid('lost');
+        Route::post('lost-items/{lost}/messages', [\Modules\Rides\Http\Controllers\LostItemController::class, 'message'])->whereUuid('lost');
+        Route::post('lost-items/{lost}/close', [\Modules\Rides\Http\Controllers\LostItemController::class, 'close'])->whereUuid('lost');
+        // R-146..R-155: my DORR points — the dashboard, history, rewards and spending them.
+        Route::get('loyalty', [\Modules\Rides\Http\Controllers\Rider\LoyaltyController::class, 'show']);
+        Route::get('loyalty/history', [\Modules\Rides\Http\Controllers\Rider\LoyaltyController::class, 'history']);
+        Route::get('loyalty/rewards', [\Modules\Rides\Http\Controllers\Rider\LoyaltyController::class, 'rewards']);
+        Route::post('loyalty/rewards/{reward}/redeem', [\Modules\Rides\Http\Controllers\Rider\LoyaltyController::class, 'redeem'])->whereNumber('reward');
+        Route::get('loyalty/redemptions', [\Modules\Rides\Http\Controllers\Rider\LoyaltyController::class, 'redemptions']);
         // O-26b: driving lessons — packs near me, buy, book lessons, cancel, stop.
         Route::get('lessons/packs', [\Modules\Rides\Http\Controllers\Lessons\RiderLessonController::class, 'packs']);
         Route::post('lessons/packs/{uuid}/enroll', [\Modules\Rides\Http\Controllers\Lessons\RiderLessonController::class, 'enroll'])->whereUuid('uuid');
@@ -50,6 +68,11 @@ Route::middleware('locale')->prefix('mobile/v1/rides')->group(function () {
         Route::get('pickup-points', [RideController::class, 'pickupPoints']);
         // R-5, R-174: Home, Work, favourite places and recent destinations.
         Route::get('places', [PlacesController::class, 'index']);
+        // O-57: suggestions as you type (from two letters), and the popular places nearby before you do.
+        Route::get('places/suggest', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'suggest'])->middleware('throttle:90,1');
+        Route::get('places/popular', [\Modules\Rides\Http\Controllers\PlaceSearchController::class, 'popular']);
+        // O-59: the free captains' cars around me now (then they move in real time on `rides-area.{cell}`).
+        Route::get('nearby-cars', [\Modules\Rides\Http\Controllers\NearbyMapController::class, 'cars']);
         // R-INN-07 DORR Circle: my favourite captains to choose from.
         Route::get('circle', [CircleController::class, 'index']);
 

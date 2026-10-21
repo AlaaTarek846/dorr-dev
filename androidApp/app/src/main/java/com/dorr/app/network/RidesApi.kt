@@ -56,6 +56,18 @@ interface RidesApi {
     @GET("mobile/v1/rides/places")
     suspend fun places(@Header("Authorization") auth: String): ApiEnvelope<RidePlacesDto>
 
+    /** O-57: places as the rider types (from two letters), nearest first — the admin's map provider. */
+    @GET("mobile/v1/rides/places/suggest")
+    suspend fun placeSuggest(@Header("Authorization") auth: String, @Query("q") q: String, @Query("lat") lat: Double?, @Query("lng") lng: Double?): ApiEnvelope<List<PlaceHitDto>>
+
+    /** O-59: the free captains' cars around me now, and the area channels to follow for their moves. */
+    @GET("mobile/v1/rides/nearby-cars")
+    suspend fun nearbyCars(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double): ApiEnvelope<NearbyCarsDto>
+
+    /** O-57: before anything is typed — where people around here go most, and well-known places (≤ 50 km). */
+    @GET("mobile/v1/rides/places/popular")
+    suspend fun placePopular(@Header("Authorization") auth: String, @Query("lat") lat: Double, @Query("lng") lng: Double): ApiEnvelope<List<PlaceHitDto>>
+
     /** `{origin{lat,lng,address,point_id?}, destination?{…}, stops?[…], category?}` → one quote per category. */
     @POST("mobile/v1/rides/quotes")
     suspend fun quotes(@Header("Authorization") auth: String, @Body body: JsonObject): ApiEnvelope<List<RideQuoteDto>>
@@ -113,6 +125,19 @@ interface RidesApi {
 
     @GET("mobile/v1/rides/{uuid}/messages")
     suspend fun messages(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideChatDto>
+
+    /** D-294..D-297: something I left in the car. */
+    @POST("mobile/v1/rides/{uuid}/lost-item")
+    suspend fun reportLostItem(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<LostItemDto>
+
+    @GET("mobile/v1/rides/lost-items")
+    suspend fun lostItems(@Header("Authorization") auth: String): ApiEnvelope<List<LostItemDto>>
+
+    @POST("mobile/v1/rides/lost-items/{lost}/messages")
+    suspend fun lostItemMessage(@Header("Authorization") auth: String, @Path("lost") lost: String, @Body body: JsonObject): ApiEnvelope<LostItemDto>
+
+    @POST("mobile/v1/rides/lost-items/{lost}/close")
+    suspend fun closeLostItem(@Header("Authorization") auth: String, @Path("lost") lost: String): ApiEnvelope<LostItemDto>
 
     /** `{body}` or `{quick}`, with a `client_id` so a re-send lands once. */
     @POST("mobile/v1/rides/{uuid}/messages")
@@ -293,9 +318,45 @@ data class RideQuoteDto(
     val hourly: RideHourlyDto? = null,
     /** O-17: the category can also be booked by the hour (its hour price and limits). */
     @SerializedName("hourly_offer") val hourlyOffer: RideHourlyOfferDto? = null,
+    /** R-233..R-237, R-NEW-06: the add-ons on offer here with their prices, and the ones priced in. */
+    @SerializedName("addons_offer") val addonsOffer: RideAddonsOfferDto? = null,
+    val options: List<RideAddonDto> = emptyList(),
 )
 
 data class RideCallDto(val uuid: String, val status: String, val caller: String)
+
+data class LostRideRefDto(val uuid: String? = null, val number: String? = null)
+
+data class LostMessageDto(val id: Long, val mine: Boolean = false, val body: String = "")
+
+data class LostItemDto(
+    val uuid: String,
+    val status: String = "reported",
+    val description: String = "",
+    @SerializedName("return_plan") val returnPlan: String? = null,
+    val ride: LostRideRefDto = LostRideRefDto(),
+    val messages: List<LostMessageDto> = emptyList(),
+)
+
+/** One add-on as both apps show it (`key`: wait_save / priority / child_seats / pet / service_animal / luggage). */
+data class RideAddonDto(val key: String, val label: String = "", val count: Int? = null, val small: Int? = null, val large: Int? = null)
+
+data class RideAddonFeeDto(@SerializedName("fee_minor") val feeMinor: Long = 0, val max: Int = 2)
+
+data class RideWaitSaveDto(@SerializedName("discount_bp") val discountBp: Int = 0, @SerializedName("extra_wait_s") val extraWaitS: Int = 0)
+
+data class RideLuggageDto(val capacity: Int = 4, @SerializedName("large_fee_minor") val largeFeeMinor: Long = 0)
+
+data class RideAddonsOfferDto(
+    @SerializedName("wait_save") val waitSave: RideWaitSaveDto? = null,
+    val priority: RideAddonFeeDto? = null,
+    @SerializedName("child_seats") val childSeats: RideAddonFeeDto? = null,
+    val pet: RideAddonFeeDto? = null,
+    @SerializedName("service_animal") val serviceAnimal: RideAddonFeeDto? = null,
+    val luggage: RideLuggageDto? = null,
+) {
+    val isEmpty get() = waitSave == null && priority == null && childSeats == null && pet == null && serviceAnimal == null && luggage == null
+}
 
 data class RideCallJoinDto(val url: String, val room: String, val token: String)
 
@@ -425,6 +486,12 @@ data class RideSosDto(@SerializedName("incident_uuid") val incidentUuid: String?
 
 data class RideSafetyDto(@SerializedName("emergency_number") val emergencyNumber: String? = null)
 
+data class NearbyCarDto(val car: String, val lat: Double, val lng: Double, val heading: Int? = null)
+
+data class NearbyCarsDto(val cells: List<String> = emptyList(), val cars: List<NearbyCarDto> = emptyList())
+
+data class PlaceHitDto(val name: String = "", val address: String = "", val lat: Double = 0.0, val lng: Double = 0.0)
+
 data class MapConfigDto(
     val provider: String? = "google",
     @SerializedName("mapbox_token") val mapboxToken: String? = null,
@@ -542,6 +609,10 @@ data class RideDto(
     /** D-60, D-61. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-233..R-237: what the rider added to this trip. */
+    val options: List<RideAddonDto> = emptyList(),
+    /** R-146: the DORR points this ride earned. */
+    @SerializedName("loyalty_points") val loyaltyPoints: Long? = null,
     /** R-13: booked for someone else — whom, as the rider typed it. */
     val beneficiary: RideBeneficiaryDto? = null,
     /** R-INN-07: booked for the favourite captains. */

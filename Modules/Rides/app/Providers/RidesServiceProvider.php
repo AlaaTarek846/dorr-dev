@@ -53,6 +53,8 @@ class RidesServiceProvider extends ModuleServiceProvider
         CheckGoogle::class,
         DispatchTick::class,
         DrivingHoursSweep::class,
+        \Modules\Rides\Console\ServicesSweep::class,
+        \Modules\Rides\Console\DriverRanksSweep::class,
         EnableCountry::class,
         ReleaseEarnings::class,
         WaslTrips::class,
@@ -79,9 +81,28 @@ class RidesServiceProvider extends ModuleServiceProvider
         Event::listen(DriverLocationUpdated::class, RelayDriverLocation::class);
         // The airport queue and the restricted-area alert follow the captain's latest point (D-277, D-280, D-283).
         Event::listen(DriverLocationUpdated::class, HandleDriverLocation::class);
+        // O-59: a free captain's car moves on the riders' maps around him.
+        Event::listen(DriverLocationUpdated::class, \Modules\Rides\Listeners\BroadcastAreaDriver::class);
 
         // A card ride is paid on the app's one payment screen, which then holds the amount (ReservesFunds).
         $this->app->make(CheckoutPurposes::class)->register(RideCheckoutPurpose::KEY, RideCheckoutPurpose::class);
+        // D-216..D-224, D-299: the captain's payout rules on the wallet's withdrawals.
+        $this->app->make(\Modules\Wallet\Support\Payments\WithdrawalGuards::class)->register('driver',
+            function ($driver, array $attributes, $existing) {
+                // D-330: the financial safe mode stops money leaving, new payout accounts included.
+                $this->app->make(\Modules\Rides\Services\Drivers\DriverServiceStatus::class)->assertMoneyMoves($driver);
+
+                return $this->app->make(\Modules\Rides\Services\Drivers\DriverPayouts::class)->onMethod($driver, $attributes, $existing);
+            },
+            function ($driver, $method, int $amount) {
+                $this->app->make(\Modules\Rides\Services\Drivers\DriverServiceStatus::class)->assertMoneyMoves($driver);
+                $this->app->make(\Modules\Rides\Services\Drivers\DriverPayouts::class)->onWithdrawal($driver, $method);
+            },
+        );
+        // O-67: bus seats, a boat, a driver and a lesson pack — the same payment screen (coupon, top-up).
+        foreach (\Modules\Rides\Services\Payment\ServicePurposes::ALL as $key => $class) {
+            $this->app->make(CheckoutPurposes::class)->register($key, $class);
+        }
 
         // A wallet row that came from a ride says which one (D-212) — to the rider or captain of that ride only.
         $this->app->make(TransactionReferences::class)->register('ride', function (int $id, Model $owner) {
@@ -99,6 +120,10 @@ class RidesServiceProvider extends ModuleServiceProvider
         $schedule->command(ReleaseEarnings::class)->hourly()->withoutOverlapping();
         // Driving-time reminders and the mandatory limit (D-42, D-43).
         $schedule->command(DrivingHoursSweep::class)->everyMinute()->withoutOverlapping();
+        // Bus / boats / a driver / lessons: unpaid holds let go, untaken requests expired, reminders before the start.
+        $schedule->command(\Modules\Rides\Console\ServicesSweep::class)->everyMinute()->withoutOverlapping();
+        // D-239..D-253: the captains' ranks, nightly.
+        $schedule->command(\Modules\Rides\Console\DriverRanksSweep::class)->dailyAt('03:30')->withoutOverlapping();
 
         // Wasl (Jawad's schedule): trips and locations every minute, eligibility daily at 00:01 Riyadh.
         $schedule->command(WaslTrips::class)->everyMinute()->withoutOverlapping();

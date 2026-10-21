@@ -54,8 +54,11 @@ data class HirePersonDto(val name: String? = null, val avatar: String? = null, v
 
 data class HireDto(
     val uuid: String,
-    /** open / accepted / arrived / started / completed / canceled / expired */
+    /** unpaid / lapsed / open / accepted / arrived / started / completed / canceled / expired */
     val status: String,
+    /** O-67: «unpaid» — held for the payment screen until then. */
+    @SerializedName("payment_expires_at") val paymentExpiresAt: String? = null,
+    @SerializedName("discount_minor") val discountMinor: Long = 0,
     val pickup: BusPlaceDto,
     @SerializedName("starts_at") val startsAt: String? = null,
     @SerializedName("ends_at") val endsAt: String? = null,
