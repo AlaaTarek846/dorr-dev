@@ -60,7 +60,8 @@ class RideSettlementService
             $extras = RidePriceLine::query()->where('ride_id', $ride->id)->where('phase', 'final')->whereIn('code', PriceExtras::CODES)->pluck('amount_minor', 'code');
             $customerFee = (int) ($extras['customer_fee'] ?? 0);
             $paymentFee = (int) ($extras['payment_method_fee'] ?? 0);
-            $discount = -(int) ($extras['discount'] ?? 0);
+            // A coupon and Wait & Save (R-233) are DORR's expense alike.
+            $discount = -(int) ($extras['discount'] ?? 0) - (int) ($extras['wait_save'] ?? 0);
             foreach ([['trip_customer_fees', FinancialEntryType::Income, $customerFee, 'ride_customer_fee'], ['trip_payment_fees', FinancialEntryType::Income, $paymentFee, 'ride_payment_fee'], ['discount_expenses', FinancialEntryType::Expense, $discount, 'ride_discount']] as [$slug, $type, $amount, $note]) {
                 if ($amount > 0) {
                     $this->ledger->record($slug, $type, $amount, $currency, $country, $ride, ['key' => 'wallet.notes.'.$note, 'variables' => ['number' => $ride->number]]);

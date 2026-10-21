@@ -60,7 +60,10 @@ final class MarinePresenter
         return [
             'uuid' => $booking->uuid,
             'mode' => $booking->mode,
-            'status' => $booking->status,
+            'status' => $booking->status === 'unpaid' && $booking->payment_expires_at?->isPast() ? 'lapsed' : $booking->status,
+            // O-67: held for the payment screen until then — the app opens it (purpose marine_booking, {booking_uuid}).
+            'payment_expires_at' => $booking->status === 'unpaid' ? $booking->payment_expires_at?->toIso8601String() : null,
+            'discount_minor' => (int) $booking->discount_minor,
             'guests' => $booking->guests,
             'starts_at' => $booking->starts_at->toIso8601String(),
             'ends_at' => $booking->ends_at->toIso8601String(),

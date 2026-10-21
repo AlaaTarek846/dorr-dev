@@ -142,6 +142,12 @@ private sealed interface MarinePage {
 @Composable
 internal fun MarineHost(state: RidesState, onClose: () -> Unit) {
     var page by remember { mutableStateOf<MarinePage>(MarinePage.Browse) }
+    // Opened from a notification: that booking (or my bookings).
+    LaunchedEffect(ServiceLink.pending) {
+        if (ServiceLink.pending?.first != "marine") return@LaunchedEffect
+        val uuid = ServiceLink.take("marine")
+        page = uuid?.let { runCatching { ApiClient.marine.booking(ridesAuth(), it).data }.getOrNull() }?.let { MarinePage.Booking(it) } ?: MarinePage.Bookings
+    }
     var forward by remember { mutableStateOf(true) }
     fun go(to: MarinePage, ahead: Boolean = true) { forward = ahead; page = to }
     var kind by remember { mutableStateOf("trip") }
@@ -552,14 +558,25 @@ private fun MarineBookingPage(initial: MarineBookingDto, fresh: Boolean, onBack:
     var error by remember { mutableStateOf<String?>(null) }
     var more by remember { mutableIntStateOf(1) }
     // One catch-up on open (the captain's answer to «more time» may have come meanwhile).
-    LaunchedEffect(initial.uuid) { runCatching { ApiClient.marine.booking(ridesAuth(), initial.uuid).data }.getOrNull()?.let { booking = it } }
+    LaunchedEffect(initial.uuid) {
+        suspend fun reload() { runCatching { ApiClient.marine.booking(ridesAuth(), initial.uuid).data }.getOrNull()?.let { booking = it } }
+        reload()
+        // Then each move (confirmed, on board, more time answered, over) arrives as an event: one reload.
+        com.dorr.app.chat.ChatRealtime.events.collect { e -> if (e.name.startsWith("marine.")) reload() }
+    }
     val l = booking.listing
     val live = booking.status == "confirmed" || booking.status == "boarded"
 
     Column(Modifier.fillMaxSize()) {
         SeaBar(stringResource(R.string.mar_booking), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (fresh) {
+            // O-67: held for its payment — the one payment screen (coupon, top-up), then the boarding QR.
+            if (booking.status == "unpaid") {
+                ServicePayCard(ServicePay.MARINE, booking.uuid, booking.paymentExpiresAt, autoOpen = fresh) {
+                    scope.launch { runCatching { ApiClient.marine.booking(ridesAuth(), booking.uuid).data }.getOrNull()?.let { booking = it } }
+                }
+            }
+            if (fresh && booking.status != "unpaid") {
                 var shown by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { shown = true }
                 AnimatedVisibility(shown, enter = scaleIn(spring(dampingRatio = 0.45f)) + fadeIn()) {
@@ -693,7 +710,8 @@ private fun StatusTag(status: String) {
     val (label, color) = when (status) {
         "boarded" -> R.string.mar_status_boarded to Sea
         "completed" -> R.string.mar_status_completed to settingsMut()
-        "canceled" -> R.string.mar_status_canceled to AppColors.danger
+        "canceled", "lapsed" -> R.string.mar_status_canceled to AppColors.danger
+        "unpaid" -> R.string.svc_pay_waiting to AppColors.warning
         else -> R.string.mar_status_confirmed to AppColors.success
     }
     SeaTag(stringResource(label), color)

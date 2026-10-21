@@ -124,6 +124,38 @@ return [
         'queue.stats_days' => 14,                         // …from the last this-many days
         'zones.alert_cooldown_s' => 600,                  // D-283: the same restricted-area alert at most this often per captain
         'stops.max' => 3,
+        // R-233..R-237, R-NEW-06: trip add-ons (each opened by its switch); the fees are the captain's.
+        'lost_items.report_days' => 7,                    // D-294: a lost item can be reported this long after the ride
+        'drivers.require_terms' => false,                 // D-318: newer terms than accepted keep a captain offline until accepted
+        'ops.driver_maintenance' => false,                // D-329: the captain side is under maintenance — nobody goes online
+        'ops.driver_maintenance_message' => '',           // …with this message (empty = the default one)
+        'ops.financial_safe_mode' => false,               // D-330: no withdrawal / new payout account from a captain wallet
+        'safety.review_hold_hours' => 24,                 // D-344: a rider's open SOS keeps the captain offline this long at most (0 = off)
+        'wallet.payout_sla_hours' => 72,                  // D-340: a withdrawal still pending after this shows as "no result yet"
+        // D-216..D-224: the captain's payouts.
+        'wallet.driver_new_method_hold_hours' => 24,      // a payout account added / changed waits this long before money goes to it
+        'wallet.driver_third_party_payout' => true,       // an account in someone else's name, with the captain's acknowledgement
+        // D-5, D-6, D-239..D-259: captain ranks (thresholds per rank in driver_ranks).
+        'ranks.probation_days' => 30,                     // the «new» rank from the first activation
+        'ranks.window_days' => 90,                        // the numbers count this many days
+        'ranks.grace_days' => 7,                          // a warning, then this long before a lower rank
+        'ranks.on_time_grace_s' => 120,                   // «on time»: within the promised arrival + this
+        'ranks.appeal_allowed' => true,
+        'ranks.appeal_window_days' => 14,
+        // R-146..R-155: DORR points (switch `loyalty`).
+        'loyalty.points_per_unit' => 1,                    // points per currency unit actually paid
+        'loyalty.tier_window_days' => 365,                 // a tier counts the points of this many days
+        'loyalty.committed_window_days' => 30,             // the committed rider: no ride cancelled by them after acceptance in these days…
+        'loyalty.committed_bonus_bp' => 2000,              // …earns this much more on every ride (2000 = +20%)
+        'addons.wait_save_discount_bp' => 1000,            // Wait & Save: 10% off the fare (DORR's, like a coupon)
+        'addons.wait_save_delay_s' => 300,                 // …for a search that starts this much later
+        'addons.priority_fee_minor' => 500,                // priority pickup: the fee; the search starts a ring wider
+        'addons.child_seat_fee_minor' => 500,              // each child seat
+        'addons.child_seat_max' => 2,
+        'addons.pet_allowed' => true,                      // this category takes pets at all
+        'addons.pet_fee_minor' => 1000,
+        'addons.luggage_capacity' => 4,                    // the boot, in units: a small bag 1, a large one 2
+        'addons.large_bag_fee_minor' => 0,                 // each large bag (0 = free)
         'stops.free_wait_s' => 120,
         'open_destination.hold_minor' => 10000,
 
@@ -161,6 +193,8 @@ return [
         'with_me.min_pay_bp' => 5000,                     // O-32: sharing never takes a fare under this part of its price
         'bus.search_radius_m' => 15000,                   // O-22: a bus trip matches a place this close to its start / end
         'bus.max_seats_per_booking' => 10,
+        'services.reminder_before_s' => 3600,            // a reminder this long before a bus trip, a boat, a booked driver or a lesson starts
+        'bus.depart_early_s' => 1800,                     // O-68: the captain can start the trip (or the way back) this long before its time, not earlier
         'bus.free_cancel_before_s' => 3600,               // O-23: a ticket is refunded in full up to this long before it leaves
         'marine.search_radius_m' => 60000,                // O-25: marinas this close to the guest are shown
         'marine.free_cancel_before_s' => 86400,           // O-25: a sea trip / hire is refunded in full up to this long before it starts

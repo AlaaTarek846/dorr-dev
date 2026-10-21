@@ -126,6 +126,19 @@ interface RidesApi {
     @GET("mobile/v1/rides/{uuid}/messages")
     suspend fun messages(@Header("Authorization") auth: String, @Path("uuid") uuid: String): ApiEnvelope<RideChatDto>
 
+    /** D-294..D-297: something I left in the car. */
+    @POST("mobile/v1/rides/{uuid}/lost-item")
+    suspend fun reportLostItem(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<LostItemDto>
+
+    @GET("mobile/v1/rides/lost-items")
+    suspend fun lostItems(@Header("Authorization") auth: String): ApiEnvelope<List<LostItemDto>>
+
+    @POST("mobile/v1/rides/lost-items/{lost}/messages")
+    suspend fun lostItemMessage(@Header("Authorization") auth: String, @Path("lost") lost: String, @Body body: JsonObject): ApiEnvelope<LostItemDto>
+
+    @POST("mobile/v1/rides/lost-items/{lost}/close")
+    suspend fun closeLostItem(@Header("Authorization") auth: String, @Path("lost") lost: String): ApiEnvelope<LostItemDto>
+
     /** `{body}` or `{quick}`, with a `client_id` so a re-send lands once. */
     @POST("mobile/v1/rides/{uuid}/messages")
     suspend fun send(@Header("Authorization") auth: String, @Path("uuid") uuid: String, @Body body: JsonObject): ApiEnvelope<RideMessageDto>
@@ -305,9 +318,45 @@ data class RideQuoteDto(
     val hourly: RideHourlyDto? = null,
     /** O-17: the category can also be booked by the hour (its hour price and limits). */
     @SerializedName("hourly_offer") val hourlyOffer: RideHourlyOfferDto? = null,
+    /** R-233..R-237, R-NEW-06: the add-ons on offer here with their prices, and the ones priced in. */
+    @SerializedName("addons_offer") val addonsOffer: RideAddonsOfferDto? = null,
+    val options: List<RideAddonDto> = emptyList(),
 )
 
 data class RideCallDto(val uuid: String, val status: String, val caller: String)
+
+data class LostRideRefDto(val uuid: String? = null, val number: String? = null)
+
+data class LostMessageDto(val id: Long, val mine: Boolean = false, val body: String = "")
+
+data class LostItemDto(
+    val uuid: String,
+    val status: String = "reported",
+    val description: String = "",
+    @SerializedName("return_plan") val returnPlan: String? = null,
+    val ride: LostRideRefDto = LostRideRefDto(),
+    val messages: List<LostMessageDto> = emptyList(),
+)
+
+/** One add-on as both apps show it (`key`: wait_save / priority / child_seats / pet / service_animal / luggage). */
+data class RideAddonDto(val key: String, val label: String = "", val count: Int? = null, val small: Int? = null, val large: Int? = null)
+
+data class RideAddonFeeDto(@SerializedName("fee_minor") val feeMinor: Long = 0, val max: Int = 2)
+
+data class RideWaitSaveDto(@SerializedName("discount_bp") val discountBp: Int = 0, @SerializedName("extra_wait_s") val extraWaitS: Int = 0)
+
+data class RideLuggageDto(val capacity: Int = 4, @SerializedName("large_fee_minor") val largeFeeMinor: Long = 0)
+
+data class RideAddonsOfferDto(
+    @SerializedName("wait_save") val waitSave: RideWaitSaveDto? = null,
+    val priority: RideAddonFeeDto? = null,
+    @SerializedName("child_seats") val childSeats: RideAddonFeeDto? = null,
+    val pet: RideAddonFeeDto? = null,
+    @SerializedName("service_animal") val serviceAnimal: RideAddonFeeDto? = null,
+    val luggage: RideLuggageDto? = null,
+) {
+    val isEmpty get() = waitSave == null && priority == null && childSeats == null && pet == null && serviceAnimal == null && luggage == null
+}
 
 data class RideCallJoinDto(val url: String, val room: String, val token: String)
 
@@ -560,6 +609,10 @@ data class RideDto(
     /** D-60, D-61. */
     val passengers: Int? = null,
     @SerializedName("pickup_note") val pickupNote: String? = null,
+    /** R-233..R-237: what the rider added to this trip. */
+    val options: List<RideAddonDto> = emptyList(),
+    /** R-146: the DORR points this ride earned. */
+    @SerializedName("loyalty_points") val loyaltyPoints: Long? = null,
     /** R-13: booked for someone else — whom, as the rider typed it. */
     val beneficiary: RideBeneficiaryDto? = null,
     /** R-INN-07: booked for the favourite captains. */

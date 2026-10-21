@@ -74,6 +74,8 @@ class DriverAdminTest extends TestCase
         $this->patchJson("/api/admin/v1/drivers/{$driver['id']}/vehicles/{$vehicle['id']}/status", ['status' => 'approved'])->assertOk()
             ->assertJsonPath('data.vehicles.0.is_active', true);
         $this->patchJson("/api/admin/v1/drivers/{$driver['id']}/status", ['status' => 'active'])->assertOk()->assertJsonPath('data.status', 'active');
+        // O-66: the captain's app hears both at once (it reloads on `driver.*`).
+        $this->assertEqualsCanonicalizing(['driver.vehicle', 'driver.status'], Driver::query()->findOrFail($driver['id'])->notifications()->get()->map(fn ($n) => $n->data['event'] ?? null)->all());
 
         $gate = app(DriverEligibility::class);
         $model = Driver::query()->findOrFail($driver['id']);

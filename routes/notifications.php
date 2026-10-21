@@ -28,6 +28,8 @@ foreach ($audiences as $prefix => $auth) {
             Route::get('notifications/unread-count', [NotificationController::class, 'unreadCount'])->name("{$name}.notifications.unread-count");
             Route::post('notifications/read-all', [NotificationController::class, 'markAllAsRead'])->name("{$name}.notifications.read-all");
             Route::post('notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name("{$name}.notifications.read");
+            Route::delete('notifications/read', [NotificationController::class, 'clearRead'])->name("{$name}.notifications.clear-read");
+            Route::delete('notifications/{id}', [NotificationController::class, 'destroy'])->name("{$name}.notifications.destroy");
 
             // Push: the phone registers / forgets its OneSignal player id.
             Route::post('notifications/devices', [NotificationController::class, 'registerDevice'])->name("{$name}.notifications.devices.store");

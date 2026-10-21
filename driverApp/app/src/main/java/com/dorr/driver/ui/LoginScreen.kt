@@ -178,6 +178,13 @@ fun LoginScreen(onCodeSent: (dialCode: String, phone: String, maskedPhone: Strin
                     icon = Icons.AutoMirrored.Rounded.ArrowForward, onClick = { submit() }, modifier = Modifier.staggerIn(5),
                 )
                 Banner(error, Modifier.padding(top = 14.dp))
+                // D-299: a lost phone — freeze the money from here, no sign-in.
+                var freezeOpen by remember { mutableStateOf(false) }
+                Text(
+                    stringResource(R.string.wx_freeze_link), color = Pal.mut, fontSize = 12.5.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(top = 14.dp).bounceClick { freezeOpen = true }.padding(6.dp),
+                )
+                if (freezeOpen) EmergencyFreezeDialog(country.dialCode, onClose = { freezeOpen = false })
             }
         }
     }

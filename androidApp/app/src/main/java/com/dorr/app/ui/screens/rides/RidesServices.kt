@@ -43,6 +43,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DirectionsBoat
 import androidx.compose.material.icons.rounded.DirectionsBus
 import androidx.compose.material.icons.rounded.EventNote
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.material.icons.rounded.Inventory2
 import androidx.compose.material.icons.rounded.LocalTaxi
 import androidx.compose.material.icons.rounded.PersonSearch
@@ -97,7 +98,7 @@ internal enum class RideService(val icon: ImageVector, val title: Int, val hint:
  * shimmering «coming soon» and answers with a friendly note instead of a page.
  */
 @Composable
-internal fun ServicePicker(ready: Set<RideService>, onPick: (RideService) -> Unit, onBack: () -> Unit, onMyRides: () -> Unit) {
+internal fun ServicePicker(ready: Set<RideService>, onPick: (RideService) -> Unit, onBack: () -> Unit, onMyRides: () -> Unit, onLoyalty: (() -> Unit)? = null) {
     val accent = settingsAccent()
     var soon by remember { mutableStateOf<RideService?>(null) }
     LaunchedEffect(soon) { if (soon != null) { delay(2400); soon = null } }
@@ -130,6 +131,11 @@ internal fun ServicePicker(ready: Set<RideService>, onPick: (RideService) -> Uni
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         RoundGlass(Icons.AutoMirrored.Rounded.ArrowBack, onBack)
                         Spacer(Modifier.weight(1f))
+                        // R-147: my DORR points.
+                        onLoyalty?.let {
+                            RoundGlass(Icons.Rounded.WorkspacePremium, it)
+                            Spacer(Modifier.width(8.dp))
+                        }
                         RoundGlass(Icons.Rounded.EventNote, onMyRides)
                     }
                     Spacer(Modifier.height(18.dp))

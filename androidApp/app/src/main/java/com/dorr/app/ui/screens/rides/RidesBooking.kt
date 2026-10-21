@@ -312,6 +312,8 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
             state.destination?.takeIf { !state.openDestination }?.let { add("destination", it.json().apply { state.dropoffPointId?.let { id -> addProperty("point_id", id) } }) }
             if (state.stops.isNotEmpty() && !state.openDestination) add("stops", JsonArray().apply { state.stops.forEach { add(it.json()) } })
             state.couponCode?.takeIf { !state.openDestination }?.let { addProperty("coupon_code", it) }
+            // R-233..R-237, R-NEW-06: the add-ons chosen.
+            if (!state.addons.isEmpty) add("options", state.addons.json())
             // O-17: by the hour — only that category, priced hours × its hour price.
             state.hourlyHours?.let { h -> addProperty("hours", h); state.hourlySlug?.let { addProperty("category", it) } }
         }
@@ -319,6 +321,7 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
         runCatching { ApiClient.rides.quotes(ridesAuth(), body).data.orEmpty() }
             .onSuccess { list ->
                 state.quotes = list
+                state.addonsApplied = state.addons
                 // The same category stays chosen after a promo code re-prices the list.
                 state.selected = list.firstOrNull { it.category.slug == keep } ?: list.firstOrNull()
                 state.riderPrice = state.selected?.bid?.suggestedMinor
@@ -330,6 +333,14 @@ internal fun loadQuotes(state: RidesState, reprice: Boolean = false) {
                     // A refused code never costs the prices: say why under the field and price without it.
                     state.couponError = failure.message
                     state.couponCode = null
+                    state.busy = false
+                    loadQuotes(state, reprice = true)
+                    return@launch
+                }
+                // An add-on nothing here can take (the bags, the seats…): say why on the row, go back to the last good choice.
+                if (failure.errorCode?.startsWith("rides_addons_") == true && !state.addons.isEmpty) {
+                    state.addonsError = failure.message
+                    state.addons = state.addonsApplied
                     state.busy = false
                     loadQuotes(state, reprice = true)
                     return@launch
@@ -427,6 +438,8 @@ internal fun QuotesPanel(state: RidesState, camera: DorrCamera) {
             if (quote.category.slug == "with_me") ShareWithRow(state)
             // O-37, O-38a, O-38b: one row — how I pay and the coupon — opening a sheet to change either, any time.
             PaymentRow(state, quote)
+            // R-233..R-237, R-NEW-06: Wait & Save / priority, child seats, a pet, a service animal, bags.
+            AddonsRow(state, quote)
             Spacer(Modifier.height(6.dp))
             // R-5, R-174: keep this destination as Home, Work or a favourite.
             if (state.feature("saved_places")) SaveDestinationRow(state)

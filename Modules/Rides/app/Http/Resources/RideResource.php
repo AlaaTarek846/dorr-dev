@@ -119,6 +119,9 @@ class RideResource extends JsonResource
                 : null,
             // O-41: what the rider scores the captain on, each with its stars on the rating sheet.
             'rating_criteria' => $this->status === RideStatus::Completed ? RideRatingService::criteria($this->resource, RatingTarget::Driver) : [],
+            // R-146: the DORR points this ride earned (null when the program is off / nothing yet).
+            'loyalty_points' => $this->status === RideStatus::Completed
+                ? (\Modules\Rides\Models\LoyaltyEntry::query()->where('reference_type', 'ride')->where('reference_id', $this->id)->value('points')) : null,
             // R-144: the tip offered after the ride (presets, highest, until when) — or the one given.
             'tip' => $this->status === RideStatus::Completed ? app(RideTipService::class)->offer($this->resource) : null,
         ];
@@ -140,6 +143,8 @@ class RideResource extends JsonResource
             // D-60, D-61: how many ride and the pickup note — on the request card and the ride.
             'passengers' => $ride->passengers,
             'pickup_note' => $ride->pickup_note,
+            // R-233..R-237, R-NEW-06, D-59, D-390: Wait & Save / priority, child seats, a pet, a service animal, bags.
+            'options' => \Modules\Rides\Services\Pricing\TripAddons::present($ride->snapshot('options')),
             // R-13: booked for someone else — who to pick up, by first name only (never their number).
             'beneficiary' => empty($ride->beneficiary['name']) ? null : ['name' => Str::before($ride->beneficiary['name'], ' ')],
             // R-16..R-18, D-111: the approved points the trip starts / ends at — name, kind, how to find it.

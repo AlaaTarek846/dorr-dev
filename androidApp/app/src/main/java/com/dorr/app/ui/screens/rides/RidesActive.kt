@@ -57,6 +57,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.rounded.WorkspacePremium
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -376,6 +378,25 @@ private fun Completed(ride: RideDto, onTipped: (RideDto) -> Unit, onDone: () -> 
         ride.tip?.amountMinor?.let { PriceLineRow(RideLineDto("tip", stringResource(R.string.rd_tip_line), it), ride.currency) }
         if (ride.paymentStatus == "cash_due") {
             Text(stringResource(R.string.rd_cash_due, money(ride.finalTotalMinor, ride.currency)), color = AppColors.warning, fontWeight = FontWeight.SemiBold, fontSize = 13.sp, modifier = Modifier.padding(top = 6.dp))
+        }
+        if (ride.options.isNotEmpty()) {
+            androidx.compose.foundation.layout.FlowRow(Modifier.padding(top = 8.dp), horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(6.dp)) { ride.options.forEach { AddonChip(it) } }
+        }
+    }
+    // D-294: something left in the car.
+    LostItemRow(ride.uuid)
+    // R-146: the DORR points this ride earned, popping in.
+    ride.loyaltyPoints?.takeIf { it > 0 }?.let { pts ->
+        val pop = remember { androidx.compose.animation.core.Animatable(0f) }
+        LaunchedEffect(pts) { pop.animateTo(1f, androidx.compose.animation.core.spring(dampingRatio = 0.45f)) }
+        Row(
+            Modifier.padding(top = 10.dp).graphicsLayer { scaleX = pop.value; scaleY = pop.value; alpha = pop.value }
+                .clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xFFE0A526).copy(alpha = 0.16f)).padding(horizontal = 14.dp, vertical = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(Icons.Rounded.WorkspacePremium, null, tint = Color(0xFFB7791F), modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.loy_ride_points, pts.toInt()), color = Color(0xFFB7791F), fontWeight = FontWeight.Black, fontSize = 14.sp)
         }
     }
     Spacer(Modifier.height(14.dp))

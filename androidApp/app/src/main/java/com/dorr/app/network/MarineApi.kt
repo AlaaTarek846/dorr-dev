@@ -80,6 +80,9 @@ data class MarineBookingDto(
     val uuid: String,
     val mode: String,
     val status: String,
+    /** O-67: «unpaid» — held for the payment screen until then. */
+    @SerializedName("payment_expires_at") val paymentExpiresAt: String? = null,
+    @SerializedName("discount_minor") val discountMinor: Long = 0,
     val guests: Int = 1,
     @SerializedName("starts_at") val startsAt: String? = null,
     @SerializedName("ends_at") val endsAt: String? = null,

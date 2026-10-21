@@ -48,6 +48,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.EventSeat
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.automirrored.rounded.Chat
+import androidx.compose.animation.core.Animatable
 import androidx.compose.material.icons.rounded.AirlineSeatReclineNormal
 import androidx.compose.material.icons.rounded.Call
 import androidx.compose.material.icons.rounded.CheckCircle
@@ -137,6 +142,12 @@ private sealed interface BusPage {
 @Composable
 internal fun BusHost(state: RidesState, onClose: () -> Unit) {
     var page by remember { mutableStateOf<BusPage>(BusPage.Search) }
+    // Opened from a notification: that ticket (or my tickets).
+    LaunchedEffect(ServiceLink.pending) {
+        if (ServiceLink.pending?.first != "bus") return@LaunchedEffect
+        val uuid = ServiceLink.take("bus")
+        page = uuid?.let { runCatching { ApiClient.bus.booking(ridesAuth(), it).data }.getOrNull() }?.let { BusPage.Ticket(it) } ?: BusPage.Tickets
+    }
     var forward by remember { mutableStateOf(true) }
     fun go(to: BusPage, ahead: Boolean = true) { forward = ahead; page = to }
 
@@ -579,7 +590,13 @@ private fun BusDeck(seats: Int, perRow: Int, taken: Set<Int>, chosen: Set<Int>, 
                     Box(Modifier.weight(1f).padding(3.dp), contentAlignment = Alignment.Center) {
                         if (n <= seats) {
                             val look = when (n) { in taken -> SeatLook.Taken; in chosen -> SeatLook.Chosen; else -> SeatLook.Free }
-                            SeatShape(look, Modifier.fillMaxWidth().aspectRatio(0.9f), n, onClick = if (look == SeatLook.Taken) null else ({ onSeat(n) }))
+                            // O-69: the seats arrive row by row.
+                            val appear = remember { Animatable(0f) }
+                            LaunchedEffect(Unit) { kotlinx.coroutines.delay(r * 45L); appear.animateTo(1f, spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow)) }
+                            SeatShape(
+                                look, Modifier.fillMaxWidth().aspectRatio(0.9f).graphicsLayer { alpha = appear.value; scaleX = appear.value; scaleY = appear.value }, n,
+                                onClick = if (look == SeatLook.Taken) null else ({ onSeat(n) }),
+                            )
                         }
                     }
                 }
@@ -588,26 +605,35 @@ private fun BusDeck(seats: Int, perRow: Int, taken: Set<Int>, chosen: Set<Int>, 
     }
 }
 
-/** One seat: a backrest and a cushion; chosen pops with a spring and fills, taken greys out with a person. */
+/**
+ * One seat (O-69): a real seat icon on a soft tile — free in the app colour, chosen fills and pops with a
+ * tick, taken greys out with a person on it.
+ */
 @Composable
 private fun SeatShape(look: SeatLook, modifier: Modifier, number: Int?, onClick: (() -> Unit)? = null) {
     val accent = settingsAccent()
-    val fill by animateColorAsState(
-        when (look) { SeatLook.Chosen -> accent; SeatLook.Taken -> settingsInk().copy(alpha = 0.12f); SeatLook.Free -> settingsCard() }, tween(220), label = "seat-fill",
+    val tint by animateColorAsState(
+        when (look) { SeatLook.Chosen -> Color.White; SeatLook.Taken -> settingsMut().copy(alpha = 0.5f); SeatLook.Free -> accent }, tween(220), label = "seat-tint",
     )
-    val edge = when (look) { SeatLook.Chosen -> accent; SeatLook.Taken -> Color.Transparent; SeatLook.Free -> accent.copy(alpha = 0.45f) }
-    val pop by animateFloatAsState(if (look == SeatLook.Chosen) 1.08f else 1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium), label = "seat-pop")
+    val fill by animateColorAsState(
+        when (look) { SeatLook.Chosen -> accent; SeatLook.Taken -> settingsInk().copy(alpha = 0.07f); SeatLook.Free -> accent.copy(alpha = 0.08f) }, tween(220), label = "seat-fill",
+    )
+    val edge = when (look) { SeatLook.Chosen -> accent; SeatLook.Taken -> Color.Transparent; SeatLook.Free -> accent.copy(alpha = 0.3f) }
+    val pop by animateFloatAsState(if (look == SeatLook.Chosen) 1.1f else 1f, spring(dampingRatio = 0.35f, stiffness = Spring.StiffnessMedium), label = "seat-pop")
     Box(
-        modifier.scale(pop).clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 6.dp, bottomEnd = 6.dp)).background(fill)
-            .border(BorderStroke(1.5.dp, edge), RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp, bottomStart = 6.dp, bottomEnd = 6.dp))
+        modifier.scale(pop).clip(RoundedCornerShape(12.dp)).background(fill)
+            .border(BorderStroke(1.5.dp, edge), RoundedCornerShape(12.dp))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         contentAlignment = Alignment.Center,
     ) {
-        // The backrest line along the top.
-        Box(Modifier.align(Alignment.TopCenter).padding(top = 4.dp).fillMaxWidth(0.62f).height(3.dp).clip(CircleShape).background(if (look == SeatLook.Chosen) Color.White.copy(alpha = 0.6f) else accent.copy(alpha = 0.25f)))
-        when {
-            look == SeatLook.Taken -> Icon(Icons.Rounded.AirlineSeatReclineNormal, null, tint = settingsMut().copy(alpha = 0.6f), modifier = Modifier.fillMaxSize(0.5f))
-            number != null -> Text("$number", color = if (look == SeatLook.Chosen) Color.White else settingsInk(), fontWeight = FontWeight.Bold, fontSize = 13.sp)
+        Icon(if (look == SeatLook.Taken) Icons.Rounded.Person else Icons.Rounded.EventSeat, null, tint = tint, modifier = Modifier.fillMaxSize(0.55f).padding(bottom = if (number != null) 6.dp else 0.dp))
+        number?.let {
+            Text("$it", color = tint, fontWeight = FontWeight.Black, fontSize = 10.sp, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 2.dp))
+        }
+        AnimatedVisibility(look == SeatLook.Chosen, Modifier.align(Alignment.TopEnd), enter = scaleIn(spring(dampingRatio = 0.4f)) + fadeIn(), exit = fadeOut()) {
+            Box(Modifier.padding(3.dp).size(14.dp).clip(CircleShape).background(Color.White), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.Check, null, tint = accent, modifier = Modifier.size(10.dp))
+            }
         }
     }
 }
@@ -656,11 +682,49 @@ private fun BusTicketPage(initial: BusBookingDto, fresh: Boolean, onBack: () -> 
     var booking by remember { mutableStateOf(initial) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    var chatOpen by remember { mutableStateOf(false) }
     val trip = booking.trip
+    suspend fun reload() { runCatching { ApiClient.bus.booking(ridesAuth(), booking.uuid).data }.getOrNull()?.let { booking = it.copy(trip = it.trip ?: trip) } }
+    // O-68: a message, a ring or a hang-up from the captain arrives as an event — one reload; nothing on a timer.
+    LaunchedEffect(initial.uuid) {
+        com.dorr.app.chat.ChatRealtime.events.collect { e ->
+            // Every move of my ticket: confirmed, on board, left, back, over, a message, a ring.
+            if (e.name.startsWith("bus.") && e.name != "bus.seats") reload()
+            if (e.name == "bus.call_changed") {
+                val status = e.data.get("status")?.takeIf { !it.isJsonNull }?.asString
+                if (status != "ringing" && status != "active") RideCallSession.endedElsewhere(e.data.get("call_uuid")?.takeIf { !it.isJsonNull }?.asString)
+            }
+        }
+    }
+    LaunchedEffect(booking.call?.uuid, booking.call?.status) {
+        val call = booking.call ?: return@LaunchedEffect
+        if (call.status == "ringing" && call.caller == "driver") {
+            RideCallSession.incoming(
+                context, booking.uuid, call.uuid, trip?.captain?.name.orEmpty(),
+                end = { b, c -> ApiClient.bus.endCall(ridesAuth(), b, c) },
+                accept = { b, c -> ApiClient.bus.acceptCall(ridesAuth(), b, c).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) } },
+            )
+        }
+    }
+    fun callCaptain() {
+        RideCallSession.call(
+            context, booking.uuid, trip?.captain?.name.orEmpty(),
+            start = { ApiClient.bus.startCall(ridesAuth(), booking.uuid).data!!.let { RideCallJoin(it.uuid, it.join.url, it.join.token) } },
+            end = { b, c -> ApiClient.bus.endCall(ridesAuth(), b, c) },
+        )
+    }
+    val talkOpen = booking.status == "confirmed" && trip?.status in setOf("scheduled", "departed", "returning")
+    if (chatOpen) BusCaptainChat(booking.uuid, trip?.captain?.name.orEmpty(), onCall = if (talkOpen) ({ callCaptain() }) else null, onClose = { chatOpen = false; scope.launch { reload() } })
     Column(Modifier.fillMaxSize()) {
         PageBar(stringResource(R.string.bus_ticket), onBack)
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (fresh) {
+            // O-67: held for its payment — the one payment screen (coupon, top-up), then the ticket.
+            if (booking.status == "unpaid") {
+                ServicePayCard(ServicePay.BUS, booking.uuid, booking.paymentExpiresAt, autoOpen = fresh) {
+                    scope.launch { runCatching { ApiClient.bus.booking(ridesAuth(), booking.uuid).data }.getOrNull()?.let { booking = it.copy(trip = it.trip ?: trip) } }
+                }
+            }
+            if (fresh && booking.status != "unpaid") {
                 var shown by remember { mutableStateOf(false) }
                 LaunchedEffect(Unit) { shown = true }
                 AnimatedVisibility(shown, enter = scaleIn(spring(dampingRatio = 0.45f)) + fadeIn()) {
@@ -679,11 +743,20 @@ private fun BusTicketPage(initial: BusBookingDto, fresh: Boolean, onBack: () -> 
                     if (booking.tripType == "round") Text(stringResource(R.string.bus_has_return, dayOf(t.returnAt) + " " + timeOf(t.returnAt)), color = settingsMut(), fontSize = 12.sp)
                     Text(listOfNotNull(t.bus?.make, t.bus?.model, t.bus?.plate).joinToString(" · "), color = settingsMut(), fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
                     Text(money(booking.amountMinor, t.currency), color = settingsAccent(), fontWeight = FontWeight.Black, fontSize = 18.sp, modifier = Modifier.padding(top = 6.dp))
-                    // O-24: reach the captain about the trip.
-                    t.captainPhone?.let { phone ->
-                        Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Tag("📞 " + stringResource(R.string.rd_call), AppColors.success, onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:$phone"))) } })
-                            Tag("✉ " + stringResource(R.string.bus_message), settingsAccent(), onClick = { runCatching { context.startActivity(Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:$phone"))) } })
+                    // O-24, O-68: reach the captain inside the app — chat and call, no numbers.
+                    if (talkOpen) {
+                        Row(Modifier.padding(top = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Box(Modifier.size(40.dp).clip(CircleShape).background(settingsAccent().copy(alpha = 0.14f)), contentAlignment = Alignment.Center) {
+                                Icon(Icons.Rounded.DirectionsBus, null, tint = settingsAccent(), modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(10.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(t.captain?.name.orEmpty(), color = settingsInk(), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                                Text(stringResource(R.string.bus_your_captain), color = settingsMut(), fontSize = 11.sp)
+                            }
+                            TalkButton(Icons.AutoMirrored.Rounded.Chat, settingsAccent(), booking.unread) { chatOpen = true }
+                            Spacer(Modifier.width(8.dp))
+                            TalkButton(Icons.Rounded.Call, AppColors.success, 0) { callCaptain() }
                         }
                     }
                 }
@@ -707,7 +780,7 @@ private fun BusTicketPage(initial: BusBookingDto, fresh: Boolean, onBack: () -> 
                 }
             }
             error?.let { Text(it, color = AppColors.danger, fontSize = 12.sp) }
-            if (booking.status == "confirmed") {
+            if (booking.status == "confirmed" || booking.status == "unpaid") {
                 Text(
                     stringResource(R.string.bus_cancel_ticket), color = AppColors.danger, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).clickable(enabled = !busy) {
@@ -722,6 +795,43 @@ private fun BusTicketPage(initial: BusBookingDto, fresh: Boolean, onBack: () -> 
                 )
             }
             Spacer(Modifier.navigationBarsPadding())
+        }
+    }
+}
+
+/** O-68: the chat with the bus captain — the same conversation look as a ride's. */
+@Composable
+private fun BusCaptainChat(uuid: String, captain: String, onCall: (() -> Unit)?, onClose: () -> Unit) {
+    val scope = rememberCoroutineScope()
+    var chat by remember { mutableStateOf(com.dorr.app.network.RideChatDto(open = true)) }
+    suspend fun load() { runCatching { ApiClient.bus.messages(ridesAuth(), uuid).data }.getOrNull()?.let { chat = it } }
+    LaunchedEffect(uuid) {
+        load()
+        com.dorr.app.chat.ChatRealtime.events.collect { e -> if (e.name == "bus.message") load() }
+    }
+    RideChatScreen(
+        title = captain,
+        subtitle = stringResource(R.string.bus_your_captain),
+        messages = chat.messages, quick = chat.quickReplies, open = chat.open,
+        onSend = { body, key ->
+            scope.launch {
+                val payload = JsonObject().apply { body?.let { addProperty("body", it) }; key?.let { addProperty("quick", it) }; addProperty("client_id", java.util.UUID.randomUUID().toString()) }
+                runCatching { ApiClient.bus.send(ridesAuth(), uuid, payload).data }.getOrNull()?.let { chat = chat.copy(messages = chat.messages + it) }
+            }
+        },
+        onCall = onCall,
+        onClose = onClose,
+    )
+}
+
+@Composable
+private fun TalkButton(icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color, badge: Int, onClick: () -> Unit) {
+    Box {
+        Box(Modifier.size(42.dp).clip(CircleShape).background(tint.copy(alpha = 0.14f)).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(20.dp))
+        }
+        if (badge > 0) Box(Modifier.align(Alignment.TopEnd).size(18.dp).clip(CircleShape).background(AppColors.danger), contentAlignment = Alignment.Center) {
+            Text("$badge", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -794,7 +904,7 @@ private fun EmptyBus(text: String) {
 
 @Composable
 private fun statusLabel(status: String): String = stringResource(
-    when (status) { "canceled" -> R.string.bus_status_canceled; "completed" -> R.string.bus_status_completed; else -> R.string.bus_status_confirmed },
+    when (status) { "canceled", "lapsed" -> R.string.bus_status_canceled; "completed" -> R.string.bus_status_completed; "unpaid" -> R.string.svc_pay_waiting; else -> R.string.bus_status_confirmed },
 )
 
 private fun zoned(iso: String?) = iso?.let { runCatching { OffsetDateTime.parse(it).atZoneSameInstant(ZoneId.systemDefault()) }.getOrNull() }

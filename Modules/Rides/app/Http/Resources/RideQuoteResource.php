@@ -51,6 +51,9 @@ class RideQuoteResource extends JsonResource
                 'max_hours' => max(1, (int) ($p['hourly.max_hours'] ?? 8)),
                 'overtime_per_min_minor' => (int) ($p['hourly.overtime_per_min_minor'] ?? 0),
             ] : null,
+            // R-233..R-237, R-NEW-06: the add-ons on offer here (with their prices) and the ones priced in.
+            'addons_offer' => ($this->policy_snapshot['addons_offer'] ?? null) ?: null,
+            'options' => \Modules\Rides\Services\Pricing\TripAddons::present($this->policy_snapshot['options'] ?? null),
             // R-16..R-18: the approved points this quote starts / ends at (the app shows them before confirming).
             'pickup_point' => PickupPoints::present($this->pickup_point),
             'dropoff_point' => PickupPoints::present($this->dropoff_point),

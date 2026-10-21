@@ -58,6 +58,15 @@ class RideController extends Controller
             'coupon_code' => ['nullable', 'string', 'max:40'],
             // O-17: by the hour (the categories the admin opened by the hour) — the destination is optional then.
             'hours' => ['nullable', 'integer', 'min:1', 'max:24'],
+            // R-233..R-237, R-NEW-06: Wait & Save / priority, child seats, a pet, a service animal, bags.
+            'options' => ['nullable', 'array'],
+            'options.wait_save' => ['nullable', 'boolean'],
+            'options.priority' => ['nullable', 'boolean'],
+            'options.child_seats' => ['nullable', 'integer', 'min:0', 'max:3'],
+            'options.pet' => ['nullable', 'boolean'],
+            'options.service_animal' => ['nullable', 'boolean'],
+            'options.bags_small' => ['nullable', 'integer', 'min:0', 'max:10'],
+            'options.bags_large' => ['nullable', 'integer', 'min:0', 'max:10'],
         ]);
         if (! empty($data['stops']) && empty($data['destination'])) {
             throw new RidesException('stops_need_destination', 422);

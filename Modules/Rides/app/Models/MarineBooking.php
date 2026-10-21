@@ -23,7 +23,7 @@ class MarineBooking extends Model
     protected function casts(): array
     {
         return [
-            'starts_at' => 'datetime', 'ends_at' => 'datetime', 'canceled_at' => 'datetime', 'guests' => 'integer',
+            'starts_at' => 'datetime', 'ends_at' => 'datetime', 'canceled_at' => 'datetime', 'payment_expires_at' => 'datetime', 'discount_minor' => 'integer', 'guests' => 'integer',
             'amount_minor' => 'integer', 'extension_minor' => 'integer', 'extension' => 'array', 'wallet_transaction_ids' => 'array',
         ];
     }

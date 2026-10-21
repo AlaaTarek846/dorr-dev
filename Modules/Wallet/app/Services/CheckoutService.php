@@ -186,6 +186,7 @@ class CheckoutService
             // A coupon on it (docs/sports-plan.md §5.2): what's charged is payable_minor.
             'discount_minor' => (int) $checkout->discount_minor,
             'payable_minor' => $checkout->payableMinor(),
+            'coupons_allowed' => ! ($this->purposes->has($checkout->purpose) && $this->purposes->for($checkout->purpose) instanceof ReservesFunds),
             'coupon' => $checkout->coupon_id ? ['code' => $checkout->loadMissing('coupon')->coupon?->code, 'discount_minor' => (int) $checkout->discount_minor] : null,
             'currency_code' => $country->currency?->code,
             'status' => $this->effectiveStatus($checkout)->value,
@@ -269,6 +270,17 @@ class CheckoutService
         // A coupon is spent here, with the payment (exactly once); the rest is charged.
         $discount = app(CouponService::class)->redeem($checkout);
         $amount = max(0, $checkout->amount_minor - $discount);
+
+        // O-67: the purpose charges the rest itself (rides' services: most of it is the captain's).
+        if ($purpose instanceof \Modules\Wallet\Contracts\ChargesItself) {
+            if ($this->spendable($wallet) < $amount) {
+                throw CheckoutException::insufficientBalance($amount - $this->spendable($wallet));
+            }
+            $purpose->fulfil($checkout->refresh());
+            $checkout->update(['status' => CheckoutStatus::Paid, 'paid_via' => $via, 'failure_reason' => null, 'paid_at' => now()]);
+
+            return $checkout->refresh();
+        }
 
         $fromSpendOnly = min(max(0, $wallet->availableMinor(WalletBucket::SpendOnly)), $amount);
         $fromWithdrawable = $amount - $fromSpendOnly;
